@@ -40,7 +40,7 @@ def test_run_context_provider_registry_register_entrypoints():
 @pytest.mark.parametrize(
     "exception", [AttributeError("test exception"), ImportError("test exception")]
 )
-def test_run_context_provider_registry_register_entrypoints_handles_exception(exception,):
+def test_run_context_provider_registry_register_entrypoints_handles_exception(exception):
     mock_entrypoint = mock.Mock()
     mock_entrypoint.load.side_effect = exception
 
@@ -112,11 +112,7 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
 def mock_run_context_providers():
     base_provider = mock.Mock()
     base_provider.in_context.return_value = True
-    base_provider.tags.return_value = {
-        "one": "one-val",
-        "two": "two-val",
-        "three": "three-val",
-    }
+    base_provider.tags.return_value = {"one": "one-val", "two": "two-val", "three": "three-val"}
 
     skipped_provider = mock.Mock()
     skipped_provider.in_context.return_value = False

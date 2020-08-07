@@ -47,7 +47,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return self.store.create_registered_model(name, tags)
 
     def _mv_maker(
-        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None,
+        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None
     ):
         return self.store.create_model_version(name, source, run_id, tags, run_link=run_link)
 
@@ -217,7 +217,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker("AB")
         self._rm_maker("BBC")
         self.assertEqual(
-            set(self._list_registered_models()), set(["A", "B", "BB", "BA", "AB", "BBC"]),
+            set(self._list_registered_models()), set(["A", "B", "BB", "BA", "AB", "BBC"])
         )
 
         # list should not return deleted models
@@ -273,7 +273,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._list_registered_models(page_token="evilhax", max_results=1e15)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn(
-            "Invalid value for request parameter max_results", exception_context.exception.message,
+            "Invalid value for request parameter max_results", exception_context.exception.message
         )
         # list should not return deleted models
         self.store.delete_registered_model(name="RM{0:03}".format(0))
@@ -294,18 +294,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mv2 = self._mv_maker(name)
         self.assertEqual(mv2.version, 2)
         self.store.transition_model_version_stage(
-            name=mv2.name, version=mv2.version, stage="Production", archive_existing_versions=False,
+            name=mv2.name, version=mv2.version, stage="Production", archive_existing_versions=False
         )
 
         mv3 = self._mv_maker(name)
         self.assertEqual(mv3.version, 3)
         self.store.transition_model_version_stage(
-            name=mv3.name, version=mv3.version, stage="Production", archive_existing_versions=False,
+            name=mv3.name, version=mv3.version, stage="Production", archive_existing_versions=False
         )
         mv4 = self._mv_maker(name)
         self.assertEqual(mv4.version, 4)
         self.store.transition_model_version_stage(
-            name=mv4.name, version=mv4.version, stage="Staging", archive_existing_versions=False,
+            name=mv4.name, version=mv4.version, stage="Staging", archive_existing_versions=False
         )
 
         # test that correct latest versions are returned for each stage
@@ -441,10 +441,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.version, 2)
 
         # create model version with tags return model version entity with tags
-        tags = [
-            ModelVersionTag("key", "value"),
-            ModelVersionTag("anotherKey", "some other value"),
-        ]
+        tags = [ModelVersionTag("key", "value"), ModelVersionTag("anotherKey", "some other value")]
         mv3 = self._mv_maker(name, tags=tags)
         mvd3 = self.store.get_model_version(name=mv3.name, version=mv3.version)
         self.assertEqual(mv3.version, 3)
@@ -472,7 +469,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # update stage
         self.store.transition_model_version_stage(
-            name=mv1.name, version=mv1.version, stage="Production", archive_existing_versions=False,
+            name=mv1.name, version=mv1.version, stage="Production", archive_existing_versions=False
         )
         mvd2 = self.store.get_model_version(name=mv1.name, version=mv1.version)
         self.assertEqual(mvd2.name, name)
@@ -508,7 +505,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             mvd5 = self.store.get_model_version(name=mv1.name, version=mv1.version)
             self.assertEqual(mvd5.current_stage, "Staging")
 
-    def test_transition_model_version_stage_when_archive_existing_versions_is_false(self,):
+    def test_transition_model_version_stage_when_archive_existing_versions_is_false(self):
         name = "model"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)
@@ -542,7 +539,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.current_stage, "Production")
         self.assertEqual(mvd3.current_stage, "Production")
 
-    def test_transition_model_version_stage_when_archive_existing_versions_is_true(self,):
+    def test_transition_model_version_stage_when_archive_existing_versions_is_true(self):
         name = "model"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)
@@ -644,13 +641,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # download location points to source
         self.assertEqual(
-            self.store.get_model_version_download_uri(name=mv.name, version=mv.version),
-            source_path,
+            self.store.get_model_version_download_uri(name=mv.name, version=mv.version), source_path
         )
 
         # download URI does not change even if model version is updated
         self.store.transition_model_version_stage(
-            name=mv.name, version=mv.version, stage="Production", archive_existing_versions=False,
+            name=mv.name, version=mv.version, stage="Production", archive_existing_versions=False
         )
         self.store.update_model_version(
             name=mv.name, version=mv.version, description="Test for Path"
@@ -658,8 +654,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mvd2 = self.store.get_model_version(name=mv.name, version=mv.version)
         self.assertEqual(mvd2.source, source_path)
         self.assertEqual(
-            self.store.get_model_version_download_uri(name=mv.name, version=mv.version),
-            source_path,
+            self.store.get_model_version_download_uri(name=mv.name, version=mv.version), source_path
         )
 
         # cannot retrieve download URI for deleted model versions
@@ -715,7 +710,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3]))
 
         self.store.transition_model_version_stage(
-            name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False,
+            name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
         )
 
         self.store.update_model_version(
@@ -839,7 +834,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # case-sensitive prefix search using LIKE should return all the RMs
         self.assertEqual(
-            self._search_registered_models("name LIKE '{}%'".format(prefix)), (names[0:5], None),
+            self._search_registered_models("name LIKE '{}%'".format(prefix)), (names[0:5], None)
         )
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
@@ -890,7 +885,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models(query, page_token="evilhax", max_results=1e15)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self.assertIn(
-            "Invalid value for request parameter max_results", exception_context.exception.message,
+            "Invalid value for request parameter max_results", exception_context.exception.message
         )
 
     def test_search_registered_model_order_by(self):
@@ -916,7 +911,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms[::-1], returned_rms)
         # last_updated_timestamp descending should have the newest RMs first
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100,
+            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
         )
         self.assertEqual(rms[::-1], result)
         # timestamp returns same result as last_updated_timestamp
@@ -926,7 +921,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms[::-1], result)
         # last_updated_timestamp ascending should have the oldest RMs first
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100,
+            query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100
         )
         self.assertEqual(rms, result)
         # timestamp returns same result as last_updated_timestamp
@@ -965,7 +960,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual([rm2, rm1, rm4, rm3], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp ASC", "name   DESC"], max_results=100,
+            query, page_token=None, order_by=["timestamp ASC", "name   DESC"], max_results=100
         )
         self.assertEqual([rm2, rm1, rm4, rm3], result)
         # confirm that name ascending is the default, even if ties exist on other fields
@@ -975,7 +970,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual([rm1, rm2, rm3, rm4], result)
         # test default tiebreak with descending timestamps
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100,
+            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
         )
         self.assertEqual([rm3, rm4, rm1, rm2], result)
         # test timestamp parsing
@@ -1005,11 +1000,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual([rm1, rm2, rm3, rm4], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp  desc", "name desc"], max_results=100,
+            query, page_token=None, order_by=["timestamp  desc", "name desc"], max_results=100
         )
         self.assertEqual([rm4, rm3, rm2, rm1], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp  deSc", "name deSc"], max_results=100,
+            query, page_token=None, order_by=["timestamp  deSc", "name deSc"], max_results=100
         )
         self.assertEqual([rm4, rm3, rm2, rm1], result)
 

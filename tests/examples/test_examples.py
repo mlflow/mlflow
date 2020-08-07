@@ -43,7 +43,7 @@ def replace_mlflow_with_dev_version(yml_path):
         ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
             "lightgbm",
-            ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9",],
+            ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("prophet", []),
         ("pytorch", ["-P", "epochs=2"]),
@@ -54,7 +54,7 @@ def replace_mlflow_with_dev_version(yml_path):
         (os.path.join("tensorflow", "tf1"), ["-P", "steps=10"]),
         (
             "xgboost",
-            ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9",],
+            ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
     ],
@@ -75,7 +75,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 @pytest.mark.parametrize(
     "directory, command",
     [
-        ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."],),
+        ("docker", ["docker", "build", "-t", "mlflow-docker-example", "-f", "Dockerfile", "."]),
         ("gluon", ["python", "train.py"]),
         ("keras", ["python", "train.py"]),
         (

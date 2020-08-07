@@ -226,7 +226,7 @@ class RestStore(AbstractStore):
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token,
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
@@ -279,7 +279,7 @@ class RestStore(AbstractStore):
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id,)
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id)
         )
         self._call_endpoint(LogBatch, req_body)
 

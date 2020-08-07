@@ -281,7 +281,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if experiment is None:
             raise MlflowException(
-                "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST,
+                "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST
             )
 
         return experiment
@@ -316,8 +316,7 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(SqlExperiment)
                 .options(*self._get_eager_experiment_query_options())
                 .filter(
-                    SqlExperiment.name == experiment_name,
-                    SqlExperiment.lifecycle_stage.in_(stages),
+                    SqlExperiment.name == experiment_name, SqlExperiment.lifecycle_stage.in_(stages)
                 )
                 .one_or_none()
             )
@@ -351,7 +350,7 @@ class SqlAlchemyStore(AbstractStore):
 
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
-                experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
+                experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
             )
             run = SqlRun(
                 name="",
@@ -680,7 +679,7 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(filtered_tags[0])
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token,
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -812,7 +811,7 @@ def _to_sqlalchemy_filtering_statement(sql_statement, session):
         return None
     else:
         raise MlflowException(
-            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
+            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
         )
 
     if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
@@ -882,7 +881,7 @@ def _get_orderby_clauses(order_by_list, session):
             if SearchUtils.is_metric(key_type, "="):
                 clauses.append(
                     sql.case(
-                        [(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)], else_=0,
+                        [(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)], else_=0
                     ).label("clause_%s" % clause_id)
                 )
             else:  # other entities do not have an 'is_nan' field

@@ -60,7 +60,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
 @commands.command("predict")
 @cli_args.MODEL_URI
 @click.option(
-    "--input-path", "-i", default=None, help="CSV containing pandas DataFrame to predict against.",
+    "--input-path", "-i", default=None, help="CSV containing pandas DataFrame to predict against."
 )
 @click.option(
     "--output-path",
@@ -89,7 +89,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
 def predict(
-    model_uri, input_path, output_path, content_type, json_format, no_conda, install_mlflow,
+    model_uri, input_path, output_path, content_type, json_format, no_conda, install_mlflow
 ):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
@@ -175,7 +175,7 @@ def _get_flavor_backend(model_uri, **kwargs):
         else:
             underlying_model_uri = model_uri
         local_path = _download_artifact_from_uri(
-            append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path(),
+            append_to_uri_path(underlying_model_uri, MLMODEL_FILE_NAME), output_path=tmp.path()
         )
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)

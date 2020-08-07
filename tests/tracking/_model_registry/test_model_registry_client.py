@@ -134,7 +134,7 @@ def test_search_registered_models(mock_store):
     assert result.token == ""
 
     mock_store.search_registered_models.return_value = PagedList(
-        [RegisteredModel("model A"), RegisteredModel("Model zz"), RegisteredModel("Model b"),],
+        [RegisteredModel("model A"), RegisteredModel("Model zz"), RegisteredModel("Model b")],
         "page 2 token",
     )
     result = newModelRegistryClient().search_registered_models(max_results=5)
@@ -248,10 +248,7 @@ def test_delete_model_version(mock_store):
 
 
 def test_get_model_version_details(mock_store):
-    tags = [
-        ModelVersionTag("key", "value"),
-        ModelVersionTag("another key", "some other value"),
-    ]
+    tags = [ModelVersionTag("key", "value"), ModelVersionTag("another key", "some other value")]
     mock_store.get_model_version.return_value = _model_version(
         "Model 1", "12", "Production", tags=tags
     )

@@ -45,14 +45,7 @@ _logger = logging.getLogger(__name__)
 
 class LocalBackend(AbstractBackend):
     def run(
-        self,
-        project_uri,
-        entry_point,
-        params,
-        version,
-        backend_config,
-        tracking_uri,
-        experiment_id,
+        self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
     ):
         work_dir = fetch_and_validate_project(project_uri, version, entry_point, params)
         project = load_project(work_dir)

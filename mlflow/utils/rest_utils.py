@@ -136,10 +136,7 @@ def extract_api_info_for_service(service, path_prefix):
         endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
         endpoint = endpoints[0]
         endpoint_path = _get_path(path_prefix, endpoint.path)
-        res[service().GetRequestClass(service_method)] = (
-            endpoint_path,
-            endpoint.method,
-        )
+        res[service().GetRequestClass(service_method)] = (endpoint_path, endpoint.method)
     return res
 
 

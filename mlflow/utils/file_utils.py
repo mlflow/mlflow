@@ -143,11 +143,7 @@ def write_yaml(root, file_name, data, overwrite=False):
     try:
         with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
             yaml.dump(
-                data,
-                yaml_file,
-                default_flow_style=False,
-                allow_unicode=True,
-                Dumper=YamlSafeDumper,
+                data, yaml_file, default_flow_style=False, allow_unicode=True, Dumper=YamlSafeDumper
             )
     except Exception as e:
         raise e

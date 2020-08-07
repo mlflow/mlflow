@@ -205,7 +205,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
             )
         )
         model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
@@ -256,7 +256,7 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
                 sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
             )
             sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
             )
 
         def test_predict(sk_model, model_input):
@@ -286,7 +286,7 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
                 sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path
             )
             sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=sklearn_artifact_path
             )
 
         def test_predict(sk_model, model_input):
@@ -386,7 +386,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input),
+        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
     )
 
 
@@ -417,7 +417,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input),
+        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
     )
 
 
@@ -450,7 +450,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
     )
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input),
+        np.array(json.loads(scoring_response.text)), loaded_pyfunc_model.predict(sample_input)
     )
 
 
@@ -610,7 +610,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
         )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
             )
         )
 
@@ -675,7 +675,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
             )
         )
 
@@ -761,7 +761,7 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(t
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(
-            path=model_path, artifacts={"artifact": "/path/to/artifact",}, python_model=None,
+            path=model_path, artifacts={"artifact": "/path/to/artifact",}, python_model=None
         )
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
@@ -807,7 +807,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     loader_module = __name__
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(
-            artifact_path="pyfunc_model", python_model=python_model, loader_module=loader_module,
+            artifact_path="pyfunc_model", python_model=python_model, loader_module=loader_module
         )
     assert "The following sets of parameters cannot be specified together" in str(exc_info)
     assert str(python_model) in str(exc_info)

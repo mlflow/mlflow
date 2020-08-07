@@ -74,7 +74,7 @@ def test_make_tarfile(tmpdir):
     # Tar a local project
     tarfile0 = str(tmpdir.join("first-tarfile"))
     file_utils.make_tarfile(
-        output_filename=tarfile0, source_dir=TEST_PROJECT_DIR, archive_name="some-archive",
+        output_filename=tarfile0, source_dir=TEST_PROJECT_DIR, archive_name="some-archive"
     )
     # Copy local project into a temp dir
     dst_dir = str(tmpdir.join("project-directory"))

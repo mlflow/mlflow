@@ -63,7 +63,7 @@ def gluon_model(model_data):
     model.initialize()
     model.hybridize()
     trainer = Trainer(
-        model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
+        model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
     est = estimator.Estimator(
         net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
@@ -176,7 +176,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.gluon.log_model(
-            gluon_model=gluon_model, artifact_path=artifact_path, conda_env=gluon_custom_env,
+            gluon_model=gluon_model, artifact_path=artifact_path, conda_env=gluon_custom_env
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(

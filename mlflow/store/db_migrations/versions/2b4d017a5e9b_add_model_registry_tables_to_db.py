@@ -26,10 +26,7 @@ from sqlalchemy import (
 
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel,
-    SqlModelVersion,
-)
+from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlModelVersion
 
 
 _logger = logging.getLogger(__name__)
@@ -59,7 +56,7 @@ def upgrade():
 
     op.create_table(
         SqlModelVersion.__tablename__,
-        Column("name", String(256), ForeignKey("registered_models.name", onupdate="cascade"),),
+        Column("name", String(256), ForeignKey("registered_models.name", onupdate="cascade")),
         Column("version", Integer, nullable=False),
         Column("creation_time", BigInteger, default=lambda: int(time.time() * 1000)),
         Column("last_updated_time", BigInteger, nullable=True, default=None),
@@ -69,7 +66,7 @@ def upgrade():
         Column("source", String(500), nullable=True, default=None),
         Column("run_id", String(32), nullable=False),
         Column(
-            "status", String(20), default=ModelVersionStatus.to_string(ModelVersionStatus.READY),
+            "status", String(20), default=ModelVersionStatus.to_string(ModelVersionStatus.READY)
         ),
         Column("status_message", String(500), nullable=True, default=None),
         PrimaryKeyConstraint("name", "version", name="model_version_pk"),

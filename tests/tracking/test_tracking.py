@@ -376,11 +376,7 @@ def test_log_param():
         mlflow.log_param("nested/nested/name", 5)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
-    assert finished_run.data.params == {
-        "name_1": "a",
-        "name_2": "b",
-        "nested/nested/name": "5",
-    }
+    assert finished_run.data.params == {"name_1": "a", "name_2": "b", "nested/nested/name": "5"}
 
 
 def test_log_params():
@@ -390,11 +386,7 @@ def test_log_params():
         mlflow.log_params(expected_params)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
-    assert finished_run.data.params == {
-        "name_1": "c",
-        "name_2": "b",
-        "nested/nested/name": "5",
-    }
+    assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
 def test_log_batch_validates_entity_names_and_values():
@@ -402,7 +394,7 @@ def test_log_batch_validates_entity_names_and_values():
         "metrics": [
             [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
             [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)],
-            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0,)],
+            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)],
         ],
         "params": [[Param(key="../bad/param/name", value="my-val")]],
         "tags": [[Param(key="../bad/tag/name", value="my-val")]],
@@ -436,11 +428,7 @@ def test_log_artifact_with_dirs(tmpdir):
         mlflow.log_artifact(str(art_dir))
         base = os.path.basename(str(art_dir))
         assert os.listdir(run_artifact_dir) == [base]
-        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == {
-            "child",
-            "file0",
-            "file1",
-        }
+        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == {"child", "file0", "file1"}
         with open(os.path.join(run_artifact_dir, base, "file0")) as f:
             assert f.read() == "something"
     # Test log artifact with directory and specified parent folder

@@ -25,10 +25,7 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.tracking import (
-    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-    SEARCH_MAX_RESULTS_THRESHOLD,
-)
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.validation import (
     _validate_metric_name,
@@ -183,14 +180,14 @@ class FileStore(AbstractStore):
         _validate_run_id(run_uuid)
         _validate_metric_name(metric_key)
         return os.path.join(
-            self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME, metric_key,
+            self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME, metric_key
         )
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
         return os.path.join(
-            self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME, param_name,
+            self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME, param_name
         )
 
     def _get_experiment_tag_path(self, experiment_id, tag_name):
@@ -208,7 +205,7 @@ class FileStore(AbstractStore):
         _validate_run_id(run_uuid)
         _validate_tag_name(tag_name)
         return os.path.join(
-            self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME, tag_name,
+            self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME, tag_name
         )
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
@@ -268,7 +265,7 @@ class FileStore(AbstractStore):
         """Check the validity of an experiment name."""
         if name is None or name == "":
             raise MlflowException(
-                "Invalid experiment name '%s'" % name, databricks_pb2.INVALID_PARAMETER_VALUE,
+                "Invalid experiment name '%s'" % name, databricks_pb2.INVALID_PARAMETER_VALUE
             )
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
@@ -393,7 +390,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE,
+                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
@@ -410,7 +407,7 @@ class FileStore(AbstractStore):
     def _get_deleted_runs(self):
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
-            experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY,
+            experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
         )
         return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
 
@@ -418,7 +415,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE,
+                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
@@ -502,7 +499,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE,
+                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
             )
         return self._get_run_from_info(run_info)
 
@@ -524,7 +521,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info_from_dir(run_dir)
         if run_info.experiment_id != exp_id:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_uuid, databricks_pb2.INVALID_STATE,
+                "Run '%s' metadata is in invalid state." % run_uuid, databricks_pb2.INVALID_STATE
             )
         return run_info
 
@@ -716,12 +713,12 @@ class FileStore(AbstractStore):
                 # trap malformed run exception and log warning
                 r_id = os.path.basename(r_dir)
                 logging.warning(
-                    "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True,
+                    "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True
                 )
         return run_infos
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token,
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(

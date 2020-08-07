@@ -44,8 +44,7 @@ def test_download_uri():
     for prefix, fn_name in prefix_to_mock.items():
         with mock.patch(fn_name) as mocked_fn, temp_directory() as dst_dir:
             download_uri(
-                uri=os.path.join(prefix, "some/path"),
-                output_path=os.path.join(dst_dir, "tmp-file"),
+                uri=os.path.join(prefix, "some/path"), output_path=os.path.join(dst_dir, "tmp-file")
             )
             assert mocked_fn.call_count == 1
     # Verify exceptions are thrown when downloading from unsupported/invalid URIs
@@ -53,6 +52,5 @@ def test_download_uri():
     for prefix in invalid_prefixes:
         with temp_directory() as dst_dir, pytest.raises(DownloadException):
             download_uri(
-                uri=os.path.join(prefix, "some/path"),
-                output_path=os.path.join(dst_dir, "tmp-file"),
+                uri=os.path.join(prefix, "some/path"), output_path=os.path.join(dst_dir, "tmp-file")
             )

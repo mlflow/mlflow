@@ -6,11 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
-from mlflow.tracking._model_registry.utils import (
-    _get_store,
-    get_registry_uri,
-    set_registry_uri,
-)
+from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
 

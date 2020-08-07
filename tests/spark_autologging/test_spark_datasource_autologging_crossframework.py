@@ -14,10 +14,7 @@ import mlflow.tensorflow
 from tests.spark_autologging.utils import _assert_spark_data_logged
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
-from tests.spark_autologging.utils import (
-    file_path,
-    data_format,
-)  # pylint: disable=unused-import
+from tests.spark_autologging.utils import file_path, data_format  # pylint: disable=unused-import
 
 
 @pytest.fixture()

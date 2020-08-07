@@ -39,7 +39,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
     tracking_client = mlflow.tracking.MlflowClient()
 
     def new_eval(
-        nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False,
+        nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
     ):
         """
         Create a new eval function
@@ -135,7 +135,7 @@ def train(training_data, max_runs, epochs, metric, algo, seed):
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id),
+            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
         )
         best_val_train = _inf
         best_val_valid = _inf

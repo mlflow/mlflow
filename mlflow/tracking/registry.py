@@ -78,6 +78,6 @@ class StoreRegistry:
             store_builder = self._registry[scheme]
         except KeyError:
             raise UnsupportedModelRegistryStoreURIException(
-                unsupported_uri=store_uri, supported_uri_schemes=list(self._registry.keys()),
+                unsupported_uri=store_uri, supported_uri_schemes=list(self._registry.keys())
             )
         return store_builder

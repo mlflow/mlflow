@@ -44,7 +44,7 @@ class S3ArtifactRepository(ArtifactRepository):
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
         return boto3.client(
-            "s3", config=Config(signature_version=signature_version), endpoint_url=s3_endpoint_url,
+            "s3", config=Config(signature_version=signature_version), endpoint_url=s3_endpoint_url
         )
 
     def _upload_file(self, s3_client, local_file, bucket, key):
@@ -65,7 +65,7 @@ class S3ArtifactRepository(ArtifactRepository):
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         self._upload_file(
-            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path,
+            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):

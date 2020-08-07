@@ -4,11 +4,7 @@ from mlflow.entities import Experiment, Metric
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 
-from mlflow.utils.proto_json_utils import (
-    message_to_json,
-    parse_dict,
-    _stringify_all_experiment_ids,
-)
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict, _stringify_all_experiment_ids
 
 
 def test_message_to_json():
@@ -69,7 +65,7 @@ def test_back_compat():
         "experiment_ids": ["1", "2", "3", "4", "5"],
         "things": {
             "experiment_id": "4",
-            "more_things": {"experiment_id": "7", "experiment_ids": ["2", "3", "4", "5"],},
+            "more_things": {"experiment_id": "7", "experiment_ids": ["2", "3", "4", "5"]},
         },
     }
     assert exp_json == in_json

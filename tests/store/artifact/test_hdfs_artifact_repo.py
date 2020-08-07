@@ -30,7 +30,7 @@ def test_log_artifact(hdfs_system_mock):
         repo.log_artifact(local_file, "more_path/some")
 
         hdfs_system_mock.assert_called_once_with(
-            extra_conf=None, host="hdfs://host_name", kerb_ticket=None, port=8020, user=None,
+            extra_conf=None, host="hdfs://host_name", kerb_ticket=None, port=8020, user=None
         )
 
         open_mock = hdfs_system_mock.return_value.open
@@ -52,7 +52,7 @@ def test_log_artifact_viewfs(hdfs_system_mock):
         repo.log_artifact(local_file, "more_path/some")
 
         hdfs_system_mock.assert_called_once_with(
-            extra_conf=None, host="viewfs://host_name", kerb_ticket=None, port=0, user=None,
+            extra_conf=None, host="viewfs://host_name", kerb_ticket=None, port=0, user=None
         )
 
         open_mock = hdfs_system_mock.return_value.open
@@ -133,7 +133,7 @@ def test_log_artifacts(hdfs_system_mock):
         )
         write_mock = open_mock.return_value.__enter__.return_value.write
         write_mock.assert_has_calls(
-            calls=[call(b"PyArrow Works once"), call(b"PyArrow Works two")], any_order=True,
+            calls=[call(b"PyArrow Works once"), call(b"PyArrow Works two")], any_order=True
         )
 
 

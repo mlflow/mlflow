@@ -18,7 +18,7 @@ np.random.seed(1337)
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
-    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df",],
+    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"],
 )
 
 
@@ -52,7 +52,7 @@ def create_tf_keras_model():
     model.add(layers.Dense(10, activation="softmax"))
 
     model.compile(
-        optimizer=tf.keras.optimizers.Adam(), loss="categorical_crossentropy", metrics=["accuracy"],
+        optimizer=tf.keras.optimizers.Adam(), loss="categorical_crossentropy", metrics=["accuracy"]
     )
     return model
 
@@ -180,7 +180,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 
 @pytest.fixture
 def tf_keras_random_data_run_with_callback(
-    random_train_data, random_one_hot_labels, manual_run, callback, restore_weights, patience,
+    random_train_data, random_one_hot_labels, manual_run, callback, restore_weights, patience
 ):
     mlflow.tensorflow.autolog(every_n_iter=1)
 
@@ -202,11 +202,7 @@ def tf_keras_random_data_run_with_callback(
     history = model.fit(data, labels, epochs=10, callbacks=[callback])
 
     client = mlflow.tracking.MlflowClient()
-    return (
-        client.get_run(client.list_run_infos(experiment_id="0")[0].run_id),
-        history,
-        callback,
-    )
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
 
 @pytest.mark.large
@@ -243,7 +239,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
-def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_run_with_callback,):
+def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -269,7 +265,7 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [5])
-def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_run_with_callback,):
+def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -294,7 +290,7 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
-def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_run_with_callback,):
+def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -378,13 +374,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
 
 
 def create_tf_estimator_model(dir, export):
-    CSV_COLUMN_NAMES = [
-        "SepalLength",
-        "SepalWidth",
-        "PetalLength",
-        "PetalWidth",
-        "Species",
-    ]
+    CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
     SPECIES = ["Setosa", "Versicolor", "Virginica"]
 
     train = pd.read_csv(
@@ -393,7 +383,7 @@ def create_tf_estimator_model(dir, export):
         header=0,
     )
     test = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), "iris_test.csv"), names=CSV_COLUMN_NAMES, header=0,
+        os.path.join(os.path.dirname(__file__), "iris_test.csv"), names=CSV_COLUMN_NAMES, header=0
     )
 
     train_y = train.pop("Species")
@@ -472,7 +462,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 @pytest.mark.large
 @pytest.mark.parametrize("export", [True])
-def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run,):
+def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)

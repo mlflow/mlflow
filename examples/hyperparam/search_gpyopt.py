@@ -33,14 +33,14 @@ _inf = np.finfo(np.float64).max
 )
 @click.option("--max-runs", type=click.INT, default=20, help="Maximum number of runs to evaluate.")
 @click.option(
-    "--batch-size", type=click.INT, default=8, help="Number of runs to evaluate in a batch",
+    "--batch-size", type=click.INT, default=8, help="Number of runs to evaluate in a batch"
 )
 @click.option("--max-p", type=click.INT, default=8, help="Maximum number of parallel runs.")
 @click.option("--epochs", type=click.INT, default=32, help="Number of epochs")
 @click.option("--metric", type=click.STRING, default="rmse", help="Metric to optimize on.")
 @click.option("--gpy-model", type=click.STRING, default="GP_MCMC", help="Optimizer algorithm.")
 @click.option(
-    "--gpy-acquisition", type=click.STRING, default="EI_MCMC", help="Optimizer algorithm.",
+    "--gpy-acquisition", type=click.STRING, default="EI_MCMC", help="Optimizer algorithm."
 )
 @click.option("--initial-design", type=click.STRING, default="random", help="Optimizer algorithm.")
 @click.option("--seed", type=click.INT, default=97531, help="Seed for the random generator")
@@ -65,7 +65,7 @@ def run(
     tracking_client = mlflow.tracking.MlflowClient()
 
     def new_eval(
-        nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False,
+        nepochs, experiment_id, null_train_loss, null_valid_loss, null_test_loss, return_all=False
     ):
         """
         Create a new eval function
@@ -176,7 +176,7 @@ def run(
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id),
+            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
         )
         best_val_train = _inf
         best_val_valid = _inf

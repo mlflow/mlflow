@@ -156,11 +156,11 @@ def _validate_tag_name(name):
     # Reuse param & metric check.
     if name is None or not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException(
-            "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE,
+            "Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE), INVALID_PARAMETER_VALUE
         )
     if path_not_unique(name):
         raise MlflowException(
-            "Invalid tag name: '%s'. %s" % (name, bad_path_message(name)), INVALID_PARAMETER_VALUE,
+            "Invalid tag name: '%s'. %s" % (name, bad_path_message(name)), INVALID_PARAMETER_VALUE
         )
 
 
@@ -204,7 +204,7 @@ def _validate_batch_log_limits(metrics, params, tags):
     _validate_batch_limit(entity_name="tags", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(tags))
     total_length = len(metrics) + len(params) + len(tags)
     _validate_batch_limit(
-        entity_name="metrics, params, and tags", limit=MAX_ENTITIES_PER_BATCH, length=total_length,
+        entity_name="metrics, params, and tags", limit=MAX_ENTITIES_PER_BATCH, length=total_length
     )
 
 
@@ -236,7 +236,7 @@ def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""
     if experiment_name == "" or experiment_name is None:
         raise MlflowException(
-            "Invalid experiment name: '%s'" % experiment_name, error_code=INVALID_PARAMETER_VALUE,
+            "Invalid experiment name: '%s'" % experiment_name, error_code=INVALID_PARAMETER_VALUE
         )
 
     if not is_string_type(experiment_name):
@@ -272,5 +272,5 @@ def _validate_experiment_artifact_location(artifact_location):
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
     if db_type not in DATABASE_ENGINES:
-        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG,)
+        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)

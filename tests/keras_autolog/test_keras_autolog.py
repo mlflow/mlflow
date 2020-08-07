@@ -205,17 +205,13 @@ def keras_random_data_run_with_callback(
                 yield data, labels
 
         history = model.fit_generator(
-            generator(), epochs=10, callbacks=[callback], steps_per_epoch=1, shuffle=False,
+            generator(), epochs=10, callbacks=[callback], steps_per_epoch=1, shuffle=False
         )
     else:
         history = model.fit(data, labels, epochs=10, callbacks=[callback])
 
     client = mlflow.tracking.MlflowClient()
-    return (
-        client.get_run(client.list_run_infos(experiment_id="0")[0].run_id),
-        history,
-        callback,
-    )
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
 
 @pytest.mark.large
@@ -254,7 +250,7 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
-def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_with_callback,):
+def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -281,7 +277,7 @@ def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_wit
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [5])
-def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback,):
+def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
@@ -307,7 +303,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
-def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback,):
+def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params

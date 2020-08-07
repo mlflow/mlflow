@@ -81,7 +81,7 @@ def sklearn_model(sklearn_data):
 def keras_data():
     iris = datasets.load_iris()
     data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"],
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
     )
     y = data["target"]
     x = data.drop("target", axis=1)

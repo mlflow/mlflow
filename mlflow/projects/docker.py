@@ -110,9 +110,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
             handle.write(dockerfile_contents)
         _, result_path = tempfile.mkstemp()
         file_utils.make_tarfile(
-            output_filename=result_path,
-            source_dir=dst_path,
-            archive_name=_PROJECT_TAR_ARCHIVE_NAME,
+            output_filename=result_path, source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME
         )
     finally:
         shutil.rmtree(directory)

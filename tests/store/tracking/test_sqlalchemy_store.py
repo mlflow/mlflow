@@ -17,15 +17,7 @@ import pandas as pd
 
 import mlflow.db
 import mlflow.store.db.base_sql_model
-from mlflow.entities import (
-    ViewType,
-    RunTag,
-    SourceType,
-    RunStatus,
-    Experiment,
-    Metric,
-    Param,
-)
+from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -266,7 +258,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             ("#path/to/local/folder?", "#path/to/local/folder?/{e}"),
             ("file:path/to/local/folder", "file:path/to/local/folder/{e}"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
-            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value",),
+            ("file:path/to/local/folder?param=value", "file:path/to/local/folder/{e}?param=value"),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}"),
             (
                 "file:///path/to/local/folder?param=value#fragment",
@@ -299,12 +291,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 with TempDir() as tmp:
                     dbfile_path = tmp.path("db")
                     store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri,
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
                     )
                     exp_id = store.create_experiment(name="exp")
                     exp = store.get_experiment(exp_id)
                     self.assertEqual(
-                        exp.artifact_location, expected_artifact_uri_format.format(e=exp_id),
+                        exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
                     )
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
@@ -312,13 +304,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             ("path/to/local/folder", "path/to/local/folder/{e}/{r}/artifacts"),
             ("/path/to/local/folder", "/path/to/local/folder/{e}/{r}/artifacts"),
             ("#path/to/local/folder?", "#path/to/local/folder?/{e}/{r}/artifacts"),
-            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts",),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts",),
+            ("file:path/to/local/folder", "file:path/to/local/folder/{e}/{r}/artifacts"),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:path/to/local/folder?param=value",
                 "file:path/to/local/folder/{e}/{r}/artifacts?param=value",
             ),
-            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts",),
+            ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:///path/to/local/folder?param=value#fragment",
                 "file:///path/to/local/folder/{e}/{r}/artifacts?param=value#fragment",
@@ -352,7 +344,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 with TempDir() as tmp:
                     dbfile_path = tmp.path("db")
                     store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri,
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
                     )
                     exp_id = store.create_experiment(name="exp")
                     run = store.create_run(
@@ -473,13 +465,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         for k, v in config.items():
             # These keys were removed from RunInfo.
-            if k in [
-                "source_name",
-                "source_type",
-                "source_version",
-                "name",
-                "entry_point_name",
-            ]:
+            if k in ["source_name", "source_type", "source_version", "name", "entry_point_name"]:
                 continue
 
             v2 = getattr(run.info, k)
@@ -527,7 +513,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         created_run = self._run_factory()
         run_id = created_run.info.run_id
         self.store.log_metric(
-            run_id=run_id, metric=entities.Metric(key="my-metric", value=3.4, timestamp=0, step=0),
+            run_id=run_id, metric=entities.Metric(key="my-metric", value=3.4, timestamp=0, step=0)
         )
         self.store.log_param(run_id=run_id, param=Param(key="my-param", value="param-val"))
         self.store.set_tag(run_id=run_id, tag=RunTag(key="my-tag", value="tag-val"))
@@ -625,7 +611,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
             self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
 
-    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self,):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
         run_id = run.info.run_id
         metric_name = "test-metric-1"
@@ -920,7 +906,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         self.store.delete_run(run_id)
         self.assertEqual(
-            self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.DELETED,
+            self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.DELETED
         )
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
@@ -937,7 +923,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # restore this run and try again
         self.store.restore_run(run_id)
         self.assertEqual(
-            self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.ACTIVE,
+            self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.ACTIVE
         )
         self.store.log_param(run_id, entities.Param("p1345", "v22"))
         self.store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
@@ -1174,11 +1160,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test search returns both runs
         six.assertCountEqual(
-            self, [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'"),
+            self, [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
         )
         # test search returns appropriate run (same key different values per run)
         six.assertCountEqual(
-            self, [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'"),
+            self, [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
         )
         six.assertCountEqual(
             self,
@@ -1186,10 +1172,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
         )
         six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'"),
+            self, [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
         )
         six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'"),
+            self, [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
         six.assertCountEqual(
             self,
@@ -1208,22 +1194,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self, [r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'")
         )
         six.assertCountEqual(
-            self, [r2], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'"),
+            self, [r2], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'")
         )
         six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'"),
+            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'")
         )
         six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'"),
+            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'")
         )
         six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'"),
+            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'")
         )
         six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'"),
+            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'")
         )
         six.assertCountEqual(
-            self, [r2], self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'"),
+            self, [r2], self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'")
         )
         six.assertCountEqual(
             self,
@@ -1516,7 +1502,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         self.store.log_batch(
-            run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities,
+            run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities
         )
         run = self.store.get_run(run_id)
         assert run.data.tags == {"t1": "t1val", "t2": "t2val"}
@@ -1631,7 +1617,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")]
         )
         self._verify_logged(
-            self.store, run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")],
+            self.store, run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")]
         )
 
     def test_log_batch_allows_tag_overwrite(self):
@@ -1641,7 +1627,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")]
         )
         self._verify_logged(
-            self.store, run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")],
+            self.store, run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")]
         )
 
     def test_log_batch_allows_tag_overwrite_single_req(self):
@@ -1721,7 +1707,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             os.path.join(current_dir, os.pardir, os.pardir, "resources", "db")
         )
         expected_metric_values_path = os.path.join(
-            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json",
+            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json"
         )
         with TempDir() as tmp_db_dir:
             db_path = tmp_db_dir.path("tmp_db.sql")
@@ -1753,7 +1739,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         for _ in range(nb_runs):
             run_id = self.store.create_run(
-                experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson",
+                experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson"
             ).info.run_uuid
 
             run_ids.append(run_id)
@@ -1928,7 +1914,7 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
                 "specify a database port via MYSQL_TEST_PORT (default is 3306)."
             )
         self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
-        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port,)
+        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
         self._engine = sqlalchemy.create_engine(db_server_url)
         self._engine.execute("CREATE DATABASE %s" % self._db_name)
         self.db_url = "%s/%s" % (db_server_url, self._db_name)

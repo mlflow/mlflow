@@ -104,7 +104,7 @@ def load_project(directory):
         )
 
     return Project(
-        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name,
+        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
     )
 
 
@@ -186,10 +186,7 @@ class EntryPoint(object):
         for key in user_parameters:
             if key not in final_params:
                 extra_params[key] = user_parameters[key]
-        return (
-            self._sanitize_param_dict(final_params),
-            self._sanitize_param_dict(extra_params),
-        )
+        return self._sanitize_param_dict(final_params), self._sanitize_param_dict(extra_params)
 
     def compute_command(self, user_parameters, storage_dir):
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)

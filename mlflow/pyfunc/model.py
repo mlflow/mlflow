@@ -106,7 +106,7 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model(),
+    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model()
 ):
     """
     :param path: The path to which to save the Python model.
@@ -165,9 +165,7 @@ def _save_model_with_class_artifacts_params(
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(
-                tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath),
-            )
+            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     conda_env_subpath = "conda.yaml"

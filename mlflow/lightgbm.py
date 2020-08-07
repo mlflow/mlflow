@@ -399,7 +399,7 @@ def autolog():
             try_mlflow_log(mlflow.log_metric, "best_iteration", model.best_iteration)
             # iteration starts from 1 in LightGBM.
             try_mlflow_log(
-                mlflow.log_metrics, eval_results[model.best_iteration - 1], step=extra_step,
+                mlflow.log_metrics, eval_results[model.best_iteration - 1], step=extra_step
             )
 
         # logging feature importance as artifacts.

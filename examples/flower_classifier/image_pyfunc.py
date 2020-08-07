@@ -114,10 +114,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
     with TempDir() as tmp:
         data_path = tmp.path("image_model")
         os.mkdir(data_path)
-        conf = {
-            "image_dims": "/".join(map(str, image_dims)),
-            "domain": "/".join(map(str, domain)),
-        }
+        conf = {"image_dims": "/".join(map(str, image_dims)), "domain": "/".join(map(str, domain))}
         with open(os.path.join(data_path, "conf.yaml"), "w") as f:
             yaml.safe_dump(conf, stream=f)
         keras_path = os.path.join(data_path, "keras_model")

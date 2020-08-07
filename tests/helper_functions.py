@@ -63,7 +63,7 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-        cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor,],
+        cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
         env=env,
     )
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)

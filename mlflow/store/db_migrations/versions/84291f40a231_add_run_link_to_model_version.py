@@ -18,7 +18,7 @@ depends_on = None
 
 def upgrade():
     op.add_column(
-        "model_versions", sa.Column("run_link", sa.String(500), nullable=True, default=None),
+        "model_versions", sa.Column("run_link", sa.String(500), nullable=True, default=None)
     )
 
 

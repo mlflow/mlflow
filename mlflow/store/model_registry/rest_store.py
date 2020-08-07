@@ -228,7 +228,7 @@ class RestStore(AbstractStore):
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(
             CreateModelVersion(
-                name=name, source=source, run_id=run_id, run_link=run_link, tags=proto_tags,
+                name=name, source=source, run_id=run_id, run_link=run_link, tags=proto_tags
             )
         )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)

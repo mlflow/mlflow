@@ -46,7 +46,7 @@ def upgrade():
         # database-backend-dependent enum (see https://docs.sqlalchemy.org/en/13/core/
         # type_basics.html#sqlalchemy.types.Enum.params.native_enum)
         batch_op.alter_column(
-            "status", type_=Enum(*new_run_statuses, create_constraint=True, native_enum=False),
+            "status", type_=Enum(*new_run_statuses, create_constraint=True, native_enum=False)
         )
 
 

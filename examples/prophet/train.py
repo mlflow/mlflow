@@ -63,7 +63,7 @@ if __name__ == "__main__":
         df = pd.read_csv(csv_url)
     except Exception as e:
         logger.exception(
-            "Unable to download training & test CSV, check your internet connection. Error: %s", e,
+            "Unable to download training & test CSV, check your internet connection. Error: %s", e
         )
 
     # Useful for multiple runs (only doing one run in this sample notebook)

@@ -248,7 +248,7 @@ def save_model(
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_SUBPATH,
+        mlflow_model, loader_module="mlflow.keras", data=data_subpath, env=_CONDA_ENV_SUBPATH
     )
 
     # save mlflow_model to path/MLmodel
@@ -627,11 +627,7 @@ def autolog():
 
     def _get_early_stop_callback_attrs(callback):
         try:
-            return (
-                callback.stopped_epoch,
-                callback.restore_best_weights,
-                callback.patience,
-            )
+            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
         except Exception:  # pylint: disable=W0703
             return None
 
@@ -697,13 +693,7 @@ def autolog():
     @gorilla.patch(keras.Model)
     def fit_generator(self, *args, **kwargs):
         original = gorilla.get_original_attribute(keras.Model, "fit_generator")
-        unlogged_params = [
-            "self",
-            "generator",
-            "callbacks",
-            "validation_data",
-            "verbose",
-        ]
+        unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)

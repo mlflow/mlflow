@@ -41,12 +41,7 @@ class SearchUtils(object):
     _ALTERNATE_TAG_IDENTIFIERS = set(["tags"])
     _ATTRIBUTE_IDENTIFIER = "attribute"
     _ALTERNATE_ATTRIBUTE_IDENTIFIERS = set(["attr", "attributes", "run"])
-    _IDENTIFIERS = [
-        _METRIC_IDENTIFIER,
-        _PARAM_IDENTIFIER,
-        _TAG_IDENTIFIER,
-        _ATTRIBUTE_IDENTIFIER,
-    ]
+    _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
     _VALID_IDENTIFIERS = set(
         _IDENTIFIERS
         + list(_ALTERNATE_METRIC_IDENTIFIERS)
@@ -61,7 +56,7 @@ class SearchUtils(object):
     ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
     ORDER_BY_KEY_MODEL_NAME = SqlRegisteredModel.name.key
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(
-        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME,]
+        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
     )
     VALID_TIMESTAMP_ORDER_BY_KEYS = set(
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP]
@@ -264,7 +259,7 @@ class SearchUtils(object):
             parsed = sqlparse.parse(filter_string)
         except Exception:
             raise MlflowException(
-                "Error on parsing filter '%s'" % filter_string, error_code=INVALID_PARAMETER_VALUE,
+                "Error on parsing filter '%s'" % filter_string, error_code=INVALID_PARAMETER_VALUE
             )
         if len(parsed) == 0 or not isinstance(parsed[0], Statement):
             raise MlflowException(
@@ -343,8 +338,7 @@ class SearchUtils(object):
             lhs = getattr(run.info, key)
         else:
             raise MlflowException(
-                "Invalid search expression type '%s'" % key_type,
-                error_code=INVALID_PARAMETER_VALUE,
+                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
             )
         if lhs is None:
             return False
@@ -465,7 +459,7 @@ class SearchUtils(object):
             sort_value = getattr(run.info, key)
         else:
             raise MlflowException(
-                "Invalid order_by entity type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
+                "Invalid order_by entity type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
             )
 
         # Return a key such that None values are always at the end.
@@ -508,11 +502,11 @@ class SearchUtils(object):
             decoded_token = base64.b64decode(page_token)
         except TypeError:
             raise MlflowException(
-                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE,
+                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE
             )
         except base64.binascii.Error:
             raise MlflowException(
-                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE,
+                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE
             )
 
         try:

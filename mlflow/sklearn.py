@@ -31,10 +31,7 @@ FLAVOR_NAME = "sklearn"
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 
-SUPPORTED_SERIALIZATION_FORMATS = [
-    SERIALIZATION_FORMAT_PICKLE,
-    SERIALIZATION_FORMAT_CLOUDPICKLE,
-]
+SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
 
 _logger = logging.getLogger(__name__)
 
@@ -157,7 +154,7 @@ def save_model(
 
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS,
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
     os.makedirs(path)
     if mlflow_model is None:

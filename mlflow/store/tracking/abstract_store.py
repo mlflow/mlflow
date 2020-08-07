@@ -232,13 +232,13 @@ class AbstractStore:
             and thus the returned token would not be meaningful in such cases.
         """
         runs, token = self._search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token,
+            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
         )
         return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token,
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
         """
         Return runs that match the given list of search expressions within the experiments, as

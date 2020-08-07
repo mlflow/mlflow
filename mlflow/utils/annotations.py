@@ -30,7 +30,7 @@ def deprecated(alternative=None, since=None):
         notice = (
             ".. Warning:: ``{function_name}`` is deprecated{since_string}. This method will be"
             " removed in a near future release.".format(
-                function_name=".".join([func.__module__, func.__name__]), since_string=since_str,
+                function_name=".".join([func.__module__, func.__name__]), since_string=since_str
             )
         )
         if alternative is not None and alternative.strip():

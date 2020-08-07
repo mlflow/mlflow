@@ -46,8 +46,7 @@ def test_docker_project_execution(
     run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
     run_infos = mlflow_service.list_run_infos(
-        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
-        run_view_type=ViewType.ACTIVE_ONLY,
+        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
     assert len(run_infos) == 1
     store_run_id = run_infos[0].run_id
@@ -83,11 +82,7 @@ def test_docker_project_execution(
 @mock.patch("databricks_cli.configure.provider.ProfileConfigProvider")
 @pytest.mark.large
 def test_docker_project_tracking_uri_propagation(
-    ProfileConfigProvider,
-    tmpdir,
-    tracking_uri,
-    expected_command_segment,
-    docker_example_base_image,
+    ProfileConfigProvider, tmpdir, tracking_uri, expected_command_segment, docker_example_base_image
 ):  # pylint: disable=unused-argument
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig(
@@ -104,13 +99,13 @@ def test_docker_project_tracking_uri_propagation(
         with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as _get_store_mock:
             _get_store_mock.return_value = file_store.FileStore(local_tracking_dir)
             mlflow.projects.run(
-                TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+                TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID
             )
     finally:
         mlflow.set_tracking_uri(old_uri)
 
 
-def test_docker_uri_mode_validation(docker_example_base_image,):  # pylint: disable=unused-argument
+def test_docker_uri_mode_validation(docker_example_base_image):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
 
@@ -148,9 +143,9 @@ def test_docker_invalid_project_backend_local():
 @pytest.mark.parametrize(
     "artifact_uri, host_artifact_uri, container_artifact_uri, should_mount",
     [
-        ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True,),
+        ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
         ("s3://my_bucket", None, None, False),
-        ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True,),
+        ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
         ("./mlruns", os.path.abspath("./mlruns"), "/mlflow/projects/code/mlruns", True),
     ],
 )
@@ -198,7 +193,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
     [
         ([], ["VAR1"], {"VAR1": "value1"}, [("-e", "VAR1=value1")]),
         ([], ["VAR1"], {}, ["should_crash", ("-e", "VAR1=value1")]),
-        ([], ["VAR1"], {"OTHER_VAR": "value1"}, ["should_crash", ("-e", "VAR1=value1")],),
+        ([], ["VAR1"], {"OTHER_VAR": "value1"}, ["should_crash", ("-e", "VAR1=value1")]),
         (
             [],
             ["VAR1", ["VAR2", "value2"]],

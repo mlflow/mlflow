@@ -102,11 +102,9 @@ class MLflowCheckpoint(Callback):
     "The input is expected in csv format."
     "The model and its metrics are logged with mlflow."
 )
+@click.option("--epochs", type=click.INT, default=100, help="Maximum number of epochs to evaluate.")
 @click.option(
-    "--epochs", type=click.INT, default=100, help="Maximum number of epochs to evaluate.",
-)
-@click.option(
-    "--batch-size", type=click.INT, default=16, help="Batch size passed to the learning algo.",
+    "--batch-size", type=click.INT, default=16, help="Batch size passed to the learning algo."
 )
 @click.option("--learning-rate", type=click.FLOAT, default=1e-2, help="Learning rate.")
 @click.option("--momentum", type=click.FLOAT, default=0.9, help="SGD momentum.")

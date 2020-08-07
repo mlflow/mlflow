@@ -45,7 +45,7 @@ def download_input():
 )
 @click.option("--epochs", type=click.INT, default=1, help="Maximum number of epochs to evaluate.")
 @click.option(
-    "--batch-size", type=click.INT, default=16, help="Batch size passed to the learning algo.",
+    "--batch-size", type=click.INT, default=16, help="Batch size passed to the learning algo."
 )
 @click.option("--image-width", type=click.INT, default=224, help="Input image width in pixels.")
 @click.option("--image-height", type=click.INT, default=224, help="Input image height in pixels.")
@@ -147,7 +147,7 @@ def _create_model(input_shape, classes):
     lambda_layer = Lambda(_imagenet_preprocess_tf)
     preprocessed_image = lambda_layer(image)
     model = vgg16.VGG16(
-        classes=classes, input_tensor=preprocessed_image, weights=None, include_top=False,
+        classes=classes, input_tensor=preprocessed_image, weights=None, include_top=False
     )
 
     x = Flatten(name="flatten")(model.output)

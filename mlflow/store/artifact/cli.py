@@ -24,9 +24,7 @@ def commands():
 
 @commands.command("log-artifact")
 @click.option("--local-file", "-l", required=True, help="Local path to artifact to log")
-@click.option(
-    "--run-id", "-r", required=True, help="Run ID into which we should log the artifact.",
-)
+@click.option("--run-id", "-r", required=True, help="Run ID into which we should log the artifact.")
 @click.option(
     "--artifact-path",
     "-a",
@@ -44,15 +42,13 @@ def log_artifact(local_file, run_id, artifact_path):
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifact(local_file, artifact_path)
     _logger.info(
-        "Logged artifact from local file %s to artifact_path=%s", local_file, artifact_path,
+        "Logged artifact from local file %s to artifact_path=%s", local_file, artifact_path
     )
 
 
 @commands.command("log-artifacts")
 @click.option("--local-dir", "-l", required=True, help="Directory of local artifacts to log")
-@click.option(
-    "--run-id", "-r", required=True, help="Run ID into which we should log the artifact.",
-)
+@click.option("--run-id", "-r", required=True, help="Run ID into which we should log the artifact.")
 @click.option(
     "--artifact-path",
     "-a",
@@ -69,9 +65,7 @@ def log_artifacts(local_dir, run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifacts(local_dir, artifact_path)
-    _logger.info(
-        "Logged artifact from local dir %s to artifact_path=%s", local_dir, artifact_path,
-    )
+    _logger.info("Logged artifact from local dir %s to artifact_path=%s", local_dir, artifact_path)
 
 
 @commands.command("list")

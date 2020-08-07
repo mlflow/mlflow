@@ -110,7 +110,7 @@ def save_model(
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS,
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
     os.makedirs(path)
     if mlflow_model is None:
@@ -135,7 +135,7 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath,
+        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath
     )
     mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))

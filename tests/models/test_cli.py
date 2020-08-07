@@ -312,17 +312,7 @@ def test_predict(iris_data, sk_model):
 
         # read from stdin, write to stdout.
         p = subprocess.Popen(
-            [
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-t",
-                "json",
-                "--json-format",
-                "split",
-            ]
+            ["mlflow", "models", "predict", "-m", model_uri, "-t", "json", "--json-format", "split"]
             + extra_options,
             universal_newlines=True,
             stdin=subprocess.PIPE,
@@ -404,7 +394,7 @@ def test_prepare_env_fails(sk_model):
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(
-                sk_model, "model", conda_env={"dependencies": ["mlflow-does-not-exist-dep==abc"]},
+                sk_model, "model", conda_env={"dependencies": ["mlflow-does-not-exist-dep==abc"]}
             )
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
@@ -447,11 +437,7 @@ def test_build_docker_with_env_override(iris_data, sk_model):
 
 def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model):
     with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
-        for content_type in [
-            CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            CONTENT_TYPE_CSV,
-            CONTENT_TYPE_JSON,
-        ]:
+        for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
             assert scoring_response.status_code == 200, (
                 "Failed to serve prediction, got " "response %s" % scoring_response.text
@@ -460,11 +446,7 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model):
                 np.array(json.loads(scoring_response.text)), sk_model.predict(x)
             )
         # Try examples of bad input, verify we get a non-200 status code
-        for content_type in [
-            CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            CONTENT_TYPE_CSV,
-            CONTENT_TYPE_JSON,
-        ]:
+        for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(data="", content_type=content_type)
             assert scoring_response.status_code == 500, (
                 "Expected server failure with error code 500, got response with status code %s "

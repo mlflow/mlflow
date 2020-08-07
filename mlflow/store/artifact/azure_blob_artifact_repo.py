@@ -37,7 +37,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = "https://{account}.blob.core.windows.net".format(account=account)
             self.client = BlobServiceClient(
-                account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
+                account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
         else:
             raise Exception(

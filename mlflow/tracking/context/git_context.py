@@ -24,12 +24,7 @@ def _get_git_commit(path):
         repo = git.Repo(path, search_parent_directories=True)
         commit = repo.head.commit.hexsha
         return commit
-    except (
-        git.InvalidGitRepositoryError,
-        git.GitCommandNotFound,
-        ValueError,
-        git.NoSuchPathError,
-    ):
+    except (git.InvalidGitRepositoryError, git.GitCommandNotFound, ValueError, git.NoSuchPathError):
         return None
 
 

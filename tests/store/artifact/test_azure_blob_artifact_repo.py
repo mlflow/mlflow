@@ -62,10 +62,10 @@ def test_exception_if_no_env_vars(mock_client):
 
 def test_parse_wasbs_uri():
     parse = AzureBlobArtifactRepository.parse_wasbs_uri
-    assert parse("wasbs://cont@acct.blob.core.windows.net/path") == ("cont", "acct", "path",)
+    assert parse("wasbs://cont@acct.blob.core.windows.net/path") == ("cont", "acct", "path")
     assert parse("wasbs://cont@acct.blob.core.windows.net") == ("cont", "acct", "")
     assert parse("wasbs://cont@acct.blob.core.windows.net/") == ("cont", "acct", "")
-    assert parse("wasbs://cont@acct.blob.core.windows.net/a/b") == ("cont", "acct", "a/b",)
+    assert parse("wasbs://cont@acct.blob.core.windows.net/a/b") == ("cont", "acct", "a/b")
     with pytest.raises(Exception, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct.blob.core.evil.net/path")
     with pytest.raises(Exception, match="WASBS URI must be of the form"):

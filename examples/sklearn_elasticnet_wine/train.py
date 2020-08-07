@@ -40,7 +40,7 @@ if __name__ == "__main__":
         data = pd.read_csv(csv_url, sep=";")
     except Exception as e:
         logger.exception(
-            "Unable to download training & test CSV, check your internet connection. Error: %s", e,
+            "Unable to download training & test CSV, check your internet connection. Error: %s", e
         )
 
     # Split the data into training and test sets. (0.75, 0.25) split.

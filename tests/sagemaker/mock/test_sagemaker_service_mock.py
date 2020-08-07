@@ -165,7 +165,7 @@ def test_create_endpoint_config_returns_arn_containing_config_name(sagemaker_cli
 
 
 @mock_sagemaker
-def test_creating_endpoint_config_with_name_already_in_use_raises_exception(sagemaker_client,):
+def test_creating_endpoint_config_with_name_already_in_use_raises_exception(sagemaker_client):
     model_name = "sample-model"
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
@@ -209,7 +209,7 @@ def test_all_endpoint_configs_are_listed_after_creating_many_configs(sagemaker_c
 
 
 @mock_sagemaker
-def test_describe_endpoint_config_response_contains_expected_attributes(sagemaker_client,):
+def test_describe_endpoint_config_response_contains_expected_attributes(sagemaker_client):
     model_name = "sample-model"
     create_sagemaker_model(sagemaker_client=sagemaker_client, model_name=model_name)
 
@@ -239,7 +239,7 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
 
 
 @mock_sagemaker
-def test_describe_endpoint_config_throws_exception_for_nonexistent_config(sagemaker_client,):
+def test_describe_endpoint_config_throws_exception_for_nonexistent_config(sagemaker_client):
     with pytest.raises(ValueError):
         sagemaker_client.describe_endpoint_config(EndpointConfigName="nonexistent-config")
 

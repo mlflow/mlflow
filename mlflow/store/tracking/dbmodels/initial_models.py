@@ -70,7 +70,7 @@ class SqlExperiment(Base):
 
     __table_args__ = (
         CheckConstraint(
-            lifecycle_stage.in_(["active", "deleted"]), name="experiments_lifecycle_stage",
+            lifecycle_stage.in_(["active", "deleted"]), name="experiments_lifecycle_stage"
         ),
         PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
     )

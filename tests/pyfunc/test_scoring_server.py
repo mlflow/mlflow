@@ -33,7 +33,7 @@ def pandas_df_with_all_types():
             "long": np.array([1, 2, 3], np.int64),
             "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
-            "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9]),],
+            "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
         }
     )
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())
@@ -258,7 +258,7 @@ def test_parse_json_input_split_oriented_to_numpy_array():
     )
     p0 = pd.DataFrame.from_dict(data)
     np_array = np.array(
-        [[a, b, c] for a, b, c in zip(data["col_m"], data["col_z"], data["col_a"])], dtype=object,
+        [[a, b, c] for a, b, c in zip(data["col_m"], data["col_z"], data["col_a"])], dtype=object
     )
     p1 = pd.DataFrame(np_array).infer_objects()
     p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(p0.to_json(orient="split"))

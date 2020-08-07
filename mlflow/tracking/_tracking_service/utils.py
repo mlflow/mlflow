@@ -140,12 +140,7 @@ def _get_git_url_if_present(uri):
         # Already a URI in git repo format
         return uri
     try:
-        from git import (
-            Repo,
-            InvalidGitRepositoryError,
-            GitCommandNotFound,
-            NoSuchPathError,
-        )
+        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
         print(
             "Notice: failed to import Git (the git executable is probably not on your PATH),"

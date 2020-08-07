@@ -12,12 +12,11 @@ def test_create():
     runner = CliRunner()
     res = runner.invoke(
         cli.create_deployment,
-        ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name,],
+        ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name],
     )
     assert "{} deployment {} is created".format(f_flavor, f_name) in res.stdout
     res = runner.invoke(
-        cli.create_deployment,
-        ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name],
+        cli.create_deployment, ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name]
     )
     assert "{} deployment {} is created".format(f_flavor, f_name) in res.stdout
 
@@ -26,7 +25,7 @@ def test_update():
     runner = CliRunner()
     res = runner.invoke(
         cli.update_deployment,
-        ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name,],
+        ["--flavor", f_flavor, "--model-uri", f_model_uri, "--target", f_target, "--name", f_name],
     )
     assert "Deployment {} is updated (with flavor {})".format(f_name, f_flavor) in res.stdout
 
@@ -40,7 +39,7 @@ def test_delete():
 def test_update_no_flavor():
     runner = CliRunner()
     res = runner.invoke(
-        cli.update_deployment, ["--name", f_name, "--target", f_target, "-m", f_model_uri],
+        cli.update_deployment, ["--name", f_name, "--target", f_target, "-m", f_model_uri]
     )
     assert "Deployment {} is updated (with flavor None)".format(f_name) in res.stdout
 
@@ -85,7 +84,7 @@ def test_target_help():
 def test_run_local():
     runner = CliRunner()
     res = runner.invoke(
-        cli.run_local, ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name],
+        cli.run_local, ["-f", f_flavor, "-m", f_model_uri, "-t", f_target, "--name", f_name]
     )
     assert "Deployed locally at the key {}".format(f_name) in res.stdout
     assert "using the model from {}.".format(f_model_uri) in res.stdout

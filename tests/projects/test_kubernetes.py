@@ -305,7 +305,7 @@ def test_submitted_run_get_status_running():
     job_name = "job-name"
     job_namespace = "job-namespace"
     job_status = kubernetes.client.models.V1JobStatus(
-        active=1, completion_time=None, conditions=None, failed=1, start_time=1, succeeded=1,
+        active=1, completion_time=None, conditions=None, failed=1, start_time=1, succeeded=1
     )
     job = kubernetes.client.models.V1Job(status=job_status)
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
@@ -347,6 +347,6 @@ def test_state_transitions():
         assert RunStatus.RUNNING == submitted_run.get_status()
         condition = kubernetes.client.models.V1JobCondition(type="Complete", status="True")
         set_return_value(
-            conditions=[condition], failed=1, start_time=1, completion_time=2, succeeded=1,
+            conditions=[condition], failed=1, start_time=1, completion_time=2, succeeded=1
         )
         assert RunStatus.FINISHED == submitted_run.get_status()

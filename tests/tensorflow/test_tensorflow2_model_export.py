@@ -142,7 +142,7 @@ def saved_tf_categorical_model(tmpdir):
     path = os.path.abspath("tests/data/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
-        [("body-style", [""]), ("curb-weight", [0.0]), ("highway-mpg", [0.0]), ("price", [0.0]),]
+        [("body-style", [""]), ("curb-weight", [0.0]), ("highway-mpg", [0.0]), ("price", [0.0])]
     )
     types = collections.OrderedDict((key, type(value[0])) for key, value in defaults.items())
     df = pd.read_csv(path, names=list(types.keys()), dtype=types, na_values="?")
@@ -175,7 +175,7 @@ def saved_tf_categorical_model(tmpdir):
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(
-        input_fn=lambda: iris_data_utils.train_input_fn(trainingFeatures, y_train, 1), steps=10,
+        input_fn=lambda: iris_data_utils.train_input_fn(trainingFeatures, y_train, 1), steps=10
     )
     estimator_preds = np.array(
         [
@@ -372,7 +372,7 @@ def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
 
 
 @pytest.mark.large
-def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model,):
+def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.tensorflow.log_model(

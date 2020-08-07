@@ -421,7 +421,7 @@ class SageMakerBackend(BaseBackend):
         return summaries
 
     def create_model(
-        self, model_name, primary_container, execution_role_arn, tags, region_name, vpc_config=None,
+        self, model_name, primary_container, execution_role_arn, tags, region_name, vpc_config=None
     ):
         """
         Modifies backend state during calls to the SageMaker "CreateModel" API

@@ -91,11 +91,11 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
         _logger.info("=== Creating conda environment %s ===", project_env_name)
         if conda_env_path:
             process.exec_cmd(
-                [conda_path, "env", "create", "-n", project_env_name, "--file", conda_env_path,],
+                [conda_path, "env", "create", "-n", project_env_name, "--file", conda_env_path],
                 stream_output=True,
             )
         else:
             process.exec_cmd(
-                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True,
+                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True
             )
     return project_env_name

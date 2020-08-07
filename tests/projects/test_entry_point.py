@@ -49,7 +49,7 @@ def test_entry_point_compute_command():
         # Test shell escaping
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
-        assert command == "python greeter.py %s %s" % (shlex_quote("hi"), shlex_quote(name_value),)
+        assert command == "python greeter.py %s %s" % (shlex_quote("hi"), shlex_quote(name_value))
 
 
 def test_path_parameter():
@@ -74,7 +74,7 @@ def test_path_parameter():
             assert download_uri_mock.call_count == 0
 
             params, _ = entry_point.compute_parameters(
-                user_parameters={"path": path_to_local_file_uri(local_path)}, storage_dir=dst_dir,
+                user_parameters={"path": path_to_local_file_uri(local_path)}, storage_dir=dst_dir
             )
             assert params["path"] == os.path.abspath(local_path)
             assert download_uri_mock.call_count == 0

@@ -335,7 +335,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     help="Additional command line options forwarded to gunicorn processes.",
 )
 @click.option(
-    "--waitress-opts", default=None, help="Additional command line options for waitress-serve.",
+    "--waitress-opts", default=None, help="Additional command line options for waitress-serve."
 )
 @click.option(
     "--expose-prometheus",

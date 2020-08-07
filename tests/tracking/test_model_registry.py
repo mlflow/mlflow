@@ -15,10 +15,7 @@ from mlflow.entities.model_registry import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import path_to_local_file_uri
-from tests.tracking.integration_test_utils import (
-    _await_server_down_or_die,
-    _init_server,
-)
+from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
 # pylint: disable=unused-argument
 
@@ -347,11 +344,7 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1", tags)
     assert mv1.version == "1"
     assert mv1.name == name
-    assert mv1.tags == {
-        "key": "value",
-        "another key": "some other value",
-        "numeric value": "12345",
-    }
+    assert mv1.tags == {"key": "value", "another key": "some other value", "numeric value": "12345"}
     mvd1 = mlflow_client.get_model_version(name, "1")
     assert mvd1.tags == {
         "key": "value",

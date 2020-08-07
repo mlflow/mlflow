@@ -42,7 +42,7 @@ def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
     # Try https://stackoverflow.com/questions/30378233/sqlite-lack-of-alter-support-alembic-migration-failing-because-of-this-solutio
     context.configure(
-        url=url, target_metadata=target_metadata, literal_binds=True, render_as_batch=True,
+        url=url, target_metadata=target_metadata, literal_binds=True, render_as_batch=True
     )
 
     with context.begin_transaction():

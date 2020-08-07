@@ -73,8 +73,8 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
     test_list = [
         (TEST_PROJECT_DIR, "", TEST_PROJECT_DIR),
         (local_git_repo_uri, "", local_git_repo),
-        (local_git_repo_uri, "example_project", os.path.join(local_git_repo, "example_project"),),
-        (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR,),
+        (local_git_repo_uri, "example_project", os.path.join(local_git_repo, "example_project")),
+        (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
         (httpserver.url + "/%s.zip" % TEST_PROJECT_NAME, "", TEST_PROJECT_DIR),
         (zipped_repo, "", TEST_PROJECT_DIR),
         ("file://%s" % zipped_repo, "", TEST_PROJECT_DIR),
@@ -154,7 +154,7 @@ def test_fetch_create_and_log(tmpdir):
     user_param = {"method_name": "newton"}
     with mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir):
         with mock.patch(
-            "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project,
+            "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project
         ):
             work_dir = fetch_and_validate_project("", "", entry_point_name, user_param)
             project = load_project(work_dir)

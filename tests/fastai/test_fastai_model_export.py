@@ -155,7 +155,7 @@ def test_model_log(fastai_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
 
                 mlflow.fastai.log_model(
-                    fastai_learner=model, artifact_path=artifact_path, conda_env=conda_env,
+                    fastai_learner=model, artifact_path=artifact_path, conda_env=conda_env
                 )
 
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -209,7 +209,7 @@ def test_log_model_no_registered_model_name(fastai_model):
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["fastai"])
         mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=conda_env,
+            fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=conda_env
         )
         mlflow.register_model.assert_not_called()
 
@@ -300,7 +300,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.fastai.log_model(
-            fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=None,
+            fastai_learner=fastai_model.model, artifact_path=artifact_path, conda_env=None
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path

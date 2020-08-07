@@ -122,11 +122,7 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
     xgb.train(
-        bst_params,
-        dtrain,
-        num_boost_round=20,
-        evals=[(dtrain, "train")],
-        evals_result=evals_result,
+        bst_params, dtrain, num_boost_round=20, evals=[(dtrain, "train")], evals_result=evals_result
     )
     run = get_latest_run()
     data = run.data
@@ -162,7 +158,7 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
     params = {"eval_metric": ["merror", "mlogloss"]}
     params.update(bst_params)
     xgb.train(
-        params, dtrain, num_boost_round=20, evals=[(dtrain, "train")], evals_result=evals_result,
+        params, dtrain, num_boost_round=20, evals=[(dtrain, "train")], evals_result=evals_result
     )
     run = get_latest_run()
     data = run.data

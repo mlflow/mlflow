@@ -207,7 +207,7 @@ def test_mlflow_gc_file_store_passing_explicit_run_ids(file_store):
     run = _create_run_in_store(store)
     store.delete_run(run.info.run_uuid)
     subprocess.check_output(
-        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid,]
+        ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
     )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 0
@@ -220,7 +220,7 @@ def test_mlflow_gc_not_deleted_run(file_store):
     run = _create_run_in_store(store)
     with pytest.raises(subprocess.CalledProcessError):
         subprocess.check_output(
-            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid,]
+            ["mlflow", "gc", "--backend-store-uri", file_store[1], "--run-ids", run.info.run_uuid]
         )
     runs = store.search_runs(experiment_ids=["0"], filter_string="", run_view_type=ViewType.ALL)
     assert len(runs) == 1

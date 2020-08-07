@@ -111,7 +111,7 @@ def spark_model_transformer(iris_df):
     preds_df = assembler.transform(iris_spark_df)
     preds = [x.features for x in preds_df.select("features").collect()]
     return SparkModelWithData(
-        model=assembler, spark_df=iris_spark_df, pandas_df=iris_pandas_df, predictions=preds,
+        model=assembler, spark_df=iris_spark_df, pandas_df=iris_pandas_df, predictions=preds
     )
 
 
@@ -206,7 +206,7 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
             with TempDir() as tmp:
                 path = tmp.path("model")
                 sparkm.save_model(
-                    spark_model_iris.model, path=path, signature=signature, input_example=example,
+                    spark_model_iris.model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
@@ -282,7 +282,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response_1.content)), decimal=4,
+        spark_model_iris.predictions, np.array(json.loads(scoring_response_1.content)), decimal=4
     )
     # 2. score and compare mleap deployed in Sagemaker docker container
     scoring_response_2 = score_model_in_sagemaker_docker_container(
@@ -292,7 +292,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
         flavor=mlflow.mleap.FLAVOR_NAME,
     )
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response_2.content)), decimal=4,
+        spark_model_iris.predictions, np.array(json.loads(scoring_response_2.content)), decimal=4
     )
 
 
@@ -536,7 +536,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     artifact_path = "model"
     with mlflow.start_run():
         sparkm.log_model(
-            spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None,
+            spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
@@ -557,13 +557,7 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
     with mock.patch("pyspark.__version__", new_callable=mock_version_standard):
         default_conda_env_standard = sparkm.get_default_conda_env()
 
-    for dev_version in [
-        "2.4.0.dev0",
-        "2.4.0.dev",
-        "2.4.0.dev1",
-        "2.4.0dev.a",
-        "2.4.0.devb",
-    ]:
+    for dev_version in ["2.4.0.dev0", "2.4.0.dev", "2.4.0.dev1", "2.4.0dev.a", "2.4.0.devb"]:
         mock_version_dev = mock.PropertyMock(return_value=dev_version)
         with mock.patch("pyspark.__version__", new_callable=mock_version_dev):
             default_conda_env_dev = sparkm.get_default_conda_env()
@@ -571,7 +565,7 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
 
             with mlflow.start_run():
                 sparkm.log_model(
-                    spark_model=spark_model_iris.model, artifact_path="model", conda_env=None,
+                    spark_model=spark_model_iris.model, artifact_path="model", conda_env=None
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id, artifact_path="model"
@@ -628,7 +622,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
 
     with pytest.raises(ValueError):
         sparkm.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df,
+            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
 
 
@@ -701,7 +695,7 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
     with pytest.raises(Exception):
         invalid_input = pd.DataFrame()
         sparkm.save_model(
-            spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input,
+            spark_model=spark_model_iris.model, path=model_path, sample_input=invalid_input
         )
 
 
@@ -718,5 +712,5 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
 
     with pytest.raises(mleap.MLeapSerializationException):
         mleap.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df,
+            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )

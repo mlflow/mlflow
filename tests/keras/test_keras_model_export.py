@@ -59,7 +59,7 @@ def fix_random_seed():
 def data():
     iris = datasets.load_iris()
     data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"],
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
     )
     y = data["target"]
     x = data.drop("target", axis=1)
@@ -239,7 +239,7 @@ def test_model_save_load(build_model, model_path, data):
     )
     # test spark udf
     spark_udf_preds = score_model_as_udf(
-        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float",
+        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
     )
     np.allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
 
@@ -291,7 +291,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
     # test spark udf
     spark_udf_preds = score_model_as_udf(
-        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float",
+        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
     )
     np.allclose(np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))
 
@@ -446,7 +446,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 
 @pytest.mark.large
-def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model,):
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
@@ -473,9 +473,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
-    shutil.move(
-        os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"),
-    )
+    shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)

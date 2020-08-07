@@ -89,7 +89,7 @@ def upload_to_dbfs_mock(dbfs_root_mock):
         shutil.copy(src_path, mock_dbfs_dst)
 
     with mock.patch.object(
-        mlflow.projects.databricks.DatabricksJobRunner, "_upload_to_dbfs", new=upload_mock_fn,
+        mlflow.projects.databricks.DatabricksJobRunner, "_upload_to_dbfs", new=upload_mock_fn
     ) as upload_mock:
         yield upload_mock
 
@@ -128,11 +128,7 @@ def _get_mock_run_state(succeeded):
         run_result_state = "SUCCESS"
     else:
         run_result_state = "FAILED"
-    return {
-        "life_cycle_state": "TERMINATED",
-        "state_message": "",
-        "result_state": run_result_state,
-    }
+    return {"life_cycle_state": "TERMINATED", "state_message": "", "result_state": run_result_state}
 
 
 def mock_runs_get_result(succeeded):
@@ -171,7 +167,7 @@ def test_upload_project_to_dbfs(
     assert filecmp.cmp(local_tar_path, expected_tar_path, shallow=False)
 
 
-def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock,):  # pylint: disable=unused-argument
+def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disable=unused-argument
     # Check that we don't upload the project if it already exists on DBFS
     with mock.patch(
         "mlflow.projects.databricks.DatabricksJobRunner._upload_to_dbfs"
@@ -253,7 +249,7 @@ def test_run_databricks_validations(
         # Test bad cluster spec
         with pytest.raises(ExecutionException):
             mlflow.projects.run(
-                TEST_PROJECT_DIR, backend="databricks", synchronous=True, backend_config=None,
+                TEST_PROJECT_DIR, backend="databricks", synchronous=True, backend_config=None
             )
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
@@ -278,10 +274,7 @@ def test_run_databricks(
     """Test running on Databricks with mocks."""
     with mock.patch.dict(os.environ, {"DATABRICKS_HOST": "test-host", "DATABRICKS_TOKEN": "foo"}):
         # Test that MLflow gets the correct run status when performing a Databricks run
-        for run_succeeded, expect_status in [
-            (True, RunStatus.FINISHED),
-            (False, RunStatus.FAILED),
-        ]:
+        for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
             runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
             submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
             assert submitted_run.wait() == run_succeeded
@@ -438,7 +431,7 @@ class MockProfileConfigProvider:
 @mock.patch("requests.request")
 @mock.patch("databricks_cli.configure.provider.get_config")
 @mock.patch.object(
-    databricks_cli.configure.provider, "ProfileConfigProvider", MockProfileConfigProvider,
+    databricks_cli.configure.provider, "ProfileConfigProvider", MockProfileConfigProvider
 )
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
@@ -485,7 +478,7 @@ def test_run_databricks_failed(_):
 
 def test_run_databricks_generates_valid_mlflow_run_cmd():
     cmd = _get_cluster_mlflow_run_cmd(
-        project_dir="my_project_dir", run_id="hi", entry_point="main", parameters={"a": "b"},
+        project_dir="my_project_dir", run_id="hi", entry_point="main", parameters={"a": "b"}
     )
     assert cmd[0] == "mlflow"
     with mock.patch("mlflow.projects.run"):

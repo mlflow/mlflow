@@ -10,15 +10,7 @@ import logging
 
 from alembic import op
 from sqlalchemy import orm, func, distinct, and_
-from sqlalchemy import (
-    Column,
-    String,
-    ForeignKey,
-    Float,
-    BigInteger,
-    PrimaryKeyConstraint,
-    Boolean,
-)
+from sqlalchemy import Column, String, ForeignKey, Float, BigInteger, PrimaryKeyConstraint, Boolean
 from mlflow.store.tracking.dbmodels.models import SqlMetric, SqlLatestMetric
 
 _logger = logging.getLogger(__name__)
@@ -118,11 +110,7 @@ def _get_latest_metrics_for_runs(session):
             ),
         )
         .group_by(
-            SqlMetric.run_uuid,
-            SqlMetric.key,
-            SqlMetric.step,
-            SqlMetric.timestamp,
-            SqlMetric.is_nan,
+            SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp, SqlMetric.is_nan
         )
         .all()
     )

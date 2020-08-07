@@ -103,10 +103,10 @@ class TestRegisteredModel(unittest.TestCase):
             set(["Production", "Staging"]),
         )
         self.assertEqual(
-            set([mvd.last_updated_timestamp for mvd in proto.latest_versions]), set([2000, 2002]),
+            set([mvd.last_updated_timestamp for mvd in proto.latest_versions]), set([2000, 2002])
         )
         self.assertEqual(
-            set([mvd.creation_timestamp for mvd in proto.latest_versions]), set([1300, 1000]),
+            set([mvd.creation_timestamp for mvd in proto.latest_versions]), set([1300, 1000])
         )
 
     def test_with_tags(self):

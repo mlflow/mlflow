@@ -49,10 +49,7 @@ class RFuncBackend(FlavorBackend):
 
     def can_score_model(self):
         process = subprocess.Popen(
-            ["Rscript", "--version"],
-            close_fds=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            ["Rscript", "--version"], close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
         _, stderr = process.communicate()
         if process.wait() != 0:

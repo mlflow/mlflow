@@ -25,7 +25,7 @@ class AbstractStoreTest(object):
             tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict()]))],
         )
         m2 = Model(
-            artifact_path="some/other/path", run_id=run_id, flavors={"R": {"property": "value"}},
+            artifact_path="some/other/path", run_id=run_id, flavors={"R": {"property": "value"}}
         )
         store.record_logged_model(run_id, m2)
         self._verify_logged(
@@ -36,7 +36,7 @@ class AbstractStoreTest(object):
             tags=[RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict()]))],
         )
         m3 = Model(
-            artifact_path="some/other/path2", run_id=run_id, flavors={"R2": {"property": "value"}},
+            artifact_path="some/other/path2", run_id=run_id, flavors={"R2": {"property": "value"}}
         )
         store.record_logged_model(run_id, m3)
         self._verify_logged(
@@ -45,7 +45,7 @@ class AbstractStoreTest(object):
             params=[],
             metrics=[],
             tags=[
-                RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]),)
+                RunTag(MLFLOW_LOGGED_MODELS, json.dumps([m.to_dict(), m2.to_dict(), m3.to_dict()]))
             ],
         )
         with self.assertRaises(TypeError):

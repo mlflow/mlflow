@@ -78,7 +78,7 @@ def run_kubernetes_job(
     job_template=None,
 ):
     job_template = _get_kubernetes_job_definition(
-        project_name, image_tag, image_digest, _get_run_command(command), env_vars, job_template,
+        project_name, image_tag, image_digest, _get_run_command(command), env_vars, job_template
     )
     job_name = job_template["metadata"]["name"]
     job_namespace = job_template["metadata"]["namespace"]

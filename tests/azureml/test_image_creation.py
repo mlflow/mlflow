@@ -86,7 +86,7 @@ def sklearn_model(sklearn_data):
 def keras_data():
     iris = datasets.load_iris()
     data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"],
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
     )
     y = data["target"]
     x = data.drop("target", axis=1)
@@ -125,7 +125,7 @@ def test_build_image_with_absolute_model_path_calls_expected_azure_routines(
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model,):
+def test_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
     with TempDir(chdr=True):
         model_path = "model"
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -211,7 +211,7 @@ def test_build_image_registers_model_and_creates_image_with_specified_names(
         model_name = "MODEL_NAME_1"
         image_name = "IMAGE_NAME_1"
         mlflow.azureml.build_image(
-            model_uri=model_path, workspace=workspace, model_name=model_name, image_name=image_name,
+            model_uri=model_path, workspace=workspace, model_name=model_name, image_name=image_name
         )
 
         register_model_call_args = aml_mocks["register_model"].call_args_list
@@ -296,7 +296,7 @@ def test_build_image_passes_model_conda_environment_to_azure_image_creation_rout
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(sklearn_model,):
+def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(sklearn_model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
@@ -659,7 +659,7 @@ def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
 
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
-def test_cli_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model,):
+def test_cli_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
     with TempDir(chdr=True):
         model_path = "model"
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)

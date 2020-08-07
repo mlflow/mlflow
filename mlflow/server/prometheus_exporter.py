@@ -15,13 +15,7 @@ def activate_prometheus_exporter(app):
         },
     )
     for func_name, func in endpoint.items():
-        if func_name in [
-            "_search_runs",
-            "_log_metric",
-            "_log_param",
-            "_set_tag",
-            "_create_run",
-        ]:
+        if func_name in ["_search_runs", "_log_metric", "_log_param", "_set_tag", "_create_run"]:
             app.view_functions[func_name] = histogram(func)
 
     return app

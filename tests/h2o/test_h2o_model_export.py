@@ -188,7 +188,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.h2o.log_model(
-            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env,
+            h2o_model=h2o_iris_model.model, artifact_path=artifact_path, conda_env=h2o_custom_env
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(

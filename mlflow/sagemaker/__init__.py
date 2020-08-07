@@ -16,10 +16,7 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import (
-    RESOURCE_DOES_NOT_EXIST,
-    INVALID_PARAMETER_VALUE,
-)
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
@@ -32,11 +29,7 @@ DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
 
-DEPLOYMENT_MODES = [
-    DEPLOYMENT_MODE_CREATE,
-    DEPLOYMENT_MODE_ADD,
-    DEPLOYMENT_MODE_REPLACE,
-]
+DEPLOYMENT_MODES = [DEPLOYMENT_MODE_CREATE, DEPLOYMENT_MODE_ADD, DEPLOYMENT_MODE_REPLACE]
 
 IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
 # Deprecated as of MLflow 1.0.
@@ -93,7 +86,7 @@ def _validate_deployment_flavor(model_config, flavor):
             message=(
                 "The specified flavor: `{flavor_name}` is not supported for deployment."
                 " Please use one of the supported flavors: {supported_flavor_names}".format(
-                    flavor_name=flavor, supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS,
+                    flavor_name=flavor, supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS
                 )
             ),
             error_code=INVALID_PARAMETER_VALUE,
@@ -411,9 +404,7 @@ def deploy(
             deployment_operation.clean_up()
 
 
-def delete(
-    app_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300,
-):
+def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300):
     """
     Delete a SageMaker application.
 
@@ -539,14 +530,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     deployment_config = _get_deployment_config(flavor_name=flavor)
 
     _logger.info("launching docker image with path %s", model_path)
-    cmd = [
-        "docker",
-        "run",
-        "-v",
-        "{}:/opt/ml/model/".format(model_path),
-        "-p",
-        "%d:8080" % port,
-    ]
+    cmd = ["docker", "run", "-v", "{}:/opt/ml/model/".format(model_path), "-p", "%d:8080" % port]
     for key, value in deployment_config.items():
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
     cmd += ["--rm", image, "serve"]
@@ -676,9 +660,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
             obj = sess.resource("s3").Bucket(bucket).Object(key)
             obj.upload_fileobj(fobj)
             response = s3_client.put_object_tagging(
-                Bucket=bucket,
-                Key=key,
-                Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"},]},
+                Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"},]}
             )
             _logger.info("tag response: %s", response)
             return "{}/{}/{}".format(s3_client.meta.endpoint_url, bucket, key)
@@ -756,8 +738,7 @@ def _create_sagemaker_endpoint(
         Tags=[{"Key": "app_name", "Value": endpoint_name,},],
     )
     _logger.info(
-        "Created endpoint configuration with arn: %s",
-        endpoint_config_response["EndpointConfigArn"],
+        "Created endpoint configuration with arn: %s", endpoint_config_response["EndpointConfigArn"]
     )
 
     endpoint_response = sage_client.create_endpoint(
@@ -927,7 +908,7 @@ def _update_sagemaker_endpoint(
         if mode == DEPLOYMENT_MODE_REPLACE:
             for pv in deployed_production_variants:
                 deployed_model_arn = _delete_sagemaker_model(
-                    model_name=pv["ModelName"], sage_client=sage_client, s3_client=s3_client,
+                    model_name=pv["ModelName"], sage_client=sage_client, s3_client=s3_client
                 )
                 _logger.info("Deleted model with arn: %s", deployed_model_arn)
 
@@ -938,14 +919,7 @@ def _update_sagemaker_endpoint(
 
 
 def _create_sagemaker_model(
-    model_name,
-    model_s3_path,
-    model_uri,
-    flavor,
-    vpc_config,
-    image_url,
-    execution_role,
-    sage_client,
+    model_name, model_s3_path, model_uri, flavor, vpc_config, image_url, execution_role, sage_client
 ):
     """
     :param model_name: The name to assign the new SageMaker model that is created.
@@ -1031,7 +1005,7 @@ def _find_endpoint(endpoint_name, sage_client):
 
         if "NextToken" in endpoints_page:
             endpoints_page = sage_client.list_endpoints(
-                MaxResults=100, NextToken=endpoints_page["NextToken"], NameContains=endpoint_name,
+                MaxResults=100, NextToken=endpoints_page["NextToken"], NameContains=endpoint_name
             )
         else:
             return None

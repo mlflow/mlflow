@@ -168,7 +168,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 creation_time = now()
                 registered_model = SqlRegisteredModel(
-                    name=name, creation_time=creation_time, last_updated_time=creation_time,
+                    name=name, creation_time=creation_time, last_updated_time=creation_time
                 )
                 tags_dict = {}
                 for tag in tags or []:
@@ -204,7 +204,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if len(rms) == 0:
             raise MlflowException(
-                "Registered Model with name={} not found".format(name), RESOURCE_DOES_NOT_EXIST,
+                "Registered Model with name={} not found".format(name), RESOURCE_DOES_NOT_EXIST
             )
         if len(rms) > 1:
             raise MlflowException(
@@ -250,7 +250,7 @@ class SqlAlchemyStore(AbstractStore):
                     sql_model_version.last_updated_time = updated_time
                 sql_registered_model.last_updated_time = updated_time
                 self._save_to_db(
-                    session, [sql_registered_model] + sql_registered_model.model_versions,
+                    session, [sql_registered_model] + sql_registered_model.model_versions
                 )
                 session.flush()
                 return sql_registered_model.to_mlflow_entity()
@@ -743,7 +743,7 @@ class SqlAlchemyStore(AbstractStore):
                 conditions = [SqlModelVersion.run_id == filter_dict["value"]]
             else:
                 raise MlflowException(
-                    "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE,
+                    "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE
                 )
         else:
             raise MlflowException(

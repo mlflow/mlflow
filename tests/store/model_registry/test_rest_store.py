@@ -112,7 +112,7 @@ class TestRestStore(unittest.TestCase):
         name = "model_1"
         self.store.delete_registered_model(name=name)
         self._verify_requests(
-            mock_http, "registered-models/delete", "DELETE", DeleteRegisteredModel(name=name),
+            mock_http, "registered-models/delete", "DELETE", DeleteRegisteredModel(name=name)
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -145,7 +145,7 @@ class TestRestStore(unittest.TestCase):
                 if "filter_string" in params:
                     params["filter"] = params.pop("filter_string")
                 self._verify_requests(
-                    mock_http, "registered-models/search", "GET", SearchRegisteredModels(**params),
+                    mock_http, "registered-models/search", "GET", SearchRegisteredModels(**params)
                 )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -161,7 +161,7 @@ class TestRestStore(unittest.TestCase):
         name = "model_1"
         self.store.get_latest_versions(name=name)
         self._verify_requests(
-            mock_http, "registered-models/get-latest-versions", "GET", GetLatestVersions(name=name),
+            mock_http, "registered-models/get-latest-versions", "GET", GetLatestVersions(name=name)
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -269,7 +269,7 @@ class TestRestStore(unittest.TestCase):
         version = "8"
         self.store.get_model_version(name=name, version=version)
         self._verify_requests(
-            mock_http, "model-versions/get", "GET", GetModelVersion(name=name, version=version),
+            mock_http, "model-versions/get", "GET", GetModelVersion(name=name, version=version)
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -288,10 +288,7 @@ class TestRestStore(unittest.TestCase):
     def test_search_model_versions(self, mock_http):
         self.store.search_model_versions(filter_string="name='model_12'")
         self._verify_requests(
-            mock_http,
-            "model-versions/search",
-            "GET",
-            SearchModelVersions(filter="name='model_12'"),
+            mock_http, "model-versions/search", "GET", SearchModelVersions(filter="name='model_12'")
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")

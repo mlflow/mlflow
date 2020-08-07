@@ -83,7 +83,7 @@ def is_dbfs_fuse_available():
         try:
             return (
                 subprocess.call(
-                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout,
+                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout
                 )
                 == 0
             )

@@ -600,13 +600,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
-    from pyspark.sql.types import (
-        DoubleType,
-        IntegerType,
-        FloatType,
-        LongType,
-        StringType,
-    )
+    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -850,7 +844,7 @@ def save_model(
 
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS,
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
     os.makedirs(path)
     if mlflow_model is None:
@@ -1004,7 +998,7 @@ def log_model(
 
 
 def _save_model_with_loader_module_and_data_path(
-    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=Model(),
+    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=Model()
 ):
     """
     Export model as a generic Python function model.
@@ -1044,7 +1038,7 @@ def _save_model_with_loader_module_and_data_path(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath,
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
     return mlflow_model

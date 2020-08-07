@@ -38,7 +38,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe", "in
 def xgb_model():
     iris = datasets.load_iris()
     X = pd.DataFrame(
-        iris.data[:, :2], columns=iris.feature_names[:2],  # we only take the first two features.
+        iris.data[:, :2], columns=iris.feature_names[:2]  # we only take the first two features.
     )
     y = iris.target
     dtrain = xgb.DMatrix(X, y)
@@ -85,7 +85,7 @@ def test_signature_and_examples_are_saved_correctly(xgb_model):
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.xgboost.save_model(
-                    xgb_model=model, path=path, signature=signature, input_example=example,
+                    xgb_model=model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
@@ -222,7 +222,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.xgboost.log_model(
-            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=xgb_custom_env,
+            xgb_model=xgb_model.model, artifact_path=artifact_path, conda_env=xgb_custom_env
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path

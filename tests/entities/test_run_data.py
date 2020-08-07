@@ -9,10 +9,10 @@ class TestRunData(unittest.TestCase):
     def _check_metrics(self, metric_objs, metrics_dict, expected_metrics):
         self.assertEqual(set([m.key for m in metric_objs]), set([m.key for m in expected_metrics]))
         self.assertEqual(
-            set([m.value for m in metric_objs]), set([m.value for m in expected_metrics]),
+            set([m.value for m in metric_objs]), set([m.value for m in expected_metrics])
         )
         self.assertEqual(
-            set([m.timestamp for m in metric_objs]), set([m.timestamp for m in expected_metrics]),
+            set([m.timestamp for m in metric_objs]), set([m.timestamp for m in expected_metrics])
         )
         self.assertEqual(
             set([m.step for m in metric_objs]), set([m.step for m in expected_metrics])

@@ -186,7 +186,7 @@ def save_model(
 
     """
     add_to_model(
-        mlflow_model=mlflow_model, path=path, spark_model=spark_model, sample_input=sample_input,
+        mlflow_model=mlflow_model, path=path, spark_model=spark_model, sample_input=sample_input
     )
     if signature is not None:
         mlflow_model.signature = signature

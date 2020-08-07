@@ -32,7 +32,7 @@ def read_image_bytes_base64(path):
 def read_images(spark, filenames):
     filenames_rdd = spark.sparkContext.parallelize(filenames)
     schema = StructType(
-        [StructField("filename", StringType(), True), StructField("image", StringType(), True),]
+        [StructField("filename", StringType(), True), StructField("image", StringType(), True)]
     )
     return filenames_rdd.map(lambda x: Row(filename=x, image=read_image_bytes_base64(x))).toDF(
         schema=schema

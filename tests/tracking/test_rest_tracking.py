@@ -33,10 +33,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.file_utils import path_to_local_file_uri
 
 from tests.integration.utils import invoke_cli_runner
-from tests.tracking.integration_test_utils import (
-    _await_server_down_or_die,
-    _init_server,
-)
+from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
 # pylint: disable=unused-argument
 
@@ -155,7 +152,7 @@ def test_delete_restore_experiment(mlflow_client):
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
     experiment_name = "DeleteriousCLI"
     invoke_cli_runner(
-        mlflow.experiments.commands, ["create", "--experiment-name", experiment_name], env=cli_env,
+        mlflow.experiments.commands, ["create", "--experiment-name", experiment_name], env=cli_env
     )
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "active"
@@ -187,7 +184,7 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
         mlflow.experiments.commands,
-        ["rename", "--experiment-id", str(experiment_id), "--new-name", good_experiment_name,],
+        ["rename", "--experiment-id", str(experiment_id), "--new-name", good_experiment_name],
         env=cli_env,
     )
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name

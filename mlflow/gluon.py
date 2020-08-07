@@ -327,7 +327,7 @@ def autolog():
             if estimator.max_batch is not None:
                 try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
             try_mlflow_log(
-                mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__,
+                mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
             )
             if hasattr(estimator.trainer.optimizer, "lr"):
                 try_mlflow_log(mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr)

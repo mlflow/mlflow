@@ -383,7 +383,7 @@ def deploy(
         )
 
         registered_model = AzureModel.register(
-            workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags,
+            workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags
         )
 
         _logger.info(
@@ -592,7 +592,7 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
     unresolved.mkdir(parents=True, exist_ok=True)
     out_path = unresolved.resolve()
     subprocess.run(
-        [sys.executable, "setup.py", "bdist_wheel", "-d", out_path], cwd=mlflow_dir, check=True,
+        [sys.executable, "setup.py", "bdist_wheel", "-d", out_path], cwd=mlflow_dir, check=True
     )
     files = list(out_path.glob("./*.whl"))
     if len(files) < 1:

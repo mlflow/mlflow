@@ -89,7 +89,7 @@ class LocalArtifactRepository(ArtifactRepository):
             artifact_files = list_all(list_dir, full_path=True)
             infos = [
                 get_file_info(
-                    f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir)),
+                    f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
                 )
                 for f in artifact_files
             ]

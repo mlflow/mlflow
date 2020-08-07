@@ -290,7 +290,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
         )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
             )
         )
 

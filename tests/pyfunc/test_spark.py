@@ -6,14 +6,7 @@ import pandas as pd
 import pytest
 import pyspark
 from py4j.protocol import Py4JJavaError
-from pyspark.sql.types import (
-    ArrayType,
-    DoubleType,
-    LongType,
-    StringType,
-    FloatType,
-    IntegerType,
-)
+from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import mlflow
 import mlflow.pyfunc
@@ -140,11 +133,11 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
         udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType()),
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         data = spark.createDataFrame(
             pd.DataFrame(
-                columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]},
+                columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
         with pytest.raises(Py4JJavaError):

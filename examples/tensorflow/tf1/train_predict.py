@@ -13,7 +13,7 @@ mlflow.tensorflow.autolog()
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--steps", default=1000, type=int, help="number of steps used for training and evaluation",
+    "--steps", default=1000, type=int, help="number of steps used for training and evaluation"
 )
 
 
@@ -23,7 +23,7 @@ def main(argv):
 
         # Builds, trains and evaluates a tf.estimator. Then, exports it for inference,
         # logs the exported model with MLflow, and loads the fitted model back as a PyFunc.
-        ((x_train, y_train), (x_test, y_test),) = tf.keras.datasets.boston_housing.load_data()
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.boston_housing.load_data()
 
         # There are 13 features we are using for inference.
         feat_cols = [tf.feature_column.numeric_column(key="features", shape=(x_train.shape[1],))]

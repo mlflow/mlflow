@@ -46,10 +46,7 @@ class TestModelVersion(unittest.TestCase):
         source = "path/to/source"
         run_id = uuid.uuid4().hex
         run_link = "http://localhost:5000/path/to/run"
-        tags = [
-            ModelVersionTag("key", "value"),
-            ModelVersionTag("randomKey", "not a random value"),
-        ]
+        tags = [ModelVersionTag("key", "value"), ModelVersionTag("randomKey", "not a random value")]
         mvd = ModelVersion(
             name,
             "5",

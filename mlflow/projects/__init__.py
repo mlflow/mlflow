@@ -159,7 +159,7 @@ def _run(
             image_digest,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
             get_run_env_vars(
-                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id,
+                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
             ),
             kube_config.get("kube-context", None),
             kube_config["kube-job-template"],

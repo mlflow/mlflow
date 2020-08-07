@@ -55,7 +55,7 @@ class Experiment(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         experiment = cls(
-            proto.experiment_id, proto.name, proto.artifact_location, proto.lifecycle_stage,
+            proto.experiment_id, proto.name, proto.artifact_location, proto.lifecycle_stage
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))

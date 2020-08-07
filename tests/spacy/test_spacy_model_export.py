@@ -106,8 +106,7 @@ def test_predict_df_with_wrong_shape(spacy_model_with_data, model_path):
     with pytest.raises(MlflowException):
         pyfunc_loaded.predict(
             pd.concat(
-                [spacy_model_with_data.inference_data, spacy_model_with_data.inference_data,],
-                axis=1,
+                [spacy_model_with_data.inference_data, spacy_model_with_data.inference_data], axis=1
             )
         )
 
@@ -144,7 +143,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     spacy_model_with_data, model_path, spacy_custom_env
 ):
     mlflow.spacy.save_model(
-        spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env,
+        spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)

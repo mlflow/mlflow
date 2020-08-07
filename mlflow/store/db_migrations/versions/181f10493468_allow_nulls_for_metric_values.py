@@ -20,7 +20,7 @@ def upgrade():
         batch_op.alter_column("value", type_=sa.types.Float(precision=53), nullable=False)
         batch_op.add_column(
             sa.Column(
-                "is_nan", sa.Boolean(create_constraint=False), nullable=False, server_default="0",
+                "is_nan", sa.Boolean(create_constraint=False), nullable=False, server_default="0"
             )
         )
         batch_op.drop_constraint(constraint_name="metric_pk", type_="primary")

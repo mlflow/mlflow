@@ -50,7 +50,7 @@ except ImportError:
 def data():
     iris = datasets.load_iris()
     data = pd.DataFrame(
-        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"],
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
     )
     y = data["target"]
     x = data.drop("target", axis=1)
@@ -70,7 +70,7 @@ def train_model(model, data):
     batch_size = 16
     num_workers = 4
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True, drop_last=False,
+        dataset, batch_size=batch_size, num_workers=num_workers, shuffle=True, drop_last=False
     )
 
     model.train()
@@ -162,7 +162,7 @@ def _predict(model, data):
     batch_size = 16
     num_workers = 4
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False, drop_last=False,
+        dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False, drop_last=False
     )
     predictions = np.zeros((len(dataloader.sampler),))
     model.eval()
@@ -553,7 +553,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         )
         pyfunc_model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path,
+                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
             )
         )
 

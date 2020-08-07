@@ -31,7 +31,7 @@ def test_artifact_can_be_downloaded_from_absolute_uri_successfully(tmpdir):
         assert f.read() == artifact_text
 
 
-def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_directory(tmpdir,):
+def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_directory(tmpdir):
     artifact_file_name = "artifact.txt"
     artifact_text = "Sample artifact text"
     local_artifact_path = tmpdir.join(artifact_file_name).strpath
@@ -51,7 +51,7 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
         os.path.join(artifact_output_path, logged_artifact_subdir)
     )
     with open(
-        os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name), "r",
+        os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name), "r"
     ) as f:
         assert f.read() == artifact_text
 

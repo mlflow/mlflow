@@ -2,16 +2,7 @@ import base64
 import json
 import pytest
 
-from mlflow.entities import (
-    RunInfo,
-    RunData,
-    Run,
-    LifecycleStage,
-    RunStatus,
-    Metric,
-    Param,
-    RunTag,
-)
+from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.utils.search_utils import SearchUtils
 
@@ -23,23 +14,20 @@ from mlflow.utils.search_utils import SearchUtils
             "metric.acc >= 0.94",
             [{"comparator": ">=", "key": "acc", "type": "metric", "value": "0.94"}],
         ),
-        (
-            "metric.acc>=100",
-            [{"comparator": ">=", "key": "acc", "type": "metric", "value": "100"}],
-        ),
-        ("params.m!='tf'", [{"comparator": "!=", "key": "m", "type": "parameter", "value": "tf"}],),
+        ("metric.acc>=100", [{"comparator": ">=", "key": "acc", "type": "metric", "value": "100"}]),
+        ("params.m!='tf'", [{"comparator": "!=", "key": "m", "type": "parameter", "value": "tf"}]),
         (
             'params."m"!="tf"',
             [{"comparator": "!=", "key": "m", "type": "parameter", "value": "tf"}],
         ),
         (
             'metric."legit name" >= 0.243',
-            [{"comparator": ">=", "key": "legit name", "type": "metric", "value": "0.243",}],
+            [{"comparator": ">=", "key": "legit name", "type": "metric", "value": "0.243"}],
         ),
-        ("metrics.XYZ = 3", [{"comparator": "=", "key": "XYZ", "type": "metric", "value": "3"}],),
+        ("metrics.XYZ = 3", [{"comparator": "=", "key": "XYZ", "type": "metric", "value": "3"}]),
         (
             'params."cat dog" = "pets"',
-            [{"comparator": "=", "key": "cat dog", "type": "parameter", "value": "pets",}],
+            [{"comparator": "=", "key": "cat dog", "type": "parameter", "value": "pets"}],
         ),
         (
             'metrics."X-Y-Z" = 3',
@@ -51,42 +39,32 @@ from mlflow.utils.search_utils import SearchUtils
         ),
         (
             "params.model = 'LinearRegression'",
-            [
-                {
-                    "comparator": "=",
-                    "key": "model",
-                    "type": "parameter",
-                    "value": "LinearRegression",
-                }
-            ],
+            [{"comparator": "=", "key": "model", "type": "parameter", "value": "LinearRegression"}],
         ),
         (
             "metrics.rmse < 1 and params.model_class = 'LR'",
             [
                 {"comparator": "<", "key": "rmse", "type": "metric", "value": "1"},
-                {"comparator": "=", "key": "model_class", "type": "parameter", "value": "LR",},
+                {"comparator": "=", "key": "model_class", "type": "parameter", "value": "LR"},
             ],
         ),
         ("", []),
-        (
-            "`metric`.a >= 0.1",
-            [{"comparator": ">=", "key": "a", "type": "metric", "value": "0.1"}],
-        ),
+        ("`metric`.a >= 0.1", [{"comparator": ">=", "key": "a", "type": "metric", "value": "0.1"}]),
         (
             "`params`.model >= 'LR'",
             [{"comparator": ">=", "key": "model", "type": "parameter", "value": "LR"}],
         ),
         (
             "tags.version = 'commit-hash'",
-            [{"comparator": "=", "key": "version", "type": "tag", "value": "commit-hash",}],
+            [{"comparator": "=", "key": "version", "type": "tag", "value": "commit-hash"}],
         ),
         (
             "`tags`.source_name = 'a notebook'",
-            [{"comparator": "=", "key": "source_name", "type": "tag", "value": "a notebook",}],
+            [{"comparator": "=", "key": "source_name", "type": "tag", "value": "a notebook"}],
         ),
         (
             'metrics."accuracy.2.0" > 5',
-            [{"comparator": ">", "key": "accuracy.2.0", "type": "metric", "value": "5",}],
+            [{"comparator": ">", "key": "accuracy.2.0", "type": "metric", "value": "5"}],
         ),
         (
             "metrics.`spacey name` > 5",
@@ -94,16 +72,16 @@ from mlflow.utils.search_utils import SearchUtils
         ),
         (
             'params."p.a.r.a.m" != "a"',
-            [{"comparator": "!=", "key": "p.a.r.a.m", "type": "parameter", "value": "a",}],
+            [{"comparator": "!=", "key": "p.a.r.a.m", "type": "parameter", "value": "a"}],
         ),
-        ('tags."t.a.g" = "a"', [{"comparator": "=", "key": "t.a.g", "type": "tag", "value": "a"}],),
+        ('tags."t.a.g" = "a"', [{"comparator": "=", "key": "t.a.g", "type": "tag", "value": "a"}]),
         (
             "attribute.artifact_uri = '1/23/4'",
-            [{"type": "attribute", "comparator": "=", "key": "artifact_uri", "value": "1/23/4",}],
+            [{"type": "attribute", "comparator": "=", "key": "artifact_uri", "value": "1/23/4"}],
         ),
         (
             "run.status = 'RUNNING'",
-            [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING",}],
+            [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
         ),
     ],
 )
@@ -114,9 +92,9 @@ def test_filter(filter_string, parsed_filter):
 @pytest.mark.parametrize(
     "filter_string, parsed_filter",
     [
-        ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}],),
-        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}],),
-        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}],),
+        ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
+        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
+        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
         (
             'params.m = "L\'Hosp"',
             [{"type": "parameter", "comparator": "=", "key": "m", "value": "L'Hosp"}],
@@ -130,7 +108,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
 @pytest.mark.parametrize(
     "filter_string, error_message",
     [
-        ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression",),
+        ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
         ("m.acc >= 0.94", "Invalid entity type"),
         ("acc >= 0.94", "Invalid identifier"),
         ("p.model >= 'LR'", "Invalid entity type"),
@@ -245,7 +223,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
     )
     for bad_comparator in bad_comparators:
         bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-            entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value,
+            entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
         )
         with pytest.raises(MlflowException) as e:
             SearchUtils.filter([run], bad_filter)
@@ -281,7 +259,7 @@ def test_correct_filtering(filter_string, matching_runs):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             ),
             run_data=RunData(
-                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[],
+                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[]
             ),
         ),
         Run(
@@ -356,7 +334,7 @@ def test_correct_sorting(order_bys, matching_runs):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             ),
             run_data=RunData(
-                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[],
+                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[]
             ),
         ),
         Run(
@@ -462,7 +440,7 @@ def test_invalid_order_by_search_runs(order_by, error_message):
     ],
 )
 def test_space_order_by_search_runs(order_by, ascending_expected):
-    (identifier_type, identifier_name, ascending,) = SearchUtils.parse_order_by_for_search_runs(
+    identifier_type, identifier_name, ascending = SearchUtils.parse_order_by_for_search_runs(
         order_by
     )
     assert identifier_type == "metric"
@@ -570,8 +548,8 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
     "page_token, error_message",
     [
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
-        (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token",),
-        (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token",),
+        (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
+        (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
         (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
         ("not base64", "Invalid page token"),
     ],

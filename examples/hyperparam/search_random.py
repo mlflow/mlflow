@@ -39,7 +39,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
     tracking_client = mlflow.tracking.MlflowClient()
 
     def new_eval(
-        nepochs, experiment_id, null_train_loss=_inf, null_val_loss=_inf, null_test_loss=_inf,
+        nepochs, experiment_id, null_train_loss=_inf, null_val_loss=_inf, null_test_loss=_inf
     ):
         def eval(parms):
             lr, momentum = parms
@@ -89,14 +89,14 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
         runs = [(np.random.uniform(1e-5, 1e-1), np.random.uniform(0, 1.0)) for _ in range(max_runs)]
         with ThreadPoolExecutor(max_workers=max_p) as executor:
             _ = executor.map(
-                new_eval(epochs, experiment_id, null_train_loss, null_val_loss, null_test_loss,),
+                new_eval(epochs, experiment_id, null_train_loss, null_val_loss, null_test_loss),
                 runs,
             )
 
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
         runs = client.search_runs(
-            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id),
+            [experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(run_id=run.info.run_id)
         )
         best_val_train = _inf
         best_val_valid = _inf

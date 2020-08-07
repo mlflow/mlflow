@@ -14,7 +14,7 @@ import click
 )
 @click.option("--ratings-csv")
 @click.option(
-    "--max-row-limit", default=10000, help="Limit the data size to run comfortably on a laptop.",
+    "--max-row-limit", default=10000, help="Limit the data size to run comfortably on a laptop."
 )
 def etl_data(ratings_csv, max_row_limit):
     with mlflow.start_run() as mlrun:

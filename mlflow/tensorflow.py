@@ -26,10 +26,7 @@ import tensorflow
 import mlflow.keras
 from distutils.version import LooseVersion
 from contextlib import contextmanager
-from tensorflow.keras.callbacks import (
-    Callback,
-    TensorBoard,
-)  # pylint: disable=import-error
+from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=import-error
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -937,11 +934,7 @@ def autolog(every_n_iter=100):
 
     def _get_early_stop_callback_attrs(callback):
         try:
-            return (
-                callback.stopped_epoch,
-                callback.restore_best_weights,
-                callback.patience,
-            )
+            return callback.stopped_epoch, callback.restore_best_weights, callback.patience
         except Exception:  # pylint: disable=W0703
             return None
 
@@ -976,14 +969,7 @@ def autolog(every_n_iter=100):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit")
 
-            unlogged_params = [
-                "self",
-                "x",
-                "y",
-                "callbacks",
-                "validation_data",
-                "verbose",
-            ]
+            unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
             early_stop_callback = None
@@ -1020,13 +1006,7 @@ def autolog(every_n_iter=100):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
 
-            unlogged_params = [
-                "self",
-                "generator",
-                "callbacks",
-                "validation_data",
-                "verbose",
-            ]
+            unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 

@@ -30,11 +30,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENV,
 )
 
-from tests.projects.utils import (
-    TEST_PROJECT_DIR,
-    TEST_PROJECT_NAME,
-    validate_exit_status,
-)
+from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, validate_exit_status
 
 
 MOCK_USER = "janebloggs"
@@ -77,7 +73,7 @@ def test_resolve_experiment_id(experiment_name, experiment_id, expected):
 
 def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
     with pytest.raises(
-        MlflowException, match="Specify only one of 'experiment_name' or 'experiment_id'.",
+        MlflowException, match="Specify only one of 'experiment_name' or 'experiment_id'."
     ):
         _resolve_experiment_id(experiment_name="experiment_named", experiment_id="44")
 
@@ -151,7 +147,7 @@ def test_run_local_git_repo(local_git_repo, local_git_repo_uri, use_start_run, v
     run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
     run_infos = mlflow_service.list_run_infos(
-        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY,
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
     assert len(run_infos) == 1
     store_run_id = run_infos[0].run_id
@@ -213,7 +209,7 @@ def test_run(use_start_run):
     mlflow_service = mlflow.tracking.MlflowClient()
 
     run_infos = mlflow_service.list_run_infos(
-        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY,
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY
     )
     assert len(run_infos) == 1
     store_run_id = run_infos[0].run_id
