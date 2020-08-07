@@ -256,8 +256,9 @@ class TrackingServiceClient(object):
 
     def _get_artifact_repo(self, run_id):
         run = self.get_run(run_id)
-        artifact_uri = add_databricks_profile_info_to_artifact_uri(run.info.artifact_uri,
-                                                                   self.tracking_uri)
+        artifact_uri = add_databricks_profile_info_to_artifact_uri(
+            run.info.artifact_uri, self.tracking_uri
+        )
         return get_artifact_repository(artifact_uri)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
