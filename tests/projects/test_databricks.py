@@ -387,14 +387,15 @@ def test_run_databricks_throws_exception_when_spec_uses_existing_cluster():
 
 
 def test_run_databricks_cancel(
-    before_run_validations_mock,  # pylint: disable=unused-argument
+    before_run_validations_mock,
     runs_submit_mock,
     dbfs_mocks,
-    set_tag_mock,  # pylint: disable=unused-argument
+    set_tag_mock,
     runs_cancel_mock,
     runs_get_mock,
     cluster_spec_mock,
 ):
+    # pylint: disable=unused-argument
     # Test that MLflow properly handles Databricks run cancellation. We mock the result of
     # the runs-get API to indicate run failure so that cancel() exits instead of blocking while
     # waiting for run status.
