@@ -3,7 +3,7 @@ import mock
 
 from mlflow.entities import Run, RunInfo
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
-from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+
 
 @pytest.fixture
 def mock_store():
@@ -27,7 +27,7 @@ def newTrackingServiceClient():
     ('ftp://user:pass@host/path', 'databricks://profile', 'ftp://user:pass@host/path'),
 ])
 def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
-    with mock.patch('mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run',  # or can mock the store
+    with mock.patch('mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run',
                     return_value=Run(RunInfo('uuid', 'expr_id', 'userid', 'status', 0, 10,
                                              'active', artifact_uri=artifact_uri), None)), \
             mock.patch('mlflow.tracking._tracking_service.client.get_artifact_repository',
