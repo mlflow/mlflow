@@ -731,7 +731,8 @@ then make API requests to your remote tracking server.
 Note that to use the artifact storage capabilities of a remote server, the client need a direct access to the artifact store.
 The client is the one pushing directly artifacts to the artifact storage, and not through the tracking server.
 How to setup credentials for the artifact storage depends on the :ref:`Artifact Stores <artifact-stores>` technology setup for the server.
-Note that some technology choices impose that credentials will transit in clear text on the network.
+Same holds for the definition of write options, like giving other users (e.g. the Tracking Server UI) permissions to read the artifacts.  
+Note that some technology choices impose that credential will transit in clear text on the network.
 
 .. _tracking_auth:
 
