@@ -60,6 +60,11 @@ class S3ArtifactRepository(ArtifactRepository):
             Key=key,
             ExtraArgs=extra_args)
 
+    def _get_s3_resource(self):
+        import boto3
+        s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+        return boto3.resource('s3', endpoint_url=s3_endpoint_url)
+
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
         if artifact_path:
@@ -138,4 +143,9 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+        if artifact_path:
+            dest_path = posixpath.join(dest_path, artifact_path)
+
+        s3_resource = self._get_s3_resource()
+        s3_resource.Bucket(bucket).objects.filter(Prefix=dest_path).delete()
