@@ -110,22 +110,30 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
-    def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None):
+    def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None,
+                    python_only=False, no_conda=False):
 
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+            optimize_image = "false"
+            if no_conda:
+                optimize_image = "true"
             return """
                 COPY {model_dir} /opt/ml/model
                 RUN python -c \
                 'from mlflow.models.container import _install_pyfunc_deps;\
-                _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow})'
+                _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow},\
+                no_conda={no_conda})'
                 ENV {disable_env}="true"
+                ENV OPTIMIZED_IMAGE={optimize_image}
                 """.format(
                 disable_env=DISABLE_ENV_CREATION,
                 model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
-                install_mlflow=repr(install_mlflow)
+                install_mlflow=repr(install_mlflow),
+                no_conda=repr(no_conda),
+                optimize_image=optimize_image
             )
 
         # The pyfunc image runs the same server as the Sagemaker image
@@ -137,6 +145,7 @@ class PyFuncBackend(FlavorBackend):
             mlflow_home=mlflow_home,
             custom_setup_steps_hook=copy_model_into_container,
             entrypoint=pyfunc_entrypoint,
+            python_only=python_only
         )
 
 
