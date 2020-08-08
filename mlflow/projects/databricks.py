@@ -106,7 +106,7 @@ class DatabricksJobRunner(object):
         host_creds = databricks_utils.get_databricks_host_creds(self.databricks_profile_uri)
         response = rest_utils.http_request(
             host_creds=host_creds, endpoint="/api/2.0/dbfs/get-status", method="GET",
-            json={"path": "/%s" % dbfs_path})
+            params={"path": "/%s" % dbfs_path})
         try:
             json_response_obj = json.loads(response.text)
         except Exception:  # pylint: disable=broad-except
@@ -236,7 +236,7 @@ class DatabricksJobRunner(object):
 
     def jobs_runs_cancel(self, databricks_run_id):
         response = self._databricks_api_request(
-            endpoint="/api/2.0/jobs/runs/cancel", method="POST", json={"run_id": databricks_run_id})
+            endpoint="/api/2.0/jobs/runs/cancel", method="POST", params={"run_id": databricks_run_id})
         return json.loads(response.text)
 
     def jobs_runs_get(self, databricks_run_id):
