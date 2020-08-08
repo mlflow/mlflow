@@ -85,6 +85,8 @@ class GCSArtifactRepository(ArtifactRepository):
 
         results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
+            if result.name == prefix:
+                continue
             blob_path = result.name[len(artifact_path) + 1:]
             infos.append(FileInfo(blob_path, False, result.size))
 
