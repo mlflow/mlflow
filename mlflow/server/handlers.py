@@ -152,6 +152,13 @@ def _get_request_message(request_message, flask_request=request):
     return request_message
 
 
+def _get_username(flask_request=request):
+    # Get username from basic authentication
+    if "authorization" in flask_request.headers:
+        return flask_request.authorization.username
+    return None
+
+
 def _send_artifact(artifact_repository, path):
     filename = os.path.abspath(artifact_repository.download_artifacts(path))
     extension = os.path.splitext(filename)[-1].replace(".", "")
@@ -609,12 +616,14 @@ def _delete_registered_model_tag():
 @catch_mlflow_exception
 def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
+    username = _get_username()
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
         source=request_message.source,
         run_id=request_message.run_id,
         run_link=request_message.run_link,
-        tags=request_message.tags)
+        tags=request_message.tags,
+        user_id=username)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 

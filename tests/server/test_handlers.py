@@ -40,6 +40,12 @@ def mock_get_request_message():
 
 
 @pytest.fixture()
+def mock_get_username():
+    with mock.patch('mlflow.server.handlers._get_username') as m:
+        yield m
+
+
+@pytest.fixture()
 def mock_get_request_json():
     with mock.patch('mlflow.server.handlers._get_request_json') as m:
         yield m
@@ -368,7 +374,8 @@ def test_get_latest_versions(mock_get_request_message, mock_model_registry_store
         assert args == {"name": name, "stages": stages}
 
 
-def test_create_model_version(mock_get_request_message, mock_model_registry_store):
+def test_create_model_version(mock_get_request_message, mock_model_registry_store,
+                              mock_get_username):
     run_id = uuid.uuid4().hex
     tags = [ModelVersionTag(key="key", value="value"),
             ModelVersionTag(key="anotherKey", value="some other value")]
@@ -379,6 +386,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
                                                                run_link=run_link,
                                                                tags=[tag.to_proto()
                                                                      for tag in tags])
+    mock_get_username.return_value = "basic_auth_username"
     mv = ModelVersion(name="model_1", version="12", creation_timestamp=123, tags=tags,
                       run_link=run_link)
     mock_model_registry_store.create_model_version.return_value = mv
@@ -387,6 +395,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     assert args["name"] == "model_1"
     assert args["source"] == "A/B"
     assert args["run_id"] == run_id
+    assert args["user_id"] == "basic_auth_username"
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == run_link
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mv)}
