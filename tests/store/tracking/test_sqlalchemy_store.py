@@ -1276,10 +1276,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:4])
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-4:])
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
@@ -1288,10 +1288,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:4].upper())
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-4:].upper())
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
         for (k, v) in {"experiment_id": e1,
