@@ -42,8 +42,10 @@ jobs:
 
     - name: Clean up conda environments
       run: |
-        conda env list | cut -d' ' -f1 | \
-        grep "^mlflow-[a-z0-9]\{32\}" | xargs -L 1 conda remove --all --yes -n
+        conda env list |                        # list (env name, env path) pairs
+        cut -d' ' -f1 |                         # extract env names
+        grep "^mlflow-[a-z0-9]\{32\}" |         # filter envs created by mlflow
+        xargs -L 1 conda remove --all --yes -n  # pass env names to conda remove
         conda env list
 
     - name: Run docker tests
