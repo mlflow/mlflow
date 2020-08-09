@@ -47,6 +47,7 @@ jobs:
         grep "^mlflow-[a-z0-9]\{32\}" |         # filter envs created by mlflow
         xargs -L 1 conda remove --all --yes -n  # pass env names to conda remove
         conda env list
+        conda clean --all --yes
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
