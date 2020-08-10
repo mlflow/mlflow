@@ -326,6 +326,7 @@ class TestRestStore(object):
                 max_results=10,
                 order_by=["a"],
                 page_token="12345abcde",
+                columns_to_whitelist=['params.p1', 'tags.t3'],
             )
 
             expected_message = SearchRuns(
@@ -335,6 +336,7 @@ class TestRestStore(object):
                 max_results=10,
                 order_by=["a"],
                 page_token="12345abcde",
+                columns_to_whitelist=ColumnsToWhitelist(columns=['params.p1', 'tags.t3']),
             )
             self._verify_requests(
                 mock_http,
