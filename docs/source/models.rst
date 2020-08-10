@@ -789,6 +789,7 @@ accepts the following data formats as input:
                                                 model_name='mymodelname', 
                                                 service_name='myservice', 
                                                 deployment_config=aci_config)
+                                                
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
@@ -797,7 +798,6 @@ accepts the following data formats as input:
 
     import requests
     import json
-    
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input = {
         "columns": [
@@ -827,8 +827,7 @@ accepts the following data formats as input:
     
 .. code-block:: bash
 
-    # note: mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
-    
+    # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
     mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
     
     az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
@@ -839,9 +838,8 @@ accepts the following data formats as input:
     # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
     
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
-
     
-        # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
+    # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input='
     {
         "columns": [
