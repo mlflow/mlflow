@@ -89,6 +89,7 @@ def test_client_search_runs_defaults(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -101,6 +102,7 @@ def test_client_search_runs_filter(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -113,6 +115,7 @@ def test_client_search_runs_view_type(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -125,6 +128,7 @@ def test_client_search_runs_max_results(mock_store):
         max_results=2876,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -137,6 +141,7 @@ def test_client_search_runs_int_experiment_id(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -149,6 +154,7 @@ def test_client_search_runs_string_experiment_id(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -161,6 +167,7 @@ def test_client_search_runs_order_by(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=["a", "b"],
         page_token=None,
+        columns_to_whitelist=None,
     )
 
 
@@ -173,6 +180,7 @@ def test_client_search_runs_page_token(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token="blah",
+        columns_to_whitelist=None,
     )
 
 
