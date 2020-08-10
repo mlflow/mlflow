@@ -73,19 +73,19 @@ class ArtifactRepositoryRegistry:
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
-_artifact_repository_registry.register("", LocalArtifactRepository)
-_artifact_repository_registry.register("file", LocalArtifactRepository)
-_artifact_repository_registry.register("s3", S3ArtifactRepository)
-_artifact_repository_registry.register("gs", GCSArtifactRepository)
-_artifact_repository_registry.register("wasbs", AzureBlobArtifactRepository)
-_artifact_repository_registry.register("ftp", FTPArtifactRepository)
-_artifact_repository_registry.register("sftp", SFTPArtifactRepository)
-_artifact_repository_registry.register("dbfs", dbfs_artifact_repo_factory)
-_artifact_repository_registry.register("hdfs", HdfsArtifactRepository)
-_artifact_repository_registry.register("viewfs", HdfsArtifactRepository)
-_artifact_repository_registry.register("runs", RunsArtifactRepository)
-_artifact_repository_registry.register("models", ModelsArtifactRepository)
-
+_artifact_repository_registry.register('', LocalArtifactRepository)
+_artifact_repository_registry.register('file', LocalArtifactRepository)
+_artifact_repository_registry.register('s3', S3ArtifactRepository)
+_artifact_repository_registry.register('gs', GCSArtifactRepository)
+_artifact_repository_registry.register('wasbs', AzureBlobArtifactRepository)
+_artifact_repository_registry.register('ftp', FTPArtifactRepository)
+_artifact_repository_registry.register('sftp', SFTPArtifactRepository)
+_artifact_repository_registry.register('dbfs', dbfs_artifact_repo_factory)
+_artifact_repository_registry.register('hdfs', HdfsArtifactRepository)
+_artifact_repository_registry.register('har', HdfsArtifactRepository)
+_artifact_repository_registry.register('viewfs', HdfsArtifactRepository)
+_artifact_repository_registry.register('runs', RunsArtifactRepository)
+_artifact_repository_registry.register('models', ModelsArtifactRepository)
 _artifact_repository_registry.register_entrypoints()
 
 

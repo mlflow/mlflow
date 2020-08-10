@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './ExperimentPage.css';
 import PropTypes from 'prop-types';
-import { getExperimentApi, searchRunsApi, loadMoreRunsApi } from '../actions';
+import { getExperimentApi, searchRunsApi, loadMoreRunsApi, listAllColumnsApi } from '../actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
@@ -29,9 +29,14 @@ export class ExperimentPage extends Component {
         searchInput: urlState.search === undefined ? '' : urlState.search,
         orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
         orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === 'true',
+        columnsToWhitelist:
+          urlState.columnsToWhitelist === undefined ? null : urlState.columnsToWhitelist,
       },
       nextPageToken: null,
       loadingMore: false,
+      metricsList: [],
+      tagsList: [],
+      paramsList: [],
     };
   }
 
@@ -42,7 +47,7 @@ export class ExperimentPage extends Component {
   loadData() {
     const { persistedState, lifecycleFilter } = this.state;
     const { experimentId } = this.props;
-    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const { orderByKey, orderByAsc, searchInput, columnsToWhitelist } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
@@ -50,11 +55,30 @@ export class ExperimentPage extends Component {
       console.error(e);
     });
     this.props
-      .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
+      .searchRunsApi(
+        [experimentId],
+        searchInput,
+        viewType,
+        orderBy,
+        columnsToWhitelist,
+        this.searchRunsRequestId,
+      )
       .then(this.updateNextPageToken)
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
+      });
+    this.props
+      .listAllColumnsApi(experimentId, viewType)
+      .then((response = {}) => {
+        this.setState({
+          metricsList: response.value.metrics,
+          tagsList: response.value.tags,
+          paramsList: response.value.params,
+        });
+      })
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
       });
   }
 
@@ -70,7 +94,7 @@ export class ExperimentPage extends Component {
   handleLoadMoreRuns = () => {
     const { experimentId } = this.props;
     const { persistedState, lifecycleFilter, nextPageToken } = this.state;
-    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const { orderByKey, orderByAsc, searchInput, columnsToWhitelist } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
@@ -80,6 +104,7 @@ export class ExperimentPage extends Component {
         searchInput,
         viewType,
         orderBy,
+        columnsToWhitelist,
         nextPageToken,
         this.loadMoreRunsRequestId,
       )
@@ -95,6 +120,7 @@ export class ExperimentPage extends Component {
     getExperimentApi: PropTypes.func.isRequired,
     searchRunsApi: PropTypes.func.isRequired,
     loadMoreRunsApi: PropTypes.func.isRequired,
+    listAllColumnsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
   };
@@ -145,6 +171,7 @@ export class ExperimentPage extends Component {
     lifecycleFilterInput,
     orderByKey,
     orderByAsc,
+    columnsToWhitelist,
   ) => {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
@@ -153,6 +180,7 @@ export class ExperimentPage extends Component {
         searchInput,
         orderByKey,
         orderByAsc,
+        columnsToWhitelist,
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
@@ -164,12 +192,28 @@ export class ExperimentPage extends Component {
         searchInput,
         lifecycleFilterToRunViewType(lifecycleFilterInput),
         orderBy,
+        columnsToWhitelist,
         this.searchRunsRequestId,
       )
       .then(this.updateNextPageToken)
       .catch((e) => {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ nextPageToken: null, loadingMore: false });
+      });
+    this.props
+      .listAllColumnsApi(
+        this.props.experimentId,
+        lifecycleFilterToRunViewType(lifecycleFilterInput),
+      )
+      .then((response = {}) => {
+        this.setState({
+          metricsList: response.value.metrics,
+          tagsList: response.value.tags,
+          paramsList: response.value.params,
+        });
+      })
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
       });
 
     this.updateUrlWithSearchFilter({
@@ -178,6 +222,7 @@ export class ExperimentPage extends Component {
       searchInput,
       orderByKey,
       orderByAsc,
+      columnsToWhitelist,
     });
   };
 
@@ -199,6 +244,7 @@ export class ExperimentPage extends Component {
     searchInput,
     orderByKey,
     orderByAsc,
+    columnsToWhitelist,
   }) {
     const state = {};
     if (paramKeyFilterString) {
@@ -217,6 +263,10 @@ export class ExperimentPage extends Component {
     if (orderByAsc === false) {
       state['orderByAsc'] = orderByAsc;
     }
+    if (columnsToWhitelist) {
+      state['columnsToWhitelist'] = columnsToWhitelist;
+    }
+
     const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(
       state,
     )}`;
@@ -262,6 +312,10 @@ export class ExperimentPage extends Component {
         nextPageToken={this.state.nextPageToken}
         handleLoadMoreRuns={this.handleLoadMoreRuns}
         loadingMore={this.state.loadingMore}
+        metricKeysList={this.state.metricsList}
+        paramKeysList={this.state.paramsList}
+        tagKeysList={this.state.tagsList}
+        columnsToWhitelist={this.state.persistedState.columnsToWhitelist}
       />
     );
   };
@@ -285,6 +339,7 @@ const mapDispatchToProps = {
   getExperimentApi,
   searchRunsApi,
   loadMoreRunsApi,
+  listAllColumnsApi,
 };
 
 const lifecycleFilterToRunViewType = (lifecycleFilter) => {

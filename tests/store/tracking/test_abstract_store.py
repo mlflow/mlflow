@@ -43,15 +43,20 @@ class AbstractStoreTestImpl(AbstractStore):
     def get_metric_history(self, run_id, metric_key):
         raise NotImplementedError()
 
-    def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
-    ):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token, columns_to_whitelist):
         raise NotImplementedError()
 
     def log_batch(self, run_id, metrics, params, tags):
         raise NotImplementedError()
 
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        raise NotImplementedError()
+
     def record_logged_model(self, run_id, mlflow_model):
+        raise NotImplementedError()
+
+    def list_all_columns(self, experiment_id, run_view_type):
         raise NotImplementedError()
 
 
@@ -149,6 +154,5 @@ def test_search_runs():
         for i in range(len(result)):
             assert result[i] == runs[i]
         assert result.token == token
-        store._search_runs.assert_called_once_with(
-            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None
-        )
+        store._search_runs.assert_called_once_with([experiment_id], None, view_type,
+                                                   SEARCH_MAX_RESULTS_DEFAULT, None, None, None)

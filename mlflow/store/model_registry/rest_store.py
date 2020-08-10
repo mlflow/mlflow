@@ -52,7 +52,8 @@ class RestStore(AbstractStore):
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto,
+                             self.get_host_creds)
 
     # CRUD API for RegisteredModel objects
 

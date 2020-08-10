@@ -46,7 +46,7 @@ describe('ExperimentViewUtil', () => {
       'user_id',
       true,
       'div',
-      [],
+      [ExperimentViewUtil.AttributeColumnLabels.DATE],
     );
     // We assume that headerComponent[1] is the 'start_time' header
     const startTimeHeader = shallow(headerComponents[1]);
@@ -70,7 +70,7 @@ describe('ExperimentViewUtil', () => {
     expect(mockSortFn.mock.calls.length).toEqual(0);
   });
 
-  test('getRunMetadataHeaderCells excludes excludedCols', () => {
+  test('getRunMetadataHeaderCells inludes includedCols', () => {
     const headerComponents = ExperimentViewUtil.getRunMetadataHeaderCells(
       () => {},
       'user_id',
@@ -79,15 +79,11 @@ describe('ExperimentViewUtil', () => {
       [ExperimentViewUtil.AttributeColumnLabels.DATE],
     );
     const headers = headerComponents.map((c) => shallow(c));
-    headers.forEach((h) => {
-      expect(h.text()).not.toContain(ExperimentViewUtil.AttributeColumnLabels.DATE);
-    });
-
-    // As a sanity check, let's make sure the headers contain some other column
-    const userHeaders = headers.filter(
-      (h) => h.text() === ExperimentViewUtil.AttributeColumnLabels.USER,
+    // At least 1 header contains date
+    const date_header = headers.filter((h) =>
+      h.text().includes(ExperimentViewUtil.AttributeColumnLabels.DATE),
     );
-    expect(userHeaders.length).toBe(1);
+    expect(date_header.length).toBe(1);
   });
 
   test('computeMetricRanges returns the correct min and max value for a metric', () => {

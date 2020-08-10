@@ -332,6 +332,8 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     if code_paths is not None:
+        if not isinstance(code_paths, list):
+            raise TypeError('Code_paths should be a list, not {type(code_paths)}')
         code_dir_subpath = "code"
         for code_path in code_paths:
             _copy_file_or_tree(src=code_path, dst=path, dst_dir=code_dir_subpath)

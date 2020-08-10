@@ -10,6 +10,7 @@ import { Experiment, RunInfo, RunTag, Param } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
 import { ModelVersionStatus, Stages } from '../../model-registry/constants';
+import { setup_mock, teardown_mock } from '../../../__mocks__/xhr-mock';
 
 describe('RunView', () => {
   let minimalProps;
@@ -103,6 +104,7 @@ describe('RunView', () => {
   });
 
   test('With non-empty tags, params, duration - getRunCommand & metadata list', () => {
+    setup_mock();
     const store = mockStore({
       ...minimalStoreRaw,
       entities: {
@@ -172,6 +174,7 @@ describe('RunView', () => {
     expect(wrapper.html()).toContain('Duration');
     expect(wrapper.html()).toContain('Parent Run');
     expect(wrapper.html()).toContain('Job Output');
+    teardown_mock();
   });
 
   test('state: showNoteEditor false/true -> edit button shown/hidden', () => {

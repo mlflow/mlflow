@@ -12,7 +12,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
     metricKeyList: PropTypes.array,
     visibleTagKeyList: PropTypes.array,
     onCheck: PropTypes.func,
-    categorizedUncheckedKeys: PropTypes.object.isRequired,
+    categorizedCheckedKeys: PropTypes.object,
   };
 
   static defaultProps = {
@@ -28,7 +28,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
   handleCheck = (checkedKeys, allKeys) => {
     const { onCheck } = this.props;
     if (onCheck) {
-      onCheck(getCategorizedUncheckedKeys(checkedKeys, allKeys));
+      onCheck(getCategorizedCheckedKeys(checkedKeys));
     }
   };
 
@@ -80,22 +80,32 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
   }
 
   getCheckedKeys() {
-    const { paramKeyList, metricKeyList, visibleTagKeyList, categorizedUncheckedKeys } = this.props;
-    return [
-      ..._.difference(
-        Object.values(ExperimentViewUtil.AttributeColumnLabels),
-        categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
-      ).map((key) => `${ColumnTypes.ATTRIBUTES}-${key}`),
-      ..._.difference(paramKeyList, categorizedUncheckedKeys[ColumnTypes.PARAMS]).map(
-        (key) => `${ColumnTypes.PARAMS}-${key}`,
-      ),
-      ..._.difference(metricKeyList, categorizedUncheckedKeys[ColumnTypes.METRICS]).map(
-        (key) => `${ColumnTypes.METRICS}-${key}`,
-      ),
-      ..._.difference(visibleTagKeyList, categorizedUncheckedKeys[ColumnTypes.TAGS]).map(
-        (key) => `${ColumnTypes.TAGS}-${key}`,
-      ),
-    ];
+    const { paramKeyList, metricKeyList, visibleTagKeyList, categorizedCheckedKeys } = this.props;
+    if (categorizedCheckedKeys !== undefined) {
+      return [
+        ..._.intersection(
+          Object.values(ExperimentViewUtil.AttributeColumnLabels),
+          categorizedCheckedKeys[ColumnTypes.ATTRIBUTES],
+        ).map((key) => `${ColumnTypes.ATTRIBUTES}-${key}`),
+        ..._.intersection(paramKeyList, categorizedCheckedKeys[ColumnTypes.PARAMS]).map(
+          (key) => `${ColumnTypes.PARAMS}-${key}`,
+        ),
+        ..._.intersection(metricKeyList, categorizedCheckedKeys[ColumnTypes.METRICS]).map(
+          (key) => `${ColumnTypes.METRICS}-${key}`,
+        ),
+        ..._.intersection(visibleTagKeyList, categorizedCheckedKeys[ColumnTypes.TAGS]).map(
+          (key) => `${ColumnTypes.TAGS}-${key}`,
+        ),
+      ];
+    } else {
+      return Object.values(ExperimentViewUtil.AttributeColumnLabels)
+        .map((key) => `${ColumnTypes.ATTRIBUTES}-${key}`)
+        .concat(
+          paramKeyList.map((key) => `${ColumnTypes.PARAMS}-${key}`),
+          metricKeyList.map((key) => `${ColumnTypes.METRICS}-${key}`),
+          visibleTagKeyList.map((key) => `${ColumnTypes.TAGS}-${key}`),
+        );
+    }
   }
 
   handleSearchInputEscapeKeyPress = () => {
@@ -134,20 +144,23 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
   }
 }
 
-function getCategorizedUncheckedKeys(checkedKeys, allKeys) {
-  const uncheckedKeys = _.difference(allKeys, checkedKeys);
+function getCategorizedCheckedKeys(checkedKeys) {
   const result = {
     [ColumnTypes.ATTRIBUTES]: [],
     [ColumnTypes.PARAMS]: [],
     [ColumnTypes.METRICS]: [],
     [ColumnTypes.TAGS]: [],
   };
-  uncheckedKeys.forEach((key) => {
+  checkedKeys.forEach((key) => {
     // split on first instance of '-' in case there are keys with '-'
     const [columnType, rawKey] = key.split(/-(.+)/);
     if (rawKey) {
       result[columnType].push(rawKey);
-    } else if (columnType !== ColumnTypes.PARAMS && columnType !== ColumnTypes.METRICS) {
+    } else if (
+      columnType !== ColumnTypes.PARAMS &&
+      columnType !== ColumnTypes.METRICS &&
+      columnType !== ColumnTypes.TAGS
+    ) {
       result[ColumnTypes.ATTRIBUTES].push(columnType);
     }
   });

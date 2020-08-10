@@ -176,6 +176,19 @@ def test_client_search_runs_page_token(mock_store):
     )
 
 
+def test_client_search_columns(mock_store):
+    MlflowClient().search_runs([5], columns_to_whitelist=['params.p_0', 'metrics.loss'])
+    mock_store.search_runs.assert_called_once_with(
+        experiment_ids=[5],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+        columns_to_whitelist=['params.p_0', 'metrics.loss']
+    )
+
+
 def test_client_registry_operations_raise_exception_with_unsupported_registry_store():
     """
     This test case ensures that Model Registry operations invoked on the `MlflowClient`

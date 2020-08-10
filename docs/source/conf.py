@@ -13,6 +13,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+import mlflow.version
 import sys
 import os
 
@@ -23,6 +24,7 @@ sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("."))
 
 from languagesections import *
+
 
 # -- General configuration ------------------------------------------------
 
@@ -63,7 +65,6 @@ author = "MLflow"
 # built documents.
 #
 
-import mlflow.version
 
 # The short X.Y version.
 version = mlflow.version.VERSION
@@ -312,10 +313,11 @@ texinfo_documents = [
 nitpicky = True
 nitpick_ignore = [
     # Ignore "parent class reference not found" errors for subclasses of ``object``
-    ("py:class", "object"),
-    ("py:class", "enum.Enum"),
-    ("py:class", "bytes"),
-    ("py:class", "bytearray"),
+    ('py:class', 'object'),
+    ('py:class', 'enum.Enum'),
+    ('py:class', 'bytes'),
+    ('py:class', 'bytearray'),
+    ('py:class', 'json.encoder.JSONEncoder'),
 ]
 
 linkcheck_ignore = [

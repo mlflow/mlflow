@@ -31,6 +31,9 @@ def test_is_uri():
     assert is_uri("gs://some/gs/path")
     assert is_uri("dbfs:/some/dbfs/path")
     assert is_uri("file://some/local/path")
+    assert is_uri("hdfs://some/hdfs/path")
+    assert is_uri("viewfs://some/viewfs/path")
+    assert is_uri("har://some/viewfs/path")
     assert not is_uri("/tmp/some/local/path")
 
 
@@ -40,6 +43,8 @@ def test_download_uri():
         "dbfs:/": "mlflow.data._fetch_dbfs",
         "s3://": "mlflow.data._fetch_s3",
         "gs://": "mlflow.data._fetch_gs",
+        "hdfs://": "mlflow.data._fetch_hdfs",
+        "viewfs://": "mlflow.data._fetch_hdfs",
     }
     for prefix, fn_name in prefix_to_mock.items():
         with mock.patch(fn_name) as mocked_fn, temp_directory() as dst_dir:

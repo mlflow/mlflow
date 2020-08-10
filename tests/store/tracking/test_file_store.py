@@ -573,6 +573,41 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert len(self._search(fs, self.experiments[0])) == 2
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
 
+    def test_list_columns(self):
+        fs = FileStore(self.test_root)
+        experiment_id = fs.create_experiment("test_list_columns", None)
+        r1 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        r2 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        r3 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        fs.log_metric(r1, Metric("metric1", 10, 1232, 0))
+        fs.log_metric(r2, Metric("metric2", 10, 1231, 0))
+        fs.log_metric(r3, Metric("metric3", 10, 1230, 0))
+        fs.set_tag(r1, RunTag("tag1", "value1!"))
+        fs.set_tag(r2, RunTag("tag2", "value2!"))
+        fs.set_tag(r3, RunTag("tag3", "value3!"))
+        fs.log_param(r1, Param("param1", "Value"))
+        fs.log_param(r2, Param("param2", "Value"))
+        fs.log_param(r3, Param("param3", "Value"))
+        fs.delete_run(r3)
+
+        columns_active = fs.list_all_columns(experiment_id=experiment_id,
+                                             run_view_type=ViewType.ACTIVE_ONLY)
+        assert set(columns_active.tags) == {"tag1", "tag2"}
+        assert set(columns_active.params) == {"param1", "param2"}
+        assert set(columns_active.metrics) == {"metric1", "metric2"}
+
+        columns_deleted = fs.list_all_columns(experiment_id=experiment_id,
+                                              run_view_type=ViewType.DELETED_ONLY)
+        assert set(columns_deleted.tags) == {"tag3"}
+        assert set(columns_deleted.params) == {"param3"}
+        assert set(columns_deleted.metrics) == {"metric3"}
+
+        columns_all = fs.list_all_columns(experiment_id=experiment_id,
+                                          run_view_type=ViewType.ALL)
+        assert set(columns_all.tags) == {"tag1", "tag2", "tag3"}
+        assert set(columns_all.params) == {"param1", "param2", "param3"}
+        assert set(columns_all.metrics) == {"metric1", "metric2", "metric3"}
+
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]
@@ -1063,3 +1098,41 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         run = self._create_run(fs)
         fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
         self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])
+
+    def test_whitelist_columns(self):
+        fs = FileStore(self.test_root)
+        r1 = self._create_run(fs).info.run_id
+        r2 = self._create_run(fs).info.run_id
+
+        fs.log_param(r1, Param('generic_param', 'p_val'))
+        fs.log_param(r2, Param('generic_param', 'p_val'))
+
+        fs.log_param(r1, Param('p_a', 'abc'))
+        fs.log_param(r2, Param('p_b', 'ABC'))
+
+        fs.log_metric(r1, Metric("common", 1.0, 1, 0))
+        fs.log_metric(r2, Metric("common", 1.0, 1, 0))
+
+        fs.log_metric(r1, Metric("m_a", 2.0, 2, 0))
+        fs.log_metric(r2, Metric("m_b", 3.0, 2, 0))
+        fs.log_metric(r2, Metric("m_b", 4.0, 8, 0))
+        fs.log_metric(r2, Metric("m_b", 8.0, 3, 0))
+
+        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+        runs = {run.info.run_id: run for run in fs.search_runs(
+            [FileStore.DEFAULT_EXPERIMENT_ID], filter_string, ViewType.ALL,
+            columns_to_whitelist=['params.p_a', 'metrics.common',
+                                  'tags.donotexist', 'metrics.m_b'])}
+        assert len(runs) == 2
+
+        def assert_run_equals(run_data1, run_data2):
+            assert set(run_data1.metrics) == set(run_data2.metrics)
+            assert set(run_data1.params) == set(run_data2.params)
+            assert set(run_data1.tags) == set(run_data2.tags)
+
+        expected_r1 = RunData(metrics=[Metric('common', 1.0, 1, 0)],
+                              params=[Param('p_a', 'abc')], tags=[])
+        assert_run_equals(runs[r1].data, expected_r1)
+        expected_r2 = RunData(metrics=[Metric('common', 1.0, 1, 0), Metric('m_b', 8.0, 3, 0)],
+                              params=[], tags=[])
+        assert_run_equals(runs[r2].data, expected_r2)

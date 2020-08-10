@@ -304,6 +304,16 @@ def set_tags(tags):
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
+def update_artifacts_location(artifacts_path):
+    """
+    Update the location of artifacts for currently activerun
+
+    :param artifacts_path: String new artifact location
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().update_artifacts_location(run_id, artifacts_path)
+
+
 def log_artifact(local_path, artifact_path=None):
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
@@ -407,13 +417,9 @@ def get_artifact_uri(artifact_path=None):
     )
 
 
-def search_runs(
-    experiment_ids=None,
-    filter_string="",
-    run_view_type=ViewType.ACTIVE_ONLY,
-    max_results=SEARCH_MAX_RESULTS_PANDAS,
-    order_by=None,
-):
+def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None,
+                columns_to_whitelist=None):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
@@ -426,6 +432,8 @@ def search_runs(
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+    :param columns_to_whitelist: select columns (tags, params, metrics) to read.
+        None means all columns
 
     :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
@@ -439,7 +447,8 @@ def search_runs(
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_runs(
-            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token
+            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token,
+            columns_to_whitelist
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
