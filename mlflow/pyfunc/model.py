@@ -38,10 +38,9 @@ def get_default_conda_env():
     """
     return _mlflow_conda_env(
         additional_conda_deps=None,
-        additional_pip_deps=[
-            "cloudpickle=={}".format(cloudpickle.__version__),
-        ],
-        additional_conda_channels=None)
+        additional_pip_deps=["cloudpickle=={}".format(cloudpickle.__version__)],
+        additional_conda_channels=None,
+    )
 
 
 class PythonModel(object):
@@ -51,6 +50,7 @@ class PythonModel(object):
     "python_function" ("pyfunc") flavor, leveraging custom inference logic and artifact
     dependencies.
     """
+
     __metaclass__ = ABCMeta
 
     def load_context(self, context):
@@ -105,8 +105,9 @@ class PythonModelContext(object):
         return self._artifacts
 
 
-def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, conda_env=None,
-                                            code_paths=None, mlflow_model=Model()):
+def _save_model_with_class_artifacts_params(
+    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model()
+):
     """
     :param path: The path to which to save the Python model.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
@@ -138,10 +139,12 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
     else:
         raise MlflowException(
-                message=("`python_model` must be a subclass of `PythonModel`. Instead, found an"
-                         " object of type: {python_model_type}".format(
-                             python_model_type=type(python_model))),
-                error_code=INVALID_PARAMETER_VALUE)
+            message=(
+                "`python_model` must be a subclass of `PythonModel`. Instead, found an"
+                " object of type: {python_model_type}".format(python_model_type=type(python_model))
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if artifacts:
         saved_artifacts_config = {}
@@ -150,11 +153,13 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
             saved_artifacts_dir_subpath = "artifacts"
             for artifact_name, artifact_uri in artifacts.items():
                 tmp_artifact_path = _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path())
+                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                )
                 tmp_artifacts_config[artifact_name] = tmp_artifact_path
                 saved_artifact_subpath = posixpath.join(
                     saved_artifacts_dir_subpath,
-                    os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()))
+                    os.path.relpath(path=tmp_artifact_path, start=tmp_artifacts_dir.path()),
+                )
                 saved_artifacts_config[artifact_name] = {
                     CONFIG_KEY_ARTIFACT_RELATIVE_PATH: saved_artifact_subpath,
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
@@ -178,20 +183,27 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
         for code_path in code_paths:
             _copy_file_or_tree(src=code_path, dst=path, dst_dir=saved_code_subpath)
 
-    mlflow.pyfunc.add_to_model(model=mlflow_model, loader_module=__name__, code=saved_code_subpath,
-                               env=conda_env_subpath, **custom_model_config_kwargs)
+    mlflow.pyfunc.add_to_model(
+        model=mlflow_model,
+        loader_module=__name__,
+        code=saved_code_subpath,
+        env=conda_env_subpath,
+        **custom_model_config_kwargs
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
-            model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
+        model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
+    )
 
     python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
     if python_model_cloudpickle_version is None:
         mlflow.pyfunc._logger.warning(
             "The version of CloudPickle used to save the model could not be found in the MLmodel"
-            " configuration")
+            " configuration"
+        )
     elif python_model_cloudpickle_version != cloudpickle.__version__:
         # CloudPickle does not have a well-defined cross-version compatibility policy. Micro version
         # releases have been known to cause incompatibilities. Therefore, we match on the full
@@ -200,20 +212,23 @@ def _load_pyfunc(model_path):
             "The version of CloudPickle that was used to save the model, `CloudPickle %s`, differs"
             " from the version of CloudPickle that is currently running, `CloudPickle %s`, and may"
             " be incompatible",
-            python_model_cloudpickle_version, cloudpickle.__version__)
+            python_model_cloudpickle_version,
+            cloudpickle.__version__,
+        )
 
     python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
     if python_model_subpath is None:
-        raise MlflowException(
-            "Python model path was not specified in the model configuration")
+        raise MlflowException("Python model path was not specified in the model configuration")
     with open(os.path.join(model_path, python_model_subpath), "rb") as f:
         python_model = cloudpickle.load(f)
 
     artifacts = {}
-    for saved_artifact_name, saved_artifact_info in\
-            pyfunc_config.get(CONFIG_KEY_ARTIFACTS, {}).items():
+    for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
+        CONFIG_KEY_ARTIFACTS, {}
+    ).items():
         artifacts[saved_artifact_name] = os.path.join(
-            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH])
+            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
+        )
 
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)

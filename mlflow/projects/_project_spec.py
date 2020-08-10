@@ -39,30 +39,39 @@ def load_project(directory):
     docker_env = yaml_obj.get("docker_env")
     if docker_env:
         if not docker_env.get("image"):
-            raise ExecutionException("Project configuration (MLproject file) was invalid: Docker "
-                                     "environment specified but no image attribute found.")
+            raise ExecutionException(
+                "Project configuration (MLproject file) was invalid: Docker "
+                "environment specified but no image attribute found."
+            )
         if docker_env.get("volumes"):
-            if not (isinstance(docker_env["volumes"], list)
-                    and all([isinstance(i, str) for i in docker_env["volumes"]])):
-                raise ExecutionException("Project configuration (MLproject file) was invalid: "
-                                         "Docker volumes must be a list of strings, "
-                                         """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
+            if not (
+                isinstance(docker_env["volumes"], list)
+                and all([isinstance(i, str) for i in docker_env["volumes"]])
+            ):
+                raise ExecutionException(
+                    "Project configuration (MLproject file) was invalid: "
+                    "Docker volumes must be a list of strings, "
+                    """e.g.: '["/path1/:/path1", "/path2/:/path2"])"""
+                )
         if docker_env.get("environment"):
-            if not (isinstance(docker_env["environment"], list)
-                    and all([isinstance(i, list) or isinstance(i, str)
-                             for i in docker_env["environment"]])):
+            if not (
+                isinstance(docker_env["environment"], list)
+                and all(
+                    [isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]]
+                )
+            ):
                 raise ExecutionException(
                     "Project configuration (MLproject file) was invalid: "
                     "environment must be a list containing either strings (to copy environment "
                     "variables from host system) or lists of string pairs (to define new "
                     "environment variables)."
-                    """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])""")
+                    """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
+                )
 
     # Validate config if conda_env parameter is present
     conda_path = yaml_obj.get("conda_env")
     if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and "
-                                 "conda environment.")
+        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
 
     # Parse entry points
     entry_points = {}
@@ -74,22 +83,34 @@ def load_project(directory):
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
-            raise ExecutionException("Project specified conda environment file %s, but no such "
-                                     "file was found." % conda_env_path)
-        return Project(conda_env_path=conda_env_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name,)
+            raise ExecutionException(
+                "Project specified conda environment file %s, but no such "
+                "file was found." % conda_env_path
+            )
+        return Project(
+            conda_env_path=conda_env_path,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
 
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
-        return Project(conda_env_path=default_conda_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+        return Project(
+            conda_env_path=default_conda_path,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
 
-    return Project(conda_env_path=None, entry_points=entry_points,
-                   docker_env=docker_env, name=project_name)
+    return Project(
+        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
+    )
 
 
 class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
+
     def __init__(self, conda_env_path, entry_points, docker_env, name):
         self.conda_env_path = conda_env_path
         self._entry_points = entry_points
@@ -109,14 +130,16 @@ class Project(object):
         elif file_extension == ".R":
             command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % shlex_quote(entry_point)
             return EntryPoint(name=entry_point, parameters={}, command=command)
-        raise ExecutionException("Could not find {0} among entry points {1} or interpret {0} as a "
-                                 "runnable script. Supported script file extensions: "
-                                 "{2}".format(entry_point, list(self._entry_points.keys()),
-                                              list(ext_to_cmd.keys())))
+        raise ExecutionException(
+            "Could not find {0} among entry points {1} or interpret {0} as a "
+            "runnable script. Supported script file extensions: "
+            "{2}".format(entry_point, list(self._entry_points.keys()), list(ext_to_cmd.keys()))
+        )
 
 
 class EntryPoint(object):
     """An entry point in an MLproject specification."""
+
     def __init__(self, name, parameters, command):
         self.name = name
         self.parameters = {k: Parameter(k, v) for (k, v) in parameters.items()}
@@ -125,12 +148,13 @@ class EntryPoint(object):
     def _validate_parameters(self, user_parameters):
         missing_params = []
         for name in self.parameters:
-            if (name not in user_parameters and self.parameters[name].default is None):
+            if name not in user_parameters and self.parameters[name].default is None:
                 missing_params.append(name)
         if missing_params:
             raise ExecutionException(
-                "No value given for missing parameters: %s" %
-                ", ".join(["'%s'" % name for name in missing_params]))
+                "No value given for missing parameters: %s"
+                % ", ".join(["'%s'" % name for name in missing_params])
+            )
 
     def compute_parameters(self, user_parameters, storage_dir):
         """
@@ -178,6 +202,7 @@ class EntryPoint(object):
 
 class Parameter(object):
     """A parameter in an MLproject entry point."""
+
     def __init__(self, name, yaml_obj):
         self.name = name
         if is_string_type(yaml_obj):
@@ -189,22 +214,26 @@ class Parameter(object):
 
     def _compute_uri_value(self, user_param_value):
         if not data.is_uri(user_param_value):
-            raise ExecutionException("Expected URI for parameter %s but got "
-                                     "%s" % (self.name, user_param_value))
+            raise ExecutionException(
+                "Expected URI for parameter %s but got " "%s" % (self.name, user_param_value)
+            )
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir, key_position):
         local_path = get_local_path_or_none(user_param_value)
         if local_path:
             if not os.path.exists(local_path):
-                raise ExecutionException("Got value %s for parameter %s, but no such file or "
-                                         "directory was found." % (user_param_value, self.name))
+                raise ExecutionException(
+                    "Got value %s for parameter %s, but no such file or "
+                    "directory was found." % (user_param_value, self.name)
+                )
             return os.path.abspath(local_path)
-        target_sub_dir = 'param_{}'.format(key_position)
+        target_sub_dir = "param_{}".format(key_position)
         download_dir = os.path.join(storage_dir, target_sub_dir)
         os.mkdir(download_dir)
-        return artifact_utils._download_artifact_from_uri(artifact_uri=user_param_value,
-                                                          output_path=download_dir)
+        return artifact_utils._download_artifact_from_uri(
+            artifact_uri=user_param_value, output_path=download_dir
+        )
 
     def compute_value(self, param_value, storage_dir, key_position):
         if storage_dir and self.type == "path":

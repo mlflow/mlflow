@@ -222,8 +222,11 @@ from mlflow.utils import PYTHON_VERSION, deprecated, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
-    RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+)
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -303,8 +306,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
             return values.astype(t.to_pandas(), errors="raise")
         except ValueError:
             raise MlflowException(
-                "Failed to convert column {0} from type {1} to {2}.".format(
-                  name, values.dtype, t)
+                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
             )
 
     if values.dtype in (t.to_pandas(), t.to_numpy()):
@@ -326,10 +328,10 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         # NB: conversion between incompatible types (e.g. floats -> ints or
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
-        raise MlflowException("Incompatible input types for column {0}. "
-                              "Can not safely convert {1} to {2}.".format(name,
-                                                                          values.dtype,
-                                                                          numpy_type))
+        raise MlflowException(
+            "Incompatible input types for column {0}. "
+            "Can not safely convert {1} to {2}.".format(name, values.dtype, numpy_type)
+        )
 
 
 def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
@@ -345,7 +347,7 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     if isinstance(pdf, list):
         pdf = pandas.DataFrame(pdf)
     if not isinstance(pdf, pandas.DataFrame):
-        message = 'Expected input to be DataFrame or list. Found: %s' % type(pdf).__name__
+        message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
 
     if input_schema.has_column_names():
@@ -360,19 +362,22 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
         missing_cols = [c for c in col_names if c in missing_cols]
         extra_cols = [c for c in pdf.columns if c in extra_cols]
         if missing_cols:
-            message = ("Model input is missing columns {0}."
-                       " Note that there were extra columns: {1}".format(missing_cols, extra_cols))
+            message = (
+                "Model input is missing columns {0}."
+                " Note that there were extra columns: {1}".format(missing_cols, extra_cols)
+            )
             raise MlflowException(message)
     else:
         # The model signature does not specify column names => we can only verify column count.
         if len(pdf.columns) < len(input_schema.columns):
-            message = ("Model input is missing input columns. The model signature declares "
-                       "{0} input columns but the provided input only has "
-                       "{1} columns. Note: the columns were not named in the signature so we can "
-                       "only verify their count.").format(len(input_schema.columns),
-                                                          len(pdf.columns))
+            message = (
+                "Model input is missing input columns. The model signature declares "
+                "{0} input columns but the provided input only has "
+                "{1} columns. Note: the columns were not named in the signature so we can "
+                "only verify their count."
+            ).format(len(input_schema.columns), len(pdf.columns))
             raise MlflowException(message)
-        col_names = pdf.columns[:len(input_schema.columns)]
+        col_names = pdf.columns[: len(input_schema.columns)]
     col_types = input_schema.column_types()
     new_pdf = pandas.DataFrame()
     for i, x in enumerate(col_names):
@@ -461,8 +466,9 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
     conf = model_meta.flavors.get(FLAVOR_NAME)
     if conf is None:
         raise MlflowException(
-            "Model does not have the \"{flavor_name}\" flavor".format(flavor_name=FLAVOR_NAME),
-            RESOURCE_DOES_NOT_EXIST)
+            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=FLAVOR_NAME),
+            RESOURCE_DOES_NOT_EXIST,
+        )
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
@@ -509,13 +515,16 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
         _logger.warning(
             "The specified model does not have a specified Python version. It may be"
             " incompatible with the version of Python that is currently running: Python %s",
-            PYTHON_VERSION)
+            PYTHON_VERSION,
+        )
     elif get_major_minor_py_version(model_py_version) != get_major_minor_py_version(PYTHON_VERSION):
         _logger.warning(
             "The version of Python that the model was saved in, `Python %s`, differs"
             " from the version of Python that is currently running, `Python %s`,"
             " and may be incompatible",
-            model_py_version, PYTHON_VERSION)
+            model_py_version,
+            PYTHON_VERSION,
+        )
 
 
 def spark_udf(spark, model_uri, result_type="double"):
@@ -605,12 +614,14 @@ def spark_udf(spark, model_uri, result_type="double"):
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
             message="Invalid result_type '{}'. Result type can only be one of or an array of one "
-                    "of the following types types: {}".format(str(elem_type), str(supported_types)),
-            error_code=INVALID_PARAMETER_VALUE)
+            "of the following types types: {}".format(str(elem_type), str(supported_types)),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     with TempDir() as local_tmpdir:
         local_model_path = _download_artifact_from_uri(
-            artifact_uri=model_uri, output_path=local_tmpdir.path())
+            artifact_uri=model_uri, output_path=local_tmpdir.path()
+        )
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     def predict(*args):
@@ -621,8 +632,10 @@ def spark_udf(spark, model_uri, result_type="double"):
         for x in args:
             if type(x) == pandas.DataFrame:
                 if len(args) != 1:
-                    raise Exception("If passing a StructType column, there should be only one "
-                                    "input column, but got %d" % len(args))
+                    raise Exception(
+                        "If passing a StructType column, there should be only one "
+                        "input column, but got %d" % len(args)
+                    )
                 pdf = x
         if pdf is None:
             args = list(args)
@@ -631,13 +644,14 @@ def spark_udf(spark, model_uri, result_type="double"):
             else:
                 names = input_schema.column_names()
                 if len(args) > len(names):
-                    args = args[:len(names)]
+                    args = args[: len(names)]
                 if len(args) < len(names):
-                    message = ("Model input is missing columns. Expected {0} input columns {1},"
-                               " but the model received only {2} unnamed input columns"
-                               " (Since the columns were passed unnamed they are expected to be in"
-                               " the order specified by the schema).".format(
-                                   len(names), names, len(args)))
+                    message = (
+                        "Model input is missing columns. Expected {0} input columns {1},"
+                        " but the model received only {2} unnamed input columns"
+                        " (Since the columns were passed unnamed they are expected to be in"
+                        " the order specified by the schema).".format(len(names), names, len(args))
+                    )
                     raise MlflowException(message)
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
@@ -649,8 +663,9 @@ def spark_udf(spark, model_uri, result_type="double"):
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
 
         if type(elem_type) == IntegerType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort,
-                                           np.int32]).astype(np.int32)
+            result = result.select_dtypes(
+                [np.byte, np.ubyte, np.short, np.ushort, np.int32]
+            ).astype(np.int32)
         elif type(elem_type) == LongType:
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
 
@@ -663,9 +678,10 @@ def spark_udf(spark, model_uri, result_type="double"):
         if len(result.columns) == 0:
             raise MlflowException(
                 message="The the model did not produce any values compatible with the requested "
-                        "type '{}'. Consider requesting udf with StringType or "
-                        "Arraytype(StringType).".format(str(elem_type)),
-                error_code=INVALID_PARAMETER_VALUE)
+                "type '{}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).".format(str(elem_type)),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         if type(elem_type) == StringType:
             result = result.applymap(str)
@@ -678,10 +694,19 @@ def spark_udf(spark, model_uri, result_type="double"):
     return pandas_udf(predict, result_type)
 
 
-def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               mlflow_model=None, python_model=None, artifacts=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None,
-               **kwargs):
+def save_model(
+    path,
+    loader_module=None,
+    data_path=None,
+    code_path=None,
+    conda_env=None,
+    mlflow_model=None,
+    python_model=None,
+    artifacts=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    **kwargs
+):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
                mlflow_model=Model(), python_model=None, artifacts=None)
@@ -779,12 +804,12 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
     """
-    mlflow_model = kwargs.pop('model', mlflow_model)
+    mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
         raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
     if code_path is not None:
         if not isinstance(code_path, list):
-            raise TypeError('Argument code_path should be a list, not {}'.format(type(code_path)))
+            raise TypeError("Argument code_path should be a list, not {}".format(type(code_path)))
 
     first_argument_set = {
         "loader_module": loader_module,
@@ -805,19 +830,22 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                     first_set_keys=first_argument_set.keys(),
                     second_set_keys=second_argument_set.keys(),
                     first_set_entries=first_argument_set,
-                    second_set_entries=second_argument_set)),
-            error_code=INVALID_PARAMETER_VALUE)
+                    second_set_entries=second_argument_set,
+                )
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     elif (loader_module is None) and (python_model is None):
-        msg = "Either `loader_module` or `python_model` must be specified. A `loader_module` " \
-              "should be a python module. A `python_model` should be a subclass of PythonModel"
-        raise MlflowException(
-            message=msg,
-            error_code=INVALID_PARAMETER_VALUE)
+        msg = (
+            "Either `loader_module` or `python_model` must be specified. A `loader_module` "
+            "should be a python module. A `python_model` should be a subclass of PythonModel"
+        )
+        raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS)
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
+        )
     os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
@@ -828,17 +856,36 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
-            path=path, loader_module=loader_module, data_path=data_path,
-            code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
+            path=path,
+            loader_module=loader_module,
+            data_path=data_path,
+            code_paths=code_path,
+            conda_env=conda_env,
+            mlflow_model=mlflow_model,
+        )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
-            path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
-            code_paths=code_path, mlflow_model=mlflow_model)
+            path=path,
+            python_model=python_model,
+            artifacts=artifacts,
+            conda_env=conda_env,
+            code_paths=code_path,
+            mlflow_model=mlflow_model,
+        )
 
 
-def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-              python_model=None, artifacts=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(
+    artifact_path,
+    loader_module=None,
+    data_path=None,
+    code_path=None,
+    conda_env=None,
+    python_model=None,
+    artifacts=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
     artifact for the current run.
@@ -935,22 +982,24 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
     """
-    return Model.log(artifact_path=artifact_path,
-                     flavor=mlflow.pyfunc,
-                     loader_module=loader_module,
-                     data_path=data_path,
-                     code_path=code_path,
-                     python_model=python_model,
-                     artifacts=artifacts,
-                     conda_env=conda_env,
-                     registered_model_name=registered_model_name,
-                     signature=signature,
-                     input_example=input_example)
+    return Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.pyfunc,
+        loader_module=loader_module,
+        data_path=data_path,
+        code_path=code_path,
+        python_model=python_model,
+        artifacts=artifacts,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+    )
 
 
-def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
-                                                 code_paths=None, conda_env=None,
-                                                 mlflow_model=Model()):
+def _save_model_with_loader_module_and_data_path(
+    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=Model()
+):
     """
     Export model as a generic Python function model.
     :param path: The path to which to save the Python model.
@@ -989,7 +1038,8 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow.pyfunc.add_to_model(
-        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath)
+        mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
     return mlflow_model
 

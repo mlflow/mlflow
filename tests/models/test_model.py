@@ -12,32 +12,32 @@ from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 
 def test_model_save_load():
-    m = Model(artifact_path="some/path",
-              run_id="123",
-              flavors={
-                  "flavor1": {"a": 1, "b": 2},
-                  "flavor2": {"x": 1, "y": 2},
-              },
-              signature=ModelSignature(
-                  inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-                  outputs=Schema([ColSpec(name=None, type="double")])),
-              saved_input_example_info={"x": 1, "y": 2})
+    m = Model(
+        artifact_path="some/path",
+        run_id="123",
+        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
+        signature=ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        ),
+        saved_input_example_info={"x": 1, "y": 2},
+    )
     assert m.get_input_schema() == m.signature.inputs
     assert m.get_output_schema() == m.signature.outputs
     x = Model(artifact_path="some/other/path", run_id="1234")
     assert x.get_input_schema() is None
     assert x.get_output_schema() is None
 
-    n = Model(artifact_path="some/path",
-              run_id="123",
-              flavors={
-                  "flavor1": {"a": 1, "b": 2},
-                  "flavor2": {"x": 1, "y": 2},
-              },
-              signature=ModelSignature(
-                  inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-                  outputs=Schema([ColSpec(name=None, type="double")])),
-              saved_input_example_info={"x": 1, "y": 2})
+    n = Model(
+        artifact_path="some/path",
+        run_id="123",
+        flavors={"flavor1": {"a": 1, "b": 2}, "flavor2": {"x": 1, "y": 2}},
+        signature=ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        ),
+        saved_input_example_info={"x": 1, "y": 2},
+    )
     n.utc_time_created = m.utc_time_created
     assert m == n
     n.signature = None
@@ -66,16 +66,17 @@ class TestFlavor(object):
 def test_model_log():
     with TempDir(chdr=True) as tmp:
         experiment_id = mlflow.create_experiment("test")
-        sig = ModelSignature(inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
-                             outputs=Schema([ColSpec(name=None, type="double")]))
+        sig = ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
         input_example = {"x": 1, "y": 2}
         with mlflow.start_run(experiment_id=experiment_id) as r:
-            Model.log("some/path", TestFlavor,
-                      signature=sig,
-                      input_example=input_example)
+            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
 
-        local_path = _download_artifact_from_uri("runs:/{}/some/path".format(r.info.run_id),
-                                                 output_path=tmp.path(""))
+        local_path = _download_artifact_from_uri(
+            "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
+        )
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
         assert loaded_model.artifact_path == "some/path"
