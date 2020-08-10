@@ -219,14 +219,9 @@ def test_path_params():
         download_uri_mock.return_value = download_path
         user_3 = {"alpha": 0.001}
         final_3, extra_3 = entry_point.compute_parameters(user_3, dest_path)
-<<<<<<< HEAD
         assert (final_3 == {"constants": "s3://path.test/b1",
                             "data": shlex_quote(download_path)})
         assert (extra_3 == {"alpha": "0.001"})
-=======
-        assert final_3 == {"constants": "s3://path.test/b1", "data": download_path}
-        assert extra_3 == {"alpha": "0.001"}
->>>>>>> master
         assert download_uri_mock.call_count == 1
 
     with mock.patch(
