@@ -9,7 +9,7 @@ from tests.projects.utils import TEST_PROJECT_DIR
 
 @pytest.fixture
 def local_git_repo(tmpdir):
-    local_git = tmpdir.join('git_repo').strpath
+    local_git = tmpdir.join("git_repo").strpath
     repo = git.Repo.init(local_git)
     dir_util.copy_tree(src=TEST_PROJECT_DIR, dst=local_git)
     dir_util.copy_tree(src=os.path.dirname(TEST_PROJECT_DIR), dst=local_git)
