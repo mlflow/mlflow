@@ -19,7 +19,8 @@ jobs:
           git fetch origin master:master
         fi
 
-        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+        REGEXP="tests/examples\|examples\|Dockerfile\$"
+        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
         EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
         DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
 
@@ -39,6 +40,15 @@ jobs:
         source ./travis/install-common-deps.sh
         source activate test-environment
         pytest --verbose tests/examples --large
+
+    - name: Clean up conda environments
+      run: |
+        conda env list |                        # list (env name, env path) pairs
+        cut -d' ' -f1 |                         # extract env names
+        grep "^mlflow-[a-z0-9]\{32\}" |         # filter envs created by mlflow
+        xargs -L 1 conda remove --all --yes -n  # pass env names to conda remove
+        conda env list
+        conda clean --all --yes
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
