@@ -4,6 +4,7 @@ from mlflow.protos.model_registry_pb2 import RegisteredModelTag as ProtoRegister
 
 class RegisteredModelTag(_ModelRegistryEntity):
     """Tag object associated with a registered model."""
+
     def __init__(self, key, value):
         self._key = key
         self._value = value

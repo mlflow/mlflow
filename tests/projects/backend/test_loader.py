@@ -21,5 +21,5 @@ def test_plugin_does_not_exist():
 
     with mock.patch("entrypoints.get_single") as mock_get_single:
         mock_get_single.side_effect = raise_entrypoint_exception
-        backend = loader.load_backend('my_plugin')
+        backend = loader.load_backend("my_plugin")
         assert backend is None

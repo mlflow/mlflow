@@ -25,6 +25,7 @@ class SubmittedRun(object):
         Subclasses of ``SubmittedRun`` must expose a ``run_id`` member containing the
         run's MLflow run ID.
     """
+
     @abstractmethod
     def wait(self):
         """
@@ -61,6 +62,7 @@ class LocalSubmittedRun(SubmittedRun):
     Instance of ``SubmittedRun`` corresponding to a subprocess launched to run an entry point
     command locally.
     """
+
     def __init__(self, run_id, command_proc):
         super(LocalSubmittedRun, self).__init__()
         self._run_id = run_id
@@ -92,7 +94,9 @@ class LocalSubmittedRun(SubmittedRun):
                 _logger.info(
                     "Failed to terminate child process (PID %s) corresponding to MLflow "
                     "run with ID %s. The process may have already exited.",
-                    self.command_proc.pid, self._run_id)
+                    self.command_proc.pid,
+                    self._run_id,
+                )
             self.command_proc.wait()
 
     def _get_status(self):

@@ -2,6 +2,7 @@
 .experiment-name {
   display: inline-block;
 }
+
 .header-container {
   display: flex;
 }
@@ -29,6 +30,7 @@
   margin-bottom: 8px;
   margin-right: 12px;
 }
+
 .metadata-header {
   font-size: 14px;
   color: #888;

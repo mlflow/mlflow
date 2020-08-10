@@ -8,12 +8,12 @@ def search_python_scripts(dirs):
     for d in dirs:
         for root, dirs, files in os.walk(d):
             for f in files:
-                if f.endswith('.py'):
+                if f.endswith(".py"):
                     yield os.path.join(root, f)
 
 
 def read_file(path):
-    with open(path, encoding='utf-8') as f:
+    with open(path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -25,7 +25,7 @@ def search_f_strings(node):
 
 
 def test_no_f_strings():
-    dirs = ['mlflow', 'tests', 'examples']
+    dirs = ["mlflow", "tests", "examples"]
     f_strings_all = []
 
     for path in search_python_scripts(dirs):
@@ -34,8 +34,7 @@ def test_no_f_strings():
         f_strings = list(search_f_strings(root))
         if len(f_strings) > 0:
             f_strings_all += [
-                '{}:{}:{}: {}'.format(path, *pos, 'Remove f-string')
-                for pos in f_strings
+                "{}:{}:{}: {}".format(path, *pos, "Remove f-string") for pos in f_strings
             ]
 
-    assert len(f_strings_all) == 0, '\n' + '\n'.join(f_strings_all)
+    assert len(f_strings_all) == 0, "\n" + "\n".join(f_strings_all)

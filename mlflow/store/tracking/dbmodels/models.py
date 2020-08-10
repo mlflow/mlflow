@@ -2,11 +2,28 @@ import time
 from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
-    Column, String, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint, Boolean)
+    Column,
+    String,
+    ForeignKey,
+    Integer,
+    CheckConstraint,
+    BigInteger,
+    PrimaryKeyConstraint,
+    Boolean,
+)
 from mlflow.entities import (
-    Experiment, RunTag, Metric, Param, RunData, RunInfo,
-    SourceType, RunStatus, Run, ViewType, ExperimentTag)
+    Experiment,
+    RunTag,
+    Metric,
+    Param,
+    RunData,
+    RunInfo,
+    SourceType,
+    RunStatus,
+    Run,
+    ViewType,
+    ExperimentTag,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
 
@@ -15,7 +32,7 @@ SourceTypes = [
     SourceType.to_string(SourceType.JOB),
     SourceType.to_string(SourceType.LOCAL),
     SourceType.to_string(SourceType.UNKNOWN),
-    SourceType.to_string(SourceType.PROJECT)
+    SourceType.to_string(SourceType.PROJECT),
 ]
 
 RunStatusTypes = [
@@ -23,7 +40,7 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.FAILED),
     RunStatus.to_string(RunStatus.FINISHED),
     RunStatus.to_string(RunStatus.RUNNING),
-    RunStatus.to_string(RunStatus.KILLED)
+    RunStatus.to_string(RunStatus.KILLED),
 ]
 
 
@@ -31,7 +48,8 @@ class SqlExperiment(Base):
     """
     DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
     """
-    __tablename__ = 'experiments'
+
+    __tablename__ = "experiments"
 
     experiment_id = Column(Integer, autoincrement=True)
     """
@@ -56,12 +74,13 @@ class SqlExperiment(Base):
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
-            name='experiments_lifecycle_stage'),
-        PrimaryKeyConstraint('experiment_id', name='experiment_pk')
+            name="experiments_lifecycle_stage",
+        ),
+        PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
     )
 
     def __repr__(self):
-        return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
+        return "<SqlExperiment ({}, {})>".format(self.experiment_id, self.name)
 
     def to_mlflow_entity(self):
         """
@@ -74,14 +93,16 @@ class SqlExperiment(Base):
             name=self.name,
             artifact_location=self.artifact_location,
             lifecycle_stage=self.lifecycle_stage,
-            tags=[t.to_mlflow_entity() for t in self.tags])
+            tags=[t.to_mlflow_entity() for t in self.tags],
+        )
 
 
 class SqlRun(Base):
     """
     DB model for :py:class:`mlflow.entities.Run`. These are recorded in ``runs`` table.
     """
-    __tablename__ = 'runs'
+
+    __tablename__ = "runs"
 
     run_uuid = Column(String(32), nullable=False)
     """
@@ -134,21 +155,23 @@ class SqlRun(Base):
     """
     Default artifact location for this run: `String` (limit 200 characters).
     """
-    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this run belongs to: *Foreign Key* into ``experiment`` table.
     """
-    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all'))
+    experiment = relationship("SqlExperiment", backref=backref("runs", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
     """
 
     __table_args__ = (
-        CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
-        CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
-                        name='runs_lifecycle_stage'),
-        PrimaryKeyConstraint('run_uuid', name='run_pk')
+        CheckConstraint(source_type.in_(SourceTypes), name="source_type"),
+        CheckConstraint(status.in_(RunStatusTypes), name="status"),
+        CheckConstraint(
+            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+            name="runs_lifecycle_stage",
+        ),
+        PrimaryKeyConstraint("run_uuid", name="run_pk"),
     )
 
     @staticmethod
@@ -176,12 +199,14 @@ class SqlRun(Base):
             start_time=self.start_time,
             end_time=self.end_time,
             lifecycle_stage=self.lifecycle_stage,
-            artifact_uri=self.artifact_uri)
+            artifact_uri=self.artifact_uri,
+        )
 
         run_data = RunData(
             metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
             params=[p.to_mlflow_entity() for p in self.params],
-            tags=[t.to_mlflow_entity() for t in self.tags])
+            tags=[t.to_mlflow_entity() for t in self.tags],
+        )
 
         return Run(run_info=run_info, run_data=run_data)
 
@@ -191,7 +216,8 @@ class SqlExperimentTag(Base):
     DB model for :py:class:`mlflow.entities.RunTag`.
     These are recorded in ``experiment_tags`` table.
     """
-    __tablename__ = 'experiment_tags'
+
+    __tablename__ = "experiment_tags"
 
     key = Column(String(250))
     """
@@ -201,21 +227,19 @@ class SqlExperimentTag(Base):
     """
     Value associated with tag: `String` (limit 5000 characters). Could be *null*.
     """
-    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this tag belongs: *Foreign Key* into ``experiments`` table.
     """
-    experiment = relationship('SqlExperiment', backref=backref('tags', cascade='all'))
+    experiment = relationship("SqlExperiment", backref=backref("tags", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'experiment_id', name='experiment_tag_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("key", "experiment_id", name="experiment_tag_pk"),)
 
     def __repr__(self):
-        return '<SqlExperimentTag({}, {})>'.format(self.key, self.value)
+        return "<SqlExperimentTag({}, {})>".format(self.key, self.value)
 
     def to_mlflow_entity(self):
         """
@@ -223,15 +247,15 @@ class SqlExperimentTag(Base):
 
         :return: :py:class:`mlflow.entities.RunTag`.
         """
-        return ExperimentTag(key=self.key,
-                             value=self.value)
+        return ExperimentTag(key=self.key, value=self.value)
 
 
 class SqlTag(Base):
     """
     DB model for :py:class:`mlflow.entities.RunTag`. These are recorded in ``tags`` table.
     """
-    __tablename__ = 'tags'
+
+    __tablename__ = "tags"
 
     key = Column(String(250))
     """
@@ -241,21 +265,19 @@ class SqlTag(Base):
     """
     Value associated with tag: `String` (limit 250 characters). Could be *null*.
     """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """
     Run UUID to which this tag belongs to: *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('tags', cascade='all'))
+    run = relationship("SqlRun", backref=backref("tags", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="tag_pk"),)
 
     def __repr__(self):
-        return '<SqlRunTag({}, {})>'.format(self.key, self.value)
+        return "<SqlRunTag({}, {})>".format(self.key, self.value)
 
     def to_mlflow_entity(self):
         """
@@ -263,13 +285,11 @@ class SqlTag(Base):
 
         :return: :py:class:`mlflow.entities.RunTag`.
         """
-        return RunTag(
-            key=self.key,
-            value=self.value)
+        return RunTag(key=self.key, value=self.value)
 
 
 class SqlMetric(Base):
-    __tablename__ = 'metrics'
+    __tablename__ = "metrics"
 
     key = Column(String(250))
     """
@@ -292,23 +312,24 @@ class SqlMetric(Base):
     """
     True if the value is in fact NaN.
     """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
                                               *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
+    run = relationship("SqlRun", backref=backref("metrics", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', "is_nan",
-                             name='metric_pk'),
+        PrimaryKeyConstraint(
+            "key", "timestamp", "step", "run_uuid", "value", "is_nan", name="metric_pk"
+        ),
     )
 
     def __repr__(self):
-        return '<SqlMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
+        return "<SqlMetric({}, {}, {}, {})>".format(self.key, self.value, self.timestamp, self.step)
 
     def to_mlflow_entity(self):
         """
@@ -320,11 +341,12 @@ class SqlMetric(Base):
             key=self.key,
             value=self.value if not self.is_nan else float("nan"),
             timestamp=self.timestamp,
-            step=self.step)
+            step=self.step,
+        )
 
 
 class SqlLatestMetric(Base):
-    __tablename__ = 'latest_metrics'
+    __tablename__ = "latest_metrics"
 
     key = Column(String(250))
     """
@@ -347,23 +369,22 @@ class SqlLatestMetric(Base):
     """
     True if the value is in fact NaN.
     """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``latest_metrics`` table.
                                               *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('latest_metrics', cascade='all'))
+    run = relationship("SqlRun", backref=backref("latest_metrics", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="latest_metric_pk"),)
 
     def __repr__(self):
-        return '<SqlLatestMetric({}, {}, {}, {})>'.format(
-            self.key, self.value, self.timestamp, self.step)
+        return "<SqlLatestMetric({}, {}, {}, {})>".format(
+            self.key, self.value, self.timestamp, self.step
+        )
 
     def to_mlflow_entity(self):
         """
@@ -375,11 +396,12 @@ class SqlLatestMetric(Base):
             key=self.key,
             value=self.value if not self.is_nan else float("nan"),
             timestamp=self.timestamp,
-            step=self.step)
+            step=self.step,
+        )
 
 
 class SqlParam(Base):
-    __tablename__ = 'params'
+    __tablename__ = "params"
 
     key = Column(String(250))
     """
@@ -389,22 +411,20 @@ class SqlParam(Base):
     """
     Param value: `String` (limit 250 characters). Defined as *Non-null* in schema.
     """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``params`` table.
                                               *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('params', cascade='all'))
+    run = relationship("SqlRun", backref=backref("params", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='param_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="param_pk"),)
 
     def __repr__(self):
-        return '<SqlParam({}, {})>'.format(self.key, self.value)
+        return "<SqlParam({}, {})>".format(self.key, self.value)
 
     def to_mlflow_entity(self):
         """
@@ -412,6 +432,4 @@ class SqlParam(Base):
 
         :return: :py:class:`mlflow.entities.Param`.
         """
-        return Param(
-            key=self.key,
-            value=self.value)
+        return Param(key=self.key, value=self.value)

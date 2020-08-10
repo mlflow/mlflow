@@ -42,28 +42,41 @@ def assert_dirs_equal(expected, actual):
 def docker_example_base_image():
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:
-        raise Exception("MLFLOW_HOME environment variable is not set. Please set the variable to "
-                        "point to your mlflow dev root.")
+        raise Exception(
+            "MLFLOW_HOME environment variable is not set. Please set the variable to "
+            "point to your mlflow dev root."
+        )
     with TempDir() as tmp:
         cwd = tmp.path()
-        mlflow_dir = _copy_project(
-            src_path=mlflow_home, dst_path=cwd)
+        mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=cwd)
         import shutil
+<<<<<<< HEAD
         if os.name == "nt":
             dockerfile = os.path.join(TEST_DOCKER_PROJECT_DIR, "windows", "Dockerfile")
         else:
             dockerfile = os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile")
         # dockerfile = os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile")
         shutil.copy(dockerfile, tmp.path("Dockerfile"))
+=======
+
+        shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
+>>>>>>> master
         with open(tmp.path("Dockerfile"), "a") as f:
-            f.write(("COPY {mlflow_dir} /opt/mlflow\n"
-                     "RUN pip install -U -e /opt/mlflow\n").format(
-                mlflow_dir=mlflow_dir))
+            f.write(
+                ("COPY {mlflow_dir} /opt/mlflow\n" "RUN pip install -U -e /opt/mlflow\n").format(
+                    mlflow_dir=mlflow_dir
+                )
+            )
 
         client = docker.from_env()
         try:
-            client.images.build(tag='mlflow-docker-example', forcerm=True, nocache=True,
-                                dockerfile='Dockerfile', path=cwd)
+            client.images.build(
+                tag="mlflow-docker-example",
+                forcerm=True,
+                nocache=True,
+                dockerfile="Dockerfile",
+                path=cwd,
+            )
         except BuildError as build_error:
             for chunk in build_error.build_log:
                 print(chunk)

@@ -16,10 +16,10 @@ _logger = logging.getLogger(__name__)
 
 def get_conda_command(conda_env_name):
     #  Checking for newer conda versions
-    if os.name != 'nt' and ('CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ):
+    if os.name != "nt" and ("CONDA_EXE" in os.environ or "MLFLOW_CONDA_HOME" in os.environ):
         conda_path = get_conda_bin_executable("conda")
         activate_conda_env = [
-            'source {}/../etc/profile.d/conda.sh'.format(os.path.dirname(conda_path))
+            "source {}/../etc/profile.d/conda.sh".format(os.path.dirname(conda_path))
         ]
         activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
     else:
@@ -75,23 +75,27 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
-        raise ExecutionException("Could not find Conda executable at {0}. "
-                                 "Ensure Conda is installed as per the instructions at "
-                                 "https://conda.io/projects/conda/en/latest/"
-                                 "user-guide/install/index.html. "
-                                 "You can also configure MLflow to look for a specific "
-                                 "Conda executable by setting the {1} environment variable "
-                                 "to the path of the Conda executable"
-                                 .format(conda_path, MLFLOW_CONDA_HOME))
+        raise ExecutionException(
+            "Could not find Conda executable at {0}. "
+            "Ensure Conda is installed as per the instructions at "
+            "https://conda.io/projects/conda/en/latest/"
+            "user-guide/install/index.html. "
+            "You can also configure MLflow to look for a specific "
+            "Conda executable by setting the {1} environment variable "
+            "to the path of the Conda executable".format(conda_path, MLFLOW_CONDA_HOME)
+        )
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
-    env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
+    env_names = [os.path.basename(env) for env in json.loads(stdout)["envs"]]
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
-        _logger.info('=== Creating conda environment %s ===', project_env_name)
+        _logger.info("=== Creating conda environment %s ===", project_env_name)
         if conda_env_path:
-            process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
-                              conda_env_path], stream_output=True)
+            process.exec_cmd(
+                [conda_path, "env", "create", "-n", project_env_name, "--file", conda_env_path],
+                stream_output=True,
+            )
         else:
             process.exec_cmd(
-                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True
+            )
     return project_env_name

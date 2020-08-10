@@ -13,15 +13,17 @@ from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 @pytest.fixture
 def pandas_df_with_all_types():
-    return pd.DataFrame({
-        "boolean": [True, False, True],
-        "integer": np.array([1, 2, 3], np.int32),
-        "long": np.array([1, 2, 3], np.int64),
-        "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
-        "double": [math.pi, 2 * math.pi, 3 * math.pi],
-        "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]), bytes([7, 8, 9])],
-        "string": ["a", "b", 'c'],
-    })
+    return pd.DataFrame(
+        {
+            "boolean": [True, False, True],
+            "integer": np.array([1, 2, 3], np.int32),
+            "long": np.array([1, 2, 3], np.int64),
+            "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
+            "double": [math.pi, 2 * math.pi, 3 * math.pi],
+            "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]), bytes([7, 8, 9])],
+            "string": ["a", "b", "c"],
+        }
+    )
 
 
 def test_input_examples(pandas_df_with_all_types):
@@ -37,13 +39,20 @@ def test_input_examples(pandas_df_with_all_types):
         parsed_df = _dataframe_from_json(tmp.path(filename), schema=sig.inputs)
         assert (pandas_df_with_all_types == parsed_df).all().all()
         # the frame read without schema should match except for the binary values
-        assert (parsed_df.drop(columns=["binary"]) == _dataframe_from_json(tmp.path(filename))
-                .drop(columns=["binary"])).all().all()
+        assert (
+            (
+                parsed_df.drop(columns=["binary"])
+                == _dataframe_from_json(tmp.path(filename)).drop(columns=["binary"])
+            )
+            .all()
+            .all()
+        )
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
-        d = {name: pandas_df_with_all_types[name].values
-             for name in pandas_df_with_all_types.columns}
+        d = {
+            name: pandas_df_with_all_types[name].values for name in pandas_df_with_all_types.columns
+        }
         example = _Example(d)
         example.save(tmp.path())
         filename = example.info["artifact_path"]

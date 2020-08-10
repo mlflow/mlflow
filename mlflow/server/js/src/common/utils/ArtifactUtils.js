@@ -1,4 +1,4 @@
-import { getRequestHeaders } from '../../../setupAjaxHeaders';
+import { getRequestHeaders } from '../../setupAjaxHeaders';
 
 /**
  * Fetches the specified artifact, returning a Promise that resolves with

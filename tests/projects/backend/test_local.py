@@ -8,10 +8,11 @@ def test_docker_s3_artifact_cmd_and_envs_from_env():
     mock_env = {
         "AWS_SECRET_ACCESS_KEY": "mock_secret",
         "AWS_ACCESS_KEY_ID": "mock_access_key",
-        "MLFLOW_S3_ENDPOINT_URL": "mock_endpoint"
+        "MLFLOW_S3_ENDPOINT_URL": "mock_endpoint",
     }
-    with mock.patch.dict("os.environ", mock_env), \
-            mock.patch("posixpath.exists", return_value=False):
+    with mock.patch.dict("os.environ", mock_env), mock.patch(
+        "posixpath.exists", return_value=False
+    ):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == []
         assert envs == mock_env
@@ -35,11 +36,12 @@ def test_docker_wasbs_artifact_cmd_and_envs_from_home():
 
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
-        "AZURE_STORAGE_ACCESS_KEY": "mock_access_key"
+        "AZURE_STORAGE_ACCESS_KEY": "mock_access_key",
     }
     wasbs_uri = "wasbs://container@account.blob.core.windows.net/some/path"
-    with mock.patch.dict("os.environ", mock_env), \
-            mock.patch("azure.storage.blob.BlobServiceClient"):
+    with mock.patch.dict("os.environ", mock_env), mock.patch(
+        "azure.storage.blob.BlobServiceClient"
+    ):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
         assert cmds == []
         assert envs == mock_env
@@ -60,7 +62,7 @@ def test_docker_hdfs_artifact_cmd_and_envs_from_home():
     mock_env = {
         "MLFLOW_KERBEROS_TICKET_CACHE": "/mock_ticket_cache",
         "MLFLOW_KERBEROS_USER": "mock_krb_user",
-        "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf"
+        "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf",
     }
     hdfs_uri = "hdfs://host:8020/path"
     with mock.patch.dict("os.environ", mock_env):
@@ -78,7 +80,6 @@ def test_docker_local_artifact_cmd_and_envs():
 
 
 def test_docker_unknown_uri_artifact_cmd_and_envs():
-    cmd, envs = _get_docker_artifact_storage_cmd_and_envs(
-        "file-plugin://some_path")
+    cmd, envs = _get_docker_artifact_storage_cmd_and_envs("file-plugin://some_path")
     assert cmd == []
     assert envs == {}

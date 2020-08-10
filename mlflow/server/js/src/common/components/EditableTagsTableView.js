@@ -1,23 +1,19 @@
 import React from 'react';
-import { connect } from 'react-redux';
-import Utils from '../../common/utils/Utils';
+import Utils from '../utils/Utils';
 import PropTypes from 'prop-types';
-import { Form, Input, Button, message } from 'antd';
-import { setTagApi, deleteTagApi } from '../actions';
-import { EditableFormTable } from '../../common/components/tables/EditableFormTable';
+import { Form, Input, Button } from 'antd/lib/index';
+import { EditableFormTable } from './tables/EditableFormTable';
 import _ from 'lodash';
-import { getUUID } from '../../common/utils/ActionUtils';
 
 export class EditableTagsTableView extends React.Component {
   static propTypes = {
-    runUuid: PropTypes.string.isRequired,
     tags: PropTypes.object.isRequired,
     form: PropTypes.object.isRequired,
-    setTagApi: PropTypes.func.isRequired,
-    deleteTagApi: PropTypes.func.isRequired,
+    handleAddTag: PropTypes.func.isRequired,
+    handleSaveEdit: PropTypes.func.isRequired,
+    handleDeleteTag: PropTypes.func.isRequired,
+    isRequestPending: PropTypes.bool.isRequired,
   };
-
-  state = { isRequestPending: false };
 
   tableColumns = [
     {
@@ -33,8 +29,6 @@ export class EditableTagsTableView extends React.Component {
     },
   ];
 
-  requestId = getUUID();
-
   getData = () =>
     _.sortBy(
       Utils.getVisibleTagValues(this.props.tags).map((values) => ({
@@ -48,63 +42,26 @@ export class EditableTagsTableView extends React.Component {
   getTagNamesAsSet = () =>
     new Set(Utils.getVisibleTagValues(this.props.tags).map((values) => values[0]));
 
-  handleAddTag = (e) => {
-    e.preventDefault();
-    const { form, runUuid, setTagApi: setTag } = this.props;
-    form.validateFields((err, values) => {
-      if (!err) {
-        this.setState({ isRequestPending: true });
-        setTag(runUuid, values.name, values.value, this.requestId)
-          .then(() => {
-            this.setState({ isRequestPending: false });
-            form.resetFields();
-          })
-          .catch((ex) => {
-            this.setState({ isRequestPending: false });
-            console.error(ex);
-            message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
-          });
-      }
-    });
-  };
-
-  handleSaveEdit = ({ name, value }) => {
-    const { runUuid, setTagApi: setTag } = this.props;
-    return setTag(runUuid, name, value, this.requestId).catch((ex) => {
-      console.error(ex);
-      message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
-    });
-  };
-
-  handleDeleteTag = ({ name }) => {
-    const { runUuid, deleteTagApi: deleteTag } = this.props;
-    return deleteTag(runUuid, name, this.requestId).catch((ex) => {
-      console.error(ex);
-      message.error('Failed to delete tag. Error: ' + ex.getUserVisibleError());
-    });
-  };
-
   tagNameValidator = (rule, value, callback) => {
     const tagNamesSet = this.getTagNamesAsSet();
     callback(tagNamesSet.has(value) ? `Tag "${value}" already exists.` : undefined);
   };
 
   render() {
-    const { form } = this.props;
+    const { form, isRequestPending, handleSaveEdit, handleDeleteTag, handleAddTag } = this.props;
     const { getFieldDecorator } = form;
-    const { isRequestPending } = this.state;
 
     return (
       <div>
         <EditableFormTable
           columns={this.tableColumns}
           data={this.getData()}
-          onSaveEdit={this.handleSaveEdit}
-          onDelete={this.handleDeleteTag}
+          onSaveEdit={handleSaveEdit}
+          onDelete={handleDeleteTag}
         />
         <div style={styles.addTagForm.wrapper}>
           <h2 style={styles.addTagForm.label}>Add Tag</h2>
-          <Form layout='inline' onSubmit={this.handleAddTag} style={styles.addTagForm.form}>
+          <Form layout='inline' onSubmit={handleAddTag}>
             <Form.Item>
               {getFieldDecorator('name', {
                 rules: [
@@ -148,12 +105,9 @@ const styles = {
     label: {
       marginTop: 20,
     },
-    form: { marginBottom: 20 },
     nameInput: { width: 186 },
     valueInput: { width: 186 },
   },
 };
 
-const mapDispatchToProps = { setTagApi, deleteTagApi };
-
-export default connect(undefined, mapDispatchToProps)(Form.create()(EditableTagsTableView));
+export default Form.create()(EditableTagsTableView);
