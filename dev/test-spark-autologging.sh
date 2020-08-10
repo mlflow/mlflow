@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test Spark autologging against the Spark 3.0 preview. This script is temporary and should be
 # removed once Spark 3.0 is released in favor of simply updating all tests to run against Spark 3.0
-# (i.e. updating the pyspark dependency version in travis/large-requirements.txt)
+# (i.e. updating the pyspark dependency version in dev/large-requirements.txt)
 set -ex
 
 # Build Java package
@@ -26,4 +26,4 @@ find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
 rm -rf $TEMPDIR
 
 # Reinstall old dependencies
-pip install -r travis/large-requirements.txt
+pip install -r dev/large-requirements.txt
