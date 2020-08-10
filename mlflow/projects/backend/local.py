@@ -268,7 +268,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
 
     volumes = []
     if posixpath.exists(aws_path):
-        volumes = ["-v", "%s:%s" % (str(aws_path), os.path.sep+".aws")]
+        volumes = ["-v", "%s:%s" % os.path.join((str(aws_path), ".aws"))]
     envs = {
         "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
         "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),
