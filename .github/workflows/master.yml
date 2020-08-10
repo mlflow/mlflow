@@ -99,6 +99,8 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./travis/run-small-python-tests.sh
+    - run: |
+        conda env list
 
   python-large:
     runs-on: ubuntu-latest
@@ -116,6 +118,8 @@ jobs:
         ./travis/run-large-python-tests.sh
         ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
         ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
+    - run: |
+        conda env list
 
   java:
     runs-on: ubuntu-latest
