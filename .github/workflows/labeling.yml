@@ -4,9 +4,11 @@ on:
   issues:
     types:
       - opened
+      - edited
   pull_request_target:
     types:
       - opened
+      - edited
 
 jobs:
   labeling:
