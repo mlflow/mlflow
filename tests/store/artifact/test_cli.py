@@ -127,5 +127,6 @@ def test_archive_hdfs_artifacts(mock_remove_folder, mock_archive_artifacts, mock
     assert isinstance(call_args[0], HdfsArtifactRepository)
     assert "hdfs:///path/to" == call_args[1]
     mock_store.update_artifacts_location.assert_called_once_with(
-        "42", "har://hdfs-root/path/to/artifact.har")
+        "42", "har://hdfs-root/path/to/artifact.har"
+    )
     mock_remove_folder.assert_called_once_with("hdfs:///path/to/myartifacts")

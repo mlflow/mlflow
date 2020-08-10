@@ -459,7 +459,7 @@ def _list_all_columns():
     view_type = request_message.run_view_type
     columns = _get_tracking_store().list_all_columns(experiment_id, view_type)
     response_message = columns.to_proto()
-    response = Response(mimetype='application/json')
+    response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
 
@@ -477,11 +477,17 @@ def _search_runs():
     order_by = request_message.order_by
     page_token = request_message.page_token
     columns_to_whitelist = None
-    if request_message.HasField('columns_to_whitelist'):
+    if request_message.HasField("columns_to_whitelist"):
         columns_to_whitelist = request_message.columns_to_whitelist.columns
-    run_entities = _get_tracking_store().search_runs(experiment_ids, filter_string, run_view_type,
-                                                     max_results, order_by, page_token,
-                                                     columns_to_whitelist)
+    run_entities = _get_tracking_store().search_runs(
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        columns_to_whitelist,
+    )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
         response_message.next_page_token = run_entities.token
@@ -540,9 +546,10 @@ def _get_artifact_repo(run):
 def _updateArtifactsLocation():
     request_message = _get_request_message(UpdateArtifactsLocation())
     _get_tracking_store().update_artifacts_location(
-        request_message.run_id, request_message.new_artifacts_location)
+        request_message.run_id, request_message.new_artifacts_location
+    )
     response_message = UpdateArtifactsLocation.Response()
-    response = Response(mimetype='application/json')
+    response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
 
@@ -900,7 +907,6 @@ HANDLERS = {
     UpdateArtifactsLocation: _updateArtifactsLocation,
     GetVcsRegex: _get_vcs_regex,
     GetVcsUrl: _get_vcs_url,
-
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

@@ -417,9 +417,14 @@ def get_artifact_uri(artifact_path=None):
     )
 
 
-def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None,
-                columns_to_whitelist=None):
+def search_runs(
+    experiment_ids=None,
+    filter_string="",
+    run_view_type=ViewType.ACTIVE_ONLY,
+    max_results=SEARCH_MAX_RESULTS_PANDAS,
+    order_by=None,
+    columns_to_whitelist=None,
+):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
@@ -447,8 +452,13 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_runs(
-            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token,
-            columns_to_whitelist
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            number_to_get,
+            order_by,
+            next_page_token,
+            columns_to_whitelist,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)

@@ -177,7 +177,7 @@ def test_client_search_runs_page_token(mock_store):
 
 
 def test_client_search_columns(mock_store):
-    MlflowClient().search_runs([5], columns_to_whitelist=['params.p_0', 'metrics.loss'])
+    MlflowClient().search_runs([5], columns_to_whitelist=["params.p_0", "metrics.loss"])
     mock_store.search_runs.assert_called_once_with(
         experiment_ids=[5],
         filter_string="",
@@ -185,7 +185,7 @@ def test_client_search_columns(mock_store):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-        columns_to_whitelist=['params.p_0', 'metrics.loss']
+        columns_to_whitelist=["params.p_0", "metrics.loss"],
     )
 
 

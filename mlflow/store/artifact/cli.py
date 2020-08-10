@@ -8,8 +8,11 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository, archive_artifacts, \
-    remove_folder
+from mlflow.store.artifact.hdfs_artifact_repo import (
+    HdfsArtifactRepository,
+    archive_artifacts,
+    remove_folder,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -136,14 +139,18 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
 
 
 @commands.command("archive-hdfs-artifacts")
-@click.option("--run-ids", "-r", required=True, help="Comma separated list of Run IDs for which "
-                                                     "we will archive the artifacts")
+@click.option(
+    "--run-ids",
+    "-r",
+    required=True,
+    help="Comma separated list of Run IDs for which " "we will archive the artifacts",
+)
 def archive_hdfs_artifacts(run_ids):
     """
     Pack into an hadoop archive a folder on HDFS. Only HdfsArtifactStore supported
     """
     store = _get_store()
-    run_ids = run_ids.split(',')
+    run_ids = run_ids.split(",")
     for run_id in run_ids:
         artifact_uri = store.get_run(run_id).info.artifact_uri
         artifact_repo = get_artifact_repository(artifact_uri)
@@ -152,11 +159,12 @@ def archive_hdfs_artifacts(run_ids):
             sys.exit(1)
         parent_dir = os.path.dirname(artifact_uri)
         new_artifact_path = archive_artifacts(artifact_repo, parent_dir, ARTIFACT_NAME)
-        _logger.debug("Update database: artifact_uri for run (run_id = %s) to %s",
-                      run_id, new_artifact_path)
+        _logger.debug(
+            "Update database: artifact_uri for run (run_id = %s) to %s", run_id, new_artifact_path
+        )
         store.update_artifacts_location(run_id, new_artifact_path)
         remove_folder(artifact_uri)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     commands()

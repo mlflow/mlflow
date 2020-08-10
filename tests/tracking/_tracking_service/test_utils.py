@@ -292,9 +292,10 @@ def test_get_store_for_unregistered_scheme():
 
 def test_ensure_run_id_in_path():
     from mlflow.tracking._tracking_service.client import ensure_run_id_in_path
-    assert ensure_run_id_in_path('path', 'run_id') == 'path/run_id'
-    assert ensure_run_id_in_path('path/', 'run_id') == 'path/run_id'
-    assert ensure_run_id_in_path('path/run_id', 'run_id') == 'path/run_id'
+
+    assert ensure_run_id_in_path("path", "run_id") == "path/run_id"
+    assert ensure_run_id_in_path("path/", "run_id") == "path/run_id"
+    assert ensure_run_id_in_path("path/run_id", "run_id") == "path/run_id"
 
 
 def test_resolve_tracking_uri_with_param():

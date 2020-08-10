@@ -35,7 +35,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     ListExperiments,
     LogModel,
-    ColumnsToWhitelist
+    ColumnsToWhitelist,
 )
 from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
@@ -142,10 +142,10 @@ class TestRestStore(object):
 
     def _args(self, host_creds, endpoint, method, json_body, host_creds_refresh_func):
         res = {
-            'host_creds': host_creds,
-             'endpoint': "/api/2.0/mlflow/%s" % endpoint,
-             'method': method,
-             'host_creds_refresh_func': host_creds_refresh_func
+            "host_creds": host_creds,
+            "endpoint": "/api/2.0/mlflow/%s" % endpoint,
+            "method": method,
+            "host_creds_refresh_func": host_creds_refresh_func,
         }
         if method == "GET":
             res["params"] = json.loads(json_body)
@@ -153,10 +153,12 @@ class TestRestStore(object):
             res["json"] = json.loads(json_body)
         return res
 
-    def _verify_requests(self, http_request, host_creds, endpoint, method, json_body,
-                         host_creds_refresh_func):
-        http_request.assert_any_call(**(self._args(host_creds, endpoint, method, json_body,
-                                                   host_creds_refresh_func)))
+    def _verify_requests(
+        self, http_request, host_creds, endpoint, method, json_body, host_creds_refresh_func
+    ):
+        http_request.assert_any_call(
+            **(self._args(host_creds, endpoint, method, json_body, host_creds_refresh_func))
+        )
 
     @mock.patch("requests.request")
     def test_requestor(self, request):
@@ -168,6 +170,7 @@ class TestRestStore(object):
 
         def generate_creds(force_refresh_token=False):  # pylint: disable=unused-argument
             return creds
+
         store = RestStore(generate_creds)
 
         user_name = "mock user"
@@ -216,32 +219,33 @@ class TestRestStore(object):
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
-            body = message_to_json(LogParam(
-                run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1"))
-            self._verify_requests(mock_http, creds,
-                                  "runs/log-parameter", "POST", body, generate_creds)
+            body = message_to_json(
+                LogParam(run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1")
+            )
+            self._verify_requests(
+                mock_http, creds, "runs/log-parameter", "POST", body, generate_creds
+            )
 
-        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
-            store.set_experiment_tag("some_id", ExperimentTag("t1", "abcd"*1000))
-            body = message_to_json(SetExperimentTag(
-                experiment_id="some_id",
-                key="t1",
-                value="abcd"*1000))
-            self._verify_requests(mock_http, creds,
-                                  "experiments/set-experiment-tag", "POST", body, generate_creds)
+        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+            store.set_experiment_tag("some_id", ExperimentTag("t1", "abcd" * 1000))
+            body = message_to_json(
+                SetExperimentTag(experiment_id="some_id", key="t1", value="abcd" * 1000)
+            )
+            self._verify_requests(
+                mock_http, creds, "experiments/set-experiment-tag", "POST", body, generate_creds
+            )
 
-        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
-            store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
-            body = message_to_json(SetTag(
-                run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
-            self._verify_requests(mock_http, creds,
-                                  "runs/set-tag", "POST", body, generate_creds)
+        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+            store.set_tag("some_uuid", RunTag("t1", "abcd" * 1000))
+            body = message_to_json(
+                SetTag(run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd" * 1000)
+            )
+            self._verify_requests(mock_http, creds, "runs/set-tag", "POST", body, generate_creds)
 
-        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
+        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             store.delete_tag("some_uuid", "t1")
             body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
-            self._verify_requests(mock_http, creds,
-                                  "runs/delete-tag", "POST", body, generate_creds)
+            self._verify_requests(mock_http, creds, "runs/delete-tag", "POST", body, generate_creds)
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
@@ -269,15 +273,25 @@ class TestRestStore(object):
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             store.delete_run("u25")
-            self._verify_requests(mock_http, creds,
-                                  "runs/delete", "POST",
-                                  message_to_json(DeleteRun(run_id="u25")), generate_creds)
+            self._verify_requests(
+                mock_http,
+                creds,
+                "runs/delete",
+                "POST",
+                message_to_json(DeleteRun(run_id="u25")),
+                generate_creds,
+            )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             store.restore_run("u76")
-            self._verify_requests(mock_http, creds,
-                                  "runs/restore", "POST",
-                                  message_to_json(RestoreRun(run_id="u76")), generate_creds)
+            self._verify_requests(
+                mock_http,
+                creds,
+                "runs/restore",
+                "POST",
+                message_to_json(RestoreRun(run_id="u76")),
+                generate_creds,
+            )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             store.delete_experiment("0")
@@ -287,7 +301,7 @@ class TestRestStore(object):
                 "experiments/delete",
                 "POST",
                 message_to_json(DeleteExperiment(experiment_id="0")),
-                generate_creds
+                generate_creds,
             )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
@@ -298,7 +312,7 @@ class TestRestStore(object):
                 "experiments/restore",
                 "POST",
                 message_to_json(RestoreExperiment(experiment_id="0")),
-                generate_creds
+                generate_creds,
             )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
@@ -328,7 +342,7 @@ class TestRestStore(object):
                 "runs/search",
                 "POST",
                 message_to_json(expected_message),
-                generate_creds
+                generate_creds,
             )
             assert result.token == "67890fghij"
 
@@ -343,14 +357,16 @@ class TestRestStore(object):
                 "runs/log-model",
                 "POST",
                 message_to_json(expected_message),
-                generate_creds
+                generate_creds,
             )
 
     @pytest.mark.parametrize("store_class", [RestStore, DatabricksRestStore])
     def test_get_experiment_by_name(self, store_class):
         creds = MlflowHostCreds("https://hello")
+
         def generate_creds(force_refresh_token=False):  # pylint: disable=unused-argument
             return creds
+
         store = store_class(generate_creds)
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             response = mock.MagicMock
@@ -373,7 +389,7 @@ class TestRestStore(object):
                 "experiments/get-by-name",
                 "GET",
                 message_to_json(expected_message0),
-                generate_creds
+                generate_creds,
             )
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
@@ -395,7 +411,7 @@ class TestRestStore(object):
                 "experiments/get-by-name",
                 "GET",
                 message_to_json(expected_message1),
-                generate_creds
+                generate_creds,
             )
             assert mock_http.call_count == 1
 
@@ -426,7 +442,7 @@ class TestRestStore(object):
                 "experiments/get-by-name",
                 "GET",
                 message_to_json(expected_message0),
-                generate_creds
+                generate_creds,
             )
             self._verify_requests(
                 mock_http,
@@ -434,7 +450,7 @@ class TestRestStore(object):
                 "experiments/list",
                 "GET",
                 message_to_json(expected_message2),
-                generate_creds
+                generate_creds,
             )
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
@@ -459,8 +475,10 @@ class TestRestStore(object):
 
     def test_databricks_rest_store_get_experiment_by_name(self):
         creds = MlflowHostCreds("https://hello")
+
         def generate_creds(force_refresh_token=False):  # pylint: disable=unused-argument
             return creds
+
         store = DatabricksRestStore(generate_creds)
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
             # Verify that Databricks REST client won't fall back to ListExperiments for 500-level
@@ -482,7 +500,7 @@ class TestRestStore(object):
                 "experiments/get-by-name",
                 "GET",
                 message_to_json(expected_message0),
-                generate_creds
+                generate_creds,
             )
             assert mock_http.call_count == 1
 

@@ -18,7 +18,7 @@ from mlflow.store.artifact.hdfs_artifact_repo import (
     _download_hdfs_file,
     _parse_har_filesystem,
     HdfsArtifactRepositoryException,
-    archive_artifacts
+    archive_artifacts,
 )
 from mlflow.utils.file_utils import TempDir
 
@@ -224,18 +224,26 @@ def test_download_artifacts():
 @mock.patch("pyarrow.hdfs.HadoopFileSystem")
 def test_delete_artifacts(hdfs_system_mock):
     delete_mock = hdfs_system_mock.return_value.delete
-    repo = HdfsArtifactRepository('hdfs:/some_path/maybe/path')
-    repo.delete_artifacts('artifacts')
-    delete_mock.assert_called_once_with('/some_path/maybe/path/artifacts', recursive=True)
+    repo = HdfsArtifactRepository("hdfs:/some_path/maybe/path")
+    repo.delete_artifacts("artifacts")
+    delete_mock.assert_called_once_with("/some_path/maybe/path/artifacts", recursive=True)
 
 
-@pytest.mark.parametrize("uri,expected_path,expected_uri",
-                         [("har://hdfs-root/user/j.doe/myarchive.har/",
-                           "har://hdfs-root/user/j.doe/myarchive.har",
-                           "har://hdfs-root/user/j.doe/myarchive.har/"),
-                          ("har://hdfs-root/user/j.doe/myarchive.har/subfolder",
-                           "har://hdfs-root/user/j.doe/myarchive.har",
-                           "har://hdfs-root/user/j.doe/myarchive.har/subfolder")])
+@pytest.mark.parametrize(
+    "uri,expected_path,expected_uri",
+    [
+        (
+            "har://hdfs-root/user/j.doe/myarchive.har/",
+            "har://hdfs-root/user/j.doe/myarchive.har",
+            "har://hdfs-root/user/j.doe/myarchive.har/",
+        ),
+        (
+            "har://hdfs-root/user/j.doe/myarchive.har/subfolder",
+            "har://hdfs-root/user/j.doe/myarchive.har",
+            "har://hdfs-root/user/j.doe/myarchive.har/subfolder",
+        ),
+    ],
+)
 def test_har_resolve_connection_params(uri, expected_path, expected_uri):
     scheme, path, port, computed_uri = _parse_har_filesystem(uri)
     assert "har" == scheme
@@ -245,8 +253,9 @@ def test_har_resolve_connection_params(uri, expected_path, expected_uri):
 
 
 @pytest.mark.raises(HdfsArtifactRepositoryException)
-@pytest.mark.parametrize("uri", ["har:///hdfs-root/user/j.doe/blah",
-                                 "har:///hdfs-root/user/j.doe/har/"])
+@pytest.mark.parametrize(
+    "uri", ["har:///hdfs-root/user/j.doe/blah", "har:///hdfs-root/user/j.doe/har/"]
+)
 def test_har_resolve_wrong_path(uri):
     _parse_har_filesystem(uri)
 
@@ -257,16 +266,21 @@ def test_archive_artifacts(mock_remove_folder, mock_checkoutput):
     run_folder = "hdfs://root/user/j.doe/experiment/1/xxxyyy"
     mock_hdfs_artifact_repo = mock.Mock(spec=HdfsArtifactRepository)
     mock_hdfs_artifact_repo.list_artifacts.return_value = [
-        FileInfo("foo", True, 0), FileInfo("bar", True, 0)]
+        FileInfo("foo", True, 0),
+        FileInfo("bar", True, 0),
+    ]
     mock_hdfs_artifact_repo.scheme = "hdfs"
     mock_hdfs_artifact_repo.host = "root"
     mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
     expected_har_path = "har://hdfs-root/user/j.doe/experiment/1/xxxyyy/artifacts.har"
-    expected_package_cmd = "hadoop archive -archiveName artifacts.har "\
-        "-p hdfs://root/user/j.doe/experiment/1/xxxyyy/artifacts foo bar "\
+    expected_package_cmd = (
+        "hadoop archive -archiveName artifacts.har "
+        "-p hdfs://root/user/j.doe/experiment/1/xxxyyy/artifacts foo bar "
         "hdfs://root/user/j.doe/experiment/1/xxxyyy"
+    )
     assert expected_har_path == archive_artifacts(
-        mock_hdfs_artifact_repo, run_folder, "artifacts.har")
+        mock_hdfs_artifact_repo, run_folder, "artifacts.har"
+    )
     mock_remove_folder.assert_called_once()
     mock_checkoutput.assert_called_once_with(shlex.split(expected_package_cmd))
 
@@ -280,11 +294,12 @@ def test_archive_artifacts_empty_run(mock_remove_folder):
     mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
     expected_har_path = ""
     assert expected_har_path == archive_artifacts(
-        mock_hdfs_artifact_repo, run_folder, "artifacts.har")
+        mock_hdfs_artifact_repo, run_folder, "artifacts.har"
+    )
     mock_remove_folder.assert_called_once()
 
 
-@mock.patch('pyarrow.hdfs.HadoopFileSystem', spec=HadoopFileSystem)
+@mock.patch("pyarrow.hdfs.HadoopFileSystem", spec=HadoopFileSystem)
 def test_download_file(hdfs_system_mock):
     expected_data = b"hello"
     artifact_paths = ["hdfs://host/test.txt", "hdfs://host/test.txt/"]
@@ -293,7 +308,6 @@ def test_download_file(hdfs_system_mock):
     for artifact_path in artifact_paths:
         hdfs_repo = HdfsArtifactRepository(artifact_path)
         with TempDir() as tmp_dir:
-            hdfs_repo._download_file(artifact_path,
-                                     tmp_dir.path())
-            with open(os.path.join(tmp_dir.path(), 'test.txt'), "rb") as fd:
+            hdfs_repo._download_file(artifact_path, tmp_dir.path())
+            with open(os.path.join(tmp_dir.path(), "test.txt"), "rb") as fd:
                 assert expected_data == fd.read()

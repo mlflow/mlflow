@@ -356,9 +356,16 @@ class TrackingServiceClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None,
-                    columns_to_whitelist=None):
+    def search_runs(
+        self,
+        experiment_ids,
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+        columns_to_whitelist=None,
+    ):
         """
         Search experiments that fit the search criteria.
 
@@ -381,7 +388,12 @@ class TrackingServiceClient(object):
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
-                                      run_view_type=run_view_type, max_results=max_results,
-                                      order_by=order_by, page_token=page_token,
-                                      columns_to_whitelist=columns_to_whitelist)
+        return self.store.search_runs(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            run_view_type=run_view_type,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            columns_to_whitelist=columns_to_whitelist,
+        )

@@ -93,8 +93,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                     file_name = file_detail.get("name")
                     # Strip off anything that comes before the artifact root e.g. hdfs://name
                     offset = file_name.index(self.path)
-                    rel_path = _relative_path_remote(
-                        self.path, file_name[offset:])
+                    rel_path = _relative_path_remote(self.path, file_name[offset:])
                     is_dir = file_detail.get("kind") == "directory"
                     size = file_detail.get("size")
                     paths.append(FileInfo(rel_path, is_dir, size))
@@ -137,8 +136,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
 
             if not hdfs.isdir(hdfs_base_path):
-                local_path = os.path.join(
-                    local_dir, os.path.normpath(artifact_path))
+                local_path = os.path.join(local_dir, os.path.normpath(artifact_path))
                 _download_hdfs_file(hdfs, hdfs_base_path, local_path)
                 return local_path
 
@@ -155,10 +153,10 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         _, _, _, path = _resolve_connection_params(remote_file_path)
-        if path.endswith('/'):
+        if path.endswith("/"):
             path = path[:-1]
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
-            local_path = os.path.join(local_path, os.path.normpath(path.split('/')[-1]))
+            local_path = os.path.join(local_path, os.path.normpath(path.split("/")[-1]))
             _download_hdfs_file(hdfs, path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
@@ -216,9 +214,10 @@ def _parse_har_filesystem(artifact_uri):
     har_extension_index = artifact_uri.find(HAR_EXTENSION)
     if har_extension_index < 0:
         error_msg = "{0} is not valid hadoop archive path: no .har extension in path.".format(
-            artifact_uri)
+            artifact_uri
+        )
         raise HdfsArtifactRepositoryException(error_msg)
-    archive_path = artifact_uri[:har_extension_index + len(HAR_EXTENSION)]
+    archive_path = artifact_uri[: har_extension_index + len(HAR_EXTENSION)]
     return "har", archive_path, 0, artifact_uri
 
 
@@ -281,16 +280,21 @@ def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
     :note: It overrides existing archive.
     """
     # clean existing archive if exists
-    remove_folder(dest_path + '/' + archive_name)
+    remove_folder(dest_path + "/" + archive_name)
 
     files_info = hdfs_artifact_repository.list_artifacts()
     if not files_info:
         return ""
     list_artifacts = " ".join([file_info.path for file_info in files_info])
-    cmd = "hadoop archive -archiveName {archive_name} -p {artifact_path} "\
+    cmd = (
+        "hadoop archive -archiveName {archive_name} -p {artifact_path} "
         "{list_artifacts} {dest_path}".format(
-            archive_name=archive_name, artifact_path=hdfs_artifact_repository.path,
-            list_artifacts=list_artifacts, dest_path=dest_path)
+            archive_name=archive_name,
+            artifact_path=hdfs_artifact_repository.path,
+            list_artifacts=list_artifacts,
+            dest_path=dest_path,
+        )
+    )
     _logger.info("Command to execute to archive artifacts: %s", cmd)
     subprocess.check_output(shlex.split(cmd))
     _, _, _, path_in_hdfs = _resolve_connection_params(dest_path)
@@ -298,7 +302,8 @@ def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
         scheme=hdfs_artifact_repository.scheme,
         host=hdfs_artifact_repository.host,
         path_in_hdfs=path_in_hdfs,
-        archive_name=archive_name)
+        archive_name=archive_name,
+    )
 
 
 def remove_folder(hdfs_folder):

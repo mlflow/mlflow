@@ -295,21 +295,15 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
 
 
 def make_zipfile(archive_name, source_dir):
-    with zipfile.ZipFile(archive_name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+    with zipfile.ZipFile(archive_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for root, _, files in os.walk(source_dir):
             for file in files:
                 zip_file.write(
                     os.path.join(root, file),
-                    os.path.join(
-                        "",
-                        os.path.relpath(root, source_dir),
-                        file
-                    )
+                    os.path.join("", os.path.relpath(root, source_dir), file)
                     if root != source_dir
-                    else os.path.join(
-                        "",
-                        file
-                    ))
+                    else os.path.join("", file),
+                )
 
 
 def _copy_project(src_path, dst_path=""):

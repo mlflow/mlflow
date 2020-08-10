@@ -18,7 +18,7 @@ from mlflow.entities import (
     ViewType,
     SourceType,
     ExperimentTag,
-    Columns
+    Columns,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
@@ -732,12 +732,20 @@ class FileStore(AbstractStore):
             tag_columns.update(run.data.tags.keys())
             param_columns.update(run.data.params.keys())
 
-        return Columns(metrics=list(metric_columns),
-                       params=list(param_columns),
-                       tags=list(tag_columns))
+        return Columns(
+            metrics=list(metric_columns), params=list(param_columns), tags=list(tag_columns)
+        )
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token, columns_to_whitelist):
+    def _search_runs(
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        columns_to_whitelist,
+    ):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
@@ -915,10 +923,19 @@ def _filter_columns(run, columns_to_whitelist):
     if columns_to_whitelist is None:
         return run
     run_data = run.data
-    metrics = [Metric(name, value, 0, 0) for name, value in run_data.metrics.items()
-               if 'metrics.{}'.format(name) in columns_to_whitelist]
-    params = [Param(name, value) for name, value in run_data.params.items()
-              if 'params.{}'.format(name) in columns_to_whitelist]
-    tags = [RunTag(name, value) for name, value in run_data.tags.items()
-            if 'tags.{}'.format(name) not in columns_to_whitelist]
+    metrics = [
+        Metric(name, value, 0, 0)
+        for name, value in run_data.metrics.items()
+        if "metrics.{}".format(name) in columns_to_whitelist
+    ]
+    params = [
+        Param(name, value)
+        for name, value in run_data.params.items()
+        if "params.{}".format(name) in columns_to_whitelist
+    ]
+    tags = [
+        RunTag(name, value)
+        for name, value in run_data.tags.items()
+        if "tags.{}".format(name) not in columns_to_whitelist
+    ]
     return Run(run_info=run.info, run_data=RunData(metrics=metrics, params=params, tags=tags))

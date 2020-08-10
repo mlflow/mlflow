@@ -190,9 +190,7 @@ def test_list_all_columns(mock_get_request_message, mock_tracking_store):
     """
     mock_get_request_message.return_value = ListAllColumns(experiment_id="0")
     mock_tracking_store.list_all_columns.return_value = Columns(
-        tags=["tag1", "tag2"],
-        metrics=["metric1", "metric2"],
-        params=["param1", "param2"],
+        tags=["tag1", "tag2"], metrics=["metric1", "metric2"], params=["param1", "param2"],
     )
     resp = _list_all_columns()
     json_response = json.loads(resp.get_data())
@@ -205,8 +203,9 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_s
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
-    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"],
-                                                       columns_to_whitelist=None)
+    mock_get_request_message.return_value = SearchRuns(
+        experiment_ids=["0"], columns_to_whitelist=None
+    )
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
     args, _ = mock_tracking_store.search_runs.call_args
@@ -218,10 +217,11 @@ def test_search_run_columns_filtering(mock_get_request_message, mock_tracking_st
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
-    columns = ['params.p_a', 'metrics.m_a']
+    columns = ["params.p_a", "metrics.m_a"]
     ctw = ColumnsToWhitelist(columns=columns)
-    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"],
-                                                       columns_to_whitelist=ctw)
+    mock_get_request_message.return_value = SearchRuns(
+        experiment_ids=["0"], columns_to_whitelist=ctw
+    )
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
     args, _ = mock_tracking_store.search_runs.call_args
@@ -235,8 +235,9 @@ def test_search_run_no_columns(mock_get_request_message, mock_tracking_store):
     """
     columns = []
     ctw = ColumnsToWhitelist(columns=columns)
-    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"],
-                                                       columns_to_whitelist=ctw)
+    mock_get_request_message.return_value = SearchRuns(
+        experiment_ids=["0"], columns_to_whitelist=ctw
+    )
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
     args, _ = mock_tracking_store.search_runs.call_args

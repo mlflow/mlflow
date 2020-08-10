@@ -27,7 +27,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     UpdateArtifactsLocation,
     ListAllColumns,
-    ColumnsToWhitelist
+    ColumnsToWhitelist,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -53,8 +53,9 @@ class RestStore(AbstractStore):
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto,
-                             self.get_host_creds)
+        return call_endpoint(
+            self.get_host_creds(), endpoint, method, json_body, response_proto, self.get_host_creds
+        )
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         """
@@ -231,26 +232,37 @@ class RestStore(AbstractStore):
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def list_all_columns(self, experiment_id, run_view_type):
-        lac = ListAllColumns(experiment_id=str(experiment_id),
-                             run_view_type=ViewType.to_proto(run_view_type))
+        lac = ListAllColumns(
+            experiment_id=str(experiment_id), run_view_type=ViewType.to_proto(run_view_type)
+        )
         req_body = message_to_json(lac)
         response_proto = self._call_endpoint(ListAllColumns, req_body)
         return Columns.from_proto(response_proto)
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token, columns_to_whitelist):
+    def _search_runs(
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        columns_to_whitelist,
+    ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         if columns_to_whitelist is not None:
             ctw = ColumnsToWhitelist(columns=columns_to_whitelist)
         else:
             ctw = None
-        sr = SearchRuns(experiment_ids=experiment_ids,
-                        filter=filter_string,
-                        run_view_type=ViewType.to_proto(run_view_type),
-                        max_results=max_results,
-                        order_by=order_by,
-                        page_token=page_token,
-                        columns_to_whitelist=ctw)
+        sr = SearchRuns(
+            experiment_ids=experiment_ids,
+            filter=filter_string,
+            run_view_type=ViewType.to_proto(run_view_type),
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            columns_to_whitelist=ctw,
+        )
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
@@ -310,8 +322,9 @@ class RestStore(AbstractStore):
 
         :return: None
         """
-        req_body = message_to_json(UpdateArtifactsLocation(
-            run_id=run_id, new_artifacts_location=new_artifacts_location))
+        req_body = message_to_json(
+            UpdateArtifactsLocation(run_id=run_id, new_artifacts_location=new_artifacts_location)
+        )
         self._call_endpoint(UpdateArtifactsLocation, req_body)
 
 

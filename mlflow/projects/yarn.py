@@ -17,29 +17,37 @@ _logger = logging.getLogger(__name__)
 YARN_APPLICATION_ID = "yarn_application_id"
 
 # Configuration parameter names
-YARN_NUM_CORES = 'num_cores'
-YARN_MEMORY = 'memory'
-YARN_QUEUE = 'queue'
-YARN_HADOOP_FILESYSTEMS = 'hadoop_filesystems'
-YARN_HADOOP_CONF_DIR = 'hadoop_conf_dir'
+YARN_NUM_CORES = "num_cores"
+YARN_MEMORY = "memory"
+YARN_QUEUE = "queue"
+YARN_HADOOP_FILESYSTEMS = "hadoop_filesystems"
+YARN_HADOOP_CONF_DIR = "hadoop_conf_dir"
 # Extra parameters to configure skein setup
-YARN_ENV = 'env'
-YARN_ADDITIONAL_FILES = 'additional_files'
+YARN_ENV = "env"
+YARN_ADDITIONAL_FILES = "additional_files"
 
 # default values for YARN related parameters
 yarn_cfg_defaults = {
     YARN_NUM_CORES: 1,
     YARN_MEMORY: "1 GiB",
     YARN_QUEUE: "defautl",
-    YARN_HADOOP_FILESYSTEMS: '',
-    YARN_HADOOP_CONF_DIR: '',
+    YARN_HADOOP_FILESYSTEMS: "",
+    YARN_HADOOP_CONF_DIR: "",
     YARN_ENV: {},
-    YARN_ADDITIONAL_FILES: []
+    YARN_ADDITIONAL_FILES: [],
 }
 
 
-def run_yarn_job(remote_run, work_dir, parameters, experiment_id, cluster_spec,
-                 conda_env_name, entry_point_command, run_env_vars):
+def run_yarn_job(
+    remote_run,
+    work_dir,
+    parameters,
+    experiment_id,
+    cluster_spec,
+    conda_env_name,
+    entry_point_command,
+    run_env_vars,
+):
     env_params = _get_key_from_params(parameters, "env")
     additional_files = _get_key_from_params(parameters, "additional_files")
 
@@ -50,8 +58,9 @@ def run_yarn_job(remote_run, work_dir, parameters, experiment_id, cluster_spec,
     additional_files += yarn_config[YARN_ADDITIONAL_FILES]
     zipped_project = _zip_project(work_dir)
     additional_files.append(zipped_project)
-    packed_conda_env = _pack_conda_env(os.path.join(
-        os.environ["MLFLOW_CONDA_HOME"], "envs", conda_env_name))
+    packed_conda_env = _pack_conda_env(
+        os.path.join(os.environ["MLFLOW_CONDA_HOME"], "envs", conda_env_name)
+    )
     additional_files.append(packed_conda_env)
 
     try:
@@ -62,11 +71,11 @@ def run_yarn_job(remote_run, work_dir, parameters, experiment_id, cluster_spec,
                 num_cores=yarn_config[YARN_NUM_CORES],
                 memory=yarn_config[YARN_MEMORY],
                 queue=yarn_config[YARN_QUEUE],
-                hadoop_file_systems=yarn_config[YARN_HADOOP_FILESYSTEMS].split(','),
+                hadoop_file_systems=yarn_config[YARN_HADOOP_FILESYSTEMS].split(","),
                 hadoop_conf_dir=yarn_config[YARN_HADOOP_CONF_DIR],
                 env_vars=env,
                 additional_files=additional_files,
-                entry_point_command=entry_point_command
+                entry_point_command=entry_point_command,
             )
 
             _logger.info("YARN backend launched app_id : %s", app_id)
@@ -76,23 +85,36 @@ def run_yarn_job(remote_run, work_dir, parameters, experiment_id, cluster_spec,
         os.remove(packed_conda_env)
 
 
-def _submit(skein_client, entry_point_command, name="yarn_launcher",
-            num_cores=1, memory="1 GiB",
-            hadoop_file_systems=None, hadoop_conf_dir="", queue=None, env_vars=None,
-            additional_files=None, node_label=None, num_containers=1,
-            user=None):
-    service = _generate_skein_service(memory, num_cores, num_containers, env_vars, additional_files,
-                                      hadoop_conf_dir, entry_point_command)
+def _submit(
+    skein_client,
+    entry_point_command,
+    name="yarn_launcher",
+    num_cores=1,
+    memory="1 GiB",
+    hadoop_file_systems=None,
+    hadoop_conf_dir="",
+    queue=None,
+    env_vars=None,
+    additional_files=None,
+    node_label=None,
+    num_containers=1,
+    user=None,
+):
+    service = _generate_skein_service(
+        memory,
+        num_cores,
+        num_containers,
+        env_vars,
+        additional_files,
+        hadoop_conf_dir,
+        entry_point_command,
+    )
 
     spec = skein.ApplicationSpec(
         name=name,
         file_systems=hadoop_file_systems,
         services={name: service},
-        acls=skein.model.ACLs(
-            enable=True,
-            ui_users=['*'],
-            view_users=['*']
-        )
+        acls=skein.model.ACLs(enable=True, ui_users=["*"], view_users=["*"]),
     )
 
     if user:
@@ -107,19 +129,23 @@ def _submit(skein_client, entry_point_command, name="yarn_launcher",
     return skein_client.submit(spec)
 
 
-def _generate_skein_service(memory, num_cores, num_containers, env_vars, additional_files,
-                            hadoop_conf_dir, entry_point_command):
+def _generate_skein_service(
+    memory,
+    num_cores,
+    num_containers,
+    env_vars,
+    additional_files,
+    hadoop_conf_dir,
+    entry_point_command,
+):
     env = dict(env_vars) if env_vars else dict()
-    env.update(
-        {
-            'SKEIN_CONFIG': './.skein',
-            "GIT_PYTHON_REFRESH": "quiet"
-        }
-    )
-    dict_files_to_upload = {os.path.basename(path): os.path.abspath(path)
-                            for path in additional_files}
+    env.update({"SKEIN_CONFIG": "./.skein", "GIT_PYTHON_REFRESH": "quiet"})
+    dict_files_to_upload = {
+        os.path.basename(path): os.path.abspath(path) for path in additional_files
+    }
 
-    script = textwrap.dedent("""
+    script = textwrap.dedent(
+        """
                  set -x
                  env
                  export HADOOP_CONF_DIR=%s
@@ -127,14 +153,16 @@ def _generate_skein_service(memory, num_cores, num_containers, env_vars, additio
                  export LD_LIBRARY_PATH=$(pwd)/conda_env.zip/lib
                  cd project.zip
                  %s
-             """ % (hadoop_conf_dir, entry_point_command))
+             """
+        % (hadoop_conf_dir, entry_point_command)
+    )
 
     return skein.Service(
         resources=skein.model.Resources(memory, num_cores),
         instances=num_containers,
         files=dict_files_to_upload,
         env=env,
-        script=script
+        script=script,
     )
 
 
@@ -160,13 +188,14 @@ def _pack_conda_env(conda_env_name):
 
 def _validate_yarn_env(project):
     if not project.name:
-        raise ExecutionException("Project name in MLProject must be specified when "
-                                 "using Yarn backend.")
+        raise ExecutionException(
+            "Project name in MLProject must be specified when " "using Yarn backend."
+        )
 
 
 def _merge_env_lists(env_params, env_yarn_cfg):
-    env = dict(value.split('=') for value in env_params)
-    env.update(dict(value.split('=') for value in env_yarn_cfg))
+    env = dict(value.split("=") for value in env_params)
+    env.update(dict(value.split("=") for value in env_yarn_cfg))
     return env
 
 
@@ -174,7 +203,7 @@ def _get_key_from_params(params, key, remove_key=True):
     if key not in params:
         return []
 
-    values = params[key].split(',')
+    values = params[key].split(",")
     if remove_key:
         del params[key]
 
@@ -193,26 +222,25 @@ def _parse_yarn_config(backend_config, extra_params=None):
         raise ExecutionException("Backend_config file not found.")
     yarn_config = backend_config.copy()
 
-    for cfg_key in [YARN_NUM_CORES, YARN_MEMORY, YARN_QUEUE,
-                    YARN_HADOOP_FILESYSTEMS, YARN_HADOOP_CONF_DIR,
-                    YARN_ENV, YARN_ADDITIONAL_FILES]:
+    for cfg_key in [
+        YARN_NUM_CORES,
+        YARN_MEMORY,
+        YARN_QUEUE,
+        YARN_HADOOP_FILESYSTEMS,
+        YARN_HADOOP_CONF_DIR,
+        YARN_ENV,
+        YARN_ADDITIONAL_FILES,
+    ]:
         if cfg_key not in yarn_config.keys():
-            yarn_config[cfg_key] = extra_params.get(cfg_key,
-                                                    yarn_cfg_defaults[cfg_key])
+            yarn_config[cfg_key] = extra_params.get(cfg_key, yarn_cfg_defaults[cfg_key])
     return yarn_config
 
 
 def _format_app_report(report):
-    attrs = [
-        "queue",
-        "start_time",
-        "finish_time",
-        "final_status",
-        "tracking_url",
-        "user"
-    ]
+    attrs = ["queue", "start_time", "finish_time", "final_status", "tracking_url", "user"]
     return os.linesep + os.linesep.join(
-        "{:>16}: {}".format(attr, getattr(report, attr) or '') for attr in attrs)
+        "{:>16}: {}".format(attr, getattr(report, attr) or "") for attr in attrs
+    )
 
 
 def _get_application_logs(skein_client, app_id, wait_for_nb_logs=None, log_tries=15):
@@ -224,8 +252,9 @@ def _get_application_logs(skein_client, app_id, wait_for_nb_logs=None, log_tries
             if not wait_for_nb_logs or nb_keys == wait_for_nb_logs:
                 return logs
         except (skein.exceptions.ConnectionError, skein.exceptions.TimeoutError) as ex:
-            _logger.exception("Cannot collect logs (attempt %s/%s) due to exception: %s",
-                              ind + 1, log_tries, ex)
+            _logger.exception(
+                "Cannot collect logs (attempt %s/%s) due to exception: %s", ind + 1, log_tries, ex
+            )
         time.sleep(3)
     return None
 
@@ -289,5 +318,6 @@ class YarnSubmittedRun(SubmittedRun):
         elif app_state == skein.model.FinalStatus.UNDEFINED:
             return RunStatus.RUNNING
 
-        raise ExecutionException("YARN Application %s has invalid status: %s"
-                                 % (self._skein_app_id, app_state))
+        raise ExecutionException(
+            "YARN Application %s has invalid status: %s" % (self._skein_app_id, app_state)
+        )

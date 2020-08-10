@@ -27,10 +27,7 @@ class DownloadException(Exception):
 
 
 def _fetch_dbfs(uri, local_path):
-    print(
-        "=== Downloading DBFS file %s to local path %s ===" %
-        (uri, os.path.abspath(local_path))
-    )
+    print("=== Downloading DBFS file %s to local path %s ===" % (uri, os.path.abspath(local_path)))
     process.exec_cmd(cmd=["databricks", "fs", "cp", "-r", uri, local_path])
 
 
@@ -46,7 +43,7 @@ def _fetch_s3(uri, local_path):
         client_kwargs["endpoint_url"] = endpoint_url
 
     (bucket, s3_path) = parse_simple_uri(uri, ["s3"])
-    boto3.client('s3', **client_kwargs).download_file(bucket, s3_path, local_path)
+    boto3.client("s3", **client_kwargs).download_file(bucket, s3_path, local_path)
 
 
 def _fetch_gs(uri, local_path):
@@ -90,6 +87,8 @@ def download_uri(uri, output_path):
     elif VIEWFS_REGEX.match(uri) or HDFS_REGEX.match(uri) or HAR_REGEX.match(uri):
         _fetch_hdfs(uri, output_path)
     else:
-        raise DownloadException("`uri` must be a DBFS (%s), S3 (%s), HDFS (%s), VIEWFS (%s), "
-                                "or GCS (%s) URI, got %s" % (DBFS_PREFIX, S3_PREFIX, HDFS_PREFIX,
-                                                             VIEWFS_PREFIX, GS_PREFIX, uri))
+        raise DownloadException(
+            "`uri` must be a DBFS (%s), S3 (%s), HDFS (%s), VIEWFS (%s), "
+            "or GCS (%s) URI, got %s"
+            % (DBFS_PREFIX, S3_PREFIX, HDFS_PREFIX, VIEWFS_PREFIX, GS_PREFIX, uri)
+        )

@@ -218,9 +218,16 @@ class AbstractStore:
         """
         pass
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None,
-                    columns_to_whitelist=None):
+    def search_runs(
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+        columns_to_whitelist=None,
+    ):
         """
         Return runs that match the given list of search expressions within the experiments.
 
@@ -239,13 +246,28 @@ class AbstractStore:
             attribute of the object; however, some store implementations may not support pagination
             and thus the returned token would not be meaningful in such cases.
         """
-        runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results,
-                                        order_by, page_token, columns_to_whitelist)
+        runs, token = self._search_runs(
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
+            columns_to_whitelist,
+        )
         return PagedList(runs, token)
 
     @abstractmethod
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token, columns_to_whitelist):
+    def _search_runs(
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        columns_to_whitelist,
+    ):
         """
         Return runs that match the given list of search expressions within the experiments, as
         well as a pagination token (indicating where the next page should start). Subclasses of
