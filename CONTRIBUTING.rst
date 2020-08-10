@@ -258,7 +258,14 @@ Please also follow the recommendations from the
 
 Python
 ~~~~~~
-Verify that the unit tests & linter pass before submitting a pull request by running:
+We use `Black <https://black.readthedocs.io/en/stable/>`_ to ensure a consistent code format.
+You can auto-format your code by running:
+
+.. code-block:: bash
+
+    black --line-length=100 --exclude=mlflow/protos .
+
+Then, verify that the unit tests & linter pass before submitting a pull request by running:
 
 .. code-block:: bash
 

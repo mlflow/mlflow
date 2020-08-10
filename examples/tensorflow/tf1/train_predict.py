@@ -12,8 +12,10 @@ import mlflow.tensorflow
 mlflow.tensorflow.autolog()
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--steps', default=1000, type=int,
-                    help='number of steps used for training and evaluation')
+parser.add_argument(
+    "--steps", default=1000, type=int, help="number of steps used for training and evaluation"
+)
+
 
 def main(argv):
     with mlflow.start_run():
@@ -26,17 +28,20 @@ def main(argv):
         # There are 13 features we are using for inference.
         feat_cols = [tf.feature_column.numeric_column(key="features", shape=(x_train.shape[1],))]
         feat_spec = {
-            "features": tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
+            "features": tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])
+        }
 
         hidden_units = [50, 20]
         steps = args.steps
 
         regressor = tf.estimator.DNNRegressor(hidden_units=hidden_units, feature_columns=feat_cols)
-        train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train,
-                                                            num_epochs=None, shuffle=True)
+        train_input_fn = tf.estimator.inputs.numpy_input_fn(
+            {"features": x_train}, y_train, num_epochs=None, shuffle=True
+        )
         regressor.train(train_input_fn, steps=steps)
-        test_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_test}, y_test,
-                                                           num_epochs=None, shuffle=True)
+        test_input_fn = tf.estimator.inputs.numpy_input_fn(
+            {"features": x_test}, y_test, num_epochs=None, shuffle=True
+        )
         # Compute mean squared error
         mse = regressor.evaluate(test_input_fn, steps=steps)
 
@@ -50,12 +55,12 @@ def main(argv):
             # Since the model was automatically logged as an artifact (more specifically
             # a MLflow Model), we don't need to use saved_estimator_path to load back the model.
             # MLflow takes care of it!
-            pyfunc_model = pyfunc.load_model(mlflow.get_artifact_uri('model'))
+            pyfunc_model = pyfunc.load_model(mlflow.get_artifact_uri("model"))
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
 
             # Checking the PyFunc's predictions are the same as the original model's predictions.
             predict_df = pyfunc_model.predict(df)
-            predict_df['original_labels'] = y_test
+            predict_df["original_labels"] = y_test
             print(predict_df)
         finally:
             shutil.rmtree(temp)

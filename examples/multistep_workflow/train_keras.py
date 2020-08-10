@@ -43,7 +43,7 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     mlflow.log_metric("training_nrows", training_df.count())
     mlflow.log_metric("test_nrows", test_df.count())
 
-    print('Training: {0}, test: {1}'.format(training_df.count(), test_df.count()))
+    print("Training: {0}, test: {1}".format(training_df.count(), test_df.count()))
 
     user_factors = als_model.userFactors.selectExpr("id as userId", "features as uFeatures")
     item_factors = als_model.itemFactors.selectExpr("id as movieId", "features as iFeatures")
@@ -57,12 +57,18 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
 
     concat_arrays_udf = udf(concat_arrays, ArrayType(FloatType()))
 
-    concat_train_df = (joined_train_df
-                       .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
-                               col('rating').cast("float")))
-    concat_test_df = (joined_test_df
-                      .select('userId', 'movieId', concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
-                              col('rating').cast("float")))
+    concat_train_df = joined_train_df.select(
+        "userId",
+        "movieId",
+        concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
+        col("rating").cast("float"),
+    )
+    concat_test_df = joined_test_df.select(
+        "userId",
+        "movieId",
+        concat_arrays_udf(col("iFeatures"), col("uFeatures")).alias("features"),
+        col("rating").cast("float"),
+    )
 
     pandas_df = concat_train_df.toPandas()
     pandas_test_df = concat_test_df.toPandas()
@@ -78,26 +84,34 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
 
     # Create our Keras model with two fully connected hidden layers.
     model = Sequential()
-    model.add(Dense(30, input_dim=24, activation='relu'))
-    model.add(Dense(hidden_units, activation='relu'))
-    model.add(Dense(1, activation='linear'))
+    model.add(Dense(30, input_dim=24, activation="relu"))
+    model.add(Dense(hidden_units, activation="relu"))
+    model.add(Dense(1, activation="linear"))
 
-    model.compile(loss="mse", optimizer=keras.optimizers.Adam(lr=.0001))
+    model.compile(loss="mse", optimizer=keras.optimizers.Adam(lr=0.0001))
 
-    filepath = '/tmp/ALS_checkpoint_weights.hdf5'
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, patience=2, mode='auto')
+    filepath = "/tmp/ALS_checkpoint_weights.hdf5"
+    early_stopping = EarlyStopping(monitor="val_loss", min_delta=0.0001, patience=2, mode="auto")
 
-    model.fit(x_train, pandas_df["rating"], validation_split=.2, verbose=2, epochs=3,
-              batch_size=128, shuffle=False, callbacks=[early_stopping])
+    model.fit(
+        x_train,
+        pandas_df["rating"],
+        validation_split=0.2,
+        verbose=2,
+        epochs=3,
+        batch_size=128,
+        shuffle=False,
+        callbacks=[early_stopping],
+    )
 
     train_mse = model.evaluate(x_train, pandas_df["rating"], verbose=2)
     test_mse = model.evaluate(x_test, pandas_test_df["rating"], verbose=2)
     mlflow.log_metric("test_mse", test_mse)
     mlflow.log_metric("train_mse", train_mse)
 
-    print('The model had a MSE on the test set of {0}'.format(test_mse))
+    print("The model had a MSE on the test set of {0}".format(test_mse))
     mlflow.keras.log_model(model, "keras-model")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     train_keras()

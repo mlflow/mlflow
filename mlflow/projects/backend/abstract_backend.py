@@ -1,7 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
 
-class AbstractBackend():
+class AbstractBackend:
     """
     Abstract plugin class defining the interface needed to execute MLflow projects. You can define
     subclasses of ``AbstractBackend`` and expose them as third-party plugins to enable running
@@ -9,11 +9,13 @@ class AbstractBackend():
     in-house cluster or job scheduler). See `MLflow Plugins <../../plugins.html>`_ for more
     information.
     """
+
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def run(self, project_uri, entry_point, params,
-            version, backend_config, tracking_uri, experiment_id):
+    def run(
+        self, project_uri, entry_point, params, version, backend_config, tracking_uri, experiment_id
+    ):
         """
         Submit an entrypoint. It must return a SubmittedRun object to track the execution
 

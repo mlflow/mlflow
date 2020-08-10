@@ -12,6 +12,7 @@ class Param(_MLflowObject):
     def __init__(self, key, value):
         if "pyspark.ml" in sys.modules:
             import pyspark.ml.param
+
             if isinstance(key, pyspark.ml.param.Param):
                 key = key.name
                 value = str(value)
