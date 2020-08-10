@@ -86,6 +86,8 @@ class GCSArtifactRepository(ArtifactRepository):
 
         results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
+            # skip blobs matching current directory path as list_blobs api
+            # returns subdirectories as well
             if result.name == prefix:
                 continue
             blob_path = result.name[len(artifact_path) + 1 :]
