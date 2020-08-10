@@ -270,12 +270,12 @@ Then, verify that the unit tests & linter pass before submitting a pull request 
 .. code-block:: bash
 
     ./lint.sh
-    ./travis/run-small-python-tests.sh
+    ./dev/run-small-python-tests.sh
     # Optionally, run large tests as well. Travis will run large tests on your pull request once
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
     # making changes to these components, we recommend running the relevant tests (e.g. tests under
     # tests/keras for changes to Keras model support) locally before submitting a pull request.
-    ./travis/run-large-python-tests.sh
+    ./dev/run-large-python-tests.sh
 
 Python tests are split into "small" & "large" categories, with new tests falling into the "small"
 category by default. Tests that take 10 or more seconds to run should be marked as large tests
