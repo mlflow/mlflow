@@ -798,7 +798,6 @@ accepts the following data formats as input:
 
     import requests
     import json
-    
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input = {
         "columns": [
