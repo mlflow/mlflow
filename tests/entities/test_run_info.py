@@ -7,8 +7,18 @@ from tests.helper_functions import random_str, random_int
 
 
 class TestRunInfo(unittest.TestCase):
-    def _check(self, ri, run_id, experiment_id, user_id, status, start_time, end_time,
-               lifecycle_stage, artifact_uri):
+    def _check(
+        self,
+        ri,
+        run_id,
+        experiment_id,
+        user_id,
+        status,
+        start_time,
+        end_time,
+        lifecycle_stage,
+        artifact_uri,
+    ):
         self.assertIsInstance(ri, RunInfo)
         self.assertEqual(ri.run_uuid, run_id)
         self.assertEqual(ri.run_id, run_id)
@@ -30,17 +40,52 @@ class TestRunInfo(unittest.TestCase):
         end_time = start_time + random_int(1, 10)
         lifecycle_stage = LifecycleStage.ACTIVE
         artifact_uri = random_str(random_int(10, 40))
-        ri = RunInfo(run_uuid=run_id, run_id=run_id, experiment_id=experiment_id, user_id=user_id,
-                     status=status, start_time=start_time, end_time=end_time,
-                     lifecycle_stage=lifecycle_stage, artifact_uri=artifact_uri)
-        return (ri, run_id, experiment_id, user_id, status, start_time, end_time, lifecycle_stage,
-                artifact_uri)
+        ri = RunInfo(
+            run_uuid=run_id,
+            run_id=run_id,
+            experiment_id=experiment_id,
+            user_id=user_id,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            lifecycle_stage=lifecycle_stage,
+            artifact_uri=artifact_uri,
+        )
+        return (
+            ri,
+            run_id,
+            experiment_id,
+            user_id,
+            status,
+            start_time,
+            end_time,
+            lifecycle_stage,
+            artifact_uri,
+        )
 
     def test_creation_and_hydration(self):
-        (ri1, run_id, experiment_id, user_id, status, start_time, end_time, lifecycle_stage,
-         artifact_uri) = self._create()
-        self._check(ri1, run_id, experiment_id, user_id, status, start_time, end_time,
-                    lifecycle_stage, artifact_uri)
+        (
+            ri1,
+            run_id,
+            experiment_id,
+            user_id,
+            status,
+            start_time,
+            end_time,
+            lifecycle_stage,
+            artifact_uri,
+        ) = self._create()
+        self._check(
+            ri1,
+            run_id,
+            experiment_id,
+            user_id,
+            status,
+            start_time,
+            end_time,
+            lifecycle_stage,
+            artifact_uri,
+        )
         as_dict = {
             "run_uuid": run_id,
             "run_id": run_id,
@@ -50,24 +95,52 @@ class TestRunInfo(unittest.TestCase):
             "start_time": start_time,
             "end_time": end_time,
             "lifecycle_stage": lifecycle_stage,
-            "artifact_uri": artifact_uri
+            "artifact_uri": artifact_uri,
         }
         self.assertEqual(dict(ri1), as_dict)
 
         proto = ri1.to_proto()
         ri2 = RunInfo.from_proto(proto)
-        self._check(ri2, run_id, experiment_id, user_id, status, start_time, end_time,
-                    lifecycle_stage, artifact_uri)
+        self._check(
+            ri2,
+            run_id,
+            experiment_id,
+            user_id,
+            status,
+            start_time,
+            end_time,
+            lifecycle_stage,
+            artifact_uri,
+        )
         ri3 = RunInfo.from_dictionary(as_dict)
-        self._check(ri3, run_id, experiment_id, user_id, status, start_time, end_time,
-                    lifecycle_stage, artifact_uri)
+        self._check(
+            ri3,
+            run_id,
+            experiment_id,
+            user_id,
+            status,
+            start_time,
+            end_time,
+            lifecycle_stage,
+            artifact_uri,
+        )
         # Test that we can add a field to RunInfo and still deserialize it from a dictionary
         dict_copy_0 = as_dict.copy()
         dict_copy_0["my_new_field"] = "new field value"
         ri4 = RunInfo.from_dictionary(dict_copy_0)
-        self._check(ri4, run_id, experiment_id, user_id, status, start_time, end_time,
-                    lifecycle_stage, artifact_uri)
+        self._check(
+            ri4,
+            run_id,
+            experiment_id,
+            user_id,
+            status,
+            start_time,
+            end_time,
+            lifecycle_stage,
+            artifact_uri,
+        )
 
     def test_searchable_attributes(self):
-        self.assertSequenceEqual(set(["status", "artifact_uri"]),
-                                 set(RunInfo.get_searchable_attributes()))
+        self.assertSequenceEqual(
+            set(["status", "artifact_uri"]), set(RunInfo.get_searchable_attributes())
+        )

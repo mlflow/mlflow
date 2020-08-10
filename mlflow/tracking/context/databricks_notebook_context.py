@@ -6,7 +6,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_NAME,
     MLFLOW_DATABRICKS_WEBAPP_URL,
     MLFLOW_DATABRICKS_NOTEBOOK_PATH,
-    MLFLOW_DATABRICKS_NOTEBOOK_ID
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 
 
@@ -20,7 +20,7 @@ class DatabricksNotebookRunContext(RunContextProvider):
         webapp_url = databricks_utils.get_webapp_url()
         tags = {
             MLFLOW_SOURCE_NAME: notebook_path,
-            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK)
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         }
         if notebook_id is not None:
             tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id

@@ -8,12 +8,15 @@ def _user_args_to_dict(user_list):
     user_dict = {}
     for s in user_list:
         try:
-            name, value = s.split('=')
+            name, value = s.split("=")
         except ValueError:
             # not enough values to unpack
-            raise click.BadOptionUsage("config", "Config options must be a pair and should be"
-                                                 "provided as ``-C key=value`` or "
-                                                 "``--config key=value``")
+            raise click.BadOptionUsage(
+                "config",
+                "Config options must be a pair and should be"
+                "provided as ``-C key=value`` or "
+                "``--config key=value``",
+            )
         if name in user_dict:
             raise click.ClickException("Repeated parameter: '{}'".format(name))
         user_dict[name] = value
@@ -22,14 +25,19 @@ def _user_args_to_dict(user_list):
 
 installed_targets = [target for target in interface.plugin_store.registry]
 if len(installed_targets) > 0:
-    supported_targets_msg = "Support is currently installed for deployment to: " \
-                        "{targets}".format(targets=", ".join(installed_targets))
+    supported_targets_msg = "Support is currently installed for deployment to: " "{targets}".format(
+        targets=", ".join(installed_targets)
+    )
 else:
-    supported_targets_msg = "NOTE: you currently do not have support for installed for any " \
-                            "deployment targets."
+    supported_targets_msg = (
+        "NOTE: you currently do not have support for installed for any " "deployment targets."
+    )
 
-target_details = click.option("--target", "-t", required=True,
-                              help="""
+target_details = click.option(
+    "--target",
+    "-t",
+    required=True,
+    help="""
                                    Deployment target URI. Run
                                    `mlflow deployments help --target-name <target-name>` for
                                    more details on the supported URI format and config options
@@ -39,17 +47,26 @@ target_details = click.option("--target", "-t", required=True,
                                    See all supported deployment targets and installation
                                    instructions at
                                    https://mlflow.org/docs/latest/plugins.html#community-plugins
-                                   """.format(supported_targets_msg=supported_targets_msg))
-deployment_name = click.option("--name", "name", required=True,
-                               help="Name of the deployment")
-parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", multiple=True,
-                                      help="Extra target-specific config for the model "
-                                           "deployment, of the form -C name=value. See "
-                                           "documentation/help for your deployment target for a "
-                                           "list of supported config options.")
+                                   """.format(
+        supported_targets_msg=supported_targets_msg
+    ),
+)
+deployment_name = click.option("--name", "name", required=True, help="Name of the deployment")
+parse_custom_arguments = click.option(
+    "--config",
+    "-C",
+    metavar="NAME=VALUE",
+    multiple=True,
+    help="Extra target-specific config for the model "
+    "deployment, of the form -C name=value. See "
+    "documentation/help for your deployment target for a "
+    "list of supported config options.",
+)
 
 
-@click.group("deployments", help="""
+@click.group(
+    "deployments",
+    help="""
     Deploy MLflow models to custom targets.
     Run `mlflow deployments help --target-name <target-name>` for
     more details on the supported URI format and config options for a given target.
@@ -61,7 +78,10 @@ parse_custom_arguments = click.option("--config", "-C", metavar="NAME=VALUE", mu
     You can also write your own plugin for deployment to a custom target. For instructions on
     writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
-""".format(supported_targets_msg=supported_targets_msg))
+""".format(
+        supported_targets_msg=supported_targets_msg
+    ),
+)
 def commands():
     """
     Deploy MLflow models to custom targets. Support is currently installed for
@@ -84,8 +104,11 @@ def commands():
 @deployment_name
 @target_details
 @cli_args.MODEL_URI
-@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
-                                     "inferred if it's not given")
+@click.option(
+    "--flavor",
+    "-f",
+    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+)
 def create_deployment(flavor, model_uri, target, name, config):
     """
     Deploy the model at ``model_uri`` to the specified target.
@@ -95,22 +118,29 @@ def create_deployment(flavor, model_uri, target, name, config):
     config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
     deployment = client.create_deployment(name, model_uri, flavor, config=config_dict)
-    click.echo("\n{} deployment {} is created".format(deployment['flavor'],
-                                                      deployment['name']))
+    click.echo("\n{} deployment {} is created".format(deployment["flavor"], deployment["name"]))
 
 
 @commands.command("update")
 @parse_custom_arguments
 @deployment_name
 @target_details
-@click.option("--model-uri", "-m", default=None, metavar="URI",
-              help="URI to the model. A local path, a 'runs:/' URI, or a"
-                   " remote storage URI (e.g., an 's3://' URI). For more information"
-                   " about supported remote URIs for model artifacts, see"
-                   " https://mlflow.org/docs/latest/tracking.html"
-                   "#artifact-stores")  # optional model_uri
-@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
-                                     "inferred if it's not given")
+@click.option(
+    "--model-uri",
+    "-m",
+    default=None,
+    metavar="URI",
+    help="URI to the model. A local path, a 'runs:/' URI, or a"
+    " remote storage URI (e.g., an 's3://' URI). For more information"
+    " about supported remote URIs for model artifacts, see"
+    " https://mlflow.org/docs/latest/tracking.html"
+    "#artifact-stores",
+)  # optional model_uri
+@click.option(
+    "--flavor",
+    "-f",
+    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+)
 def update_deployment(flavor, model_uri, target, name, config):
     """
     Update the deployment with ID `deployment_id` in the specified target.
@@ -122,7 +152,7 @@ def update_deployment(flavor, model_uri, target, name, config):
     config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
     ret = client.update_deployment(name, model_uri=model_uri, flavor=flavor, config=config_dict)
-    click.echo("Deployment {} is updated (with flavor {})".format(name, ret['flavor']))
+    click.echo("Deployment {} is updated (with flavor {})".format(name, ret["flavor"]))
 
 
 @commands.command("delete")
@@ -161,7 +191,7 @@ def get_deployment(target, name):
     desc = client.get_deployment(name)
     for key, val in desc.items():
         click.echo("{}: {}".format(key, val))
-    click.echo('\n')
+    click.echo("\n")
 
 
 @commands.command("help")
@@ -179,8 +209,11 @@ def target_help(target):
 @deployment_name
 @target_details
 @cli_args.MODEL_URI
-@click.option("--flavor", "-f", help="Which flavor to be deployed. This will be auto "
-                                     "inferred if it's not given")
+@click.option(
+    "--flavor",
+    "-f",
+    help="Which flavor to be deployed. This will be auto " "inferred if it's not given",
+)
 def run_local(flavor, model_uri, target, name, config):
     """
     Deploy the model locally. This has very similar signature to ``create`` API

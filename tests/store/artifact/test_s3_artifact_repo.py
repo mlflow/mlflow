@@ -17,8 +17,8 @@ def s3_artifact_root(mock_s3_bucket):
 
 
 def teardown_function():
-    if 'MLFLOW_S3_UPLOAD_EXTRA_ARGS' in os.environ:
-        del os.environ['MLFLOW_S3_UPLOAD_EXTRA_ARGS']
+    if "MLFLOW_S3_UPLOAD_EXTRA_ARGS" in os.environ:
+        del os.environ["MLFLOW_S3_UPLOAD_EXTRA_ARGS"]
 
 
 def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
@@ -75,20 +75,21 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
     s3_client = repo._get_s3_client()
 
     response_a = s3_client.head_object(Bucket=bucket, Key="some/path/a.txt")
-    assert response_a.get('ContentType') == "text/plain"
-    assert response_a.get('ContentEncoding') is None
+    assert response_a.get("ContentType") == "text/plain"
+    assert response_a.get("ContentEncoding") is None
 
     response_b = s3_client.head_object(Bucket=bucket, Key="some/path/b.tar.gz")
-    assert response_b.get('ContentType') == "application/x-tar"
-    assert response_b.get('ContentEncoding') == "gzip"
+    assert response_b.get("ContentType") == "application/x-tar"
+    assert response_b.get("ContentEncoding") == "gzip"
 
     response_c = s3_client.head_object(Bucket=bucket, Key="some/path/nested/c.csv")
-    assert response_c.get('ContentType') == 'text/csv'
-    assert response_c.get('ContentEncoding') is None
+    assert response_c.get("ContentType") == "text/csv"
+    assert response_c.get("ContentEncoding") is None
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(
-        s3_artifact_root, tmpdir):
+    s3_artifact_root, tmpdir
+):
     subdir_path = str(tmpdir.mkdir("subdir"))
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
@@ -126,7 +127,8 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
 
 
 def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_batch(
-        s3_artifact_root, tmpdir):
+    s3_artifact_root, tmpdir
+):
     subdir_path = str(tmpdir.mkdir("subdir"))
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
@@ -141,7 +143,8 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     repo.log_artifacts(subdir_path)
 
     root_artifacts_listing = sorted(
-        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()])
+        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts()]
+    )
     assert root_artifacts_listing == [
         ("a.txt", False, 1),
         ("b.txt", False, 1),
@@ -149,12 +152,14 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
     ]
 
     nested_artifacts_listing = sorted(
-        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")])
+        [(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts("nested")]
+    )
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-        s3_artifact_root, tmpdir):
+    s3_artifact_root, tmpdir
+):
     file_a_name = "a.txt"
     file_a_text = "A"
     subdir_path = str(tmpdir.mkdir("subdir"))
@@ -173,7 +178,8 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
 
 
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-        s3_artifact_root, tmpdir):
+    s3_artifact_root, tmpdir
+):
     file_a_name = "a.txt"
     file_a_text = "A"
     file_a_path = os.path.join(str(tmpdir), file_a_name)
@@ -189,12 +195,14 @@ def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
 
 
 def test_get_s3_file_upload_extra_args():
-    os.environ.setdefault('MLFLOW_S3_UPLOAD_EXTRA_ARGS',
-                          '{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}')
+    os.environ.setdefault(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS",
+        '{"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}',
+    )
 
     parsed_args = S3ArtifactRepository.get_s3_file_upload_extra_args()
 
-    assert parsed_args == {'ServerSideEncryption': 'aws:kms', 'SSEKMSKeyId': '123456'}
+    assert parsed_args == {"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}
 
 
 def test_get_s3_file_upload_extra_args_env_var_not_present():
@@ -204,8 +212,9 @@ def test_get_s3_file_upload_extra_args_env_var_not_present():
 
 
 def test_get_s3_file_upload_extra_args_invalid_json():
-    os.environ.setdefault('MLFLOW_S3_UPLOAD_EXTRA_ARGS',
-                          '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}')
+    os.environ.setdefault(
+        "MLFLOW_S3_UPLOAD_EXTRA_ARGS", '"ServerSideEncryption": "aws:kms", "SSEKMSKeyId": "123456"}'
+    )
 
     with pytest.raises(ValueError):
         S3ArtifactRepository.get_s3_file_upload_extra_args()

@@ -8,11 +8,22 @@ import mlflow
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
-    _get_storage_dir, _is_valid_branch_name, _is_zip_uri, _fetch_project, _parse_subdirectory,
-    get_or_create_run, fetch_and_validate_project, load_project)
+    _get_storage_dir,
+    _is_valid_branch_name,
+    _is_zip_uri,
+    _fetch_project,
+    _parse_subdirectory,
+    get_or_create_run,
+    fetch_and_validate_project,
+    load_project,
+)
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_SOURCE_NAME
 from tests.projects.utils import (
-    assert_dirs_equal, GIT_PROJECT_URI, TEST_PROJECT_DIR, TEST_PROJECT_NAME)
+    assert_dirs_equal,
+    GIT_PROJECT_URI,
+    TEST_PROJECT_DIR,
+    TEST_PROJECT_NAME,
+)
 
 
 def _build_uri(base_uri, subdirectory):
@@ -24,32 +35,33 @@ def _build_uri(base_uri, subdirectory):
 @pytest.fixture
 def zipped_repo(tmpdir):
     import zipfile
-    zip_name = tmpdir.join('%s.zip' % TEST_PROJECT_NAME).strpath
-    with zipfile.ZipFile(zip_name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+
+    zip_name = tmpdir.join("%s.zip" % TEST_PROJECT_NAME).strpath
+    with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for root, _, files in os.walk(TEST_PROJECT_DIR):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
-                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR) + len(os.sep):])
+                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR) + len(os.sep) :])
     return zip_name
 
 
 def test_is_zip_uri():
-    assert _is_zip_uri('http://foo.bar/moo.zip')
-    assert _is_zip_uri('https://foo.bar/moo.zip')
-    assert _is_zip_uri('file:///moo.zip')
-    assert _is_zip_uri('file://C:/moo.zip')
-    assert _is_zip_uri('/moo.zip')
-    assert _is_zip_uri('C:/moo.zip')
-    assert not _is_zip_uri('http://foo.bar/moo')
-    assert not _is_zip_uri('https://foo.bar/moo')
-    assert not _is_zip_uri('file:///moo')
-    assert not _is_zip_uri('file://C:/moo')
-    assert not _is_zip_uri('/moo')
-    assert not _is_zip_uri('C:/moo')
+    assert _is_zip_uri("http://foo.bar/moo.zip")
+    assert _is_zip_uri("https://foo.bar/moo.zip")
+    assert _is_zip_uri("file:///moo.zip")
+    assert _is_zip_uri("file://C:/moo.zip")
+    assert _is_zip_uri("/moo.zip")
+    assert _is_zip_uri("C:/moo.zip")
+    assert not _is_zip_uri("http://foo.bar/moo")
+    assert not _is_zip_uri("https://foo.bar/moo")
+    assert not _is_zip_uri("file:///moo")
+    assert not _is_zip_uri("file://C:/moo")
+    assert not _is_zip_uri("/moo")
+    assert not _is_zip_uri("C:/moo")
 
 
 def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpserver):
-    httpserver.serve_content(open(zipped_repo, 'rb').read())
+    httpserver.serve_content(open(zipped_repo, "rb").read())
     # The tests are as follows:
     # 1. Fetching a locally saved project.
     # 2. Fetching a project located in a Git repo root directory.
@@ -59,13 +71,13 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
     # 6. Using a local ZIP file
     # 7. Using a file:// URL to a local ZIP file
     test_list = [
-        (TEST_PROJECT_DIR, '', TEST_PROJECT_DIR),
-        (local_git_repo_uri, '', local_git_repo),
-        (local_git_repo_uri, 'example_project', os.path.join(local_git_repo, 'example_project')),
+        (TEST_PROJECT_DIR, "", TEST_PROJECT_DIR),
+        (local_git_repo_uri, "", local_git_repo),
+        (local_git_repo_uri, "example_project", os.path.join(local_git_repo, "example_project")),
         (os.path.dirname(TEST_PROJECT_DIR), os.path.basename(TEST_PROJECT_DIR), TEST_PROJECT_DIR),
-        (httpserver.url + '/%s.zip' % TEST_PROJECT_NAME, '', TEST_PROJECT_DIR),
-        (zipped_repo, '', TEST_PROJECT_DIR),
-        ('file://%s' % zipped_repo, '', TEST_PROJECT_DIR),
+        (httpserver.url + "/%s.zip" % TEST_PROJECT_NAME, "", TEST_PROJECT_DIR),
+        (zipped_repo, "", TEST_PROJECT_DIR),
+        ("file://%s" % zipped_repo, "", TEST_PROJECT_DIR),
     ]
     for base_uri, subdirectory, expected in test_list:
         work_dir = _fetch_project(uri=_build_uri(base_uri, subdirectory))
@@ -74,9 +86,10 @@ def test__fetch_project(local_git_repo, local_git_repo_uri, zipped_repo, httpser
     fetched_local_project = _fetch_project(uri=TEST_PROJECT_DIR)
     assert os.path.abspath(fetched_local_project) == os.path.abspath(TEST_PROJECT_DIR)
     fetched_git_project = _fetch_project(GIT_PROJECT_URI)
-    assert os.path.commonprefix(
-        [fetched_git_project, tempfile.gettempdir()]) == tempfile.gettempdir()
-    assert(os.path.exists(fetched_git_project))
+    assert (
+        os.path.commonprefix([fetched_git_project, tempfile.gettempdir()]) == tempfile.gettempdir()
+    )
+    assert os.path.exists(fetched_git_project)
 
 
 def test_fetch_project_validations(local_git_repo_uri):
@@ -132,25 +145,31 @@ def test_fetch_create_and_log(tmpdir):
         "method_name": "string",
     }
     entry_point = _project_spec.EntryPoint(entry_point_name, parameters, "run_model.sh")
-    mock_fetched_project = _project_spec.Project(None,
-                                                 {entry_point_name: entry_point},
-                                                 None, "my_project")
+    mock_fetched_project = _project_spec.Project(
+        None, {entry_point_name: entry_point}, None, "my_project"
+    )
     experiment_id = mlflow.create_experiment("test_fetch_project")
     expected_dir = tmpdir
     project_uri = "http://someuri/myproject.git"
     user_param = {"method_name": "newton"}
     with mock.patch("mlflow.projects.utils._fetch_project", return_value=expected_dir):
-        with mock.patch("mlflow.projects._project_spec.load_project",
-                        return_value=mock_fetched_project):
-            work_dir = fetch_and_validate_project(
-                "", "", entry_point_name, user_param)
+        with mock.patch(
+            "mlflow.projects._project_spec.load_project", return_value=mock_fetched_project
+        ):
+            work_dir = fetch_and_validate_project("", "", entry_point_name, user_param)
             project = load_project(work_dir)
             assert mock_fetched_project == project
             assert expected_dir == work_dir
             # Create a run
             active_run = get_or_create_run(
-                run_id=None, uri=project_uri, experiment_id=experiment_id, work_dir=work_dir,
-                version=None, entry_point=entry_point_name, parameters=user_param)
+                run_id=None,
+                uri=project_uri,
+                experiment_id=experiment_id,
+                work_dir=work_dir,
+                version=None,
+                entry_point=entry_point_name,
+                parameters=user_param,
+            )
 
             # check tags
             run = mlflow.get_run(active_run.info.run_id)

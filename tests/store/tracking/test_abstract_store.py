@@ -7,7 +7,6 @@ from mlflow.entities import ViewType
 
 
 class AbstractStoreTestImpl(AbstractStore):
-
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         raise NotImplementedError()
 
@@ -44,8 +43,9 @@ class AbstractStoreTestImpl(AbstractStore):
     def get_metric_history(self, run_id, metric_key):
         raise NotImplementedError()
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+    def _search_runs(
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+    ):
         raise NotImplementedError()
 
     def log_batch(self, run_id, metrics, params, tags):
@@ -79,9 +79,7 @@ def test_log_metric():
     with mock.patch.object(AbstractStoreTestImpl, "log_batch"):
         store = AbstractStoreTestImpl()
         store.log_metric(run_id, metric)
-        store.log_batch.assert_called_once_with(
-            run_id, metrics=[metric], params=[], tags=[]
-        )
+        store.log_batch.assert_called_once_with(run_id, metrics=[metric], params=[], tags=[])
 
 
 def test_log_param():
@@ -91,9 +89,7 @@ def test_log_param():
     with mock.patch.object(AbstractStoreTestImpl, "log_batch"):
         store = AbstractStoreTestImpl()
         store.log_param(run_id, param)
-        store.log_batch.assert_called_once_with(
-            run_id, metrics=[], params=[param], tags=[]
-        )
+        store.log_batch.assert_called_once_with(run_id, metrics=[], params=[param], tags=[])
 
 
 def test_set_tag():
@@ -103,9 +99,7 @@ def test_set_tag():
     with mock.patch.object(AbstractStoreTestImpl, "log_batch"):
         store = AbstractStoreTestImpl()
         store.set_tag(run_id, tag)
-        store.log_batch.assert_called_once_with(
-            run_id, metrics=[], params=[], tags=[tag]
-        )
+        store.log_batch.assert_called_once_with(run_id, metrics=[], params=[], tags=[tag])
 
 
 def test_list_run_infos():
@@ -115,28 +109,32 @@ def test_list_run_infos():
     runs = [mock.Mock(info=info) for info in run_infos]
     token = "adfoiweroh12334kj129318934u"
 
-    with mock.patch.object(AbstractStoreTestImpl, "search_runs",
-                           return_value=PagedList(runs, token)):
+    with mock.patch.object(
+        AbstractStoreTestImpl, "search_runs", return_value=PagedList(runs, token)
+    ):
         store = AbstractStoreTestImpl()
         result = store.list_run_infos(experiment_id, view_type)
         for i in range(len(result)):
             assert result[i] == run_infos[i]
         assert result.token == token
-        store.search_runs.assert_called_once_with([experiment_id], None, view_type,
-                                                  SEARCH_MAX_RESULTS_DEFAULT, None, None)
+        store.search_runs.assert_called_once_with(
+            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None
+        )
 
     run_infos = [mock.Mock()]
     runs = [mock.Mock(info=info) for info in run_infos]
 
-    with mock.patch.object(AbstractStoreTestImpl, "search_runs",
-                           return_value=PagedList(runs, None)):
+    with mock.patch.object(
+        AbstractStoreTestImpl, "search_runs", return_value=PagedList(runs, None)
+    ):
         store = AbstractStoreTestImpl()
         result = store.list_run_infos(experiment_id, view_type, page_token=token)
         for i in range(len(result)):
             assert result[i] == run_infos[i]
         assert result.token is None
-        store.search_runs.assert_called_once_with([experiment_id], None, view_type,
-                                                  SEARCH_MAX_RESULTS_DEFAULT, None, token)
+        store.search_runs.assert_called_once_with(
+            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, token
+        )
 
 
 def test_search_runs():
@@ -151,5 +149,6 @@ def test_search_runs():
         for i in range(len(result)):
             assert result[i] == runs[i]
         assert result.token == token
-        store._search_runs.assert_called_once_with([experiment_id], None, view_type,
-                                                   SEARCH_MAX_RESULTS_DEFAULT, None, None)
+        store._search_runs.assert_called_once_with(
+            [experiment_id], None, view_type, SEARCH_MAX_RESULTS_DEFAULT, None, None
+        )

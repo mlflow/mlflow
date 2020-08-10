@@ -40,7 +40,9 @@ def dump_sqlalchemy_store_schema(dst_file):
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("usage: python tests/store/dump_schema.py [destination_file]. "
-              "Dumps up-to-date database schema to the specified file.")
+        print(
+            "usage: python tests/store/dump_schema.py [destination_file]. "
+            "Dumps up-to-date database schema to the specified file."
+        )
         sys.exit(1)
     dump_sqlalchemy_store_schema(sys.argv[1])

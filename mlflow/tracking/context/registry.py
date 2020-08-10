@@ -36,7 +36,7 @@ class RunContextProviderRegistry(object):
                     'Failure attempting to register context provider "{}": {}'.format(
                         entrypoint.name, str(exc)
                     ),
-                    stacklevel=2
+                    stacklevel=2,
                 )
 
     def __iter__(self):
