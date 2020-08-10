@@ -232,12 +232,7 @@ def test_path_params():
         download_uri_mock.return_value = download_path
         user_4 = {"data": "s3://another.example.test/data_stash/images.tgz"}
         final_4, extra_4 = entry_point.compute_parameters(user_4, dest_path)
-<<<<<<< HEAD
         assert (final_4 == {"constants": "s3://path.test/b1",
                             "data": shlex_quote(download_path)})
         assert (extra_4 == {})
-=======
-        assert final_4 == {"constants": "s3://path.test/b1", "data": download_path}
-        assert extra_4 == {}
->>>>>>> master
         assert download_uri_mock.call_count == 1
