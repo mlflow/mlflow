@@ -33,7 +33,7 @@ jobs:
         echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
     - name: Run example tests
-      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'false' }}
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
@@ -43,7 +43,11 @@ jobs:
 
     - name: Clean up conda environments
       run: |
-        mlflow_envs=$(conda env list | cut -d' ' -f1 | grep "^mlflow-[a-z0-9]\{32\}")
+        mlflow_envs=$(
+          conda env list |               # list (env name, env path) pairs
+          cut -d' ' -f1 |                # extract env names
+          grep "^mlflow-[a-z0-9]\{32\}"  # filter envs created by mlflow
+        ) || true
 
         if [ ! -z "$mlflow_envs" ]; then
           for env in $mlflow_envs
