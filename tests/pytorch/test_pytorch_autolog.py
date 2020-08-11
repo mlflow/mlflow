@@ -12,9 +12,7 @@ NUM_EPOCHS = 20
 
 @pytest.fixture
 def pytorch_model():
-    mlflow_logger = MLFlowLogger(
-        tracking_uri="http://localhost:5000"
-    )
+    mlflow_logger = MLFlowLogger(tracking_uri="http://localhost:5000")
     model = IrisClassification()
     trainer = pl.Trainer(
         max_epochs=NUM_EPOCHS, callbacks=[__MLflowPLCallback()], logger=mlflow_logger
@@ -60,11 +58,11 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
 @pytest.fixture
 def pytorch_model_with_callback(patience):
-    mlflow_logger = MLFlowLogger(
-        tracking_uri="http://localhost:5000"
-    )
+    mlflow_logger = MLFlowLogger(tracking_uri="http://localhost:5000")
     model = IrisClassification()
-    early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
+    early_stopping = EarlyStopping(
+        monitor="val_loss", mode="min", patience=patience, verbose=True
+    )
 
     checkpoint_callback = ModelCheckpoint(
         filepath=os.getcwd(),
@@ -76,7 +74,11 @@ def pytorch_model_with_callback(patience):
     )
 
     trainer = pl.Trainer(
-        max_epochs=NUM_EPOCHS, callbacks=[__MLflowPLCallback()], logger=mlflow_logger, early_stop_callback=early_stopping, checkpoint_callback=checkpoint_callback
+        max_epochs=NUM_EPOCHS,
+        callbacks=[__MLflowPLCallback()],
+        logger=mlflow_logger,
+        early_stop_callback=early_stopping,
+        checkpoint_callback=checkpoint_callback,
     )
     trainer.fit(model)
     trainer.test()
@@ -85,7 +87,7 @@ def pytorch_model_with_callback(patience):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('patience', [3])
+@pytest.mark.parametrize("patience", [3])
 def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback, patience):
     trainer, run = pytorch_model_with_callback
     data = run.data
@@ -94,9 +96,8 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback, patience
     assert "restored_model_checkpoint" in artifacts
 
 
-
 @pytest.mark.large
-@pytest.mark.parametrize('patience', [0, 1, 5])
+@pytest.mark.parametrize("patience", [0, 1, 5])
 def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience):
     trainer, run = pytorch_model_with_callback
     data = run.data
@@ -108,9 +109,8 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert "stopped_epoch" in data.params
 
 
-
 @pytest.mark.large
-@pytest.mark.parametrize('patience', [3])
+@pytest.mark.parametrize("patience", [3])
 def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback, patience):
     trainer, run = pytorch_model_with_callback
     data = run.data
@@ -122,9 +122,7 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback, patience
 
 @pytest.fixture
 def pytorch_model_tests():
-    mlflow_logger = MLFlowLogger(
-        tracking_uri="http://localhost:5000"
-    )
+    mlflow_logger = MLFlowLogger(tracking_uri="http://localhost:5000")
     model = IrisClassification()
 
     trainer = pl.Trainer(
@@ -142,4 +140,3 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
-
