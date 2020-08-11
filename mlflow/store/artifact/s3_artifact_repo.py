@@ -21,7 +21,8 @@ class S3ArtifactRepository(ArtifactRepository):
     @staticmethod
     def get_s3_file_upload_extra_args():
         import json
-        s3_file_upload_extra_args = os.environ.get('MLFLOW_S3_UPLOAD_EXTRA_ARGS')
+
+        s3_file_upload_extra_args = os.environ.get("MLFLOW_S3_UPLOAD_EXTRA_ARGS")
         if s3_file_upload_extra_args:
             return json.loads(s3_file_upload_extra_args)
         else:
@@ -30,41 +31,35 @@ class S3ArtifactRepository(ArtifactRepository):
     def _get_s3_client(self):
         import boto3
         from botocore.client import Config
-        s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
+
+        s3_endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
         # NOTE: If you need to specify this env variable, please file an issue at
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
-        signature_version = os.environ.get('MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION', 's3v4')
-        return boto3.client('s3',
-                            config=Config(signature_version=signature_version),
-                            endpoint_url=s3_endpoint_url)
+        signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
+        return boto3.client(
+            "s3", config=Config(signature_version=signature_version), endpoint_url=s3_endpoint_url
+        )
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = dict()
         guessed_type, guessed_encoding = guess_type(local_file)
         if guessed_type is not None:
-            extra_args['ContentType'] = guessed_type
+            extra_args["ContentType"] = guessed_type
         if guessed_encoding is not None:
-            extra_args['ContentEncoding'] = guessed_encoding
+            extra_args["ContentEncoding"] = guessed_encoding
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
-        s3_client.upload_file(
-            Filename=local_file,
-            Bucket=bucket,
-            Key=key,
-            ExtraArgs=extra_args)
+        s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-            dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         self._upload_file(
-            s3_client=self._get_s3_client(),
-            local_file=local_file,
-            bucket=bucket,
-            key=dest_path)
+            s3_client=self._get_s3_client(), local_file=local_file, bucket=bucket, key=dest_path
+        )
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (bucket, dest_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
@@ -83,7 +78,8 @@ class S3ArtifactRepository(ArtifactRepository):
                     s3_client=s3_client,
                     local_file=os.path.join(root, f),
                     bucket=bucket,
-                    key=posixpath.join(upload_path, f))
+                    key=posixpath.join(upload_path, f),
+                )
 
     def list_artifacts(self, path=None):
         (bucket, artifact_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
@@ -94,25 +90,26 @@ class S3ArtifactRepository(ArtifactRepository):
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter='/')
+        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
                 subdir_path = obj.get("Prefix")
                 self._verify_listed_object_contains_artifact_path_prefix(
-                    listed_object_path=subdir_path, artifact_path=artifact_path)
-                subdir_rel_path = posixpath.relpath(
-                    path=subdir_path, start=artifact_path)
+                    listed_object_path=subdir_path, artifact_path=artifact_path
+                )
+                subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
                 if subdir_rel_path.endswith("/"):
                     subdir_rel_path = subdir_rel_path[:-1]
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
-            for obj in result.get('Contents', []):
+            for obj in result.get("Contents", []):
                 file_path = obj.get("Key")
                 self._verify_listed_object_contains_artifact_path_prefix(
-                    listed_object_path=file_path, artifact_path=artifact_path)
+                    listed_object_path=file_path, artifact_path=artifact_path
+                )
                 file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
-                file_size = int(obj.get('Size'))
+                file_size = int(obj.get("Size"))
                 infos.append(FileInfo(file_rel_path, False, file_size))
         return sorted(infos, key=lambda f: f.path)
 
@@ -123,7 +120,9 @@ class S3ArtifactRepository(ArtifactRepository):
                 "The path of the listed S3 object does not begin with the specified"
                 " artifact path. Artifact path: {artifact_path}. Object path:"
                 " {object_path}.".format(
-                    artifact_path=artifact_path, object_path=listed_object_path))
+                    artifact_path=artifact_path, object_path=listed_object_path
+                )
+            )
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, s3_root_path) = data.parse_simple_uri(self.artifact_uri, ["s3"])
@@ -132,4 +131,4 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")

@@ -22,6 +22,7 @@ class GCSArtifactRepository(ArtifactRepository):
             self.gcs = client
         else:
             from google.cloud import storage as gcs_storage
+
             self.gcs = gcs_storage
         super(GCSArtifactRepository, self).__init__(artifact_uri)
 
@@ -32,12 +33,13 @@ class GCSArtifactRepository(ArtifactRepository):
         if parsed.scheme != "gs":
             raise Exception("Not a GCS URI: %s" % uri)
         path = parsed.path
-        if path.startswith('/'):
+        if path.startswith("/"):
             path = path[1:]
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):
         from google.auth.exceptions import DefaultCredentialsError
+
         try:
             storage_client = self.gcs.Client()
         except DefaultCredentialsError:
@@ -48,8 +50,7 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-            dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
@@ -85,7 +86,7 @@ class GCSArtifactRepository(ArtifactRepository):
 
         results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
-            blob_path = result.name[len(artifact_path) + 1:]
+            blob_path = result.name[len(artifact_path) + 1 :]
             infos.append(FileInfo(blob_path, False, result.size))
 
         return sorted(infos, key=lambda f: f.path)
@@ -96,7 +97,7 @@ class GCSArtifactRepository(ArtifactRepository):
         for page in results.pages:
             dir_paths.update(page.prefixes)
 
-        return [FileInfo(path[len(artifact_path) + 1:-1], True, None) for path in dir_paths]
+        return [FileInfo(path[len(artifact_path) + 1 : -1], True, None) for path in dir_paths]
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -105,4 +106,4 @@ class GCSArtifactRepository(ArtifactRepository):
         gcs_bucket.blob(remote_full_path).download_to_filename(local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")

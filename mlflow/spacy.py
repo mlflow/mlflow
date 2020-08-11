@@ -37,14 +37,19 @@ def get_default_conda_env():
 
     return _mlflow_conda_env(
         additional_conda_deps=None,
-        additional_pip_deps=[
-            "spacy=={}".format(spacy.__version__),
-        ],
-        additional_conda_channels=None)
+        additional_pip_deps=["spacy=={}".format(spacy.__version__)],
+        additional_conda_channels=None,
+    )
 
 
-def save_model(spacy_model, path, conda_env=None, mlflow_model=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(
+    spacy_model,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Save a spaCy model to a path on the local file system.
 
@@ -95,8 +100,10 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=None,
 
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise MlflowException("Unable to save MLflow model to {path} - path '{path}' "
-                              "already exists".format(path=path))
+        raise MlflowException(
+            "Unable to save MLflow model to {path} - path '{path}' "
+            "already exists".format(path=path)
+        )
 
     model_data_subpath = "model.spacy"
     model_data_path = os.path.join(path, model_data_subpath)
@@ -122,24 +129,40 @@ def save_model(spacy_model, path, conda_env=None, mlflow_model=None,
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # Save the pyfunc flavor if at least one text categorizer in spaCy pipeline
-    if any([isinstance(pipe_component[1], spacy.pipeline.TextCategorizer)
-            for pipe_component in spacy_model.pipeline]):
-        pyfunc.add_to_model(mlflow_model, loader_module="mlflow.spacy",
-                            data=model_data_subpath, env=conda_env_subpath)
+    if any(
+        [
+            isinstance(pipe_component[1], spacy.pipeline.TextCategorizer)
+            for pipe_component in spacy_model.pipeline
+        ]
+    ):
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.spacy",
+            data=model_data_subpath,
+            env=conda_env_subpath,
+        )
     else:
         _logger.warning(
             "Generating only the spacy flavor for the provided spacy model. This means the model "
             "can be loaded back via `mlflow.spacy.load_model`, but cannot be loaded back using "
             "pyfunc APIs like `mlflow.pyfunc.load_model` or via the `mlflow models` CLI commands. "
             "MLflow will only generate the pyfunc flavor for spacy models containing a pipeline "
-            "component that is an instance of spacy.pipeline.TextCategorizer.")
+            "component that is an instance of spacy.pipeline.TextCategorizer."
+        )
 
     mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(spacy_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
+def log_model(
+    spacy_model,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    **kwargs
+):
     """
     Log a spaCy model as an MLflow artifact for the current run.
 
@@ -189,10 +212,16 @@ def log_model(spacy_model, artifact_path, conda_env=None, registered_model_name=
 
     :param kwargs: kwargs to pass to ``spacy.save_model`` method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.spacy,
-              registered_model_name=registered_model_name,
-              spacy_model=spacy_model, conda_env=conda_env,
-              signature=signature, input_example=input_example, **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.spacy,
+        registered_model_name=registered_model_name,
+        spacy_model=spacy_model,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        **kwargs
+    )
 
 
 def _load_model(path):
@@ -215,11 +244,11 @@ class _SpacyModelWrapper:
         :return: dataframe with predictions
         """
         if len(dataframe.columns) != 1:
-            raise MlflowException('Shape of input dataframe must be (n_rows, 1column)')
+            raise MlflowException("Shape of input dataframe must be (n_rows, 1column)")
 
-        return pd.DataFrame({
-            'predictions': dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).cats)
-        })
+        return pd.DataFrame(
+            {"predictions": dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).cats)}
+        )
 
 
 def _load_pyfunc(path):

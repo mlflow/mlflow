@@ -32,5 +32,5 @@ __all__ = [
     "ExperimentTag",
     "SourceType",
     "ViewType",
-    "LifecycleStage"
+    "LifecycleStage",
 ]

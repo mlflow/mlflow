@@ -38,9 +38,10 @@ def _get_latest_schema_revision():
     script = ScriptDirectory.from_config(config)
     heads = script.get_heads()
     if len(heads) != 1:
-        raise MlflowException("Migration script directory was in unexpected state. Got %s head "
-                              "database versions but expected only 1. Found versions: %s"
-                              % (len(heads), heads))
+        raise MlflowException(
+            "Migration script directory was in unexpected state. Got %s head "
+            "database versions but expected only 1. Found versions: %s" % (len(heads), heads)
+        )
     return heads[0]
 
 
@@ -53,7 +54,8 @@ def _verify_schema(engine):
             "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
             "to migrate your database to the latest schema. NOTE: schema migration may "
             "result in database downtime - please consult your database's documentation for "
-            "more detail." % (current_rev, head_revision))
+            "more detail." % (current_rev, head_revision)
+        )
 
 
 def _get_managed_session_maker(SessionMaker, db_type):
@@ -102,14 +104,18 @@ def _get_alembic_config(db_url, alembic_dir=None):
     names.
     """
     from alembic.config import Config
-    final_alembic_dir = os.path.join(_get_package_dir(), 'store', 'db_migrations')\
-        if alembic_dir is None else alembic_dir
+
+    final_alembic_dir = (
+        os.path.join(_get_package_dir(), "store", "db_migrations")
+        if alembic_dir is None
+        else alembic_dir
+    )
     # Escape any '%' that appears in a db_url. This could be in a password,
     # url, or anything that is part of a potentially complex database url
-    db_url = db_url.replace('%', '%%')
-    config = Config(os.path.join(final_alembic_dir, 'alembic.ini'))
-    config.set_main_option('script_location', final_alembic_dir)
-    config.set_main_option('sqlalchemy.url', db_url)
+    db_url = db_url.replace("%", "%%")
+    config = Config(os.path.join(final_alembic_dir, "alembic.ini"))
+    config.set_main_option("script_location", final_alembic_dir)
+    config.set_main_option("sqlalchemy.url", db_url)
     return config
 
 
@@ -125,6 +131,7 @@ def _upgrade_db(engine):
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
+
     db_url = str(engine.url)
     _logger.info("Updating database tables")
     config = _get_alembic_config(db_url)
@@ -134,8 +141,8 @@ def _upgrade_db(engine):
     # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
     # connection-with-a-series-of-migration-commands-and-environments
     with engine.begin() as connection:
-        config.attributes['connection'] = connection  # pylint: disable=E1137
-        command.upgrade(config, 'heads')
+        config.attributes["connection"] = connection  # pylint: disable=E1137
+        command.upgrade(config, "heads")
 
 
 def _get_schema_version(engine):
@@ -166,10 +173,11 @@ def _upgrade_db_initialized_before_mlflow_1(engine):
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
+
     _logger.info("Updating database tables in preparation for MLflow 1.0 schema migrations ")
-    alembic_dir = os.path.join(_get_package_dir(), 'temporary_db_migrations_for_pre_1_users')
+    alembic_dir = os.path.join(_get_package_dir(), "temporary_db_migrations_for_pre_1_users")
     config = _get_alembic_config(str(engine.url), alembic_dir)
-    command.upgrade(config, 'heads')
+    command.upgrade(config, "heads")
     # Reset the alembic version to "base" (the 'first' version) so that a) the versioning system
     # is unaware that this migration occurred and b) subsequent migrations, like the migration to
     # add metric steps, do not need to depend on this one. This allows us to eventually remove this
@@ -184,10 +192,9 @@ def create_sqlalchemy_engine(db_uri):
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs['pool_size'] = int(pool_size)
+        pool_kwargs["pool_size"] = int(pool_size)
     if pool_max_overflow:
-        pool_kwargs['max_overflow'] = int(pool_max_overflow)
+        pool_kwargs["max_overflow"] = int(pool_max_overflow)
     if pool_kwargs:
         _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True,
-                                    **pool_kwargs)
+    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)

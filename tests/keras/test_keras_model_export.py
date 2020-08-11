@@ -42,30 +42,31 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.pyfunc.test_spark import score_model_as_udf
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def fix_random_seed():
     SEED = 0
-    os.environ['PYTHONHASHSEED'] = str(SEED)
+    os.environ["PYTHONHASHSEED"] = str(SEED)
     random.seed(SEED)
     np.random.seed(SEED)
 
-    if version.parse(tf.__version__) >= version.parse('2.0.0'):
+    if version.parse(tf.__version__) >= version.parse("2.0.0"):
         tf.random.set_seed(SEED)
     else:
         tf.set_random_seed(SEED)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def data():
     iris = datasets.load_iris()
-    data = pd.DataFrame(data=np.c_[iris['data'], iris['target']],
-                        columns=iris['feature_names'] + ['target'])
-    y = data['target']
-    x = data.drop('target', axis=1)
+    data = pd.DataFrame(
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
+    )
+    y = data["target"]
+    x = data.drop("target", axis=1)
     return x, y
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def model(data):
     x, y = data
     model = Sequential()
@@ -73,28 +74,28 @@ def model(data):
     model.add(Dense(1))
     # Use a small learning rate to prevent exploding gradients which may produce
     # infinite prediction values
-    model.compile(loss='mean_squared_error', optimizer=SGD(learning_rate=0.001))
+    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def tf_keras_model(data):
     x, y = data
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss='mean_squared_error', optimizer=TfSGD(learning_rate=0.001))
+    model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
     model.fit(x, y)
     return model
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def predicted(model, data):
     return model.predict(data[0])
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def custom_layer():
     class MyDense(Layer):
         def __init__(self, output_dim, **kwargs):
@@ -102,10 +103,12 @@ def custom_layer():
             super(MyDense, self).__init__(**kwargs)
 
         def build(self, input_shape):
-            self.kernel = self.add_weight(name='kernel',
-                                          shape=(input_shape[1], self.output_dim),
-                                          initializer='uniform',
-                                          trainable=True)
+            self.kernel = self.add_weight(
+                name="kernel",
+                shape=(input_shape[1], self.output_dim),
+                initializer="uniform",
+                trainable=True,
+            )
             super(MyDense, self).build(input_shape)
 
         def call(self, x):
@@ -115,24 +118,24 @@ def custom_layer():
             return (input_shape[0], self.output_dim)
 
         def get_config(self):
-            return {'output_dim': self.output_dim}
+            return {"output_dim": self.output_dim}
 
     return MyDense
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def custom_model(data, custom_layer):
     x, y = data
     x, y = x.values, y.values
     model = Sequential()
     model.add(custom_layer(6))
     model.add(Dense(1))
-    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.compile(loss="mean_squared_error", optimizer="SGD")
     model.fit(x, y, epochs=1)
     return model
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def custom_predicted(custom_model, data):
     return custom_model.predict(data[0])
 
@@ -145,9 +148,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def keras_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_conda_deps=["keras", "tensorflow", "pytest"])
+    _mlflow_conda_env(conda_env, additional_conda_deps=["keras", "tensorflow", "pytest"])
     return conda_env
 
 
@@ -227,17 +228,20 @@ def test_model_save_load(build_model, model_path, data):
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
     print(scoring_response.content)
-    assert all(pd.read_json(scoring_response.content, orient="records",
-                            encoding="utf8").values.astype(np.float32)
-               == expected)
+    assert all(
+        pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
+            np.float32
+        )
+        == expected
+    )
     # test spark udf
-    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
-                                         pandas_df=pd.DataFrame(x),
-                                         result_type="float")
-    np.allclose(
-        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
+    spark_udf_preds = score_model_as_udf(
+        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
+    )
+    np.allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
 
 
 @pytest.mark.large
@@ -248,9 +252,9 @@ def test_signature_and_examples_are_saved_correctly(model, data):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.keras.save_model(model, path=path,
-                                        signature=signature,
-                                        input_example=example)
+                mlflow.keras.save_model(
+                    model, path=path, signature=signature, input_example=example
+                )
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -262,7 +266,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
 @pytest.mark.large
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
-    custom_objects = {'MyDense': custom_layer}
+    custom_objects = {"MyDense": custom_layer}
     mlflow.keras.save_model(custom_model, model_path, custom_objects=custom_objects)
 
     # Loading Keras model
@@ -272,34 +276,36 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    )
     assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records",
-                     encoding="utf8").values.astype(np.float32),
+        pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
+            np.float32
+        ),
         custom_predicted,
         rtol=1e-5,
-        atol=1e-9)
+        atol=1e-9,
+    )
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
     # test spark udf
-    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
-                                         pandas_df=pd.DataFrame(x),
-                                         result_type="float")
-    np.allclose(
-        np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))
+    spark_udf_preds = score_model_as_udf(
+        model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
+    )
+    np.allclose(np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))
 
 
 def test_custom_model_save_respects_user_custom_objects(custom_model, custom_layer, model_path):
-    class DifferentCustomLayer():
+    class DifferentCustomLayer:
         def __init__(self):
             pass
 
         def __call__(self):
             pass
 
-    incorrect_custom_objects = {'MyDense': DifferentCustomLayer()}
-    correct_custom_objects = {'MyDense': custom_layer}
+    incorrect_custom_objects = {"MyDense": DifferentCustomLayer()}
+    correct_custom_objects = {"MyDense": custom_layer}
     mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
     model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
@@ -333,8 +339,8 @@ def test_model_log(model, data, predicted):
             artifact_path = "keras_model"
             mlflow.keras.log_model(model, artifact_path=artifact_path)
             model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id,
-                artifact_path=artifact_path)
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
 
             # Load model
             model_loaded = mlflow.keras.load_model(model_uri=model_uri)
@@ -351,10 +357,12 @@ def test_log_model_calls_register_model(model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
-        mlflow.keras.log_model(model, artifact_path=artifact_path,
-                               registered_model_name="AdsModel1")
-        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
-                                                            artifact_path=artifact_path)
+        mlflow.keras.log_model(
+            model, artifact_path=artifact_path, registered_model_name="AdsModel1"
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
 
 
@@ -368,7 +376,8 @@ def test_log_model_no_registered_model_name(model):
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-        model, model_path, keras_custom_env):
+    model, model_path, keras_custom_env
+):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -403,9 +412,13 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(
-            keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env)
-        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+            keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env
+        )
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -421,7 +434,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
 
 @pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        model, model_path):
+    model, model_path
+):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -432,13 +446,15 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 
 @pytest.mark.large
-def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        model):
+def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
-        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -450,20 +466,19 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
-        model, model_path, data, predicted):
+    model, model_path, data, predicted
+):
     """
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
-    shutil.move(
-        os.path.join(model_path, 'data', 'model.h5'),
-        os.path.join(model_path, 'model.h5'))
+    shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
     assert flavor_conf is not None
-    del flavor_conf['data']
+    del flavor_conf["data"]
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.keras.load_model(model_path)
@@ -479,10 +494,8 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=500)
+        activity_polling_timeout_seconds=500,
+    )
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
-    np.testing.assert_array_almost_equal(
-        deployed_model_preds.values,
-        predicted,
-        decimal=4)
+    np.testing.assert_array_almost_equal(deployed_model_preds.values, predicted, decimal=4)

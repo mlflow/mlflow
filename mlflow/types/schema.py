@@ -19,6 +19,7 @@ class DataType(Enum):
     """
     MLflow data types.
     """
+
     def __new__(cls, value, numpy_type, spark_type, pandas_type=None):
         res = object.__new__(cls)
         res._value_ = value
@@ -62,6 +63,7 @@ class DataType(Enum):
 
     def to_spark(self):
         import pyspark.sql.types
+
         return getattr(pyspark.sql.types, self._spark_type)()
 
 
@@ -70,17 +72,22 @@ class ColSpec(object):
     Specification of name and type of a single column in a dataset.
     """
 
-    def __init__(self, type: DataType,  # pylint: disable=redefined-builtin
-                 name: Optional[str] = None):
+    def __init__(
+        self, type: DataType, name: Optional[str] = None  # pylint: disable=redefined-builtin
+    ):
         self._name = name
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
-            raise MlflowException("Unsupported type '{0}', expected instance of DataType or "
-                                  "one of {1}".format(type, [t.name for t in DataType]))
+            raise MlflowException(
+                "Unsupported type '{0}', expected instance of DataType or "
+                "one of {1}".format(type, [t.name for t in DataType])
+            )
         if not isinstance(self.type, DataType):
-            raise TypeError("Expected mlflow.models.signature.Datatype or str for the 'type' "
-                            "argument, but got {}".format(self.type.__class__))
+            raise TypeError(
+                "Expected mlflow.models.signature.Datatype or str for the 'type' "
+                "argument, but got {}".format(self.type.__class__)
+            )
 
     @property
     def type(self) -> DataType:
@@ -119,11 +126,13 @@ class Schema(object):
     """
 
     def __init__(self, cols: List[ColSpec]):
-        if not (all(map(lambda x: x.name is None, cols))
-                or all(map(lambda x: x.name is not None, cols))):
-            raise MlflowException("Creating Schema with a combination of named and unnamed columns "
-                                  "is not allowed. Got column names {}".format(
-                                    [x.name for x in cols]))
+        if not (
+            all(map(lambda x: x.name is None, cols)) or all(map(lambda x: x.name is not None, cols))
+        ):
+            raise MlflowException(
+                "Creating Schema with a combination of named and unnamed columns "
+                "is not allowed. Got column names {}".format([x.name for x in cols])
+            )
         self._cols = cols
 
     @property
@@ -159,9 +168,13 @@ class Schema(object):
         if len(self.columns) == 1 and self.columns[0].name is None:
             return self.columns[0].type.to_spark()
         from pyspark.sql.types import StructType, StructField
-        return StructType([StructField(name=col.name or str(i),
-                                       dataType=col.type.to_spark())
-                           for i, col in enumerate(self.columns)])
+
+        return StructType(
+            [
+                StructField(name=col.name or str(i), dataType=col.type.to_spark())
+                for i, col in enumerate(self.columns)
+            ]
+        )
 
     def to_json(self) -> str:
         """Serialize into json string."""

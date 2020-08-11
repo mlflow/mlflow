@@ -25,8 +25,7 @@ class HdfsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        self.scheme, self.host, self.port, self.path = _resolve_connection_params(
-            artifact_uri)
+        self.scheme, self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -40,7 +39,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
             _, file_name = os.path.split(local_file)
             destination = posixpath.join(hdfs_base_path, file_name)
-            with hdfs.open(destination, 'wb') as output:
+            with hdfs.open(destination, "wb") as output:
                 output.write(open(local_file, "rb").read())
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -61,8 +60,11 @@ class HdfsArtifactRepository(ArtifactRepository):
 
                 relative_path = _relative_path_local(local_dir, subdir_path)
 
-                hdfs_subdir_path = posixpath.join(hdfs_base_path, relative_path) \
-                    if relative_path else hdfs_base_path
+                hdfs_subdir_path = (
+                    posixpath.join(hdfs_base_path, relative_path)
+                    if relative_path
+                    else hdfs_base_path
+                )
 
                 if not hdfs.exists(hdfs_subdir_path):
                     hdfs.mkdir(hdfs_subdir_path)
@@ -70,7 +72,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                 for each_file in files:
                     source = os.path.join(subdir_path, each_file)
                     destination = posixpath.join(hdfs_subdir_path, each_file)
-                    with hdfs.open(destination, 'wb') as output_stream:
+                    with hdfs.open(destination, "wb") as output_stream:
                         output_stream.write(open(source, "rb").read())
 
     def list_artifacts(self, path=None):
@@ -91,8 +93,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                     file_name = file_detail.get("name")
                     # Strip off anything that comes before the artifact root e.g. hdfs://name
                     offset = file_name.index(self.path)
-                    rel_path = _relative_path_remote(
-                        self.path, file_name[offset:])
+                    rel_path = _relative_path_remote(self.path, file_name[offset:])
                     is_dir = file_detail.get("kind") == "directory"
                     size = file_detail.get("size")
                     paths.append(FileInfo(rel_path, is_dir, size))
@@ -135,16 +136,14 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
 
             if not hdfs.isdir(hdfs_base_path):
-                local_path = os.path.join(
-                    local_dir, os.path.normpath(artifact_path))
+                local_path = os.path.join(local_dir, os.path.normpath(artifact_path))
                 _download_hdfs_file(hdfs, hdfs_base_path, local_path)
                 return local_path
 
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
 
                 relative_path = _relative_path_remote(hdfs_base_path, path)
-                local_path = os.path.join(local_dir, relative_path) \
-                    if relative_path else local_dir
+                local_path = os.path.join(local_dir, relative_path) if relative_path else local_dir
 
                 if is_dir:
                     mkdir(local_path)
@@ -154,10 +153,10 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         _, _, _, path = _resolve_connection_params(remote_file_path)
-        if path.endswith('/'):
+        if path.endswith("/"):
             path = path[:-1]
         with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
-            local_path = os.path.join(local_path, os.path.normpath(path.split('/')[-1]))
+            local_path = os.path.join(local_path, os.path.normpath(path.split("/")[-1]))
             _download_hdfs_file(hdfs, path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
@@ -178,20 +177,22 @@ def hdfs_system(scheme, host, port):
     """
     import pyarrow as pa
 
-    kerb_ticket = os.getenv('MLFLOW_KERBEROS_TICKET_CACHE')
-    kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
-    extra_conf = _parse_extra_conf(os.getenv('MLFLOW_PYARROW_EXTRA_CONF'))
+    kerb_ticket = os.getenv("MLFLOW_KERBEROS_TICKET_CACHE")
+    kerberos_user = os.getenv("MLFLOW_KERBEROS_USER")
+    extra_conf = _parse_extra_conf(os.getenv("MLFLOW_PYARROW_EXTRA_CONF"))
 
     if host:
         host = scheme + "://" + host
     else:
-        host = 'default'
+        host = "default"
 
-    connected = pa.hdfs.connect(host=host,
-                                port=port or 0,
-                                user=kerberos_user,
-                                kerb_ticket=kerb_ticket,
-                                extra_conf=extra_conf)
+    connected = pa.hdfs.connect(
+        host=host,
+        port=port or 0,
+        user=kerberos_user,
+        kerb_ticket=kerb_ticket,
+        extra_conf=extra_conf,
+    )
     yield connected
     connected.close()
 
@@ -213,9 +214,10 @@ def _parse_har_filesystem(artifact_uri):
     har_extension_index = artifact_uri.find(HAR_EXTENSION)
     if har_extension_index < 0:
         error_msg = "{0} is not valid hadoop archive path: no .har extension in path.".format(
-            artifact_uri)
+            artifact_uri
+        )
         raise HdfsArtifactRepositoryException(error_msg)
-    archive_path = artifact_uri[:har_extension_index + len(HAR_EXTENSION)]
+    archive_path = artifact_uri[: har_extension_index + len(HAR_EXTENSION)]
     return "har", archive_path, 0, artifact_uri
 
 
@@ -229,7 +231,7 @@ def _resolve_base_path(path, artifact_path):
 
 def _relative_path(base_dir, subdir_path, path_module):
     relative_path = path_module.relpath(subdir_path, base_dir)
-    return relative_path if relative_path != '.' else None
+    return relative_path if relative_path != "." else None
 
 
 def _relative_path_local(base_dir, subdir_path):
@@ -250,17 +252,18 @@ def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
     dirs = os.path.dirname(local_file_path)
     if not os.path.exists(dirs):
         os.makedirs(dirs)
-    with open(local_file_path, 'wb') as f:
-        f.write(hdfs.open(remote_file_path, 'rb').read())
+    with open(local_file_path, "wb") as f:
+        f.write(hdfs.open(remote_file_path, "rb").read())
 
 
 def _parse_extra_conf(extra_conf):
     if extra_conf:
+
         def as_pair(config):
-            key, val = config.split('=')
+            key, val = config.split("=")
             return key, val
 
-        list_of_key_val = [as_pair(conf) for conf in extra_conf.split(',')]
+        list_of_key_val = [as_pair(conf) for conf in extra_conf.split(",")]
         return dict(list_of_key_val)
     return None
 
@@ -277,16 +280,21 @@ def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
     :note: It overrides existing archive.
     """
     # clean existing archive if exists
-    remove_folder(dest_path + '/' + archive_name)
+    remove_folder(dest_path + "/" + archive_name)
 
     files_info = hdfs_artifact_repository.list_artifacts()
     if not files_info:
         return ""
     list_artifacts = " ".join([file_info.path for file_info in files_info])
-    cmd = "hadoop archive -archiveName {archive_name} -p {artifact_path} "\
+    cmd = (
+        "hadoop archive -archiveName {archive_name} -p {artifact_path} "
         "{list_artifacts} {dest_path}".format(
-            archive_name=archive_name, artifact_path=hdfs_artifact_repository.path,
-            list_artifacts=list_artifacts, dest_path=dest_path)
+            archive_name=archive_name,
+            artifact_path=hdfs_artifact_repository.path,
+            list_artifacts=list_artifacts,
+            dest_path=dest_path,
+        )
+    )
     _logger.info("Command to execute to archive artifacts: %s", cmd)
     subprocess.check_output(shlex.split(cmd))
     _, _, _, path_in_hdfs = _resolve_connection_params(dest_path)
@@ -294,7 +302,8 @@ def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
         scheme=hdfs_artifact_repository.scheme,
         host=hdfs_artifact_repository.host,
         path_in_hdfs=path_in_hdfs,
-        archive_name=archive_name)
+        archive_name=archive_name,
+    )
 
 
 def remove_folder(hdfs_folder):

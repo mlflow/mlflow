@@ -22,14 +22,10 @@ def test_file_info_to_json():
         FileInfo("/my/dir", True, None),
     ]
     info_str = _file_infos_to_json(file_infos)
-    assert json.loads(info_str) == [{
-        "path": "/my/file",
-        "is_dir": False,
-        "file_size": "123",
-    }, {
-        "path": "/my/dir",
-        "is_dir": True,
-    }]
+    assert json.loads(info_str) == [
+        {"path": "/my/file", "is_dir": False, "file_size": "123"},
+        {"path": "/my/dir", "is_dir": True},
+    ]
 
 
 def test_download_from_uri():
@@ -68,8 +64,9 @@ def test_download_from_uri():
         ("s3://path/to", ("s3://path/", "to")),
         ("s3://path/to/dir", ("s3://path/to", "dir")),
     ]
-    with mock.patch("mlflow.tracking.artifact_utils.get_artifact_repository") \
-            as get_artifact_repo_mock:
+    with mock.patch(
+        "mlflow.tracking.artifact_utils.get_artifact_repository"
+    ) as get_artifact_repo_mock:
         get_artifact_repo_mock.side_effect = test_get_artifact_repository
 
         for uri, expected_result in pairs:
@@ -89,8 +86,7 @@ def test_download_artifacts_from_uri():
     run_uri = "runs:/{run_id}/test".format(run_id=run.info.run_id)
     actual_uri = posixpath.join(run.info.artifact_uri, "test")
     for uri in (run_uri, actual_uri):
-        p = Popen(command + [uri], stdout=PIPE,
-                  stderr=STDOUT)
+        p = Popen(command + [uri], stdout=PIPE, stderr=STDOUT)
         output = p.stdout.readlines()
         downloaded_file_path = output[-1].strip()
         downloaded_file = os.listdir(downloaded_file_path)[0]
@@ -131,5 +127,6 @@ def test_archive_hdfs_artifacts(mock_remove_folder, mock_archive_artifacts, mock
     assert isinstance(call_args[0], HdfsArtifactRepository)
     assert "hdfs:///path/to" == call_args[1]
     mock_store.update_artifacts_location.assert_called_once_with(
-        "42", "har://hdfs-root/path/to/artifact.har")
+        "42", "har://hdfs-root/path/to/artifact.har"
+    )
     mock_remove_folder.assert_called_once_with("hdfs:///path/to/myartifacts")

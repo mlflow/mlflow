@@ -18,6 +18,7 @@ compatible pickling APIs.
 # pylint: disable=wildcard-import
 # pylint: disable=unused-wildcard-import
 from cloudpickle import *
+
 # PyTorch uses the ``Pickler`` class of the specified ``pickle_module``
 # (https://github.com/pytorch/pytorch/blob/692898fe379c9092f5e380797c32305145cd06e1/torch/
 # serialization.py#L290). Unfortunately, ``cloudpickle.Pickler`` is an alias for Python's native
@@ -27,6 +28,7 @@ from cloudpickle import *
 # into a CloudPickle release or the ``torch.save`` API has been updated to be compatible with
 # the existing CloudPickle API.
 from cloudpickle import CloudPickler as Pickler
+
 # CloudPickle does not include `Unpickler` in its namespace, which is required by PyTorch for
 # deserialization. Noting that CloudPickle's `load()` and `loads()` routines are aliases for
 # `pickle.load()` and `pickle.loads()`, we therefore import Unpickler from the native

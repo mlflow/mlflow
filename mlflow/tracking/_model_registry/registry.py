@@ -30,6 +30,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
                  store URI requirements.
         """
         from mlflow.tracking._model_registry import utils
+
         store_uri = utils._resolve_registry_uri(store_uri)
         builder = self.get_store_builder(store_uri)
         return builder(store_uri=store_uri)

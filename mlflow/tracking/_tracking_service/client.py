@@ -12,12 +12,19 @@ from six import iteritems
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
-from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
+from mlflow.utils.validation import (
+    _validate_param_name,
+    _validate_tag_name,
+    _validate_run_id,
+    _validate_experiment_artifact_location,
+    _validate_experiment_name,
+    _validate_metric,
+)
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
 
 
 def ensure_run_id_in_path(path, run_id):
@@ -93,12 +100,21 @@ class TrackingServiceClient(object):
             experiment_id=experiment_id,
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
+            tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
         )
 
-    def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
+    def list_run_infos(
+        self,
+        experiment_id,
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self.store.list_run_infos(experiment_id, run_view_type)
+        return self.store.list_run_infos(
+            experiment_id, run_view_type, max_results, order_by, page_token
+        )
 
     def list_experiments(self, view_type=None):
         """
@@ -131,10 +147,7 @@ class TrackingServiceClient(object):
         """
         _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(
-            name=name,
-            artifact_location=artifact_location,
-        )
+        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
 
     def delete_experiment(self, experiment_id):
         """
@@ -243,9 +256,18 @@ class TrackingServiceClient(object):
 
     def _record_logged_model(self, run_id, mlflow_model):
         if not isinstance(mlflow_model, Model):
-            raise TypeError("Argument 'mlflow_model' should be of type mlflow.models.Model but was "
-                            "{}".format(type(mlflow_model)))
+            raise TypeError(
+                "Argument 'mlflow_model' should be of type mlflow.models.Model but was "
+                "{}".format(type(mlflow_model))
+            )
         self.store.record_logged_model(run_id, mlflow_model)
+
+    def _get_artifact_repo(self, run_id):
+        run = self.get_run(run_id)
+        artifact_uri = add_databricks_profile_info_to_artifact_uri(
+            run.info.artifact_uri, self.tracking_uri
+        )
+        return get_artifact_repository(artifact_uri)
 
     def update_artifacts_location(self, run_id, artifact_path):
         """
@@ -264,14 +286,12 @@ class TrackingServiceClient(object):
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        run = self.get_run(run_id)
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
+        artifact_repo = self._get_artifact_repo(run_id)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
-            path_name = os.path.join(artifact_path, dir_name) \
-                if artifact_path is not None else dir_name
+            path_name = (
+                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
+            )
             artifact_repo.log_artifacts(local_path, path_name)
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
@@ -283,11 +303,7 @@ class TrackingServiceClient(object):
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        run = self.get_run(run_id)
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.log_artifacts(local_dir, artifact_path)
+        self._get_artifact_repo(run_id).log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
         """
@@ -298,12 +314,7 @@ class TrackingServiceClient(object):
                      or the root artifact path.
         :return: List of :py:class:`mlflow.entities.FileInfo`
         """
-        run = self.get_run(run_id)
-        artifact_root = run.info.artifact_uri
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.list_artifacts(path)
+        return self._get_artifact_repo(run_id).list_artifacts(path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """
@@ -319,12 +330,7 @@ class TrackingServiceClient(object):
                          directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
         """
-        run = self.get_run(run_id)
-        artifact_root = run.info.artifact_uri
-        # TODO: use add_databricks_profile_info_to_artifact_uri(artifact_root, self.tracking_uri)
-        #   for DBFS artifact repositories to use the correct tracking URI.
-        artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.download_artifacts(path, dst_path)
+        return self._get_artifact_repo(run_id).download_artifacts(path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
@@ -334,8 +340,9 @@ class TrackingServiceClient(object):
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
-        self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
-                                   end_time=end_time)
+        self.store.update_run_info(
+            run_id, run_status=RunStatus.from_string(status), end_time=end_time
+        )
 
     def delete_run(self, run_id):
         """
@@ -349,9 +356,16 @@ class TrackingServiceClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None,
-                    columns_to_whitelist=None):
+    def search_runs(
+        self,
+        experiment_ids,
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+        columns_to_whitelist=None,
+    ):
         """
         Search experiments that fit the search criteria.
 
@@ -374,7 +388,12 @@ class TrackingServiceClient(object):
         """
         if isinstance(experiment_ids, int) or is_string_type(experiment_ids):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
-                                      run_view_type=run_view_type, max_results=max_results,
-                                      order_by=order_by, page_token=page_token,
-                                      columns_to_whitelist=columns_to_whitelist)
+        return self.store.search_runs(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            run_view_type=run_view_type,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+            columns_to_whitelist=columns_to_whitelist,
+        )

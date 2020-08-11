@@ -27,9 +27,7 @@ class Columns(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        columns = cls(proto.metrics,
-                      proto.params,
-                      proto.tags)
+        columns = cls(proto.metrics, proto.params, proto.tags)
         return columns
 
     def to_proto(self):
