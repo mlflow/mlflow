@@ -6,11 +6,11 @@ mlflow.Rcheck
 outputs
 examples
 
-travis
+dev
 # required for Docker build
-!travis/small-requirements.txt
-!travis/large-requirements.txt
-!travis/lint-requirements.txt
+!dev/small-requirements.txt
+!dev/large-requirements.txt
+!dev/lint-requirements.txt
 
 tests
 # required for Docker build
