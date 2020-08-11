@@ -65,7 +65,7 @@ jobs:
         R CMD build .
         export LINTR_COMMENT_BOT=false
         cd tests
-        Rscript ../.tests.R
+        Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
       run: |
