@@ -33,7 +33,7 @@ jobs:
         echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
     - name: Run example tests
-      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'false' }}
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
