@@ -52,7 +52,7 @@ jobs:
         if [ ! -z "$mlflow_envs" ]; then
           for env in $mlflow_envs
           do
-            conda remove --all --yes -n $env
+            conda remove --all --yes --name $env
           done
 
           conda clean --all --yes
