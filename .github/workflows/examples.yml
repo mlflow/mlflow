@@ -37,7 +37,7 @@ jobs:
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
-        source ./travis/install-common-deps.sh
+        source ./dev/install-common-deps.sh
         source activate test-environment
         pytest --verbose tests/examples --large
 
