@@ -55,8 +55,8 @@ jobs:
             conda remove --all --yes -n $env
           done
 
-          conda env list
           conda clean --all --yes
+          conda env list
         fi
 
     - name: Run docker tests
