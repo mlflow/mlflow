@@ -77,11 +77,12 @@ class IrisClassification(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
-        logs = {"test_loss": avg_loss}
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
+        logs = {"test_loss": avg_loss, "test_acc" : avg_test_acc}
         return {
             "avg_test_loss": avg_loss,
             "avg_test_acc": avg_test_acc,
             "log": logs,
             "progress_bar": logs,
         }
+
