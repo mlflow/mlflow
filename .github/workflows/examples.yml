@@ -32,14 +32,14 @@ jobs:
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
         echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
-    - name: Run example tests
-      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
-      env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-      run: |
-        source ./travis/install-common-deps.sh
-        source activate test-environment
-        pytest --verbose tests/examples --large
+    # - name: Run example tests
+    #   if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+    #   env:
+    #     INSTALL_LARGE_PYTHON_DEPS: true
+    #   run: |
+    #     source ./travis/install-common-deps.sh
+    #     source activate test-environment
+    #     pytest --verbose tests/examples --large
 
     - name: Clean up conda environments
       run: |
