@@ -4,10 +4,10 @@ import mlflow
 
 
 def test_list_run():
-    with mlflow.start_run(run_name='apple'):
+    with mlflow.start_run(run_name="apple"):
         pass
     result = CliRunner().invoke(list_run, ["--experiment-id", "0"])
-    assert 'apple' in result.output
+    assert "apple" in result.output
 
 
 def test_list_run_experiment_id_required():

@@ -23,13 +23,14 @@ def commands():
 
 
 @commands.command("log-artifact")
-@click.option("--local-file", "-l", required=True,
-              help="Local path to artifact to log")
-@click.option("--run-id", "-r", required=True,
-              help="Run ID into which we should log the artifact.")
-@click.option("--artifact-path", "-a",
-              help="If specified, we will log the artifact into this subdirectory of the " +
-                   "run's artifact directory.")
+@click.option("--local-file", "-l", required=True, help="Local path to artifact to log")
+@click.option("--run-id", "-r", required=True, help="Run ID into which we should log the artifact.")
+@click.option(
+    "--artifact-path",
+    "-a",
+    help="If specified, we will log the artifact into this subdirectory of the "
+    + "run's artifact directory.",
+)
 def log_artifact(local_file, run_id, artifact_path):
     """
     Log a local file as an artifact of a run, optionally within a run-specific
@@ -40,18 +41,20 @@ def log_artifact(local_file, run_id, artifact_path):
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifact(local_file, artifact_path)
-    _logger.info("Logged artifact from local file %s to artifact_path=%s",
-                 local_file, artifact_path)
+    _logger.info(
+        "Logged artifact from local file %s to artifact_path=%s", local_file, artifact_path
+    )
 
 
 @commands.command("log-artifacts")
-@click.option("--local-dir", "-l", required=True,
-              help="Directory of local artifacts to log")
-@click.option("--run-id", "-r", required=True,
-              help="Run ID into which we should log the artifact.")
-@click.option("--artifact-path", "-a",
-              help="If specified, we will log the artifact into this subdirectory of the " +
-                   "run's artifact directory.")
+@click.option("--local-dir", "-l", required=True, help="Directory of local artifacts to log")
+@click.option("--run-id", "-r", required=True, help="Run ID into which we should log the artifact.")
+@click.option(
+    "--artifact-path",
+    "-a",
+    help="If specified, we will log the artifact into this subdirectory of the "
+    + "run's artifact directory.",
+)
 def log_artifacts(local_dir, run_id, artifact_path):
     """
     Log the files within a local directory as an artifact of a run, optionally
@@ -66,10 +69,12 @@ def log_artifacts(local_dir, run_id, artifact_path):
 
 
 @commands.command("list")
-@click.option("--run-id", "-r", required=True,
-              help="Run ID to be listed")
-@click.option("--artifact-path", "-a",
-              help="If specified, a path relative to the run's root directory to list.")
+@click.option("--run-id", "-r", required=True, help="Run ID to be listed")
+@click.option(
+    "--artifact-path",
+    "-a",
+    help="If specified, a path relative to the run's root directory to list.",
+)
 def list_artifacts(run_id, artifact_path):
     """
     Return all the artifacts directly under run's root artifact directory,
@@ -89,14 +94,19 @@ def _file_infos_to_json(file_infos):
 
 
 @commands.command("download")
-@click.option("--run-id", "-r",
-              help="Run ID from which to download")
-@click.option("--artifact-path", "-a",
-              help="For use with Run ID: if specified, a path relative to the run's root "
-                   "directory to download")
-@click.option("--artifact-uri", "-u",
-              help="URI pointing to the artifact file or artifacts directory; use as an "
-                   "alternative to specifying --run_id and --artifact-path")
+@click.option("--run-id", "-r", help="Run ID from which to download")
+@click.option(
+    "--artifact-path",
+    "-a",
+    help="For use with Run ID: if specified, a path relative to the run's root "
+    "directory to download",
+)
+@click.option(
+    "--artifact-uri",
+    "-u",
+    help="URI pointing to the artifact file or artifacts directory; use as an "
+    "alternative to specifying --run_id and --artifact-path",
+)
 def download_artifacts(run_id, artifact_path, artifact_uri):
     """
     Download an artifact file or directory to a local directory.
@@ -120,5 +130,5 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
     print(artifact_location)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     commands()

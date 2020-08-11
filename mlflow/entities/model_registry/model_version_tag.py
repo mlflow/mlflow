@@ -4,6 +4,7 @@ from mlflow.protos.model_registry_pb2 import ModelVersionTag as ProtoModelVersio
 
 class ModelVersionTag(_ModelRegistryEntity):
     """Tag object associated with a model version."""
+
     def __init__(self, key, value):
         self._key = key
         self._value = value

@@ -23,11 +23,20 @@ def commands():
 
 
 @commands.command("list")
-@click.option("--experiment-id", envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
-              help="Specify the experiment ID for list of runs.", required=True)
-@click.option("--view", "-v", default="active_only",
-              help="Select view type for list experiments. Valid view types are "
-                   "'active_only' (default), 'deleted_only', and 'all'.")
+@click.option(
+    "--experiment-id",
+    envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR,
+    type=click.STRING,
+    help="Specify the experiment ID for list of runs.",
+    required=True,
+)
+@click.option(
+    "--view",
+    "-v",
+    default="active_only",
+    help="Select view type for list experiments. Valid view types are "
+    "'active_only' (default), 'deleted_only', and 'all'.",
+)
 def list_run(experiment_id, view):
     """
     List all runs of the specified experiment in the configured tracking server.
@@ -68,7 +77,7 @@ def restore_run(run_id):
     print("Run with id %s has been restored." % str(run_id))
 
 
-@commands.command('describe')
+@commands.command("describe")
 @RUN_ID
 def describe_run(run_id):
     """

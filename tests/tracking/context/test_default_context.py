@@ -29,5 +29,5 @@ def test_default_run_context_tags(patch_script_name):
         assert DefaultRunContext().tags() == {
             MLFLOW_USER: mock_user,
             MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
-            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL),
         }

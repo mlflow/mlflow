@@ -39,7 +39,8 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
     if not run_id:
         raise MlflowException(
             message="A run_id must be specified in order to obtain an artifact uri!",
-            error_code=INVALID_PARAMETER_VALUE)
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     store = _get_store(tracking_uri)
     run = store.get_run(run_id)
@@ -77,11 +78,13 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
 
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
-        artifact_path=artifact_path, dst_path=output_path)
+        artifact_path=artifact_path, dst_path=output_path
+    )
 
 
-def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
-                                    target_databricks_profile_uri=None):
+def _upload_artifacts_to_databricks(
+    source, run_id, source_host_uri=None, target_databricks_profile_uri=None
+):
     """
     Copy the artifacts from ``source`` to the destination Databricks workspace (DBFS) given by
     ``databricks_profile_uri`` or the current tracking URI.
@@ -95,15 +98,20 @@ def _upload_artifacts_to_databricks(source, run_id, source_host_uri=None,
         uploaded to.
     """
     from uuid import uuid4
+
     local_dir = tempfile.mkdtemp()
     try:
         source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
         _download_artifact_from_uri(source_with_profile, local_dir)
-        dest_root = 'dbfs:/databricks/mlflow/tmp-external-source/'
+        dest_root = "dbfs:/databricks/mlflow/tmp-external-source/"
         dest_root_with_profile = add_databricks_profile_info_to_artifact_uri(
-            dest_root, target_databricks_profile_uri)
+            dest_root, target_databricks_profile_uri
+        )
         dest_repo = DbfsRestArtifactRepository(dest_root_with_profile)
         dest_artifact_path = run_id if run_id else uuid4().hex
+        # Allow uploading from the same run id multiple times by randomizing a suffix
+        if len(dest_repo.list_artifacts(dest_artifact_path)) > 0:
+            dest_artifact_path = dest_artifact_path + "-" + uuid4().hex[0:4]
         dest_repo.log_artifacts(local_dir, artifact_path=dest_artifact_path)
         dirname = pathlib.PurePath(source).name  # innermost directory name
         return posixpath.join(dest_root, dest_artifact_path, dirname)  # new source
