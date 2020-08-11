@@ -781,15 +781,15 @@ accepts the following data formats as input:
                                        create_resource_group=True,
                                        exist_okay=True)
     # Create a deployment config
-    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)                                       
+    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)
 
     # Register and deploy model to Azure Container Instance (ACI)
     (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
                                                 workspace=azure_workspace,
-                                                model_name='mymodelname', 
-                                                service_name='myservice', 
+                                                model_name='mymodelname',
+                                                service_name='myservice',
                                                 deployment_config=aci_config)
-                                                
+
     # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
@@ -822,23 +822,23 @@ accepts the following data formats as input:
                   headers={"Content-type": "application/json"})
     response_json = json.loads(response.text)
     print(response_json)
-    
+
 .. rubric:: Example workflow using the MLflow CLI
-    
+
 .. code-block:: bash
 
     # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
     mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
-    
+
     az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
-    
+
     # After the image deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
     # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
-    
+
     scoring_uri=$(az ml service show --name <deployment-name> -v | jq -r ".scoringUri")
-    
+
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input='
     {
@@ -859,12 +859,12 @@ accepts the following data formats as input:
             [8.8, 0.045, 0.36, 1.001, 7, 45, 3, 20.7, 0.45, 170, 0.27]
         ]
     }'
-    
+
     echo $sample_input | curl -s -X POST $scoring_uri\
     -H 'Cache-Control: no-cache'\
     -H 'Content-Type: application/json'\
     -d @-
-    
+
 For more info, see:
 
 .. code-block:: bash
