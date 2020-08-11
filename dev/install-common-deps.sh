@@ -36,11 +36,11 @@ if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   # When downloading large packages from PyPI, the connection is sometimes aborted by the
   # remote host. See https://github.com/pypa/pip/issues/8510.
   # As a workaround, we retry installation of large packages.
-  retry-with-backoff pip install --quiet -r ./travis/small-requirements.txt
+  retry-with-backoff pip install --quiet -r ./dev/small-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  retry-with-backoff pip install --quiet -r ./travis/large-requirements.txt
-  # Hack: make sure all spark-* scripts are executable. 
+  retry-with-backoff pip install --quiet -r ./dev/large-requirements.txt
+  # Hack: make sure all spark-* scripts are executable.
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
