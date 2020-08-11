@@ -23,6 +23,7 @@ tf2onnx==1.5.4;
 torch==1.4.0
 torchvision==0.5.0
 xgboost>=0.82
+gensim>=3.7.0
 lightgbm==2.3.0
 # Install typing to fix torch on Python 2.7 (see https://github.com/pytorch/pytorch/issues/16775)
 typing==3.6.6
