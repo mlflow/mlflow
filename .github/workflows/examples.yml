@@ -43,11 +43,7 @@ jobs:
 
     - name: Clean up conda environments
       run: |
-        mlflow_envs=$(
-          conda env list |               # list (env name, env path) pairs
-          cut -d' ' -f1 |                # extract env names
-          grep "^mlflow-[a-z0-9]\{32\}"  # filter envs created by mlflow
-        )
+        mlflow_envs=$(conda env list | cut -d' ' -f1 | grep "^mlflow-[a-z0-9]\{32\}")
 
         if [ ! -z "$mlflow_envs" ]; then
           for env in $mlflow_envs
