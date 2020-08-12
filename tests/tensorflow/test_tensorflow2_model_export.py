@@ -280,9 +280,8 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
         load_and_evaluate()
 
 
-def test_schema_and_examples_are_save_correctly(saved_tf_iris_model, model_path):
-    # pylint: disable=unused-argument
-    (train_x, train_y), _ = iris_data_utils.load_data()
+def test_schema_and_examples_are_save_correctly(saved_tf_iris_model):
+    train_x, train_y = iris_data_utils.load_data()[0]
     X = pd.DataFrame(train_x)
     y = pd.Series(train_y)
     for signature in (None, infer_signature(X, y)):
