@@ -35,8 +35,10 @@ pycodestyle --max-line-length=100 --ignore=E203,W503 --exclude=$exclude -- $incl
 
 # pylint's `--ignore` option filters files based on their base names, not paths.
 # see: http://pylint.pycqa.org/en/latest/user_guide/run.html#command-line-options
-# This behavior might cause us to unintentionally ignore some files
+# This behavior might cause us to unintentionally ignore some files.
 # To avoid this issue, select files to lint using `git ls-files` and `grep`.
+# This approach also solves another issue where pylint ignores directories that
+# don't contain `__init__.py`.
 exclude="^\($(join "\|" "${exclude_dirs[@]}")\)/.\+\.py$"
 include="^\($(join "\|" "${include_dirs[@]}")\)/.\+\.py$"
 msg_template="{path} ({line},{column}): [{msg_id} {symbol}] {msg}"
