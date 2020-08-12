@@ -314,17 +314,17 @@ Verify that the unit tests & linter pass before submitting a pull request by run
 .. code-block:: bash
 
     ./lint.sh
-    ./travis/run-small-python-tests.sh
+    ./dev/run-small-python-tests.sh
     # Optionally, run large tests as well. Travis will run large tests on your pull request once
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
     # making changes to these components, we recommend running the relevant tests (e.g. tests under
     # tests/keras for changes to Keras model support) locally before submitting a pull request.
-    ./travis/run-large-python-tests.sh
+    ./dev/run-large-python-tests.sh
 
 Python tests are split into "small" & "large" categories, with new tests falling into the "small"
 category by default. Tests that take 10 or more seconds to run should be marked as large tests
 via the @pytest.mark.large annotation. Dependencies for small and large tests can be added to
-travis/small-requirements.txt and travis/large-requirements.txt, respectively.
+``dev/small-requirements.txt`` and ``dev/large-requirements.txt``, respectively.
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
@@ -372,13 +372,13 @@ Python Model Flavors
 If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
 1. ``.travis.yml``: exclude your tests in the Windows bash script
-2. ``travis/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
-3. ``travis/run-large-python-tests.sh``:
+2. ``dev/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
+3. ``dev/run-large-python-tests.sh``:
 
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
 
-4. ``travis/large-requirements.txt``: add your framework and version to the list of requirements
+4. ``dev/large-requirements.txt``: add your framework and version to the list of requirements
 
 You can see an example of a `flavor PR <https://github.com/mlflow/mlflow/pull/2136/files>`_.
 
