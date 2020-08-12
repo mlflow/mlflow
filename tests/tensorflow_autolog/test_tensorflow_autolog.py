@@ -8,7 +8,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.python.keras import layers
+from tensorflow.python.keras import layers  # pylint: disable=import-error
 
 import mlflow
 import mlflow.tensorflow
