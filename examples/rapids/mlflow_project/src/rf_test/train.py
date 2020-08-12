@@ -98,7 +98,7 @@ if (__name__ == "__main__"):
     artifact_uri = None
 
     mlflow.set_tracking_uri(uri='sqlite:////tmp/mlflow-db.sqlite')
-    with mlflow.start_run():
+    with mlflow.start_run(run_name="RAPIDS-Hyperopt"):
         mlflow.set_tag("mlflow.runName", "(CLI) RAPIDS-Hyperopt")
 
         argmin = fmin(fn=fn,
