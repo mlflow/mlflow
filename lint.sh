@@ -38,7 +38,7 @@ pycodestyle --max-line-length=100 --ignore=E203,W503 --exclude=$exclude -- $incl
 # This behavior might cause us to unintentionally ignore some files.
 # To avoid this issue, select files to lint using `git ls-files` and `grep`.
 # Another advantage of this approach is we can apply pylint to all python scripts
-# without `__init__.py`. By default, pylint checks directories that contain `__init__.py`.
+# without `__init__.py`. By default, pylint ignores directories that don't contain `__init__.py`.
 exclude="^\($(join "\|" "${exclude_dirs[@]}")\)/.\+\.py$"
 include="^\($(join "\|" "${include_dirs[@]}")\)/.\+\.py$"
 msg_template="{path} ({line},{column}): [{msg_id} {symbol}] {msg}"
