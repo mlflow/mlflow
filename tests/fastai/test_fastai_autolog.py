@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from tests.conftest import tracking_uri_mock  # pylint: disable=W0611
+from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
 
 import pandas as pd
 import sklearn.datasets as datasets
@@ -17,7 +17,7 @@ MIN_DELTA = 99999999  # Forces earlystopping
 
 
 @pytest.fixture(params=[True, False])
-def manual_run(request, tracking_uri_mock):
+def manual_run(request):
     if request.param:
         mlflow.start_run()
     yield
@@ -77,6 +77,7 @@ def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
 
 @pytest.fixture
 def fastai_random_data_run(iris_data, fit_variant, manual_run):
+    # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
     model = fastai_model(iris_data)
@@ -93,6 +94,7 @@ def fastai_random_data_run(iris_data, fit_variant, manual_run):
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
+    # pylint: disable=unused-argument
     model, run = fastai_random_data_run
     data = run.data
 
@@ -157,6 +159,7 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_data_run):
 
 @pytest.fixture
 def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, callback, patience):
+    # pylint: disable=unused-argument
     mlflow.fastai.autolog()
     callbacks = []
 
@@ -208,7 +211,6 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
     fastai_random_data_run_with_callback, patience
 ):
     model, run, = fastai_random_data_run_with_callback
-    metrics = run.data.metrics
     params = run.data.params
     assert "early_stop_patience" in params
     assert params["early_stop_patience"] == str(patience)
@@ -217,11 +219,7 @@ def test_fastai_autolog_early_stop_no_stop_does_not_log(
     assert "early_stop_mode" in params
     assert "early_stop_min_delta" in params
     assert params["early_stop_min_delta"] == "-{}".format(99999999)
-    """
-    assert 'stopped_epoch' in metrics
-    assert metrics['stopped_epoch'] == 0
-    assert 'restored_epoch' not in metrics
-    """
+
     num_of_epochs = len(model.recorder.val_losses)
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "valid_loss")

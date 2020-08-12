@@ -31,7 +31,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-imxport
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
@@ -51,7 +51,7 @@ SavedModelInfo = collections.namedtuple(
 def saved_tf_iris_model(tmpdir):
     # Following code from
     # https://github.com/tensorflow/models/blob/master/samples/core/get_started/premade_estimator.py
-    (train_x, train_y), (test_x, test_y) = iris_data_utils.load_data()
+    train_x, train_y = iris_data_utils.load_data()[0]
 
     # Feature columns describe how to use the input.
     my_feature_columns = []
@@ -76,7 +76,6 @@ def saved_tf_iris_model(tmpdir):
     )
 
     # Generate predictions from the model
-    expected = ["Setosa", "Versicolor", "Virginica"]
     predict_x = {
         "SepalLength": [5.1, 5.9, 6.9],
         "SepalWidth": [3.3, 3.0, 3.1],
@@ -282,6 +281,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
 
 
 def test_schema_and_examples_are_save_correctly(saved_tf_iris_model, model_path):
+    # pylint: disable=unused-argument
     (train_x, train_y), _ = iris_data_utils.load_data()
     X = pd.DataFrame(train_x)
     y = pd.Series(train_y)
@@ -356,7 +356,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
     # loaded from the specified MLflow model path
     shutil.rmtree(saved_tf_iris_model.path)
 
-    model_function = mlflow.tensorflow.load_model(model_uri=model_path)
+    mlflow.tensorflow.load_model(model_uri=model_path)
 
 
 def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
@@ -385,7 +385,7 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
 
-    infer_fn = mlflow.tensorflow.load_model(model_uri=model_uri)
+    mlflow.tensorflow.load_model(model_uri=model_uri)
 
 
 def test_log_model_calls_register_model(saved_tf_iris_model):

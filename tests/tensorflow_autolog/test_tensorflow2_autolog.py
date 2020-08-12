@@ -110,6 +110,7 @@ def test_tf_keras_autolog_persists_manually_created_run(
 
 @pytest.fixture
 def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, fit_variant):
+    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=5)
 
     data = random_train_data
@@ -182,6 +183,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 def tf_keras_random_data_run_with_callback(
     random_train_data, random_one_hot_labels, manual_run, callback, restore_weights, patience
 ):
+    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=1)
 
     data = random_train_data
@@ -291,7 +293,7 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
 def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_run_with_callback):
-    run, history, callback = tf_keras_random_data_run_with_callback
+    run, history = tf_keras_random_data_run_with_callback[:-1]
     metrics = run.data.metrics
     params = run.data.params
     assert "patience" not in params
@@ -373,21 +375,16 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def create_tf_estimator_model(dir, export):
+def create_tf_estimator_model(directory, export):
     CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
-    SPECIES = ["Setosa", "Versicolor", "Virginica"]
 
     train = pd.read_csv(
         os.path.join(os.path.dirname(__file__), "iris_training.csv"),
         names=CSV_COLUMN_NAMES,
         header=0,
     )
-    test = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), "iris_test.csv"), names=CSV_COLUMN_NAMES, header=0
-    )
 
     train_y = train.pop("Species")
-    test_y = test.pop("Species")
 
     def input_fn(features, labels, training=True, batch_size=256):
         """An input function for training or evaluating"""
@@ -415,37 +412,38 @@ def create_tf_estimator_model(dir, export):
         hidden_units=[30, 10],
         # The model must choose between 3 classes.
         n_classes=3,
-        model_dir=dir,
+        model_dir=directory,
     )
     classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=500)
     if export:
-        classifier.export_saved_model(dir, receiver_fn)
+        classifier.export_saved_model(directory, receiver_fn)
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("export", [True, False])
 def test_tf_estimator_autolog_ends_auto_created_run(tmpdir, export):
-    dir = tmpdir.mkdir("test")
+    directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    create_tf_estimator_model(str(dir), export)
+    create_tf_estimator_model(str(directory), export)
     assert mlflow.active_run() is None
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("export", [True, False])
 def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
-    dir = tmpdir.mkdir("test")
+    directory = tmpdir.mkdir("test")
     with mlflow.start_run() as run:
-        create_tf_estimator_model(str(dir), export)
+        create_tf_estimator_model(str(directory), export)
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
 def tf_estimator_random_data_run(tmpdir, manual_run, export):
-    dir = tmpdir.mkdir("test")
+    # pylint: disable=unused-argument
+    d = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    create_tf_estimator_model(str(dir), export)
+    create_tf_estimator_model(str(d), export)
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
@@ -467,9 +465,7 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
-    model = mlflow.tensorflow.load_model(
-        "runs:/" + tf_estimator_random_data_run.info.run_id + "/model"
-    )
+    mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id + "/model")
 
 
 @pytest.mark.large
