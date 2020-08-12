@@ -441,9 +441,9 @@ def test_tf_estimator_autolog_persists_manually_created_run(tmpdir, export):
 @pytest.fixture
 def tf_estimator_random_data_run(tmpdir, manual_run, export):
     # pylint: disable=unused-argument
-    d = tmpdir.mkdir("test")
+    directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
-    create_tf_estimator_model(str(d), export)
+    create_tf_estimator_model(str(directory), export)
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
