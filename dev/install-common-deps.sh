@@ -2,6 +2,16 @@
 
 set -ex
 
+function retry-with-backoff() {
+    for BACKOFF in 0 1 2 4 8 16 32 64; do
+        sleep $BACKOFF
+        if "$@"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Cleanup apt repository to make room for tests.
 sudo apt clean
 df -h
@@ -23,11 +33,14 @@ pip install --upgrade pip==19.3.1
 
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/small-requirements.txt
+  # When downloading large packages from PyPI, the connection is sometimes aborted by the
+  # remote host. See https://github.com/pypa/pip/issues/8510.
+  # As a workaround, we retry installation of large packages.
+  retry-with-backoff pip install --quiet -r ./dev/small-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  pip install --quiet -r ./travis/large-requirements.txt
-  # Hack: make sure all spark-* scripts are executable. 
+  retry-with-backoff pip install --quiet -r ./dev/large-requirements.txt
+  # Hack: make sure all spark-* scripts are executable.
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")

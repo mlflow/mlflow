@@ -58,7 +58,8 @@ class _Example(object):
             for x, y in input_example.items():
                 if isinstance(y, np.ndarray) and len(y.shape) > 1:
                     raise TensorsNotSupportedException(
-                        "Column '{0}' has shape {1}".format(x, y.shape))
+                        "Column '{0}' has shape {1}".format(x, y.shape)
+                    )
 
             if all([_is_scalar(x) for x in input_example.values()]):
                 input_example = pd.DataFrame([input_example])
@@ -74,22 +75,28 @@ class _Example(object):
                 input_example = pd.DataFrame(input_example)
         elif isinstance(input_example, np.ndarray):
             if len(input_example.shape) > 2:
-                raise TensorsNotSupportedException("Input array has shape {}".format(
-                    input_example.shape))
+                raise TensorsNotSupportedException(
+                    "Input array has shape {}".format(input_example.shape)
+                )
             input_example = pd.DataFrame(input_example)
         elif not isinstance(input_example, pd.DataFrame):
             try:
                 import pyspark.sql.dataframe
+
                 if isinstance(input_example, pyspark.sql.dataframe.DataFrame):
-                    raise MlflowException("Examples can not be provided as Spark Dataframe. "
-                                          "Please make sure your example is of a small size and "
-                                          "turn it into a pandas DataFrame by calling toPandas "
-                                          "method.")
+                    raise MlflowException(
+                        "Examples can not be provided as Spark Dataframe. "
+                        "Please make sure your example is of a small size and "
+                        "turn it into a pandas DataFrame by calling toPandas "
+                        "method."
+                    )
             except ImportError:
                 pass
-            raise TypeError("Unexpected type of input_example. Expected one of "
-                            "(pandas.DataFrame, numpy.ndarray, dict, list), "
-                            "got {}".format(type(input_example)))
+            raise TypeError(
+                "Unexpected type of input_example. Expected one of "
+                "(pandas.DataFrame, numpy.ndarray, dict, list), "
+                "got {}".format(type(input_example))
+            )
         example_filename = "input_example.json"
         self.data = input_example.to_dict(orient="split")
         # Do not include row index
@@ -97,9 +104,11 @@ class _Example(object):
         if all(input_example.columns == range(len(input_example.columns))):
             # No need to write default column index out
             del self.data["columns"]
-        self.info = {"artifact_path": example_filename,
-                     "type": "dataframe",
-                     "pandas_orient": "split"}
+        self.info = {
+            "artifact_path": example_filename,
+            "type": "dataframe",
+            "pandas_orient": "split",
+        }
 
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
@@ -138,8 +147,9 @@ def _read_example(mlflow_model: Model, path: str):
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
     if example_type != "dataframe":
-        raise MlflowException("This version of mlflow can not load example of type {}".format(
-            example_type))
+        raise MlflowException(
+            "This version of mlflow can not load example of type {}".format(example_type)
+        )
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     return _dataframe_from_json(path, schema=input_schema, precise_float=True)

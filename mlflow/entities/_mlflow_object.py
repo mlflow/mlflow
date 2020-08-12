@@ -39,7 +39,6 @@ def get_classname(obj):
 
 
 class _MLflowObjectPrinter(object):
-
     def __init__(self):
         super(_MLflowObjectPrinter, self).__init__()
         self.printer = pprint.PrettyPrinter()

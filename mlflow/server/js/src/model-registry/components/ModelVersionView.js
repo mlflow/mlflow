@@ -2,6 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
+import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
 import { ModelStageTransitionDropdown } from './ModelStageTransitionDropdown';
 import { Dropdown, Icon, Menu, Modal, Alert, Descriptions, Tooltip, message } from 'antd';
@@ -26,6 +27,7 @@ export class ModelVersionViewImpl extends React.Component {
   static propTypes = {
     modelName: PropTypes.string,
     modelVersion: PropTypes.object,
+    schema: PropTypes.object,
     runInfo: PropTypes.object,
     runDisplayName: PropTypes.string,
     handleStageTransitionDropdownSelect: PropTypes.func.isRequired,
@@ -217,7 +219,13 @@ export class ModelVersionViewImpl extends React.Component {
   }
 
   render() {
-    const { modelName, modelVersion, handleStageTransitionDropdownSelect, tags } = this.props;
+    const {
+      modelName,
+      modelVersion,
+      handleStageTransitionDropdownSelect,
+      tags,
+      schema,
+    } = this.props;
     const { status, description } = modelVersion;
     const {
       isDeleteModalVisible,
@@ -294,6 +302,9 @@ export class ModelVersionViewImpl extends React.Component {
             tags={tags}
             isRequestPending={isTagsRequestPending}
           />
+        </CollapsibleSection>
+        <CollapsibleSection title='Schema'>
+          <SchemaTable schema={schema} />
         </CollapsibleSection>
         <Modal
           title='Delete Model Version'
