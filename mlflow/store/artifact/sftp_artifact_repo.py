@@ -1,4 +1,5 @@
 import os
+import sys
 
 import posixpath
 from six.moves import urllib
@@ -6,6 +7,18 @@ from six.moves import urllib
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.exceptions import MlflowException
+
+
+# Based on: https://stackoverflow.com/a/58466685
+def _put_r_for_windows(sftp, local_dir, remote_dir, preserve_mtime=False):
+    for entry in os.listdir(local_dir):
+        local_path = os.path.join(local_dir, entry)
+        remote_path = posixpath.join(remote_dir, entry)
+        if os.path.isdir(local_path):
+            sftp.mkdir(remote_path)
+            _put_r_for_windows(sftp, local_path, remote_path, preserve_mtime)
+        else:
+            sftp.put(local_path, remote_path, preserve_mtime=preserve_mtime)
 
 
 class SFTPArtifactRepository(ArtifactRepository):
@@ -66,7 +79,10 @@ class SFTPArtifactRepository(ArtifactRepository):
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
         self.sftp.makedirs(artifact_dir)
-        self.sftp.put_r(local_dir, artifact_dir)
+        if sys.platform == "win32":
+            _put_r_for_windows(self.sftp, local_dir, artifact_dir)
+        else:
+            self.sftp.put_r(local_dir, artifact_dir)
 
     def _is_directory(self, artifact_path):
         artifact_dir = self.path
