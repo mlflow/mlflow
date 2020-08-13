@@ -486,6 +486,28 @@ not models that implement the `scikit-learn API
 
 For more information, see :py:mod:`mlflow.lightgbm`.
 
+Spacy(``spaCy``)
+^^^^^^^^^^^^^^^^^^^^
+The ``spaCy`` model flavor enables logging of `spaCy models <https://spacy.io/models>`_ in MLflow format via
+the :py:func:`mlflow.spacy.save_model()` and :py:func:`mlflow.spacy.log_model()` methods. Additionally, these
+methods add the ``python_function`` flavor to the MLflow Models that they produce, allowing the models to be
+interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. You can
+also use the :py:func:`mlflow.spacy.load_model()` method to load MLflow Models with the ``spacy`` model flavor
+in native spaCy format.
+
+For more information, see :py:mod:`mlflow.spacy`.
+
+Fastai(``fastai``)
+^^^^^^^^^^^^^^^^^^^^^^
+The ``fastai`` model flavor enables logging of `fastai Learner models <https://docs.fast.ai/training.html>`_ in MLflow format via
+the :py:func:`mlflow.fastai.save_model()` and :py:func:`mlflow.fastai.log_model()` methods. Additionally, these
+methods add the ``python_function`` flavor to the MLflow Models that they produce, allowing the models to be
+interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. You can
+also use the :py:func:`mlflow.fastai.load_model()` method to load MLflow Models with the ``fastai`` model flavor
+in native fastai format.
+
+For more information, see :py:mod:`mlflow.fastai`.
+
 Model Customization
 -------------------
 
