@@ -238,7 +238,7 @@ if __name__ == "__main__":
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
     mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+        experiment_name="ddp", tracking_uri="http://ec2-3-21-204-186.us-east-2.compute.amazonaws.com:5000"
     )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
