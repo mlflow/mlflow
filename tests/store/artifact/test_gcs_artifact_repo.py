@@ -75,8 +75,8 @@ def test_list_artifacts(gcs_mock):
 
 @pytest.mark.parametrize("dir_name", ["model", "model/"])
 def test_list_artifacts_with_subdir(gcs_mock, dir_name):
-    artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
+    artifact_root_path = "experiment_id/run_id/"
+    repo = GCSArtifactRepository(posixpath.join("gs://test_bucket", artifact_root_path), gcs_mock)
 
     # mocked bucket/blob structure
     # gs://test_bucket/experiment_id/run_id/
@@ -87,11 +87,11 @@ def test_list_artifacts_with_subdir(gcs_mock, dir_name):
     # list artifacts at sub directory level
     obj_mock = mock.Mock()
     file_path = posixpath.join(dir_name, "model.pb")
-    obj_mock.configure_mock(name=artifact_root_path + file_path, size=1)
+    obj_mock.configure_mock(name="/" + artifact_root_path + file_path, size=1)
 
     subdir_mock = mock.Mock()
     subdir_name = posixpath.join(dir_name, "variables")
-    subdir_mock.configure_mock(prefixes=(artifact_root_path + subdir_name + "/",))
+    subdir_mock.configure_mock(prefixes=("/" + artifact_root_path + subdir_name + "/",))
 
     mock_results = mock.MagicMock()
     mock_results.configure_mock(pages=[subdir_mock])
@@ -101,7 +101,7 @@ def test_list_artifacts_with_subdir(gcs_mock, dir_name):
 
     artifacts = repo.list_artifacts(path=dir_name)
     gcs_mock.Client().bucket().list_blobs.assert_called_with(
-        prefix=posixpath.join(artifact_root_path[1:], dir_name, ""), delimiter="/"
+        prefix=posixpath.join(artifact_root_path, "model/"), delimiter="/"
     )
     assert len(artifacts) == 2
     assert artifacts[0].path == file_path
