@@ -98,8 +98,9 @@ def test_list_artifacts_single_file(mock_client):
 
 @pytest.mark.parametrize("root_path", ["some/path", "some/path/"])
 def test_list_artifacts(mock_client, root_path):
-    repo = AzureBlobArtifactRepository(os.path.join(TEST_BLOB_CONTAINER_ROOT, root_path),
-                                       mock_client)
+    repo = AzureBlobArtifactRepository(
+        posixpath.join(TEST_BLOB_CONTAINER_ROOT, root_path), mock_client
+    )
 
     # Create some files to return
     dir_prefix = BlobPrefix()
