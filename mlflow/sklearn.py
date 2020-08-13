@@ -25,6 +25,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.autologging_utils import try_mlflow_log
 
 FLAVOR_NAME = "sklearn"
 
@@ -424,3 +425,29 @@ def load_model(model_uri):
     return _load_model_from_local_file(
         path=sklearn_model_artifacts_path, serialization_format=serialization_format
     )
+
+
+class _SklearnTrainingSession(object):
+    _session_stack = []
+
+    def __init__(self, clazz, allow_children=True):
+        self.allow_children = allow_children
+        self.clazz = clazz
+        self._parent = None
+
+    def __enter__(self):
+        if len(_SklearnTrainingSession._session_stack) > 0:
+            self._parent = _SklearnTrainingSession._session_stack[-1]
+            self.allow_children = (
+                _SklearnTrainingSession._session_stack[-1].allow_children and self.allow_children
+            )
+        _SklearnTrainingSession._session_stack.append(self)
+        return self
+
+    def __exit__(self, tp, val, traceback):
+        _SklearnTrainingSession._session_stack.pop()
+
+    def should_log(self):
+        return (self._parent is None) or (
+            self._parent.allow_children and self._parent.clazz != self.clazz
+        )
