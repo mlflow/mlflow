@@ -100,11 +100,9 @@ def test_list_artifacts_with_subdir(gcs_mock, dir_name):
     gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=dir_name)
-    kwargs_expected = {
-        "prefix": posixpath.join(artifact_root_path[1:], dir_name, ""),
-        "delimiter": "/",
-    }
-    gcs_mock.Client().bucket().list_blobs.assert_called_with(**kwargs_expected)
+    gcs_mock.Client().bucket().list_blobs.assert_called_with(
+        prefix=posixpath.join(artifact_root_path[1:], dir_name, ""), delimiter="/"
+    )
     assert len(artifacts) == 2
     assert artifacts[0].path == file_path
     assert artifacts[0].is_dir is False
