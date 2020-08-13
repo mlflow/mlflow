@@ -506,9 +506,9 @@ class SqlAlchemyStore(AbstractStore):
             return [run_id[0] for run_id in run_ids]
 
     def log_metric(self, run_id, metric):
-        self.log_metrics(run_id, [metric], auto_new=False)
+        self.log_metrics(run_id, [metric], batch_mode=False)
 
-    def log_metrics(self, run_id, metrics, auto_new=True):
+    def log_metrics(self, run_id, metrics, batch_mode=True):
         if metrics is None:
             return
 
@@ -517,10 +517,10 @@ class SqlAlchemyStore(AbstractStore):
                 run = self._get_run(run_uuid=run_id, session=session)
                 self._check_run_is_active(run)
 
+                # metrics are grouped by metric name for last metric calculation
                 metrics_per_key = {}
 
                 for metric in metrics:
-
                     _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
                     is_nan = math.isnan(metric.value)
                     if is_nan:
@@ -535,9 +535,13 @@ class SqlAlchemyStore(AbstractStore):
 
                     # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
 
-                    # Entries will be added to session. If conflicts are detection during saving,
-                    # metrics are inserted one after another using _get_or_create
-                    if auto_new:
+                    if batch_mode:
+                        # In batch mode, all metrics are added to the session.
+                        # This is much faster than checking for each metric if a metric with the
+                        # same name, value, ts, and step already exists and adding them otherwise.
+                        # Conflicts will be checked during saving. If conflicts are detection during saving,
+                        # metrics are inserted one after another using _get_or_create
+
                         logged_metric = SqlMetric(run_uuid=run_id, key=metric.key, value=value,
                                                   timestamp=metric.timestamp, step=metric.step,
                                                   is_nan=is_nan)
@@ -545,6 +549,9 @@ class SqlAlchemyStore(AbstractStore):
                         just_created = True
 
                     else:
+                        # All metrics are added one after another with additional check if a metric with
+                        # same name, value, ts, and step already exists
+
                         logged_metric, just_created = self._get_or_create(
                             model=SqlMetric, session=session, run_uuid=run_id, key=metric.key,
                             value=value, timestamp=metric.timestamp, step=metric.step,
@@ -562,8 +569,8 @@ class SqlAlchemyStore(AbstractStore):
                 # its presence
 
                 for logged_metric_list in metrics_per_key.values():
-                    self._update_latest_metric_if_necessary(None,
-                                                            logged_metrics=logged_metric_list,
+                    # ToDo: move grouping by metric name functionality to _update_latest_metric_if_necessary
+                    self._update_latest_metric_if_necessary(logged_metrics=logged_metric_list,
                                                             session=session)
 
                 # Explicitly commit the session in order to catch potential integrity errors
@@ -575,12 +582,13 @@ class SqlAlchemyStore(AbstractStore):
             except sqlalchemy.exc.IntegrityError:
                 session.rollback()
 
-                if auto_new and len(metrics) > 1:
-                    # add metrics individually
-                    self.log_metrics(run_id, metrics, auto_new=False)
+                # Metric with same value, ts, and step already exists
+                # Insert metrics with disabled batch mode one after another
+                if batch_mode and len(metrics) > 1:
+                    self.log_metrics(run_id, metrics, batch_mode=False)
 
     @staticmethod
-    def _update_latest_metric_if_necessary(logged_metric, session, logged_metrics=None):
+    def _update_latest_metric_if_necessary(logged_metrics, session):
         def _compare_metrics(metric_a, metric_b):
             """
             :return: True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
@@ -592,13 +600,18 @@ class SqlAlchemyStore(AbstractStore):
                 metric_b.value,
             )
 
+        logged_metric = None
+
         if logged_metrics is not None:
             for m in logged_metrics:
                 if logged_metric is None or _compare_metrics(m, logged_metric):
                     logged_metric = m
 
         if logged_metric is None:
-            return
+            raise MlflowException(
+                "Invalid parameters for _update_latest_metric_if_necessary. Please set logged_metrics",
+                INVALID_PARAMETER_VALUE
+            )
 
         # Fetch the latest metric value corresponding to the specified run_id and metric key and
         # lock its associated row for the remainder of the transaction in order to ensure
