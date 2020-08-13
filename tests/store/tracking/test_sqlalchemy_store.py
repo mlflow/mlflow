@@ -656,6 +656,227 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+    def test_log_metrics(self):
+
+        run = self._run_factory()
+        run_id = run.info.run_id
+        metric_name = "test-metric-1"
+        metric_tuples = [
+            # Parameters are (key, value, timestamp, step)
+            (metric_name, 10, 0, 0),
+            (metric_name, 20, 1, 1),
+            (metric_name, 40, 3, 3), # last step, should be stored as last metric
+            (metric_name, 50, 2, 2),
+        ]
+
+        metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
+        self.store.log_metrics(run_id, metric_entities)
+
+        metric_histories = self.store.get_metric_history(run_id, metric_name)
+        assert len(metric_histories) == 4
+
+        metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
+        assert set(metrics) == set(metric_tuples)
+
+        run_data = self.store.get_run(run_id).data
+        run_metrics = run_data.metrics
+
+        assert len(run_metrics) == 1
+        assert run_metrics[metric_name] == 40
+
+    def test_log_metrics_deactivated_batch_mode(self):
+
+        run = self._run_factory()
+        run_id = run.info.run_id
+        metric_name = "test-metric-1"
+        metric_tuples = [
+            # Parameters are (key, value, timestamp, step)
+            (metric_name, 10, 0, 0),
+            (metric_name, 20, 1, 1),
+            (metric_name, 40, 3, 3), # last step, should be stored as last metric
+            (metric_name, 50, 2, 2),
+            (metric_name, 50, 2, 2),
+        ]
+
+        metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
+        self.store.log_metrics(run_id, metric_entities)
+
+        metric_histories = self.store.get_metric_history(run_id, metric_name)
+        assert len(metric_histories) == 4
+
+        metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
+        assert set(metrics) == set(metric_tuples)
+
+        run_data = self.store.get_run(run_id).data
+        run_metrics = run_data.metrics
+
+        assert len(run_metrics) == 1
+        assert run_metrics[metric_name] == 40
+
+    def test_log_metrics_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
+
+        run = self._run_factory()
+        run_id = run.info.run_id
+        metric_name = "test-metric-1"
+
+        metric_tuples = [
+            # Parameters are (key, value, timestamp, step)
+            (metric_name, 1000, 100, 0),
+            (metric_name, 100, 40, 3),  # larger step wins even though it has smaller value
+            (metric_name, 10, 50, 3),  # larger timestamp wins even though it has smaller value
+            (metric_name, 20, 50, 3),  # tiebreak by max value
+            (metric_name, 20, 50, 3),  # duplicate metrics with same (step, timestamp, value) are ok
+            # verify that we can log steps out of order / negative steps
+            (metric_name, 900, 900, -3),
+            (metric_name, 800, 800, -1),
+        ]
+
+        metric_entities = [Metric(*metric_tuple) for metric_tuple in reversed(metric_tuples)]
+        self.store.log_metrics(run_id, metric_entities)
+
+        metric_history = self.store.get_metric_history(run_id, metric_name)
+        logged_tuples = [(m.key, m.value, m.timestamp, m.step) for m in metric_history]
+
+        assert set(logged_tuples) == set(metric_tuples)
+
+        run_data = self.store.get_run(run_id).data
+        run_metrics = run_data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[metric_name] == 20
+        metric_obj = run_data._metric_objs[0]
+        assert metric_obj.key == metric_name
+        assert metric_obj.step == 3
+        assert metric_obj.timestamp == 50
+        assert metric_obj.value == 20
+
+    def test_log_metrics_multiple_names(self):
+
+        run = self._run_factory()
+        run_id = run.info.run_id
+        metric_name_a = "test-metric-a"
+        metric_name_b = "test-metric-b"
+        metric_name_c = "test-metric-c"
+
+        metric_tuples = [
+            # Parameters are (metric name, value, step, timestamp)
+            (metric_name_a, 10, 0, 0),
+            (metric_name_b, 1, 0, 0),
+            (metric_name_a, 20, 1, 1),
+            (metric_name_b, 2, 1, 1),
+            (metric_name_a, 50, 5, 5), # latest step for metric a
+            (metric_name_b, 2, 5, 5),
+            (metric_name_b, 3, 6, 6),
+            (metric_name_b, 4, 7, 7),
+            (metric_name_b, 6, 2, 2),
+            (metric_name_b, 7, 8, 8), # latest step for metric b
+            (metric_name_b, 8, 1, 1),
+            (metric_name_a, 100, 4, 4),
+            (metric_name_a, 120, 4, 4),
+            (metric_name_c, -10, 3, 3),
+        ]
+
+        metric_a_tuples = [m for m in metric_tuples if m[0] == metric_name_a]
+        metric_b_tuples = [m for m in metric_tuples if m[0] == metric_name_b]
+        metric_c_tuples = [m for m in metric_tuples if m[0] == metric_name_c]
+
+        metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
+
+        self.store.log_metrics(run_id, metric_entities)
+        metric_a_histories = self.store.get_metric_history(run_id, metric_name_a)
+        metric_b_histories = self.store.get_metric_history(run_id, metric_name_b)
+        metric_c_histories = self.store.get_metric_history(run_id, metric_name_c)
+        assert len(metric_a_histories) == 5
+        assert len(metric_b_histories) == 8
+        assert len(metric_c_histories) == 1
+
+        metrics_a = [(m.key, m.value, m.timestamp, m.step) for m in metric_a_histories]
+        metrics_b = [(m.key, m.value, m.timestamp, m.step) for m in metric_b_histories]
+        metrics_c = [(m.key, m.value, m.timestamp, m.step) for m in metric_c_histories]
+        assert set(metrics_a) == set(metric_a_tuples)
+        assert set(metrics_b) == set(metric_b_tuples)
+        assert set(metrics_c) == set(metric_c_tuples)
+
+        run_data = self.store.get_run(run_id).data
+        run_metrics = run_data.metrics
+
+        assert len(run_metrics) == 3
+        assert run_metrics[metric_name_a] == 50
+        assert run_metrics[metric_name_b] == 7
+        assert run_metrics[metric_name_c] == -10
+
+        last_metric_tuples = [
+            (metric_name_a, 50, 5, 5),
+            (metric_name_b, 7, 8, 8),
+            (metric_name_c, -10, 3, 3)
+        ]
+        last_metrics = [(m.key, m.value, m.timestamp, m.step) for m in run_data._metric_objs]
+        assert set(last_metrics) == set(last_metric_tuples)
+
+
+    def test_log_metrics_multiple_names_deactivated_batch_mode(self):
+
+        run = self._run_factory()
+        run_id = run.info.run_id
+        metric_name_a = "test-metric-a"
+        metric_name_b = "test-metric-b"
+        metric_name_c = "test-metric-c"
+
+        metric_tuples = [
+            # Parameters are (metric name, value, step, timestamp)
+            (metric_name_a, 10, 0, 0),
+            (metric_name_b, 1, 0, 0),
+            (metric_name_a, 20, 1, 1),
+            (metric_name_b, 2, 1, 1),
+            (metric_name_a, 50, 5, 5), # latest step for metric a
+            (metric_name_b, 2, 5, 5),
+            (metric_name_b, 3, 6, 6),
+            (metric_name_b, 4, 7, 7),
+            (metric_name_b, 6, 2, 2),
+            (metric_name_b, 7, 8, 8), # latest step for metric b
+            (metric_name_b, 8, 1, 1),
+            (metric_name_a, 100, 4, 4),
+            (metric_name_a, 120, 4, 4),
+            (metric_name_a, 120, 4, 4), # duplicated -> batch mode will be deactivated
+            (metric_name_c, -10, 3, 3),
+        ]
+
+        metric_a_tuples = [m for m in metric_tuples if m[0] == metric_name_a]
+        metric_b_tuples = [m for m in metric_tuples if m[0] == metric_name_b]
+        metric_c_tuples = [m for m in metric_tuples if m[0] == metric_name_c]
+
+        metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
+
+        self.store.log_metrics(run_id, metric_entities)
+        metric_a_histories = self.store.get_metric_history(run_id, metric_name_a)
+        metric_b_histories = self.store.get_metric_history(run_id, metric_name_b)
+        metric_c_histories = self.store.get_metric_history(run_id, metric_name_c)
+        assert len(metric_a_histories) == 5
+        assert len(metric_b_histories) == 8
+        assert len(metric_c_histories) == 1
+
+        metrics_a = [(m.key, m.value, m.timestamp, m.step) for m in metric_a_histories]
+        metrics_b = [(m.key, m.value, m.timestamp, m.step) for m in metric_b_histories]
+        metrics_c = [(m.key, m.value, m.timestamp, m.step) for m in metric_c_histories]
+        assert set(metrics_a) == set(metric_a_tuples)
+        assert set(metrics_b) == set(metric_b_tuples)
+        assert set(metrics_c) == set(metric_c_tuples)
+
+        run_data = self.store.get_run(run_id).data
+        run_metrics = run_data.metrics
+
+        assert len(run_metrics) == 3
+        assert run_metrics[metric_name_a] == 50
+        assert run_metrics[metric_name_b] == 7
+        assert run_metrics[metric_name_c] == -10
+
+        last_metric_tuples = [
+            (metric_name_a, 50, 5, 5),
+            (metric_name_b, 7, 8, 8),
+            (metric_name_c, -10, 3, 3)
+        ]
+        last_metrics = [(m.key, m.value, m.timestamp, m.step) for m in run_data._metric_objs]
+        assert set(last_metrics) == set(last_metric_tuples)
+
     def test_log_param(self):
         run = self._run_factory()
 
@@ -1577,7 +1798,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(package + ".log_metrics") as metric_mock, mock.patch(
+        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(package + ".log_metrics") as metrics_mock, mock.patch(
             package + ".log_param"
         ) as param_mock, mock.patch(package + ".set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
