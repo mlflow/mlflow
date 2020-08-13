@@ -10,6 +10,8 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
@@ -73,6 +75,8 @@ def get_tracking_uri():
         return _tracking_uri
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
+    elif env.get_env(BACKEND_STORE_URI_ENV_VAR) is not None:
+        return env.get_env(BACKEND_STORE_URI_ENV_VAR)
     else:
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
