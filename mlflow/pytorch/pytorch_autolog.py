@@ -31,19 +31,20 @@ class __MLflowPLCallback(pl.Callback):
         Log loss and other metrics values after each epoch
         """
         if (pl_module.current_epoch - 1) % self.every_n_iter == 0:
-            metrics = trainer.callback_metrics
+            self.metrics = trainer.callback_metrics
 
             if self.aggregation_step:
-                metrics = dict((key, float(value)) for key, value in metrics.items())
-                trainer.logger.agg_and_log_metrics(metrics=metrics, step=self.aggregation_step)
+                self.metrics = dict((key, float(value)) for key, value in self.metrics.items())
+                trainer.logger.agg_and_log_metrics(metrics=self.metrics, step=self.aggregation_step)
             else:
-                for key, value in metrics.items():
+                for key, value in self.metrics.items():
                     trainer.logger.experiment.log_metric(
                         trainer.logger.run_id,
                         key,
                         float(value),
                         step=pl_module.current_epoch,
                     )
+
         if trainer.early_stop_callback:
             self._early_stop_check(trainer=trainer)
 
@@ -115,9 +116,10 @@ class __MLflowPLCallback(pl.Callback):
         metrics = trainer.callback_metrics
 
         for key, value in metrics.items():
-            trainer.logger.experiment.log_metric(
-                trainer.logger.run_id, key, float(value)
-            )
+            if key not in self.metrics:
+                trainer.logger.experiment.log_metric(
+                    trainer.logger.run_id, key, float(value)
+                )
 
     def _log_early_stop_params(self, trainer, early_stop_obj):
         """
