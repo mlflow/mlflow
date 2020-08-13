@@ -5,7 +5,6 @@ import pickle
 import pytest
 import yaml
 import json
-from collections import namedtuple
 
 import numpy as np
 import pandas as pd
@@ -30,25 +29,57 @@ from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-impo
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 import statsmodels.api as sm
+import statsmodels.formula.api as smf
+from collections import namedtuple
+from statsmodels.tsa.arima_process import arma_generate_sample
+from statsmodels.tsa.arima.model import ARIMA
 
-ModelWithResults = namedtuple("ModelWithResults", ["model", "results", "inference_dataframe"])
+
+ModelWithResults = namedtuple("ModelWithResults", ["model", "inference_dataframe"])
 
 
 @pytest.fixture(scope="session")
 def ols_model():
+    # Ordinary Least Squares (OLS)
     np.random.seed(9876789)
-    nsample = 100
+    nsamples = 100
     x = np.linspace(0, 10, 100)
     X = np.column_stack((x, x ** 2))
     beta = np.array([1, 0.1, 10])
-    e = np.random.normal(size=nsample)
+    e = np.random.normal(size=nsamples)
     X = sm.add_constant(X)
     y = np.dot(X, beta) + e
 
-    model = sm.OLS(y, X)
-    results = model.fit()
-    
-    return ModelWithResults(model=model, results=results, inference_dataframe=X)
+    ols = sm.OLS(y, X)
+    model = ols.fit()
+
+    return ModelWithResults(model=model, inference_dataframe=X)
+
+
+@pytest.fixture(scope="session")
+def arma_model():
+    # Autoregressive Moving Average (ARMA)
+    np.random.seed(12345)
+    arparams = np.array([.75, -.25])
+    maparams = np.array([.65, .35])
+    arparams = np.r_[1, -arparams]
+    maparams = np.r_[1, maparams]
+    nobs = 250
+    y = arma_generate_sample(arparams, maparams, nobs)
+    dates = pd.date_range('1980-1-1', freq="M", periods=nobs)
+    y = pd.Series(y, index=dates)
+
+    arima = ARIMA(y, order=(2, 0, 2), trend='n')
+    model = arima.fit()
+    inference_dataframe = pd.DataFrame([['1999-06-30', '2001-05-31']], columns=["start", "end"])
+
+    return ModelWithResults(model=model, inference_dataframe=inference_dataframe)
+
+
+def _get_dates_from_df(df):
+    start_date = df["start"][0]
+    end_date = df["end"][0]
+    return start_date, end_date
 
 
 @pytest.fixture
@@ -59,40 +90,48 @@ def model_path(tmpdir):
 @pytest.fixture
 def statsmodels_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_pip_deps=["statsmodels", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels", "pytest"])
     return conda_env
 
 
-@pytest.mark.large
-def test_model_save_load(statsmodels_results, model_path):
-    model = statsmodels_results.model
+def _test_save_load(statsmodels_model, model_path, *predict_args):
 
-    mlflow.statsmodels.save_model(statsmodels_model=model, path=model_path)
+    mlflow.statsmodels.save_model(statsmodels_model=statsmodels_model.model, path=model_path)
     reloaded_model = mlflow.statsmodels.load_model(model_uri=model_path)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
-        model.predict(statsmodels_results.inference_dataframe),
-        reloaded_model.predict(statsmodels_results.inference_dataframe))
+        statsmodels_model.model.predict(*predict_args),
+        reloaded_model.predict(*predict_args),
+    )
 
     np.testing.assert_array_almost_equal(
-        reloaded_model.predict(statsmodels_results.inference_dataframe),
-        reloaded_pyfunc.predict(statsmodels_results.inference_dataframe))
-"""
-def test_signature_and_examples_are_saved_correctly(statsmodels_results):
-    model = statsmodels_results.model
-    X = statsmodels_results.inference_dataframe
+        reloaded_model.predict(*predict_args),
+        reloaded_pyfunc.predict(statsmodels_model.inference_dataframe),
+    )
+
+
+def test_arma_save_load(arma_model, model_path):
+    start_date, end_date = _get_dates_from_df(arma_model.inference_dataframe)
+    _test_save_load(arma_model, model_path, start_date, end_date)
+
+
+def test_ols_save_load(ols_model, model_path):
+    _test_save_load(ols_model, model_path, ols_model.inference_dataframe)
+
+
+def test_signature_and_examples_are_saved_correctly(ols_model):
+    model = ols_model.model
+    X = ols_model.inference_dataframe
     signature_ = infer_signature(X)
-    example_ = X.head(3)
+    example_ = X[0:3,:]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.statsmodels.save_model(model, path=path,
-                                           signature=signature,
-                                           input_example=example)
+                                              signature=signature,
+                                              input_example=example)
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -101,9 +140,8 @@ def test_signature_and_examples_are_saved_correctly(statsmodels_results):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.large
-def test_model_load_from_remote_uri_succeeds(statsmodels_results, model_path, mock_s3_bucket):
-    mlflow.statsmodels.save_model(statsmodels_results=statsmodels_results.model, path=model_path)
+def test_model_load_from_remote_uri_succeeds(arma_model, model_path, mock_s3_bucket):
+    mlflow.statsmodels.save_model(statsmodels_model=arma_model.model, path=model_path)
 
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
@@ -112,15 +150,16 @@ def test_model_load_from_remote_uri_succeeds(statsmodels_results, model_path, mo
 
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
+    start_date, end_date = _get_dates_from_df(arma_model.inference_dataframe)
     np.testing.assert_array_almost_equal(
-        statsmodels_results.model.predict(statsmodels_results.inference_dataframe),
-        reloaded_model.predict(statsmodels_results.inference_dataframe))
+        arma_model.model.predict(start=start_date, end=end_date),
+        reloaded_model.predict(start=start_date, end=end_date)
+    )
 
 
-@pytest.mark.large
-def test_model_log(statsmodels_results, model_path):
+def _test_model_log(statsmodels_model, model_path, *predict_args):
     old_uri = mlflow.get_tracking_uri()
-    model = statsmodels_results.model
+    model = statsmodels_model.model
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         for should_start_run in [False, True]:
             try:
@@ -130,10 +169,10 @@ def test_model_log(statsmodels_results, model_path):
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_pip_deps=["xgboost"])
+                _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels=0.11.1"])
 
                 mlflow.statsmodels.log_model(
-                    statsmodels_results=model,
+                    statsmodels_model=model,
                     artifact_path=artifact_path,
                     conda_env=conda_env)
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -142,8 +181,9 @@ def test_model_log(statsmodels_results, model_path):
 
                 reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
-                    model.predict(statsmodels_results.inference_dataframe),
-                    reloaded_model.predict(statsmodels_results.inference_dataframe))
+                    model.predict(*predict_args),
+                    reloaded_model.predict(*predict_args)
+                )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
@@ -157,14 +197,27 @@ def test_model_log(statsmodels_results, model_path):
                 mlflow.set_tracking_uri(old_uri)
 
 
+def test_ols_model_log(ols_model, model_path):
+    _test_model_log(ols_model, model_path, ols_model.inference_dataframe)
+
+
+def test_arma_model_log(arma_model, model_path):
+    start_date, end_date = _get_dates_from_df(arma_model.inference_dataframe)
+    _test_model_log(arma_model, model_path, start_date, end_date)
+
+
+
+
+"""
 def test_log_model_calls_register_model(statsmodels_results):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
-        mlflow.statsmodels.log_model(statsmodels_results=statsmodels_results.model, artifact_path=artifact_path,
-                                  conda_env=conda_env, registered_model_name="AdsModel1")
+        mlflow.statsmodels.log_model(statsmodels_results=statsmodels_results.model,
+                                     artifact_path=artifact_path, conda_env=conda_env,
+                                     registered_model_name="AdsModel1")
         model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
                                                             artifact_path=artifact_path)
         mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
@@ -176,8 +229,8 @@ def test_log_model_no_registered_model_name(statsmodels_results):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
-        mlflow.statsmodels.log_model(statsmodels_results=statsmodels_results.model, artifact_path=artifact_path,
-                                  conda_env=conda_env)
+        mlflow.statsmodels.log_model(statsmodels_results=statsmodels_results.model,
+                                     artifact_path=artifact_path, conda_env=conda_env)
         mlflow.register_model.assert_not_called()
 
 
@@ -243,7 +296,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 @pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         statsmodels_results, model_path):
-    mlflow.statsmodels.save_model(statsmodels_results=statsmodels_results.model, path=model_path, conda_env=None)
+    mlflow.statsmodels.save_model(statsmodels_results=statsmodels_results.model, path=model_path,
+                                  conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -258,8 +312,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         statsmodels_results):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.statsmodels.log_model(statsmodels_results=statsmodels_results.model, artifact_path=artifact_path,
-                                  conda_env=None)
+        mlflow.statsmodels.log_model(statsmodels_results=statsmodels_results.model,
+                                     artifact_path=artifact_path, conda_env=None)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)
@@ -275,7 +329,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(statsmodels_results, model_path):
-    mlflow.statsmodels.save_model(statsmodels_results=statsmodels_results.model, path=model_path, conda_env=None)
+    mlflow.statsmodels.save_model(statsmodels_results=statsmodels_results.model, path=model_path,
+                                  conda_env=None)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
