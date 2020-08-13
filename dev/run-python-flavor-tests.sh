@@ -11,7 +11,7 @@ export MLFLOW_HOME=$(pwd)
 pytest --verbose tests/pytorch --large
 pytest --verbose tests/h2o --large
 pytest --verbose tests/onnx --large
-pytest --verbose tests/pyfunc --large
+pytest --verbose tests/pyfunc --durations=0 --large
 pytest --verbose tests/sklearn --large
 pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
