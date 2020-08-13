@@ -1,0 +1,11 @@
+name: mnist-autolog-example1
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      epochs: {type: int, default: 5}
+    command: |
+          python mnist-autolog-example1.py \
+            --max_epochs {epochs}
