@@ -1,6 +1,7 @@
 # pylint: disable=redefined-outer-name
 import os
 import mock
+import posixpath
 import pytest
 
 from google.cloud.storage import client as gcs_client
@@ -72,7 +73,8 @@ def test_list_artifacts(gcs_mock):
     assert artifacts[1].file_size is None
 
 
-def test_list_artifacts_with_subdir(gcs_mock):
+@pytest.mark.parametrize("dir_name", ["model", "model/"])
+def test_list_artifacts_with_subdir(gcs_mock, dir_name):
     artifact_root_path = "/experiment_id/run_id/"
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
 
@@ -83,13 +85,12 @@ def test_list_artifacts_with_subdir(gcs_mock):
     #     |- variables
 
     # list artifacts at sub directory level
-    dir_name = "model"
     obj_mock = mock.Mock()
-    file_path = dir_name + "/" + "model.pb"
+    file_path = posixpath.join(dir_name, "model.pb")
     obj_mock.configure_mock(name=artifact_root_path + file_path, size=1)
 
     subdir_mock = mock.Mock()
-    subdir_name = dir_name + "/" + "variables"
+    subdir_name = posixpath.join(dir_name, "variables")
     subdir_mock.configure_mock(prefixes=(artifact_root_path + subdir_name + "/",))
 
     mock_results = mock.MagicMock()
@@ -99,6 +100,9 @@ def test_list_artifacts_with_subdir(gcs_mock):
     gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=dir_name)
+    gcs_mock.Client().bucket().list_blobs.assert_called_with(
+        prefix=posixpath.join(artifact_root_path[1:], "model/"), delimiter="/"
+    )
     assert len(artifacts) == 2
     assert artifacts[0].path == file_path
     assert artifacts[0].is_dir is False
