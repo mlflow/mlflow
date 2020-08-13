@@ -96,8 +96,10 @@ def test_list_artifacts_single_file(mock_client):
     assert repo.list_artifacts("file") == []
 
 
-def test_list_artifacts(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+@pytest.mark.parametrize("root_path", ["some/path", "some/path/"])
+def test_list_artifacts(mock_client, root_path):
+    repo = AzureBlobArtifactRepository(os.path.join(TEST_BLOB_CONTAINER_ROOT, root_path),
+                                       mock_client)
 
     # Create some files to return
     dir_prefix = BlobPrefix()
@@ -112,6 +114,7 @@ def test_list_artifacts(mock_client):
     )
 
     artifacts = repo.list_artifacts()
+    mock_client.get_container_client().walk_blobs.assert_called_with(name_starts_with="some/path/")
     assert artifacts[0].path == "dir"
     assert artifacts[0].is_dir is True
     assert artifacts[0].file_size is None
