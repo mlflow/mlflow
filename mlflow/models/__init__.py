@@ -12,6 +12,8 @@ The built-in flavors are:
 - :py:mod:`mlflow.spark`
 - :py:mod:`mlflow.tensorflow`
 - :py:mod:`mlflow.xgboost`
+- :py:mod:`mlflow.spacy`
+- :py:mod:`mlflow.fastai`
 
 For details, see `MLflow Models <../models.html>`_.
 """

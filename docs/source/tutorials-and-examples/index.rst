@@ -35,6 +35,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `SpaCy <https://github.com/mlflow/mlflow/tree/master/examples/spacy>`_
 
+  - `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_
+
   - scikit-learn
 
     + `Diabetes example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_diabetes>`_
