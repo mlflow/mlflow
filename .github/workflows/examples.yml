@@ -19,7 +19,8 @@ jobs:
           git fetch origin master:master
         fi
 
-        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "tests/examples\|examples") || true;
+        REGEXP="tests/examples\|examples\|Dockerfile\$"
+        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
         EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
         DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
 
@@ -36,9 +37,13 @@ jobs:
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
-        source ./travis/install-common-deps.sh
+        source ./dev/install-common-deps.sh
         source activate test-environment
-        pytest --verbose tests/examples --large
+        pytest --verbose tests/examples --durations=0 --large
+
+    - name: Remove conda environments
+      run: |
+        ./dev/remove-conda-envs.sh
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}

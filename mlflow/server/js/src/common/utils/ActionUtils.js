@@ -85,7 +85,7 @@ export class ErrorWrapper {
   }
 
   getErrorCode() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);
@@ -102,7 +102,7 @@ export class ErrorWrapper {
   // Return the responseText if it is in the
   // { error_code: ..., message: ...} format. Otherwise return "INTERNAL_SERVER_ERROR".
   getUserVisibleError() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);
@@ -117,7 +117,7 @@ export class ErrorWrapper {
   }
 
   getMessageField() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);
@@ -134,7 +134,7 @@ export class ErrorWrapper {
   // Does a best-effort at rendering an arbitrary HTTP error. If it's a DatabricksServiceException,
   // will render the error code and message. If it's HTML, we'll strip the tags.
   renderHttpError() {
-    const responseText = this.xhr.responseText;
+    const { responseText } = this.xhr;
     if (responseText) {
       try {
         const parsed = JSON.parse(responseText);

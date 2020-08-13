@@ -2,6 +2,10 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.uri import (
+    add_databricks_profile_info_to_artifact_uri,
+    get_databricks_profile_uri_from_artifact_uri,
+)
 
 
 class RunsArtifactRepository(ArtifactRepository):
@@ -17,8 +21,9 @@ class RunsArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
+
         super(RunsArtifactRepository, self).__init__(artifact_uri)
+        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
         self.repo = get_artifact_repository(uri)
 
     @staticmethod
@@ -28,36 +33,40 @@ class RunsArtifactRepository(ArtifactRepository):
     @staticmethod
     def get_underlying_uri(runs_uri):
         from mlflow.tracking.artifact_utils import get_artifact_uri
+
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
-        uri = get_artifact_uri(run_id, artifact_path)
+        tracking_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
+        uri = get_artifact_uri(run_id, artifact_path, tracking_uri)
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
-        return uri
+        return add_databricks_profile_info_to_artifact_uri(uri, tracking_uri)
 
     @staticmethod
     def parse_runs_uri(run_uri):
         parsed = urllib.parse.urlparse(run_uri)
         if parsed.scheme != "runs":
             raise MlflowException(
-                "Not a proper runs:/ URI: %s. " % run_uri +
-                "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
-        # hostname = parsed.netloc  # TODO: support later
+                "Not a proper runs:/ URI: %s. " % run_uri
+                + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'"
+            )
 
         path = parsed.path
-        if not path.startswith('/') or len(path) <= 1:
+        if not path.startswith("/") or len(path) <= 1:
             raise MlflowException(
-                "Not a proper runs:/ URI: %s. " % run_uri +
-                "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
+                "Not a proper runs:/ URI: %s. " % run_uri
+                + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'"
+            )
         path = path[1:]
 
-        path_parts = path.split('/')
+        path_parts = path.split("/")
         run_id = path_parts[0]
-        if run_id == '':
+        if run_id == "":
             raise MlflowException(
-                "Not a proper runs:/ URI: %s. " % run_uri +
-                "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
+                "Not a proper runs:/ URI: %s. " % run_uri
+                + "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'"
+            )
 
-        artifact_path = '/'.join(path_parts[1:]) if len(path_parts) > 1 else None
-        artifact_path = artifact_path if artifact_path != '' else None
+        artifact_path = "/".join(path_parts[1:]) if len(path_parts) > 1 else None
+        artifact_path = artifact_path if artifact_path != "" else None
 
         return run_id, artifact_path
 

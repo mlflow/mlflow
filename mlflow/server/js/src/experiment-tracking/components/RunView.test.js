@@ -24,6 +24,8 @@ describe('RunView', () => {
       experimentId: '12345',
       getMetricPagePath: jest.fn(),
       handleSetRunTag: jest.fn(),
+      setTagApi: jest.fn(),
+      deleteTagApi: jest.fn(),
     };
     const modelVersion = mockModelVersionDetailed(
       'Model A',

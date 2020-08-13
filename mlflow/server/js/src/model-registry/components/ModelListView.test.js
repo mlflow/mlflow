@@ -94,9 +94,9 @@ describe('ModelListView', () => {
 
   test('orderByKey, orderByASC props are correctly passed to the table', () => {
     const models = [
-      mockRegisteredModelDetailed('Model B', [], 'CAN_EDIT', 3),
-      mockRegisteredModelDetailed('model c', [], 'CAN_EDIT', 1),
-      mockRegisteredModelDetailed('Model a', [], 'CAN_EDIT', 2),
+      mockRegisteredModelDetailed('Model B', [], [], 'CAN_EDIT', 3),
+      mockRegisteredModelDetailed('model c', [], [], 'CAN_EDIT', 1),
+      mockRegisteredModelDetailed('Model a', [], [], 'CAN_EDIT', 2),
     ];
     let props = {
       ...minimalProps,

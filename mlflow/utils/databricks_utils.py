@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 import subprocess
 
@@ -14,6 +15,7 @@ _logger = logging.getLogger(__name__)
 def _get_dbutils():
     try:
         import IPython
+
         ip_shell = IPython.get_ipython()
         if ip_shell is None:
             raise _NoDbutilsError
@@ -48,6 +50,7 @@ def _get_context_tag(context_tag_key):
 def _get_property_from_spark_context(key):
     try:
         from pyspark import TaskContext  # pylint: disable=import-error
+
         task_context = TaskContext.get()
         if task_context:
             return task_context.getLocalProperty(key)
@@ -55,11 +58,15 @@ def _get_property_from_spark_context(key):
         return None
 
 
+def is_databricks_default_tracking_uri(tracking_uri):
+    return tracking_uri.lower().strip() == "databricks"
+
+
 def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
-        return _get_extra_context("aclPathOfAclRoot").startswith('/workspace')
+        return _get_extra_context("aclPathOfAclRoot").startswith("/workspace")
     except Exception:  # pylint: disable=broad-except
         return False
 
@@ -72,10 +79,14 @@ def is_in_databricks_job():
 
 
 def is_dbfs_fuse_available():
-    with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
+    with open(os.devnull, "w") as devnull_stderr, open(os.devnull, "w") as devnull_stdout:
         try:
-            return subprocess.call(
-                ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout) == 0
+            return (
+                subprocess.call(
+                    ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout
+                )
+                == 0
+            )
         except Exception:  # pylint: disable=broad-except
             return False
 
@@ -83,8 +94,10 @@ def is_dbfs_fuse_available():
 def is_in_cluster():
     try:
         spark_session = _get_active_spark_session()
-        return spark_session is not None \
+        return (
+            spark_session is not None
             and spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId") is not None
+        )
     except Exception:  # pylint: disable=broad-except
         return False
 
@@ -95,8 +108,8 @@ def get_notebook_id():
     if notebook_id is not None:
         return notebook_id
     acl_path = _get_extra_context("aclPathOfAclRoot")
-    if acl_path.startswith('/workspace'):
-        return acl_path.split('/')[-1]
+    if acl_path.startswith("/workspace"):
+        return acl_path.split("/")[-1]
     return None
 
 
@@ -138,10 +151,35 @@ def get_webapp_url():
     return _get_extra_context("api_url")
 
 
+def get_workspace_info_from_dbutils():
+    dbutils = _get_dbutils()
+    if dbutils:
+        context = json.loads(
+            dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
+        )
+        workspace_host = context["extraContext"]["api_url"]
+        workspace_id = context["tags"]["orgId"]
+        return workspace_host, workspace_id
+    return None, None
+
+
+def get_workspace_info_from_databricks_secrets(tracking_uri):
+    profile, key_prefix = get_db_info_from_uri(tracking_uri)
+    if key_prefix:
+        dbutils = _get_dbutils()
+        if dbutils:
+            workspace_id = dbutils.secrets.get(scope=profile, key=key_prefix + "-workspace-id")
+            workspace_host = dbutils.secrets.get(scope=profile, key=key_prefix + "-host")
+            return workspace_host, workspace_id
+    return None, None
+
+
 def _fail_malformed_databricks_auth(profile):
-    raise MlflowException("Got malformed Databricks CLI profile '%s'. Please make sure the "
-                          "Databricks CLI is properly configured as described at "
-                          "https://github.com/databricks/databricks-cli." % profile)
+    raise MlflowException(
+        "Got malformed Databricks CLI profile '%s'. Please make sure the "
+        "Databricks CLI is properly configured as described at "
+        "https://github.com/databricks/databricks-cli." % profile
+    )
 
 
 def get_databricks_host_creds(server_uri=None):
@@ -150,8 +188,8 @@ def get_databricks_host_creds(server_uri=None):
     uses the Databricks CLI's ConfigProvider interface to load the DatabricksConfig object.
     If no Databricks CLI profile is found corresponding to the server URI, this function
     will attempt to retrieve these credentials from the Databricks Secret Manager. For that to work,
-    the server URI will need to be of the following format: "databricks://profile/prefix". In the
-    Databricks Secret Manager, we will query for a secret in the scope "<profile>" for secrets with
+    the server URI will need to be of the following format: "databricks://scope:prefix". In the
+    Databricks Secret Manager, we will query for a secret in the scope "<scope>" for secrets with
     keys of the form "<prefix>-host" and "<prefix>-token". Note that this prefix *cannot* be empty
     if trying to authenticate with this method. If found, those host credentials will be used. This
     method will throw an exception if sufficient auth cannot be found.
@@ -162,10 +200,11 @@ def get_databricks_host_creds(server_uri=None):
         authentication information necessary to talk to the Databricks server.
     """
     profile, path = get_db_info_from_uri(server_uri)
-    if not hasattr(provider, 'get_config'):
+    if not hasattr(provider, "get_config"):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"
-            " in a future version.")
+            " in a future version."
+        )
         config = provider.get_config_for_profile(profile)
     elif profile:
         config = provider.ProfileConfigProvider(profile).get_config()
@@ -182,17 +221,20 @@ def get_databricks_host_creds(server_uri=None):
             token = dbutils.secrets.get(scope=profile, key=key_prefix + "-token")
             if host and token:
                 config = provider.DatabricksConfig.from_token(
-                    host=host,
-                    token=token,
-                    insecure=False)
+                    host=host, token=token, insecure=False
+                )
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 
-    insecure = hasattr(config, 'insecure') and config.insecure
+    insecure = hasattr(config, "insecure") and config.insecure
 
     if config.username is not None and config.password is not None:
-        return MlflowHostCreds(config.host, username=config.username, password=config.password,
-                               ignore_tls_verification=insecure)
+        return MlflowHostCreds(
+            config.host,
+            username=config.username,
+            password=config.password,
+            ignore_tls_verification=insecure,
+        )
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
