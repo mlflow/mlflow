@@ -29,13 +29,14 @@ class ModelRegistryClient(object):
 
     # Registered Model Methods
 
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
+       :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
@@ -43,7 +44,7 @@ class ModelRegistryClient(object):
         #       Those are constraints applicable to any backend, given the model URI format.
         tags = tags if tags else {}
         tags = [RegisteredModelTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_registered_model(name, tags)
+        return self.store.create_registered_model(name, tags, description)
 
     def update_registered_model(self, name, description):
         """
@@ -158,7 +159,7 @@ class ModelRegistryClient(object):
 
     # Model Version Methods
 
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(self, name, source, run_id, tags=None, run_link=None, description=None):
         """
         Create a new model version from given source.
 
@@ -168,12 +169,13 @@ class ModelRegistryClient(object):
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
         tags = tags if tags else {}
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
-        return self.store.create_model_version(name, source, run_id, tags, run_link)
+        return self.store.create_model_version(name, source, run_id, tags, run_link, description)
 
     def update_model_version(self, name, version, description):
         """

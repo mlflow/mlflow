@@ -46,9 +46,11 @@ def _model_version(name, version, stage, source="some:/source", run_id="run13579
 def test_create_registered_model(mock_store):
     tags_dict = {"key": "value", "another key": "some other value"}
     tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
-    mock_store.create_registered_model.return_value = RegisteredModel("Model 1", tags=tags)
-    result = newModelRegistryClient().create_registered_model("Model 1", tags_dict)
-    mock_store.create_registered_model.assert_called_once_with("Model 1", tags)
+    description = 'such a great model'
+    mock_store.create_registered_model.return_value = RegisteredModel("Model 1", tags=tags,
+                                                                      description=description)
+    result = newModelRegistryClient().create_registered_model("Model 1", tags_dict, description)
+    mock_store.create_registered_model.assert_called_once_with("Model 1", tags, description)
     assert result.name == "Model 1"
     assert result.tags == tags_dict
 
@@ -197,15 +199,18 @@ def test_create_model_version(mock_store):
     version = "1"
     tags_dict = {"key": "value", "another key": "some other value"}
     tags = [ModelVersionTag(key, value) for key, value in tags_dict.items()]
+    description = "best model ever"
+
     mock_store.create_model_version.return_value = ModelVersion(
-        name=name, version=version, creation_timestamp=123, tags=tags, run_link=None
+        name=name, version=version, creation_timestamp=123, tags=tags, run_link=None, description
     )
     result = newModelRegistryClient().create_model_version(
-        name, "uri:/for/source", "run123", tags_dict
+        name, "uri:/for/source", "run123", tags_dict, None, description
     )
     mock_store.create_model_version.assert_called_once_with(
-        name, "uri:/for/source", "run123", tags, None
+        name, "uri:/for/source", "run123", tags, None, description
     )
+
     assert result.name == name
     assert result.version == version
     assert result.tags == tags_dict
