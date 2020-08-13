@@ -846,35 +846,35 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_parse_search_registered_models_order_by(self):
         # test that "registered_models.name ASC" is returned by default
         parsed = SqlAlchemyStore._parse_search_registered_models_order_by([])
-        self.assertEqual([str(x) for x in parsed], ['registered_models.name ASC'])
+        self.assertEqual([str(x) for x in parsed], ["registered_models.name ASC"])
 
         # test that the given 'name' replaces the default one ('registered_models.name ASC')
-        parsed = SqlAlchemyStore._parse_search_registered_models_order_by(['name DESC'])
-        self.assertEqual([str(x) for x in parsed], ['registered_models.name DESC'])
+        parsed = SqlAlchemyStore._parse_search_registered_models_order_by(["name DESC"])
+        self.assertEqual([str(x) for x in parsed], ["registered_models.name DESC"])
 
         # test that an exception is raised when order_by contains duplicate fields
-        msg = 'order_by contains duplicate fields:'
+        msg = "order_by contains duplicate fields:"
         with self.assertRaisesRegex(MlflowException, msg):
             SqlAlchemyStore._parse_search_registered_models_order_by(
-                ['last_updated_timestamp', 'last_updated_timestamp']
+                ["last_updated_timestamp", "last_updated_timestamp"]
             )
 
         with self.assertRaisesRegex(MlflowException, msg):
-            SqlAlchemyStore._parse_search_registered_models_order_by(['timestamp', 'timestamp'])
+            SqlAlchemyStore._parse_search_registered_models_order_by(["timestamp", "timestamp"])
 
         with self.assertRaisesRegex(MlflowException, msg):
             SqlAlchemyStore._parse_search_registered_models_order_by(
-                ['timestamp', 'last_updated_timestamp'],
-            )
-
-        with self.assertRaisesRegex(MlflowException, msg):
-            SqlAlchemyStore._parse_search_registered_models_order_by(
-                ['last_updated_timestamp ASC', 'last_updated_timestamp DESC'],
+                ["timestamp", "last_updated_timestamp"],
             )
 
         with self.assertRaisesRegex(MlflowException, msg):
             SqlAlchemyStore._parse_search_registered_models_order_by(
-                ['last_updated_timestamp', 'last_updated_timestamp DESC'],
+                ["last_updated_timestamp ASC", "last_updated_timestamp DESC"],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ["last_updated_timestamp", "last_updated_timestamp DESC"],
             )
 
     def test_search_registered_model_pagination(self):

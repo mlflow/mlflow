@@ -1975,7 +1975,7 @@ def test_get_attribute_name():
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attibutes are also orderable
-    assert (len(entities.RunInfo.get_orderable_attributes()) == 4)
+    assert len(entities.RunInfo.get_orderable_attributes()) == 4
 
 
 def test_get_orderby_clauses():
@@ -1983,26 +1983,26 @@ def test_get_orderby_clauses():
     with store.ManagedSessionMaker() as session:
         # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
         parsed = [str(x) for x in _get_orderby_clauses([], session)[0]]
-        assert parsed == ['runs.start_time DESC', 'SqlRun.run_uuid']
+        assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
 
         # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
-        parsed = [str(x) for x in _get_orderby_clauses(['attribute.start_time ASC'], session)[0]]
-        assert 'SqlRun.start_time' in parsed
-        assert 'SqlRun.start_time DESC' not in parsed
+        parsed = [str(x) for x in _get_orderby_clauses(["attribute.start_time ASC"], session)[0]]
+        assert "SqlRun.start_time" in parsed
+        assert "SqlRun.start_time DESC" not in parsed
 
         # test that an exception is raised when 'order_by' contains duplicates
-        match = 'order_by contains duplicate fields'
+        match = "order_by contains duplicate fields"
         with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(['attribute.start_time', 'attribute.start_time'], session)
+            _get_orderby_clauses(["attribute.start_time", "attribute.start_time"], session)
 
         with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(['param.p', 'param.p'], session)
+            _get_orderby_clauses(["param.p", "param.p"], session)
 
         with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(['metric.m', 'metric.m'], session)
+            _get_orderby_clauses(["metric.m", "metric.m"], session)
 
         with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(['tag.t', 'tag.t'], session)
+            _get_orderby_clauses(["tag.t", "tag.t"], session)
 
         # test that an exception is NOT raised when key types are different
-        _get_orderby_clauses(['param.a', 'metric.a', 'tag.a'], session)
+        _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
