@@ -528,8 +528,9 @@ class SqlAlchemyStore(AbstractStore):
                     elif math.isinf(metric.value):
                         #  NB: Sql can not represent Infs = > We replace +/- Inf
                         #  with max/min 64b float value
-                        value = 1.7976931348623157e308 if metric.value > 0 \
-                            else -1.7976931348623157e308
+                        value = (
+                            1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+                        )
                     else:
                         value = metric.value
 
@@ -539,23 +540,35 @@ class SqlAlchemyStore(AbstractStore):
                         # In batch mode, all metrics are added to the session.
                         # This is much faster than checking for each metric if a metric with the
                         # same name, value, ts, and step already exists and adding them otherwise.
-                        # Conflicts will be checked during saving. If conflicts are detection during saving,
-                        # metrics are inserted one after another using _get_or_create
+                        # Conflicts will be checked during saving. If conflicts are detection
+                        # during saving, metrics are inserted one after another
+                        # using _get_or_create
 
-                        logged_metric = SqlMetric(run_uuid=run_id, key=metric.key, value=value,
-                                                  timestamp=metric.timestamp, step=metric.step,
-                                                  is_nan=is_nan)
+                        logged_metric = SqlMetric(
+                            run_uuid=run_id,
+                            key=metric.key,
+                            value=value,
+                            timestamp=metric.timestamp,
+                            step=metric.step,
+                            is_nan=is_nan,
+                        )
                         self._save_to_db(session, logged_metric)
                         just_created = True
 
                     else:
-                        # All metrics are added one after another with additional check if a metric with
-                        # same name, value, ts, and step already exists
+                        # All metrics are added one after another with additional check if a
+                        # metric with same name, value, ts, and step already exists
 
                         logged_metric, just_created = self._get_or_create(
-                            model=SqlMetric, session=session, run_uuid=run_id, key=metric.key,
-                            value=value, timestamp=metric.timestamp, step=metric.step,
-                            is_nan=is_nan)
+                            model=SqlMetric,
+                            session=session,
+                            run_uuid=run_id,
+                            key=metric.key,
+                            value=value,
+                            timestamp=metric.timestamp,
+                            step=metric.step,
+                            is_nan=is_nan,
+                        )
 
                     if just_created:
                         if metric.key not in metrics_per_key:
@@ -569,9 +582,11 @@ class SqlAlchemyStore(AbstractStore):
                 # its presence
 
                 for logged_metric_list in metrics_per_key.values():
-                    # ToDo: move grouping by metric name functionality to _update_latest_metric_if_necessary
-                    self._update_latest_metric_if_necessary(logged_metrics=logged_metric_list,
-                                                            session=session)
+                    # ToDo: move grouping by metric name functionality
+                    #  to _update_latest_metric_if_necessary
+                    self._update_latest_metric_if_necessary(
+                        logged_metrics=logged_metric_list, session=session
+                    )
 
                 # Explicitly commit the session in order to catch potential integrity errors
                 # if commit fails, a metric is already in the store (same run id, step,
@@ -609,8 +624,9 @@ class SqlAlchemyStore(AbstractStore):
 
         if logged_metric is None:
             raise MlflowException(
-                "Invalid parameters for _update_latest_metric_if_necessary. Please set logged_metrics",
-                INVALID_PARAMETER_VALUE
+                "Invalid parameters for _update_latest_metric_if_necessary. "
+                "Please set logged_metrics",
+                INVALID_PARAMETER_VALUE,
             )
 
         # Fetch the latest metric value corresponding to the specified run_id and metric key and

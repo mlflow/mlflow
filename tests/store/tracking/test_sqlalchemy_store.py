@@ -665,7 +665,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             # Parameters are (key, value, timestamp, step)
             (metric_name, 10, 0, 0),
             (metric_name, 20, 1, 1),
-            (metric_name, 40, 3, 3), # last step, should be stored as last metric
+            (metric_name, 40, 3, 3),  # last step, should be stored as last metric
             (metric_name, 50, 2, 2),
         ]
 
@@ -693,7 +693,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             # Parameters are (key, value, timestamp, step)
             (metric_name, 10, 0, 0),
             (metric_name, 20, 1, 1),
-            (metric_name, 40, 3, 3), # last step, should be stored as last metric
+            (metric_name, 40, 3, 3),  # last step, should be stored as last metric
             (metric_name, 50, 2, 2),
             (metric_name, 50, 2, 2),
         ]
@@ -763,12 +763,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             (metric_name_b, 1, 0, 0),
             (metric_name_a, 20, 1, 1),
             (metric_name_b, 2, 1, 1),
-            (metric_name_a, 50, 5, 5), # latest step for metric a
+            (metric_name_a, 50, 5, 5),  # latest step for metric a
             (metric_name_b, 2, 5, 5),
             (metric_name_b, 3, 6, 6),
             (metric_name_b, 4, 7, 7),
             (metric_name_b, 6, 2, 2),
-            (metric_name_b, 7, 8, 8), # latest step for metric b
+            (metric_name_b, 7, 8, 8),  # latest step for metric b
             (metric_name_b, 8, 1, 1),
             (metric_name_a, 100, 4, 4),
             (metric_name_a, 120, 4, 4),
@@ -807,11 +807,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         last_metric_tuples = [
             (metric_name_a, 50, 5, 5),
             (metric_name_b, 7, 8, 8),
-            (metric_name_c, -10, 3, 3)
+            (metric_name_c, -10, 3, 3),
         ]
         last_metrics = [(m.key, m.value, m.timestamp, m.step) for m in run_data._metric_objs]
         assert set(last_metrics) == set(last_metric_tuples)
-
 
     def test_log_metrics_multiple_names_deactivated_batch_mode(self):
 
@@ -827,16 +826,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             (metric_name_b, 1, 0, 0),
             (metric_name_a, 20, 1, 1),
             (metric_name_b, 2, 1, 1),
-            (metric_name_a, 50, 5, 5), # latest step for metric a
+            (metric_name_a, 50, 5, 5),  # latest step for metric a
             (metric_name_b, 2, 5, 5),
             (metric_name_b, 3, 6, 6),
             (metric_name_b, 4, 7, 7),
             (metric_name_b, 6, 2, 2),
-            (metric_name_b, 7, 8, 8), # latest step for metric b
+            (metric_name_b, 7, 8, 8),  # latest step for metric b
             (metric_name_b, 8, 1, 1),
             (metric_name_a, 100, 4, 4),
             (metric_name_a, 120, 4, 4),
-            (metric_name_a, 120, 4, 4), # duplicated -> batch mode will be deactivated
+            (metric_name_a, 120, 4, 4),  # duplicated -> batch mode will be deactivated
             (metric_name_c, -10, 3, 3),
         ]
 
@@ -872,7 +871,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         last_metric_tuples = [
             (metric_name_a, 50, 5, 5),
             (metric_name_b, 7, 8, 8),
-            (metric_name_c, -10, 3, 3)
+            (metric_name_c, -10, 3, 3),
         ]
         last_metrics = [(m.key, m.value, m.timestamp, m.step) for m in run_data._metric_objs]
         assert set(last_metrics) == set(last_metric_tuples)
@@ -1798,9 +1797,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(package + ".log_metrics") as metrics_mock, mock.patch(
-            package + ".log_param"
-        ) as param_mock, mock.patch(package + ".set_tag") as tags_mock:
+        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(
+            package + ".log_metrics"
+        ) as metrics_mock, mock.patch(package + ".log_param") as param_mock, mock.patch(
+            package + ".set_tag"
+        ) as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
             metrics_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
