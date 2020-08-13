@@ -278,7 +278,9 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    MLflow will also log the parameters of the EarlyStopping and OneCycleScheduler callbacks
+    MLflow will also log the parameters of the
+    `EarlyStoppingCallback <https://docs.fast.ai/callbacks.html#EarlyStoppingCallback>`_
+    and `OneCycleScheduler <https://docs.fast.ai/callbacks.html#OneCycleScheduler>`_ callbacks
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info

@@ -37,18 +37,13 @@ jobs:
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
-        source ./travis/install-common-deps.sh
+        source ./dev/install-common-deps.sh
         source activate test-environment
-        pytest --verbose tests/examples --large
+        pytest --verbose tests/examples --durations=0 --large
 
-    - name: Clean up conda environments
+    - name: Remove conda environments
       run: |
-        conda env list |                        # list (env name, env path) pairs
-        cut -d' ' -f1 |                         # extract env names
-        grep "^mlflow-[a-z0-9]\{32\}" |         # filter envs created by mlflow
-        xargs -L 1 conda remove --all --yes -n  # pass env names to conda remove
-        conda env list
-        conda clean --all --yes
+        ./dev/remove-conda-envs.sh
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
