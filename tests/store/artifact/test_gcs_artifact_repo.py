@@ -101,7 +101,7 @@ def test_list_artifacts_with_subdir(gcs_mock, dir_name):
 
     artifacts = repo.list_artifacts(path=dir_name)
     gcs_mock.Client().bucket().list_blobs.assert_called_with(
-        prefix=posixpath.join(artifact_root_path[1:], dir_name, ""), delimiter="/"
+        prefix=posixpath.join(artifact_root_path[1:], "model/"), delimiter="/"
     )
     assert len(artifacts) == 2
     assert artifacts[0].path == file_path
