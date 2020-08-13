@@ -127,6 +127,7 @@ def pyfunc_serve_and_score_model(
     activity_polling_timeout_seconds=500,
     extra_args=None,
     stdout=sys.stdout,
+    install_mlflow=True,
 ):
     """
     :param model_uri: URI to the model to be served.
@@ -154,8 +155,9 @@ def pyfunc_serve_and_score_model(
         model_uri,
         "-p",
         str(port),
-        "--install-mlflow",
     ]
+    if install_mlflow:
+        scoring_cmd += ["--install-mlflow"]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
