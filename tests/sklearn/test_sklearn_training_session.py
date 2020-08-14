@@ -71,3 +71,23 @@ def test_parent_session_overrides_child_sessions_allow_children():
             assert_session_stack([(None, Parent), (Parent, Child)])
         assert_session_stack([(None, Parent)])
     assert_session_stack([])
+
+
+def test_parent_session_does_not_override_child_sessions_allow_children():
+    # The opposite case of `test_parent_session_overrides_child_sessions_allow_children`
+    with _SklearnTrainingSession(Parent, allow_children=True) as p:
+        assert_session_stack([(None, Parent)])
+
+        with _SklearnTrainingSession(Child, allow_children=False) as c:
+            assert_session_stack([(None, Parent), (Parent, Child)])
+
+            with _SklearnTrainingSession(Grandchild, allow_children=True) as g:
+                assert_session_stack([(None, Parent), (Parent, Child), (Child, Grandchild)])
+
+                assert p.should_log()
+                assert c.should_log()
+                assert not g.should_log()
+
+            assert_session_stack([(None, Parent), (Parent, Child)])
+        assert_session_stack([(None, Parent)])
+    assert_session_stack([])
