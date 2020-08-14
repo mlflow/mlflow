@@ -22,15 +22,18 @@ def _get_flavor_configuration(model_path, flavor_name):
     model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
     if not os.path.exists(model_configuration_path):
         raise MlflowException(
-            "Could not find an \"{model_file}\" configuration file at \"{model_path}\"".format(
-                model_file=MLMODEL_FILE_NAME, model_path=model_path),
-            RESOURCE_DOES_NOT_EXIST)
+            'Could not find an "{model_file}" configuration file at "{model_path}"'.format(
+                model_file=MLMODEL_FILE_NAME, model_path=model_path
+            ),
+            RESOURCE_DOES_NOT_EXIST,
+        )
 
     model_conf = Model.load(model_configuration_path)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
-            "Model does not have the \"{flavor_name}\" flavor".format(flavor_name=flavor_name),
-            RESOURCE_DOES_NOT_EXIST)
+            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+            RESOURCE_DOES_NOT_EXIST,
+        )
     conf = model_conf.flavors[flavor_name]
     return conf
 
@@ -48,15 +51,19 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     """
     try:
         ml_model_file = _download_artifact_from_uri(
-            artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME))
+            artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
+        )
     except Exception as ex:
         raise MlflowException(
-            "Failed to download an \"{model_file}\" model file from \"{model_uri}\": {ex}".format(
-                model_file=MLMODEL_FILE_NAME, model_uri=model_uri, ex=ex),
-            RESOURCE_DOES_NOT_EXIST)
+            'Failed to download an "{model_file}" model file from "{model_uri}": {ex}'.format(
+                model_file=MLMODEL_FILE_NAME, model_uri=model_uri, ex=ex
+            ),
+            RESOURCE_DOES_NOT_EXIST,
+        )
     model_conf = Model.load(ml_model_file)
     if flavor_name not in model_conf.flavors:
         raise MlflowException(
-            "Model does not have the \"{flavor_name}\" flavor".format(flavor_name=flavor_name),
-            RESOURCE_DOES_NOT_EXIST)
+            'Model does not have the "{flavor_name}" flavor'.format(flavor_name=flavor_name),
+            RESOURCE_DOES_NOT_EXIST,
+        )
     return model_conf.flavors[flavor_name]

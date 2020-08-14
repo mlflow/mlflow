@@ -21,8 +21,8 @@ jobs:
             INSTALL_LARGE_PYTHON_DEPS: true
           command: |
             pip install --progress-bar off . \
-              -r ./travis/small-requirements.txt \
-              -r ./travis/large-requirements.txt \
+              -r ./dev/small-requirements.txt \
+              -r ./dev/large-requirements.txt \
               sphinx==2.2.1 sphinx-click==2.3.0
       - run:
           name: Build documentation

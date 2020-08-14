@@ -3,7 +3,7 @@
 mlruns
 ^mlflow-model$
 packrat
-^\.travis\.R$
+^\.run-tests\.R$
 ^README.Rmd$
 ^docs$
 ^model$

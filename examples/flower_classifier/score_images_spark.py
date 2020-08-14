@@ -32,54 +32,66 @@ def read_image_bytes_base64(path):
 def read_images(spark, filenames):
     filenames_rdd = spark.sparkContext.parallelize(filenames)
     schema = StructType(
-        [StructField("filename", StringType(), True), StructField("image", StringType(), True)])
-    return filenames_rdd.map(lambda x: Row(filename=x,
-                                           image=read_image_bytes_base64(x))).toDF(schema=schema)
+        [StructField("filename", StringType(), True), StructField("image", StringType(), True)]
+    )
+    return filenames_rdd.map(lambda x: Row(filename=x, image=read_image_bytes_base64(x))).toDF(
+        schema=schema
+    )
 
 
 def score_model(spark, data_path, model_uri):
     if os.path.isdir(data_path):
-        filenames = [os.path.abspath(os.path.join(data_path, x)) for x in os.listdir(data_path)
-                     if os.path.isfile(os.path.join(data_path, x))]
+        filenames = [
+            os.path.abspath(os.path.join(data_path, x))
+            for x in os.listdir(data_path)
+            if os.path.isfile(os.path.join(data_path, x))
+        ]
     else:
         filenames = [data_path]
 
-    image_classifier_udf = mlflow.pyfunc.spark_udf(spark=spark,
-                                                   model_uri=model_uri,
-                                                   result_type=ArrayType(StringType()))
+    image_classifier_udf = mlflow.pyfunc.spark_udf(
+        spark=spark, model_uri=model_uri, result_type=ArrayType(StringType())
+    )
 
     image_df = read_images(spark, filenames)
 
-    raw_preds = image_df.withColumn("prediction", image_classifier_udf("image")).select(
-        ["filename", "prediction"]).toPandas()
+    raw_preds = (
+        image_df.withColumn("prediction", image_classifier_udf("image"))
+        .select(["filename", "prediction"])
+        .toPandas()
+    )
     # load the pyfunc model to get our domain
     pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
     preds = pd.DataFrame(raw_preds["filename"], index=raw_preds.index)
-    preds[pyfunc_model._column_names] = pd.DataFrame(raw_preds['prediction'].values.tolist(),
-                                                     columns=pyfunc_model._column_names,
-                                                     index=raw_preds.index)
+    preds[pyfunc_model._column_names] = pd.DataFrame(
+        raw_preds["prediction"].values.tolist(),
+        columns=pyfunc_model._column_names,
+        index=raw_preds.index,
+    )
 
     preds = pd.DataFrame(raw_preds["filename"], index=raw_preds.index)
 
-    preds[pyfunc_model._column_names] = pd.DataFrame(raw_preds['prediction'].values.tolist(),
-                                                     columns=pyfunc_model._column_names,
-                                                     index=raw_preds.index)
-    return preds.to_json(orient='records')
+    preds[pyfunc_model._column_names] = pd.DataFrame(
+        raw_preds["prediction"].values.tolist(),
+        columns=pyfunc_model._column_names,
+        index=raw_preds.index,
+    )
+    return preds.to_json(orient="records")
 
 
 @click.command(help="Score images.")
 @cli_args.MODEL_URI
 @click.argument("data-path")
 def run(data_path, model_uri):
-    with pyspark.sql.SparkSession.builder \
-            .config(key="spark.python.worker.reuse", value=True) \
-            .config(key="spark.ui.enabled", value=False) \
-            .master("local-cluster[2, 1, 1024]") \
-            .getOrCreate() as spark:
+    with pyspark.sql.SparkSession.builder.config(
+        key="spark.python.worker.reuse", value=True
+    ).config(key="spark.ui.enabled", value=False).master(
+        "local-cluster[2, 1, 1024]"
+    ).getOrCreate() as spark:
         # ignore spark log output
         spark.sparkContext.setLogLevel("OFF")
         print(score_model(spark, data_path, model_uri))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run()

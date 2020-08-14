@@ -39,6 +39,10 @@ describe('ModelVersionView', () => {
       deleteModelVersionTagApi: jest.fn(),
       history: { push: jest.fn() },
       tags: {},
+      schema: {
+        inputs: [],
+        outputs: [],
+      },
     };
     minimalStoreRaw = {
       entities: {
