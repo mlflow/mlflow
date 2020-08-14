@@ -54,7 +54,7 @@ def test_nested_once(allow_children):
     assert_session_stack([])
 
 
-def test_parent_session_overrides_second_level_sessions_allow_children():
+def test_parent_session_overrides_child_sessions_allow_children():
     with _SklearnTrainingSession(Parent, allow_children=False) as p:
         assert_session_stack([(None, Parent)])
 
