@@ -426,10 +426,21 @@ def load_model(model_uri):
     )
 
 
+# NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now because:
+# 1. We don't currently have any use cases for allow_children=True.
+# 2. The list append & pop operations are thread-safe, so we will always clear the session stack
+#    once all _SklearnTrainingSessions exit.
 class _SklearnTrainingSession(object):
     _session_stack = []
 
     def __init__(self, clazz, allow_children=True):
+        """
+        A session manager for nested autologging runs.
+
+        :param clazz: A class object that this session originates from.
+        :param allow_children: If True, allows autologging in child sessions.
+                               If False, disallows autologging in all descendant sessions.
+        """
         self.allow_children = allow_children
         self.clazz = clazz
         self._parent = None
@@ -447,6 +458,12 @@ class _SklearnTrainingSession(object):
         _SklearnTrainingSession._session_stack.pop()
 
     def should_log(self):
+        """
+        Returns True when at least one of the following conditions satisfies:
+
+        1. This session is the root session.
+        2. The parent session allows autologging and its class differs from this session's class.
+        """
         return (self._parent is None) or (
             self._parent.allow_children and self._parent.clazz != self.clazz
         )
