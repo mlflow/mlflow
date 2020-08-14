@@ -203,7 +203,12 @@ def test_create_model_version(mock_store):
     description = "best model ever"
 
     mock_store.create_model_version.return_value = ModelVersion(
-        name=name, version=version, creation_timestamp=123, tags=tags, run_link=None, description
+        name=name,
+        version=version,
+        creation_timestamp=123,
+        tags=tags,
+        run_link=None,
+        description=description
     )
     result = newModelRegistryClient().create_model_version(
         name, "uri:/for/source", "run123", tags_dict, None, description

@@ -82,7 +82,7 @@ class TestRestStore(unittest.TestCase):
             "registered-models/create",
             "POST",
             CreateRegisteredModel(
-                name="model_1", tags=[tag.to_proto() for tag in tags], description
+                name="model_1", tags=[tag.to_proto() for tag in tags], description=description
             ),
         )
 
