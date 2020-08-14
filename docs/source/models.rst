@@ -770,14 +770,13 @@ For more info, see:
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
-These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
+The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images and deploy them as a webservice. Models can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
 platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
 accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-* :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow Model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+* :py:func:`mlflow.azureml.deploy` registers an MLflow Model with an existing Azure ML workspace, builds an Azure ML container image and deploys the model to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
 .. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
 
@@ -803,22 +802,17 @@ accepts the following data formats as input:
                                        location=location,
                                        create_resource_group=True,
                                        exist_okay=True)
+    # Create a deployment config
+    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)
 
-    # Build an Azure ML container image for deployment
-    azure_image, azure_model = mlflow.azureml.build_image(model_uri="<path-to-model>",
-                                                          workspace=azure_workspace,
-                                                          description="Wine regression model 1",
-                                                          synchronous=True)
-    # If your image build failed, you can access build logs at the following URI:
-    print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
+    # Register and deploy model to Azure Container Instance (ACI)
+    (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
+                                                workspace=azure_workspace,
+                                                model_name='mymodelname',
+                                                service_name='myservice',
+                                                deployment_config=aci_config)
 
-    # Deploy the container image to ACI
-    webservice_deployment_config = AciWebservice.deploy_configuration()
-    webservice = Webservice.deploy_from_image(
-                        image=azure_image, workspace=azure_workspace, name="<deployment-name>")
-    webservice.wait_for_deployment()
-
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI
+    # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
     # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
@@ -826,7 +820,6 @@ accepts the following data formats as input:
 
     import requests
     import json
-
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input = {
         "columns": [
@@ -856,6 +849,7 @@ accepts the following data formats as input:
 
 .. code-block:: bash
 
+    # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
     mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
 
     az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>
