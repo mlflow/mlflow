@@ -440,6 +440,33 @@ class _SklearnTrainingSession(object):
         :param clazz: A class object that this session originates from.
         :param allow_children: If True, allows autologging in child sessions.
                                If False, disallows autologging in all descendant sessions.
+
+        Example:
+
+        >>> class Parent: pass
+        >>> class Child: pass
+        >>> class Grandchild: pass
+
+        >>> with _SklearnTrainingSession(Parent, False) as p:
+        ...     with _SklearnTrainingSession(Child, True) as c:
+        ...         with _SklearnTrainingSession(Grandchild, True) as g:
+        ...             print(p.should_log())
+        ...             print(c.should_log())
+        ...             print(g.should_log())
+        True
+        False
+        False
+
+        >>> with _SklearnTrainingSession(Parent, True) as p:
+        ...     with _SklearnTrainingSession(Child, False) as c:
+        ...         with _SklearnTrainingSession(Grandchild, True) as g:
+        ...             print(p.should_log())
+        ...             print(c.should_log())
+        ...             print(g.should_log())
+        True
+        True
+        False
+
         """
         self.allow_children = allow_children
         self.clazz = clazz
