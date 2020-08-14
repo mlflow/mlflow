@@ -45,7 +45,7 @@ def test_nested_once(allow_children):
     with _SklearnTrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
 
-        with _SklearnTrainingSession(Child) as c:
+        with _SklearnTrainingSession(Child, allow_children=True) as c:
             assert_session_stack([(None, Parent), (Parent, Child)])
             assert p.should_log()
             assert c.should_log() == allow_children
@@ -61,7 +61,7 @@ def test_parent_session_overrides_child_sessions_allow_children():
         with _SklearnTrainingSession(Child, allow_children=True) as c:
             assert_session_stack([(None, Parent), (Parent, Child)])
 
-            with _SklearnTrainingSession(Grandchild) as g:
+            with _SklearnTrainingSession(Grandchild, allow_children=True) as g:
                 assert_session_stack([(None, Parent), (Parent, Child), (Child, Grandchild)])
 
                 assert p.should_log()
