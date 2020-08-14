@@ -33,7 +33,7 @@ def allow_children(request):
     return request.param
 
 
-def test_only_root_session(allow_children):
+def test_should_log_always_returns_true_in_root_session(allow_children):
     with _SklearnTrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
         assert p.should_log()
@@ -41,7 +41,7 @@ def test_only_root_session(allow_children):
     assert_session_stack([])
 
 
-def test_nested_once(allow_children):
+def test_nested_sessions(allow_children):
     with _SklearnTrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
 
@@ -54,7 +54,7 @@ def test_nested_once(allow_children):
     assert_session_stack([])
 
 
-def test_parent_session_overrides_child_sessions_allow_children():
+def test_parent_session_overrides_child_session():
     with _SklearnTrainingSession(Parent, allow_children=False) as p:
         assert_session_stack([(None, Parent)])
 
@@ -73,28 +73,8 @@ def test_parent_session_overrides_child_sessions_allow_children():
     assert_session_stack([])
 
 
-def test_parent_session_does_not_override_child_sessions_allow_children():
-    # The opposite case of `test_parent_session_overrides_child_sessions_allow_children`
-    with _SklearnTrainingSession(Parent, allow_children=True) as p:
-        assert_session_stack([(None, Parent)])
-
-        with _SklearnTrainingSession(Child, allow_children=False) as c:
-            assert_session_stack([(None, Parent), (Parent, Child)])
-
-            with _SklearnTrainingSession(Grandchild, allow_children=True) as g:
-                assert_session_stack([(None, Parent), (Parent, Child), (Child, Grandchild)])
-
-                assert p.should_log()
-                assert c.should_log()
-                assert not g.should_log()
-
-            assert_session_stack([(None, Parent), (Parent, Child)])
-        assert_session_stack([(None, Parent)])
-    assert_session_stack([])
-
-
-def test_should_not_log_when_parent_session_has_the_same_class():
-    # This test case corresponds to Pipeline.fit() calls Transformer.fit_transform()
+def test_should_log_returns_false_when_parrent_session_has_the_same_class():
+    # This test case corresponds to when Pipeline.fit() calls Transformer.fit_transform()
     # which calls Transformer.fit()
     with _SklearnTrainingSession(Parent, allow_children=True) as p:
         assert_session_stack([(None, Parent)])
