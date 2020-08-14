@@ -108,8 +108,8 @@ a new pull request against the `corresponding docs section of the MLflow code ba
 
 For more information about Plugins, see https://mlflow.org/docs/latest/plugins.html.
 
-Developing and testing changes for MLflow
-#########################################
+Developing and testing MLflow
+#############################
 The majority of the MLflow codebase is developed in Python. This includes the CLI, Tracking Server,
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
@@ -148,7 +148,7 @@ You may need to run ``conda install cmake`` for the test requirements to properl
 
 Ensure `Docker <https://www.docker.com/>`_ is installed.
 
-Finally, we use ``pytest`` to run all Python contributed code. Install ``pytest``:
+Finally, we use ``pytest`` to test all Python contributed code. Install ``pytest``:
 
 .. code-block:: bash
 
@@ -157,7 +157,7 @@ Finally, we use ``pytest`` to run all Python contributed code. Install ``pytest`
 JavaScript and UI
 ~~~~~~~~~~~~~~~~~
 
-``npm`` is required to run the Javascript dev server and the tracking UI.
+The MLflow UI is written in JavaScript. ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
 
@@ -315,7 +315,7 @@ Verify that the unit tests & linter pass before submitting a pull request by run
 
     ./lint.sh
     ./dev/run-small-python-tests.sh
-    # Optionally, run large tests as well. Travis will run large tests on your pull request once
+    # Optionally, run large tests as well. Github actions will run large tests on your pull request once
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
     # making changes to these components, we recommend running the relevant tests (e.g. tests under
     # tests/keras for changes to Keras model support) locally before submitting a pull request.
@@ -369,11 +369,10 @@ For the client, if you are adding new model flavors, follow the instructions bel
 Python Model Flavors
 --------------------
 
-If you are adding new framework flavor support, you'll need to modify ``pytest`` and Travis configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
+If you are adding new framework flavor support, you'll need to modify ``pytest`` and Github action configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
 
-1. ``.travis.yml``: exclude your tests in the Windows bash script
-2. ``dev/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
-3. ``dev/run-large-python-tests.sh``:
+1. ``dev/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
+2. ``dev/run-large-python-tests.sh``:
 
   a. Add your tests to the ignore list, where the other frameworks are ignored
   b. Add a pytest command for your tests along with the other framework tests (as a separate command to avoid OOM issues)
@@ -444,7 +443,7 @@ If you are contributing by adding new model flavor, follow these steps:
 1. Follow instructions in `Python Model Flavors`_
 2. Create a corresponding directory in ``mlflow/examples/new-model-flavor``
 3. Implement your Python training ``new-model-flavor`` code in this directory
-4. Convert this directory’s content into an MLflow Project executable
+4. Convert this directory’s content into an `MLflow Project <https://mlflow.org/docs/latest/projects.html>_` executable
 5. Add ``README.md``, ``MLproject``, and ``conda.yaml`` files and your code
 6. Read instructions in the ``mlflow/test/examples/README.md`` and add a ``pytest`` entry in the ``test/examples/test_examples.py``
 7. Add a short description in the ``mlflow/examples/README.md`` file
