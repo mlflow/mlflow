@@ -25,7 +25,7 @@ You install MLflow by running:
     installing Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
     ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
 
-In order to use some of MLflow features (ML librairies, storage options, ...) you may need to install extra librairies.
+In order to use some of MLflow features (ML librairies, storage options, ...), you may need to install extra libraries.
 Please refer to this `requirements.txt <https://github.com/mlflow/mlflow/blob/master/travis/large-requirements.txt>`_ to find out
 the complete list of optional dependencies.
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
