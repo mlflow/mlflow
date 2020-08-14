@@ -91,3 +91,24 @@ def test_parent_session_does_not_override_child_sessions_allow_children():
             assert_session_stack([(None, Parent), (Parent, Child)])
         assert_session_stack([(None, Parent)])
     assert_session_stack([])
+
+
+def test_should_not_log_when_parent_session_has_the_same_class():
+    # This test case corresponds to Pipeline.fit() calls Transformer.fit_transform()
+    # which calls Transformer.fit()
+    with _SklearnTrainingSession(Parent, allow_children=True) as p:
+        assert_session_stack([(None, Parent)])
+
+        with _SklearnTrainingSession(Child, allow_children=True) as c1:
+            assert_session_stack([(None, Parent), (Parent, Child)])
+
+            with _SklearnTrainingSession(Child, allow_children=True) as c2:
+                assert_session_stack([(None, Parent), (Parent, Child), (Child, Child)])
+
+                assert p.should_log()
+                assert c1.should_log()
+                assert not c2.should_log()
+
+            assert_session_stack([(None, Parent), (Parent, Child)])
+        assert_session_stack([(None, Parent)])
+    assert_session_stack([])
