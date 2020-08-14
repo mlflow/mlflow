@@ -340,7 +340,7 @@ class SqlAlchemyStore(AbstractStore):
                 query = query.outerjoin(j)
             queried_registered_models = (
                 query.distinct()
-                .option(*self._get_eager_model_version_query_options())
+                .options(*self._get_eager_registered_model_query_options())
                 .filter(
                     *SearchUtils.get_attributes_filtering_clauses_for_registered_model(
                         parsed_filter)

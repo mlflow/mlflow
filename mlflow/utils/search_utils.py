@@ -596,6 +596,8 @@ class SearchUtils(object):
         key_name = sql_statement.get("key")
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
+        if SearchUtils.is_attribute(key_type, comparator):
+            return None
         entity = cls._get_subquery_entity(key_type, comparator, is_search_run)
         if is_search_run and cls.is_metric(key_type, comparator):
             value = float(value)
