@@ -85,7 +85,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # create with description
         name3 = random_str() + "-description"
-        description = 'the best model ever'
+        description = "the best model ever"
         rm3 = self._rm_maker(name3, description=description)
         rmd3 = self.store.get_registered_model(name3)
         self.assertEqual(rm3.name, name3)
@@ -469,7 +469,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd4.version, 4)
         self.assertEqual(mvd4.run_link, run_link)
 
-    def test_update_model_version(self):
+        # create model version with description
+        description = "the best model ever"
+        mv5 = self._mv_maker(name, run_link=run_link)
+        mvd5 = self.store.get_model_version(name, mv4.version)
+        self.assertEqual(mv5.version, 5)
+        self.assertEqual(mv5.description, description)
+        self.assertEqual(mvd5.version, 5)
+        self.assertEqual(mvd5.description, description)
+
+
+def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)

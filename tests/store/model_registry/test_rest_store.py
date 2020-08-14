@@ -75,12 +75,14 @@ class TestRestStore(unittest.TestCase):
             RegisteredModelTag(key="key", value="value"),
             RegisteredModelTag(key="anotherKey", value="some other value"),
         ]
-        self.store.create_registered_model("model_1", tags)
+        description = "best model ever"
+        self.store.create_registered_model("model_1", tags, description)
         self._verify_requests(
             mock_http,
             "registered-models/create",
             "POST",
-            CreateRegisteredModel(name="model_1", tags=[tag.to_proto() for tag in tags]),
+            CreateRegisteredModel(name="model_1", tags=[tag.to_proto() for tag in tags],
+                                  description),
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
