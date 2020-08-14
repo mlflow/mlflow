@@ -474,8 +474,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # create model version with description
         description = "the best model ever"
-        mv5 = self._mv_maker(name, run_link=run_link)
-        mvd5 = self.store.get_model_version(name, mv4.version)
+        mv5 = self._mv_maker(name, description=description)
+        mvd5 = self.store.get_model_version(name, mv5.version)
         self.assertEqual(mv5.version, 5)
         self.assertEqual(mv5.description, description)
         self.assertEqual(mvd5.version, 5)

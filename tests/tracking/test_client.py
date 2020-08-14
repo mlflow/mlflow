@@ -292,7 +292,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     assert model_version.run_id == "runid"
     # verify that the store was not provided a run link
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None
+        "name", "source", "runid", [], None, None
     )
 
 
@@ -316,7 +316,7 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], run_link
+            "name", "source", "runid", [], run_link, None
         )
 
 
@@ -345,7 +345,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url
+            "name", "source", "runid", [], workspace_url, None
         )
 
 
@@ -374,7 +374,7 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url
+            "name", "source", "runid", [], workspace_url, None
         )
 
 
