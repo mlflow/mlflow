@@ -94,6 +94,7 @@ def test_rename_registered_model(mock_store):
 
 
 def test_update_registered_model_validation_errors_on_empty_new_name(mock_store):
+    # pylint: disable=unused-argument
     with pytest.raises(MlflowException):
         newModelRegistryClient().rename_registered_model("Model 1", " ")
 
@@ -238,6 +239,7 @@ def test_transition_model_version_stage(mock_store):
 
 
 def test_transition_model_version_stage_validation_errors(mock_store):
+    # pylint: disable=unused-argument
     with pytest.raises(MlflowException):
         newModelRegistryClient().transition_model_version_stage("Model 1", "12", stage=" ")
 

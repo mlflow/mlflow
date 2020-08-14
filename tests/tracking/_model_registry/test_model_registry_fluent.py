@@ -11,7 +11,6 @@ from mlflow.protos.databricks_pb2 import (
     FEATURE_DISABLED,
 )
 from mlflow.tracking import MlflowClient
-from mlflow.tracking._tracking_service.utils import is_tracking_uri_set
 from mlflow.utils.file_utils import TempDir
 
 
