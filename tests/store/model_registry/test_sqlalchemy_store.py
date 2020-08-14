@@ -47,8 +47,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return self.store.create_registered_model(name, tags, description)
 
     def _mv_maker(
-        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None,
-        description=None
+        self,
+        name,
+        source="path/to/source",
+        run_id=uuid.uuid4().hex,
+        tags=None,
+        run_link=None,
+        description=None,
     ):
         return self.store.create_model_version(
             name, source, run_id, tags, run_link=run_link, description=description

@@ -219,12 +219,7 @@ class TestRestStore(unittest.TestCase):
         run_link = "localhost:5000/path/to/run"
         description = "version description"
         self.store.create_model_version(
-            "model_1",
-            "path/to/source",
-            run_id,
-            tags,
-            run_link=run_link,
-            description=description,
+            "model_1", "path/to/source", run_id, tags, run_link=run_link, description=description,
         )
         self._verify_requests(
             mock_http,

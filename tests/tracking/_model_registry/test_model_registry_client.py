@@ -208,7 +208,7 @@ def test_create_model_version(mock_store):
         creation_timestamp=123,
         tags=tags,
         run_link=None,
-        description=description
+        description=description,
     )
     result = newModelRegistryClient().create_model_version(
         name, "uri:/for/source", "run123", tags_dict, None, description

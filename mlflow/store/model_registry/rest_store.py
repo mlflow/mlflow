@@ -69,7 +69,8 @@ class RestStore(AbstractStore):
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(
-            CreateRegisteredModel(name=name, tags=proto_tags, description=description))
+            CreateRegisteredModel(name=name, tags=proto_tags, description=description)
+        )
         response_proto = self._call_endpoint(CreateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -214,7 +215,9 @@ class RestStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None, description=None):
+    def create_model_version(
+        self, name, source, run_id, tags=None, run_link=None, description=None
+    ):
         """
         Create a new model version from given source and run ID.
 
