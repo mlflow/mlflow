@@ -86,7 +86,7 @@ from mlflow.utils.search_utils import SearchUtils
     ],
 )
 def test_filter(filter_string, parsed_filter):
-    assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
+    assert SearchUtils.parse_filter_for_run(filter_string) == parsed_filter
 
 
 @pytest.mark.parametrize(
@@ -102,7 +102,7 @@ def test_filter(filter_string, parsed_filter):
     ],
 )
 def test_correct_quote_trimming(filter_string, parsed_filter):
-    assert SearchUtils.parse_search_filter(filter_string) == parsed_filter
+    assert SearchUtils.parse_filter_for_run(filter_string) == parsed_filter
 
 
 @pytest.mark.parametrize(
@@ -137,7 +137,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
 )
 def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchUtils.parse_search_filter(filter_string)
+        SearchUtils.parse_filter_for_run(filter_string)
     assert error_message in e.value.message
 
 
@@ -155,7 +155,7 @@ def test_error_filter(filter_string, error_message):
 )
 def test_error_comparison_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchUtils.parse_search_filter(filter_string)
+        SearchUtils.parse_filter_for_run(filter_string)
     assert error_message in e.value.message
 
 
@@ -176,7 +176,7 @@ def test_error_comparison_clauses(filter_string, error_message):
 )
 def test_bad_quotes(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchUtils.parse_search_filter(filter_string)
+        SearchUtils.parse_filter_for_run(filter_string)
     assert error_message in e.value.message
 
 
@@ -194,7 +194,7 @@ def test_bad_quotes(filter_string, error_message):
 )
 def test_invalid_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchUtils.parse_search_filter(filter_string)
+        SearchUtils.parse_filter_for_run(filter_string)
     assert error_message in e.value.message
 
 
