@@ -46,10 +46,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def _rm_maker(self, name, tags=None, description=None):
         return self.store.create_registered_model(name, tags, description)
 
-    def _mv_maker(self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None,
-                  run_link=None, description=None):
-        return self.store.create_model_version(name, source, run_id, tags, run_link=run_link,
-                                               description=description)
+    def _mv_maker(
+        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None,
+        description=None
+    ):
+        return self.store.create_model_version(
+            name, source, run_id, tags, run_link=run_link, description=description
+        )
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -478,8 +481,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd5.version, 5)
         self.assertEqual(mvd5.description, description)
 
-
-def test_update_model_version(self):
+    def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)

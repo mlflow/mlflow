@@ -168,9 +168,12 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             try:
                 creation_time = now()
-                registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
-                                                      last_updated_time=creation_time,
-                                                      description=description)
+                registered_model = SqlRegisteredModel(
+                    name=name,
+                    creation_time=creation_time,
+                    last_updated_time=creation_time,
+                    description=description,
+                )
                 tags_dict = {}
                 for tag in tags or []:
                     tags_dict[tag.key] = tag.value

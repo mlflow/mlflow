@@ -229,9 +229,16 @@ class RestStore(AbstractStore):
                  created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
-        req_body = message_to_json(CreateModelVersion(name=name, source=source,
-                                                      run_id=run_id, run_link=run_link,
-                                                      tags=proto_tags, description=description))
+        req_body = message_to_json(
+            CreateModelVersion(
+                name=name,
+                source=source,
+                run_id=run_id,
+                run_link=run_link,
+                tags=proto_tags,
+                description=description,
+            )
+        )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
 

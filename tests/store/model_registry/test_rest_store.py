@@ -81,8 +81,9 @@ class TestRestStore(unittest.TestCase):
             mock_http,
             "registered-models/create",
             "POST",
-            CreateRegisteredModel(name="model_1", tags=[tag.to_proto() for tag in tags],
-                                  description),
+            CreateRegisteredModel(
+                name="model_1", tags=[tag.to_proto() for tag in tags], description
+            ),
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -204,9 +205,12 @@ class TestRestStore(unittest.TestCase):
     def test_create_model_version(self, mock_http):
         run_id = uuid.uuid4().hex
         self.store.create_model_version("model_1", "path/to/source", run_id)
-        self._verify_requests(mock_http, "model-versions/create", "POST",
-                              CreateModelVersion(name="model_1", source="path/to/source",
-                                                 run_id=run_id))
+        self._verify_requests(
+            mock_http,
+            "model-versions/create",
+            "POST",
+            CreateModelVersion(name="model_1", source="path/to/source", run_id=run_id),
+        )
         # test optional fields
         tags = [
             ModelVersionTag(key="key", value="value"),
@@ -214,8 +218,14 @@ class TestRestStore(unittest.TestCase):
         ]
         run_link = "localhost:5000/path/to/run"
         description = "version description"
-        self.store.create_model_version("model_1", "path/to/source", run_id, tags,
-                                        run_link=run_link, description=description)
+        self.store.create_model_version(
+            "model_1",
+            "path/to/source",
+            run_id,
+            tags,
+            run_link=run_link,
+            description=description,
+        )
         self._verify_requests(
             mock_http,
             "model-versions/create",

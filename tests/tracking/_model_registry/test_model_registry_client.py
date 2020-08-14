@@ -46,9 +46,10 @@ def _model_version(name, version, stage, source="some:/source", run_id="run13579
 def test_create_registered_model(mock_store):
     tags_dict = {"key": "value", "another key": "some other value"}
     tags = [RegisteredModelTag(key, value) for key, value in tags_dict.items()]
-    description = 'such a great model'
-    mock_store.create_registered_model.return_value = RegisteredModel("Model 1", tags=tags,
-                                                                      description=description)
+    description = "such a great model"
+    mock_store.create_registered_model.return_value = RegisteredModel(
+        "Model 1", tags=tags, description=description
+    )
     result = newModelRegistryClient().create_registered_model("Model 1", tags_dict, description)
     mock_store.create_registered_model.assert_called_once_with("Model 1", tags, description)
     assert result.name == "Model 1"
