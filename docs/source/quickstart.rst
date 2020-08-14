@@ -27,8 +27,7 @@ You install MLflow by running:
 
 In order to use some of MLflow features (ML librairies, storage options, ...), you may need to install extra libraries.
 For example, the ``mlflow.tensorflow`` module requires TensorFlow to be installed.
-Please refer to this `requirements.txt <https://github.com/mlflow/mlflow/blob/master/travis/large-requirements.txt>`_ to find out
-the complete list of optional dependencies.
+Please refer to this `requirements.txt <https://github.com/mlflow/mlflow/blob/master/travis/large-requirements.txt>`_ for a complete list of dependencies.
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.
 
