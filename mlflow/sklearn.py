@@ -467,6 +467,12 @@ class _SklearnTrainingSession(object):
         True
         False
 
+        >>> with _SklearnTrainingSession(Child, True) as c1:
+        ...     with _SklearnTrainingSession(Child, True) as c2:
+        ...             print(c1.should_log())
+        ...             print(c2.should_log())
+        True
+        False
         """
         self.allow_children = allow_children
         self.clazz = clazz
