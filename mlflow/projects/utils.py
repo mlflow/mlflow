@@ -31,7 +31,7 @@ from mlflow.utils.mlflow_tags import (
 
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
-_GIT_URI_REGEX = re.compile(r"^[^/]*:")
+_GIT_URI_REGEX = re.compile(r"(\w+://)(.+@)*([\w\d\.]+)(:[\d]+){0,1}/*(.*)")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
