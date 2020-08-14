@@ -61,3 +61,13 @@ test_that("mlflow_run passes all numbers as non-scientific", {
     mlflow_run("project", parameters = c(scientific = 10e4, non_scientific = 30000))
   })
 })
+
+test_that("active experiment is set when starting a run", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_start_run(experiment_id = "0")
+  expect_equal(
+    mlflow_get_experiment()$experiment_id,
+    "0"
+  )
+  mlflow_end_run()
+})
