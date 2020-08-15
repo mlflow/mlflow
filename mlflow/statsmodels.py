@@ -35,6 +35,10 @@ from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 from statsmodels.tsa.arima.model import ARIMA
+import statsmodels.discrete.discrete_model
+import statsmodels.base.model
+import itertools
+import inspect
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
@@ -246,7 +250,6 @@ class _StatsmodelsModelWrapper:
 
     def predict(self, dataframe):
         model = self.statsmodels_model.model
-        print(model.__class__)
         if(isinstance(model, TimeSeriesModel) or
            isinstance(model, ARIMA)):
             # Assume the inference df has columns "start" and "end", and just one row
@@ -266,25 +269,79 @@ def autolog():
 
     - results metrics returned by `statsmodels.base.model.Model.fit`_.
     - trained model.
-
-    Note that the `scikit-learn API`_ is not supported.
     """
-    import statsmodels
-    import numpy as np
+    def _find_subclasses(klass):
+        """
+        Recursively return a (non-nested) list of the class object and all its subclasses
+        :param klass: the class whose class subtree we want to retrieve
+        :return: a list of classes that includes the argument in the first position
+        """
+        subclasses = klass.__subclasses__()
+        if subclasses:
+            subclass_lists = [_find_subclasses(c) for c in subclasses]
+            chain = itertools.chain.from_iterable(subclass_lists)
+            result = [klass] + list(chain)
+            return result
+        else:
+            return [klass]
 
-    @gorilla.patch(statsmodels.base.model.Model)
-    def fit(*args, **kwargs):
+    def overrides(klass, function_name):
+        """
+        Returns True when the class passed as first argument overrides a method name
+        :param klass: the class we are inspecting
+        :param function_name: a string with the name of the method we want to check overriding
+        :return:
+        """
+        try:
+            superclass = inspect.getmro(klass)[1]
+            same = getattr(klass, function_name) is getattr(superclass, function_name)
+            return not same
+        except (IndexError, AttributeError):
+            return False
 
+    def apply_gorilla_patch(patch, force_backup=True):
+        """
+        Apply a patch, even if the backup method already exists.
+        Copied from gorilla.py in the gorilla package
+        """
+        settings = gorilla.Settings() if patch.settings is None else patch.settings
+
+        # When a hit occurs due to an attribute at the destination already existing
+        # with the patch's name, the existing attribute is referred to as 'target'.
+        try:
+            target = gorilla.get_attribute(patch.destination, patch.name)
+        except AttributeError:
+            pass
+        else:
+            if not settings.allow_hit:
+                raise RuntimeError(
+                    "An attribute named '%s' already exists at the destination "
+                    "'%s'. Set a different name through the patch object to avoid "
+                    "a name clash or set the setting 'allow_hit' to True to "
+                    "overwrite the attribute. In the latter case, it is "
+                    "recommended to also set the 'store_hit' setting to True in "
+                    "order to store the original attribute under a different "
+                    "name so it can still be accessed."
+                    % (patch.name, patch.destination.__name__))
+
+            if settings.store_hit:
+                original_name = gorilla._ORIGINAL_NAME % (patch.name,)
+                if force_backup or not hasattr(patch.destination, original_name):
+                    setattr(patch.destination, original_name, target)
+
+        setattr(patch.destination, patch.name, patch.obj)
+
+    def fit(self, *args, **kwargs):
         if not mlflow.active_run():
             try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:
             auto_end_run = False
 
-        original = gorilla.get_original_attribute(statsmodels.base.model.Model, 'fit')
+        original = gorilla.get_original_attribute(self.__class__, 'fit')
 
         # training model
-        model = original(*args, **kwargs)
+        model = original(self, *args, **kwargs)
 
         # Log the model
         try_mlflow_log(log_model, model, artifact_path='model')
@@ -292,46 +349,24 @@ def autolog():
         # Log the most common metrics
         metrics_dict = _results_to_dict(model)
         try_mlflow_log(mlflow.log_metrics, metrics_dict)
-
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
         return model
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(statsmodels.base.model.Model, 'fit', fit, settings=settings))
+    # TODO: add more autologged statsmodels methods here (e.g. fit_regularize, from_formula, etc)
+    # See https://www.statsmodels.org/dev/api.html
+    autolog_patch_functions = {
+        "fit": fit
+    }
 
+    glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    glob_subclasses = _find_subclasses(statsmodels.base.model.Model)
 
-def try_log_dict(name: str, value: dict, separator: str = '.'):
-    """
-    This code has been taken from https://github.com/nyanp/nyaggle/issues/63
-    Logs a (nested) dictionary as parameter with flatten format.
-    Args:
-        name: Parameter name
-        value: Parameter value
-        separator: Separating character used to concatanate keys
-    Examples:
-        >>> with Experiment('./') as e:
-        >>>     e.log_dict('a', {'b': 1, 'c': 'd'})
-        >>>     print(e.params)
-        { 'a.b': 1, 'a.c': 'd' }
-    """
-
-    if value is None:
-        try_mlflow_log(mlflow.log_metric, name, value)
-        return
-
-    def _flatten(d: dict, prefix: str, separator: str) -> dict:
-        items = []
-        for k, v in d.items():
-            child_key = prefix + separator + str(k) if prefix else str(k)
-            if isinstance(v, dict) and v:
-                items.extend(_flatten(v, child_key, separator).items())
-            else:
-                items.append((child_key, v))
-        return dict(items)
-
-    value = _flatten(value, name, separator)
-    try_mlflow_log(mlflow.log_metrics, value)
+    for c in glob_subclasses:
+        for (method_name, func) in autolog_patch_functions.items():
+            if overrides(c, method_name):
+                p = gorilla.Patch(c, method_name, func, settings=glob_settings)
+                apply_gorilla_patch(p)
 
 
 def _prepend_to_keys(dictionary: dict, preffix="_"):
@@ -344,13 +379,14 @@ def _prepend_to_keys(dictionary: dict, preffix="_"):
     keys = list(dictionary.keys())
     d2 = {}
     for k in keys:
-        newkey = re.sub("\(|\)|\[|\]|\.|\+", "_", preffix + k)
+        newkey = re.sub("\(|\)|\[|\]|\.|\+", "_", preffix + "_" + k)
         d2[newkey] = dictionary.get(k)
     return d2
 
 
 def _results_to_dict(results: RegressionResultsWrapper):
-    nfeat = getattr(results, "params").shape[0]
+    features = results.model.exog_names
+    nfeat = len(features)
     results_dict = {}
     for f in dir(results):
         # Get all fields except covariances and private ones
@@ -361,7 +397,7 @@ def _results_to_dict(results: RegressionResultsWrapper):
             field = getattr(results, f)
             if isinstance(field, np.ndarray) and \
                     field.ndim == 1 and field.shape[0] == nfeat:
-                d = field.to_dict()
+                d = dict(zip(features, field))
                 renamed_keys_dict = _prepend_to_keys(d, f)
                 results_dict.update(renamed_keys_dict)
             elif isinstance(field, (int, float)):
