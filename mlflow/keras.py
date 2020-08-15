@@ -217,6 +217,9 @@ def save_model(
     # save keras model to path/data/model.h5
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
     model_path = os.path.join(path, model_subpath)
+    # if the path ends with ".h5", save will use hdf5
+    if "save_format" in kwargs and kwargs["save_format"] == "tf" and model_path.endswith(".tf"):
+        model_path = model_path[:-3]
     if path.startswith("/dbfs/"):
         # The Databricks Filesystem uses a FUSE implementation that does not support
         # random writes. It causes an error.
