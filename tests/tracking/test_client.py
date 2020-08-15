@@ -2,7 +2,7 @@ import mock
 import pytest
 
 from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
-from mlflow.entities.model_registry import ModelVersion
+from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -213,6 +213,21 @@ def test_update_registered_model(mock_registry_store):
         name="orig name", description="new description"
     )
     mock_registry_store.rename_registered_model.assert_not_called()
+
+
+def test_create_model_version(mock_registry_store):
+    """
+    Basic test for create model version.
+    """
+    expected_return_value = "some faux expected return value."
+    mock_registry_store.create_model_version.return_value = expected_return_value
+    res = MlflowClient(registry_uri="sqlite:///somedb.db").create_model_version(
+        "orig name", "source", "run-id", tags={"key": "value"}, description="desc"
+    )
+    assert res == expected_return_value
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "orig name", "source", "run-id", [ModelVersionTag(key="key", value="value")], None, "desc"
+    )
 
 
 def test_update_model_version(mock_registry_store):
