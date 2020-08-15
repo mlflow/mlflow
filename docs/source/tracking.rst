@@ -497,6 +497,8 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
+.. _artifact-stores:
+
 Artifact Stores
 ~~~~~~~~~~~~~~~~
 
@@ -504,12 +506,6 @@ Artifact Stores
   :local:
   :depth: 1
 
-In addition to local file paths, MLflow supports the following storage systems as artifact
-stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
-
-
-Amazon S3 and S3-compatible storage
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
@@ -538,6 +534,9 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
+
+Amazon S3 and S3-compatible storage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as 
 `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
@@ -725,10 +724,11 @@ then make API requests to your remote tracking server.
         mlflow_set_experiment("/my-experiment")
         mlflow_log_param("a", "1")
 
-Note that to use the artifact storage capabilities of a remote server, the client need a direct access to the artifact store.
-The client is the one pushing directly artifacts to the artifact storage, and not through the tracking server.
-How to setup credentials for the artifact storage depends on the :ref:`Artifact Stores <artifact-stores>` technology setup for the server.
-Same holds for the definition of write options, like giving other users (e.g. the Tracking Server UI) permissions to read the artifacts.
+.. note::
+    In order to use the artifact storage capabilities of a remote server, the client need a direct access to the artifact store.
+    The client is the one pushing directly artifacts to the artifact storage, and not through the tracking server.
+    How to setup credentials for the artifact storage depends on the :ref:`Artifact Stores <artifact-stores>` technology setup for the server.
+    Same holds for the definition of write options, like giving other users (e.g. the Tracking Server UI) permissions to read the artifacts.
 
 .. _tracking_auth:
 
