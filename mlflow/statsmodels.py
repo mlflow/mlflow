@@ -371,13 +371,17 @@ def autolog():
                         not f.startswith('__') and \
                         not f.startswith('_') and \
                         not f.startswith('cov_'):
+
                     if has_features and isinstance(field, np.ndarray) and \
                             field.ndim == 1 and field.shape[0] == nfeat:
+
                         d = dict(zip(features, field))
                         renamed_keys_dict = prepend_to_keys(d, f)
                         results_dict.update(renamed_keys_dict)
+
                     elif isinstance(field, (int, float)):
                         results_dict[f] = field
+
             except AttributeError:
                 pass
 
