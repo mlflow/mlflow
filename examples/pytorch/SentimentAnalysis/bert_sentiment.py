@@ -34,7 +34,7 @@ class GPReviewDataset(Dataset):
         encoding = self.tokenizer.encode_plus(
             review,
             add_special_tokens=True,
-            max_length=self.max_len,
+            max_length=self.max_length,
             return_token_type_ids=False,
             pad_to_max_length=True,
             return_attention_mask=True,
@@ -44,7 +44,7 @@ class GPReviewDataset(Dataset):
         return {
             "review_text": review,
             "input_ids": encoding["input_ids"].flatten(),
-            "attention_mask": encoding["attention_mask"].faltten(),
+            "attention_mask": encoding["attention_mask"].flatten(),
             "targets": torch.tensor(target, dtype=torch.long)
         }
 
@@ -52,7 +52,8 @@ class GPReviewDataset(Dataset):
 class BertSentinmentClassifier(pl.LightningModule):
     def __init__(self, **kwargs):
         super(BertSentinmentClassifier, self).__init__()
-        self.PRE_TRAINED_MODEL_NAME = "bert_base_cased"
+        #self.PRE_TRAINED_MODEL_NAME = "bert_base_cased"
+        self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         self.drop = nn.Dropout(p=0.3)
         # assigning labels
@@ -62,11 +63,10 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.args = kwargs
 
     def forward(self, input_ids, attention_mask):
-        print("inside the forward function")
         _, pooled_output = self.bert_model(
             input_ids=input_ids, attention_mask=attention_mask
         )
-        output = self.Dropout(pooled_output)
+        output = self.drop(pooled_output)
         F.softmax(output, dim=1)
         return self.out(output)
 
@@ -156,7 +156,7 @@ class BertSentinmentClassifier(pl.LightningModule):
             reviews=df.content.to_numpy(),
             targets=df.sentiment.to_numpy(),
             tokenizer=tokenizer,
-            max_len=max_len,
+            max_length=max_len,
         )
 
         return DataLoader(ds, batch_size=batch_size, num_workers=0)
@@ -212,8 +212,8 @@ class BertSentinmentClassifier(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         """ Computes average validation accuracy"""
-        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        return {"avg_val_loss": avg_loss}
+        avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
+        return {"val_loss": avg_loss}
 
     def test_epoch_end(self, outputs):
         """Computes average test accuracy score"""
@@ -302,3 +302,4 @@ if __name__ == "__main__":
     )
     trainer.fit(model)
     trainer.test()
+
