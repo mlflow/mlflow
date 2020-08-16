@@ -32,11 +32,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
-from statsmodels.regression.linear_model import RegressionResultsWrapper
-from statsmodels.tsa.base.tsa_model import TimeSeriesModel
-from statsmodels.tsa.arima.model import ARIMA
-import statsmodels.discrete.discrete_model
-import statsmodels.base.model
 import itertools
 import inspect
 
@@ -45,6 +40,8 @@ STATSMODELS_DATA_SUBPATH = "model.statsmodels"
 
 _logger = logging.getLogger(__name__)
 
+# statsmodels monkey patching should be done only the first time the user calls autolog()
+_patching_accomplished = False
 
 def get_default_conda_env():
     """
@@ -249,6 +246,8 @@ class _StatsmodelsModelWrapper:
         self.statsmodels_model = statsmodels_model
 
     def predict(self, dataframe):
+        from statsmodels.tsa.base.tsa_model import TimeSeriesModel
+        from statsmodels.tsa.arima.model import ARIMA
         model = self.statsmodels_model.model
         if(isinstance(model, TimeSeriesModel) or
            isinstance(model, ARIMA)):
@@ -270,7 +269,9 @@ def autolog():
     - results metrics returned by `statsmodels.base.model.Model.fit`_.
     - trained model.
     """
-    def _find_subclasses(klass):
+    import statsmodels
+
+    def find_subclasses(klass):
         """
         Recursively return a (non-nested) list of the class object and all its subclasses
         :param klass: the class whose class subtree we want to retrieve
@@ -278,7 +279,7 @@ def autolog():
         """
         subclasses = klass.__subclasses__()
         if subclasses:
-            subclass_lists = [_find_subclasses(c) for c in subclasses]
+            subclass_lists = [find_subclasses(c) for c in subclasses]
             chain = itertools.chain.from_iterable(subclass_lists)
             result = [klass] + list(chain)
             return result
@@ -287,15 +288,16 @@ def autolog():
 
     def overrides(klass, function_name):
         """
-        Returns True when the class passed as first argument overrides a method name
+        Returns True when the class passed as first argument overrides the function_name
+        Based on https://stackoverflow.com/a/62303206/5726057
         :param klass: the class we are inspecting
         :param function_name: a string with the name of the method we want to check overriding
         :return:
         """
         try:
             superclass = inspect.getmro(klass)[1]
-            same = getattr(klass, function_name) is getattr(superclass, function_name)
-            return not same
+            overriden = getattr(klass, function_name) is not getattr(superclass, function_name)
+            return overriden
         except (IndexError, AttributeError):
             return False
 
@@ -331,76 +333,108 @@ def autolog():
 
         setattr(patch.destination, patch.name, patch.obj)
 
-    def fit(self, *args, **kwargs):
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
+    def _prepend_to_keys(dictionary: dict, preffix="_"):
+        """
+            Modifies all keys of a dictionary by adding a preffix string to all of them
+            Returns a new dictionary where all keys have been modified. No changes are
+            made to the input dictionary
+        """
+        import re
+        keys = list(dictionary.keys())
+        d2 = {}
+        for k in keys:
+            newkey = re.sub("\(|\)|\[|\]|\.|\+", "_", preffix + "_" + k)
+            d2[newkey] = dictionary.get(k)
+        return d2
 
-        original = gorilla.get_original_attribute(self.__class__, 'fit')
+    def _results_to_dict(results):
+        """
+        Turns a statsmodels.regression.linear_model.RegressionResultsWrapper into a python dict
+        :param results: instance of a RegressionResultsWrapper returned by a call to fit()
+        :return: a python dictionary with those metrics that are (a) a real number, or (b) an array
+                 of the same length of the number of coefficients
+        """
+        features = results.model.exog_names
+        nfeat = len(features)
+        results_dict = {}
+        for f in dir(results):
+            # Get all fields except covariances and private ones
+            if not callable(getattr(results, f)) and \
+                    not f.startswith('__') and \
+                    not f.startswith('_') and \
+                    not f.startswith('cov_'):
+                field = getattr(results, f)
+                if isinstance(field, np.ndarray) and \
+                        field.ndim == 1 and field.shape[0] == nfeat:
+                    d = dict(zip(features, field))
+                    renamed_keys_dict = _prepend_to_keys(d, f)
+                    results_dict.update(renamed_keys_dict)
+                elif isinstance(field, (int, float)):
+                    results_dict[f] = field
 
-        # training model
-        model = original(self, *args, **kwargs)
+        return results_dict
 
-        # Log the model
-        try_mlflow_log(log_model, model, artifact_path='model')
+    def wrapper_fit(original):
+        """
+        External function to generate customized versions of fit with the proper value of the
+        original function (set externally in parameter). This enables a more accurate link
+        between the patched and the original function than using gorilla.get_original_attribute
+        when self still refers to the subclass but the method we want to invoke
+        belongs to a superclass
 
-        # Log the most common metrics
-        metrics_dict = _results_to_dict(model)
-        try_mlflow_log(mlflow.log_metrics, metrics_dict)
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
-        return model
+        :param original: the original fit function that will be replaced by this fit function
+        :return: the new fit function, inside which we will be doing at some point a call to the
+                 original fit method
+        """
+        def fit(self, *args, **kwargs):
+            if not mlflow.active_run():
+                try_mlflow_log(mlflow.start_run)
+                auto_end_run = True
+            else:
+                auto_end_run = False
 
-    # TODO: add more autologged statsmodels methods here (e.g. fit_regularize, from_formula, etc)
+            # training model
+            model = original(self, *args, **kwargs)
+
+            # Log the model
+            try_mlflow_log(log_model, model, artifact_path='model')
+
+            # Log the most common metrics
+            metrics_dict = _results_to_dict(model)
+            try_mlflow_log(mlflow.log_metrics, metrics_dict)
+            if auto_end_run:
+                try_mlflow_log(mlflow.end_run)
+            return model
+
+        return fit
+
+    # TODO: add more autologgable statsmodels methods here (e.g. fit_regularize, from_formula, etc)
     # See https://www.statsmodels.org/dev/api.html
-    autolog_patch_functions = {
-        "fit": fit
+    autolog_supported_func = {
+        "fit": wrapper_fit
     }
 
-    glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    glob_subclasses = _find_subclasses(statsmodels.base.model.Model)
+    global _patching_accomplished
 
-    for c in glob_subclasses:
-        for (method_name, func) in autolog_patch_functions.items():
-            if overrides(c, method_name):
-                p = gorilla.Patch(c, method_name, func, settings=glob_settings)
-                apply_gorilla_patch(p)
+    if not _patching_accomplished:
+        _patching_accomplished = True
+        glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
+        glob_subclasses = set(find_subclasses(statsmodels.base.model.Model))
 
+        # Create a patch for every method that needs to be patched, i.e. those
+        # which actually override an autologgable method
+        patches_list = [
+            # Link the patched function with the original via a local variable in the closure
+            # to allow invoking superclass methods in the context of the subclass, and not
+            # losing the trace of the true original method
+            gorilla.Patch(c, method_name, wrapper_func(getattr(c, method_name)),
+                          settings=glob_settings)
+            for c in glob_subclasses
+            for (method_name, wrapper_func) in autolog_supported_func.items()
+            if overrides(c, method_name)]
 
-def _prepend_to_keys(dictionary: dict, preffix="_"):
-    """
-        Modifies all keys of a dictionary by adding a preffix string to all of them
-        Returns a new dictionary where all keys have been modified. No changes are
-        made to the input dictionary
-    """
-    import re
-    keys = list(dictionary.keys())
-    d2 = {}
-    for k in keys:
-        newkey = re.sub("\(|\)|\[|\]|\.|\+", "_", preffix + "_" + k)
-        d2[newkey] = dictionary.get(k)
-    return d2
+        for p in patches_list:
+            apply_gorilla_patch(p)
 
 
-def _results_to_dict(results: RegressionResultsWrapper):
-    features = results.model.exog_names
-    nfeat = len(features)
-    results_dict = {}
-    for f in dir(results):
-        # Get all fields except covariances and private ones
-        if not callable(getattr(results, f)) and \
-                not f.startswith('__') and \
-                not f.startswith('_') and \
-                not f.startswith('cov_'):
-            field = getattr(results, f)
-            if isinstance(field, np.ndarray) and \
-                    field.ndim == 1 and field.shape[0] == nfeat:
-                d = dict(zip(features, field))
-                renamed_keys_dict = _prepend_to_keys(d, f)
-                results_dict.update(renamed_keys_dict)
-            elif isinstance(field, (int, float)):
-                results_dict[f] = field
 
-    return results_dict

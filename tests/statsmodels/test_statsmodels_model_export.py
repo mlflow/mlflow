@@ -216,11 +216,6 @@ def test_arma_model_log(arma_model, model_path):
     _test_model_log(arma_model, model_path, start_date, end_date)
 
 
-@pytest.fixture(scope="session")
-def dummy_fixture():
-    return 0
-
-
 def test_ols_autolog():
     _model_autolog("ols_model")
 
