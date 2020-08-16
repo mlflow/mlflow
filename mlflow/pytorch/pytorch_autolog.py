@@ -21,10 +21,10 @@ class __MLflowPLCallback(pl.Callback):
     Callback for auto-logging metrics and parameters.
     """
 
-    def __init__(self, log_every_n_iter=1):
+    def __init__(self, log_every_n_iter=1, aggregation_step=None):
         super().__init__()
-        if log_every_n_iter:
-            self.every_n_iter = log_every_n_iter
+        self.every_n_iter = log_every_n_iter
+        self.aggregation_step = aggregation_step
 
     def on_epoch_end(self, trainer, pl_module):
         """
@@ -33,13 +33,18 @@ class __MLflowPLCallback(pl.Callback):
         if (pl_module.current_epoch - 1) % self.every_n_iter == 0:
             self.metrics = trainer.callback_metrics
 
-            for key, value in self.metrics.items():
-                trainer.logger.experiment.log_metric(
-                    trainer.logger.run_id,
-                    key,
-                    float(value),
-                    step=pl_module.current_epoch,
-                )
+            if self.aggregation_step:
+                self.metrics = dict((key, float(value)) for key, value in self.metrics.items())
+                trainer.logger.agg_and_log_metrics(metrics=self.metrics, step=self.aggregation_step)
+            else:
+                for key, value in self.metrics.items():
+                    trainer.logger.experiment.log_metric(
+                        trainer.logger.run_id,
+                        key,
+                        float(value),
+                        step=pl_module.current_epoch,
+                    )
+
         if trainer.early_stop_callback:
             self._early_stop_check(trainer=trainer)
 
