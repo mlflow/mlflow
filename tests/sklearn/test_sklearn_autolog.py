@@ -9,6 +9,7 @@ import sklearn.datasets as datasets
 import mlflow.sklearn
 
 
+FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
@@ -49,7 +50,7 @@ def stringify_dict_values(d):
     return {k: str(v) for k, v in d.items()}
 
 
-@pytest.fixture(params=["fit", "fit_transform", "fit_predict"])
+@pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
 
@@ -66,7 +67,7 @@ def test_autolog_preserves_original_function_attributes():
 
     def get_cls_attrs(cls):
         attrs = {}
-        for method_name in ["fit", "fit_transform", "fit_predict"]:
+        for method_name in FIT_FUNC_NAMES:
             if hasattr(cls, method_name):
                 attrs[method_name] = get_func_attrs(getattr(cls, method_name))
         return attrs
