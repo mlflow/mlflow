@@ -8,10 +8,13 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import functools
 import os
+import gorilla
 import logging
 import pickle
 import yaml
+
 
 import mlflow
 from mlflow import pyfunc
@@ -25,6 +28,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.autologging_utils import try_mlflow_log
 
 FLAVOR_NAME = "sklearn"
 
@@ -500,3 +504,67 @@ class _SklearnTrainingSession(object):
         return (self._parent is None) or (
             self._parent.allow_children and self._parent.clazz != self.clazz
         )
+
+
+def autolog():
+    """
+    Enable autologging for scikit-learn.
+    """
+    import sklearn
+
+    def fit_mlflow(self, fn_name, *args, **kwargs):
+        active_run_exists = bool(mlflow.active_run())
+        if not active_run_exists:
+            try_mlflow_log(mlflow.start_run)
+
+        # TODO: We should not log nested estimator parameters for
+        # parameter search estimators (GridSearchCV, RandomizedSearchCV)
+        try_mlflow_log(mlflow.log_params, self.get_params(deep=True))
+        try_mlflow_log(
+            mlflow.set_tags,
+            {"estimator_name": self.__class__.__name__, "estimator_class": self.__class__},
+        )
+
+        original_fit = gorilla.get_original_attribute(self, fn_name)
+        fit_output = original_fit(*args, **kwargs)
+
+        if hasattr(self, "score"):
+            training_score = self.score(*args, **kwargs)
+            try_mlflow_log(mlflow.log_metric, "training_score", training_score)
+
+        try_mlflow_log(log_model, self, artifact_path="model")
+
+        if not active_run_exists:
+            try_mlflow_log(mlflow.end_run)
+
+        return fit_output
+
+    def patched_fit(self, func_name, *args, **kwargs):
+        """
+        To be applied to a sklearn model class that defines a `fit` method and
+        inherits from `BaseEstimator` (thereby defining the `get_params()` method)
+        """
+        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+            if t.should_log():
+                return fit_mlflow(self, func_name, *args, **kwargs)
+            else:
+                original_fit = gorilla.get_original_attribute(self, func_name)
+                return original_fit(*args, **kwargs)
+
+    def create_patch_func(func_name):
+        def f(self, *args, **kwargs):
+            return patched_fit(self, func_name, *args, **kwargs)
+
+        return f
+
+    patch_settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    func_names_to_patch = ["fit", "fit_transform", "fit_predict"]
+    for _, class_def in sklearn.utils.all_estimators():
+        for func_name in func_names_to_patch:
+            if hasattr(class_def, func_name):
+                original = getattr(class_def, func_name)
+                patch_func = create_patch_func(func_name)
+                # preserve original function attributes
+                patch_func = functools.wraps(original)(patch_func)
+                patch = gorilla.Patch(class_def, func_name, patch_func, settings=patch_settings)
+                gorilla.apply(patch)
