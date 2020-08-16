@@ -41,7 +41,7 @@ def get_run_data(run_id):
     return data.params, data.metrics, tags, artifacts
 
 
-def load_model(run_id):
+def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model("runs:/{}/model".format(run_id))
 
 
@@ -108,7 +108,7 @@ def test_estimator(fit_func_name):
         }
         assert "model" in artifacts
 
-        loaded_model = load_model(run_id)
+        loaded_model = load_model_by_run_id(run_id)
         np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
@@ -135,7 +135,7 @@ def test_meta_estimator():
         }
         assert "model" in artifacts
 
-        loaded_model = load_model(run_id)
+        loaded_model = load_model_by_run_id(run_id)
         np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
