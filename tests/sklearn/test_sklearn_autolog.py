@@ -88,7 +88,7 @@ def test_autolog_does_not_terminate_active_run():
     mlflow.end_run()
 
 
-def test_autolog(fit_func_name):
+def test_estimator(fit_func_name):
     mlflow.sklearn.autolog()
 
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
@@ -112,7 +112,7 @@ def test_autolog(fit_func_name):
         np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
-def test_pipeline():
+def test_meta_estimator():
     mlflow.sklearn.autolog()
 
     estimators = [
@@ -159,7 +159,7 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
             mock_log_model.assert_called_once()
 
 
-def test_pipeline_fit_performs_logging_only_once():
+def test_meta_estimator_fit_performs_logging_only_once():
     mlflow.sklearn.autolog()
 
     estimators = [
