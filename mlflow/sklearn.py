@@ -9,8 +9,8 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import functools
-import os
 import gorilla
+import os
 import logging
 import pickle
 import yaml
