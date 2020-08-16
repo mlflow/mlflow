@@ -15,7 +15,6 @@ import logging
 import pickle
 import yaml
 
-
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
