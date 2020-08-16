@@ -66,7 +66,7 @@ def test_autolog_preserves_original_function_attributes():
 
     def get_cls_attrs(cls):
         attrs = {}
-        for method_name in ["fit", "fit_transform", "fit_transform"]:
+        for method_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(cls, method_name):
                 attrs[method_name] = get_func_attrs(getattr(cls, method_name))
         return attrs
