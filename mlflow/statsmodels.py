@@ -16,7 +16,6 @@ import os
 import yaml
 import logging
 import gorilla
-import pandas as pd
 import numpy as np
 
 import mlflow
@@ -42,6 +41,7 @@ _logger = logging.getLogger(__name__)
 
 # statsmodels monkey patching should be done only the first time the user calls autolog()
 _patching_accomplished = False
+
 
 def get_default_conda_env():
     """
@@ -247,11 +247,9 @@ class _StatsmodelsModelWrapper:
 
     def predict(self, dataframe):
         from statsmodels.tsa.base.tsa_model import TimeSeriesModel
-        from statsmodels.tsa.arima.model import ARIMA
         model = self.statsmodels_model.model
-        if(isinstance(model, TimeSeriesModel) or
-           isinstance(model, ARIMA)):
-            # Assume the inference df has columns "start" and "end", and just one row
+        if isinstance(model, TimeSeriesModel):
+            # Assume the inference dataframe has columns "start" and "end", and just one row
             # TODO: move this to a specific mlflow.statsmodels.tsa flavor since time series models
             # expect slightly different arguments to make predictions
             start_date = dataframe["start"][0]
@@ -304,7 +302,7 @@ def autolog():
     def apply_gorilla_patch(patch, force_backup=True):
         """
         Apply a patch, even if the backup method already exists.
-        Copied from gorilla.py in the gorilla package
+        Adapted from gorilla.py in the gorilla package
         """
         settings = gorilla.Settings() if patch.settings is None else patch.settings
 
@@ -328,15 +326,19 @@ def autolog():
 
             if settings.store_hit:
                 original_name = gorilla._ORIGINAL_NAME % (patch.name,)
+                # This condition is different from gorilla.apply as it now includes force_backup
                 if force_backup or not hasattr(patch.destination, original_name):
                     setattr(patch.destination, original_name, target)
 
         setattr(patch.destination, patch.name, patch.obj)
 
-    def _prepend_to_keys(dictionary: dict, preffix="_"):
+    def prepend_to_keys(dictionary: dict, preffix="_"):
         """
-            Modifies all keys of a dictionary by adding a preffix string to all of them
-            Returns a new dictionary where all keys have been modified. No changes are
+        Modifies all keys of a dictionary by adding a preffix string to all of them
+        and make them compliant with mlflow params & metrics naming rules.
+        :param dictionary:
+        :param preffix: a string to be prepended to existing keys, using _ as separator
+        :return: a new dictionary where all keys have been modified. No changes are
             made to the input dictionary
         """
         import re
@@ -347,79 +349,49 @@ def autolog():
             d2[newkey] = dictionary.get(k)
         return d2
 
-    def _results_to_dict(results):
+    def results_to_dict(results):
         """
         Turns a statsmodels.regression.linear_model.RegressionResultsWrapper into a python dict
         :param results: instance of a RegressionResultsWrapper returned by a call to fit()
         :return: a python dictionary with those metrics that are (a) a real number, or (b) an array
                  of the same length of the number of coefficients
         """
+        has_features = False
         features = results.model.exog_names
-        nfeat = len(features)
+        if features is not None:
+            has_features = True
+            nfeat = len(features)
+
         results_dict = {}
         for f in dir(results):
-            # Get all fields except covariances and private ones
-            if not callable(getattr(results, f)) and \
-                    not f.startswith('__') and \
-                    not f.startswith('_') and \
-                    not f.startswith('cov_'):
+            try:
                 field = getattr(results, f)
-                if isinstance(field, np.ndarray) and \
-                        field.ndim == 1 and field.shape[0] == nfeat:
-                    d = dict(zip(features, field))
-                    renamed_keys_dict = _prepend_to_keys(d, f)
-                    results_dict.update(renamed_keys_dict)
-                elif isinstance(field, (int, float)):
-                    results_dict[f] = field
+                # Get all fields except covariances and private ones
+                if not callable(field) and \
+                        not f.startswith('__') and \
+                        not f.startswith('_') and \
+                        not f.startswith('cov_'):
+                    if has_features and isinstance(field, np.ndarray) and \
+                            field.ndim == 1 and field.shape[0] == nfeat:
+                        d = dict(zip(features, field))
+                        renamed_keys_dict = prepend_to_keys(d, f)
+                        results_dict.update(renamed_keys_dict)
+                    elif isinstance(field, (int, float)):
+                        results_dict[f] = field
+            except AttributeError:
+                pass
 
         return results_dict
 
-    def wrapper_fit(original):
+    def patch_class_tree(klass):
         """
-        External function to generate customized versions of fit with the proper value of the
-        original function (set externally in parameter). This enables a more accurate link
-        between the patched and the original function than using gorilla.get_original_attribute
-        when self still refers to the subclass but the method we want to invoke
-        belongs to a superclass
-
-        :param original: the original fit function that will be replaced by this fit function
-        :return: the new fit function, inside which we will be doing at some point a call to the
-                 original fit method
+        Patches all subclasses that override any auto-loggable method via monkey patching using
+        the gorilla package, taking the argument as the tree root in the class hierarchy. Every
+        auto-loggable method found in any of the subclasses is replaced by the patched version.
+        :param klass: root in the class hierarchy to be analyzed and patched recursively
         """
-        def fit(self, *args, **kwargs):
-            if not mlflow.active_run():
-                try_mlflow_log(mlflow.start_run)
-                auto_end_run = True
-            else:
-                auto_end_run = False
-
-            # training model
-            model = original(self, *args, **kwargs)
-
-            # Log the model
-            try_mlflow_log(log_model, model, artifact_path='model')
-
-            # Log the most common metrics
-            metrics_dict = _results_to_dict(model)
-            try_mlflow_log(mlflow.log_metrics, metrics_dict)
-            if auto_end_run:
-                try_mlflow_log(mlflow.end_run)
-            return model
-
-        return fit
-
-    # TODO: add more autologgable statsmodels methods here (e.g. fit_regularize, from_formula, etc)
-    # See https://www.statsmodels.org/dev/api.html
-    autolog_supported_func = {
-        "fit": wrapper_fit
-    }
-
-    global _patching_accomplished
-
-    if not _patching_accomplished:
-        _patching_accomplished = True
         glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
-        glob_subclasses = set(find_subclasses(statsmodels.base.model.Model))
+        glob_subclasses = set(find_subclasses(klass))
 
         # Create a patch for every method that needs to be patched, i.e. those
         # which actually override an autologgable method
@@ -436,5 +408,51 @@ def autolog():
         for p in patches_list:
             apply_gorilla_patch(p)
 
+    def wrapper_fit(original_method):
+        """
+        External function to generate customized versions of fit with the proper value of the
+        original function (set externally in parameter). This enables a more accurate link
+        between the patched and the original function than using gorilla.get_original_attribute
+        in corner cases where `self` still refers to the subclass but the method we want to invoke
+        (in the context of the subclass) belongs to a superclass
 
+        :param original_method: the original fit function that will be replaced by this fit function
+        :return: the new fit function, from which we will be doing a call to the original fit
+                 method at some point
+        """
+        def fit(self, *args, **kwargs):
+            if not mlflow.active_run():
+                try_mlflow_log(mlflow.start_run)
+                auto_end_run = True
+            else:
+                auto_end_run = False
 
+            # training model
+            model = original_method(self, *args, **kwargs)
+
+            # Log the model
+            try_mlflow_log(log_model, model, artifact_path='model')
+
+            # Log the most common metrics
+            if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
+                metrics_dict = results_to_dict(model)
+                try_mlflow_log(mlflow.log_metrics, metrics_dict)
+
+            if auto_end_run:
+                try_mlflow_log(mlflow.end_run)
+
+            return model
+
+        return fit
+
+    # TODO: add more autologgable statsmodels methods here (e.g. fit_regularized, from_formula, etc)
+    # See https://www.statsmodels.org/dev/api.html
+    autolog_supported_func = {
+        "fit": wrapper_fit
+    }
+
+    global _patching_accomplished
+
+    if not _patching_accomplished:
+        _patching_accomplished = True
+        patch_class_tree(statsmodels.base.model.Model)

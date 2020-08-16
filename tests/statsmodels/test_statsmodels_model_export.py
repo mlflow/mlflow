@@ -134,7 +134,7 @@ def test_signature_and_examples_are_saved_correctly(ols_model):
     model = ols_model.model
     X = ols_model.inference_dataframe
     signature_ = infer_signature(X)
-    example_ = X[0:3,:]
+    example_ = X[0:3, :]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
