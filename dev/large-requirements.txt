@@ -15,7 +15,7 @@ pyarrow==0.17.0
 pyspark==2.4.0
 pytest==3.2.1
 pytest-cov==2.6.0
-scikit-learn==0.20.2
+scikit-learn>=0.22
 scipy==1.2.1
 spacy==2.2.3
 tensorflow==1.15.2
