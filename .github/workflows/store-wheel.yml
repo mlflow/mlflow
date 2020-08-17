@@ -1,4 +1,4 @@
-name: Store Wheel
+name: Store wheel
 
 on:
   pull_request:
