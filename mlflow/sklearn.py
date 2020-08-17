@@ -13,6 +13,7 @@ import gorilla
 import os
 import logging
 import pickle
+from packaging import version
 import yaml
 
 import mlflow
@@ -505,11 +506,30 @@ class _SklearnTrainingSession(object):
         )
 
 
+def _is_old_version():
+    from sklearn import __version__
+
+    return version.parse(__version__) < version.parse("0.22")
+
+
+def _get_all_estimators():
+    from sklearn import utils, __version__
+
+    is_old = _is_old_version()
+
+    if is_old:
+        _logger.info(
+            "Autologging utilities may not work properly on scikit-learn < 0.22 "
+            "(current version: {})".format(__version__)
+        )
+
+    return utils.testing.all_estimators() if is_old else utils.all_estimators()
+
+
 def autolog():
     """
     Enable autologging for scikit-learn.
     """
-    import sklearn
 
     def fit_mlflow(self, fn_name, *args, **kwargs):
         active_run_exists = bool(mlflow.active_run())
@@ -558,7 +578,7 @@ def autolog():
 
     patch_settings = gorilla.Settings(allow_hit=True, store_hit=True)
     func_names_to_patch = ["fit", "fit_transform", "fit_predict"]
-    for _, class_def in sklearn.utils.all_estimators():
+    for _, class_def in _get_all_estimators():
         for func_name in func_names_to_patch:
             if hasattr(class_def, func_name):
                 original = getattr(class_def, func_name)

@@ -1,4 +1,5 @@
 import inspect
+import logging
 from mock import mock
 
 import numpy as np
@@ -72,17 +73,33 @@ def test_autolog_preserves_original_function_attributes():
                 attrs[method_name] = get_func_attrs(getattr(cls, method_name))
         return attrs
 
-    before = [get_cls_attrs(cls) for _, cls in sklearn.utils.all_estimators()]
+    before = [get_cls_attrs(cls) for _, cls in mlflow.sklearn._get_all_estimators()]
     mlflow.sklearn.autolog()
-    after = [get_cls_attrs(cls) for _, cls in sklearn.utils.all_estimators()]
+    after = [get_cls_attrs(cls) for _, cls in mlflow.sklearn._get_all_estimators()]
 
     for b, a in zip(before, after):
         assert b == a
 
 
+@pytest.fixture
+def enable_propagate(caplog):
+    # Temporarily enable `propagate` otherwise log messages wouldn't reach pytest's caplog handler.
+    logger = logging.getLogger(mlflow.__name__)
+    logger.propagate = True
+    yield
+    logger.propagate = False
+
+
+@pytest.mark.skipif(not mlflow.sklearn._is_old_version(), reason="This test fails on sklearn>=0.22")
+@pytest.mark.usefixtures(enable_propagate.__name__)
+def test_autolog_emits_warning_on_older_versions_of_sklearn(caplog):
+    mlflow.sklearn.autolog()
+    sklearn.cluster.KMeans().fit(*get_iris())
+    assert "Autologging utilities may not work properly on scikit-learn" in caplog.text
+
+
 def test_autolog_does_not_terminate_active_run():
     mlflow.sklearn.autolog()
-
     mlflow.start_run()
     sklearn.cluster.KMeans().fit(*get_iris())
     assert mlflow.active_run() is not None
