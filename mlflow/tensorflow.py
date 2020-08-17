@@ -647,8 +647,8 @@ def _setup_callbacks(lst):
 
     class __MLflowTfKerasCallback(Callback):
         """
-            Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
-            Records model structural information as params after training finishes.
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
+        Records model structural information as params after training finishes.
         """
 
         def __init__(self):
@@ -713,8 +713,8 @@ def _setup_callbacks(lst):
 
     class __MLflowTfKeras2Callback(Callback):
         """
-            Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-            Records model structural information as params when training starts.
+        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
+        Records model structural information as params when training starts.
         """
 
         def __init__(self):
