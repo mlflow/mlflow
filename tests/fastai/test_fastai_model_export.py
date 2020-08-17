@@ -24,7 +24,6 @@ from fastai.tabular import DatasetType
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])

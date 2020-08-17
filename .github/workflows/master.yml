@@ -64,7 +64,6 @@ jobs:
     - name: Run tests
       run: |
         source ./dev/install-common-deps.sh
-        source activate test-environment
         cd mlflow/R/mlflow
         R CMD build .
         export LINTR_COMMENT_BOT=false

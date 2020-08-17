@@ -103,6 +103,7 @@ def custom_layer():
             super(MyDense, self).__init__(**kwargs)
 
         def build(self, input_shape):
+            # pylint: disable=attribute-defined-outside-init
             self.kernel = self.add_weight(
                 name="kernel",
                 shape=(input_shape[1], self.output_dim),
@@ -112,6 +113,7 @@ def custom_layer():
             super(MyDense, self).build(input_shape)
 
         def call(self, x):
+            # pylint: disable=arguments-differ
             return K.dot(x, self.kernel)
 
         def compute_output_shape(self, input_shape):
@@ -161,6 +163,7 @@ def test_that_keras_module_arg_works(model_path):
             return self._x == other._x
 
         def save(self, path, **kwargs):
+            # pylint: disable=unused-argument
             with h5py.File(path, "w") as f:
                 f.create_dataset(name="x", data=self._x)
 
@@ -169,7 +172,8 @@ def test_that_keras_module_arg_works(model_path):
         __version__ = "42.42.42"
 
         @staticmethod
-        def load_model(file, **kwars):
+        def load_model(file, **kwargs):
+            # pylint: disable=unused-argument
             return MyModel(file.get("x").value)
 
     original_import = importlib.import_module
