@@ -1,7 +1,6 @@
 import os
 
 import gorilla
-import mxnet as mx
 import pandas as pd
 import yaml
 
@@ -74,6 +73,8 @@ class _GluonModelWrapper:
         :return: A Pandas DataFrame containing output array values. The underlying MXNet array
                  can be extracted from the output DataFrame as `ndarray = mx.nd.array(df.values)`.
         """
+        import mxnet as mx
+
         ndarray = mx.nd.array(df.values)
         return pd.DataFrame(self.gluon_model(ndarray).asnumpy())
 
@@ -84,6 +85,8 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``gluon`` flavor.
     """
+    import mxnet as mx
+
     m = load_model(path, mx.current_context())
     return _GluonModelWrapper(m)
 
@@ -200,6 +203,8 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
+    import mxnet as mx
+
     pip_deps = ["mxnet=={}".format(mx.__version__)]
 
     return _mlflow_conda_env(additional_pip_deps=pip_deps)
