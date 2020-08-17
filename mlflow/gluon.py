@@ -4,10 +4,6 @@ import gorilla
 import mxnet as mx
 import pandas as pd
 import yaml
-from mxnet import gluon
-from mxnet import sym
-from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
-from mxnet.gluon.nn import HybridSequential
 
 import mlflow
 from mlflow import pyfunc
@@ -53,6 +49,9 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
+    from mxnet import gluon
+    from mxnet import sym
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
@@ -304,6 +303,9 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
     """
+
+    from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
+    from mxnet.gluon.nn import HybridSequential
 
     class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin):
         def __init__(self):
