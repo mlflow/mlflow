@@ -30,7 +30,7 @@ jobs:
         pip install wheel
         python setup.py bdist_wheel
         wheel_path=$(find dist -type f)
-        wheel_name=$(basename wheel_path)
+        wheel_name=$(basename $wheel_path)
         echo "::set-output name=wheel-path::${wheel_path}"
         echo "::set-output name=wheel-path::${wheel_name}"
 
