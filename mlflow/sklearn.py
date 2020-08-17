@@ -8,12 +8,12 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+from distutils.version import LooseVersion
 import functools
 import gorilla
 import os
 import logging
 import pickle
-from packaging import version
 import yaml
 import warnings
 
@@ -510,7 +510,7 @@ class _SklearnTrainingSession(object):
 def _is_old_version():
     from sklearn import __version__
 
-    return version.parse(__version__) < version.parse("0.22")
+    return LooseVersion(__version__) < LooseVersion("0.22")
 
 
 def _get_all_estimators():
