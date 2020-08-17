@@ -1,4 +1,4 @@
-name: Store wheel
+name: Build wheel
 
 on:
   push:
