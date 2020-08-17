@@ -565,7 +565,7 @@ def all_estimators(type_filter=None):
     # Ignore deprecation warnings triggered at import time and from walking
     # packages
     with ignore_warnings(category=FutureWarning):
-        for importer, modname, ispkg in pkgutil.walk_packages(path=[root], prefix="sklearn."):
+        for _, modname, _ in pkgutil.walk_packages(path=[root], prefix="sklearn."):
             mod_parts = modname.split(".")
             if any(part in modules_to_ignore for part in mod_parts) or "._" in modname:
                 continue
