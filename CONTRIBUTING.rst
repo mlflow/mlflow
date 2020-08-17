@@ -241,7 +241,7 @@ Run tests:
 
   R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
   cd tests
-  NOT_CRAN=true LINTR_COMMENT_BOT=false Rscript ../.travis.R
+  NOT_CRAN=true LINTR_COMMENT_BOT=false Rscript ../.run-tests.R
   cd -
 
 Run linter:
