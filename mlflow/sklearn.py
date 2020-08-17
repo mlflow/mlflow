@@ -514,17 +514,21 @@ def _is_old_version():
 
 
 def _get_all_estimators():
-    from sklearn import utils, __version__
+    import sklearn
 
     is_old = _is_old_version()
 
     if is_old:
+        from sklearn.utils import testing
+
         warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < 0.22 "
-            "(current version: {})".format(__version__)
+            "(current version: {})".format(sklearn.__version__)
         )
 
-    return utils.testing.all_estimators() if is_old else utils.all_estimators()
+        return testing.all_estimators()
+
+    return sklearn.utils.all_estimators()
 
 
 def autolog():
