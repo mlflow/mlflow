@@ -18,15 +18,12 @@ import atexit
 import time
 import tempfile
 from collections import namedtuple
-
 import pandas
-
-import mlflow
-
-import mlflow.keras
 from distutils.version import LooseVersion
 from contextlib import contextmanager
 
+import mlflow
+import mlflow.keras
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
