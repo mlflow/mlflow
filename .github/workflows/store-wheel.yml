@@ -38,5 +38,5 @@ jobs:
 
     - uses: actions/upload-artifact@v2
       with:
-        name: latest.whl
+        name: wheel.zip
         path: ${{ steps.build-wheel.outputs.wheel-path }}
