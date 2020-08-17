@@ -32,7 +32,7 @@ jobs:
         wheel_path=$(find dist -type f)
         wheel_name=$(basename $wheel_path)
         echo "::set-output name=wheel-path::${wheel_path}"
-        echo "::set-output name=wheel-path::${wheel_name}"
+        echo "::set-output name=wheel-name::${wheel_name}"
 
     - uses: actions/upload-artifact@v2
       if: github.event_name != 'push'
