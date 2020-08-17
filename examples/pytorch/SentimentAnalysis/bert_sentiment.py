@@ -76,9 +76,9 @@ class BertSentinmentClassifier(pl.LightningModule):
         parser.add_argument(
             "--batch-size",
             type=int,
-            default=64,
+            default=16,
             metavar="N",
-            help="input batch size for training (default: 64)",
+            help="input batch size for training (default: 16)",
         )
         parser.add_argument(
             "--num-workers",
@@ -159,26 +159,26 @@ class BertSentinmentClassifier(pl.LightningModule):
             max_length=max_len,
         )
 
-        return DataLoader(ds, batch_size=batch_size, num_workers=0)
+        return DataLoader(ds, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"])
 
     def train_dataloader(self):
         print("In Train Data Loader")
         self.train_data_loader = self.create_data_loader(
-            self.df_train, self.tokenizer, self.MAX_LEN, self.BATCH_SIZE
+            self.df_train, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.train_data_loader
 
     def val_dataloader(self):
         print("In Val Data Loader")
         self.val_data_loader = self.create_data_loader(
-            self.df_val, self.tokenizer, self.MAX_LEN, self.BATCH_SIZE
+            self.df_val, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.val_data_loader
 
     def test_dataloader(self):
         print("In Test Data Loader")
         self.test_data_loader = self.create_data_loader(
-            self.df_test, self.tokenizer, self.MAX_LEN, self.BATCH_SIZE
+            self.df_test, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.test_data_loader
 
