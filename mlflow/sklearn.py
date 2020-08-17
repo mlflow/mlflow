@@ -676,9 +676,8 @@ def autolog():
         return f
 
     patch_settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    func_names_to_patch = ["fit", "fit_transform", "fit_predict"]
     for _, class_def in all_estimators():
-        for func_name in func_names_to_patch:
+        for func_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(class_def, func_name):
                 original = getattr(class_def, func_name)
                 patch_func = create_patch_func(func_name)
