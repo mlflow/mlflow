@@ -8,7 +8,7 @@ env:
   CONDA_DIR: /usr/share/miniconda
 
 jobs:
-  lint:
+  build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -20,10 +20,22 @@ jobs:
         python-version: '3.7'
     - name: Build UI
       working-directory: mlflow/server/js
+      env:
+        CI: false
       run: |
         npm install
         npm run build
     - name: Build wheel
+      id: build-wheel
       run: |
         pip install wheel
         python setup.py bdist_wheel
+
+        # Set wheel path as an output
+        wheel_path=$(find dist -type f)
+        echo "::set-env name=wheel-path::${wheel_path}"
+
+    - uses: actions/upload-artifact@v2
+      with:
+        name: latest.whl
+        path: ${{ steps.build-wheel.outputs.wheel-path }}
