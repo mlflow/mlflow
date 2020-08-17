@@ -15,6 +15,7 @@ import logging
 import pickle
 from packaging import version
 import yaml
+import warnings
 
 import mlflow
 from mlflow import pyfunc
@@ -518,7 +519,7 @@ def _get_all_estimators():
     is_old = _is_old_version()
 
     if is_old:
-        _logger.info(
+        warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < 0.22 "
             "(current version: {})".format(__version__)
         )
