@@ -1,0 +1,29 @@
+name: Store Wheel
+
+on:
+  pull_request:
+    branches: [ master ]
+
+env:
+  CONDA_DIR: /usr/share/miniconda
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.7'
+    - name: Build UI
+      working-directory: mlflow/server/js
+      run: |
+        npm install
+        npm run build
+    - name: Build wheel
+      run: |
+        pip install wheel
+        python setup.py bdist_wheel
