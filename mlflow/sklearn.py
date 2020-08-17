@@ -536,7 +536,7 @@ def autolog():
     Enable autologging for scikit-learn.
     """
 
-    def fit_mlflow(self, fn_name, *args, **kwargs):
+    def fit_mlflow(self, func_name, *args, **kwargs):
         active_run_exists = bool(mlflow.active_run())
         if not active_run_exists:
             try_mlflow_log(mlflow.start_run)
@@ -549,7 +549,7 @@ def autolog():
             {"estimator_name": self.__class__.__name__, "estimator_class": self.__class__},
         )
 
-        original_fit = gorilla.get_original_attribute(self, fn_name)
+        original_fit = gorilla.get_original_attribute(self, func_name)
         fit_output = original_fit(*args, **kwargs)
 
         if hasattr(self, "score"):
