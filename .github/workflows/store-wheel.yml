@@ -33,7 +33,9 @@ jobs:
         wheel_name=$(basename $wheel_path)
         echo "::set-output name=wheel-path::${wheel_path}"
         echo "::set-output name=wheel-name::${wheel_name}"
-
+    - name: Verify built wheel can be installed
+      run: |
+        pip install ${{ steps.build-wheel.outputs.wheel-path }}
     - uses: actions/upload-artifact@v2
       if: github.event_name != 'push'
       with:
