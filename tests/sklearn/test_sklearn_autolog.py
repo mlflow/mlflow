@@ -80,7 +80,9 @@ def test_autolog_preserves_original_function_attributes():
         assert b == a
 
 
-@pytest.mark.skipif(not mlflow.sklearn._is_old_version(), reason="This test fails on sklearn>=0.22")
+@pytest.mark.skipif(
+    not mlflow.sklearn._is_old_version(), reason="This test fails on sklearn>=0.20.3"
+)
 def test_autolog_emits_warning_on_older_versions_of_sklearn():
     with pytest.warns(
         UserWarning, match="Autologging utilities may not work properly on scikit-learn"
