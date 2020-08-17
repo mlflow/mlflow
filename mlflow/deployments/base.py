@@ -11,7 +11,7 @@ In particular, a valid deployment plugin module must implement:
 
 import abc
 
-from mlflow.utils import experimental
+from mlflow.utils.annotations import experimental
 
 
 @experimental

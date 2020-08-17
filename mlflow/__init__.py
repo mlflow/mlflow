@@ -26,7 +26,7 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 import sys
 
-from mlflow.version import VERSION as __version__
+from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
 import mlflow.tracking.fluent
