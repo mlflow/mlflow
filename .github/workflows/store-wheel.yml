@@ -32,7 +32,7 @@ jobs:
         echo "::set-output name=wheel-path::$(find dist -type f)"
 
     - uses: actions/upload-artifact@v2
-      if: github.event_name == 'push'
+      if: github.event_name != 'push'
       with:
         name: wheel.zip
         path: ${{ steps.build-wheel.outputs.wheel-path }}
