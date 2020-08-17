@@ -1,6 +1,8 @@
 name: Store wheel
 
 on:
+  push:
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
@@ -30,10 +32,10 @@ jobs:
 
         # Set wheel path as an output
         wheel_path=$(find dist -type f)
-        echo $wheel_path
         echo "::set-output name=wheel-path::${wheel_path}"
 
     - uses: actions/upload-artifact@v2
+      if: github.event_name != 'push'
       with:
         name: wheel.zip
         path: ${{ steps.build-wheel.outputs.wheel-path }}
