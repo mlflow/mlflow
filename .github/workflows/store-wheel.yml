@@ -4,9 +4,6 @@ on:
   pull_request:
     branches: [ master ]
 
-env:
-  CONDA_DIR: /usr/share/miniconda
-
 jobs:
   build:
     runs-on: ubuntu-latest
