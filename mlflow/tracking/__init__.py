@@ -28,6 +28,7 @@ __all__ = [
     "get_registry_uri",
     "set_registry_uri",
     "_EXPERIMENT_ID_ENV_VAR",
+    "_EXPERIMENT_NAME_ENV_VAR",
     "_RUN_ID_ENV_VAR",
     "_TRACKING_URI_ENV_VAR",
 ]

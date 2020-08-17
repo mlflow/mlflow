@@ -23,4 +23,4 @@ from .flavor_backend import FlavorBackend
 from .signature import ModelSignature, infer_signature
 from .utils import ModelInputExample
 
-__all__ = ["Model", "ModelSignature", "infer_signature", "FlavorBackend"]
+__all__ = ["Model", "ModelSignature", "ModelInputExample", "infer_signature", "FlavorBackend"]

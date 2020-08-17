@@ -17,7 +17,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.environment import _mlflow_conda_env
 
