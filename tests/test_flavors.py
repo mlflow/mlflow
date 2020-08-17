@@ -21,7 +21,7 @@ def is_model_flavor(src):
 
 
 def iter_flavor_names():
-    for root, dirs, files in os.walk("mlflow"):
+    for root, _, files in os.walk("mlflow"):
         for f in files:
             if not f.endswith(".py"):
                 continue
