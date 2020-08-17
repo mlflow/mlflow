@@ -527,7 +527,7 @@ def autolog():
         )
 
     def fit_mlflow(self, func_name, *args, **kwargs):
-        active_run_exists = bool(mlflow.active_run())
+        active_run_exists = mlflow.active_run() is not None
         if not active_run_exists:
             try_mlflow_log(mlflow.start_run)
 
