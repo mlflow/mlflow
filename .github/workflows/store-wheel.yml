@@ -29,10 +29,13 @@ jobs:
       run: |
         pip install wheel
         python setup.py bdist_wheel
-        echo "::set-output name=wheel-path::$(find dist -type f)"
+        wheel_path=$(find dist -type f)
+        wheel_name=$(basename wheel_path)
+        echo "::set-output name=wheel-path::${wheel_path}"
+        echo "::set-output name=wheel-path::${wheel_name}"
 
     - uses: actions/upload-artifact@v2
       if: github.event_name != 'push'
       with:
-        name: wheel.zip
+        name: ${{ steps.build-wheel.outputs.wheel-name }}
         path: ${{ steps.build-wheel.outputs.wheel-path }}
