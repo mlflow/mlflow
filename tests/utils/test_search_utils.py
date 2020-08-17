@@ -85,7 +85,7 @@ from mlflow.utils.search_utils import SearchUtils
         ),
     ],
 )
-def test_filter(filter_string, parsed_filter):
+def test_filter_for_run(filter_string, parsed_filter):
     assert SearchUtils.parse_filter_for_run(filter_string) == parsed_filter
 
 
@@ -101,7 +101,7 @@ def test_filter(filter_string, parsed_filter):
         ),
     ],
 )
-def test_correct_quote_trimming(filter_string, parsed_filter):
+def test_correct_quote_trimming_for_run(filter_string, parsed_filter):
     assert SearchUtils.parse_filter_for_run(filter_string) == parsed_filter
 
 
@@ -135,7 +135,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.status = true", "Invalid clause(s) in filter string"),
     ],
 )
-def test_error_filter(filter_string, error_message):
+def test_error_filter_for_run(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_filter_for_run(filter_string)
     assert error_message in e.value.message
