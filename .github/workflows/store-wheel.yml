@@ -33,6 +33,7 @@ jobs:
 
         # Set wheel path as an output
         wheel_path=$(find dist -type f)
+        echo $wheel_path
         echo "::set-env name=wheel-path::${wheel_path}"
 
     - uses: actions/upload-artifact@v2
