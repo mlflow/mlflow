@@ -1,6 +1,7 @@
 def _all_estimators(type_filter=None):
     """
     Taken from scikit-learn 0.23.2.
+
     Get a list of all estimators from sklearn.
     This function crawls the module and gets all classes that inherit
     from BaseEstimator. Classes that are defined in test-modules are not
