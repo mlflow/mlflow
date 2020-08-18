@@ -717,6 +717,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         assert len(run_metrics) == 1
         assert run_metrics[metric_name] == 40
+        metric_obj = run_data._metric_objs[0]
         assert metric_obj.key == metric_name
         assert metric_obj.step == 3
         assert metric_obj.timestamp == 3
