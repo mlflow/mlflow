@@ -540,7 +540,7 @@ class SqlAlchemyStore(AbstractStore):
                         # In batch mode, all metrics are added to the session.
                         # This is much faster than checking for each metric if a metric with the
                         # same name, value, ts, and step already exists and adding them otherwise.
-                        # Conflicts will be checked during saving. If conflicts are detection
+                        # Conflicts will be checked during saving. If conflicts are detected
                         # during saving, metrics are inserted one after another
                         # using _get_or_create
 
@@ -571,6 +571,8 @@ class SqlAlchemyStore(AbstractStore):
                         )
 
                     if just_created:
+                        # collect all metrics that are inserted grouped by metric name
+                        # to update the latest metric for each metric
                         if metric.key not in metrics_per_key:
                             metrics_per_key[metric.key] = []
 
