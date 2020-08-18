@@ -38,8 +38,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
-import xgboost as xgb
-
 FLAVOR_NAME = "xgboost"
 
 _logger = logging.getLogger(__name__)
