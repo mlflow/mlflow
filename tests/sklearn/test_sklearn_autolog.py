@@ -1,5 +1,4 @@
 import inspect
-import logging
 from mock import mock
 
 import numpy as np
@@ -9,7 +8,6 @@ import sklearn.datasets as datasets
 
 import mlflow.sklearn
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
