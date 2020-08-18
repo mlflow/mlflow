@@ -13,7 +13,6 @@ Defines two endpoints:
 from collections import OrderedDict
 import flask
 import json
-from json import JSONEncoder
 import logging
 import numpy as np
 import pandas as pd
