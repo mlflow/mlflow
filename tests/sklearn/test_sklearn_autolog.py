@@ -157,11 +157,31 @@ def test_meta_estimator():
 def test_autolog_marks_run_as_failed_when_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
+
     model = sklearn.svm.LinearSVC(C=-8).fit(*get_iris())
 
     assert model is None
     assert mlflow.active_run() is None
     assert get_run(run._info.run_id)._info.status == "FAILED"
+
+
+def test_autolog_emits_warnings_message_when_score_fails():
+    mlflow.sklearn.autolog()
+
+    import functools
+
+    @functools.wraps(sklearn.cluster.KMeans.fit)
+    def dummy_score(X, y=None, sample_weight=None):
+        raise Exception
+
+    with mlflow.start_run(), mock.patch("logging.Logger.warning") as mock_warning:
+        X, y = get_iris()
+        model = sklearn.cluster.KMeans()
+        model.score = dummy_score
+        model.fit(X, y)
+
+        mock_warning.assert_called_once()
+        assert mock_warning.call_args[0][0].startswith("KMeans.fit failed")
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):

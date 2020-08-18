@@ -550,8 +550,11 @@ def autolog():
             return
 
         if hasattr(self, "score"):
-            training_score = self.score(*args, **kwargs)
-            try_mlflow_log(mlflow.log_metric, "training_score", training_score)
+            try:
+                training_score = self.score(*args, **kwargs)
+                try_mlflow_log(mlflow.log_metric, "training_score", training_score)
+            except:
+                _logger.warning("{} failed".format(self.score.__qualname__))
 
         try_mlflow_log(log_model, self, artifact_path="model")
 
