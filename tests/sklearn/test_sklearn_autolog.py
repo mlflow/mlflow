@@ -120,7 +120,7 @@ def test_estimator(fit_func_name):
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == {
         ESTIMATOR_NAME: model.__class__.__name__,
-        ESTIMATOR_CLASS: str(model.__class__),
+        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
     }
     assert "model" in artifacts
 
@@ -147,7 +147,7 @@ def test_meta_estimator():
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == {
         ESTIMATOR_NAME: model.__class__.__name__,
-        ESTIMATOR_CLASS: str(model.__class__),
+        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
     }
     assert "model" in artifacts
 

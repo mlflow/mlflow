@@ -538,7 +538,10 @@ def autolog():
         try_mlflow_log(mlflow.log_params, self.get_params(deep=True))
         try_mlflow_log(
             mlflow.set_tags,
-            {"estimator_name": self.__class__.__name__, "estimator_class": self.__class__},
+            {
+                "estimator_name": self.__class__.__name__,
+                "estimator_class": self.__class__.__module__ + "." + self.__class__.__name__,
+            },
         )
 
         original_fit = gorilla.get_original_attribute(self, func_name)
