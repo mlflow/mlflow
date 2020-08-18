@@ -83,10 +83,44 @@ from mlflow.utils.search_utils import SearchUtils
             "run.status = 'RUNNING'",
             [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
         ),
+        (
+            "status = 'RUNNING'",
+            [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
+        ),
     ],
 )
 def test_filter_for_run(filter_string, parsed_filter):
     assert SearchUtils.parse_filter_for_run(filter_string) == parsed_filter
+
+
+@pytest.mark.parametrize(
+    "filter_string, parsed_filter",
+    [
+        ("", []),
+        (
+            "model.name = 'mod'",
+            [{"type": "attribute", "comparator": "=", "key": "name", "value": "mod"}],
+        ),
+        (
+            "name ILIKE '%final new%'",
+            [{"type": "attribute", "comparator": "ILIKE", "key": "name", "value": "%final new%"}],
+        ),
+        (
+            "registered_model.name LIKE '%new%'",
+            [{"type": "attribute", "comparator": "LIKE", "key": "name", "value": "%new%"}],
+        ),
+        (
+            "tag.`training algorithm` != 'xgboost'",
+            [{"type": "tag", "comparator": "!=", "key": "training algorithm", "value": "xgboost"}],
+        ),
+        (
+            "`model_tag`.owner LIKE \"%cc\"",
+            [{"type": "tag", "comparator": "LIKE", "key": "owner", "value": "%cc"}],
+        ),
+    ],
+)
+def test_filter_for_registered_model(filter_string, parsed_filter):
+    assert SearchUtils.parse_filter_for_registered_models(filter_string) == parsed_filter
 
 
 @pytest.mark.parametrize(
@@ -103,6 +137,22 @@ def test_filter_for_run(filter_string, parsed_filter):
 )
 def test_correct_quote_trimming_for_run(filter_string, parsed_filter):
     assert SearchUtils.parse_filter_for_run(filter_string) == parsed_filter
+
+
+@pytest.mark.parametrize(
+    "filter_string, parsed_filter",
+    [
+        ("model_tag.m = 'LR'", [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}]),
+        ('model_tag.m = "LR"', [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}]),
+        ('model_tag.m = "LR"', [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}]),
+        (
+                'tag.m = "L\'Hosp"',
+                [{"type": "tag", "comparator": "=", "key": "m", "value": "L'Hosp"}],
+        ),
+    ],
+)
+def test_correct_quote_trimming_for_registered_model(filter_string, parsed_filter):
+    assert SearchUtils.parse_filter_for_registered_models(filter_string) == parsed_filter
 
 
 @pytest.mark.parametrize(
@@ -132,12 +182,46 @@ def test_correct_quote_trimming_for_run(filter_string, parsed_filter):
         ("attribute.name != 1", "Invalid attribute key"),
         ("attribute.time != 1", "Invalid attribute key"),
         ("attribute._status != 'RUNNING'", "Invalid attribute key"),
+        ("name != 1", "Invalid attribute key"),
+        ("status != 1", "Invalid attribute key"),
         ("attribute.status = true", "Invalid clause(s) in filter string"),
     ],
 )
 def test_error_filter_for_run(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_filter_for_run(filter_string)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize(
+    "filter_string, error_message",
+    [
+        ("tag.owner = 'zero qu'; name = 'some mod'", "Search filter contained multiple expression"),
+        ("metric.acc >= 0.94", "Invalid entity type"),
+        ("model.registeredModelId = 0000", "Invalid identifier"),
+        ("param.model = 'LR'", "Invalid entity type"),
+        ("attri.x != 1", "Invalid entity type"),
+        ("tag.owner = 'zero qu' OR name = 'some mod'", "Invalid clause(s) in filter string"),
+        ("tag.owner = 'zero qu' NAND name = 'some mod'", "Invalid clause(s) in filter string"),
+        ("tag.owner = 'zero qu' AND (name = 'some mod')", "Invalid clause(s) in filter string"),
+        ("`tag.A = 'B'", "Invalid clause(s) in filter string"),
+        ("tag`.A = 'B'", "Invalid clause(s) in filter string"),
+        ("attribute.ID != '1'", "Invalid attribute key"),
+        ("attribute.stage != '1'", "Invalid attribute key"),
+        ("attribute.end_time != '1'", "Invalid attribute key"),
+        ("attribute.run_id != '1'", "Invalid attribute key"),
+        ("attribute.run_uuid != '1'", "Invalid attribute key"),
+        ("attribute._status != 'RUNNING'", "Invalid attribute key"),
+        ("attribute.run_id != '1'", "Invalid attribute key"),
+        ("attribute.run_uuid != '1'", "Invalid attribute key"),
+        ("run_id != '1'", "Invalid attribute key"),
+        ("stage != '1'", "Invalid attribute key"),
+        ("attribute.status = true", "Invalid clause(s) in filter string"),
+    ]
+)
+def test_error_filter_for_registered_model(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.parse_filter_for_registered_models(filter_string)
     assert error_message in e.value.message
 
 
@@ -151,11 +235,29 @@ def test_error_filter_for_run(filter_string, error_message):
         ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
         ("1.0 > metrics.acc", "Expected 'Identifier' found"),
         ("attribute.status = 1", "Expected a quoted string value for attributes"),
+        ("status = 1", "Expected a quoted string value for attributes"),
     ],
 )
-def test_error_comparison_clauses(filter_string, error_message):
+def test_error_comparison_clauses_for_run(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_filter_for_run(filter_string)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize(
+    "filter_string, error_message",
+    [
+        ("tag.acc = 5", "Expected a quoted string value for tag"),
+        ("tags.acc = 5", "Expected a quoted string value for tag"),
+        ("tag.model != tag.model", "Expected a quoted string value for tag"),
+        ("1.0 > tag.acc", "Expected 'Identifier' found"),
+        ("attribute.name = 1", "Expected a quoted string value for attributes"),
+        ("name = 1", "Expected a quoted string value for attributes"),
+    ],
+)
+def test_error_comparison_clauses_for_registered_model(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.parse_filter_for_registered_models(filter_string)
     assert error_message in e.value.message
 
 
@@ -172,11 +274,33 @@ def test_error_comparison_clauses(filter_string, error_message):
         ("tags.acc = \"LR'", "Invalid clause(s) in filter string"),
         ("tags.acc = = 'LR'", "Invalid clause(s) in filter string"),
         ("attribute.status IS 'RUNNING'", "Invalid clause(s) in filter string"),
+        ("status IS 'RUNNING'", "Invalid clause(s) in filter string"),
+
     ],
 )
-def test_bad_quotes(filter_string, error_message):
+def test_bad_quotes_for_run(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_filter_for_run(filter_string)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize(
+    "filter_string, error_message",
+    [
+        ("tags.acc = LR", "value is either not quoted or unidentified quote types"),
+        ("tags.acc = `LR`", "value is either not quoted or unidentified quote types"),
+        ("tags.'acc = LR", "Invalid clause(s) in filter string"),
+        ("tags.acc = 'LR", "Invalid clause(s) in filter string"),
+        ("tags.acc = LR'", "Invalid clause(s) in filter string"),
+        ("tags.acc = \"LR'", "Invalid clause(s) in filter string"),
+        ("tags.acc = = 'LR'", "Invalid clause(s) in filter string"),
+        ("attribute.name IS 'some mod'", "Invalid clause(s) in filter string"),
+        ("name IS 'some mod'", "Invalid clause(s) in filter string"),
+    ],
+)
+def test_bad_quotes_for_registered_model(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.parse_filter_for_registered_models(filter_string)
     assert error_message in e.value.message
 
 
@@ -192,9 +316,27 @@ def test_bad_quotes(filter_string, error_message):
         ("1==2", "Expected 'Identifier' found"),
     ],
 )
-def test_invalid_clauses(filter_string, error_message):
+def test_invalid_clauses_for_run(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_filter_for_run(filter_string)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize(
+    "filter_string, error_message",
+    [
+        ("tags.acc LR !=", "Invalid clause(s) in filter string"),
+        ("tags.acc LR", "Invalid clause(s) in filter string"),
+        ("tags.acc !=", "Invalid clause(s) in filter string"),
+        ("acc != 1.0", "Invalid identifier"),
+        ("foo is null", "Invalid clause(s) in filter string"),
+        ("1=1", "Expected 'Identifier' found"),
+        ("1==2", "Expected 'Identifier' found"),
+    ],
+)
+def test_invalid_clauses_for_registered_model(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.parse_filter_for_registered_models(filter_string)
     assert error_message in e.value.message
 
 
@@ -205,9 +347,10 @@ def test_invalid_clauses(filter_string, error_message):
         ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
         ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
         ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
+        ("", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
     ],
 )
-def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
+def test_bad_comparators_for_run(entity_type, bad_comparators, key, entity_value):
     run = Run(
         run_info=RunInfo(
             run_uuid="hi",
@@ -222,11 +365,39 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         run_data=RunData(metrics=[], params=[], tags=[]),
     )
     for bad_comparator in bad_comparators:
-        bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-            entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
-        )
+        if not entity_type:
+            bad_filter = "{key} {comparator} {value}".format(
+                key=key, comparator=bad_comparator, value=entity_value
+            )
+        else:
+            bad_filter = "{entity_type}.{key} {comparator} {value}".format(
+                entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
+            )
         with pytest.raises(MlflowException) as e:
-            SearchUtils.filter([run], bad_filter)
+            SearchUtils.filter_runs([run], bad_filter)
+        assert "Invalid comparator" in str(e.value.message)
+
+
+@pytest.mark.parametrize(
+    "entity_type, bad_comparators, key, entity_value",
+    [
+        ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
+        ("attributes", [">", "<", ">=", "<=", "~"], "name", "'moddd'"),
+        ("", [">", "<", ">=", "<=", "~"], "name", "'moddd'"),
+    ],
+)
+def test_bad_comparators_for_registered_model(entity_type, bad_comparators, key, entity_value):
+    for bad_comparator in bad_comparators:
+        if not entity_type:
+            bad_filter = "{key} {comparator} {value}".format(
+                key=key, comparator=bad_comparator, value=entity_value
+            )
+        else:
+            bad_filter = "{entity_type}.{key} {comparator} {value}".format(
+                entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
+            )
+        with pytest.raises(MlflowException) as e:
+            SearchUtils.parse_filter_for_registered_models(bad_filter)
         assert "Invalid comparator" in str(e.value.message)
 
 
@@ -235,6 +406,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
     [
         (None, [0, 1, 2]),
         ("", [0, 1, 2]),
+        ("status = 'FAILED'", [0, 2]),
         ("attributes.status = 'FAILED'", [0, 2]),
         ("metrics.key1 = 123", [1]),
         ("metrics.key1 != 123", [0, 2]),
@@ -245,7 +417,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("params.my_param = 'A' AND attributes.status = 'FAILED'", [0]),
     ],
 )
-def test_correct_filtering(filter_string, matching_runs):
+def test_correct_filtering_for_runs(filter_string, matching_runs):
     runs = [
         Run(
             run_info=RunInfo(
@@ -297,7 +469,7 @@ def test_correct_filtering(filter_string, matching_runs):
             ),
         ),
     ]
-    filtered_runs = SearchUtils.filter(runs, filter_string)
+    filtered_runs = SearchUtils.filter_runs(runs, filter_string)
     assert set(filtered_runs) == set([runs[i] for i in matching_runs])
 
 
@@ -320,7 +492,7 @@ def test_correct_filtering(filter_string, matching_runs):
         (["tags.tag1    DESC"], [2, 1, 0]),
     ],
 )
-def test_correct_sorting(order_bys, matching_runs):
+def test_correct_sorting_for_runs(order_bys, matching_runs):
     runs = [
         Run(
             run_info=RunInfo(
@@ -372,7 +544,7 @@ def test_correct_sorting(order_bys, matching_runs):
             ),
         ),
     ]
-    sorted_runs = SearchUtils.sort(runs, order_bys)
+    sorted_runs = SearchUtils.sort_runs(runs, order_bys)
     sorted_run_indices = []
     for run in sorted_runs:
         for i, r in enumerate(runs):
@@ -382,7 +554,7 @@ def test_correct_sorting(order_bys, matching_runs):
     assert sorted_run_indices == matching_runs
 
 
-def test_order_by_metric_with_nans_and_infs():
+def test_order_by_search_run_metric_with_nans_and_infs():
     metric_vals_str = ["nan", "inf", "-inf", "-1000", "0", "1000"]
     runs = [
         Run(
@@ -400,8 +572,8 @@ def test_order_by_metric_with_nans_and_infs():
         )
         for x in metric_vals_str
     ]
-    sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])]
-    sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])]
+    sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort_runs(runs, ["metrics.x asc"])]
+    sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort_runs(runs, ["metrics.x desc"])]
     # asc
     assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
     # desc
@@ -419,15 +591,45 @@ def test_order_by_metric_with_nans_and_infs():
         ("attribute.start", "Invalid attribute key"),
         ("attribute.run_id", "Invalid attribute key"),
         ("attribute.experiment_id", "Invalid attribute key"),
+        ("start", "Invalid attribute key"),
+        ("run_id", "Invalid attribute key"),
+        ("experiment_id", "Invalid attribute key"),
         ("metrics.A != 1", "Invalid order_by clause"),
         ("params.my_param ", "Invalid order_by clause"),
         ("attribute.run_id ACS", "Invalid ordering key"),
         ("attribute.run_id decs", "Invalid ordering key"),
+        ("run_id ACS", "Invalid ordering key"),
+        ("run_id decs", "Invalid ordering key"),
     ],
 )
 def test_invalid_order_by_search_runs(order_by, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils.parse_order_by_for_search_runs(order_by)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize(
+    "order_by, error_message",
+    [
+        ("m.acc", "Invalid entity type"),
+        ("acc", "Invalid identifier"),
+        ("attri.x", "Invalid entity type"),
+        ("`tags.A", "Invalid order_by clause"),
+        ("`tags.A`", "Invalid entity type"),
+        ("attribute.start", "Invalid attribute key"),
+        ("attribute.stage", "Invalid attribute key"),
+        ("start", "Invalid attribute key"),
+        ("stage", "Invalid attribute key"),
+        ("tags.A != 1", "Invalid order_by clause"),
+        ("attribute.name ACS", "Invalid ordering key"),
+        ("attribute.name decs", "Invalid ordering key"),
+        ("name ACS", "Invalid ordering key"),
+        ("name decs", "Invalid ordering key"),
+    ],
+)
+def test_invalid_order_by_search_registered_models(order_by, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.parse_order_by_for_search_registered_models(order_by)
     assert error_message in e.value.message
 
 
@@ -443,6 +645,22 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
     identifier_type, identifier_name, ascending = SearchUtils.parse_order_by_for_search_runs(
         order_by
     )
+    assert identifier_type == "metric"
+    assert identifier_name == "Mean Square Error"
+    assert ascending == ascending_expected
+
+
+@pytest.mark.parametrize(
+    "order_by, ascending_expected",
+    [
+        ("tags.`Mean Square Error`", True),
+        ("tags.`Mean Square Error` ASC", True),
+        ("tags.`Mean Square Error` DESC", False),
+    ],
+)
+def test_space_order_by_search_registered_model(order_by, ascending_expected):
+    identifier_type, identifier_name, ascending = SearchUtils\
+        .parse_order_by_for_search_registered_models(order_by)
     assert identifier_type == "metric"
     assert identifier_name == "Mean Square Error"
     assert ascending == ascending_expected
@@ -483,7 +701,7 @@ def test_invalid_order_by_search_registered_models(order_by, error_message):
         ({"offset": 3}, 1, [], None),
     ],
 )
-def test_pagination(page_token, max_results, matching_runs, expected_next_page_token):
+def test_pagination_for_runs(page_token, max_results, matching_runs, expected_next_page_token):
     runs = [
         Run(
             run_info=RunInfo(
@@ -528,7 +746,7 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
     encoded_page_token = None
     if page_token:
         encoded_page_token = base64.b64encode(json.dumps(page_token).encode("utf-8"))
-    paginated_runs, next_page_token = SearchUtils.paginate(runs, encoded_page_token, max_results)
+    paginated_runs, next_page_token = SearchUtils.paginate_runs(runs, encoded_page_token, max_results)
 
     paginated_run_indices = []
     for run in paginated_runs:
@@ -554,7 +772,7 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
         ("not base64", "Invalid page token"),
     ],
 )
-def test_invalid_page_tokens(page_token, error_message):
+def test_invalid_page_tokens_for_runs(page_token, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchUtils.paginate([], page_token, 1)
+        SearchUtils.paginate_runs([], page_token, 1)
     assert error_message in e.value.message

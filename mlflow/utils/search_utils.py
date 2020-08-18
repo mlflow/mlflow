@@ -25,8 +25,6 @@ from mlflow.store.model_registry.dbmodels.models import (
 
 import math
 
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel
-
 
 class SearchUtils(object):
     LIKE_OPERATOR = "LIKE"
@@ -42,8 +40,8 @@ class SearchUtils(object):
     VALID_REGISTERED_MODEL_SEARCH_COMPARATORS = CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS.union(
         {"="}
     )
-    VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
-    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
+    VALID_SEARCH_RUN_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
+    VALID_ORDER_BY_RUN_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -74,17 +72,13 @@ class SearchUtils(object):
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
-    ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
-    ORDER_BY_KEY_MODEL_NAME = SqlRegisteredModel.name.key
-    VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(
-        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
+    VALID_SEARCH_MODEL_VERSION_ATTRIBUTE_KEYS = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS = set(["name"])
+    VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS = set(
+        [ORDER_BY_KEY_TIMESTAMP, "last_updated_timestamp", "name"]
     )
     VALID_TIMESTAMP_ORDER_BY_KEYS = set(
-        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP]
-    )
-    # We encourage users to use timestamp for order-by
-    RECOMMENDED_ORDER_BY_KEYS_REGISTERED_MODELS = set(
-        [ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_TIMESTAMP]
+        [ORDER_BY_KEY_TIMESTAMP, "last_updated_timestamp"]
     )
 
     filter_ops = {
@@ -326,7 +320,7 @@ class SearchUtils(object):
 
     @classmethod
     def parse_filter_for_run(cls, filter_string):
-        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_ATTRIBUTE_KEYS, True)
+        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_RUN_ATTRIBUTE_KEYS, True)
 
     @classmethod
     def is_metric(cls, key_type, comparator):
@@ -415,7 +409,7 @@ class SearchUtils(object):
             return False
 
     @classmethod
-    def filter(cls, runs, filter_string):
+    def filter_runs(cls, runs, filter_string):
         """Filters a set of runs based on a search filter string."""
         if not filter_string:
             return runs
@@ -485,14 +479,18 @@ class SearchUtils(object):
     def parse_order_by_for_search_runs(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(),
-                                         cls.VALID_ORDER_BY_ATTRIBUTE_KEYS, True)
+                                         cls.VALID_ORDER_BY_RUN_ATTRIBUTE_KEYS, True)
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
     def parse_order_by_for_search_registered_models(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
         identifier = cls._get_identifier(token_value.strip(),
-                                         cls.VALID_ORDER_BY_KEYS_REGISTERED_MODELS, False)
+                                         cls.VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS, False)
+        # last updated timestamp field in search registered model has alias,
+        # we want to map those alias to the correct db key
+        if identifier["key"] in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
+            identifier["key"] = SqlRegisteredModel.last_updated_time.key
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
@@ -688,7 +686,7 @@ class SearchUtils(object):
         return (not is_null_or_nan, sort_value)
 
     @classmethod
-    def sort(cls, runs, order_by_list):
+    def sort_runs(cls, runs, order_by_list):
         """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
         Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
         """
@@ -756,7 +754,7 @@ class SearchUtils(object):
         return base64.b64encode(json.dumps({"offset": offset}).encode("utf-8"))
 
     @classmethod
-    def paginate(cls, runs, page_token, max_results):
+    def paginate_runs(cls, runs, page_token, max_results):
         """Paginates a set of runs based on an offset encoded into the page_token and a max
         results limit. Returns a pair containing the set of paginated runs, followed by
         an optional next_page_token if there are further results that need to be returned.
@@ -768,14 +766,7 @@ class SearchUtils(object):
         next_page_token = None
         if final_offset < len(runs):
             next_page_token = cls.create_page_token(final_offset)
-        return (paginated_runs, next_page_token)
-
-    # Model Registry specific parser
-    # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
-    #       registry specific code.
-
-    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = set(["name", "run_id", "source_path"])
-    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
+        return paginated_runs, next_page_token
 
     @classmethod
     def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
@@ -842,9 +833,9 @@ class SearchUtils(object):
     @classmethod
     def parse_filter_for_model_versions(cls, filter_string):
         return cls._parse_filter_for_model_registry(
-            filter_string, cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS
+            filter_string, cls.VALID_SEARCH_MODEL_VERSION_ATTRIBUTE_KEYS
         )
 
     @classmethod
     def parse_filter_for_registered_models(cls, filter_string):
-        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS, False)
+        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS, False)

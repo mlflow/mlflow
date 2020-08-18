@@ -730,9 +730,9 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self._get_run_from_info(r) for r in run_infos)
-        filtered = SearchUtils.filter(runs, filter_string)
-        sorted_runs = SearchUtils.sort(filtered, order_by)
-        runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+        filtered = SearchUtils.filter_runs(runs, filter_string)
+        sorted_runs = SearchUtils.sort_runs(filtered, order_by)
+        runs, next_page_token = SearchUtils.paginate_runs(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
     def log_metric(self, run_id, metric):
