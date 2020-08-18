@@ -4,9 +4,9 @@ import re
 from six.moves import urllib
 
 from mlflow.utils import process
-from mlflow.utils import deprecated
-from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
+from mlflow.utils.annotations import deprecated
 
+from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
