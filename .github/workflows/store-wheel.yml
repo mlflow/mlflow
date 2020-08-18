@@ -20,6 +20,7 @@ jobs:
     - name: Build UI
       working-directory: mlflow/server/js
       env:
+        # Don't treat warnings (emitted from react-pdf) as errors.
         CI: false
       run: |
         npm install
