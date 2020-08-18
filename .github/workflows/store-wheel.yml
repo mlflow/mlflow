@@ -21,6 +21,7 @@ jobs:
       working-directory: mlflow/server/js
       env:
         # Don't treat warnings (emitted from react-pdf) as errors.
+        # https://github.com/wojtekmaj/react-pdf/issues/280
         CI: false
       run: |
         npm install
