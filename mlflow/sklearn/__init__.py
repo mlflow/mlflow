@@ -19,6 +19,7 @@ import warnings
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -541,7 +542,12 @@ def autolog():
         )
 
         original_fit = gorilla.get_original_attribute(self, func_name)
-        fit_output = original_fit(*args, **kwargs)
+        try:
+            fit_output = original_fit(*args, **kwargs)
+        except:
+            _logger.warning("{} failed".format(original_fit.__qualname__))
+            mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+            return
 
         if hasattr(self, "score"):
             training_score = self.score(*args, **kwargs)

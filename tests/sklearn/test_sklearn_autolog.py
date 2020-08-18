@@ -1,4 +1,5 @@
 import inspect
+import logging
 from mock import mock
 
 import numpy as np
@@ -35,6 +36,10 @@ def fit_model(model, Xy, fit_func_name):
     return model
 
 
+def get_run(run_id):
+    return mlflow.tracking.MlflowClient().get_run(run_id)
+
+
 def get_run_data(run_id):
     client = mlflow.tracking.MlflowClient()
     data = client.get_run(run_id).data
@@ -62,6 +67,14 @@ def temp_tracking_uri(tmpdir):
     mlflow.set_tracking_uri("file://{}/mlruns".format(tmpdir.strpath))
     yield
     mlflow.set_tracking_uri(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+
+
+@pytest.fixture(scope="function")
+def use_caplog():
+    logger = logging.getLogger(mlflow.__name__)
+    logger.propagate = True
+    yield
+    logger.propagate = False
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -156,6 +169,16 @@ def test_meta_estimator():
 
         loaded_model = load_model_by_run_id(run_id)
         np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+
+
+def test_run_is_marked_as_failed_when_fit_fails():
+    mlflow.sklearn.autolog()
+    run = mlflow.start_run()
+    model = sklearn.svm.LinearSVC(C=-8).fit(*get_iris())
+
+    assert model is None
+    assert mlflow.active_run() is None
+    assert get_run(run._info.run_id)._info.status == "FAILED"
 
 
 @pytest.mark.usefixtures(temp_tracking_uri.__name__)
