@@ -171,14 +171,14 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
 
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             model = fit_model(model, Xy, fit_func_name)
             mock_log_params.assert_called_once()
             mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
-        runs = mlflow.search_runs()
+        runs = mlflow.search_runs([run._info.experiment_id])
         assert len(runs) == 1
         assert ("tags." + MLFLOW_PARENT_RUN_ID) not in runs.columns
 
@@ -199,13 +199,13 @@ def test_meta_estimator_fit_performs_logging_only_once():
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
 
-        with mlflow.start_run():
+        with mlflow.start_run() as run:
             model = fit_model(model, Xy, "fit")
             mock_log_params.assert_called_once()
             mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
-        runs = mlflow.search_runs()
+        runs = mlflow.search_runs([run._info.experiment_id])
         assert len(runs) == 1
         assert ("tags." + MLFLOW_PARENT_RUN_ID) not in runs.columns
