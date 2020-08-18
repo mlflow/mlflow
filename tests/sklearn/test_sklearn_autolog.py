@@ -183,9 +183,9 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
-        runs = mlflow.search_runs([run._info.experiment_id])
-        assert len(runs) == 1
-        assert ("tags." + MLFLOW_PARENT_RUN_ID) not in runs.columns
+        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run._info.run_id)
+        assert len(mlflow.search_runs([run._info.experiment_id])) == 1
+        assert len(mlflow.search_runs([run._info.experiment_id], query)) == 0
 
 
 def test_meta_estimator_fit_performs_logging_only_once():
@@ -211,6 +211,6 @@ def test_meta_estimator_fit_performs_logging_only_once():
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
-        runs = mlflow.search_runs([run._info.experiment_id])
-        assert len(runs) == 1
-        assert ("tags." + MLFLOW_PARENT_RUN_ID) not in runs.columns
+        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run._info.run_id)
+        assert len(mlflow.search_runs([run._info.experiment_id])) == 1
+        assert len(mlflow.search_runs([run._info.experiment_id], query)) == 0
