@@ -62,13 +62,6 @@ def fit_func_name(request):
     return request.param
 
 
-@pytest.fixture(scope="function")
-def temp_tracking_uri(tmpdir):
-    mlflow.set_tracking_uri("file://{}/mlruns".format(tmpdir.strpath))
-    yield
-    mlflow.set_tracking_uri(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-
-
 def test_autolog_preserves_original_function_attributes():
     def get_func_attrs(f):
         attrs = {}
@@ -173,7 +166,6 @@ def test_autolog_marks_run_as_failed_when_fit_fails():
     assert get_run(run._info.run_id)._info.status == "FAILED"
 
 
-@pytest.mark.usefixtures(temp_tracking_uri.__name__)
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
     mlflow.sklearn.autolog()
 
