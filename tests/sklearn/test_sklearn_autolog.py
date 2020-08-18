@@ -7,6 +7,8 @@ import sklearn
 import sklearn.datasets as datasets
 
 import mlflow.sklearn
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
@@ -53,6 +55,13 @@ def stringify_dict_values(d):
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
+
+
+@pytest.fixture(scope="function")
+def temp_tracking_uri(tmpdir):
+    mlflow.set_tracking_uri("file://{}/mlruns".format(tmpdir.strpath))
+    yield
+    mlflow.set_tracking_uri(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -149,6 +158,7 @@ def test_meta_estimator():
         np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
+@pytest.mark.usefixtures(temp_tracking_uri.__name__)
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
     mlflow.sklearn.autolog()
 
@@ -167,6 +177,10 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
             mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
+
+        runs = mlflow.search_runs()
+        assert len(runs) == 1
+        assert ("tags." + MLFLOW_PARENT_RUN_ID) not in runs.columns
 
 
 def test_meta_estimator_fit_performs_logging_only_once():
@@ -191,3 +205,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
             mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
+
+        runs = mlflow.search_runs()
+        assert len(runs) == 1
+        assert ("tags." + MLFLOW_PARENT_RUN_ID) not in runs.columns
