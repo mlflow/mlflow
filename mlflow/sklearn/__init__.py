@@ -544,8 +544,8 @@ def autolog():
         original_fit = gorilla.get_original_attribute(self, func_name)
         try:
             fit_output = original_fit(*args, **kwargs)
-        except:
-            _logger.warning("{} failed".format(original_fit.__qualname__))
+        except Exception as e:
+            _logger.warning("{} failed: {}".format(original_fit.__qualname__, str(e)))
             mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
             return
 
@@ -553,8 +553,8 @@ def autolog():
             try:
                 training_score = self.score(*args, **kwargs)
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
-            except:
-                _logger.warning("{} failed".format(self.score.__qualname__))
+            except Exception as e:
+                _logger.warning("{} failed: {}".format(self.score.__qualname__, str(e)))
 
         try_mlflow_log(log_model, self, artifact_path="model")
 
