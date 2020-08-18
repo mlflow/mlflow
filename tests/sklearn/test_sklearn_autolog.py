@@ -1,3 +1,4 @@
+import functools
 import inspect
 from mock import mock
 
@@ -168,20 +169,19 @@ def test_autolog_marks_run_as_failed_when_fit_fails():
 def test_autolog_emits_warnings_message_when_score_fails():
     mlflow.sklearn.autolog()
 
-    import functools
-
-    @functools.wraps(sklearn.cluster.KMeans.fit)
-    def dummy_score(X, y=None, sample_weight=None):
-        raise Exception
-
     with mlflow.start_run(), mock.patch("logging.Logger.warning") as mock_warning:
         X, y = get_iris()
         model = sklearn.cluster.KMeans()
+
+        @functools.wraps(model.score)
+        def dummy_score(X, y=None, sample_weight=None):
+            raise Exception
+
         model.score = dummy_score
         model.fit(X, y)
 
         mock_warning.assert_called_once()
-        assert mock_warning.call_args[0][0].startswith("KMeans.fit failed")
+        assert mock_warning.call_args[0][0].startswith("KMeans.score failed")
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
