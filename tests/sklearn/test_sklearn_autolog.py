@@ -163,7 +163,7 @@ def test_meta_estimator():
         np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
-def test_run_is_marked_as_failed_when_fit_fails():
+def test_autolog_marks_run_as_failed_when_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
     model = sklearn.svm.LinearSVC(C=-8).fit(*get_iris())
