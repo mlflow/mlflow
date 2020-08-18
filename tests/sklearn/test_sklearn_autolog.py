@@ -173,7 +173,6 @@ def test_autolog_emits_warnings_message_when_score_fails():
     mlflow.sklearn.autolog()
 
     with mlflow.start_run(), mock.patch("logging.Logger.warning") as mock_warning:
-        X, y = get_iris()
         model = sklearn.cluster.KMeans()
 
         @functools.wraps(model.score)
@@ -181,7 +180,7 @@ def test_autolog_emits_warnings_message_when_score_fails():
             raise Exception
 
         model.score = dummy_score
-        model.fit(X, y)
+        model.fit(*get_iris())
 
         mock_warning.assert_called_once()
         assert mock_warning.call_args[0][0].startswith("KMeans.score failed")
