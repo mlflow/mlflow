@@ -159,7 +159,11 @@ def test_autolog_marks_run_as_failed_when_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
 
-    model = sklearn.svm.LinearSVC(C=-8).fit(*get_iris())
+    with mock.patch("logging.Logger.warning") as mock_warning:
+        model = sklearn.svm.LinearSVC(C=-8).fit(*get_iris())
+
+        mock_warning.assert_called_once()
+        assert mock_warning.call_args[0][0].startswith("LinearSVC.fit failed")
 
     assert model is None
     assert mlflow.active_run() is None
