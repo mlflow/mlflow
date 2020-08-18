@@ -225,15 +225,14 @@ with mlflow.start_run():
     print("\nLogging the trained model as a run artifact...")
     mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
     print(
-            "\nThe model is logged at:\n%s"
-            % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+        "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
     )
 
     # Since the model was logged as an artifact, it can be loaded to make predictions
     loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
 
     # Extract a few examples from the test dataset to evaulate on
-    _ , (eval_data, eval_labels) = next(enumerate(test_loader))
+    _, (eval_data, eval_labels) = next(enumerate(test_loader))
 
     # Make a few predictions
     predictions = loaded_model(eval_data).data.max(1)[1]
