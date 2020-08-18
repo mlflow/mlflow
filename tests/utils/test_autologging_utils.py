@@ -1,6 +1,13 @@
-import mlflow
+import gorilla
+import inspect
 import pytest
-from mlflow.utils.autologging_utils import get_unspecified_default_args, log_fn_args_as_params
+
+import mlflow
+from mlflow.utils.autologging_utils import (
+    get_unspecified_default_args,
+    log_fn_args_as_params,
+    wrap_patch,
+)
 
 
 # Example function signature we are testing on
@@ -124,3 +131,29 @@ def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint
     client = mlflow.tracking.MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
     assert len(params.keys()) == 0
+
+
+@pytest.mark.large
+def test_wrap_patch():
+    class Math:
+        def add(self, a, b):
+            """add"""
+            return a + b
+
+    def new_add(self, *args, **kwargs):
+        """new add"""
+        orig = gorilla.get_original_attribute(self, "add")
+        return 2 * orig(*args, **kwargs)
+
+    name = Math.add.__name__
+    doc = Math.add.__doc__
+    mod = Math.add.__module__
+    sig = inspect.signature(Math.add)
+
+    wrap_patch(Math, Math.add.__name__, Math.add, new_add)
+
+    assert Math.add.__name__ == name
+    assert Math.add.__doc__ == doc
+    assert Math.add.__module__ == mod
+    assert inspect.signature(Math.add) == sig
+    assert Math().add(1, 2) == 6
