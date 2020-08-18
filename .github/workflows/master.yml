@@ -183,7 +183,7 @@ jobs:
           source activate test-environment
           ./dev/run-python-flavor-tests.sh;
 
-  mlflow:
+  import:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
