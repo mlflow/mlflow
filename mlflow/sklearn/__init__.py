@@ -523,7 +523,8 @@ def autolog():
     if _is_old_version():
         warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < 0.20.3 "
-            "(current version: {})".format(sklearn.__version__)
+            "(current version: {})".format(sklearn.__version__),
+            stacklevel=2,
         )
 
     def fit_mlflow(self, func_name, *args, **kwargs):
