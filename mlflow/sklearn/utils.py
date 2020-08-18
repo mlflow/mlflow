@@ -1,8 +1,13 @@
 def _all_estimators(type_filter=None):
     """
-    Taken from scikit-learn 0.23.2.
+    Backported from scikit-learn 0.23.2:
+    https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/utils/__init__.py#L1146
 
-    All estimators
+    Use this backported `all_estimators` in old versions of sklearn because:
+    1. An inferior version of `all_estimators` that old versions of sklearn use for testing,
+       might function differently from a newer version.
+    2. This backported `all_estimators` works on old versions of sklearn that don’t even define
+       the testing utility variant of `all_estimators`.
 
     ========== original docstring ==========
 
