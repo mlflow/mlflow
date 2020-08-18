@@ -69,14 +69,6 @@ def temp_tracking_uri(tmpdir):
     mlflow.set_tracking_uri(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
-@pytest.fixture(scope="function")
-def use_caplog():
-    logger = logging.getLogger(mlflow.__name__)
-    logger.propagate = True
-    yield
-    logger.propagate = False
-
-
 def test_autolog_preserves_original_function_attributes():
     def get_func_attrs(f):
         attrs = {}
