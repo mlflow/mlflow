@@ -185,10 +185,10 @@ def test_autolog_emits_warning_message_when_score_fails():
         model = sklearn.cluster.KMeans()
 
         @functools.wraps(model.score)
-        def dummy_score(X, y=None, sample_weight=None):
+        def throwing_score(X, y=None, sample_weight=None):
             raise Exception
 
-        model.score = dummy_score
+        model.score = throwing_score
         model.fit(*get_iris())
 
     metrics = get_run_data(run._info.run_id)[1]
