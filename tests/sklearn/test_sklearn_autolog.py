@@ -5,7 +5,6 @@ from mock import mock
 import numpy as np
 import pytest
 import sklearn
-import sklearn.datasets as datasets
 
 import mlflow.sklearn
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -18,7 +17,7 @@ ESTIMATOR_NAME = "estimator_name"
 
 
 def get_iris():
-    iris = datasets.load_iris()
+    iris = sklearn.datasets.load_iris()
     return iris.data[:, :2], iris.target
 
 
