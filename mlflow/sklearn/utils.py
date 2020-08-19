@@ -26,9 +26,15 @@ def _get_sample_weight(args_list, args, kwargs):
     return None
 
 
+def _get_arg_names(f):
+    # `inspect.getargspec` doesn't return a wrapped function's argspec
+    # See: https://hynek.me/articles/decorators/
+    return list(inspect.signature(f).parameters.keys())
+
+
 def _get_args_for_score(fit_func, score_func, args, kwargs):
-    fit_args = inspect.getfullargspec(fit_func).args[1:]  # remove 'self'
-    score_args = inspect.getfullargspec(score_func).args[1:]
+    fit_args = _get_arg_names(fit_func)
+    score_args = _get_arg_names(score_func)
 
     Xy = _get_Xy(args, kwargs)
 
