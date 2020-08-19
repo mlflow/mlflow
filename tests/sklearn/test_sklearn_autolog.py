@@ -302,6 +302,7 @@ def test_autolog_emits_warning_message_when_score_fails():
 
         @functools.wraps(model.score)
         def throwing_score(X, y=None, sample_weight=None):
+            # pylint: disable=unused-argument
             raise Exception("EXCEPTION")
 
         model.score = throwing_score

@@ -66,7 +66,7 @@ def _chunk_dict(data, chunk_size=100):
     # Copied from: https://stackoverflow.com/a/22878842
 
     it = iter(data)
-    for i in range(0, len(data), chunk_size):
+    for _ in range(0, len(data), chunk_size):
         yield {k: data[k] for k in islice(it, chunk_size)}
 
 
@@ -103,7 +103,6 @@ def _backported_all_estimators(type_filter=None):
         and ``class`` is the actuall type of the class.
     """
     # lazy import to avoid circular imports from sklearn.base
-    import inspect
     import pkgutil
     import platform
     import sklearn
