@@ -282,7 +282,7 @@ def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
     assert latest_run.status == "FAILED"
 
 
-def test_autolog_does_not_terminate_run_but_throws_instead_when_active_run_exists_and_fit_fails():
+def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
 
