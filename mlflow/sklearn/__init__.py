@@ -520,6 +520,8 @@ def autolog():
         _all_estimators,
     )
 
+    sklearn.set_config(print_changed_only=True)
+
     if _is_old_version():
         warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < 0.20.3 "
