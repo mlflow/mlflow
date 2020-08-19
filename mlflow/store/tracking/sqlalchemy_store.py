@@ -4,7 +4,6 @@ import uuid
 
 import math
 import sqlalchemy
-import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.models import Model

@@ -97,7 +97,7 @@ class S3ArtifactRepository(ArtifactRepository):
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        results = paginator.paginate_runs(Bucket=bucket, Prefix=prefix, Delimiter="/")
+        results = paginator.paginate(Bucket=bucket, Prefix=prefix, Delimiter="/")
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
