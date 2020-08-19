@@ -1,9 +1,9 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+import os
 import pathlib
 import posixpath
-import os
 import requests
 import shutil
 import tempfile
