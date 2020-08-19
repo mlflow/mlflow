@@ -30,7 +30,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import try_mlflow_log
-from mlflow.utils.validation import MAX_PARAMS_TAGS_PER_BATCH
 
 FLAVOR_NAME = "sklearn"
 
@@ -518,7 +517,9 @@ def autolog():
         _chunk_dict,
         _get_args_for_score,
         _all_estimators,
+        _truncate_dict_values,
     )
+    from mlflow.utils.validation import MAX_PARAMS_TAGS_PER_BATCH, MAX_PARAM_VAL_LENGTH
 
     sklearn.set_config(print_changed_only=True)
 
@@ -539,7 +540,7 @@ def autolog():
 
         # Chunk model parameters to avoid hitting the log_batch API limit
         for chunk in _chunk_dict(self.get_params(deep=True), chunk_size=MAX_PARAMS_TAGS_PER_BATCH):
-            try_mlflow_log(mlflow.log_params, chunk)
+            try_mlflow_log(mlflow.log_params, _truncate_dict_values(chunk, MAX_PARAM_VAL_LENGTH))
 
         try_mlflow_log(
             mlflow.set_tags,

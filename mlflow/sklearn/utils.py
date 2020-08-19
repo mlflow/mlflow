@@ -62,12 +62,16 @@ def _get_args_for_score(fit_func, score_func, args, kwargs):
     return Xy
 
 
-def _chunk_dict(data, chunk_size=100):
+def _chunk_dict(d, chunk_size):
     # Copied from: https://stackoverflow.com/a/22878842
 
-    it = iter(data)
-    for _ in range(0, len(data), chunk_size):
-        yield {k: data[k] for k in islice(it, chunk_size)}
+    it = iter(d)
+    for _ in range(0, len(d), chunk_size):
+        yield {k: d[k] for k in islice(it, chunk_size)}
+
+
+def _truncate_dict_values(d, max_length):
+    return {k: str(v)[:max_length] for k, v in d.items()}
 
 
 def _backported_all_estimators(type_filter=None):
