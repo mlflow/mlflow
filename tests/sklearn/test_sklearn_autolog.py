@@ -161,6 +161,31 @@ def test_meta_estimator():
     np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
+def test_get_params_returns_dict_with_more_than_100_top_level_keys():
+    mlflow.sklearn.autolog()
+
+    large_params = {str(i): str(i) for i in range(101)}
+
+    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
+        with mlflow.start_run() as run:
+            Xy = get_iris()
+            model = sklearn.cluster.KMeans()
+            run_id = run._info.run_id
+            model = fit_model(model, Xy, "fit")
+
+    params, metrics, tags, artifacts = get_run_data(run._info.run_id)
+    assert params == large_params
+    assert metrics == {TRAINING_SCORE: model.score(*Xy)}
+    assert tags == {
+        ESTIMATOR_NAME: model.__class__.__name__,
+        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
+    }
+    assert "model" in artifacts
+
+    loaded_model = load_model_by_run_id(run_id)
+    np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+
+
 def test_call_fit_with_arguments_score_does_not_accept():
     mlflow.sklearn.autolog()
 

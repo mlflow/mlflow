@@ -1,4 +1,5 @@
 import inspect
+from itertools import islice
 
 _SAMPLE_WEIGHT = "sample_weight"
 
@@ -36,6 +37,14 @@ def _get_args_for_score(fit_func, score_func, args, kwargs):
         return (*Xy, sample_weight)
 
     return Xy
+
+
+def _chunk_dict(data, chunk_size=100):
+    # Copied from: https://stackoverflow.com/a/22878842
+
+    it = iter(data)
+    for i in range(0, len(data), chunk_size):
+        yield {k: data[k] for k in islice(it, chunk_size)}
 
 
 def _all_estimators(type_filter=None):

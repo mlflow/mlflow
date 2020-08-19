@@ -31,6 +31,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.validation import MAX_PARAMS_TAGS_PER_BATCH
 
 FLAVOR_NAME = "sklearn"
 
@@ -519,7 +520,7 @@ def autolog():
     Enable autologging for scikit-learn.
     """
     import sklearn
-    from mlflow.sklearn.utils import _all_estimators, _get_args_for_score
+    from mlflow.sklearn.utils import _chunk_dict, _get_args_for_score, _all_estimators
 
     if _is_old_version():
         warnings.warn(
@@ -535,7 +536,11 @@ def autolog():
 
         # TODO: We should not log nested estimator parameters for
         # parameter search estimators (GridSearchCV, RandomizedSearchCV)
-        try_mlflow_log(mlflow.log_params, self.get_params(deep=True))
+
+        # Chunk model parameters to avoid hitting the log_batch API limit
+        for chunk in _chunk_dict(self.get_params(deep=True), chunk_size=MAX_PARAMS_TAGS_PER_BATCH):
+            try_mlflow_log(mlflow.log_params, chunk)
+
         try_mlflow_log(
             mlflow.set_tags,
             {
