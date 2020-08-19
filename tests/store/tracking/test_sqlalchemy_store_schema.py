@@ -12,9 +12,14 @@ import mlflow.db
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
+
 # pylint: disable=unused-import
 from mlflow.store.model_registry.dbmodels.models import (
-    SqlRegisteredModel, SqlModelVersion, SqlRegisteredModelTag, SqlModelVersionTag)
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
@@ -35,25 +40,30 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
         expected_schema_table_chunks = expected_schema_handle.read().split("\n\n")
     # Compare the two files table-by-table. We assume each CREATE TABLE statement is valid and
     # so sort the lines within the statements before comparing them.
-    for generated_schema_table, expected_schema_table \
-            in zip(generated_schema_table_chunks, expected_schema_table_chunks):
+    for generated_schema_table, expected_schema_table in zip(
+        generated_schema_table_chunks, expected_schema_table_chunks
+    ):
         generated_lines = [x.strip() for x in sorted(generated_schema_table.split("\n"))]
         expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
-        assert generated_lines == expected_lines,\
-            "Generated schema did not match expected schema. Generated schema had table " \
-            "definition:\n{generated_table}\nExpected schema had table definition:" \
-            "\n{expected_table}\nIf you intended to make schema changes, run " \
-            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to " \
+        assert generated_lines == expected_lines, (
+            "Generated schema did not match expected schema. Generated schema had table "
+            "definition:\n{generated_table}\nExpected schema had table definition:"
+            "\n{expected_table}\nIf you intended to make schema changes, run "
+            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to "
             "update the schema snapshot.".format(
-                generated_table=generated_schema_table, expected_table=expected_schema_table,
-                expected_file=expected_schema_file)
+                generated_table=generated_schema_table,
+                expected_table=expected_schema_table,
+                expected_file=expected_schema_file,
+            )
+        )
 
 
 @pytest.fixture()
 def expected_schema_file():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     yield os.path.normpath(
-        os.path.join(current_dir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql"))
+        os.path.join(current_dir, os.pardir, os.pardir, "resources", "db", "latest_schema.sql")
+    )
 
 
 @pytest.fixture()
@@ -62,7 +72,8 @@ def db_url(tmpdir):
 
 
 def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
-        tmpdir, db_url, expected_schema_file):
+    tmpdir, db_url, expected_schema_file
+):
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     # Repeatedly initialize a SQLAlchemyStore against the same DB URL. Initialization should
     # succeed and the schema should be the same.
@@ -76,14 +87,15 @@ def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_fi
     """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
-    invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     dump_db_schema(db_url, generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
 def test_sqlalchemy_store_detects_schema_mismatch(
-        tmpdir, db_url):  # pylint: disable=unused-argument
+    tmpdir, db_url
+):  # pylint: disable=unused-argument
     def _assert_invalid_schema(engine):
         with pytest.raises(MlflowException) as ex:
             _verify_schema(engine)
@@ -104,7 +116,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
         command.upgrade(config, rev.revision)
         _assert_invalid_schema(engine)
     # Run migrations, schema verification should now pass
-    invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
     _verify_schema(engine)
 
 

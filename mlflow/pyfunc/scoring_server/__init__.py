@@ -13,7 +13,6 @@ Defines two endpoints:
 from collections import OrderedDict
 import flask
 import json
-from json import JSONEncoder
 import logging
 import numpy as np
 import pandas as pd
@@ -55,13 +54,13 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_NUMPY
+    CONTENT_TYPE_JSON_SPLIT_NUMPY,
 ]
 
 _logger = logging.getLogger(__name__)
 
 
-def parse_json_input(json_input, orient="split", schema: Schema=None):
+def parse_json_input(json_input, orient="split", schema: Schema = None):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
                        containing such a string representation.
@@ -78,8 +77,10 @@ def parse_json_input(json_input, orient="split", schema: Schema=None):
                 "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                 " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
                 " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                " method.".format(orient=orient)),
-            error_code=MALFORMED_REQUEST)
+                " method.".format(orient=orient)
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
 
 
 def parse_csv_input(csv_input):
@@ -95,8 +96,10 @@ def parse_csv_input(csv_input):
             error_message=(
                 "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                 " a valid CSV-formatted Pandas DataFrame produced using the"
-                " `pandas.DataFrame.to_csv()` method."),
-            error_code=MALFORMED_REQUEST)
+                " `pandas.DataFrame.to_csv()` method."
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
 
 
 def parse_split_oriented_json_input_to_numpy(json_input):
@@ -107,9 +110,11 @@ def parse_split_oriented_json_input_to_numpy(json_input):
     # pylint: disable=broad-except
     try:
         json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
-        return pd.DataFrame(index=json_input_list['index'],
-                            data=np.array(json_input_list['data'], dtype=object),
-                            columns=json_input_list['columns']).infer_objects()
+        return pd.DataFrame(
+            index=json_input_list["index"],
+            data=np.array(json_input_list["data"], dtype=object),
+            columns=json_input_list["columns"],
+        ).infer_objects()
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -118,7 +123,8 @@ def parse_split_oriented_json_input_to_numpy(json_input):
                 " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
                 " method."
             ),
-            error_code=MALFORMED_REQUEST)
+            error_code=MALFORMED_REQUEST,
+        )
 
 
 def predictions_to_json(raw_predictions, output):
@@ -155,7 +161,7 @@ def init(model: PyFuncModel):
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
 
-    @app.route('/ping', methods=['GET'])
+    @app.route("/ping", methods=["GET"])
     def ping():  # pylint: disable=unused-variable
         """
         Determine if the container is working and healthy.
@@ -163,9 +169,9 @@ def init(model: PyFuncModel):
         """
         health = model is not None
         status = 200 if health else 404
-        return flask.Response(response='\n', status=status, mimetype='application/json')
+        return flask.Response(response="\n", status=status, mimetype="application/json")
 
-    @app.route('/invocations', methods=['POST'])
+    @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception
     def transformation():  # pylint: disable=unused-variable
         """
@@ -175,25 +181,31 @@ def init(model: PyFuncModel):
         """
         # Convert from CSV to pandas
         if flask.request.content_type == CONTENT_TYPE_CSV:
-            data = flask.request.data.decode('utf-8')
+            data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split", schema=input_schema)
+            data = parse_json_input(
+                json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema
+            )
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records", schema=input_schema)
+            data = parse_json_input(
+                json_input=flask.request.data.decode("utf-8"), orient="records", schema=input_schema
+            )
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
-            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
+            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
         else:
             return flask.Response(
-                response=("This predictor only supports the following content types,"
-                          " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                response=(
+                    "This predictor only supports the following content types,"
+                    " {supported_content_types}. Got '{received_content_type}'.".format(
+                        supported_content_types=CONTENT_TYPES,
+                        received_content_type=flask.request.content_type,
+                    )
+                ),
                 status=415,
-                mimetype='text/plain')
+                mimetype="text/plain",
+            )
 
         # Do the prediction
         # pylint: disable=broad-except
@@ -201,19 +213,20 @@ def init(model: PyFuncModel):
             raw_predictions = model.predict(data)
         except MlflowException as e:
             _handle_serving_error(
-                error_message=e.message,
-                error_code=BAD_REQUEST,
-                include_traceback=False)
+                error_message=e.message, error_code=BAD_REQUEST, include_traceback=False
+            )
         except Exception:
             _handle_serving_error(
                 error_message=(
                     "Encountered an unexpected error while evaluating the model. Verify"
                     " that the serialized input Dataframe is compatible with the model for"
-                    " inference."),
-                error_code=BAD_REQUEST)
+                    " inference."
+                ),
+                error_code=BAD_REQUEST,
+            )
         result = StringIO()
         predictions_to_json(raw_predictions, result)
-        return flask.Response(response=result.getvalue(), status=200, mimetype='application/json')
+        return flask.Response(response=result.getvalue(), status=200, mimetype="application/json")
 
     return app
 

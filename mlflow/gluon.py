@@ -1,13 +1,8 @@
 import os
 
 import gorilla
-import mxnet as mx
 import pandas as pd
 import yaml
-from mxnet import gluon
-from mxnet import sym
-from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
-from mxnet.gluon.nn import HybridSequential
 
 import mlflow
 from mlflow import pyfunc
@@ -17,7 +12,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -53,12 +48,15 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
+    from mxnet import gluon
+    from mxnet import sym
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
     symbol = sym.load(model_arch_path)
-    inputs = sym.var('data', dtype='float32')
+    inputs = sym.var("data", dtype="float32")
     net = gluon.SymbolBlock(symbol, inputs)
     net.collect_params().load(model_params_path, ctx)
     return net
@@ -75,6 +73,8 @@ class _GluonModelWrapper:
         :return: A Pandas DataFrame containing output array values. The underlying MXNet array
                  can be extracted from the output DataFrame as `ndarray = mx.nd.array(df.values)`.
         """
+        import mxnet as mx
+
         ndarray = mx.nd.array(df.values)
         return pd.DataFrame(self.gluon_model(ndarray).asnumpy())
 
@@ -85,13 +85,21 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``gluon`` flavor.
     """
+    import mxnet as mx
+
     m = load_model(path, mx.current_context())
     return _GluonModelWrapper(m)
 
 
 @experimental
-def save_model(gluon_model, path, mlflow_model=None, conda_env=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(
+    gluon_model,
+    path,
+    mlflow_model=None,
+    conda_env=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Save a Gluon model to a path on the local file system.
 
@@ -195,14 +203,22 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
+    import mxnet as mx
+
     pip_deps = ["mxnet=={}".format(mx.__version__)]
 
     return _mlflow_conda_env(additional_pip_deps=pip_deps)
 
 
 @experimental
-def log_model(gluon_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None):
+def log_model(
+    gluon_model,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
@@ -273,9 +289,15 @@ def log_model(gluon_model, artifact_path, conda_env=None, registered_model_name=
             est.fit(train_data=train_data, epochs=100, val_data=validation_data)
             mlflow.gluon.log_model(net, "model")
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.gluon, gluon_model=gluon_model,
-              conda_env=conda_env, registered_model_name=registered_model_name,
-              signature=signature, input_example=input_example)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.gluon,
+        gluon_model=gluon_model,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+    )
 
 
 @experimental
@@ -286,6 +308,9 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
     """
+
+    from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
+    from mxnet.gluon.nn import HybridSequential
 
     class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin):
         def __init__(self):
@@ -308,14 +333,13 @@ def autolog():
                 try_mlflow_log(mlflow.log_param, "epochs", estimator.max_epoch)
             if estimator.max_batch is not None:
                 try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
-            try_mlflow_log(mlflow.log_param, "optimizer_name",
-                           type(estimator.trainer.optimizer).__name__)
+            try_mlflow_log(
+                mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
+            )
             if hasattr(estimator.trainer.optimizer, "lr"):
-                try_mlflow_log(mlflow.log_param, "learning_rate",
-                               estimator.trainer.optimizer.lr)
+                try_mlflow_log(mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr)
             if hasattr(estimator.trainer.optimizer, "epsilon"):
-                try_mlflow_log(mlflow.log_param, "epsilon",
-                               estimator.trainer.optimizer.epsilon)
+                try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
 
         def train_end(self, estimator, *args, **kwargs):
             if isinstance(estimator.net, HybridSequential):

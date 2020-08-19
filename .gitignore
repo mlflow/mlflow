@@ -79,6 +79,7 @@ venv.bak/
 *.idea
 *.vscode
 *.iml
+*~
 
 # mkdocs documentation
 /site

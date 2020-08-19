@@ -11,14 +11,13 @@ from mlflow.tracking._tracking_service.utils import (
     get_tracking_uri,
     is_tracking_uri_set,
     _get_store,
-    _TRACKING_URI_ENV_VAR
+    _TRACKING_URI_ENV_VAR,
 )
 from mlflow.tracking._model_registry.utils import (
     set_registry_uri,
     get_registry_uri,
 )
-from mlflow.tracking.fluent import _EXPERIMENT_ID_ENV_VAR, _EXPERIMENT_NAME_ENV_VAR, \
-    _RUN_ID_ENV_VAR
+from mlflow.tracking.fluent import _EXPERIMENT_ID_ENV_VAR, _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR
 
 __all__ = [
     "MlflowClient",
@@ -29,6 +28,7 @@ __all__ = [
     "get_registry_uri",
     "set_registry_uri",
     "_EXPERIMENT_ID_ENV_VAR",
+    "_EXPERIMENT_NAME_ENV_VAR",
     "_RUN_ID_ENV_VAR",
     "_TRACKING_URI_ENV_VAR",
 ]

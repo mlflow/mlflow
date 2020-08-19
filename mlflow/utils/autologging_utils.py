@@ -42,8 +42,9 @@ def get_unspecified_default_args(user_args, user_kwargs, all_param_names, all_de
         names_to_exclude = default_param_names[:num_default_args_passed_as_positional]
         user_specified_arg_names.update(names_to_exclude)
 
-    return {name: value for name, value in default_args.items()
-            if name not in user_specified_arg_names}
+    return {
+        name: value for name, value in default_args.items() if name not in user_specified_arg_names
+    }
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
@@ -75,9 +76,11 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
         try_mlflow_log(mlflow.log_params, defaults)
 
     # Logging the arguments passed by the user
-    args_dict = dict((param_name, param_val) for param_name, param_val
-                     in zip(all_param_names, args)
-                     if param_name not in unlogged)
+    args_dict = dict(
+        (param_name, param_val)
+        for param_name, param_val in zip(all_param_names, args)
+        if param_name not in unlogged
+    )
 
     if args_dict:
         try_mlflow_log(mlflow.log_params, args_dict)

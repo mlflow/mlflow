@@ -10,6 +10,7 @@ import {
   DELETE_REGISTERED_MODEL_TAG,
   SET_MODEL_VERSION_TAG,
   DELETE_MODEL_VERSION_TAG,
+  PARSE_MLMODEL_FILE,
 } from './actions';
 import { getProtoField } from './utils';
 import _ from 'lodash';
@@ -105,6 +106,93 @@ const modelVersionsByModel = (state = {}, action) => {
     default:
       return state;
   }
+};
+
+const mlModelArtifactByModelVersion = (state = {}, action) => {
+  switch (action.type) {
+    case fulfilled(PARSE_MLMODEL_FILE): {
+      const artifact = action.payload;
+      const { modelName, version } = action.meta;
+      return {
+        ...state,
+        [modelName]: {
+          ...state[modelName],
+          [version]: artifact,
+        },
+      };
+    }
+    default:
+      return state;
+  }
+};
+
+export const getModelVersionSchemas = (state, modelName, version) => {
+  const schemaMap = {};
+  schemaMap['inputs'] = [];
+  schemaMap['outputs'] = [];
+  if (
+    state.entities.mlModelArtifactByModelVersion[modelName] &&
+    state.entities.mlModelArtifactByModelVersion[modelName][version]
+  ) {
+    const artifact = state.entities.mlModelArtifactByModelVersion[modelName][version];
+    if (artifact.signature) {
+      if (artifact.signature.inputs) {
+        schemaMap['inputs'] = JSON.parse(artifact.signature.inputs);
+      }
+      if (artifact.signature.outputs) {
+        schemaMap['outputs'] = JSON.parse(artifact.signature.outputs);
+      }
+    }
+  }
+  return schemaMap;
+};
+
+export const getModelVersionSchemaInputsByIndex = (state, modelName, version) => {
+  const schemas = getModelVersionSchemas(state, modelName, version);
+  const schemaInputsByIndex = {};
+  schemas.inputs.forEach((input, index) => {
+    schemaInputsByIndex[index] = {
+      key: index,
+      value: `${input.name}: ${input.type}`,
+    };
+  });
+  return schemaInputsByIndex;
+};
+
+export const getModelVersionSchemaInputsByName = (state, modelName, version) => {
+  const schemas = getModelVersionSchemas(state, modelName, version);
+  const schemaInputsByName = {};
+  schemas.inputs.forEach((input) => {
+    schemaInputsByName[input.name] = {
+      key: input.name,
+      value: input.type,
+    };
+  });
+  return schemaInputsByName;
+};
+
+export const getModelVersionSchemaOutputsByIndex = (state, modelName, version) => {
+  const schemas = getModelVersionSchemas(state, modelName, version);
+  const schemaOutputsByIndex = {};
+  schemas.outputs.forEach((output, index) => {
+    schemaOutputsByIndex[index] = {
+      key: index,
+      value: `${output.name}: ${output.type}`,
+    };
+  });
+  return schemaOutputsByIndex;
+};
+
+export const getModelVersionSchemaOutputsByName = (state, modelName, version) => {
+  const schemas = getModelVersionSchemas(state, modelName, version);
+  const schemaOutputsByName = {};
+  schemas.outputs.forEach((output) => {
+    schemaOutputsByName[output.name] = {
+      key: output.name,
+      value: output.type,
+    };
+  });
+  return schemaOutputsByName;
 };
 
 export const getModelVersion = (state, modelName, version) => {
@@ -255,4 +343,5 @@ export default {
   modelVersionsByModel,
   tagsByRegisteredModel,
   tagsByModelVersion,
+  mlModelArtifactByModelVersion,
 };
