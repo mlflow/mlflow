@@ -143,7 +143,7 @@ def test_meta_estimator():
     Xy = get_iris()
 
     with mlflow.start_run() as run:
-        model = fit_model(model, Xy, "fit")
+        model.fit(*Xy)
 
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -168,7 +168,7 @@ def test_get_params_returns_dict_with_more_than_100_top_level_keys():
     with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
         with mlflow.start_run() as run:
             model = sklearn.cluster.KMeans()
-            model = fit_model(model, Xy, "fit")
+            model.fit(*Xy)
 
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
@@ -356,7 +356,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
     ) as mock_log_model:
 
         with mlflow.start_run() as run:
-            model = fit_model(model, Xy, "fit")
+            model.fit(*Xy)
             mock_log_params.assert_called_once()
             mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
