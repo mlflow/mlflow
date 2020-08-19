@@ -529,8 +529,8 @@ def autolog():
         )
 
     def fit_mlflow(self, func_name, *args, **kwargs):
-        active_run_exists = mlflow.active_run() is not None
-        if not active_run_exists:
+        should_start_run = mlflow.active_run() is None
+        if not should_start_run:
             try_mlflow_log(mlflow.start_run)
 
         # TODO: We should not log nested estimator parameters for
@@ -548,7 +548,7 @@ def autolog():
         try:
             fit_output = original_fit(*args, **kwargs)
         except Exception as e:
-            if not active_run_exists:
+            if should_start_run:
                 mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
 
             raise e
@@ -562,7 +562,7 @@ def autolog():
 
         try_mlflow_log(log_model, self, artifact_path="model")
 
-        if not active_run_exists:
+        if should_start_run:
             try_mlflow_log(mlflow.end_run)
 
         return fit_output
