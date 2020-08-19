@@ -23,7 +23,8 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .
-          pip install sklearn==${{ matrix.version }} pytest
+          pip install -r dev/small-requirements.txt
+          pip install scikit-learn==${{ matrix.version }}
       - name: Run tests
         run: |
           pytest --verbose tests/sklearn
