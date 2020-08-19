@@ -1429,8 +1429,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
-        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0 " \
+                        "and attribute.artifact_uri ILIKE '%%'"
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+
+        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0 " \
+                        "and status = 'FAILED'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # all params and metrics match
         filter_string = (

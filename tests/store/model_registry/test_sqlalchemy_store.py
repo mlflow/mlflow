@@ -736,7 +736,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         return [registered_model.name for registered_model in result], result.token
 
-    def test_search_registered_models(self):
+    def test_search_registered_models_attributes(self):
+        def test_all_attribute_filter(attribute_filter, expected_rms):
+            for attribute_filter_string in [
+                attribute_filter,
+                "attribute." + attribute_filter,
+                "attr." + attribute_filter
+            ]:
+                result_rms, _ = self._search_registered_models(attribute_filter_string)
+                self.assertEqual(result_rms, expected_rms)
+
         # create some registered models
         prefix = "test_for_search_"
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
@@ -748,83 +757,70 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms, names)
 
         # equality search using name should return exactly the 1 name
-        rms, _ = self._search_registered_models("name='{}'".format(names[0]))
-        self.assertEqual(rms, [names[0]])
+        test_all_attribute_filter("name='{}'".format(names[0]), [names[0]])
 
         # equality search using name that is not valid should return nothing
-        rms, _ = self._search_registered_models("name='{}'".format(names[0] + "cats"))
-        self.assertEqual(rms, [])
+        test_all_attribute_filter("name='{}'".format(names[0] + "cats"), [])
 
         # case-sensitive prefix search using LIKE should return all the RMs
-        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix))
-        self.assertEqual(rms, names)
+        test_all_attribute_filter("name LIKE '{}%'".format(prefix), names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
-        rms, _ = self._search_registered_models("name LIKE '%RM%'")
-        self.assertEqual(rms, names)
+        test_all_attribute_filter("name LIKE '%RM%'", names)
 
         # case-sensitive prefix search using LIKE with surrounding % should return all the RMs
         # _e% matches test_for_search_ , so all RMs should match
-        rms, _ = self._search_registered_models("name LIKE '_e%'")
-        self.assertEqual(rms, names)
+        test_all_attribute_filter("name LIKE '_e%'", names)
 
         # case-sensitive prefix search using LIKE should return just rm4
-        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix + "RM4A"))
-        self.assertEqual(rms, [names[4]])
+        test_all_attribute_filter("name LIKE '{}%'".format(prefix + "RM4A"), [names[4]])
 
         # case-sensitive prefix search using LIKE should return no models if no match
-        rms, _ = self._search_registered_models("name LIKE '{}%'".format(prefix + "cats"))
-        self.assertEqual(rms, [])
+        test_all_attribute_filter("name LIKE '{}%'".format(prefix + "cats"), [])
 
         # confirm that LIKE is not case-sensitive
-        rms, _ = self._search_registered_models("name lIkE '%blah%'")
-        self.assertEqual(rms, [])
-
-        rms, _ = self._search_registered_models("name like '{}%'".format(prefix + "RM4A"))
-        self.assertEqual(rms, [names[4]])
+        test_all_attribute_filter("name lIkE '%blah%'", [])
+        test_all_attribute_filter("name like '{}%'".format(prefix + "RM4A"), [names[4]])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        rms, _ = self._search_registered_models("name ILIKE '{}%'".format(prefix + "RM4A"))
-        self.assertEqual(rms, names[4:])
+        test_all_attribute_filter("name ILIKE '{}%'".format(prefix + "RM4A"), names[4:])
 
         # case-insensitive postfix search with ILIKE
-        rms, _ = self._search_registered_models("name ILIKE '%RM4a'")
-        self.assertEqual(rms, names[4:])
+        test_all_attribute_filter("name ILIKE '%RM4a'", names[4:])
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-        rms, _ = self._search_registered_models("name ILIKE '{}%'".format(prefix + "cats"))
-        self.assertEqual(rms, [])
+        test_all_attribute_filter("name ILIKE '{}%'".format(prefix + "cats"), [])
 
         # confirm that ILIKE is not case-sensitive
-        rms, _ = self._search_registered_models("name iLike '%blah%'")
-        self.assertEqual(rms, [])
+        test_all_attribute_filter("name iLike '%blah%'", [])
 
         # confirm that ILIKE works for empty query
-        rms, _ = self._search_registered_models("name iLike '%%'")
+        test_all_attribute_filter("name iLike '%%'", names)
+
+        test_all_attribute_filter("name ilike '%RM4a'", names[4:])
+
+        # test 'and' clause
+        rms, _ = self._search_registered_models("name LIKE '%RM%' and attr.name != 'RM'")
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models("name ilike '%RM4a'")
-        self.assertEqual(rms, names[4:])
+        rms, _ = self._search_registered_models("attribute.name = '{}RM2' and name ilike '%rm%'")
+        self.assertEqual(rms, names[1])
 
-        # cannot search by invalid comparator types
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("name!=something")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # cannot search by run_id
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("run_id='%s'" % "somerunID")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # cannot search by source_path
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("source_path = 'A/D'")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-
-        # cannot search by other params
-        with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models("evilhax = true")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        for bad_filter_string in [
+            "name!=something",
+            "run_id='%s'" % "somerunID",
+            "source_path = 'A/D'",
+            "evilhax = true"
+        ]:
+            for bad_attribute_filter in [
+                bad_filter_string,
+                "attribute." + bad_filter_string,
+                "attr." + bad_filter_string
+            ]:
+                with self.assertRaises(MlflowException) as exception_context:
+                    self._search_registered_models(bad_attribute_filter)
+                assert exception_context.exception.error_code == \
+                       ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
         # delete last registered model. search should not return the first 5
         self.store.delete_registered_model(name=names[-1])
@@ -844,12 +840,101 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ([names[4]], None),
         )
 
+    def _set_up_model_and_tags_for_search(self, prefix):
+        # create some registered models
+        names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
+        for name in names:
+            self._rm_maker(name)
+        names_subset1 = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]]
+        for name in names_subset1:
+            self.store.set_registered_model_tag(
+                name,
+                RegisteredModelTag("training algorithm", "lightgbm")
+            )
+        names_subset2 = [prefix + name for name in ["RM4A", "RM4a"]]
+        for name in names_subset2:
+            self.store.set_registered_model_tag(
+                name,
+                RegisteredModelTag("training algorithm", "xgboost")
+            )
+        # set registered model tags
+        self.store.set_registered_model_tag(prefix + "RM1", RegisteredModelTag("owner", "aaa"))
+        self.store.set_registered_model_tag(prefix + "RM2", RegisteredModelTag("owner", "bbb"))
+        self.store.set_registered_model_tag(prefix + "RM3", RegisteredModelTag("owner", "aaa"))
+        self.store.set_registered_model_tag(prefix + "RM4", RegisteredModelTag("owner", "ccc"))
+
+    def test_search_registered_models_tags(self):
+        prefix = "test_for_search_tags"
+        self._set_up_model_and_tags_for_search(prefix)
+
+        result_rms, _ = self._search_registered_models("tags.`training algorithm` = 'lightgbm'")
+        self.assertEqual(result_rms, [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]])
+
+        result_rms, _ = self._search_registered_models("model_tag.`training algorithm` "
+                                                       "like '%boost' and tags.owner != 'aaa'")
+        self.assertEqual(result_rms, [prefix + "RM4", prefix + "RM4a"])
+
+        result_rms, _ = self._search_registered_models("tag.`training algorithm` ilike 'LIGHT%' "
+                                                       "and tags.owner != 'aaa'")
+        self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
+
+        result_rms, _ = self._search_registered_models("registered_model_tags.`training algorithm`"
+                                                       " = 'lightgbm' and tags.owner = 'ddd'")
+        self.assertEqual(result_rms, [])
+
+        for bad_filter in [
+            "tags.training algorithm = 'lightgbm'",
+            "tags.owner = kkk",
+            "version_tag.owner = 'aaa'",
+            "tags.`training algorithm` = 'xgboost' or tags.owner = 'aaa'"
+        ]:
+            with self.assertRaises(MlflowException) as exception_context:
+                self._search_registered_models(bad_filter)
+            assert exception_context.exception.error_code == \
+                   ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_search_registered_model_complex(self):
+        prefix = "test_for_search_model_complex_"
+        self._set_up_model_and_tags_for_search(prefix)
+
+        result_rms, _ = self._search_registered_models("tags.`training algorithm` = 'lightgbm'"
+                                                       " and name like '%RM1'")
+        self.assertEqual(result_rms, [prefix + "RM1"])
+
+        result_rms, _ = self._search_registered_models("model_tag.`training algorithm` "
+                                                       "like '%boost' and tags.owner != 'aaa'"
+                                                       " and attribute.name != '{}RM4'"
+                                                       .format(prefix))
+        self.assertEqual(result_rms, [prefix + "RM4a"])
+
+        result_rms, _ = self._search_registered_models("tag.`training algorithm` ilike 'LIGHT%' "
+                                                       "and tags.owner != 'aaa'"
+                                                       " and attr.name ilike '%%'")
+        self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
+
+        result_rms, _ = self._search_registered_models("registered_model_tags.`training algorithm`"
+                                                       " = 'lightgbm' and name = 'jkjk'")
+        self.assertEqual(result_rms, [])
+
+        for bad_filter in [
+            "tags.`training algorithm` = 'lightgbm' and name IN ['aaa', 'bbb']",
+            "tags.owner = kkk and attribute.name = 'RM1'",
+            "tag.owner = 'aaa' and attri.name = 'RM2'",
+            "tags.`training algorithm` = 'xgboost' or name = 'aaa'"
+        ]:
+            with self.assertRaises(MlflowException) as exception_context:
+                self._search_registered_models(bad_filter)
+            assert exception_context.exception.error_code == \
+                   ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
+        for rm in rms:
+            self.store.set_registered_model_tag(rm, RegisteredModelTag("passed", "true"))
 
         # test flow with fixed max_results
         returned_rms = []
-        query = "name LIKE 'RM%'"
+        query = "name LIKE 'RM%' and tags.passed = 'true'"
         result, token = self._search_registered_models(query, page_token=None, max_results=5)
         returned_rms.extend(result)
         while token:
@@ -889,7 +974,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             "Invalid value for request parameter max_results", exception_context.exception.message
         )
 
-    def test_search_registered_model_order_by(self):
+    def test_search_registered_model_attribute_order_by(self):
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
@@ -1008,6 +1093,72 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             query, page_token=None, order_by=["timestamp  deSc", "name deSc"], max_results=100
         )
         self.assertEqual([rm4, rm3, rm2, rm1], result)
+
+    def test_search_registered_model_tags_order_by(self):
+        rms = []
+        start_char = 'A'
+        for i in range(50):
+            name = self._rm_maker("RM{:03}".format(i)).name
+            rms.append(name)
+            # use incrementing ascii char as tag value to make sure ordering is correct
+            self.store.set_registered_model_tag(name, RegisteredModelTag(
+                "order id", chr(ord(start_char) + i)
+            ))
+
+        # test flow with fixed max_results and order_by (test stable order across pages)
+        returned_rms = []
+        query = "name LIKE 'RM%'"
+        result, token = self._search_registered_models(
+            query, page_token=None, order_by=["tags.`order id` DESC"], max_results=5
+        )
+        returned_rms.extend(result)
+        while token:
+            result, token = self._search_registered_models(
+                query, page_token=token, order_by=["tags.`order id` DESC"], max_results=5
+            )
+            returned_rms.extend(result)
+        # name descending should be the opposite order of the current order
+        self.assertEqual(rms[::-1], returned_rms)
+
+        result, _ = self._search_registered_models(
+            query, page_token=None, order_by=["tags.`order id`"], max_results=100
+        )
+        self.assertEqual(rms, result)
+
+        result, _ = self._search_registered_models(
+            query, page_token=None, order_by=["tags.`order id` asc"], max_results=100
+        )
+        self.assertEqual(rms, result)
+
+        result, _ = self._search_registered_models(
+            query, page_token=None, order_by=["tags.`order id` DESC"], max_results=100
+        )
+        self.assertEqual(rms[::-1], result)
+
+        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+            rm1 = self._rm_maker("MR1").name
+            self.store.set_registered_model_tag(rm1, RegisteredModelTag("number", "1"))
+            rm2 = self._rm_maker("MR2").name
+            self.store.set_registered_model_tag(rm2, RegisteredModelTag("number", "2"))
+        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+            rm3 = self._rm_maker("MR3").name
+            self.store.set_registered_model_tag(rm3, RegisteredModelTag("number", "3"))
+            rm4 = self._rm_maker("MR4").name
+            self.store.set_registered_model_tag(rm4, RegisteredModelTag("number", "4"))
+
+        query = "name LIKE 'MR%'"
+        # test with multiple clauses
+        result, _ = self._search_registered_models(
+            query,
+            page_token=None,
+            order_by=["last_updated_timestamp ASC", "tag.number DESC"],
+            max_results=100,
+        )
+        self.assertEqual([rm2, rm1, rm4, rm3], result)
+        result, _ = self._search_registered_models(
+            query, page_token=None, order_by=["timestamp ASC", "tag.number  DESC"], max_results=100
+        )
+        self.assertEqual([rm2, rm1, rm4, rm3], result)
 
     def test_search_registered_model_order_by_errors(self):
         query = "name LIKE 'RM%'"
