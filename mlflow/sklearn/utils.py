@@ -26,9 +26,9 @@ def _get_Xy(args, kwargs):
         return args[:2]
 
     if len(args) == 1:
-        return (args[0], kwargs["y"])
+        return args[0], kwargs["y"]
 
-    return (kwargs["X"], kwargs["y"])
+    return kwargs["X"], kwargs["y"]
 
 
 def _get_sample_weight(args_list, args, kwargs):
