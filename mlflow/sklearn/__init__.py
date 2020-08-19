@@ -8,7 +8,6 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-from distutils.version import LooseVersion
 import functools
 import gorilla
 import os
@@ -509,18 +508,17 @@ class _SklearnTrainingSession(object):
         )
 
 
-def _is_old_version():
-    from sklearn import __version__
-
-    return LooseVersion(__version__) < LooseVersion("0.20.3")
-
-
 def autolog():
     """
     Enable autologging for scikit-learn.
     """
     import sklearn
-    from mlflow.sklearn.utils import _chunk_dict, _get_args_for_score, _all_estimators
+    from mlflow.sklearn.utils import (
+        _is_old_version,
+        _chunk_dict,
+        _get_args_for_score,
+        _all_estimators,
+    )
 
     if _is_old_version():
         warnings.warn(

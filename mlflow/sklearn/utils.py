@@ -1,7 +1,24 @@
+from distutils.version import LooseVersion
 import inspect
 from itertools import islice
 
 _SAMPLE_WEIGHT = "sample_weight"
+
+
+def _is_old_version():
+    import sklearn
+
+    return LooseVersion(sklearn.__version__) < LooseVersion("0.20.3")
+
+
+def _all_estimators():
+    import sklearn
+
+    return (
+        sklearn.utils.all_estimators()
+        if hasattr(sklearn.utils, "all_estimators")
+        else _backported_all_estimators()
+    )
 
 
 def _get_Xy(args, kwargs):
@@ -53,7 +70,7 @@ def _chunk_dict(data, chunk_size=100):
         yield {k: data[k] for k in islice(it, chunk_size)}
 
 
-def _all_estimators(type_filter=None):
+def _backported_all_estimators(type_filter=None):
     """
     Backported from scikit-learn 0.23.2:
     https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/utils/__init__.py#L1146

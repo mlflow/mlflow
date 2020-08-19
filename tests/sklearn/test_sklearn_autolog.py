@@ -75,19 +75,23 @@ def test_autolog_preserves_original_function_attributes():
         attrs = {}
         for method_name in FIT_FUNC_NAMES:
             if hasattr(cls, method_name):
-                attrs[method_name] = get_func_attrs(getattr(cls, method_name))
+                attr = getattr(cls, method_name)
+                if isinstance(attr, property):
+                    continue
+
+                attrs[method_name] = get_func_attrs(attr)
         return attrs
 
-    before = [get_cls_attrs(cls) for _, cls in mlflow.sklearn._get_all_estimators()]
+    before = [get_cls_attrs(cls) for _, cls in mlflow.sklearn.utils._all_estimators()]
     mlflow.sklearn.autolog()
-    after = [get_cls_attrs(cls) for _, cls in mlflow.sklearn._get_all_estimators()]
+    after = [get_cls_attrs(cls) for _, cls in mlflow.sklearn.utils._all_estimators()]
 
     for b, a in zip(before, after):
         assert b == a
 
 
 @pytest.mark.skipif(
-    not mlflow.sklearn._is_old_version(), reason="This test fails on sklearn>=0.20.3"
+    not mlflow.sklearn.utils._is_old_version(), reason="This test fails on sklearn>=0.20.3"
 )
 def test_autolog_emits_warning_on_older_versions_of_sklearn():
     with pytest.warns(
