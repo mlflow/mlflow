@@ -35,6 +35,7 @@ for more details on necessary prerequisites for running the examples on your own
        mlflow run . -e simple\
                 --experiment-name RAPIDS-CLI \
                 -P max_depth=10 -P max_features=0.75 -P n_estimators=500 \
+                -P conda-env=$PWD/envs/conda.yaml \
                 -P fpath=airline_small.parquet
        ```
 1. Train the model with Hyperopt
