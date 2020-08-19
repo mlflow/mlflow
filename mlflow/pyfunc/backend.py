@@ -5,8 +5,7 @@ import subprocess
 import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
-from mlflow.pyfunc import ENV
-from mlflow.pyfunc import scoring_server
+from mlflow.pyfunc import ENV, scoring_server
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri

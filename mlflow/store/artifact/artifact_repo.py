@@ -4,7 +4,7 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 
 from mlflow.utils.validation import path_not_unique, bad_path_message
-from mlflow.utils import experimental
+from mlflow.utils.annotations import experimental
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST

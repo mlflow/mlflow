@@ -8,7 +8,7 @@ from moto.core.responses import BaseResponse
 from moto.ec2 import ec2_backends
 
 from moto.iam.models import ACCOUNT_ID
-from moto.core.models import base_decorator, deprecated_base_decorator
+from moto.core.models import base_decorator
 
 SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
 

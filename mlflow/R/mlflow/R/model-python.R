@@ -1,10 +1,13 @@
-create_conda_env <- function(name, path, channels = "defaults", conda_deps = list(),
-                                                                pip_deps = list()) {
+create_conda_env <- function(name,
+                             path,
+                             channels = list("defaults"),
+                             conda_deps = list(),
+                             pip_deps = list()) {
   conda_deps$pip <- pip_deps
   deps <- list(
     name = name,
     channels = channels,
-    dependencies = conda_deps
+    dependencies = list(conda_deps)
   )
   write_yaml(deps, path)
 }

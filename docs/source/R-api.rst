@@ -1303,6 +1303,7 @@ model types.
 
    list(list("mlflow_save_model"), list("crate"))(model, path, model_spec = list(), ...)
    list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
+   list(list("mlflow_save_model"), list("xgb.Booster"))(model, path, model_spec = list(), conda_env = NULL, ...)
    mlflow_save_model(model, path, model_spec = list(), ...)
 
 .. _arguments-29:

@@ -60,7 +60,6 @@ jobs:
     - name: Run tests
       run: |
         source ./dev/install-common-deps.sh
-        source activate test-environment
         cd mlflow/R/mlflow
         R CMD build .
         export LINTR_COMMENT_BOT=false
@@ -183,6 +182,20 @@ jobs:
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./dev/run-python-flavor-tests.sh;
+
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+      - name: Install mlflow
+        run: |
+          pip install -e .
+      - name: Verify mlflow can be imported without errors
+        run: |
+          python -c "import mlflow"
 
   tensorflow:
     runs-on: ubuntu-latest
