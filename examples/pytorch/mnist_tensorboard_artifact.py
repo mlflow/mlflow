@@ -232,7 +232,7 @@ with mlflow.start_run():
     loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
 
     # Extract a few examples from the test dataset to evaulate on
-    _, (eval_data, eval_labels) = next(enumerate(test_loader))
+    eval_data, eval_labels = next(iter(test_loader))
 
     # Make a few predictions
     predictions = loaded_model(eval_data).data.max(1)[1]
