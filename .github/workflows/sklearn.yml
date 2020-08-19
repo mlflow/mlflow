@@ -22,7 +22,7 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .
-          pip install sklearn==${{ matrix.version }}
+          pip install sklearn==${{ matrix.version }} pytest
       - name: Run tests
         run: |
           pytest --verbose tests/sklearn
