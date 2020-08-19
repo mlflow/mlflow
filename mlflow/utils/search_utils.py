@@ -49,11 +49,31 @@ class SearchUtils(object):
     _ALTERNATE_RUN_TAG_IDENTIFIERS = set(["tags"])
     _ATTRIBUTE_IDENTIFIER = "attribute"
     _ALTERNATE_RUN_ATTRIBUTE_IDENTIFIERS = set(["attr", "attributes", "run"])
-    _ALTERNATE_MODEL_ATTRIBUTE_IDENTIFIERS = set(["attr", "attributes", "model", "registered_model",
-                                                  "models", "registered_models"])
-    _ALTERNATE_MODEL_TAG_IDENTIFIERS = set(["tags", "model_tag", "registered_model_tag", "model_tags",
-                                            "registered_model_tags"])
-    _RUN_IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
+    _ALTERNATE_MODEL_ATTRIBUTE_IDENTIFIERS = set(
+        [
+            "attr",
+            "attributes",
+            "model",
+            "registered_model",
+            "models",
+            "registered_models",
+        ]
+    )
+    _ALTERNATE_MODEL_TAG_IDENTIFIERS = set(
+        [
+            "tags",
+            "model_tag",
+            "registered_model_tag",
+            "model_tags",
+            "registered_model_tags",
+        ]
+    )
+    _RUN_IDENTIFIERS = [
+        _METRIC_IDENTIFIER,
+        _PARAM_IDENTIFIER,
+        _TAG_IDENTIFIER,
+        _ATTRIBUTE_IDENTIFIER,
+    ]
     _MODEL_IDENTIFIERS = [_TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
     _VALID_RUN_IDENTIFIERS = set(
         _RUN_IDENTIFIERS
@@ -68,7 +88,9 @@ class SearchUtils(object):
         + list(_ALTERNATE_MODEL_TAG_IDENTIFIERS)
     )
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
-    NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+    NUMERIC_VALUE_TYPES = set(
+        [TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float]
+    )
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
     VALID_SEARCH_MODEL_VERSION_ATTRIBUTE_KEYS = set(["name", "run_id", "source_path"])
@@ -160,7 +182,7 @@ class SearchUtils(object):
                 "Invalid entity type '%s'. "
                 "Valid values are %s" % (entity_type, cls._MODEL_IDENTIFIERS),
                 error_code=INVALID_PARAMETER_VALUE,
-                )
+            )
         if entity_type in cls._ALTERNATE_MODEL_ATTRIBUTE_IDENTIFIERS:
             return cls._ATTRIBUTE_IDENTIFIER
         elif entity_type in cls._ALTERNATE_MODEL_TAG_IDENTIFIERS:
@@ -183,12 +205,16 @@ class SearchUtils(object):
                         "'param.'." % full_column_name,
                         error_code=INVALID_PARAMETER_VALUE,
                     )
+
         # search models may not provide table name, in that case default to attribute table
         # (e.g name = 'CNN' is equivalent to attribute.model = 'CNN')
         column_only = not is_search_run and identifier.find(".") == -1
         entity_type, key = split_identifier(identifier, column_only)
-        identifier = cls._valid_run_entity_type(entity_type) if is_search_run \
+        identifier = (
+            cls._valid_run_entity_type(entity_type)
+            if is_search_run
             else cls._valid_model_entity_type(entity_type)
+        )
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException(
@@ -202,11 +228,15 @@ class SearchUtils(object):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException(
-                    "Expected numeric value type for metric. " "Found {}".format(token.value),
+                    "Expected numeric value type for metric. "
+                    "Found {}".format(token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
-        elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
+        elif (
+            identifier_type == cls._PARAM_IDENTIFIER
+            or identifier_type == cls._TAG_IDENTIFIER
+        ):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
@@ -241,12 +271,19 @@ class SearchUtils(object):
             )
         if not isinstance(tokens[0], Identifier):
             raise MlflowException(
-                "{}. Expected 'Identifier' found '{}'".format(base_error_string, str(tokens[0])),
+                "{}. Expected 'Identifier' found '{}'".format(
+                    base_error_string, str(tokens[0])
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
+        if (
+            not isinstance(tokens[1], Token)
+            and tokens[1].ttype != TokenType.Operator.Comparison
+        ):
             raise MlflowException(
-                "{}. Expected comparison found '{}'".format(base_error_string, str(tokens[1])),
+                "{}. Expected comparison found '{}'".format(
+                    base_error_string, str(tokens[1])
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not isinstance(tokens[2], Token) and (
@@ -254,15 +291,21 @@ class SearchUtils(object):
             or isinstance(tokens[2], Identifier)
         ):
             raise MlflowException(
-                "{}. Expected value token found '{}'".format(base_error_string, str(tokens[2])),
+                "{}. Expected value token found '{}'".format(
+                    base_error_string, str(tokens[2])
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
     @classmethod
     def _get_comparison(cls, comparison, valid_search_keys, is_search_run):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        stripped_comparison = [
+            token for token in comparison.tokens if not token.is_whitespace
+        ]
         cls._validate_comparison(stripped_comparison)
-        comp = cls._get_identifier(stripped_comparison[0].value, valid_search_keys, is_search_run)
+        comp = cls._get_identifier(
+            stripped_comparison[0].value, valid_search_keys, is_search_run
+        )
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
         return comp
@@ -302,7 +345,8 @@ class SearchUtils(object):
             parsed = sqlparse.parse(filter_string)
         except Exception:
             raise MlflowException(
-                "Error on parsing filter '%s'" % filter_string, error_code=INVALID_PARAMETER_VALUE
+                "Error on parsing filter '%s'" % filter_string,
+                error_code=INVALID_PARAMETER_VALUE,
             )
         if len(parsed) == 0 or not isinstance(parsed[0], Statement):
             raise MlflowException(
@@ -319,7 +363,9 @@ class SearchUtils(object):
 
     @classmethod
     def parse_filter_for_run(cls, filter_string):
-        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_RUN_ATTRIBUTE_KEYS, True)
+        return cls._parse_search_filter(
+            filter_string, cls.VALID_SEARCH_RUN_ATTRIBUTE_KEYS, True
+        )
 
     @classmethod
     def is_metric(cls, key_type, comparator):
@@ -385,7 +431,8 @@ class SearchUtils(object):
             lhs = getattr(run.info, key)
         else:
             raise MlflowException(
-                "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                "Invalid search expression type '%s'" % key_type,
+                error_code=INVALID_PARAMETER_VALUE,
             )
         if lhs is None:
             return False
@@ -441,7 +488,9 @@ class SearchUtils(object):
         ):
             token_value = cls.ORDER_BY_KEY_TIMESTAMP
         elif (
-            statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP])
+            statement.tokens[0].match(
+                ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP]
+            )
             and all([token.is_whitespace for token in statement.tokens[1:-1]])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):
@@ -477,15 +526,19 @@ class SearchUtils(object):
     @classmethod
     def parse_order_by_for_search_runs(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
-        identifier = cls._get_identifier(token_value.strip(),
-                                         cls.VALID_ORDER_BY_RUN_ATTRIBUTE_KEYS, True)
+        identifier = cls._get_identifier(
+            token_value.strip(), cls.VALID_ORDER_BY_RUN_ATTRIBUTE_KEYS, True
+        )
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
     def parse_order_by_for_search_registered_models(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
-        identifier = cls._get_identifier(token_value.strip(),
-                                         cls.VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS, False)
+        identifier = cls._get_identifier(
+            token_value.strip(),
+            cls.VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS,
+            False,
+        )
         # last updated timestamp field in search registered model has alias,
         # we want to map those alias to the correct db key
         if identifier["key"] in SearchUtils.VALID_TIMESTAMP_ORDER_BY_KEYS:
@@ -507,7 +560,7 @@ class SearchUtils(object):
                 raise MlflowException(
                     "Invalid identifier type '%s'" % key_type,
                     error_code=INVALID_PARAMETER_VALUE,
-                    )
+                )
         else:
             if cls.is_tag(key_type, comparator):
                 return SqlRegisteredModelTag
@@ -532,22 +585,31 @@ class SearchUtils(object):
         if order_by_list:
             for order_by_clause in order_by_list:
                 clause_id += 1
-                (key_type, key, ascending) = \
-                    cls.parse_order_by_for_search_runs(order_by_clause) if is_search_run \
-                        else cls.parse_order_by_for_search_registered_models(order_by_clause)
+                (key_type, key, ascending) = (
+                    cls.parse_order_by_for_search_runs(order_by_clause)
+                    if is_search_run
+                    else cls.parse_order_by_for_search_registered_models(
+                        order_by_clause
+                    )
+                )
                 if cls.is_attribute(key_type, "="):
-                    order_value = \
-                        getattr(SqlRun, SqlRun.get_attribute_name(key)) if is_search_run \
-                            else getattr(SqlRegisteredModel, key)
+                    order_value = (
+                        getattr(SqlRun, SqlRun.get_attribute_name(key))
+                        if is_search_run
+                        else getattr(SqlRegisteredModel, key)
+                    )
                     clauses.append(
-                        sql.case([(order_value.is_(None), 1)], else_=0
-                                 ).label("clause_%s" % clause_id)
+                        sql.case([(order_value.is_(None), 1)], else_=0).label(
+                            "clause_%s" % clause_id
+                        )
                     )
                 else:
                     entity = cls._get_subquery_entity(key_type, "=", is_search_run)
                     # build a subquery first because we will join it in the main request so that the
                     # metric we want to sort on is available when we apply the sorting clause
-                    subquery = session.query(entity).filter(entity.key == key).subquery()
+                    subquery = (
+                        session.query(entity).filter(entity.key == key).subquery()
+                    )
                     ordering_joins.append(subquery)
                     order_value = subquery.c.value
                     # sqlite does not support NULLS LAST expression, so we sort first by
@@ -558,14 +620,18 @@ class SearchUtils(object):
                     if is_search_run and cls.is_metric(key_type, "="):
                         clauses.append(
                             sql.case(
-                                [(subquery.c.is_nan.is_(True), 1),
-                                 (order_value.is_(None), 1)], else_=0
+                                [
+                                    (subquery.c.is_nan.is_(True), 1),
+                                    (order_value.is_(None), 1),
+                                ],
+                                else_=0,
                             ).label("clause_%s" % clause_id)
                         )
                     else:  # other entities do not have an 'is_nan' field
                         clauses.append(
-                            sql.case([(order_value.is_(None), 1)], else_=0
-                                     ).label("clause_%s" % clause_id)
+                            sql.case([(order_value.is_(None), 1)], else_=0).label(
+                                "clause_%s" % clause_id
+                            )
                         )
 
                 if ascending:
@@ -600,11 +666,17 @@ class SearchUtils(object):
             value = float(value)
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
             op = cls.get_sql_filter_ops(entity.value, comparator)
-            return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
+            return (
+                session.query(entity)
+                .filter(entity.key == key_name, op(value))
+                .subquery()
+            )
         elif comparator in cls.filter_ops:
             op = cls.filter_ops.get(comparator)
             return (
-                session.query(entity).filter(entity.key == key_name, op(entity.value, value)).subquery()
+                session.query(entity)
+                .filter(entity.key == key_name, op(entity.value, value))
+                .subquery()
             )
         else:
             return None
@@ -615,7 +687,9 @@ class SearchUtils(object):
         that will be inner-joined to attribute table to act as multi-clause filters."""
         filters = []
         for sql_statement in parsed:
-            filter_query = cls._to_sqlalchemy_filtering_statement(sql_statement, session, is_search_run)
+            filter_query = cls._to_sqlalchemy_filtering_statement(
+                sql_statement, session, is_search_run
+            )
             if filter_query is not None:
                 filters.append(filter_query)
         return filters
@@ -673,7 +747,8 @@ class SearchUtils(object):
             sort_value = getattr(run.info, key)
         else:
             raise MlflowException(
-                "Invalid order_by entity type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
+                "Invalid order_by entity type '%s'" % key_type,
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         # Return a key such that None values are always at the end.
@@ -695,7 +770,9 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls.parse_order_by_for_search_runs(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by_for_search_runs(
+                order_by_clause
+            )
             # pylint: disable=cell-var-from-loop
             runs = sorted(
                 runs,
@@ -716,11 +793,13 @@ class SearchUtils(object):
             decoded_token = base64.b64decode(page_token)
         except TypeError:
             raise MlflowException(
-                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE
+                "Invalid page token, could not base64-decode",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         except base64.binascii.Error:
             raise MlflowException(
-                "Invalid page token, could not base64-decode", error_code=INVALID_PARAMETER_VALUE
+                "Invalid page token, could not base64-decode",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         try:
@@ -769,7 +848,9 @@ class SearchUtils(object):
 
     @classmethod
     def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        stripped_comparison = [
+            token for token in comparison.tokens if not token.is_whitespace
+        ]
         cls._validate_comparison(stripped_comparison)
         key = stripped_comparison[0].value
         if key not in valid_search_keys:
@@ -806,7 +887,8 @@ class SearchUtils(object):
             )
         if len(parsed) == 0 or not isinstance(parsed[0], Statement):
             raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                "Invalid filter '%s'. Could not be parsed. %s"
+                % (filter_string, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif len(parsed) > 1:
@@ -820,7 +902,8 @@ class SearchUtils(object):
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
-                "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
+                "Invalid clause(s) in filter string: %s. "
+                "%s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return [
@@ -837,4 +920,6 @@ class SearchUtils(object):
 
     @classmethod
     def parse_filter_for_registered_models(cls, filter_string):
-        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS, False)
+        return cls._parse_search_filter(
+            filter_string, cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS, False
+        )

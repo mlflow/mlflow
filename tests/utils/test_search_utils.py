@@ -2,7 +2,16 @@ import base64
 import json
 import pytest
 
-from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
+from mlflow.entities import (
+    RunInfo,
+    RunData,
+    Run,
+    LifecycleStage,
+    RunStatus,
+    Metric,
+    Param,
+    RunTag,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.utils.search_utils import SearchUtils
 
@@ -14,20 +23,43 @@ from mlflow.utils.search_utils import SearchUtils
             "metric.acc >= 0.94",
             [{"comparator": ">=", "key": "acc", "type": "metric", "value": "0.94"}],
         ),
-        ("metric.acc>=100", [{"comparator": ">=", "key": "acc", "type": "metric", "value": "100"}]),
-        ("params.m!='tf'", [{"comparator": "!=", "key": "m", "type": "parameter", "value": "tf"}]),
+        (
+            "metric.acc>=100",
+            [{"comparator": ">=", "key": "acc", "type": "metric", "value": "100"}],
+        ),
+        (
+            "params.m!='tf'",
+            [{"comparator": "!=", "key": "m", "type": "parameter", "value": "tf"}],
+        ),
         (
             'params."m"!="tf"',
             [{"comparator": "!=", "key": "m", "type": "parameter", "value": "tf"}],
         ),
         (
             'metric."legit name" >= 0.243',
-            [{"comparator": ">=", "key": "legit name", "type": "metric", "value": "0.243"}],
+            [
+                {
+                    "comparator": ">=",
+                    "key": "legit name",
+                    "type": "metric",
+                    "value": "0.243",
+                }
+            ],
         ),
-        ("metrics.XYZ = 3", [{"comparator": "=", "key": "XYZ", "type": "metric", "value": "3"}]),
+        (
+            "metrics.XYZ = 3",
+            [{"comparator": "=", "key": "XYZ", "type": "metric", "value": "3"}],
+        ),
         (
             'params."cat dog" = "pets"',
-            [{"comparator": "=", "key": "cat dog", "type": "parameter", "value": "pets"}],
+            [
+                {
+                    "comparator": "=",
+                    "key": "cat dog",
+                    "type": "parameter",
+                    "value": "pets",
+                }
+            ],
         ),
         (
             'metrics."X-Y-Z" = 3',
@@ -39,32 +71,68 @@ from mlflow.utils.search_utils import SearchUtils
         ),
         (
             "params.model = 'LinearRegression'",
-            [{"comparator": "=", "key": "model", "type": "parameter", "value": "LinearRegression"}],
+            [
+                {
+                    "comparator": "=",
+                    "key": "model",
+                    "type": "parameter",
+                    "value": "LinearRegression",
+                }
+            ],
         ),
         (
             "metrics.rmse < 1 and params.model_class = 'LR'",
             [
                 {"comparator": "<", "key": "rmse", "type": "metric", "value": "1"},
-                {"comparator": "=", "key": "model_class", "type": "parameter", "value": "LR"},
+                {
+                    "comparator": "=",
+                    "key": "model_class",
+                    "type": "parameter",
+                    "value": "LR",
+                },
             ],
         ),
         ("", []),
-        ("`metric`.a >= 0.1", [{"comparator": ">=", "key": "a", "type": "metric", "value": "0.1"}]),
+        (
+            "`metric`.a >= 0.1",
+            [{"comparator": ">=", "key": "a", "type": "metric", "value": "0.1"}],
+        ),
         (
             "`params`.model >= 'LR'",
             [{"comparator": ">=", "key": "model", "type": "parameter", "value": "LR"}],
         ),
         (
             "tags.version = 'commit-hash'",
-            [{"comparator": "=", "key": "version", "type": "tag", "value": "commit-hash"}],
+            [
+                {
+                    "comparator": "=",
+                    "key": "version",
+                    "type": "tag",
+                    "value": "commit-hash",
+                }
+            ],
         ),
         (
             "`tags`.source_name = 'a notebook'",
-            [{"comparator": "=", "key": "source_name", "type": "tag", "value": "a notebook"}],
+            [
+                {
+                    "comparator": "=",
+                    "key": "source_name",
+                    "type": "tag",
+                    "value": "a notebook",
+                }
+            ],
         ),
         (
             'metrics."accuracy.2.0" > 5',
-            [{"comparator": ">", "key": "accuracy.2.0", "type": "metric", "value": "5"}],
+            [
+                {
+                    "comparator": ">",
+                    "key": "accuracy.2.0",
+                    "type": "metric",
+                    "value": "5",
+                }
+            ],
         ),
         (
             "metrics.`spacey name` > 5",
@@ -72,20 +140,51 @@ from mlflow.utils.search_utils import SearchUtils
         ),
         (
             'params."p.a.r.a.m" != "a"',
-            [{"comparator": "!=", "key": "p.a.r.a.m", "type": "parameter", "value": "a"}],
+            [
+                {
+                    "comparator": "!=",
+                    "key": "p.a.r.a.m",
+                    "type": "parameter",
+                    "value": "a",
+                }
+            ],
         ),
-        ('tags."t.a.g" = "a"', [{"comparator": "=", "key": "t.a.g", "type": "tag", "value": "a"}]),
+        (
+            'tags."t.a.g" = "a"',
+            [{"comparator": "=", "key": "t.a.g", "type": "tag", "value": "a"}],
+        ),
         (
             "attribute.artifact_uri = '1/23/4'",
-            [{"type": "attribute", "comparator": "=", "key": "artifact_uri", "value": "1/23/4"}],
+            [
+                {
+                    "type": "attribute",
+                    "comparator": "=",
+                    "key": "artifact_uri",
+                    "value": "1/23/4",
+                }
+            ],
         ),
         (
             "run.status = 'RUNNING'",
-            [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
+            [
+                {
+                    "type": "attribute",
+                    "comparator": "=",
+                    "key": "status",
+                    "value": "RUNNING",
+                }
+            ],
         ),
         (
             "status = 'RUNNING'",
-            [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
+            [
+                {
+                    "type": "attribute",
+                    "comparator": "=",
+                    "key": "status",
+                    "value": "RUNNING",
+                }
+            ],
         ),
     ],
 )
@@ -103,32 +202,64 @@ def test_filter_for_run(filter_string, parsed_filter):
         ),
         (
             "name ILIKE '%final new%'",
-            [{"type": "attribute", "comparator": "ILIKE", "key": "name", "value": "%final new%"}],
+            [
+                {
+                    "type": "attribute",
+                    "comparator": "ILIKE",
+                    "key": "name",
+                    "value": "%final new%",
+                }
+            ],
         ),
         (
             "registered_model.name LIKE '%new%'",
-            [{"type": "attribute", "comparator": "LIKE", "key": "name", "value": "%new%"}],
+            [
+                {
+                    "type": "attribute",
+                    "comparator": "LIKE",
+                    "key": "name",
+                    "value": "%new%",
+                }
+            ],
         ),
         (
             "tag.`training algorithm` != 'xgboost'",
-            [{"type": "tag", "comparator": "!=", "key": "training algorithm", "value": "xgboost"}],
+            [
+                {
+                    "type": "tag",
+                    "comparator": "!=",
+                    "key": "training algorithm",
+                    "value": "xgboost",
+                }
+            ],
         ),
         (
-            "`model_tag`.owner LIKE \"%cc\"",
+            '`model_tag`.owner LIKE "%cc"',
             [{"type": "tag", "comparator": "LIKE", "key": "owner", "value": "%cc"}],
         ),
     ],
 )
 def test_filter_for_registered_model(filter_string, parsed_filter):
-    assert SearchUtils.parse_filter_for_registered_models(filter_string) == parsed_filter
+    assert (
+        SearchUtils.parse_filter_for_registered_models(filter_string) == parsed_filter
+    )
 
 
 @pytest.mark.parametrize(
     "filter_string, parsed_filter",
     [
-        ("params.m = 'LR'", [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
-        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
-        ('params.m = "LR"', [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}]),
+        (
+            "params.m = 'LR'",
+            [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}],
+        ),
+        (
+            'params.m = "LR"',
+            [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}],
+        ),
+        (
+            'params.m = "LR"',
+            [{"type": "parameter", "comparator": "=", "key": "m", "value": "LR"}],
+        ),
         (
             'params.m = "L\'Hosp"',
             [{"type": "parameter", "comparator": "=", "key": "m", "value": "L'Hosp"}],
@@ -142,9 +273,18 @@ def test_correct_quote_trimming_for_run(filter_string, parsed_filter):
 @pytest.mark.parametrize(
     "filter_string, parsed_filter",
     [
-        ("model_tag.m = 'LR'", [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}]),
-        ('model_tag.m = "LR"', [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}]),
-        ('model_tag.m = "LR"', [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}]),
+        (
+            "model_tag.m = 'LR'",
+            [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}],
+        ),
+        (
+            'model_tag.m = "LR"',
+            [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}],
+        ),
+        (
+            'model_tag.m = "LR"',
+            [{"type": "tag", "comparator": "=", "key": "m", "value": "LR"}],
+        ),
         (
             'tag.m = "L\'Hosp"',
             [{"type": "tag", "comparator": "=", "key": "m", "value": "L'Hosp"}],
@@ -152,13 +292,18 @@ def test_correct_quote_trimming_for_run(filter_string, parsed_filter):
     ],
 )
 def test_correct_quote_trimming_for_registered_model(filter_string, parsed_filter):
-    assert SearchUtils.parse_filter_for_registered_models(filter_string) == parsed_filter
+    assert (
+        SearchUtils.parse_filter_for_registered_models(filter_string) == parsed_filter
+    )
 
 
 @pytest.mark.parametrize(
     "filter_string, error_message",
     [
-        ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
+        (
+            "metric.acc >= 0.94; metrics.rmse < 1",
+            "Search filter contained multiple expression",
+        ),
         ("m.acc >= 0.94", "Invalid entity type"),
         ("acc >= 0.94", "Invalid identifier"),
         ("p.model >= 'LR'", "Invalid entity type"),
@@ -196,14 +341,26 @@ def test_error_filter_for_run(filter_string, error_message):
 @pytest.mark.parametrize(
     "filter_string, error_message",
     [
-        ("tag.owner = 'zero qu'; name = 'some mod'", "Search filter contained multiple expression"),
+        (
+            "tag.owner = 'zero qu'; name = 'some mod'",
+            "Search filter contained multiple expression",
+        ),
         ("metric.acc >= 0.94", "Invalid entity type"),
         ("model.registeredModelId = 0000", "Invalid identifier"),
         ("param.model = 'LR'", "Invalid entity type"),
         ("attri.x != 1", "Invalid entity type"),
-        ("tag.owner = 'zero qu' OR name = 'some mod'", "Invalid clause(s) in filter string"),
-        ("tag.owner = 'zero qu' NAND name = 'some mod'", "Invalid clause(s) in filter string"),
-        ("tag.owner = 'zero qu' AND (name = 'some mod')", "Invalid clause(s) in filter string"),
+        (
+            "tag.owner = 'zero qu' OR name = 'some mod'",
+            "Invalid clause(s) in filter string",
+        ),
+        (
+            "tag.owner = 'zero qu' NAND name = 'some mod'",
+            "Invalid clause(s) in filter string",
+        ),
+        (
+            "tag.owner = 'zero qu' AND (name = 'some mod')",
+            "Invalid clause(s) in filter string",
+        ),
         ("`tag.A = 'B'", "Invalid clause(s) in filter string"),
         ("tag`.A = 'B'", "Invalid clause(s) in filter string"),
         ("attribute.ID != '1'", "Invalid attribute key"),
@@ -217,7 +374,7 @@ def test_error_filter_for_run(filter_string, error_message):
         ("run_id != '1'", "Invalid attribute key"),
         ("stage != '1'", "Invalid attribute key"),
         ("attribute.status = true", "Invalid clause(s) in filter string"),
-    ]
+    ],
 )
 def test_error_filter_for_registered_model(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
@@ -370,7 +527,10 @@ def test_bad_comparators_for_run(entity_type, bad_comparators, key, entity_value
             )
         else:
             bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-                entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
+                entity_type=entity_type,
+                key=key,
+                comparator=bad_comparator,
+                value=entity_value,
             )
         with pytest.raises(MlflowException) as e:
             SearchUtils.filter_runs([run], bad_filter)
@@ -385,7 +545,9 @@ def test_bad_comparators_for_run(entity_type, bad_comparators, key, entity_value
         ("", [">", "<", ">=", "<=", "~"], "name", "'moddd'"),
     ],
 )
-def test_bad_comparators_for_registered_model(entity_type, bad_comparators, key, entity_value):
+def test_bad_comparators_for_registered_model(
+    entity_type, bad_comparators, key, entity_value
+):
     for bad_comparator in bad_comparators:
         if not entity_type:
             bad_filter = "{key} {comparator} {value}".format(
@@ -393,7 +555,10 @@ def test_bad_comparators_for_registered_model(entity_type, bad_comparators, key,
             )
         else:
             bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-                entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value
+                entity_type=entity_type,
+                key=key,
+                comparator=bad_comparator,
+                value=entity_value,
             )
         with pytest.raises(MlflowException) as e:
             SearchUtils.parse_filter_for_registered_models(bad_filter)
@@ -430,7 +595,9 @@ def test_correct_filtering_for_runs(filter_string, matching_runs):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             ),
             run_data=RunData(
-                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[]
+                metrics=[Metric("key1", 121, 1, 0)],
+                params=[Param("my_param", "A")],
+                tags=[],
             ),
         ),
         Run(
@@ -505,7 +672,9 @@ def test_correct_sorting_for_runs(order_bys, matching_runs):
                 lifecycle_stage=LifecycleStage.ACTIVE,
             ),
             run_data=RunData(
-                metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[]
+                metrics=[Metric("key1", 121, 1, 0)],
+                params=[Param("my_param", "A")],
+                tags=[],
             ),
         ),
         Run(
@@ -571,8 +740,12 @@ def test_order_by_search_run_metric_with_nans_and_infs():
         )
         for x in metric_vals_str
     ]
-    sorted_runs_asc = [x.info.run_id for x in SearchUtils.sort_runs(runs, ["metrics.x asc"])]
-    sorted_runs_desc = [x.info.run_id for x in SearchUtils.sort_runs(runs, ["metrics.x desc"])]
+    sorted_runs_asc = [
+        x.info.run_id for x in SearchUtils.sort_runs(runs, ["metrics.x asc"])
+    ]
+    sorted_runs_desc = [
+        x.info.run_id for x in SearchUtils.sort_runs(runs, ["metrics.x desc"])
+    ]
     # asc
     assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
     # desc
@@ -641,9 +814,11 @@ def test_invalid_order_by_search_registered_models(order_by, error_message):
     ],
 )
 def test_space_order_by_search_runs(order_by, ascending_expected):
-    identifier_type, identifier_name, ascending = SearchUtils.parse_order_by_for_search_runs(
-        order_by
-    )
+    (
+        identifier_type,
+        identifier_name,
+        ascending,
+    ) = SearchUtils.parse_order_by_for_search_runs(order_by)
     assert identifier_type == "metric"
     assert identifier_name == "Mean Square Error"
     assert ascending == ascending_expected
@@ -658,8 +833,11 @@ def test_space_order_by_search_runs(order_by, ascending_expected):
     ],
 )
 def test_space_order_by_search_registered_model(order_by, ascending_expected):
-    identifier_type, identifier_name, ascending = SearchUtils \
-        .parse_order_by_for_search_registered_models(order_by)
+    (
+        identifier_type,
+        identifier_name,
+        ascending,
+    ) = SearchUtils.parse_order_by_for_search_registered_models(order_by)
     assert identifier_type == "metric"
     assert identifier_name == "Mean Square Error"
     assert ascending == ascending_expected
@@ -700,7 +878,9 @@ def test_invalid_order_by_search_registered_models(order_by, error_message):
         ({"offset": 3}, 1, [], None),
     ],
 )
-def test_pagination_for_runs(page_token, max_results, matching_runs, expected_next_page_token):
+def test_pagination_for_runs(
+    page_token, max_results, matching_runs, expected_next_page_token
+):
     runs = [
         Run(
             run_info=RunInfo(
@@ -745,7 +925,9 @@ def test_pagination_for_runs(page_token, max_results, matching_runs, expected_ne
     encoded_page_token = None
     if page_token:
         encoded_page_token = base64.b64encode(json.dumps(page_token).encode("utf-8"))
-    paginated_runs, next_page_token = SearchUtils.paginate_runs(runs, encoded_page_token, max_results)
+    paginated_runs, next_page_token = SearchUtils.paginate_runs(
+        runs, encoded_page_token, max_results
+    )
 
     paginated_run_indices = []
     for run in paginated_runs:
@@ -765,8 +947,14 @@ def test_pagination_for_runs(page_token, max_results, matching_runs, expected_ne
     "page_token, error_message",
     [
         (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
-        (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
-        (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
+        (
+            base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")),
+            "Invalid page token",
+        ),
+        (
+            base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")),
+            "Invalid page token",
+        ),
         (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
         ("not base64", "Invalid page token"),
     ],

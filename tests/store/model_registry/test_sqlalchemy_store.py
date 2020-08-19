@@ -47,9 +47,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return self.store.create_registered_model(name, tags)
 
     def _mv_maker(
-        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None
+        self,
+        name,
+        source="path/to/source",
+        run_id=uuid.uuid4().hex,
+        tags=None,
+        run_link=None,
     ):
-        return self.store.create_model_version(name, source, run_id, tags, run_link=run_link)
+        return self.store.create_model_version(
+            name, source, run_id, tags, run_link=run_link
+        )
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -62,7 +69,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # error on duplicate
         with self.assertRaises(MlflowException) as exception_context:
             self._rm_maker(name)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_ALREADY_EXISTS
+        )
 
         # slightly different name is ok
         for name2 in [name + "extra", name.lower(), name.upper(), name + name]:
@@ -85,10 +94,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # invalid model name will fail
         with self.assertRaises(MlflowException) as exception_context:
             self._rm_maker(None)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         with self.assertRaises(MlflowException) as exception_context:
             self._rm_maker("")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
     def test_get_registered_model(self):
         name = "model_1"
@@ -148,21 +161,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test accessing the model with the old name will fail
         with self.assertRaises(MlflowException) as exception_context:
             self.store.get_registered_model(original_name)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
         # test name another model with the replaced name is ok
         self._rm_maker(original_name)
         # cannot rename model to conflict with an existing model
         with self.assertRaises(MlflowException) as exception_context:
             self.store.rename_registered_model(new_name, original_name)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_ALREADY_EXISTS
+        )
         # invalid model name will fail
         with self.assertRaises(MlflowException) as exception_context:
             self.store.rename_registered_model(original_name, None)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         with self.assertRaises(MlflowException) as exception_context:
             self.store.rename_registered_model(original_name, "")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
     def test_delete_registered_model(self):
         name = "model_for_delete_RM"
@@ -179,22 +200,30 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # cannot get model
         with self.assertRaises(MlflowException) as exception_context:
             self.store.get_registered_model(name=name)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
         # cannot update a delete model
         with self.assertRaises(MlflowException) as exception_context:
             self.store.update_registered_model(name=name, description="deleted")
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
         # cannot delete it again
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model(name=name)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
         # model versions are cascade deleted with the registered model
         with self.assertRaises(MlflowException) as exception_context:
             self.store.get_model_version(name, 1)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
     def _list_registered_models(self, page_token=None, max_results=10):
         result = self.store.list_registered_models(max_results, page_token)
@@ -204,7 +233,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_list_registered_model(self):
         self._rm_maker("A")
-        registered_models = self.store.list_registered_models(max_results=10, page_token=None)
+        registered_models = self.store.list_registered_models(
+            max_results=10, page_token=None
+        )
         self.assertEqual(len(registered_models), 1)
         self.assertEqual(registered_models[0].name, "A")
         self.assertIsInstance(registered_models[0], RegisteredModel)
@@ -217,13 +248,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._rm_maker("AB")
         self._rm_maker("BBC")
         self.assertEqual(
-            set(self._list_registered_models()), set(["A", "B", "BB", "BA", "AB", "BBC"])
+            set(self._list_registered_models()),
+            set(["A", "B", "BB", "BA", "AB", "BBC"]),
         )
 
         # list should not return deleted models
         self.store.delete_registered_model(name="BA")
         self.store.delete_registered_model(name="B")
-        self.assertEqual(set(self._list_registered_models()), set(["A", "BB", "AB", "BBC"]))
+        self.assertEqual(
+            set(self._list_registered_models()), set(["A", "BB", "AB", "BBC"])
+        )
 
     def test_list_registered_model_paginated_last_page(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
@@ -233,7 +267,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         result = self._list_registered_models(page_token=None, max_results=25)
         returned_rms.extend(result)
         while result.token:
-            result = self._list_registered_models(page_token=result.token, max_results=25)
+            result = self._list_registered_models(
+                page_token=result.token, max_results=25
+            )
             self.assertEqual(len(result), 25)
             returned_rms.extend(result)
         self.assertEqual(result.token, None)
@@ -266,18 +302,25 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=20)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
         # test that providing too large of a max_results throws
         with self.assertRaises(MlflowException) as exception_context:
             self._list_registered_models(page_token="evilhax", max_results=1e15)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         self.assertIn(
-            "Invalid value for request parameter max_results", exception_context.exception.message
+            "Invalid value for request parameter max_results",
+            exception_context.exception.message,
         )
         # list should not return deleted models
         self.store.delete_registered_model(name="RM{0:03}".format(0))
-        self.assertEqual(set(self._list_registered_models(max_results=100)), set(rms[1:]))
+        self.assertEqual(
+            set(self._list_registered_models(max_results=100)), set(rms[1:])
+        )
 
     def test_get_latest_versions(self):
         name = "test_for_latest_versions"
@@ -288,24 +331,35 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mv1 = self._mv_maker(name)
         self.assertEqual(mv1.version, 1)
         rmd2 = self.store.get_registered_model(name=name)
-        self.assertEqual(self._extract_latest_by_stage(rmd2.latest_versions), {"None": 1})
+        self.assertEqual(
+            self._extract_latest_by_stage(rmd2.latest_versions), {"None": 1}
+        )
 
         # add a bunch more
         mv2 = self._mv_maker(name)
         self.assertEqual(mv2.version, 2)
         self.store.transition_model_version_stage(
-            name=mv2.name, version=mv2.version, stage="Production", archive_existing_versions=False
+            name=mv2.name,
+            version=mv2.version,
+            stage="Production",
+            archive_existing_versions=False,
         )
 
         mv3 = self._mv_maker(name)
         self.assertEqual(mv3.version, 3)
         self.store.transition_model_version_stage(
-            name=mv3.name, version=mv3.version, stage="Production", archive_existing_versions=False
+            name=mv3.name,
+            version=mv3.version,
+            stage="Production",
+            archive_existing_versions=False,
         )
         mv4 = self._mv_maker(name)
         self.assertEqual(mv4.version, 4)
         self.store.transition_model_version_stage(
-            name=mv4.name, version=mv4.version, stage="Staging", archive_existing_versions=False
+            name=mv4.name,
+            version=mv4.version,
+            stage="Staging",
+            archive_existing_versions=False,
         )
 
         # test that correct latest versions are returned for each stage
@@ -352,23 +406,35 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_registered_model(name1)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_registered_model_tag(name1, overriding_tag)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
         # test cannot set tags that are too long
         long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_registered_model_tag(name2, long_tag)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # test can set tags that are somewhat long
         long_tag = RegisteredModelTag("longTagKey", "a" * 4999)
         self.store.set_registered_model_tag(name2, long_tag)
         # can not set invalid tag
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.set_registered_model_tag(name2, RegisteredModelTag(key=None, value=""))
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            self.store.set_registered_model_tag(
+                name2, RegisteredModelTag(key=None, value="")
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # can not use invalid model name
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            self.store.set_registered_model_tag(
+                None, RegisteredModelTag(key="key", value="value")
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
     def test_delete_registered_model_tag(self):
         name1 = "DeleteRegisteredModelTag_TestMod"
@@ -401,15 +467,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_registered_model(name1)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model_tag(name1, "anotherKey")
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
         # can not delete tag with invalid key
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model_tag(name2, None)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # can not use invalid model name
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_registered_model_tag(None, "key")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
     def test_create_model_version(self):
         name = "test_for_update_MV"
@@ -441,7 +513,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.version, 2)
 
         # create model version with tags return model version entity with tags
-        tags = [ModelVersionTag("key", "value"), ModelVersionTag("anotherKey", "some other value")]
+        tags = [
+            ModelVersionTag("key", "value"),
+            ModelVersionTag("anotherKey", "some other value"),
+        ]
         mv3 = self._mv_maker(name, tags=tags)
         mvd3 = self.store.get_model_version(name=mv3.name, version=mv3.version)
         self.assertEqual(mv3.version, 3)
@@ -469,7 +544,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # update stage
         self.store.transition_model_version_stage(
-            name=mv1.name, version=mv1.version, stage="Production", archive_existing_versions=False
+            name=mv1.name,
+            version=mv1.version,
+            stage="Production",
+            archive_existing_versions=False,
         )
         mvd2 = self.store.get_model_version(name=mv1.name, version=mv1.version)
         self.assertEqual(mvd2.name, name)
@@ -492,7 +570,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.transition_model_version_stage(
                 mv1.name, mv1.version, stage="unknown", archive_existing_versions=False
             )
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
         # stages are case-insensitive and auto-corrected to system stage names
         for stage_name in ["STAGING", "staging", "StAgInG"]:
@@ -505,7 +585,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             mvd5 = self.store.get_model_version(name=mv1.name, version=mv1.version)
             self.assertEqual(mvd5.current_stage, "Staging")
 
-    def test_transition_model_version_stage_when_archive_existing_versions_is_false(self):
+    def test_transition_model_version_stage_when_archive_existing_versions_is_false(
+        self,
+    ):
         name = "model"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)
@@ -518,7 +600,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.transition_model_version_stage(name, mv1.version, stage, False)
 
         self.store.transition_model_version_stage(name, mv1.version, "Staging", False)
-        self.store.transition_model_version_stage(name, mv2.version, "Production", False)
+        self.store.transition_model_version_stage(
+            name, mv2.version, "Production", False
+        )
         self.store.transition_model_version_stage(name, mv3.version, "Staging", False)
 
         mvd1 = self.store.get_model_version(name=name, version=mv1.version)
@@ -529,7 +613,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.current_stage, "Production")
         self.assertEqual(mvd3.current_stage, "Staging")
 
-        self.store.transition_model_version_stage(name, mv3.version, "Production", False)
+        self.store.transition_model_version_stage(
+            name, mv3.version, "Production", False
+        )
 
         mvd1 = self.store.get_model_version(name=name, version=mv1.version)
         mvd2 = self.store.get_model_version(name=name, version=mv2.version)
@@ -539,7 +625,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.current_stage, "Production")
         self.assertEqual(mvd3.current_stage, "Production")
 
-    def test_transition_model_version_stage_when_archive_existing_versions_is_true(self):
+    def test_transition_model_version_stage_when_archive_existing_versions_is_true(
+        self,
+    ):
         name = "model"
         self._rm_maker(name)
         mv1 = self._mv_maker(name)
@@ -555,10 +643,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # to the inactive stages ("Archived" and "None") throws.
         for stage in ["Archived", "None"]:
             with self.assertRaisesRegex(MlflowException, msg):
-                self.store.transition_model_version_stage(name, mv1.version, stage, True)
+                self.store.transition_model_version_stage(
+                    name, mv1.version, stage, True
+                )
 
         self.store.transition_model_version_stage(name, mv1.version, "Staging", False)
-        self.store.transition_model_version_stage(name, mv2.version, "Production", False)
+        self.store.transition_model_version_stage(
+            name, mv2.version, "Production", False
+        )
         self.store.transition_model_version_stage(name, mv3.version, "Staging", True)
 
         mvd1 = self.store.get_model_version(name=name, version=mv1.version)
@@ -597,17 +689,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # cannot get a deleted model version
         with self.assertRaises(MlflowException) as exception_context:
             self.store.get_model_version(name=mv.name, version=mv.version)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
         # cannot update a delete
         with self.assertRaises(MlflowException) as exception_context:
             self.store.update_model_version(mv.name, mv.version, description="deleted!")
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
         # cannot delete it again
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version(name=mv.name, version=mv.version)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
     def test_delete_model_version_redaction(self):
         name = "test_for_delete_MV_redaction"
@@ -641,12 +739,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # download location points to source
         self.assertEqual(
-            self.store.get_model_version_download_uri(name=mv.name, version=mv.version), source_path
+            self.store.get_model_version_download_uri(name=mv.name, version=mv.version),
+            source_path,
         )
 
         # download URI does not change even if model version is updated
         self.store.transition_model_version_stage(
-            name=mv.name, version=mv.version, stage="Production", archive_existing_versions=False
+            name=mv.name,
+            version=mv.version,
+            stage="Production",
+            archive_existing_versions=False,
         )
         self.store.update_model_version(
             name=mv.name, version=mv.version, description="Test for Path"
@@ -654,14 +756,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mvd2 = self.store.get_model_version(name=mv.name, version=mv.version)
         self.assertEqual(mvd2.source, source_path)
         self.assertEqual(
-            self.store.get_model_version_download_uri(name=mv.name, version=mv.version), source_path
+            self.store.get_model_version_download_uri(name=mv.name, version=mv.version),
+            source_path,
         )
 
         # cannot retrieve download URI for deleted model versions
         self.store.delete_model_version(name=mv.name, version=mv.version)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.get_model_version_download_uri(name=mv.name, version=mv.version)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
 
     def test_search_model_versions(self):
         # create some model versions
@@ -680,7 +785,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mv4.version, 4)
 
         def search_versions(filter_string):
-            return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
+            return [
+                mvd.version for mvd in self.store.search_model_versions(filter_string)
+            ]
 
         # search using name should return all 4 versions
         self.assertEqual(set(search_versions("name='%s'" % name)), set([1, 2, 3, 4]))
@@ -710,7 +817,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3]))
 
         self.store.transition_model_version_stage(
-            name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
+            name=mv1.name,
+            version=mv1.version,
+            stage="production",
+            archive_existing_versions=False,
         )
 
         self.store.update_model_version(
@@ -741,7 +851,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             for attribute_filter_string in [
                 attribute_filter,
                 "attribute." + attribute_filter,
-                "attr." + attribute_filter
+                "attr." + attribute_filter,
             ]:
                 result_rms, _ = self._search_registered_models(attribute_filter_string)
                 self.assertEqual(result_rms, expected_rms)
@@ -800,38 +910,48 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         test_all_attribute_filter("name ilike '%RM4a'", names[4:])
 
         # test 'and' clause
-        rms, _ = self._search_registered_models("name LIKE '%RM%' and attr.name != 'RM'")
+        rms, _ = self._search_registered_models(
+            "name LIKE '%RM%' and attr.name != 'RM'"
+        )
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models("attribute.name = '{}RM2' and name ilike '%rm%'")
+        rms, _ = self._search_registered_models(
+            "attribute.name = '{}RM2' and name ilike '%rm%'"
+        )
         self.assertEqual(rms, names[1])
 
         for bad_filter_string in [
             "name!=something",
             "run_id='%s'" % "somerunID",
             "source_path = 'A/D'",
-            "evilhax = true"
+            "evilhax = true",
         ]:
             for bad_attribute_filter in [
                 bad_filter_string,
                 "attribute." + bad_filter_string,
-                "attr." + bad_filter_string
+                "attr." + bad_filter_string,
             ]:
                 with self.assertRaises(MlflowException) as exception_context:
                     self._search_registered_models(bad_attribute_filter)
-                assert exception_context.exception.error_code == \
-                       ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                assert exception_context.exception.error_code == ErrorCode.Name(
+                    INVALID_PARAMETER_VALUE
+                )
 
         # delete last registered model. search should not return the first 5
         self.store.delete_registered_model(name=names[-1])
-        self.assertEqual(self._search_registered_models(None, max_results=1000), (names[:-1], None))
+        self.assertEqual(
+            self._search_registered_models(None, max_results=1000), (names[:-1], None)
+        )
 
         # equality search using name should return no names
-        self.assertEqual(self._search_registered_models("name='{}'".format(names[-1])), ([], None))
+        self.assertEqual(
+            self._search_registered_models("name='{}'".format(names[-1])), ([], None)
+        )
 
         # case-sensitive prefix search using LIKE should return all the RMs
         self.assertEqual(
-            self._search_registered_models("name LIKE '{}%'".format(prefix)), (names[0:5], None)
+            self._search_registered_models("name LIKE '{}%'".format(prefix)),
+            (names[0:5], None),
         )
 
         # case-insensitive prefix search using ILIKE should return both rm5 and rm6
@@ -848,97 +968,125 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         names_subset1 = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]]
         for name in names_subset1:
             self.store.set_registered_model_tag(
-                name,
-                RegisteredModelTag("training algorithm", "lightgbm")
+                name, RegisteredModelTag("training algorithm", "lightgbm")
             )
         names_subset2 = [prefix + name for name in ["RM4A", "RM4a"]]
         for name in names_subset2:
             self.store.set_registered_model_tag(
-                name,
-                RegisteredModelTag("training algorithm", "xgboost")
+                name, RegisteredModelTag("training algorithm", "xgboost")
             )
         # set registered model tags
-        self.store.set_registered_model_tag(prefix + "RM1", RegisteredModelTag("owner", "aaa"))
-        self.store.set_registered_model_tag(prefix + "RM2", RegisteredModelTag("owner", "bbb"))
-        self.store.set_registered_model_tag(prefix + "RM3", RegisteredModelTag("owner", "aaa"))
-        self.store.set_registered_model_tag(prefix + "RM4", RegisteredModelTag("owner", "ccc"))
+        self.store.set_registered_model_tag(
+            prefix + "RM1", RegisteredModelTag("owner", "aaa")
+        )
+        self.store.set_registered_model_tag(
+            prefix + "RM2", RegisteredModelTag("owner", "bbb")
+        )
+        self.store.set_registered_model_tag(
+            prefix + "RM3", RegisteredModelTag("owner", "aaa")
+        )
+        self.store.set_registered_model_tag(
+            prefix + "RM4", RegisteredModelTag("owner", "ccc")
+        )
 
     def test_search_registered_models_tags(self):
         prefix = "test_for_search_tags"
         self._set_up_model_and_tags_for_search(prefix)
 
-        result_rms, _ = self._search_registered_models("tags.`training algorithm` = 'lightgbm'")
-        self.assertEqual(result_rms, [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]])
+        result_rms, _ = self._search_registered_models(
+            "tags.`training algorithm` = 'lightgbm'"
+        )
+        self.assertEqual(
+            result_rms, [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]]
+        )
 
-        result_rms, _ = self._search_registered_models("model_tag.`training algorithm` "
-                                                       "like '%boost' and tags.owner != 'aaa'")
+        result_rms, _ = self._search_registered_models(
+            "model_tag.`training algorithm` " "like '%boost' and tags.owner != 'aaa'"
+        )
         self.assertEqual(result_rms, [prefix + "RM4", prefix + "RM4a"])
 
-        result_rms, _ = self._search_registered_models("tag.`training algorithm` ilike 'LIGHT%' "
-                                                       "and tags.owner != 'aaa'")
+        result_rms, _ = self._search_registered_models(
+            "tag.`training algorithm` ilike 'LIGHT%' " "and tags.owner != 'aaa'"
+        )
         self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
 
-        result_rms, _ = self._search_registered_models("registered_model_tags.`training algorithm`"
-                                                       " = 'lightgbm' and tags.owner = 'ddd'")
+        result_rms, _ = self._search_registered_models(
+            "registered_model_tags.`training algorithm`"
+            " = 'lightgbm' and tags.owner = 'ddd'"
+        )
         self.assertEqual(result_rms, [])
 
         for bad_filter in [
             "tags.training algorithm = 'lightgbm'",
             "tags.owner = kkk",
             "version_tag.owner = 'aaa'",
-            "tags.`training algorithm` = 'xgboost' or tags.owner = 'aaa'"
+            "tags.`training algorithm` = 'xgboost' or tags.owner = 'aaa'",
         ]:
             with self.assertRaises(MlflowException) as exception_context:
                 self._search_registered_models(bad_filter)
-            assert exception_context.exception.error_code == \
-                   ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            assert exception_context.exception.error_code == ErrorCode.Name(
+                INVALID_PARAMETER_VALUE
+            )
 
     def test_search_registered_model_complex(self):
         prefix = "test_for_search_model_complex_"
         self._set_up_model_and_tags_for_search(prefix)
 
-        result_rms, _ = self._search_registered_models("tags.`training algorithm` = 'lightgbm'"
-                                                       " and name like '%RM1'")
+        result_rms, _ = self._search_registered_models(
+            "tags.`training algorithm` = 'lightgbm'" " and name like '%RM1'"
+        )
         self.assertEqual(result_rms, [prefix + "RM1"])
 
-        result_rms, _ = self._search_registered_models("model_tag.`training algorithm` "
-                                                       "like '%boost' and tags.owner != 'aaa'"
-                                                       " and attribute.name != '{}RM4'"
-                                                       .format(prefix))
+        result_rms, _ = self._search_registered_models(
+            "model_tag.`training algorithm` "
+            "like '%boost' and tags.owner != 'aaa'"
+            " and attribute.name != '{}RM4'".format(prefix)
+        )
         self.assertEqual(result_rms, [prefix + "RM4a"])
 
-        result_rms, _ = self._search_registered_models("tag.`training algorithm` ilike 'LIGHT%' "
-                                                       "and tags.owner != 'aaa'"
-                                                       " and attr.name ilike '%%'")
+        result_rms, _ = self._search_registered_models(
+            "tag.`training algorithm` ilike 'LIGHT%' "
+            "and tags.owner != 'aaa'"
+            " and attr.name ilike '%%'"
+        )
         self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
 
-        result_rms, _ = self._search_registered_models("registered_model_tags.`training algorithm`"
-                                                       " = 'lightgbm' and name = 'jkjk'")
+        result_rms, _ = self._search_registered_models(
+            "registered_model_tags.`training algorithm`"
+            " = 'lightgbm' and name = 'jkjk'"
+        )
         self.assertEqual(result_rms, [])
 
         for bad_filter in [
             "tags.`training algorithm` = 'lightgbm' and name IN ['aaa', 'bbb']",
             "tags.owner = kkk and attribute.name = 'RM1'",
             "tag.owner = 'aaa' and attri.name = 'RM2'",
-            "tags.`training algorithm` = 'xgboost' or name = 'aaa'"
+            "tags.`training algorithm` = 'xgboost' or name = 'aaa'",
         ]:
             with self.assertRaises(MlflowException) as exception_context:
                 self._search_registered_models(bad_filter)
-            assert exception_context.exception.error_code == \
-                   ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            assert exception_context.exception.error_code == ErrorCode.Name(
+                INVALID_PARAMETER_VALUE
+            )
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]
         for rm in rms:
-            self.store.set_registered_model_tag(rm, RegisteredModelTag("passed", "true"))
+            self.store.set_registered_model_tag(
+                rm, RegisteredModelTag("passed", "true")
+            )
 
         # test flow with fixed max_results
         returned_rms = []
         query = "name LIKE 'RM%' and tags.passed = 'true'"
-        result, token = self._search_registered_models(query, page_token=None, max_results=5)
+        result, token = self._search_registered_models(
+            query, page_token=None, max_results=5
+        )
         returned_rms.extend(result)
         while token:
-            result, token = self._search_registered_models(query, page_token=token, max_results=5)
+            result, token = self._search_registered_models(
+                query, page_token=token, max_results=5
+            )
             returned_rms.extend(result)
         self.assertEqual(rms, returned_rms)
 
@@ -948,15 +1096,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertNotEqual(token1, None)
         self.assertEqual(result, rms[0:5])
 
-        result, token2 = self._search_registered_models(query, page_token=token1, max_results=10)
+        result, token2 = self._search_registered_models(
+            query, page_token=token1, max_results=10
+        )
         self.assertNotEqual(token2, None)
         self.assertEqual(result, rms[5:15])
 
-        result, token3 = self._search_registered_models(query, page_token=token2, max_results=20)
+        result, token3 = self._search_registered_models(
+            query, page_token=token2, max_results=20
+        )
         self.assertNotEqual(token3, None)
         self.assertEqual(result, rms[15:35])
 
-        result, token4 = self._search_registered_models(query, page_token=token3, max_results=100)
+        result, token4 = self._search_registered_models(
+            query, page_token=token3, max_results=100
+        )
         # assert that page token is None
         self.assertEqual(token4, None)
         self.assertEqual(result, rms[35:])
@@ -964,21 +1118,30 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(query, page_token="evilhax", max_results=20)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
         # test that providing too large of a max_results throws
         with self.assertRaises(MlflowException) as exception_context:
-            self._search_registered_models(query, page_token="evilhax", max_results=1e15)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            self._search_registered_models(
+                query, page_token="evilhax", max_results=1e15
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         self.assertIn(
-            "Invalid value for request parameter max_results", exception_context.exception.message
+            "Invalid value for request parameter max_results",
+            exception_context.exception.message,
         )
 
     def test_search_registered_model_attribute_order_by(self):
         rms = []
         # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
         for i in range(50):
-            with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=i):
+            with mock.patch(
+                "mlflow.store.model_registry.sqlalchemy_store.now", return_value=i
+            ):
                 rms.append(self._rm_maker("RM{:03}".format(i)).name)
 
         # test flow with fixed max_results and order_by (test stable order across pages)
@@ -997,7 +1160,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms[::-1], returned_rms)
         # last_updated_timestamp descending should have the newest RMs first
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
+            query,
+            page_token=None,
+            order_by=["last_updated_timestamp DESC"],
+            max_results=100,
         )
         self.assertEqual(rms[::-1], result)
         # timestamp returns same result as last_updated_timestamp
@@ -1007,7 +1173,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rms[::-1], result)
         # last_updated_timestamp ascending should have the oldest RMs first
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["last_updated_timestamp ASC"], max_results=100
+            query,
+            page_token=None,
+            order_by=["last_updated_timestamp ASC"],
+            max_results=100,
         )
         self.assertEqual(rms, result)
         # timestamp returns same result as last_updated_timestamp
@@ -1030,10 +1199,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
         )
         self.assertEqual(rms, result)
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.now", return_value=1
+        ):
             rm1 = self._rm_maker("MR1").name
             rm2 = self._rm_maker("MR2").name
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.now", return_value=2
+        ):
             rm3 = self._rm_maker("MR3").name
             rm4 = self._rm_maker("MR4").name
         query = "name LIKE 'MR%'"
@@ -1046,7 +1219,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual([rm2, rm1, rm4, rm3], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp ASC", "name   DESC"], max_results=100
+            query,
+            page_token=None,
+            order_by=["timestamp ASC", "name   DESC"],
+            max_results=100,
         )
         self.assertEqual([rm2, rm1, rm4, rm3], result)
         # confirm that name ascending is the default, even if ties exist on other fields
@@ -1056,7 +1232,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual([rm1, rm2, rm3, rm4], result)
         # test default tiebreak with descending timestamps
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
+            query,
+            page_token=None,
+            order_by=["last_updated_timestamp DESC"],
+            max_results=100,
         )
         self.assertEqual([rm3, rm4, rm1, rm2], result)
         # test timestamp parsing
@@ -1086,24 +1265,30 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual([rm1, rm2, rm3, rm4], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp  desc", "name desc"], max_results=100
+            query,
+            page_token=None,
+            order_by=["timestamp  desc", "name desc"],
+            max_results=100,
         )
         self.assertEqual([rm4, rm3, rm2, rm1], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp  deSc", "name deSc"], max_results=100
+            query,
+            page_token=None,
+            order_by=["timestamp  deSc", "name deSc"],
+            max_results=100,
         )
         self.assertEqual([rm4, rm3, rm2, rm1], result)
 
     def test_search_registered_model_tags_order_by(self):
         rms = []
-        start_char = 'A'
+        start_char = "A"
         for i in range(50):
             name = self._rm_maker("RM{:03}".format(i)).name
             rms.append(name)
             # use incrementing ascii char as tag value to make sure ordering is correct
-            self.store.set_registered_model_tag(name, RegisteredModelTag(
-                "order id", chr(ord(start_char) + i)
-            ))
+            self.store.set_registered_model_tag(
+                name, RegisteredModelTag("order id", chr(ord(start_char) + i))
+            )
 
         # test flow with fixed max_results and order_by (test stable order across pages)
         returned_rms = []
@@ -1114,7 +1299,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         returned_rms.extend(result)
         while token:
             result, token = self._search_registered_models(
-                query, page_token=token, order_by=["tags.`order id` DESC"], max_results=5
+                query,
+                page_token=token,
+                order_by=["tags.`order id` DESC"],
+                max_results=5,
             )
             returned_rms.extend(result)
         # name descending should be the opposite order of the current order
@@ -1135,12 +1323,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual(rms[::-1], result)
 
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=1):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.now", return_value=1
+        ):
             rm1 = self._rm_maker("MR1").name
             self.store.set_registered_model_tag(rm1, RegisteredModelTag("number", "1"))
             rm2 = self._rm_maker("MR2").name
             self.store.set_registered_model_tag(rm2, RegisteredModelTag("number", "2"))
-        with mock.patch("mlflow.store.model_registry.sqlalchemy_store.now", return_value=2):
+        with mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.now", return_value=2
+        ):
             rm3 = self._rm_maker("MR3").name
             self.store.set_registered_model_tag(rm3, RegisteredModelTag("number", "3"))
             rm4 = self._rm_maker("MR4").name
@@ -1156,7 +1348,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         )
         self.assertEqual([rm2, rm1, rm4, rm3], result)
         result, _ = self._search_registered_models(
-            query, page_token=None, order_by=["timestamp ASC", "tag.number  DESC"], max_results=100
+            query,
+            page_token=None,
+            order_by=["timestamp ASC", "tag.number  DESC"],
+            max_results=100,
         )
         self.assertEqual([rm2, rm1, rm4, rm3], result)
 
@@ -1170,7 +1365,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 order_by=["name ASC", "creation_timestamp DESC"],
                 max_results=5,
             )
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # test that invalid columns with random text throw even if they come after valid columns
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(
@@ -1179,7 +1376,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 order_by=["name ASC", "last_updated_timestamp DESC blah"],
                 max_results=5,
             )
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
     def test_set_model_version_tag(self):
         name1 = "SetModelVersionTag_TestMod"
@@ -1218,28 +1417,42 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_model_version(name1, 2)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name1, 2, overriding_tag)
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
         # test cannot set tags that are too long
         long_tag = ModelVersionTag("longTagKey", "a" * 5001)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(name1, 1, long_tag)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # test can set tags that are somewhat long
         long_tag = ModelVersionTag("longTagKey", "a" * 4999)
         self.store.set_model_version_tag(name1, 1, long_tag)
         # can not set invalid tag
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.set_model_version_tag(name2, 1, ModelVersionTag(key=None, value=""))
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            self.store.set_model_version_tag(
+                name2, 1, ModelVersionTag(key=None, value="")
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # can not use invalid model name or version
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+            self.store.set_model_version_tag(
+                None, 1, ModelVersionTag(key="key", value="value")
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         with self.assertRaises(MlflowException) as exception_context:
             self.store.set_model_version_tag(
                 name2, "I am not a version", ModelVersionTag(key="key", value="value")
             )
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
 
     def test_delete_model_version_tag(self):
         name1 = "DeleteModelVersionTag_TestMod"
@@ -1280,15 +1493,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.delete_model_version(name2, 1)
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name2, 1, "key")
-        assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            RESOURCE_DOES_NOT_EXIST
+        )
         # can not delete tag with invalid key
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name1, 2, None)
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         # can not use invalid model name or version
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(None, 2, "key")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )
         with self.assertRaises(MlflowException) as exception_context:
             self.store.delete_model_version_tag(name1, "I am not a version", "key")
-        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert exception_context.exception.error_code == ErrorCode.Name(
+            INVALID_PARAMETER_VALUE
+        )

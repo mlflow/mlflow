@@ -158,7 +158,9 @@ class SqlAlchemyStore(AbstractStore):
         """
         table = SqlExperiment.__tablename__
         default_experiment = {
-            SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
+            SqlExperiment.experiment_id.name: int(
+                SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+            ),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE,
@@ -177,7 +179,9 @@ class SqlAlchemyStore(AbstractStore):
         try:
             self._set_zero_value_insertion_for_autoincrement_column(session)
             session.execute(
-                "INSERT INTO {} ({}) VALUES ({});".format(table, ", ".join(columns), values)
+                "INSERT INTO {} ({}) VALUES ({});".format(
+                    table, ", ".join(columns), values
+                )
             )
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
@@ -222,11 +226,17 @@ class SqlAlchemyStore(AbstractStore):
                 session.add(experiment)
                 if not artifact_location:
                     # this requires a double write. The first one to generate an autoincrement-ed ID
-                    eid = session.query(SqlExperiment).filter_by(name=name).first().experiment_id
+                    eid = (
+                        session.query(SqlExperiment)
+                        .filter_by(name=name)
+                        .first()
+                        .experiment_id
+                    )
                     experiment.artifact_location = self._get_artifact_location(eid)
             except sqlalchemy.exc.IntegrityError as e:
                 raise MlflowException(
-                    "Experiment(name={}) already exists. " "Error: {}".format(name, str(e)),
+                    "Experiment(name={}) already exists. "
+                    "Error: {}".format(name, str(e)),
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -250,13 +260,20 @@ class SqlAlchemyStore(AbstractStore):
             conditions.append(SqlExperiment.name.in_(names))
 
         query_options = self._get_eager_experiment_query_options() if eager else []
-        return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
+        return (
+            session.query(SqlExperiment)
+            .options(*query_options)
+            .filter(*conditions)
+            .all()
+        )
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         with self.ManagedSessionMaker() as session:
             return [
                 exp.to_mlflow_entity()
-                for exp in self._list_experiments(session=session, view_type=view_type, eager=True)
+                for exp in self._list_experiments(
+                    session=session, view_type=view_type, eager=True
+                )
             ]
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
@@ -281,7 +298,8 @@ class SqlAlchemyStore(AbstractStore):
 
         if experiment is None:
             raise MlflowException(
-                "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST
+                "No Experiment with id={} exists".format(experiment_id),
+                RESOURCE_DOES_NOT_EXIST,
             )
 
         return experiment
@@ -316,7 +334,8 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(SqlExperiment)
                 .options(*self._get_eager_experiment_query_options())
                 .filter(
-                    SqlExperiment.name == experiment_name, SqlExperiment.lifecycle_stage.in_(stages)
+                    SqlExperiment.name == experiment_name,
+                    SqlExperiment.lifecycle_stage.in_(stages),
                 )
                 .one_or_none()
             )
@@ -324,13 +343,17 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
+            experiment = self._get_experiment(
+                session, experiment_id, ViewType.ACTIVE_ONLY
+            )
             experiment.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=experiment, session=session)
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
+            experiment = self._get_experiment(
+                session, experiment_id, ViewType.DELETED_ONLY
+            )
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
             self._save_to_db(objs=experiment, session=session)
 
@@ -338,7 +361,9 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session, experiment_id, ViewType.ALL)
             if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-                raise MlflowException("Cannot rename a non-active experiment.", INVALID_STATE)
+                raise MlflowException(
+                    "Cannot rename a non-active experiment.", INVALID_STATE
+                )
 
             experiment.name = new_name
             self._save_to_db(objs=experiment, session=session)
@@ -350,7 +375,9 @@ class SqlAlchemyStore(AbstractStore):
 
             run_id = uuid.uuid4().hex
             artifact_location = append_to_uri_path(
-                experiment.artifact_location, run_id, SqlAlchemyStore.ARTIFACTS_FOLDER_NAME
+                experiment.artifact_location,
+                run_id,
+                SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
             run = SqlRun(
                 name="",
@@ -371,7 +398,9 @@ class SqlAlchemyStore(AbstractStore):
             tags_dict = {}
             for tag in tags:
                 tags_dict[tag.key] = tag.value
-            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
+            run.tags = [
+                SqlTag(key=key, value=value) for key, value in tags_dict.items()
+            ]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -385,7 +414,10 @@ class SqlAlchemyStore(AbstractStore):
         """
         query_options = self._get_eager_run_query_options() if eager else []
         runs = (
-            session.query(SqlRun).options(*query_options).filter(SqlRun.run_uuid == run_uuid).all()
+            session.query(SqlRun)
+            .options(*query_options)
+            .filter(SqlRun.run_uuid == run_uuid)
+            .all()
         )
 
         if len(runs) == 0:
@@ -429,7 +461,9 @@ class SqlAlchemyStore(AbstractStore):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
                 "The experiment {} must be in the 'active' state. "
-                "Current state is {}.".format(experiment.experiment_id, experiment.lifecycle_stage),
+                "Current state is {}.".format(
+                    experiment.experiment_id, experiment.lifecycle_stage
+                ),
                 INVALID_PARAMETER_VALUE,
             )
 
@@ -512,7 +546,9 @@ class SqlAlchemyStore(AbstractStore):
             value = 0
         elif math.isinf(metric.value):
             #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
-            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+            value = (
+                1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+            )
         else:
             value = metric.value
         with self.ManagedSessionMaker() as session:
@@ -574,7 +610,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
-            metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
+            metrics = (
+                session.query(SqlMetric)
+                .filter_by(run_uuid=run_id, key=metric_key)
+                .all()
+            )
             return [metric.to_mlflow_entity() for metric in metrics]
 
     def log_param(self, run_id, param):
@@ -637,7 +677,9 @@ class SqlAlchemyStore(AbstractStore):
             ).to_mlflow_entity()
             self._check_experiment_is_active(experiment)
             session.merge(
-                SqlExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
+                SqlExperimentTag(
+                    experiment_id=experiment_id, key=tag.key, value=tag.value
+                )
             )
 
     def set_tag(self, run_id, tag):
@@ -663,7 +705,9 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            filtered_tags = session.query(SqlTag).filter_by(run_uuid=run_id, key=key).all()
+            filtered_tags = (
+                session.query(SqlTag).filter_by(run_uuid=run_id, key=key).all()
+            )
             if len(filtered_tags) == 0:
                 raise MlflowException(
                     "No tag with name: {} in run with id {}".format(key, run_id),
@@ -679,7 +723,13 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(filtered_tags[0])
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -691,7 +741,9 @@ class SqlAlchemyStore(AbstractStore):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
-                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                "most {}, but got value {}".format(
+                    SEARCH_MAX_RESULTS_THRESHOLD, max_results
+                ),
                 INVALID_PARAMETER_VALUE,
             )
 
@@ -703,12 +755,15 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_filter_for_run(filter_string)
-            parsed_orderby, sorting_joins = \
-                SearchUtils.get_order_by_clauses_for_run(order_by, session)
+            parsed_orderby, sorting_joins = SearchUtils.get_order_by_clauses_for_run(
+                order_by, session
+            )
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
 
             query = session.query(SqlRun)
-            for j in SearchUtils.get_sqlalchemy_filter_clause_for_run(parsed_filters, session):
+            for j in SearchUtils.get_sqlalchemy_filter_clause_for_run(
+                parsed_filters, session
+            ):
                 query = query.join(j)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -722,7 +777,9 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *SearchUtils.get_attributes_filtering_clauses_for_run(parsed_filters)
+                    *SearchUtils.get_attributes_filtering_clauses_for_run(
+                        parsed_filters
+                    )
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -771,4 +828,6 @@ class SqlAlchemyStore(AbstractStore):
             else:
                 value = json.dumps([model_dict])
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
-            session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
+            session.merge(
+                SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id)
+            )
