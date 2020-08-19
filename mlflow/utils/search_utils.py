@@ -180,7 +180,8 @@ class SearchUtils(object):
                 return "attribute", full_column_name
             else:
                 try:
-                    return full_column_name.split(".", 1)
+                    table_name, column_name = full_column_name.split(".", 1)
+                    return table_name, column_name
                 except ValueError:
                     raise MlflowException(
                         "Invalid identifier '%s'. Columns should be specified as "
