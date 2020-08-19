@@ -67,11 +67,10 @@ def _download_http_file_artifact(artifact_uri, artifact_path, dst_path=None):
 
     r = requests.get(artifact_uri)
     if r.status_code != 200:
-        raise Exception("Status Code {status_code}. {text}".format(
-            status_code=r.status_code,
-            text=r.text
-        ))
-    open(fullpath, 'wb').write(r.content)
+        raise Exception(
+            "Status Code {status_code}. {text}".format(status_code=r.status_code, text=r.text)
+        )
+    open(fullpath, "wb").write(r.content)
     return fullpath
 
 
