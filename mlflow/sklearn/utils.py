@@ -1,3 +1,43 @@
+import inspect
+
+_SAMPLE_WEIGHT = "sample_weight"
+
+
+def _get_Xy(args, kwargs):
+    if len(args) >= 2:
+        return args[:2]
+
+    if len(args) == 1:
+        return (args[0], kwargs["y"])
+
+    return (kwargs["X"], kwargs["y"])
+
+
+def _get_sample_weight(args_list, args, kwargs):
+    sample_weight_index = args_list.index(_SAMPLE_WEIGHT)
+
+    if len(args) > sample_weight_index:
+        return args[sample_weight_index]
+
+    if _SAMPLE_WEIGHT in kwargs:
+        return kwargs[_SAMPLE_WEIGHT]
+
+    return None
+
+
+def _get_args_for_score(fit_func, score_func, args, kwargs):
+    fit_args = inspect.getfullargspec(fit_func).args[1:]  # remove 'self'
+    score_args = inspect.getfullargspec(score_func).args[1:]
+
+    Xy = _get_Xy(args, kwargs)
+
+    if (_SAMPLE_WEIGHT in score_args) and (_SAMPLE_WEIGHT in fit_args):
+        sample_weight = _get_sample_weight(fit_args, args, kwargs)
+        return (*Xy, sample_weight)
+
+    return Xy
+
+
 def _all_estimators(type_filter=None):
     """
     Backported from scikit-learn 0.23.2:

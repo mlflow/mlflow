@@ -27,7 +27,6 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
-from mlflow.sklearn.utils import _all_estimators
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -520,6 +519,7 @@ def autolog():
     Enable autologging for scikit-learn.
     """
     import sklearn
+    from mlflow.sklearn.utils import _all_estimators, _get_args_for_score
 
     if _is_old_version():
         warnings.warn(
@@ -555,7 +555,8 @@ def autolog():
 
         if hasattr(self, "score"):
             try:
-                training_score = self.score(*args, **kwargs)
+                score_args = _get_args_for_score(original_fit, self.score, args, kwargs)
+                training_score = self.score(*score_args)
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
             except Exception as e:
                 _logger.warning("{} failed: {}".format(self.score.__qualname__, str(e)))

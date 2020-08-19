@@ -56,6 +56,12 @@ def stringify_dict_values(d):
     return {k: str(v) for k, v in d.items()}
 
 
+def get_arg_names(f):
+    # `inspect.getargspec` doesn't return a wrapped function's argspec
+    # See: https://hynek.me/articles/decorators/
+    return list(inspect.signature(f).parameters.keys())
+
+
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
@@ -155,6 +161,93 @@ def test_meta_estimator():
     np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
+def test_call_fit_with_arguments_score_does_not_accept():
+    mlflow.sklearn.autolog()
+
+    model = sklearn.linear_model.SGDRegressor()
+
+    assert "intercept_init" in get_arg_names(model.fit)
+    assert "intercept_init" not in get_arg_names(model.score)
+
+    with mlflow.start_run():
+        Xy = get_iris()
+        model.fit(*Xy, intercept_init=0)
+
+
+def test_both_fit_and_score_contain_sample_weight():
+    mlflow.sklearn.autolog()
+
+    model = sklearn.linear_model.SGDRegressor()
+
+    # ensure that we use an appropriate model for this test
+    assert "sample_weight" in get_arg_names(model.fit)
+    assert "sample_weight" in get_arg_names(model.score)
+
+    mock_obj = mock.Mock()
+
+    def mock_score(X, y, sample_weight=None):
+        mock_obj(X, y, sample_weight)
+        return 0
+
+    assert inspect.signature(model.score) == inspect.signature(mock_score)
+
+    model.score = mock_score
+
+    with mlflow.start_run():
+        Xy = get_iris()
+        sample_weight = abs(np.random.randn(len(Xy[0])))
+        model.fit(*Xy, sample_weight=sample_weight)
+        mock_obj.assert_called_once_with(*Xy, sample_weight)
+
+
+def test_only_fit_contains_sample_weight():
+    mlflow.sklearn.autolog()
+
+    model = sklearn.linear_model.RANSACRegressor()
+
+    assert "sample_weight" in get_arg_names(model.fit)
+    assert "sample_weight" not in get_arg_names(model.score)
+
+    mock_obj = mock.Mock()
+
+    def mock_score(X, y):
+        mock_obj(X, y)
+        return 0
+
+    assert inspect.signature(model.score) == inspect.signature(mock_score)
+
+    model.score = mock_score
+
+    with mlflow.start_run():
+        Xy = get_iris()
+        model.fit(*Xy)
+        mock_obj.assert_called_once_with(*Xy)
+
+
+def test_only_score_contains_sample_weight():
+    mlflow.sklearn.autolog()
+
+    model = sklearn.gaussian_process.GaussianProcessRegressor()
+
+    assert "sample_weight" not in get_arg_names(model.fit)
+    assert "sample_weight" in get_arg_names(model.score)
+
+    mock_obj = mock.Mock()
+
+    def mock_score(X, y, sample_weight=None):
+        mock_obj(X, y, sample_weight)
+        return 0
+
+    assert inspect.signature(model.score) == inspect.signature(mock_score)
+
+    model.score = mock_score
+
+    with mlflow.start_run():
+        Xy = get_iris()
+        model.fit(*Xy)
+        mock_obj.assert_called_once_with(*Xy, None)
+
+
 def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
     mlflow.sklearn.autolog()
 
@@ -185,7 +278,7 @@ def test_autolog_emits_warning_message_when_score_fails():
         model = sklearn.cluster.KMeans()
 
         @functools.wraps(model.score)
-        def throwing_score(X, y=None, sample_weight=None):
+        def throwing_score(self, X, y=None, sample_weight=None):
             raise Exception
 
         model.score = throwing_score
