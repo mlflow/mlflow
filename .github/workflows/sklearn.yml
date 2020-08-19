@@ -12,6 +12,7 @@ jobs:
   sklearn:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         version: ["0.20.3", "0.23.2"]
     steps:
@@ -26,4 +27,4 @@ jobs:
           pip install scikit-learn==${{ matrix.version }}
       - name: Run tests
         run: |
-          pytest --verbose tests/sklearn
+          pytest --verbose tests/sklearn/test_sklearn_autolog.py
