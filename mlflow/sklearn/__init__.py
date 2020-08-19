@@ -591,6 +591,11 @@ def autolog():
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(class_def, func_name):
                 original = getattr(class_def, func_name)
+
+                # Exclude property methods from patching
+                if isinstance(original, property):
+                    continue
+
                 patch_func = create_patch_func(func_name)
                 # preserve original function attributes
                 patch_func = functools.wraps(original)(patch_func)
