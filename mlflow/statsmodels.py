@@ -8,8 +8,8 @@ statsmodels (native) format
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 
-.. _statsmodels.base.model:
-    https://www.statsmodels.org/stable/dev/generated/statsmodels.base.model.Model.html
+.. _statsmodels.base.model.Results:
+    https://www.statsmodels.org/stable/_modules/statsmodels/base/model.html#Results
 
 """
 import os
@@ -39,7 +39,7 @@ STATSMODELS_DATA_SUBPATH = "model.statsmodels"
 
 _logger = logging.getLogger(__name__)
 
-# statsmodels monkey patching should be done only the first time the user calls autolog()
+# monkey patching should be done only the first time the user calls autolog()
 _patching_accomplished = False
 
 
@@ -53,7 +53,6 @@ def get_default_conda_env():
         additional_conda_deps=[
             "statsmodels={}".format(statsmodels.__version__),
         ],
-        # statsmodels is not yet available via the default conda channels, so we install it via pip
         additional_pip_deps=None,
         additional_conda_channels=None)
 
@@ -64,7 +63,7 @@ def save_model(statsmodels_model, path, conda_env=None, mlflow_model=None,
     """
     Save a statsmodels model to a path on the local file system.
 
-    :param statsmodels_model: statsmodels model (an instance of `statsmodels.base.model`_)
+    :param statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_)
                               to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -149,7 +148,7 @@ def log_model(statsmodels_model, artifact_path, conda_env=None, registered_model
     """
     Log a statsmodels model as an MLflow artifact for the current run.
 
-    :param statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Model`_)
+    :param statsmodels_model: statsmodels model (an instance of `statsmodels.base.model.Results`_)
                               to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -232,7 +231,7 @@ def load_model(model_uri):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    :return: A statsmodels model (an instance of `statsmodels.base.model.Model`_).
+    :return: A statsmodels model (an instance of `statsmodels.base.model.Results`_).
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -250,8 +249,8 @@ class _StatsmodelsModelWrapper:
         model = self.statsmodels_model.model
         if isinstance(model, TimeSeriesModel):
             # Assume the inference dataframe has columns "start" and "end", and just one row
-            # TODO: move this to a specific mlflow.statsmodels.tsa flavor since time series models
-            # expect slightly different arguments to make predictions
+            # TODO: move this to a specific mlflow.statsmodels.tsa flavor? Time series models
+            # often expect slightly different arguments to make predictions
             start_date = dataframe["start"][0]
             end_date = dataframe["end"][0]
             return self.statsmodels_model.predict(start=start_date, end=end_date)
@@ -394,6 +393,13 @@ def autolog():
         auto-loggable method found in any of the subclasses is replaced by the patched version.
         :param klass: root in the class hierarchy to be analyzed and patched recursively
         """
+
+        # TODO: add more autologgable methods here (e.g. fit_regularized, from_formula, etc)
+        # See https://www.statsmodels.org/dev/api.html
+        autolog_supported_func = {
+            "fit": wrapper_fit
+        }
+
         glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
         glob_subclasses = set(find_subclasses(klass))
 
@@ -441,6 +447,8 @@ def autolog():
             if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
                 metrics_dict = results_to_dict(model)
                 try_mlflow_log(mlflow.log_metrics, metrics_dict)
+                # This may generate warnings due to collisions in already-logged param names
+                log_fn_args_as_params(original_method, args, kwargs)
 
             if auto_end_run:
                 try_mlflow_log(mlflow.end_run)
@@ -448,12 +456,6 @@ def autolog():
             return model
 
         return fit
-
-    # TODO: add more autologgable statsmodels methods here (e.g. fit_regularized, from_formula, etc)
-    # See https://www.statsmodels.org/dev/api.html
-    autolog_supported_func = {
-        "fit": wrapper_fit
-    }
 
     global _patching_accomplished
 
