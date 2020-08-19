@@ -116,9 +116,9 @@ def test_estimator(fit_func_name):
     Xy = get_iris()
 
     with mlflow.start_run() as run:
-        run_id = run._info.run_id
         model = fit_model(model, Xy, fit_func_name)
 
+    run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == stringify_dict_values(model.get_params(deep=True))
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
@@ -143,10 +143,10 @@ def test_meta_estimator():
     Xy = get_iris()
 
     with mlflow.start_run() as run:
-        run_id = run._info.run_id
         model = fit_model(model, Xy, "fit")
 
-    params, metrics, tags, artifacts = get_run_data(run._info.run_id)
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == stringify_dict_values(model.get_params(deep=True))
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == {
@@ -163,14 +163,14 @@ def test_get_params_returns_dict_with_more_than_100_top_level_keys():
     mlflow.sklearn.autolog()
 
     large_params = {str(i): str(i) for i in range(101)}
+    Xy = get_iris()
 
     with mock.patch("sklearn.cluster.KMeans.get_params", return_value=large_params):
         with mlflow.start_run() as run:
-            Xy = get_iris()
             model = sklearn.cluster.KMeans()
-            run_id = run._info.run_id
             model = fit_model(model, Xy, "fit")
 
+    run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
     assert params == large_params
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
@@ -297,15 +297,16 @@ def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
 def test_autolog_emits_warning_message_when_score_fails():
     mlflow.sklearn.autolog()
 
+    model = sklearn.cluster.KMeans()
+
+    @functools.wraps(model.score)
+    def throwing_score(X, y=None, sample_weight=None):
+        # pylint: disable=unused-argument
+        raise Exception("EXCEPTION")
+
+    model.score = throwing_score
+
     with mlflow.start_run() as run, mock.patch("logging.Logger.warning") as mock_warning:
-        model = sklearn.cluster.KMeans()
-
-        @functools.wraps(model.score)
-        def throwing_score(X, y=None, sample_weight=None):
-            # pylint: disable=unused-argument
-            raise Exception("EXCEPTION")
-
-        model.score = throwing_score
         model.fit(*get_iris())
 
     metrics = get_run_data(run._info.run_id)[1]
