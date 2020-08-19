@@ -21,7 +21,6 @@ jobs:
           python-version: "3.6"
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
           pip install -e .
           pip install -r dev/small-requirements.txt
           pip install scikit-learn==${{ matrix.version }}
