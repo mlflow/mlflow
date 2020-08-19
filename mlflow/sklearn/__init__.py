@@ -521,8 +521,6 @@ def autolog():
     )
     from mlflow.utils.validation import MAX_PARAMS_TAGS_PER_BATCH, MAX_PARAM_VAL_LENGTH
 
-    sklearn.set_config(print_changed_only=True)
-
     if _is_old_version():
         warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < 0.20.3 "
