@@ -548,9 +548,10 @@ def autolog():
         try:
             fit_output = original_fit(*args, **kwargs)
         except Exception as e:
-            _logger.warning("{} failed: {}".format(original_fit.__qualname__, str(e)))
-            mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
-            return
+            if not active_run_exists:
+                mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+
+            raise e
 
         if hasattr(self, "score"):
             try:

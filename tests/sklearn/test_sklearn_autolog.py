@@ -155,18 +155,27 @@ def test_meta_estimator():
     np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
 
 
-def test_autolog_marks_run_as_failed_when_fit_fails():
+def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
+    mlflow.sklearn.autolog()
+
+    with pytest.raises(ValueError, match="Penalty term must be positive"):
+        sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
+
+    latest_run = mlflow.search_runs().iloc[0]
+    assert mlflow.active_run() is None
+    assert latest_run.status == "FAILED"
+
+
+def test_autolog_does_not_terminate_run_but_throws_instead_when_active_run_exists_and_fit_fails():
     mlflow.sklearn.autolog()
     run = mlflow.start_run()
 
-    with mock.patch("logging.Logger.warning") as mock_warning:
-        model = sklearn.svm.LinearSVC(C=-8).fit(*get_iris())
+    with pytest.raises(ValueError, match="Penalty term must be positive"):
+        sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
 
-    assert model is None
-    assert mlflow.active_run() is None
-    assert get_run(run._info.run_id)._info.status == "FAILED"
-    mock_warning.assert_called_once()
-    assert mock_warning.call_args[0][0].startswith("LinearSVC.fit failed")
+    assert mlflow.active_run() is not None
+    assert mlflow.active_run() is run
+    mlflow.end_run()
 
 
 def test_autolog_emits_warning_message_when_score_fails():
