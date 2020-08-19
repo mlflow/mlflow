@@ -5,10 +5,13 @@
 persistence and deployment."
 
 The example workflows below train RAPIDs regression models to predict airline flight delays, using
-MLflow to log models and deploy them as local REST API endpoints for real-time inference. You can run them on a
-GPU-enabled instance for free in Colab 
-[Colab](https://colab.research.google.com/drive/1rY7Ln6rEE1pOlfSHCYOVaqt8OvDO35J0#forceEdit=true&offline=true&sandboxMode=true),
-or on your own machine with an NVIDIA GPU and CUDA installed. See the [RAPIDS getting-started guide](https://rapids.ai/start.html)
+MLflow to log models and deploy them as local REST API endpoints for real-time inference. You can run them:
+
+* On a GPU-enabled instance for free in Colab. If following this approach, we recommend using the "Jupyter notebook workflow" below 
+and following the setup steps in [this Colab notebook](https://colab.research.google.com/drive/1rY7Ln6rEE1pOlfSHCYOVaqt8OvDO35J0#forceEdit=true&offline=true&sandboxMode=true) to configure your
+environment.
+
+* On your own machine with an NVIDIA GPU and CUDA installed. See the [RAPIDS getting-started guide](https://rapids.ai/start.html)
 for more details on necessary prerequisites for running the examples on your own machine.
 
 
