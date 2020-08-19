@@ -530,7 +530,7 @@ def autolog():
 
     def fit_mlflow(self, func_name, *args, **kwargs):
         should_start_run = mlflow.active_run() is None
-        if not should_start_run:
+        if should_start_run:
             try_mlflow_log(mlflow.start_run)
 
         # TODO: We should not log nested estimator parameters for
