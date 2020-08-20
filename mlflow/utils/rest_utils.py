@@ -111,7 +111,7 @@ def http_request_safe(host_creds, endpoint, **kwargs):
 
 
 def verify_rest_response(response, endpoint):
-    """Verify the return code and raise exception if the request was not successful."""
+    """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
         if _can_parse_as_json(response.text):
             raise RestException(json.loads(response.text))
@@ -121,6 +121,13 @@ def verify_rest_response(response, endpoint):
                 response.status_code,
             )
             raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+
+    if not _can_parse_as_json(response.text):
+        base_msg = (
+            "API request to endpoint was successful but the response body was not in JSON format"
+        )
+        raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+
     return response
 
 
