@@ -1,6 +1,9 @@
 from distutils.version import LooseVersion
 import inspect
 from itertools import islice
+import logging
+
+_logger = logging.getLogger(__name__)
 
 _SAMPLE_WEIGHT = "sample_weight"
 
@@ -69,8 +72,29 @@ def _chunk_dict(d, chunk_size):
         yield {k: d[k] for k in islice(it, chunk_size)}
 
 
-def _truncate_dict_values(d, max_length):
-    return {k: str(v)[:max_length] for k, v in d.items()}
+def _truncate_dict(d, max_key_length=None, max_value_length=None):
+    key_is_none = max_key_length is None
+    val_is_none = max_value_length is None
+
+    if key_is_none and val_is_none:
+        raise ValueError("Must specify at least either `max_key_length` or `max_value_length`")
+
+    truncated = {}
+    for k, v in d.items():
+        should_truncate_key = (not key_is_none) and (len(str(k)) > max_key_length)
+        should_truncate_val = (not key_is_none) and (len(str(v)) > max_value_length)
+
+        new_k = str(k)[:max_key_length] if should_truncate_key else k
+        if should_truncate_key:
+            _logger.warning("Truncated the key `{}`".format(k))
+
+        new_v = str(v)[:max_value_length] if should_truncate_val else v
+        if should_truncate_val:
+            _logger.warning("Truncated the value `{}` (in the key `{}`)".format(v, k))
+
+        truncated[new_k] = new_v
+
+    return truncated
 
 
 def _backported_all_estimators(type_filter=None):

@@ -519,9 +519,13 @@ def autolog():
         _chunk_dict,
         _get_args_for_score,
         _all_estimators,
-        _truncate_dict_values,
+        _truncate_dict,
     )
-    from mlflow.utils.validation import MAX_PARAMS_TAGS_PER_BATCH, MAX_PARAM_VAL_LENGTH
+    from mlflow.utils.validation import (
+        MAX_PARAMS_TAGS_PER_BATCH,
+        MAX_PARAM_KEY_LENGTH,
+        MAX_PARAM_VAL_LENGTH,
+    )
 
     if _is_old_version():
         warnings.warn(
@@ -538,9 +542,10 @@ def autolog():
         # TODO: We should not log nested estimator parameters for
         # parameter search estimators (GridSearchCV, RandomizedSearchCV)
 
-        # Chunk model parameters to avoid hitting the log_batch API limit
+        # Chunk and truncate model parameters to avoid hitting the log_batch API limit
         for chunk in _chunk_dict(self.get_params(deep=True), chunk_size=MAX_PARAMS_TAGS_PER_BATCH):
-            try_mlflow_log(mlflow.log_params, _truncate_dict_values(chunk, MAX_PARAM_VAL_LENGTH))
+            truncated = _truncate_dict(chunk, MAX_PARAM_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+            try_mlflow_log(mlflow.log_params, truncated)
 
         try_mlflow_log(
             mlflow.set_tags,
