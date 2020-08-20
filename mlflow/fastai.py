@@ -32,9 +32,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
-from fastai.tabular import TabularList
-from fastai.basic_data import DatasetType
-
 
 FLAVOR_NAME = "fastai"
 
@@ -230,6 +227,9 @@ class _FastaiModelWrapper:
         self.learner = learner
 
     def predict(self, dataframe):
+        from fastai.tabular import TabularList
+        from fastai.basic_data import DatasetType
+
         test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
         self.learner.data.add_test(test_data)
         preds, target = self.learner.get_preds(DatasetType.Test)
@@ -278,7 +278,9 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    MLflow will also log the parameters of the EarlyStopping and OneCycleScheduler callbacks
+    MLflow will also log the parameters of the
+    `EarlyStoppingCallback <https://docs.fast.ai/callbacks.html#EarlyStoppingCallback>`_
+    and `OneCycleScheduler <https://docs.fast.ai/callbacks.html#OneCycleScheduler>`_ callbacks
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info

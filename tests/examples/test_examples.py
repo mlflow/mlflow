@@ -6,7 +6,6 @@ import shutil
 import mlflow
 from mlflow import cli
 from mlflow.utils import process
-from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.integration.utils import invoke_cli_runner
 import pytest
 
@@ -37,9 +36,9 @@ def replace_mlflow_with_dev_version(yml_path):
     "directory, params",
     [
         ("h2o", []),
-        ("hyperparam", ["-e", "train"]),
-        ("hyperparam", ["-e", "random"]),
-        ("hyperparam", ["-e", "gpyopt"]),
+        ("hyperparam", ["-e", "train", "-P", "epochs=1"]),
+        ("hyperparam", ["-e", "random", "-P", "epochs=1"]),
+        ("hyperparam", ["-e", "gpyopt", "-P", "epochs=1"]),
         ("hyperparam", ["-e", "hyperopt", "-P", "epochs=1"]),
         (
             "lightgbm",

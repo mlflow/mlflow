@@ -215,10 +215,12 @@ import mlflow.pyfunc.utils
 from mlflow.models import Model, ModelSignature, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
+from mlflow.pyfunc.model import PythonModel, PythonModelContext  # pylint: disable=unused-import
+from mlflow.pyfunc.model import get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema
-from mlflow.utils import PYTHON_VERSION, deprecated, get_major_minor_py_version
+from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException

@@ -99,7 +99,7 @@ def test_keras_autolog_persists_manually_created_run(
 
 @pytest.fixture
 def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run):
-
+    # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
     data = random_train_data
@@ -177,6 +177,7 @@ def keras_random_data_run_with_callback(
     restore_weights,
     patience,
 ):
+    # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
     data = random_train_data
@@ -304,7 +305,7 @@ def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
-    run, history, callback = keras_random_data_run_with_callback
+    run, history = keras_random_data_run_with_callback[:-1]
     metrics = run.data.metrics
     params = run.data.params
     assert "patience" not in params
