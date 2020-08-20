@@ -9,21 +9,6 @@ _SAMPLE_WEIGHT = "sample_weight"
 _MIN_SKLEARN_VERSION = "0.20.3"
 
 
-def _is_old_version():
-    import sklearn
-
-    return LooseVersion(sklearn.__version__) < LooseVersion(_MIN_SKLEARN_VERSION)
-
-
-def _all_estimators():
-    try:
-        from sklearn.utils import all_estimators
-
-        return all_estimators()
-    except ImportError:
-        return _backported_all_estimators()
-
-
 def _get_Xy(args, kwargs, X_var_name, y_var_name):
     # corresponds to: model.fit(X, y)
     if len(args) >= 2:
@@ -120,6 +105,21 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
         truncated[new_k] = new_v
 
     return truncated
+
+
+def _is_old_version():
+    import sklearn
+
+    return LooseVersion(sklearn.__version__) < LooseVersion(_MIN_SKLEARN_VERSION)
+
+
+def _all_estimators():
+    try:
+        from sklearn.utils import all_estimators
+
+        return all_estimators()
+    except ImportError:
+        return _backported_all_estimators()
 
 
 def _backported_all_estimators(type_filter=None):
