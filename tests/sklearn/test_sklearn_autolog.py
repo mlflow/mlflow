@@ -268,10 +268,6 @@ def test_call_fit_with_arguments_score_does_not_accept():
         model.fit(*Xy, intercept_init=0)
 
 
-def create_sample_weight():
-    return abs(np.random.randn(len(get_iris()[0])))
-
-
 @pytest.mark.parametrize("pass_sample_weight_as", ["positional", "keyword"])
 def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
     mlflow.sklearn.autolog()
