@@ -282,14 +282,26 @@ def test_fit_takes_Xy_as_keyword_arguments(pattern):
 def test_call_fit_with_arguments_score_does_not_accept():
     mlflow.sklearn.autolog()
 
-    model = sklearn.linear_model.SGDRegressor()
+    from sklearn.linear_model import SGDRegressor
 
-    assert "intercept_init" in _get_arg_names(model.fit)
-    assert "intercept_init" not in _get_arg_names(model.score)
+    assert "intercept_init" in _get_arg_names(SGDRegressor.fit)
+    assert "intercept_init" not in _get_arg_names(SGDRegressor.score)
+
+    mock_obj = mock.Mock()
+
+    def mock_score(self, X, y, sample_weight=None):
+        mock_obj(X, y, sample_weight)
+        return 0
+
+    assert inspect.signature(SGDRegressor.score) == inspect.signature(mock_score)
+
+    SGDRegressor.score = mock_score
+    model = SGDRegressor()
+    Xy = get_iris()
 
     with mlflow.start_run() as run:
-        Xy = get_iris()
         model.fit(*Xy, intercept_init=0)
+        mock_obj.assert_called_once_with(*Xy, None)
 
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -318,7 +330,7 @@ def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
 
     assert inspect.signature(SGDRegressor.score) == inspect.signature(mock_score)
 
-    sklearn.linear_model.SGDRegressor.score = mock_score
+    SGDRegressor.score = mock_score
     model = SGDRegressor()
     Xy = get_iris()
     sample_weight = abs(np.random.randn(len(Xy[0])))
