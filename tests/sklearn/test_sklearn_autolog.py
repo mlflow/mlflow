@@ -1,6 +1,7 @@
 import functools
 import inspect
 from mock import mock
+import warnings
 
 import numpy as np
 import pytest
@@ -10,6 +11,7 @@ import sklearn.datasets
 import mlflow.sklearn
 from mlflow.sklearn.utils import _MIN_SKLEARN_VERSION, _get_arg_names, _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_PARAM_KEY_LENGTH,
@@ -83,6 +85,24 @@ def assert_predict_equal(left, right, X):
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
+
+
+@pytest.fixture(autouse=True, scope="function")
+def throw_if_try_mlflow_log_has_emitted_warnings():
+    # autolog contains multiple try_mlflow_log. They may hide unintentional errors (often caused by
+    # incorrect test settings) and allow tests that should not pass to pass (without us noticing).
+    # To prevent that, throw if try_mlflow_log has emitted warnings during test execution.
+    with warnings.catch_warnings(record=True) as ws:
+        yield
+        mlflow_warnings = [w for w in ws if str(w.message).startswith("Logging to MLflow failed")]
+        assert len(mlflow_warnings) == 0
+
+
+@pytest.mark.xfail
+def test_throw_if_try_mlflow_log_has_emitted_warnings():
+    with mlflow.start_run():
+        # This line should emit a warning because a metric value must be a float value.
+        try_mlflow_log(mlflow.log_metric, "m", "m")
 
 
 def test_autolog_preserves_original_function_attributes():
