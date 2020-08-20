@@ -47,7 +47,7 @@ def _get_sample_weight(arg_names, args, kwargs):
 
 def _get_arg_names(f):
     # `inspect.getargspec` doesn't return a wrapped function's argspec
-    # See: https://hynek.me/articles/decorators/
+    # See: https://hynek.me/articles/decorators#mangled-signatures
     return list(inspect.signature(f).parameters.keys())
 
 
