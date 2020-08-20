@@ -58,7 +58,7 @@ def get_run_data(run_id):
 
 
 def load_model_by_run_id(run_id):
-    return mlflow.sklearn.load_model("runs:/{}/model".format(run_id))
+    return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
 def stringify_dict_values(d):
