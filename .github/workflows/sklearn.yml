@@ -27,4 +27,4 @@ jobs:
           pip install scikit-learn==${{ matrix.version }}
       - name: Run tests
         run: |
-          pytest --verbose tests/sklearn/test_sklearn_autolog.py
+          pytest --verbose tests/sklearn/test_sklearn_autolog.py --large
