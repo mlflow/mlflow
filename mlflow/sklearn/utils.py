@@ -24,21 +24,26 @@ def _all_estimators():
 
 
 def _get_Xy(args, kwargs, X_var_name, y_var_name):
+    # corresponds to: model.fit(X, y)
     if len(args) >= 2:
         return args[:2]
 
+    # corresponds to: model.fit(X, <y_var_name>=y)
     if len(args) == 1:
         return args[0], kwargs[y_var_name]
 
+    # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
     return kwargs[X_var_name], kwargs[y_var_name]
 
 
 def _get_sample_weight(arg_names, args, kwargs):
     sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
 
+    # corresponds to: model.fit(X, y, ..., sample_weight)
     if len(args) > sample_weight_index:
         return args[sample_weight_index]
 
+    # corresponds to: model.fit(X, y, ..., sample_weight=sample_weight)
     if _SAMPLE_WEIGHT in kwargs:
         return kwargs[_SAMPLE_WEIGHT]
 
