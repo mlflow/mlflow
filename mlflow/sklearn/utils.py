@@ -23,18 +23,18 @@ def _all_estimators():
         return _backported_all_estimators()
 
 
-def _get_Xy(args, kwargs):
+def _get_Xy(args, kwargs, X_var_name, y_var_name):
     if len(args) >= 2:
         return args[:2]
 
     if len(args) == 1:
-        return args[0], kwargs["y"]
+        return args[0], kwargs[y_var_name]
 
-    return kwargs["X"], kwargs["y"]
+    return kwargs[X_var_name], kwargs[y_var_name]
 
 
-def _get_sample_weight(args_list, args, kwargs):
-    sample_weight_index = args_list.index(_SAMPLE_WEIGHT)
+def _get_sample_weight(arg_names, args, kwargs):
+    sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
 
     if len(args) > sample_weight_index:
         return args[sample_weight_index]
@@ -55,7 +55,11 @@ def _get_args_for_score(fit_func, score_func, args, kwargs):
     fit_args = _get_arg_names(fit_func)
     score_args = _get_arg_names(score_func)
 
-    Xy = _get_Xy(args, kwargs)
+    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+    # However, certain sklearn models use different variable names for X and y.
+    # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score
+    X_var_name, y_var_name = fit_args[:2]
+    Xy = _get_Xy(args, kwargs, X_var_name, y_var_name)
 
     if (_SAMPLE_WEIGHT in score_args) and (_SAMPLE_WEIGHT in fit_args):
         sample_weight = _get_sample_weight(fit_args, args, kwargs)
