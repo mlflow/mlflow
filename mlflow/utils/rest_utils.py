@@ -124,7 +124,8 @@ def verify_rest_response(response, endpoint):
 
     if not _can_parse_as_json(response.text):
         base_msg = (
-            "API request to endpoint was successful but the response body was not in JSON format"
+            "API request to endpoint was successful but the response body was not "
+            "in a valid JSON format"
         )
         raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
 
