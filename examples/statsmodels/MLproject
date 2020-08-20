@@ -1,4 +1,4 @@
-name: lightgbm-example
+name: statsmodels-example
 conda_env: conda.yaml
 entry_points:
   main:

@@ -35,7 +35,7 @@ ModelWithResults = namedtuple("ModelWithResults", ["model", "inference_dataframe
 """
     Test cases concerning saving and loading a statsmodels model.
     All the tests employ either an OLS model or an ARIMA model.
-    The code has been adapted from the test cases of the lightgbm flavor 
+    The code has been adapted from the test cases of the lightgbm flavor.
 """
 
 
@@ -274,8 +274,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.statsmodels.log_model(statsmodels_model=ols_model.model,
-                                  artifact_path=artifact_path,
-                                  conda_env=statsmodels_custom_env)
+                                     artifact_path=artifact_path,
+                                     conda_env=statsmodels_custom_env)
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)

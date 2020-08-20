@@ -426,7 +426,7 @@ def autolog():
         in corner cases where `self` still refers to the subclass but the method we want to invoke
         (in the context of the subclass) belongs to a superclass
 
-        :param original_method: the original fit function that will be replaced by this fit function
+        :param original_method: the original function object that will be replaced by this function
         :return: the new fit function, from which we will be doing a call to the original fit
                  method at some point
         """

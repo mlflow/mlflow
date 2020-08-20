@@ -1,6 +1,3 @@
-import os
-import json
-import pytest
 import numpy as np
 
 import mlflow
@@ -10,7 +7,7 @@ from tests.statsmodels.test_statsmodels_model_export import ols_model, arma_mode
 """
     Test cases concerning autologging a statsmodels model params and metrics.
     All the tests employ either an OLS model or an ARIMA model.
-    The code has been adapted from the autolog test cases of the lightgbm flavor 
+    The code has been adapted from the autolog test cases of the lightgbm flavor.
 """
 
 
