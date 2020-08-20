@@ -17,6 +17,9 @@ ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 
 
+pytestmark = pytest.mark.large
+
+
 def get_iris():
     iris = sklearn.datasets.load_iris()
     return iris.data[:, :2], iris.target
