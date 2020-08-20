@@ -174,36 +174,49 @@ class SearchUtils(object):
             return entity_type
 
     @classmethod
-    def _get_identifier(cls, identifier, valid_attributes, is_search_run):
-        def split_identifier(full_column_name, missing_table_name):
-            if missing_table_name:
-                return "attribute", full_column_name
-            else:
-                try:
-                    table_name, column_name = full_column_name.split(".", 1)
-                    return table_name, column_name
-                except ValueError:
-                    raise MlflowException(
-                        "Invalid identifier '%s'. Columns should be specified as "
-                        "'attribute.<key>', 'metric.<key>', 'tag.<key>', or "
-                        "'param.'." % full_column_name,
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
+    def _split_identifier(cls, full_column_name, is_missing_table_name):
+        if is_missing_table_name:
+            return "attribute", full_column_name
+        else:
+            try:
+                table_name, column_name = full_column_name.split(".", 1)
+                return table_name, column_name
+            except ValueError:
+                raise MlflowException(
+                    "Invalid identifier '%s'. Columns should be specified as "
+                    "'attribute.<key>', 'metric.<key>', 'tag.<key>', or "
+                    "'param.'." % full_column_name,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
+    @classmethod
+    def _get_identifier_for_runs(cls, identifier, valid_attribute_keys):
         # search models may not provide table name, in that case default to attribute table
         # (e.g name = 'CNN' is equivalent to attribute.model = 'CNN')
         column_only = identifier.find(".") == -1
-        entity_type, key = split_identifier(identifier, column_only)
-        identifier = (
-            cls._valid_run_entity_type(entity_type)
-            if is_search_run
-            else cls._valid_model_entity_type(entity_type)
-        )
+        entity_type, key = cls._split_identifier(identifier, column_only)
+        identifier = cls._valid_run_entity_type(entity_type)
         key = cls._trim_backticks(cls._strip_quotes(key))
-        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attribute_keys:
             raise MlflowException(
                 "Invalid attribute key '{}' specified. Valid keys"
-                " are {}".format(key, valid_attributes),
+                " are {}".format(key, valid_attribute_keys),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return {"type": identifier, "key": key}
+
+    @classmethod
+    def _get_identifier_for_registered_models(cls, identifier, valid_attribute_keys):
+        # search models may not provide table name, in that case default to attribute table
+        # (e.g name = 'CNN' is equivalent to attribute.model = 'CNN')
+        column_only = identifier.find(".") == -1
+        entity_type, key = cls._split_identifier(identifier, column_only)
+        identifier = cls._valid_model_entity_type(entity_type)
+        key = cls._trim_backticks(cls._strip_quotes(key))
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attribute_keys:
+            raise MlflowException(
+                "Invalid attribute key '{}' specified. Valid keys"
+                " are {}".format(key, valid_attribute_keys),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return {"type": identifier, "key": key}
@@ -270,10 +283,23 @@ class SearchUtils(object):
             )
 
     @classmethod
-    def _get_comparison(cls, comparison, valid_search_keys, is_search_run):
+    def _get_comparison_for_runs(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
-        comp = cls._get_identifier(stripped_comparison[0].value, valid_search_keys, is_search_run)
+        comp = cls._get_identifier_for_runs(
+            stripped_comparison[0].value, cls.VALID_SEARCH_RUN_ATTRIBUTE_KEYS
+        )
+        comp["comparator"] = stripped_comparison[1].value
+        comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
+        return comp
+
+    @classmethod
+    def _get_comparison_for_registered_models(cls, comparison):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        comp = cls._get_identifier_for_registered_models(
+            stripped_comparison[0].value, cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS
+        )
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
         return comp
@@ -290,7 +316,7 @@ class SearchUtils(object):
             return True
 
     @classmethod
-    def _process_statement(cls, statement, valid_search_keys, is_search_run):
+    def _validate_statement_tokens(cls, statement):
         # check validity
         invalids = list(filter(cls._invalid_statement_token, statement.tokens))
         if len(invalids) > 0:
@@ -299,16 +325,9 @@ class SearchUtils(object):
                 "Invalid clause(s) in filter string: %s" % invalid_clauses,
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return [
-            cls._get_comparison(si, valid_search_keys, is_search_run)
-            for si in statement.tokens
-            if isinstance(si, Comparison)
-        ]
 
     @classmethod
-    def _parse_search_filter(cls, filter_string, valid_search_keys, is_search_run):
-        if not filter_string:
-            return []
+    def _validate_and_get_sql_statement(cls, filter_string):
         try:
             parsed = sqlparse.parse(filter_string)
         except Exception:
@@ -326,11 +345,31 @@ class SearchUtils(object):
                 "Provide AND-ed expression list." % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return cls._process_statement(parsed[0], valid_search_keys, is_search_run)
+        return parsed
 
     @classmethod
     def parse_filter_for_run(cls, filter_string):
-        return cls._parse_search_filter(filter_string, cls.VALID_SEARCH_RUN_ATTRIBUTE_KEYS, True)
+        if not filter_string:
+            return []
+        statement = cls._validate_and_get_sql_statement(filter_string)[0]
+        cls._validate_statement_tokens(statement)
+        return [
+            cls._get_comparison_for_runs(si)
+            for si in statement.tokens
+            if isinstance(si, Comparison)
+        ]
+
+    @classmethod
+    def parse_filter_for_registered_models(cls, filter_string):
+        if not filter_string:
+            return []
+        statement = cls._validate_and_get_sql_statement(filter_string)[0]
+        cls._validate_statement_tokens(statement)
+        return [
+            cls._get_comparison_for_registered_models(si)
+            for si in statement.tokens
+            if isinstance(si, Comparison)
+        ]
 
     @classmethod
     def is_metric(cls, key_type, comparator):
@@ -491,16 +530,16 @@ class SearchUtils(object):
     @classmethod
     def parse_order_by_for_search_runs(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
-        identifier = cls._get_identifier(
-            token_value.strip(), cls.VALID_ORDER_BY_RUN_ATTRIBUTE_KEYS, True
+        identifier = cls._get_identifier_for_runs(
+            token_value.strip(), cls.VALID_ORDER_BY_RUN_ATTRIBUTE_KEYS
         )
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
     def parse_order_by_for_search_registered_models(cls, order_by):
         token_value, is_ascending = cls._parse_order_by_string(order_by)
-        identifier = cls._get_identifier(
-            token_value.strip(), cls.VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS, False,
+        identifier = cls._get_identifier_for_registered_models(
+            token_value.strip(), cls.VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS
         )
         # last updated timestamp field in search registered model has alias,
         # we want to map those alias to the correct db key
@@ -509,32 +548,17 @@ class SearchUtils(object):
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
-    def _get_subquery_entity(cls, key_type, comparator, is_search_run):
-        if is_search_run:
-            if cls.is_metric(key_type, comparator):  # any valid comparator
-                return SqlLatestMetric
-            elif cls.is_tag(key_type, comparator):
-                return SqlTag
-            elif cls.is_param(key_type, comparator):
-                return SqlParam
-            elif cls.is_attribute(key_type, comparator):
-                return None
-            else:
-                raise MlflowException(
-                    "Invalid identifier type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
-                )
-        else:
-            if cls.is_tag(key_type, comparator):
-                return SqlRegisteredModelTag
-            elif cls.is_attribute(key_type, comparator):
-                return None
-            else:
-                raise MlflowException(
-                    "Invalid identifier type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
-                )
+    def _check_for_duplicate_order_by_clause(
+        cls, order_by_clauses, supported_order_by, key_type, key
+    ):
+        if (key_type, key) in order_by_clauses:
+            raise MlflowException(
+                "`order_by` contains duplicate fields: {}".format(supported_order_by)
+            )
+        order_by_clauses.add((key_type, key))
 
     @classmethod
-    def _get_order_by_clauses(cls, order_by_list, session, is_search_run):
+    def get_order_by_clauses_for_run(cls, order_by_list, session):
         """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
         Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
         """
@@ -547,24 +571,17 @@ class SearchUtils(object):
         if order_by_list:
             for order_by_clause in order_by_list:
                 clause_id += 1
-                (key_type, key, ascending) = (
-                    cls.parse_order_by_for_search_runs(order_by_clause)
-                    if is_search_run
-                    else cls.parse_order_by_for_search_registered_models(order_by_clause)
-                )
+                key_type, key, ascending = cls.parse_order_by_for_search_runs(order_by_clause)
+
                 if cls.is_attribute(key_type, "="):
-                    order_value = (
-                        getattr(SqlRun, SqlRun.get_attribute_name(key))
-                        if is_search_run
-                        else getattr(SqlRegisteredModel, key)
-                    )
+                    order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
                     clauses.append(
                         sql.case([(order_value.is_(None), 1)], else_=0).label(
                             "clause_%s" % clause_id
                         )
                     )
                 else:
-                    entity = cls._get_subquery_entity(key_type, "=", is_search_run)
+                    entity = cls._get_subquery_entity_for_runs(key_type, "=")
                     # build a subquery first because we will join it in the main request so that the
                     # metric we want to sort on is available when we apply the sorting clause
                     subquery = session.query(entity).filter(entity.key == key).subquery()
@@ -575,7 +592,7 @@ class SearchUtils(object):
                     # As the subqueries are created independently and used later in the
                     # same main query, the CASE WHEN columns need to have unique names to
                     # avoid ambiguity
-                    if is_search_run and cls.is_metric(key_type, "="):
+                    if cls.is_metric(key_type, "="):
                         clauses.append(
                             sql.case(
                                 [(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)],
@@ -589,99 +606,171 @@ class SearchUtils(object):
                             )
                         )
 
-                if (key_type, key) in observed_order_by_clauses:
-                    raise MlflowException(
-                        "`order_by` contains duplicate fields: {}".format(order_by_list)
-                    )
-                observed_order_by_clauses.add((key_type, key))
-
+                cls._check_for_duplicate_order_by_clause(
+                    observed_order_by_clauses, order_by_list, key_type, key
+                )
                 if ascending:
                     clauses.append(order_value)
                 else:
                     clauses.append(order_value.desc())
-        if is_search_run:
-            if (
-                SearchUtils._ATTRIBUTE_IDENTIFIER,
-                SqlRun.start_time.key,
-            ) not in observed_order_by_clauses:
-                clauses.append(SqlRun.start_time.desc())
-            clauses.append(SqlRun.run_uuid)
-        else:
-            if (
-                SearchUtils._ATTRIBUTE_IDENTIFIER,
-                SqlRegisteredModel.name.key,
-            ) not in observed_order_by_clauses:
-                clauses.append(SqlRegisteredModel.name.asc())
+
+        if (
+            SearchUtils._ATTRIBUTE_IDENTIFIER,
+            SqlRun.start_time.key,
+        ) not in observed_order_by_clauses:
+            clauses.append(SqlRun.start_time.desc())
+        clauses.append(SqlRun.run_uuid)
+
         return clauses, ordering_joins
 
     @classmethod
-    def get_order_by_clauses_for_run(cls, order_by_list, session):
-        return cls._get_order_by_clauses(order_by_list, session, True)
-
-    @classmethod
     def get_order_by_clause_for_registered_model(cls, order_by_list, session):
-        return cls._get_order_by_clauses(order_by_list, session, False)
+        """Sorts a set of registered_models based on their natural ordering and an overriding set of order_bys.
+        Runs are naturally ordered by model name for tie-breaking.
+        """
+        clauses = []
+        ordering_joins = []
+        clause_id = 0
+        observed_order_by_clauses = set()
+        # contrary to filters, it is not easily feasible to separately handle sorting
+        # on attributes and on joined tables as we must keep all clauses in the same order
+        if order_by_list:
+            for order_by_clause in order_by_list:
+                clause_id += 1
+                (key_type, key, ascending) = cls.parse_order_by_for_search_registered_models(
+                    order_by_clause
+                )
+                if cls.is_attribute(key_type, "="):
+                    order_value = getattr(SqlRegisteredModel, key)
+                    clauses.append(
+                        sql.case([(order_value.is_(None), 1)], else_=0).label(
+                            "clause_%s" % clause_id
+                        )
+                    )
+                else:
+                    entity = cls._get_subquery_entity_for_registered_models(key_type, "=")
+                    # build a subquery first because we will join it in the main request so that the
+                    # metric we want to sort on is available when we apply the sorting clause
+                    subquery = session.query(entity).filter(entity.key == key).subquery()
+                    ordering_joins.append(subquery)
+                    order_value = subquery.c.value
+                    # sqlite does not support NULLS LAST expression, so we sort first by
+                    # presence of the field (and is_nan for metrics), then by actual value
+                    # As the subqueries are created independently and used later in the
+                    # same main query, the CASE WHEN columns need to have unique names to
+                    # avoid ambiguity
+                    clauses.append(
+                        sql.case([(order_value.is_(None), 1)], else_=0).label(
+                            "clause_%s" % clause_id
+                        )
+                    )
+
+                cls._check_for_duplicate_order_by_clause(
+                    observed_order_by_clauses, order_by_list, key_type, key
+                )
+                if ascending:
+                    clauses.append(order_value)
+                else:
+                    clauses.append(order_value.desc())
+
+        if (
+            SearchUtils._ATTRIBUTE_IDENTIFIER,
+            SqlRegisteredModel.name.key,
+        ) not in observed_order_by_clauses:
+            clauses.append(SqlRegisteredModel.name.asc())
+
+        return clauses, ordering_joins
 
     @classmethod
-    def _to_sqlalchemy_filtering_statement(cls, sql_statement, session, is_search_run):
-        key_type = sql_statement.get("type")
-        key_name = sql_statement.get("key")
-        value = sql_statement.get("value")
-        comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_attribute(key_type, comparator):
+    def _get_subquery_entity_for_registered_models(cls, key_type, comparator):
+        if cls.is_tag(key_type, comparator):
+            return SqlRegisteredModelTag
+        elif cls.is_attribute(key_type, comparator):
             return None
-        entity = cls._get_subquery_entity(key_type, comparator, is_search_run)
-        if is_search_run and cls.is_metric(key_type, comparator):
-            value = float(value)
+        else:
+            raise MlflowException(
+                "Invalid identifier type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
+    def _get_subquery_entity_for_runs(cls, key_type, comparator):
+        if cls.is_metric(key_type, comparator):  # any valid comparator
+            return SqlLatestMetric
+        elif cls.is_tag(key_type, comparator):
+            return SqlTag
+        elif cls.is_param(key_type, comparator):
+            return SqlParam
+        elif cls.is_attribute(key_type, comparator):
+            return None
+        else:
+            raise MlflowException(
+                "Invalid identifier type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
+    def _get_sqlalchemy_query(cls, entity, comparator, key, value, session):
         if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
             op = cls.get_sql_filter_ops(entity.value, comparator)
-            return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
+            return session.query(entity).filter(entity.key == key, op(value)).subquery()
         elif comparator in cls.filter_ops:
             op = cls.filter_ops.get(comparator)
             return (
-                session.query(entity)
-                .filter(entity.key == key_name, op(entity.value, value))
-                .subquery()
+                session.query(entity).filter(entity.key == key, op(entity.value, value)).subquery()
             )
         else:
             return None
 
     @classmethod
-    def _get_sqlalchemy_filter_clauses(cls, parsed, session, is_search_run):
+    def _parse_sql_statement(cls, sql_statement):
+        return (
+            sql_statement.get("type"),
+            sql_statement.get("key"),
+            sql_statement.get("value"),
+            sql_statement.get("comparator").upper(),
+        )
+
+    @classmethod
+    def get_sqlalchemy_filter_clause_for_run(cls, parsed, session):
         """creates SqlAlchemy sub-queries
         that will be inner-joined to attribute table to act as multi-clause filters."""
         filters = []
         for sql_statement in parsed:
-            filter_query = cls._to_sqlalchemy_filtering_statement(
-                sql_statement, session, is_search_run
-            )
-            if filter_query is not None:
+            key_type, key_name, value, comparator = cls._parse_sql_statement(sql_statement)
+            if not SearchUtils.is_attribute(key_type, comparator):
+                entity = cls._get_subquery_entity_for_runs(key_type, comparator)
+                # force cast float type for metric value
+                if cls.is_metric(key_type, comparator):
+                    value = float(value)
+                filter_query = cls._get_sqlalchemy_query(
+                    entity, comparator, key_name, value, session
+                )
                 filters.append(filter_query)
         return filters
 
     @classmethod
-    def get_sqlalchemy_filter_clause_for_run(cls, parsed, session):
-        return cls._get_sqlalchemy_filter_clauses(parsed, session, True)
-
-    @classmethod
     def get_sqlalchemy_filter_clause_for_registered_model(cls, parsed, session):
-        return cls._get_sqlalchemy_filter_clauses(parsed, session, False)
+        """creates SqlAlchemy sub-queries
+        that will be inner-joined to attribute table to act as multi-clause filters."""
+        filters = []
+        for sql_statement in parsed:
+            key_type, key_name, value, comparator = cls._parse_sql_statement(sql_statement)
+            if not SearchUtils.is_attribute(key_type, comparator):
+                entity = cls._get_subquery_entity_for_registered_models(key_type, comparator)
+                filter_query = cls._get_sqlalchemy_query(
+                    entity, comparator, key_name, value, session
+                )
+                filters.append(filter_query)
+        return filters
 
     @classmethod
-    def _get_attributes_filtering_clauses(cls, parsed, is_search_run):
+    def get_attributes_filtering_clauses_for_run(cls, parsed):
         clauses = []
         for sql_statement in parsed:
-            key_type = sql_statement.get("type")
-            key_name = sql_statement.get("key")
-            value = sql_statement.get("value")
-            comparator = sql_statement.get("comparator").upper()
+            key_type, key_name, value, comparator = cls._parse_sql_statement(sql_statement)
             if cls.is_attribute(key_type, comparator):
                 # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
                 # by the call to parse_search_filter
-                if is_search_run:
-                    attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
-                else:
-                    attribute = getattr(SqlRegisteredModel, key_name)
+                attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
                 if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
                     op = cls.get_sql_filter_ops(attribute, comparator)
                     clauses.append(op(value))
@@ -691,12 +780,21 @@ class SearchUtils(object):
         return clauses
 
     @classmethod
-    def get_attributes_filtering_clauses_for_run(cls, parsed):
-        return cls._get_attributes_filtering_clauses(parsed, True)
-
-    @classmethod
     def get_attributes_filtering_clauses_for_registered_model(cls, parsed):
-        return cls._get_attributes_filtering_clauses(parsed, False)
+        clauses = []
+        for sql_statement in parsed:
+            key_type, key_name, value, comparator = cls._parse_sql_statement(sql_statement)
+            if cls.is_attribute(key_type, comparator):
+                # key_name is guaranteed to be a valid searchable attribute of SqlRegisteredModel
+                # by the call to parse_search_filter
+                attribute = getattr(SqlRegisteredModel, key_name)
+                if comparator in cls.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
+                    op = cls.get_sql_filter_ops(attribute, comparator)
+                    clauses.append(op(value))
+                elif comparator in cls.filter_ops:
+                    op = cls.filter_ops.get(comparator)
+                    clauses.append(op(attribute, value))
+        return clauses
 
     @classmethod
     def _get_value_for_sort(cls, run, key_type, key, ascending):
@@ -806,31 +904,8 @@ class SearchUtils(object):
             next_page_token = cls.create_page_token(final_offset)
         return paginated_runs, next_page_token
 
-    @classmethod
-    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
-        cls._validate_comparison(stripped_comparison)
-        key = stripped_comparison[0].value
-        if key not in valid_search_keys:
-            raise MlflowException(
-                "Invalid attribute key '{}' specified. Valid keys "
-                " are '{}'".format(key, valid_search_keys),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        value_token = stripped_comparison[2]
-        if value_token.ttype not in cls.STRING_VALUE_TYPES:
-            raise MlflowException(
-                "Expected a quoted string value for attributes. "
-                "Got value {value}".format(value=value_token.value),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        comp = {
-            "key": key,
-            "comparator": stripped_comparison[1].value,
-            "value": cls._strip_quotes(value_token.value, expect_quoted_value=True),
-        }
-        return comp
-
+    # TODO: refactor search_model_version and add tags support
+    # TODO: remove _parse_filter_for_model_registry, get_comparison_for_model_registry
     @classmethod
     def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
         if not filter_string or filter_string == "":
@@ -869,13 +944,32 @@ class SearchUtils(object):
         ]
 
     @classmethod
+    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        key = stripped_comparison[0].value
+        if key not in valid_search_keys:
+            raise MlflowException(
+                "Invalid attribute key '{}' specified. Valid keys "
+                " are '{}'".format(key, valid_search_keys),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        value_token = stripped_comparison[2]
+        if value_token.ttype not in cls.STRING_VALUE_TYPES:
+            raise MlflowException(
+                "Expected a quoted string value for attributes. "
+                "Got value {value}".format(value=value_token.value),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        comp = {
+            "key": key,
+            "comparator": stripped_comparison[1].value,
+            "value": cls._strip_quotes(value_token.value, expect_quoted_value=True),
+        }
+        return comp
+
+    @classmethod
     def parse_filter_for_model_versions(cls, filter_string):
         return cls._parse_filter_for_model_registry(
             filter_string, cls.VALID_SEARCH_MODEL_VERSION_ATTRIBUTE_KEYS
-        )
-
-    @classmethod
-    def parse_filter_for_registered_models(cls, filter_string):
-        return cls._parse_search_filter(
-            filter_string, cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS, False
         )
