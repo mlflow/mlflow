@@ -553,7 +553,7 @@ def autolog():
             fit_output = original_fit(*args, **kwargs)
         except Exception as e:
             if should_start_run:
-                mlflow.end_run(RunStatus.to_string(RunStatus.FAILED))
+                try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
 
             raise e
 
