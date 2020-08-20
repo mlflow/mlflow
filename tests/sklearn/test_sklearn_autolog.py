@@ -214,10 +214,9 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     Xy = get_iris()
 
-    # fmt: off
-    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), \
-         mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning, \
-         mlflow.start_run() as run:  # noqa
+    with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning, mlflow.start_run() as run:
         model = sklearn.cluster.KMeans()
         model.fit(*Xy)
 
