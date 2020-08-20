@@ -235,7 +235,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     assert_predict_equal(loaded_model, model, Xy[0])
 
 
-def create_xy_arg_combinations():
+def create_Xy_arg_combinations():
     X, y = get_iris()
     return [
         # (args, kwargs)
@@ -245,8 +245,8 @@ def create_xy_arg_combinations():
     ]
 
 
-@pytest.mark.parametrize("args, kwargs", create_xy_arg_combinations())
-def test_fit_takes_xy_as_keyword_arguments(args, kwargs):
+@pytest.mark.parametrize("args, kwargs", create_Xy_arg_combinations())
+def test_fit_takes_Xy_as_keyword_arguments(args, kwargs):
     mlflow.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
