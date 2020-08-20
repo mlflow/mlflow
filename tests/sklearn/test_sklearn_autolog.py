@@ -64,6 +64,10 @@ def stringify_dict_values(d):
     return {k: str(v) for k, v in d.items()}
 
 
+def truncate_dict(d):
+    return _truncate_dict(d, MAX_PARAM_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+
+
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
@@ -128,7 +132,7 @@ def test_estimator(fit_func_name):
 
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    assert params == stringify_dict_values(model.get_params(deep=True))
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == {
         ESTIMATOR_NAME: model.__class__.__name__,
@@ -155,7 +159,7 @@ def test_meta_estimator():
 
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    assert params == stringify_dict_values(model.get_params(deep=True))
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == {
         ESTIMATOR_NAME: model.__class__.__name__,
@@ -223,7 +227,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
-    assert params == _truncate_dict(long_params, MAX_PARAM_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+    assert params == truncate_dict(long_params)
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == {
         ESTIMATOR_NAME: model.__class__.__name__,
