@@ -76,6 +76,10 @@ def get_expected_class_tags(model):
     }
 
 
+def assert_predict_equal(left, right, X):
+    np.testing.assert_array_equal(left.predict(X), right.predict(X))
+
+
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
@@ -147,7 +151,7 @@ def test_estimator(fit_func_name):
     assert MODEL_DIR in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
-    np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+    assert_predict_equal(loaded_model, model, Xy[0])
 
 
 def test_meta_estimator():
@@ -169,9 +173,7 @@ def test_meta_estimator():
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
-
-    loaded_model = load_model_by_run_id(run_id)
-    np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+    assert_predict_equal(load_model_by_run_id(run_id), model, Xy[0])
 
 
 def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_batch():
@@ -191,9 +193,8 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
-
     loaded_model = load_model_by_run_id(run_id)
-    np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+    assert_predict_equal(loaded_model, model, Xy[0])
 
 
 @pytest.mark.parametrize(
@@ -230,9 +231,8 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
-
     loaded_model = load_model_by_run_id(run_id)
-    np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+    assert_predict_equal(loaded_model, model, Xy[0])
 
 
 def create_xy_arg_combinations():
