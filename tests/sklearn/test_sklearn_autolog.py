@@ -262,13 +262,21 @@ def test_fit_takes_Xy_as_keyword_arguments(pattern):
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         if pattern == "only_y_kwarg":
             model.fit(X, y=y)
         elif pattern == "both_kwarg":
             model.fit(X=X, y=y)
         elif pattern == "both_kwargs_swapped":
             model.fit(y=y, X=X)
+
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+    assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
 def test_call_fit_with_arguments_score_does_not_accept():
@@ -279,9 +287,17 @@ def test_call_fit_with_arguments_score_does_not_accept():
     assert "intercept_init" in _get_arg_names(model.fit)
     assert "intercept_init" not in _get_arg_names(model.score)
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         Xy = get_iris()
         model.fit(*Xy, intercept_init=0)
+
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(*Xy)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+    assert_predict_equal(load_model_by_run_id(run_id), model, Xy[0])
 
 
 @pytest.mark.parametrize("pass_sample_weight_as", ["positional", "keyword"])
@@ -307,12 +323,20 @@ def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
     Xy = get_iris()
     sample_weight = abs(np.random.randn(len(Xy[0])))
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         if pass_sample_weight_as == "positional":
             model.fit(*Xy, None, None, sample_weight)
         elif pass_sample_weight_as == "keyword":
             model.fit(*Xy, sample_weight=sample_weight)
         mock_obj.assert_called_once_with(*Xy, sample_weight)
+
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(*Xy)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+    assert_predict_equal(load_model_by_run_id(run_id), model, Xy[0])
 
 
 def test_only_fit_contains_sample_weight():
@@ -335,9 +359,17 @@ def test_only_fit_contains_sample_weight():
     model = RANSACRegressor()
     Xy = get_iris()
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model.fit(*Xy)
         mock_obj.assert_called_once_with(*Xy)
+
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(*Xy)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+    assert_predict_equal(load_model_by_run_id(run_id), model, Xy[0])
 
 
 def test_only_score_contains_sample_weight():
@@ -360,9 +392,17 @@ def test_only_score_contains_sample_weight():
     model = GaussianProcessRegressor()
     Xy = get_iris()
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model.fit(*Xy)
         mock_obj.assert_called_once_with(*Xy, None)
+
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(*Xy)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+    assert_predict_equal(load_model_by_run_id(run_id), model, Xy[0])
 
 
 def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
