@@ -272,21 +272,22 @@ def test_call_fit_with_arguments_score_does_not_accept():
 def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
     mlflow.sklearn.autolog()
 
-    model = sklearn.linear_model.SGDRegressor()
+    from sklearn.linear_model import SGDRegressor
 
     # ensure that we use an appropriate model for this test
-    assert "sample_weight" in _get_arg_names(model.fit)
-    assert "sample_weight" in _get_arg_names(model.score)
+    assert "sample_weight" in _get_arg_names(SGDRegressor.fit)
+    assert "sample_weight" in _get_arg_names(SGDRegressor.score)
 
     mock_obj = mock.Mock()
 
-    def mock_score(X, y, sample_weight=None):
+    def mock_score(self, X, y, sample_weight=None):
         mock_obj(X, y, sample_weight)
         return 0
 
-    assert inspect.signature(model.score) == inspect.signature(mock_score)
+    assert inspect.signature(SGDRegressor.score) == inspect.signature(mock_score)
 
-    model.score = mock_score
+    sklearn.linear_model.SGDRegressor.score = mock_score
+    model = SGDRegressor()
     Xy = get_iris()
     sample_weight = abs(np.random.randn(len(Xy[0])))
 
@@ -301,23 +302,24 @@ def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
 def test_only_fit_contains_sample_weight():
     mlflow.sklearn.autolog()
 
-    model = sklearn.linear_model.RANSACRegressor()
+    from sklearn.linear_model import RANSACRegressor
 
-    assert "sample_weight" in _get_arg_names(model.fit)
-    assert "sample_weight" not in _get_arg_names(model.score)
+    assert "sample_weight" in _get_arg_names(RANSACRegressor.fit)
+    assert "sample_weight" not in _get_arg_names(RANSACRegressor.score)
 
     mock_obj = mock.Mock()
 
-    def mock_score(X, y):
+    def mock_score(self, X, y):
         mock_obj(X, y)
         return 0
 
-    assert inspect.signature(model.score) == inspect.signature(mock_score)
+    assert inspect.signature(RANSACRegressor.score) == inspect.signature(mock_score)
 
-    model.score = mock_score
+    RANSACRegressor.score = mock_score
+    model = RANSACRegressor()
+    Xy = get_iris()
 
     with mlflow.start_run():
-        Xy = get_iris()
         model.fit(*Xy)
         mock_obj.assert_called_once_with(*Xy)
 
@@ -325,23 +327,24 @@ def test_only_fit_contains_sample_weight():
 def test_only_score_contains_sample_weight():
     mlflow.sklearn.autolog()
 
-    model = sklearn.gaussian_process.GaussianProcessRegressor()
+    from sklearn.gaussian_process import GaussianProcessRegressor
 
-    assert "sample_weight" not in _get_arg_names(model.fit)
-    assert "sample_weight" in _get_arg_names(model.score)
+    assert "sample_weight" not in _get_arg_names(GaussianProcessRegressor.fit)
+    assert "sample_weight" in _get_arg_names(GaussianProcessRegressor.score)
 
     mock_obj = mock.Mock()
 
-    def mock_score(X, y, sample_weight=None):
+    def mock_score(self, X, y, sample_weight=None):
         mock_obj(X, y, sample_weight)
         return 0
 
-    assert inspect.signature(model.score) == inspect.signature(mock_score)
+    assert inspect.signature(GaussianProcessRegressor.score) == inspect.signature(mock_score)
 
-    model.score = mock_score
+    GaussianProcessRegressor.score = mock_score
+    model = GaussianProcessRegressor()
+    Xy = get_iris()
 
     with mlflow.start_run():
-        Xy = get_iris()
         model.fit(*Xy)
         mock_obj.assert_called_once_with(*Xy, None)
 
