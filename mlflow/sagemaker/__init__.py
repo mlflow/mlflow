@@ -2,7 +2,7 @@
 The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to Amazon SageMaker.
 """
 import os
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen
 from six.moves import urllib
 import sys
 import tarfile
@@ -20,7 +20,6 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.logging_utils import eprint
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 

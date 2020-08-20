@@ -1,3 +1,4 @@
+# pylint: disable=wrong-import-position
 """
 The ``mlflow`` module provides a high-level "fluent" API for starting and managing MLflow runs.
 For example:
@@ -26,7 +27,7 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 import sys
 
-from mlflow.version import VERSION as __version__
+from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
 import mlflow.tracking.fluent
@@ -41,9 +42,25 @@ warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E
 # log a deprecated warning only once per function per module
 warnings.filterwarnings("module", category=DeprecationWarning)
 
-# pylint: disable=wrong-import-position
-import mlflow.projects as projects  # noqa
-import mlflow.tracking as tracking  # noqa
+import mlflow.projects as projects  # noqa: E402
+import mlflow.tracking as tracking  # noqa: E402
+
+# model flavors
+import mlflow.fastai as fastai  # noqa: E402
+import mlflow.gluon as gluon  # noqa: E402
+import mlflow.h2o as h2o  # noqa: E402
+import mlflow.keras as keras  # noqa: E402
+import mlflow.lightgbm as lightgbm  # noqa: E402
+import mlflow.mleap as mleap  # noqa: E402
+import mlflow.onnx as onnx  # noqa: E402
+import mlflow.pyfunc as pyfunc  # noqa: E402
+import mlflow.pytorch as pytorch  # noqa: E402
+import mlflow.sklearn as sklearn  # noqa: E402
+import mlflow.spacy as spacy  # noqa: E402
+import mlflow.spark as spark  # noqa: E402
+import mlflow.tensorflow as tensorflow  # noqa: E402
+import mlflow.xgboost as xgboost  # noqa: E402
+
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -120,4 +137,19 @@ __all__ = [
     "get_registry_uri",
     "set_registry_uri",
     "list_run_infos",
+    # model flavors
+    "fastai",
+    "gluon",
+    "h2o",
+    "keras",
+    "lightgbm",
+    "mleap",
+    "onnx",
+    "pyfunc",
+    "pytorch",
+    "sklearn",
+    "spacy",
+    "spark",
+    "tensorflow",
+    "xgboost",
 ]
