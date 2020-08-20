@@ -191,7 +191,7 @@ def test_http_request_wrapper(request):
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = '{}'
+    response.text = "{}"
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint")
     request.assert_called_with(
@@ -202,11 +202,11 @@ def test_http_request_wrapper(request):
     request.return_value = response
     with pytest.raises(MlflowException, match="Response body"):
         http_request_safe(host_only, "/my/endpoint")
-    response.text = (
-        '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
-    )
+    response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
     request.return_value = response
-    with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
+    with pytest.raises(
+        RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"
+    ):
         http_request_safe(host_only, "/my/endpoint")
 
 
