@@ -269,7 +269,12 @@ def test_call_fit_with_arguments_score_does_not_accept():
         model.fit(*Xy, intercept_init=0)
 
 
-def test_both_fit_and_score_contain_sample_weight():
+def create_sample_weight():
+    return abs(np.random.randn(len(get_iris()[0])))
+
+
+@pytest.mark.parametrize("pass_sample_weight_as", ["positional", "keyword"])
+def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
     mlflow.sklearn.autolog()
 
     model = sklearn.linear_model.SGDRegressor()
@@ -287,11 +292,14 @@ def test_both_fit_and_score_contain_sample_weight():
     assert inspect.signature(model.score) == inspect.signature(mock_score)
 
     model.score = mock_score
+    Xy = get_iris()
+    sample_weight = abs(np.random.randn(len(Xy[0])))
 
     with mlflow.start_run():
-        Xy = get_iris()
-        sample_weight = abs(np.random.randn(len(Xy[0])))
-        model.fit(*Xy, sample_weight=sample_weight)
+        if pass_sample_weight_as == "positional":
+            model.fit(*Xy, None, None, sample_weight)
+        elif pass_sample_weight_as == "keyword":
+            model.fit(*Xy, sample_weight=sample_weight)
         mock_obj.assert_called_once_with(*Xy, sample_weight)
 
 
