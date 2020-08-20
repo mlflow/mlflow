@@ -271,8 +271,10 @@ def test_error_comparison_clauses_for_run(filter_string, error_message):
     [
         ("tag.acc = 5", "Expected a quoted string value for tag"),
         ("tags.acc = 5", "Expected a quoted string value for tag"),
-        ("tag.model != tag.model",
-         "Parameter value is either not quoted or unidentified quote types"),
+        (
+            "tag.model != tag.model",
+            "Parameter value is either not quoted or unidentified quote types",
+        ),
         ("1.0 > tag.acc", "Expected 'Identifier' found"),
         ("attribute.name = 1", "Expected a quoted string value for attributes"),
         ("name = 1", "Expected a quoted string value for attributes"),

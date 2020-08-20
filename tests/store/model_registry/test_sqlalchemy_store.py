@@ -808,8 +808,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models("name LIKE '%RM%' and attr.name != 'RM'")
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models("attribute.name = '{}RM2' and name ilike '%rm%'"
-                                                .format(prefix))
+        rms, _ = self._search_registered_models(
+            "attribute.name = '{}RM2' and name ilike '%rm%'".format(prefix)
+        )
         self.assertEqual(rms, [names[1]])
 
         for bad_filter_string in [
@@ -860,11 +861,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     )
                 else:
                     bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-                        entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value,
+                        entity_type=entity_type,
+                        key=key,
+                        comparator=bad_comparator,
+                        value=entity_value,
                     )
                 with self.assertRaises(MlflowException) as exception_context:
                     self._search_registered_models(bad_filter)
-                assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                assert exception_context.exception.error_code == ErrorCode.Name(
+                    INVALID_PARAMETER_VALUE
+                )
 
     def _set_up_model_and_tags_for_search(self, prefix):
         # create some registered models
