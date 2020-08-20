@@ -5,6 +5,7 @@ from mock import mock
 import numpy as np
 import pytest
 import sklearn
+import sklearn.datasets
 
 import mlflow.sklearn
 from mlflow.sklearn.utils import _get_arg_names
@@ -210,6 +211,27 @@ def test_get_params_returns_dict_with_value_longer_than_max_param_val_length():
 
     loaded_model = load_model_by_run_id(run_id)
     np.testing.assert_array_equal(loaded_model.predict(Xy[0]), model.predict(Xy[0]))
+
+
+def create_Xy_arg_combinations():
+    X, y = get_iris()
+
+    return [
+        # (args, kwargs)
+        ((X,), {"y": y}),
+        ((), {"X": X, "y": y}),
+        ((), {"y": y, "X": X}),
+    ]
+
+
+@pytest.mark.parametrize("args, kwargs", create_Xy_arg_combinations())
+def test_fit_takes_Xy_as_keyword_arguments(args, kwargs):
+    mlflow.sklearn.autolog()
+
+    model = sklearn.cluster.KMeans()
+
+    with mlflow.start_run():
+        model.fit(*args, **kwargs)
 
 
 def test_call_fit_with_arguments_score_does_not_accept():
