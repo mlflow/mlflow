@@ -68,6 +68,13 @@ def truncate_dict(d):
     return _truncate_dict(d, MAX_PARAM_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
 
 
+def get_expected_class_tags(model):
+    return {
+        ESTIMATOR_NAME: model.__class__.__name__,
+        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
+    }
+
+
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
@@ -134,10 +141,7 @@ def test_estimator(fit_func_name):
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
-    assert tags == {
-        ESTIMATOR_NAME: model.__class__.__name__,
-        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
-    }
+    assert tags == get_expected_class_tags(model)
     assert "model" in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
@@ -161,10 +165,7 @@ def test_meta_estimator():
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
-    assert tags == {
-        ESTIMATOR_NAME: model.__class__.__name__,
-        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
-    }
+    assert tags == get_expected_class_tags(model)
     assert "model" in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
@@ -186,10 +187,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
     assert params == large_params
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
-    assert tags == {
-        ESTIMATOR_NAME: model.__class__.__name__,
-        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
-    }
+    assert tags == get_expected_class_tags(model)
     assert "model" in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
@@ -229,10 +227,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
     assert params == truncate_dict(long_params)
     assert metrics == {TRAINING_SCORE: model.score(*Xy)}
-    assert tags == {
-        ESTIMATOR_NAME: model.__class__.__name__,
-        ESTIMATOR_CLASS: model.__class__.__module__ + "." + model.__class__.__name__,
-    }
+    assert tags == get_expected_class_tags(model)
     assert "model" in artifacts
 
     loaded_model = load_model_by_run_id(run_id)
