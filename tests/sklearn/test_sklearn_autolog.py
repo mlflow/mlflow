@@ -378,7 +378,7 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     model.score = throwing_score
 
-    with mlflow.start_run() as run, mock.patch("logging.Logger.warning") as mock_warning:
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         model.fit(*get_iris())
 
     metrics = get_run_data(run._info.run_id)[1]
