@@ -1,4 +1,5 @@
 import numpy as np
+
 import mlflow
 import mlflow.statsmodels
 from tests.statsmodels.test_statsmodels_model_export import ols_model, arma_model
