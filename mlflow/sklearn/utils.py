@@ -12,13 +12,12 @@ def _is_old_version():
 
 
 def _all_estimators():
-    import sklearn
+    try:
+        from sklearn.utils import all_estimators
 
-    return (
-        sklearn.utils.all_estimators()
-        if hasattr(sklearn.utils, "all_estimators")
-        else _backported_all_estimators()
-    )
+        return all_estimators()
+    except ImportError:
+        return _backported_all_estimators()
 
 
 def _get_Xy(args, kwargs):
