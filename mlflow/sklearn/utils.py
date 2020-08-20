@@ -70,7 +70,7 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
-    :return A tuple of either (X, y) or (X, y, sample_weight).
+    :return A tuple of either (X, y, sample_weight) or (X, y).
     """
     score_arg_names = _get_arg_names(score_func)
     fit_arg_names = _get_arg_names(fit_func)
