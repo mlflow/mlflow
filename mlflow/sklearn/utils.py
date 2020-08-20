@@ -56,18 +56,33 @@ def _get_arg_names(f):
     return list(inspect.signature(f).parameters.keys())
 
 
-def _get_args_for_score(fit_func, score_func, args, kwargs):
-    fit_args = _get_arg_names(fit_func)
-    score_args = _get_arg_names(score_func)
+def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
+    """
+    Get arguments to pass to score_func in the following steps.
+
+    1. Extract X and y from fit_args and fit_kwargs.
+    2. If the sample_weight argument exists in both score_func and fit_func,
+       extract it from fit_args or fit_kwargs and return (X, y, sample_weight),
+       otherwise return (X, y)
+
+    :param score_func: A score function object.
+    :param fit_func: A fit function object.
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+
+    :return A tuple of either (X, y) or (X, y, sample_weight).
+    """
+    score_arg_names = _get_arg_names(score_func)
+    fit_arg_names = _get_arg_names(fit_func)
 
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
     # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score
-    X_var_name, y_var_name = fit_args[:2]
-    Xy = _get_Xy(args, kwargs, X_var_name, y_var_name)
+    X_var_name, y_var_name = fit_arg_names[:2]
+    Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
 
-    if (_SAMPLE_WEIGHT in score_args) and (_SAMPLE_WEIGHT in fit_args):
-        sample_weight = _get_sample_weight(fit_args, args, kwargs)
+    if (_SAMPLE_WEIGHT in fit_arg_names) and (_SAMPLE_WEIGHT in score_arg_names):
+        sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         return (*Xy, sample_weight)
 
     return Xy

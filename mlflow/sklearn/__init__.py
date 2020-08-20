@@ -566,7 +566,7 @@ def autolog():
 
         if hasattr(self, "score"):
             try:
-                score_args = _get_args_for_score(self.fit, self.score, args, kwargs)
+                score_args = _get_args_for_score(self.score, self.fit, args, kwargs)
                 training_score = self.score(*score_args)
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
             except Exception as e:  # pylint: disable=broad-except
