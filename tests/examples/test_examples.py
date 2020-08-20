@@ -77,6 +77,7 @@ def report_free_disk_space(capsys):
             "lightgbm",
             ["-P", "learning_rate=0.1", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
+        ('statsmodels', ['-P', 'inverse_method=qr']),
         ("prophet", []),
         ("pytorch", ["-P", "epochs=2"]),
         ("sklearn_logistic_regression", []),
@@ -135,6 +136,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
+        ('statsmodels', ['python', 'train.py', '--inverse-method', 'qr']),
         ("quickstart", ["python", "mlflow_tracking.py"]),
         ("remote_store", ["python", "remote_server.py"]),
         (
