@@ -56,18 +56,21 @@ class RestStore(AbstractStore):
 
     # CRUD API for RegisteredModel objects
 
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                      instances associated with this registered model.
+        :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
-        req_body = message_to_json(CreateRegisteredModel(name=name, tags=proto_tags))
+        req_body = message_to_json(
+            CreateRegisteredModel(name=name, tags=proto_tags, description=description)
+        )
         response_proto = self._call_endpoint(CreateRegisteredModel, req_body)
         return RegisteredModel.from_proto(response_proto.registered_model)
 
@@ -212,7 +215,9 @@ class RestStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(
+        self, name, source, run_id, tags=None, run_link=None, description=None
+    ):
         """
         Create a new model version from given source and run ID.
 
@@ -222,13 +227,19 @@ class RestStore(AbstractStore):
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(
             CreateModelVersion(
-                name=name, source=source, run_id=run_id, run_link=run_link, tags=proto_tags
+                name=name,
+                source=source,
+                run_id=run_id,
+                run_link=run_link,
+                tags=proto_tags,
+                description=description,
             )
         )
         response_proto = self._call_endpoint(CreateModelVersion, req_body)

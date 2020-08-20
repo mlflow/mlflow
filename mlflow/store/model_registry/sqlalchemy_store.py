@@ -152,13 +152,14 @@ class SqlAlchemyStore(AbstractStore):
             # single object
             session.add(objs)
 
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                      instances associated with this registered model.
+        :param description: Description of the version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
@@ -169,7 +170,14 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 creation_time = now()
                 registered_model = SqlRegisteredModel(
+<<<<<<< HEAD
                     name=name, creation_time=creation_time, last_updated_time=creation_time,
+=======
+                    name=name,
+                    creation_time=creation_time,
+                    last_updated_time=creation_time,
+                    description=description,
+>>>>>>> 3936705d... Add ability to add description in model/version create APIs (#3271)
                 )
                 tags_dict = {}
                 for tag in tags or []:
@@ -442,7 +450,9 @@ class SqlAlchemyStore(AbstractStore):
 
     # CRUD API for ModelVersion objects
 
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(
+        self, name, source, run_id, tags=None, run_link=None, description=None
+    ):
         """
         Create a new model version from given source and run ID.
 
@@ -452,6 +462,7 @@ class SqlAlchemyStore(AbstractStore):
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
@@ -480,6 +491,7 @@ class SqlAlchemyStore(AbstractStore):
                         source=source,
                         run_id=run_id,
                         run_link=run_link,
+                        description=description,
                     )
                     tags_dict = {}
                     for tag in tags or []:
