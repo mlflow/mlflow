@@ -515,6 +515,7 @@ def autolog():
     """
     import sklearn
     from mlflow.sklearn.utils import (
+        _MIN_SKLEARN_VERSION,
         _is_old_version,
         _chunk_dict,
         _get_args_for_score,
@@ -529,8 +530,10 @@ def autolog():
 
     if _is_old_version():
         warnings.warn(
-            "Autologging utilities may not work properly on scikit-learn < 0.20.3 "
-            "(current version: {})".format(sklearn.__version__),
+            "Autologging utilities may not work properly on scikit-learn < {} ".format(
+                _MIN_SKLEARN_VERSION
+            )
+            + "(current version: {})".format(sklearn.__version__),
             stacklevel=2,
         )
 

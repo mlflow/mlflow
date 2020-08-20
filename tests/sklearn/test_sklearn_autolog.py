@@ -8,7 +8,7 @@ import sklearn
 import sklearn.datasets
 
 import mlflow.sklearn
-from mlflow.sklearn.utils import _get_arg_names, _truncate_dict
+from mlflow.sklearn.utils import _MIN_SKLEARN_VERSION, _get_arg_names, _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
@@ -110,7 +110,8 @@ def test_autolog_preserves_original_function_attributes():
 
 
 @pytest.mark.skipif(
-    not mlflow.sklearn.utils._is_old_version(), reason="This test fails on sklearn>=0.20.3"
+    not mlflow.sklearn.utils._is_old_version(),
+    reason="This test fails on sklearn>={}".format(_MIN_SKLEARN_VERSION),
 )
 def test_autolog_emits_warning_on_older_versions_of_sklearn():
     with pytest.warns(

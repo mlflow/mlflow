@@ -6,12 +6,13 @@ import logging
 _logger = logging.getLogger(__name__)
 
 _SAMPLE_WEIGHT = "sample_weight"
+_MIN_SKLEARN_VERSION = "0.20.3"
 
 
 def _is_old_version():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) < LooseVersion("0.20.3")
+    return LooseVersion(sklearn.__version__) < LooseVersion(_MIN_SKLEARN_VERSION)
 
 
 def _all_estimators():
