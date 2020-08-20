@@ -337,7 +337,10 @@ def test_autolog_emits_warning_message_when_score_fails():
     metrics = get_run_data(run._info.run_id)[1]
     assert metrics == {}
     mock_warning.assert_called_once()
-    assert mock_warning.call_args[0][0] == ("KMeans.score failed: EXCEPTION")
+    assert mock_warning.call_args[0][0] == (
+        "KMeans.score failed. The 'training_score' metric will not be recorded. "
+        "Scoring error: EXCEPTION"
+    )
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):

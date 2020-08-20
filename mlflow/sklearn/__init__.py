@@ -563,7 +563,9 @@ def autolog():
                 training_score = self.score(*score_args)
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
             except Exception as e:  # pylint: disable=broad-except
-                msg = "{} failed: {}".format(self.score.__qualname__, str(e))
+                msg = "{} failed. The 'training_score' metric will not be recorded. ".format(
+                    self.score.__qualname__
+                ) + "Scoring error: {}".format(str(e))
                 _logger.warning(msg)
 
         try_mlflow_log(log_model, self, artifact_path="model")
