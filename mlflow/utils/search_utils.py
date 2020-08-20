@@ -192,7 +192,7 @@ class SearchUtils(object):
 
         # search models may not provide table name, in that case default to attribute table
         # (e.g name = 'CNN' is equivalent to attribute.model = 'CNN')
-        column_only = not is_search_run and identifier.find(".") == -1
+        column_only = identifier.find(".") == -1
         entity_type, key = split_identifier(identifier, column_only)
         identifier = (
             cls._valid_run_entity_type(entity_type)
@@ -202,8 +202,9 @@ class SearchUtils(object):
         key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException(
-                "Invalid attribute key '{}' specified. Valid keys "
-                " are '{}'".format(key, valid_attributes)
+                "Invalid attribute key '{}' specified. Valid keys"
+                " are {}".format(key, valid_attributes),
+                error_code=INVALID_PARAMETER_VALUE,
             )
         return {"type": identifier, "key": key}
 
@@ -361,7 +362,8 @@ class SearchUtils(object):
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException(
                     "Invalid comparator '%s' "
-                    "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS)
+                    "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS),
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False
@@ -372,7 +374,8 @@ class SearchUtils(object):
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
                     "Invalid comparator '{}' not one of "
-                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS)
+                    "'{}".format(comparator, cls.VALID_STRING_ATTRIBUTE_COMPARATORS),
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             return True
         return False

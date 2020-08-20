@@ -808,8 +808,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         rms, _ = self._search_registered_models("name LIKE '%RM%' and attr.name != 'RM'")
         self.assertEqual(rms, names)
 
-        rms, _ = self._search_registered_models("attribute.name = '{}RM2' and name ilike '%rm%'")
-        self.assertEqual(rms, names[1])
+        rms, _ = self._search_registered_models("attribute.name = '{}RM2' and name ilike '%rm%'"
+                                                .format(prefix))
+        self.assertEqual(rms, [names[1]])
 
         for bad_filter_string in [
             "name!=something",
@@ -824,6 +825,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             ]:
                 with self.assertRaises(MlflowException) as exception_context:
                     self._search_registered_models(bad_attribute_filter)
+                print(exception_context.exception.error_code)
+                print(exception_context.exception.message)
                 assert exception_context.exception.error_code == ErrorCode.Name(
                     INVALID_PARAMETER_VALUE
                 )
@@ -845,6 +848,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models("name ILIKE '{}%'".format(prefix + "RM4A")),
             ([names[4]], None),
         )
+
+    def test_bad_comparators_for_registered_model(self):
+        for entity_type in ["tags", "attributes"]:
+            for bad_comparator in [">", "<", ">=", "<=", "~"]:
+                key = "name"
+                entity_value = "'abc'"
+                if not entity_type:
+                    bad_filter = "{key} {comparator} {value}".format(
+                        key=key, comparator=bad_comparator, value=entity_value
+                    )
+                else:
+                    bad_filter = "{entity_type}.{key} {comparator} {value}".format(
+                        entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value,
+                    )
+                with self.assertRaises(MlflowException) as exception_context:
+                    self._search_registered_models(bad_filter)
+                assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def _set_up_model_and_tags_for_search(self, prefix):
         # create some registered models
@@ -875,9 +895,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(result_rms, [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]])
 
         result_rms, _ = self._search_registered_models(
-            "model_tag.`training algorithm` " "like '%boost' and tags.owner != 'aaa'"
+            "model_tag.`training algorithm` like '%gbm' and tags.owner != 'aaa'"
         )
-        self.assertEqual(result_rms, [prefix + "RM4", prefix + "RM4a"])
+        self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
 
         result_rms, _ = self._search_registered_models(
             "tag.`training algorithm` ilike 'LIGHT%' " "and tags.owner != 'aaa'"
@@ -913,7 +933,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             "like '%boost' and tags.owner != 'aaa'"
             " and attribute.name != '{}RM4'".format(prefix)
         )
-        self.assertEqual(result_rms, [prefix + "RM4a"])
+        self.assertEqual(result_rms, [])
 
         result_rms, _ = self._search_registered_models(
             "tag.`training algorithm` ilike 'LIGHT%' "
@@ -1177,16 +1197,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models(
                 query,
                 page_token=None,
-                order_by=["name ASC", "creation_timestamp DESC"],
+                order_by=["name ACS kk", "creation_timestamp DESC"],
                 max_results=5,
             )
+        print(exception_context.exception.message)
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         # test that invalid columns with random text throw even if they come after valid columns
         with self.assertRaises(MlflowException) as exception_context:
             self._search_registered_models(
                 query,
                 page_token=None,
-                order_by=["name ASC", "last_updated_timestamp DESC blah"],
+                order_by=["name Acs", "last_updated_timestamp DESC blah"],
                 max_results=5,
             )
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

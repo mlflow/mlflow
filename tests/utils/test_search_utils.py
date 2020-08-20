@@ -179,11 +179,11 @@ def test_correct_quote_trimming_for_registered_model(filter_string, parsed_filte
     [
         ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
         ("m.acc >= 0.94", "Invalid entity type"),
-        ("acc >= 0.94", "Invalid identifier"),
+        ("acc >= 0.94", "Invalid attribute key"),
         ("p.model >= 'LR'", "Invalid entity type"),
         ("attri.x != 1", "Invalid entity type"),
         ("a.x != 1", "Invalid entity type"),
-        ("model >= 'LR'", "Invalid identifier"),
+        ("model >= 'LR'", "Invalid attribute key"),
         ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
         ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
         ("metrics.A > 0.1 AND (params.B = 'LR')", "Invalid clause(s) in filter string"),
@@ -202,7 +202,7 @@ def test_correct_quote_trimming_for_registered_model(filter_string, parsed_filte
         ("attribute.time != 1", "Invalid attribute key"),
         ("attribute._status != 'RUNNING'", "Invalid attribute key"),
         ("name != 1", "Invalid attribute key"),
-        ("status != 1", "Invalid attribute key"),
+        ("experiment_id != 1", "Invalid attribute key"),
         ("attribute.status = true", "Invalid clause(s) in filter string"),
     ],
 )
@@ -220,7 +220,7 @@ def test_error_filter_for_run(filter_string, error_message):
             "Search filter contained multiple expression",
         ),
         ("metric.acc >= 0.94", "Invalid entity type"),
-        ("model.registeredModelId = 0000", "Invalid identifier"),
+        ("model.registeredModelId = 0000", "Invalid attribute key"),
         ("param.model = 'LR'", "Invalid entity type"),
         ("attri.x != 1", "Invalid entity type"),
         ("tag.owner = 'zero qu' OR name = 'some mod'", "Invalid clause(s) in filter string"),
@@ -271,7 +271,8 @@ def test_error_comparison_clauses_for_run(filter_string, error_message):
     [
         ("tag.acc = 5", "Expected a quoted string value for tag"),
         ("tags.acc = 5", "Expected a quoted string value for tag"),
-        ("tag.model != tag.model", "Expected a quoted string value for tag"),
+        ("tag.model != tag.model",
+         "Parameter value is either not quoted or unidentified quote types"),
         ("1.0 > tag.acc", "Expected 'Identifier' found"),
         ("attribute.name = 1", "Expected a quoted string value for attributes"),
         ("name = 1", "Expected a quoted string value for attributes"),
@@ -331,7 +332,7 @@ def test_bad_quotes_for_registered_model(filter_string, error_message):
         ("params.acc LR !=", "Invalid clause(s) in filter string"),
         ("params.acc LR", "Invalid clause(s) in filter string"),
         ("metric.acc !=", "Invalid clause(s) in filter string"),
-        ("acc != 1.0", "Invalid identifier"),
+        ("acc != 1.0", "Invalid attribute key"),
         ("foo is null", "Invalid clause(s) in filter string"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
@@ -349,7 +350,7 @@ def test_invalid_clauses_for_run(filter_string, error_message):
         ("tags.acc LR !=", "Invalid clause(s) in filter string"),
         ("tags.acc LR", "Invalid clause(s) in filter string"),
         ("tags.acc !=", "Invalid clause(s) in filter string"),
-        ("acc != 1.0", "Invalid identifier"),
+        ("acc != 1.0", "Invalid attribute key"),
         ("foo is null", "Invalid clause(s) in filter string"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
@@ -396,29 +397,6 @@ def test_bad_comparators_for_run(entity_type, bad_comparators, key, entity_value
             )
         with pytest.raises(MlflowException) as e:
             SearchUtils.filter_runs([run], bad_filter)
-        assert "Invalid comparator" in str(e.value.message)
-
-
-@pytest.mark.parametrize(
-    "entity_type, bad_comparators, key, entity_value",
-    [
-        ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
-        ("attributes", [">", "<", ">=", "<=", "~"], "name", "'moddd'"),
-        ("", [">", "<", ">=", "<=", "~"], "name", "'moddd'"),
-    ],
-)
-def test_bad_comparators_for_registered_model(entity_type, bad_comparators, key, entity_value):
-    for bad_comparator in bad_comparators:
-        if not entity_type:
-            bad_filter = "{key} {comparator} {value}".format(
-                key=key, comparator=bad_comparator, value=entity_value
-            )
-        else:
-            bad_filter = "{entity_type}.{key} {comparator} {value}".format(
-                entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value,
-            )
-        with pytest.raises(MlflowException) as e:
-            SearchUtils.parse_filter_for_registered_models(bad_filter)
         assert "Invalid comparator" in str(e.value.message)
 
 
@@ -605,14 +583,14 @@ def test_order_by_search_run_metric_with_nans_and_infs():
     "order_by, error_message",
     [
         ("m.acc", "Invalid entity type"),
-        ("acc", "Invalid identifier"),
+        ("acc", "Invalid attribute key"),
         ("attri.x", "Invalid entity type"),
         ("`metrics.A", "Invalid order_by clause"),
         ("`metrics.A`", "Invalid entity type"),
         ("attribute.start", "Invalid attribute key"),
         ("attribute.run_id", "Invalid attribute key"),
         ("attribute.experiment_id", "Invalid attribute key"),
-        ("start", "Invalid attribute key"),
+        ("start", "Invalid order_by clause"),
         ("run_id", "Invalid attribute key"),
         ("experiment_id", "Invalid attribute key"),
         ("metrics.A != 1", "Invalid order_by clause"),
@@ -633,20 +611,19 @@ def test_invalid_order_by_search_runs(order_by, error_message):
     "order_by, error_message",
     [
         ("m.acc", "Invalid entity type"),
-        ("acc", "Invalid identifier"),
+        ("acc", "Invalid attribute key"),
         ("attri.x", "Invalid entity type"),
         ("`tags.A", "Invalid order_by clause"),
         ("`tags.A`", "Invalid entity type"),
         ("attribute.start", "Invalid attribute key"),
         ("attribute.stage", "Invalid attribute key"),
-        ("start", "Invalid attribute key"),
-        ("stage", "Invalid attribute key"),
+        ("start", "Invalid order_by clause"),
         ("tags.A != 1", "Invalid order_by clause"),
         ("attribute.name ACS", "Invalid ordering key"),
         ("attribute.name decs", "Invalid ordering key"),
         ("name ACS", "Invalid ordering key"),
         ("name decs", "Invalid ordering key"),
-        ("creation_timestamp DESC", "Invalid order by key"),
+        ("creation_timestamp DESC", "Invalid attribute key"),
         ("last_updated_timestamp DESC blah", "Invalid order_by clause"),
         ("", "Invalid order_by clause"),
         ("timestamp somerandomstuff ASC", "Invalid order_by clause"),
@@ -693,7 +670,7 @@ def test_space_order_by_search_registered_model(order_by, ascending_expected):
         identifier_name,
         ascending,
     ) = SearchUtils.parse_order_by_for_search_registered_models(order_by)
-    assert identifier_type == "metric"
+    assert identifier_type == "tag"
     assert identifier_name == "Mean Square Error"
     assert ascending == ascending_expected
 
