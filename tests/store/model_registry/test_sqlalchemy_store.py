@@ -5,6 +5,8 @@ import mock
 import tempfile
 import uuid
 
+from mlflow.utils.search_utils import SearchUtils
+
 import mlflow
 import mlflow.db
 import mlflow.store.db.base_sql_model
@@ -962,6 +964,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             with self.assertRaises(MlflowException) as exception_context:
                 self._search_registered_models(bad_filter)
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_get_order_by_clauses_for_registered_models(self):
+        with self.store.ManagedSessionMaker() as session:
+            # test that "registered_models.name ASC" is returned by default
+            parsed = [
+                str(x) for x in SearchUtils.get_order_by_clause_for_registered_model([], session)[0]
+            ]
+            assert parsed == ["registered_models.name ASC"]
+
+            # test that the given 'name' replaces the default one ('registered_models.name ASC')
+            parsed = [
+                str(x)
+                for x in SearchUtils.get_order_by_clause_for_registered_model(
+                    ["registered_models.name DESC"], session
+                )[0]
+            ]
+            assert "registered_models.name DESC" in parsed
+            assert "registered_models.name ASC" not in parsed
+
+            # test that an exception is raised when order_by contains duplicate fields
+            msg = "`order_by` contains duplicate fields:"
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["attribute.last_updated_timestamp", "last_updated_timestamp"], session
+                )
+
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["timestamp", "timestamp"], session
+                )
+
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["timestamp", "last_updated_timestamp"], session
+                )
+
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["last_updated_timestamp ASC", "attr.last_updated_timestamp DESC"], session
+                )
+
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["last_updated_timestamp", "last_updated_timestamp DESC"], session
+                )
+
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["tags.owner", "tags.owner"], session
+                )
+
+            with self.assertRaisesRegex(MlflowException, msg):
+                SearchUtils.get_order_by_clause_for_registered_model(
+                    ["tags.`parent model` desc", "tags.`parent model` ASC"], session
+                )
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]

@@ -43,13 +43,14 @@ from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
+from mlflow.utils.search_utils import SearchUtils
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
@@ -1086,15 +1087,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # Sort priority correctly handled
         self.assertListEqual(
             ["234", None, "456", "-123", "789", "123"],
-            self.get_ordered_runs(
-                [
-                    "attribute.start_time asc",
-                    "attribute.end_time desc",
-                    "start_time asc",
-                    "end_time desc",
-                ],
-                experiment_id,
-            ),
+            self.get_ordered_runs(["attribute.start_time asc", "end_time desc"], experiment_id),
         )
 
     def test_search_vanilla(self):
@@ -1524,6 +1517,44 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         )
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert runs[: min(10, n)] == self._search(exp, max_results=n)
+
+    def test_get_order_by_clauses_for_runs(self):
+        with self.store.ManagedSessionMaker() as session:
+            # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
+            parsed = [str(x) for x in SearchUtils.get_order_by_clauses_for_run([], session)[0]]
+            assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
+
+            # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
+            parsed = [
+                str(x)
+                for x in SearchUtils.get_order_by_clauses_for_run(
+                    ["attribute.start_time ASC"], session
+                )[0]
+            ]
+            assert "SqlRun.start_time" in parsed
+            assert "SqlRun.start_time DESC" not in parsed
+
+            # test that an exception is raised when 'order_by' contains duplicates
+            match = "`order_by` contains duplicate fields"
+            with pytest.raises(MlflowException, match=match):
+                SearchUtils.get_order_by_clauses_for_run(
+                    ["attribute.start_time", "start_time"], session
+                )
+
+            with pytest.raises(MlflowException, match=match):
+                SearchUtils.get_order_by_clauses_for_run(["start_time", "start_time"], session)
+
+            with pytest.raises(MlflowException, match=match):
+                SearchUtils.get_order_by_clauses_for_run(["param.p", "param.p"], session)
+
+            with pytest.raises(MlflowException, match=match):
+                SearchUtils.get_order_by_clauses_for_run(["metric.m", "metric.m"], session)
+
+            with pytest.raises(MlflowException, match=match):
+                SearchUtils.get_order_by_clauses_for_run(["tag.t", "tag.t"], session)
+
+            # test that an exception is NOT raised when key types are different
+            SearchUtils.get_order_by_clauses_for_run(["param.a", "metric.a", "tag.a"], session)
 
     def test_search_runs_pagination(self):
         exp = self._experiment_factory("test_search_runs_pagination")
@@ -2029,33 +2060,3 @@ def test_get_attribute_name():
     # and not referred to in this test
     # searchable attibutes are also orderable
     assert len(entities.RunInfo.get_orderable_attributes()) == 4
-
-
-def test_get_orderby_clauses():
-    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
-    with store.ManagedSessionMaker() as session:
-        # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
-        parsed = [str(x) for x in _get_orderby_clauses([], session)[0]]
-        assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
-
-        # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
-        parsed = [str(x) for x in _get_orderby_clauses(["attribute.start_time ASC"], session)[0]]
-        assert "SqlRun.start_time" in parsed
-        assert "SqlRun.start_time DESC" not in parsed
-
-        # test that an exception is raised when 'order_by' contains duplicates
-        match = "`order_by` contains duplicate fields"
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["attribute.start_time", "attribute.start_time"], session)
-
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["param.p", "param.p"], session)
-
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["metric.m", "metric.m"], session)
-
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["tag.t", "tag.t"], session)
-
-        # test that an exception is NOT raised when key types are different
-        _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)

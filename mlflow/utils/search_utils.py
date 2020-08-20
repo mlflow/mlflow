@@ -541,6 +541,7 @@ class SearchUtils(object):
         clauses = []
         ordering_joins = []
         clause_id = 0
+        observed_order_by_clauses = set()
         # contrary to filters, it is not easily feasible to separately handle sorting
         # on attributes and on joined tables as we must keep all clauses in the same order
         if order_by_list:
@@ -588,15 +589,29 @@ class SearchUtils(object):
                             )
                         )
 
+                if (key_type, key) in observed_order_by_clauses:
+                    raise MlflowException(
+                        "`order_by` contains duplicate fields: {}".format(order_by_list)
+                    )
+                observed_order_by_clauses.add((key_type, key))
+
                 if ascending:
                     clauses.append(order_value)
                 else:
                     clauses.append(order_value.desc())
         if is_search_run:
-            clauses.append(SqlRun.start_time.desc())
+            if (
+                SearchUtils._ATTRIBUTE_IDENTIFIER,
+                SqlRun.start_time.key,
+            ) not in observed_order_by_clauses:
+                clauses.append(SqlRun.start_time.desc())
             clauses.append(SqlRun.run_uuid)
         else:
-            clauses.append(SqlRegisteredModel.name.asc())
+            if (
+                SearchUtils._ATTRIBUTE_IDENTIFIER,
+                SqlRegisteredModel.name.key,
+            ) not in observed_order_by_clauses:
+                clauses.append(SqlRegisteredModel.name.asc())
         return clauses, ordering_joins
 
     @classmethod
