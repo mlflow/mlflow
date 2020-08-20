@@ -399,7 +399,7 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 if field.key in observed_order_by_clauses:
                     raise MlflowException(
-                        "order_by contains duplicate fields: {}".format(order_by_list)
+                        "`order_by` contains duplicate fields: {}".format(order_by_list)
                     )
                 observed_order_by_clauses.add(field.key)
                 if ascending:

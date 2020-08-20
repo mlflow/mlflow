@@ -1991,7 +1991,7 @@ def test_get_orderby_clauses():
         assert "SqlRun.start_time DESC" not in parsed
 
         # test that an exception is raised when 'order_by' contains duplicates
-        match = "order_by contains duplicate fields"
+        match = "`order_by` contains duplicate fields"
         with pytest.raises(MlflowException, match=match):
             _get_orderby_clauses(["attribute.start_time", "attribute.start_time"], session)
 

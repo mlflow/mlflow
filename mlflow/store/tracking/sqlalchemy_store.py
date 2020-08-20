@@ -892,7 +892,7 @@ def _get_orderby_clauses(order_by_list, session):
 
             if (key_type, key) in observed_order_by_clauses:
                 raise MlflowException(
-                    "order_by contains duplicate fields: {}".format(order_by_list)
+                    "`order_by` contains duplicate fields: {}".format(order_by_list)
                 )
             observed_order_by_clauses.add((key_type, key))
 

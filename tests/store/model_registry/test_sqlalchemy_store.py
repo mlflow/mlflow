@@ -853,7 +853,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual([str(x) for x in parsed], ["registered_models.name DESC"])
 
         # test that an exception is raised when order_by contains duplicate fields
-        msg = "order_by contains duplicate fields:"
+        msg = "`order_by` contains duplicate fields:"
         with self.assertRaisesRegex(MlflowException, msg):
             SqlAlchemyStore._parse_search_registered_models_order_by(
                 ["last_updated_timestamp", "last_updated_timestamp"]
