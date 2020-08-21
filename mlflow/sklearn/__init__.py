@@ -607,8 +607,8 @@ def autolog():
     )
     from mlflow.utils.validation import (
         MAX_PARAMS_TAGS_PER_BATCH,
-        MAX_PARAM_KEY_LENGTH,
         MAX_PARAM_VAL_LENGTH,
+        MAX_ENTITY_KEY_LENGTH,
     )
 
     if _is_old_version():
@@ -630,7 +630,7 @@ def autolog():
 
         # Chunk and truncate model parameters to avoid hitting the log_batch API limit
         for chunk in _chunk_dict(self.get_params(deep=True), chunk_size=MAX_PARAMS_TAGS_PER_BATCH):
-            truncated = _truncate_dict(chunk, MAX_PARAM_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+            truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
 
         try_mlflow_log(

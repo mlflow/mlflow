@@ -14,8 +14,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_PARAM_KEY_LENGTH,
     MAX_PARAM_VAL_LENGTH,
+    MAX_ENTITY_KEY_LENGTH,
 )
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
@@ -68,7 +68,7 @@ def stringify_dict_values(d):
 
 
 def truncate_dict(d):
-    return _truncate_dict(d, MAX_PARAM_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+    return _truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
 
 
 def get_expected_class_tags(model):
@@ -231,12 +231,12 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     "long_params, messages",
     [
         # key exceeds the limit
-        ({("a" * (MAX_PARAM_KEY_LENGTH + 1)): "b"}, ["Truncated the key"]),
+        ({("a" * (MAX_ENTITY_KEY_LENGTH + 1)): "b"}, ["Truncated the key"]),
         # value exceeds the limit
         ({"a": "b" * (MAX_PARAM_VAL_LENGTH + 1)}, ["Truncated the value"]),
         # both key and value exceed the limit
         (
-            {("a" * (MAX_PARAM_KEY_LENGTH + 1)): "b" * (MAX_PARAM_VAL_LENGTH + 1)},
+            {("a" * (MAX_ENTITY_KEY_LENGTH + 1)): "b" * (MAX_PARAM_VAL_LENGTH + 1)},
             ["Truncated the key", "Truncated the value"],
         ),
     ],
