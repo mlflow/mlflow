@@ -45,13 +45,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
 
-    def _rm_maker(self, name, tags=None):
-        return self.store.create_registered_model(name, tags)
+    def _rm_maker(self, name, tags=None, description=None):
+        return self.store.create_registered_model(name, tags, description)
 
     def _mv_maker(
-        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None,
+        self,
+        name,
+        source="path/to/source",
+        run_id=uuid.uuid4().hex,
+        tags=None,
+        run_link=None,
+        description=None,
     ):
-        return self.store.create_model_version(name, source, run_id, tags, run_link=run_link)
+        return self.store.create_model_version(
+            name, source, run_id, tags, run_link=run_link, description=description
+        )
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -60,6 +68,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         name = random_str() + "abCD"
         rm1 = self._rm_maker(name)
         self.assertEqual(rm1.name, name)
+        self.assertEqual(rm1.description, None)
 
         # error on duplicate
         with self.assertRaises(MlflowException) as exception_context:
@@ -83,6 +92,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rm2.tags, {tag.key: tag.value for tag in tags})
         self.assertEqual(rmd2.name, name2)
         self.assertEqual(rmd2.tags, {tag.key: tag.value for tag in tags})
+
+        # create with description
+        name3 = random_str() + "-description"
+        description = "the best model ever"
+        rm3 = self._rm_maker(name3, description=description)
+        rmd3 = self.store.get_registered_model(name3)
+        self.assertEqual(rm3.name, name3)
+        self.assertEqual(rm3.description, description)
+        self.assertEqual(rmd3.name, name3)
+        self.assertEqual(rmd3.description, description)
 
         # invalid model name will fail
         with self.assertRaises(MlflowException) as exception_context:
@@ -462,6 +481,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mv4.run_link, run_link)
         self.assertEqual(mvd4.version, 4)
         self.assertEqual(mvd4.run_link, run_link)
+
+        # create model version with description
+        description = "the best model ever"
+        mv5 = self._mv_maker(name, description=description)
+        mvd5 = self.store.get_model_version(name, mv5.version)
+        self.assertEqual(mv5.version, 5)
+        self.assertEqual(mv5.description, description)
+        self.assertEqual(mvd5.version, 5)
+        self.assertEqual(mvd5.description, description)
 
     def test_update_model_version(self):
         name = "test_for_update_MV"
