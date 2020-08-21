@@ -31,6 +31,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INTERNAL_ERROR,
 )
+from mlflow.utils.search_runs_utils import SearchRunsUtils
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
@@ -702,14 +703,14 @@ class SqlAlchemyStore(AbstractStore):
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
-            parsed_filters = SearchUtils.parse_filter_for_run(filter_string)
-            parsed_orderby, sorting_joins = SearchUtils.get_order_by_clauses_for_run(
+            parsed_filters = SearchRunsUtils.parse_filter_for_run(filter_string)
+            parsed_orderby, sorting_joins = SearchRunsUtils.get_order_by_clauses_for_run(
                 order_by, session
             )
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
 
             query = session.query(SqlRun)
-            for j in SearchUtils.get_sqlalchemy_filter_clause_for_run(parsed_filters, session):
+            for j in SearchRunsUtils.get_sqlalchemy_filter_clause_for_run(parsed_filters, session):
                 query = query.join(j)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -723,7 +724,7 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *SearchUtils.get_attributes_filtering_clauses_for_run(parsed_filters)
+                    *SearchRunsUtils.get_attributes_filtering_clauses_for_run(parsed_filters)
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)

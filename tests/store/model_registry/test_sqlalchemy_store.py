@@ -5,7 +5,7 @@ import mock
 import tempfile
 import uuid
 
-from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.search_models_utils import SearchModelsUtils
 
 import mlflow
 import mlflow.db
@@ -969,14 +969,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.store.ManagedSessionMaker() as session:
             # test that "registered_models.name ASC" is returned by default
             parsed = [
-                str(x) for x in SearchUtils.get_order_by_clause_for_registered_model([], session)[0]
+                str(x)
+                for x in SearchModelsUtils.get_order_by_clauses_for_registered_model([], session)[0]
             ]
             assert parsed == ["registered_models.name ASC"]
 
             # test that the given 'name' replaces the default one ('registered_models.name ASC')
             parsed = [
                 str(x)
-                for x in SearchUtils.get_order_by_clause_for_registered_model(
+                for x in SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["registered_models.name DESC"], session
                 )[0]
             ]
@@ -986,37 +987,37 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             # test that an exception is raised when order_by contains duplicate fields
             msg = "`order_by` contains duplicate fields:"
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["attribute.last_updated_timestamp", "last_updated_timestamp"], session
                 )
 
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["timestamp", "timestamp"], session
                 )
 
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["timestamp", "last_updated_timestamp"], session
                 )
 
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["last_updated_timestamp ASC", "attr.last_updated_timestamp DESC"], session
                 )
 
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["last_updated_timestamp", "last_updated_timestamp DESC"], session
                 )
 
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["tags.owner", "tags.owner"], session
                 )
 
             with self.assertRaisesRegex(MlflowException, msg):
-                SearchUtils.get_order_by_clause_for_registered_model(
+                SearchModelsUtils.get_order_by_clauses_for_registered_model(
                     ["tags.`parent model` desc", "tags.`parent model` ASC"], session
                 )
 

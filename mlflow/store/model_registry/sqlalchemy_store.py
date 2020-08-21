@@ -30,6 +30,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
     SqlModelVersionTag,
 )
+from mlflow.utils.search_models_utils import SearchModelsUtils
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
@@ -324,17 +325,18 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            parsed_filter = SearchUtils.parse_filter_for_registered_models(filter_string)
-            (parsed_orderby, sorting_joins,) = SearchUtils.get_order_by_clause_for_registered_model(
-                order_by, session
-            )
+            parsed_filter = SearchModelsUtils.parse_filter_for_registered_models(filter_string)
+            (
+                parsed_orderby,
+                sorting_joins,
+            ) = SearchModelsUtils.get_order_by_clauses_for_registered_model(order_by, session)
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             # we query for max_results + 1 items to check whether there is another page to return.
             # this remediates having to make another query which returns no items.
             max_results_for_query = max_results + 1
 
             query = session.query(SqlRegisteredModel)
-            for j in SearchUtils.get_sqlalchemy_filter_clause_for_registered_model(
+            for j in SearchModelsUtils.get_sqlalchemy_filter_clause_for_registered_model(
                 parsed_filter, session
             ):
                 query = query.join(j)
@@ -344,7 +346,7 @@ class SqlAlchemyStore(AbstractStore):
                 query.distinct()
                 .options(*self._get_eager_registered_model_query_options())
                 .filter(
-                    *SearchUtils.get_attributes_filtering_clauses_for_registered_model(
+                    *SearchModelsUtils.get_attributes_filtering_clauses_for_registered_model(
                         parsed_filter
                     )
                 )

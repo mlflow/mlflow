@@ -46,11 +46,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.search_runs_utils import SearchRunsUtils
 from mlflow.utils.uri import extract_db_type_from_uri
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
-from mlflow.utils.search_utils import SearchUtils
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
@@ -1521,13 +1521,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_get_order_by_clauses_for_runs(self):
         with self.store.ManagedSessionMaker() as session:
             # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
-            parsed = [str(x) for x in SearchUtils.get_order_by_clauses_for_run([], session)[0]]
+            parsed = [str(x) for x in SearchRunsUtils.get_order_by_clauses_for_run([], session)[0]]
             assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
 
             # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
             parsed = [
                 str(x)
-                for x in SearchUtils.get_order_by_clauses_for_run(
+                for x in SearchRunsUtils.get_order_by_clauses_for_run(
                     ["attribute.start_time ASC"], session
                 )[0]
             ]
@@ -1537,24 +1537,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             # test that an exception is raised when 'order_by' contains duplicates
             match = "`order_by` contains duplicate fields"
             with pytest.raises(MlflowException, match=match):
-                SearchUtils.get_order_by_clauses_for_run(
+                SearchRunsUtils.get_order_by_clauses_for_run(
                     ["attribute.start_time", "start_time"], session
                 )
 
             with pytest.raises(MlflowException, match=match):
-                SearchUtils.get_order_by_clauses_for_run(["start_time", "start_time"], session)
+                SearchRunsUtils.get_order_by_clauses_for_run(["start_time", "start_time"], session)
 
             with pytest.raises(MlflowException, match=match):
-                SearchUtils.get_order_by_clauses_for_run(["param.p", "param.p"], session)
+                SearchRunsUtils.get_order_by_clauses_for_run(["param.p", "param.p"], session)
 
             with pytest.raises(MlflowException, match=match):
-                SearchUtils.get_order_by_clauses_for_run(["metric.m", "metric.m"], session)
+                SearchRunsUtils.get_order_by_clauses_for_run(["metric.m", "metric.m"], session)
 
             with pytest.raises(MlflowException, match=match):
-                SearchUtils.get_order_by_clauses_for_run(["tag.t", "tag.t"], session)
+                SearchRunsUtils.get_order_by_clauses_for_run(["tag.t", "tag.t"], session)
 
             # test that an exception is NOT raised when key types are different
-            SearchUtils.get_order_by_clauses_for_run(["param.a", "metric.a", "tag.a"], session)
+            SearchRunsUtils.get_order_by_clauses_for_run(["param.a", "metric.a", "tag.a"], session)
 
     def test_search_runs_pagination(self):
         exp = self._experiment_factory("test_search_runs_pagination")
