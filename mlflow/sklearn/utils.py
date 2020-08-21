@@ -5,8 +5,11 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
-_SAMPLE_WEIGHT = "sample_weight"
+# The earliest version we're guaranteed to support. Autologging utilities may not work properly
+# on scikit-learn older than this version.
 _MIN_SKLEARN_VERSION = "0.20.3"
+
+_SAMPLE_WEIGHT = "sample_weight"
 
 
 def _get_Xy(args, kwargs, X_var_name, y_var_name):
