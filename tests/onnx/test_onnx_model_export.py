@@ -384,7 +384,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
         rtol=1e-05,
         atol=1e-05,
     )
-    # with pytest.raises(RuntimeError):
     pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
 
@@ -403,6 +402,21 @@ def test_pyfunc_high_dim_models(
         pyfunc_loaded.predict(data_high_dim_inputs),  # ["output:0"],
         predicted_high_dim_inputs,  # ["output:0"],
     )
+
+
+@pytest.mark.release
+def test_pyfunc_incorrect_input(
+    high_dim_model, model_path,
+):
+    import onnx
+    import mlflow.onnx
+
+    mlflow.onnx.save_model(high_dim_model, model_path)
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    with pytest.raises(mlflow.exceptions.MlflowException):
+        pyfunc_loaded.predict(pd.DataFrame([1, 2]))
 
 
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
