@@ -511,7 +511,90 @@ class _SklearnTrainingSession(object):
 @experimental
 def autolog():
     """
-    Enable autologging for scikit-learn.
+    Enables autologging for scikit-learn estimators.
+
+    **When is autologging performed?**
+      Autologging is performed when you call:
+
+      - ``estimator.fit``
+      - ``estimator.fit_predict``
+      - ``estimator.fit_transform``
+
+    **Logged information**
+      **Parameters**
+        - Parameters obtained by ``estimator.get_params(deep=True)``. Note that ``get_params``
+          is called with ``deep=True``. This means when you fit a meta estimator
+          (e.g. `sklearn.pipeline.Pipeline`_), the parameters of its child estimators
+          are also logged.
+
+      **Metrics**
+        - A training score obtained by ``estimator.score``. Note that the training score is
+          computed using parameters given to ``fit``.
+
+      **Tags**
+        - An estimator class name (e.g. "LinearRegression").
+        - A qualified estimator class name (e.g. "sklearn.linear_model._base.LinearRegression").
+
+      **Artifacts**
+        - A fitted estimator (logged by :py:func:`mlflow.sklearn.log_model()`).
+
+    **Meta estimators**
+      When a meta estimator calls ``fit``, it internally calls ``fit`` on its child estimators.
+      Autologging does NOT perform logging on these constituent `fit`.
+
+    **Supported estimators**
+      All estimators obtained by `sklearn.utils.all_estimators`_.
+
+    .. _sklearn.utils.all_estimators:
+        https://scikit-learn.org/stable/modules/generated/sklearn.utils.all_estimators.html
+
+    .. _sklearn.pipeline.Pipeline:
+        https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+    **Example**
+
+    .. code-block:: python
+
+        from pprint import pprint
+        import numpy as np
+        import sklearn.linear_model
+        import mlflow
+
+        # enable autologging
+        mlflow.sklearn.autolog()
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # train a model
+        with mlflow.start_run() as run:
+            reg = sklearn.linear_model.LinearRegression().fit(X, y)
+
+        def fetch_logged_data(run_id):
+            client = mlflow.tracking.MlflowClient()
+            data = client.get_run(run_id).data
+            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+
+        # fetch logged data
+        params, metrics, tags, artifacts = fetch_logged_data(run._info.run_id)
+
+        pprint(params)
+        # {'copy_X': 'True',
+        #  'fit_intercept': 'True',
+        #  'n_jobs': 'None',
+        #  'normalize': 'False'}
+
+        pprint(metrics)
+        # {'training_score': 1.0}
+
+        pprint(tags)
+        # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+        #  'estimator_name': 'LinearRegression'}
+
+        pprint(artifacts)
+        # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
     """
     import sklearn
     from mlflow.sklearn.utils import (
