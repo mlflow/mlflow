@@ -403,13 +403,6 @@ def test_pyfunc_high_dim_models(
         pyfunc_loaded.predict(data_high_dim_inputs),  # ["output:0"],
         predicted_high_dim_inputs,  # ["output:0"],
     )
-    # pd.testing.assert_series_equal(
-    #     pyfunc_loaded.predict(data_high_dim_inputs)["output:0"],
-    #     predicted_high_dim_inputs["output:0"],
-    # )
-    # actual = np.stack(pyfunc_loaded.predict(data_high_dim_inputs)["output:0"].values)
-    # expected = np.stack(predicted_high_dim_inputs["output:0"].values)
-    # np.testing.assert_allclose(actual, expected)
 
 
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
