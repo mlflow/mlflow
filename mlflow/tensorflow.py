@@ -18,15 +18,12 @@ import atexit
 import time
 import tempfile
 from collections import namedtuple
-
 import pandas
-
-import mlflow
-import tensorflow
-import mlflow.keras
 from distutils.version import LooseVersion
 from contextlib import contextmanager
-from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=import-error
+
+import mlflow
+import mlflow.keras
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -64,6 +61,8 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
+    import tensorflow
+
     return _mlflow_conda_env(
         additional_conda_deps=["tensorflow={}".format(tensorflow.__version__)],
         additional_pip_deps=None,
@@ -276,6 +275,8 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
     If the loading process fails, any exceptions thrown by TensorFlow are propagated.
     """
+    import tensorflow
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         validation_tf_graph = tensorflow.Graph()
         validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
@@ -340,6 +341,7 @@ def load_model(model_uri, tf_sess=None):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
+    import tensorflow
 
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         if not tf_sess:
@@ -402,6 +404,8 @@ def _load_tensorflow_saved_model(
              For TensorFlow versions >= 2.0.0:
              A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
+    import tensorflow
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         loaded = tensorflow.saved_model.loader.load(
             sess=tf_sess, tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
@@ -448,6 +452,8 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
+    import tensorflow
+
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
@@ -525,6 +531,8 @@ class _TF2Wrapper(object):
         self.infer = infer
 
     def predict(self, df):
+        import tensorflow
+
         feed_dict = {}
         for df_col_name in list(df):
             # If there are multiple columns with the same name, selecting the shared name
@@ -544,111 +552,6 @@ class _TF2Wrapper(object):
                 pred_dict[col] = pred_dict[col].tolist()
 
         return pandas.DataFrame.from_dict(data=pred_dict)
-
-
-class __MLflowTfKerasCallback(Callback):
-    """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
-        Records model structural information as params after training finishes.
-    """
-
-    def __init__(self):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-        opt = self.model.optimizer
-        if hasattr(opt, "_name"):
-            try_mlflow_log(mlflow.log_param, "optimizer_name", opt._name)
-        # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
-        elif hasattr(opt, "optimizer"):
-            # TensorFlow optimizer parameters are associated with the inner optimizer variable.
-            # Therefore, we assign opt to be opt.optimizer for logging parameters.
-            opt = opt.optimizer
-            try_mlflow_log(mlflow.log_param, "optimizer_name", type(opt).__name__)
-        if hasattr(opt, "lr"):
-            lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
-            try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-        elif hasattr(opt, "_lr"):
-            lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-            try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-        if hasattr(opt, "epsilon"):
-            epsilon = (
-                opt.epsilon
-                if type(opt.epsilon) is float
-                else tensorflow.keras.backend.eval(opt.epsilon)
-            )
-            try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-        elif hasattr(opt, "_epsilon"):
-            epsilon = (
-                opt._epsilon
-                if type(opt._epsilon) is float
-                else tensorflow.keras.backend.eval(opt._epsilon)
-            )
-            try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-
-        sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = "\n".join(sum_list)
-        tempdir = tempfile.mkdtemp()
-        try:
-            summary_file = os.path.join(tempdir, "model_summary.txt")
-            with open(summary_file, "w") as f:
-                f.write(summary)
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
-
-    def on_epoch_end(self, epoch, logs=None):
-        pass
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
-
-
-class __MLflowTfKeras2Callback(Callback):
-    """
-        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-        Records model structural information as params when training starts.
-    """
-
-    def __init__(self):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-        config = self.model.optimizer.get_config()
-        for attribute in config:
-            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
-
-        sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = "\n".join(sum_list)
-        tempdir = tempfile.mkdtemp()
-        try:
-            summary_file = os.path.join(tempdir, "model_summary.txt")
-            with open(summary_file, "w") as f:
-                f.write(summary)
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
-
-    def on_epoch_end(self, epoch, logs=None):
-        if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
 
 def _log_artifacts_with_warning(**kwargs):
@@ -716,6 +619,8 @@ def _log_event(event):
 
 
 def _get_tensorboard_callback(lst):
+    import tensorflow
+
     for x in lst:
         if isinstance(x, tensorflow.keras.callbacks.TensorBoard):
             return x
@@ -734,6 +639,114 @@ def _setup_callbacks(lst):
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
+    import tensorflow
+    from tensorflow.keras.callbacks import Callback, TensorBoard
+
+    class __MLflowTfKerasCallback(Callback):
+        """
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
+        Records model structural information as params after training finishes.
+        """
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+            import tensorflow
+
+            opt = self.model.optimizer
+            if hasattr(opt, "_name"):
+                try_mlflow_log(mlflow.log_param, "optimizer_name", opt._name)
+            # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
+            elif hasattr(opt, "optimizer"):
+                # TensorFlow optimizer parameters are associated with the inner optimizer variable.
+                # Therefore, we assign opt to be opt.optimizer for logging parameters.
+                opt = opt.optimizer
+                try_mlflow_log(mlflow.log_param, "optimizer_name", type(opt).__name__)
+            if hasattr(opt, "lr"):
+                lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
+                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+            elif hasattr(opt, "_lr"):
+                lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
+                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+            if hasattr(opt, "epsilon"):
+                epsilon = (
+                    opt.epsilon
+                    if type(opt.epsilon) is float
+                    else tensorflow.keras.backend.eval(opt.epsilon)
+                )
+                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+            elif hasattr(opt, "_epsilon"):
+                epsilon = (
+                    opt._epsilon
+                    if type(opt._epsilon) is float
+                    else tensorflow.keras.backend.eval(opt._epsilon)
+                )
+                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = "\n".join(sum_list)
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, "w") as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            pass
+
+        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+
+    class __MLflowTfKeras2Callback(Callback):
+        """
+        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
+        Records model structural information as params when training starts.
+        """
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+            config = self.model.optimizer.get_config()
+            for attribute in config:
+                try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
+
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = "\n".join(sum_list)
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, "w") as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
+                try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
@@ -804,6 +817,8 @@ def autolog(every_n_iter=100):
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
     """
+    import tensorflow
+
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
