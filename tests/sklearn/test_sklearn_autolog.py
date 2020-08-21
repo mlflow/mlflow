@@ -255,19 +255,19 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     assert_predict_equal(loaded_model, model, X)
 
 
-@pytest.mark.parametrize("pattern", ["only_y_kwarg", "both_kwarg", "both_kwargs_swapped"])
-def test_fit_takes_Xy_as_keyword_arguments(pattern):
+@pytest.mark.parametrize("Xy_passed_as", ["only_y_kwarg", "both_kwarg", "both_kwargs_swapped"])
+def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
     mlflow.sklearn.autolog()
 
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
 
     with mlflow.start_run() as run:
-        if pattern == "only_y_kwarg":
+        if Xy_passed_as == "only_y_kwarg":
             model.fit(X, y=y)
-        elif pattern == "both_kwarg":
+        elif Xy_passed_as == "both_kwarg":
             model.fit(X=X, y=y)
-        elif pattern == "both_kwargs_swapped":
+        elif Xy_passed_as == "both_kwargs_swapped":
             model.fit(y=y, X=X)
 
     run_id = run._info.run_id
@@ -313,8 +313,8 @@ def test_call_fit_with_arguments_score_does_not_accept():
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
 
 
-@pytest.mark.parametrize("pass_sample_weight_as", ["positional", "keyword"])
-def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
+@pytest.mark.parametrize("sample_weight_passed_as", ["positional", "keyword"])
+def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     mlflow.sklearn.autolog()
 
     from sklearn.linear_model import SGDRegressor
@@ -338,9 +338,9 @@ def test_both_fit_and_score_contain_sample_weight(pass_sample_weight_as):
     sample_weight = abs(np.random.randn(len(X)))
 
     with mlflow.start_run() as run:
-        if pass_sample_weight_as == "positional":
+        if sample_weight_passed_as == "positional":
             model.fit(X, y, None, None, sample_weight)
-        elif pass_sample_weight_as == "keyword":
+        elif sample_weight_passed_as == "keyword":
             model.fit(X, y, sample_weight=sample_weight)
         mock_obj.assert_called_once_with(X, y, sample_weight)
 
