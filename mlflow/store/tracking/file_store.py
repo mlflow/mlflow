@@ -27,6 +27,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.utils.search_runs_utils import SearchRunsUtils
 from mlflow.utils.validation import (
     _validate_metric_name,
     _validate_param_name,
@@ -56,7 +57,6 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     path_to_local_file_uri,
 )
-from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -730,9 +730,9 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self._get_run_from_info(r) for r in run_infos)
-        filtered = SearchUtils.filter_runs(runs, filter_string)
-        sorted_runs = SearchUtils.sort_runs(filtered, order_by)
-        runs, next_page_token = SearchUtils.paginate_runs(sorted_runs, page_token, max_results)
+        filtered = SearchRunsUtils.filter_runs(runs, filter_string)
+        sorted_runs = SearchRunsUtils.sort_runs(filtered, order_by)
+        runs, next_page_token = SearchRunsUtils.paginate_runs(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
     def log_metric(self, run_id, metric):
