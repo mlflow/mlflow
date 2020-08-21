@@ -96,11 +96,13 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
 
         new_k = str(k)[:max_key_length] if should_truncate_key else k
         if should_truncate_key:
-            _logger.warning("Truncated the key `{}`".format(k))
+            msg = "Truncated the key `{}`".format(k)
+            _logger.warning(msg)
 
         new_v = str(v)[:max_value_length] if should_truncate_val else v
         if should_truncate_val:
-            _logger.warning("Truncated the value `{}` (in the key `{}`)".format(v, k))
+            msg = "Truncated the value `{}` (in the key `{}`)".format(v, k)
+            _logger.warning(msg)
 
         truncated[new_k] = new_v
 
