@@ -453,14 +453,14 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         model.fit(*get_iris())
+        mock_warning.assert_called_once()
+        mock_warning.called_once_with(
+            "KMeans.score failed. The 'training_score' metric will not be recorded. "
+            "Scoring error: EXCEPTION"
+        )
 
     metrics = get_run_data(run._info.run_id)[1]
     assert metrics == {}
-    mock_warning.assert_called_once()
-    mock_warning.called_once_with(
-        "KMeans.score failed. The 'training_score' metric will not be recorded. "
-        "Scoring error: EXCEPTION"
-    )
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
