@@ -92,7 +92,7 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
     truncated = {}
     for k, v in d.items():
         should_truncate_key = (not key_is_none) and (len(str(k)) > max_key_length)
-        should_truncate_val = (not key_is_none) and (len(str(v)) > max_value_length)
+        should_truncate_val = (not val_is_none) and (len(str(v)) > max_value_length)
 
         new_k = str(k)[:max_key_length] if should_truncate_key else k
         if should_truncate_key:
