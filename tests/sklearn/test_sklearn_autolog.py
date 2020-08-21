@@ -88,21 +88,30 @@ def fit_func_name(request):
 
 
 @pytest.fixture(autouse=True, scope="function")
-def throw_if_try_mlflow_log_has_emitted_warnings():
-    # autolog contains multiple try_mlflow_log. They may hide unintentional errors (often caused by
+def force_try_mlflow_log_to_fail(request):
+    # autolog contains multiple `try_mlflow_log`. They may hide unintentional errors (often caused by
     # incorrect test settings) and allow tests that should not pass to pass (without us noticing).
-    # To prevent that, throw if try_mlflow_log has emitted warnings during test execution.
-    with warnings.catch_warnings(record=True) as ws:
+    # To prevent that, temporarily turns a warning emitted by `try_mlflow_log` into errors.
+    if "disable_force_try_mlflow_log_to_fail" in request.keywords:
         yield
-        mlflow_warnings = [w for w in ws if str(w.message).startswith("Logging to MLflow failed")]
-        assert len(mlflow_warnings) == 0
+    else:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "error", message=r"^Logging to MLflow failed", category=UserWarning,
+            )
+            yield
 
 
-@pytest.mark.xfail
-def test_throw_if_try_mlflow_log_has_emitted_warnings():
+@pytest.mark.xfail(strict=True, raises=UserWarning)
+def test_force_try_mlflow_log_to_fail():
     with mlflow.start_run():
-        # This line should emit a warning because a metric value must be a float value.
-        try_mlflow_log(mlflow.log_metric, "m", "m")
+        try_mlflow_log(lambda: 1 / 0)
+
+
+@pytest.mark.disable_force_try_mlflow_log_to_fail
+def test_no_force_try_mlflow_log_to_fail():
+    with mlflow.start_run():
+        try_mlflow_log(lambda: 1 / 0)
 
 
 def test_autolog_preserves_original_function_attributes():
