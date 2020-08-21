@@ -522,3 +522,22 @@ def test_meta_estimator_fit_performs_logging_only_once():
         query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run._info.run_id)
         assert len(mlflow.search_runs([run._info.experiment_id])) == 1
         assert len(mlflow.search_runs([run._info.experiment_id], query)) == 0
+
+
+@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.parametrize(
+    "func_to_fail",
+    ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
+)
+def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
+    mlflow.sklearn.autolog()
+
+    model = sklearn.cluster.KMeans()
+    X, y = get_iris()
+
+    with mlflow.start_run(), mock.patch(
+        func_to_fail, side_effect=Exception(func_to_fail)
+    ) as mock_func:
+
+        model.fit(X, y)
+        mock_func.assert_called_once()
