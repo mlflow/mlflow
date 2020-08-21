@@ -1,11 +1,7 @@
 import mock
 import os
-import pytest
 import yaml
 import json
-
-import numpy as np
-import pandas as pd
 import pandas.testing
 
 import mlflow.statsmodels
@@ -24,57 +20,13 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import mock_s3_bucket        # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 
-import statsmodels.api as sm
-from collections import namedtuple
-from statsmodels.tsa.arima_process import arma_generate_sample
-from statsmodels.tsa.arima.model import ARIMA
-
-
-ModelWithResults = namedtuple("ModelWithResults", ["model", "inference_dataframe"])
+from tests.statsmodels.model_fixtures import *
 
 """
     Test cases concerning saving and loading a statsmodels model.
     All the tests employ either an OLS model or an ARIMA model.
     The code has been adapted from the test cases of the lightgbm flavor.
 """
-
-
-@pytest.fixture(scope="session")
-def ols_model(**kwargs):
-    # Ordinary Least Squares (OLS)
-    np.random.seed(9876789)
-    nsamples = 100
-    x = np.linspace(0, 10, 100)
-    X = np.column_stack((x, x ** 2))
-    beta = np.array([1, 0.1, 10])
-    e = np.random.normal(size=nsamples)
-    X = sm.add_constant(X)
-    y = np.dot(X, beta) + e
-
-    ols = sm.OLS(y, X)
-    model = ols.fit(**kwargs)
-
-    return ModelWithResults(model=model, inference_dataframe=X)
-
-
-@pytest.fixture(scope="session")
-def arma_model():
-    # Autoregressive Moving Average (ARMA)
-    np.random.seed(12345)
-    arparams = np.array([.75, -.25])
-    maparams = np.array([.65, .35])
-    arparams = np.r_[1, -arparams]
-    maparams = np.r_[1, maparams]
-    nobs = 250
-    y = arma_generate_sample(arparams, maparams, nobs)
-    dates = pd.date_range('1980-1-1', freq="M", periods=nobs)
-    y = pd.Series(y, index=dates)
-
-    arima = ARIMA(y, order=(2, 0, 2), trend='n')
-    model = arima.fit()
-    inference_dataframe = pd.DataFrame([['1999-06-30', '2001-05-31']], columns=["start", "end"])
-
-    return ModelWithResults(model=model, inference_dataframe=inference_dataframe)
 
 
 def _get_dates_from_df(df):
@@ -84,8 +36,8 @@ def _get_dates_from_df(df):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmpdir, subdir="model"):
+    return os.path.join(str(tmpdir), subdir)
 
 
 @pytest.fixture
@@ -97,11 +49,28 @@ def statsmodels_custom_env(tmpdir):
     return conda_env
 
 
-def _test_save_load(statsmodels_model, model_path, *predict_args):
-        mlflow.statsmodels.save_model(statsmodels_model=statsmodels_model.model, path=model_path)
-        reloaded_model = mlflow.statsmodels.load_model(model_uri=model_path)
-        reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+def _test_models_list(tmpdir, func_to_apply):
+    from statsmodels.tsa.base.tsa_model import TimeSeriesModel
+    fixtures = [ols_model, arma_model, glsar_model, gee_model, glm_model, gls_model,
+                recursivels_model, rolling_ols_model, rolling_wls_model, wls_model]
 
+    for algorithm in fixtures:
+        name = algorithm.__name__
+        path = model_path(tmpdir, name)
+        model = algorithm()
+        if isinstance(model.alg, TimeSeriesModel):
+            start_date, end_date = _get_dates_from_df(model.inference_dataframe)
+            func_to_apply(model, path, start_date, end_date)
+        else:
+            func_to_apply(model, path, model.inference_dataframe)
+
+
+def _test_model_save_load(statsmodels_model, model_path, *predict_args):
+    mlflow.statsmodels.save_model(statsmodels_model=statsmodels_model.model, path=model_path)
+    reloaded_model = mlflow.statsmodels.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    if hasattr(statsmodels_model.model, "predict"):
         np.testing.assert_array_almost_equal(
             statsmodels_model.model.predict(*predict_args),
             reloaded_model.predict(*predict_args),
@@ -113,13 +82,55 @@ def _test_save_load(statsmodels_model, model_path, *predict_args):
         )
 
 
-def test_arma_save_load(arma_model, model_path):
-    start_date, end_date = _get_dates_from_df(arma_model.inference_dataframe)
-    _test_save_load(arma_model, model_path, start_date, end_date)
+def _test_model_log(statsmodels_model, model_path, *predict_args):
+    old_uri = mlflow.get_tracking_uri()
+    model = statsmodels_model.model
+    with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        for should_start_run in [False, True]:
+            try:
+                mlflow.set_tracking_uri("test")
+                if should_start_run:
+                    mlflow.start_run()
+
+                artifact_path = "model"
+                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+                _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+
+                mlflow.statsmodels.log_model(
+                    statsmodels_model=model,
+                    artifact_path=artifact_path,
+                    conda_env=conda_env)
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path=artifact_path)
+
+                reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
+                if hasattr(model, "predict"):
+                    np.testing.assert_array_almost_equal(
+                        model.predict(*predict_args),
+                        reloaded_model.predict(*predict_args)
+                    )
+
+                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+                model_config = Model.load(os.path.join(model_path, "MLmodel"))
+                assert pyfunc.FLAVOR_NAME in model_config.flavors
+                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+                assert os.path.exists(os.path.join(model_path, env_path))
+
+            finally:
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_uri)
 
 
-def test_ols_save_load(ols_model, model_path):
-    _test_save_load(ols_model, model_path, ols_model.inference_dataframe)
+@pytest.mark.large
+def test_models_save_load(tmpdir):
+    _test_models_list(tmpdir, _test_model_save_load)
+
+
+@pytest.mark.large
+def test_models_log(tmpdir):
+    _test_models_list(tmpdir, _test_model_log)
 
 
 def test_signature_and_examples_are_saved_correctly(ols_model):
@@ -158,55 +169,6 @@ def test_model_load_from_remote_uri_succeeds(arma_model, model_path, mock_s3_buc
         arma_model.model.predict(start=start_date, end=end_date),
         reloaded_model.predict(start=start_date, end=end_date)
     )
-
-
-def _test_model_log(statsmodels_model, model_path, *predict_args):
-    old_uri = mlflow.get_tracking_uri()
-    model = statsmodels_model.model
-    with TempDir(chdr=True, remove_on_exit=True) as tmp:
-        for should_start_run in [False, True]:
-            try:
-                mlflow.set_tracking_uri("test")
-                if should_start_run:
-                    mlflow.start_run()
-
-                artifact_path = "model"
-                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
-
-                mlflow.statsmodels.log_model(
-                    statsmodels_model=model,
-                    artifact_path=artifact_path,
-                    conda_env=conda_env)
-                model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id,
-                    artifact_path=artifact_path)
-
-                reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
-                np.testing.assert_array_almost_equal(
-                    model.predict(*predict_args),
-                    reloaded_model.predict(*predict_args)
-                )
-
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-                model_config = Model.load(os.path.join(model_path, "MLmodel"))
-                assert pyfunc.FLAVOR_NAME in model_config.flavors
-                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
-                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
-                assert os.path.exists(os.path.join(model_path, env_path))
-
-            finally:
-                mlflow.end_run()
-                mlflow.set_tracking_uri(old_uri)
-
-
-def test_ols_model_log(ols_model, model_path):
-    _test_model_log(ols_model, model_path, ols_model.inference_dataframe)
-
-
-def test_arma_model_log(arma_model, model_path):
-    start_date, end_date = _get_dates_from_df(arma_model.inference_dataframe)
-    _test_model_log(arma_model, model_path, start_date, end_date)
 
 
 def test_log_model_calls_register_model(ols_model):
