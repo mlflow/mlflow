@@ -611,7 +611,7 @@ def autolog():
         MAX_ENTITY_KEY_LENGTH,
     )
 
-    if _is_supported_version():
+    if not _is_supported_version():
         warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < {} ".format(
                 _MIN_SKLEARN_VERSION

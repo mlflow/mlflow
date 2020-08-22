@@ -115,7 +115,7 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
 def _is_supported_version():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) < LooseVersion(_MIN_SKLEARN_VERSION)
+    return LooseVersion(sklearn.__version__) >= LooseVersion(_MIN_SKLEARN_VERSION)
 
 
 def _all_estimators():
