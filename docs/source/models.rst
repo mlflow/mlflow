@@ -513,7 +513,7 @@ in native fastai format.
 For more information, see :py:mod:`mlflow.fastai`.
 
 Statsmodels (``statsmodels``)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``statsmodels`` model flavor enables logging of `Statsmodels models
 <https://www.statsmodels.org/stable/api.html>`_ in MLflow format via the :py:func:`mlflow.statsmodels.save_model()`
 and :py:func:`mlflow.statsmodels.log_model()` methods.

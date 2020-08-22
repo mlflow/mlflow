@@ -1,3 +1,6 @@
+import pytest
+import numpy as np
+import pandas as pd
 import mock
 import os
 import yaml
@@ -17,16 +20,24 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-from tests.helper_functions import mock_s3_bucket        # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 
-from tests.statsmodels.model_fixtures import *
+from tests.statsmodels.model_fixtures import (
+    ols_model,
+    arma_model,
+    glsar_model,
+    gee_model,
+    glm_model,
+    gls_model,
+    recursivels_model,
+    rolling_ols_model,
+    rolling_wls_model,
+    wls_model,
+)
 
-"""
-    Test cases concerning saving and loading a statsmodels model.
-    All the tests employ either an OLS model or an ARIMA model.
-    The code has been adapted from the test cases of the lightgbm flavor.
-"""
+
+# The code in this file has been adapted from the test cases of the lightgbm flavor.
 
 
 def _get_dates_from_df(df):
@@ -43,16 +54,27 @@ def model_path(tmpdir, subdir="model"):
 @pytest.fixture
 def statsmodels_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env,
-                      additional_conda_deps=["statsmodels"],
-                      additional_pip_deps=["pytest"])
+    _mlflow_conda_env(
+        conda_env, additional_conda_deps=["statsmodels"], additional_pip_deps=["pytest"]
+    )
     return conda_env
 
 
 def _test_models_list(tmpdir, func_to_apply):
     from statsmodels.tsa.base.tsa_model import TimeSeriesModel
-    fixtures = [ols_model, arma_model, glsar_model, gee_model, glm_model, gls_model,
-                recursivels_model, rolling_ols_model, rolling_wls_model, wls_model]
+
+    fixtures = [
+        ols_model,
+        arma_model,
+        glsar_model,
+        gee_model,
+        glm_model,
+        gls_model,
+        recursivels_model,
+        rolling_ols_model,
+        rolling_wls_model,
+        wls_model,
+    ]
 
     for algorithm in fixtures:
         name = algorithm.__name__
@@ -72,8 +94,7 @@ def _test_model_save_load(statsmodels_model, model_path, *predict_args):
 
     if hasattr(statsmodels_model.model, "predict"):
         np.testing.assert_array_almost_equal(
-            statsmodels_model.model.predict(*predict_args),
-            reloaded_model.predict(*predict_args),
+            statsmodels_model.model.predict(*predict_args), reloaded_model.predict(*predict_args),
         )
 
         np.testing.assert_array_almost_equal(
@@ -97,18 +118,16 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
                 _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
 
                 mlflow.statsmodels.log_model(
-                    statsmodels_model=model,
-                    artifact_path=artifact_path,
-                    conda_env=conda_env)
+                    statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
+                )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id,
-                    artifact_path=artifact_path)
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                )
 
                 reloaded_model = mlflow.statsmodels.load_model(model_uri=model_uri)
                 if hasattr(model, "predict"):
                     np.testing.assert_array_almost_equal(
-                        model.predict(*predict_args),
-                        reloaded_model.predict(*predict_args)
+                        model.predict(*predict_args), reloaded_model.predict(*predict_args)
                     )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -143,9 +162,9 @@ def test_signature_and_examples_are_saved_correctly(ols_model):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
-                mlflow.statsmodels.save_model(model, path=path,
-                                              signature=signature,
-                                              input_example=example)
+                mlflow.statsmodels.save_model(
+                    model, path=path, signature=signature, input_example=example
+                )
                 mlflow_model = Model.load(path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -167,7 +186,7 @@ def test_model_load_from_remote_uri_succeeds(arma_model, model_path, mock_s3_buc
     start_date, end_date = _get_dates_from_df(arma_model.inference_dataframe)
     np.testing.assert_array_almost_equal(
         arma_model.model.predict(start=start_date, end=end_date),
-        reloaded_model.predict(start=start_date, end=end_date)
+        reloaded_model.predict(start=start_date, end=end_date),
     )
 
 
@@ -178,11 +197,15 @@ def test_log_model_calls_register_model(ols_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
-        mlflow.statsmodels.log_model(statsmodels_model=ols_model.model,
-                                     artifact_path=artifact_path, conda_env=conda_env,
-                                     registered_model_name="OLSModel1")
-        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
-                                                            artifact_path=artifact_path)
+        mlflow.statsmodels.log_model(
+            statsmodels_model=ols_model.model,
+            artifact_path=artifact_path,
+            conda_env=conda_env,
+            registered_model_name="OLSModel1",
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
         mlflow.register_model.assert_called_once_with(model_uri, "OLSModel1")
 
 
@@ -192,16 +215,19 @@ def test_log_model_no_registered_model_name(ols_model):
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
-        mlflow.statsmodels.log_model(statsmodels_model=ols_model.model,
-                                     artifact_path=artifact_path, conda_env=conda_env)
+        mlflow.statsmodels.log_model(
+            statsmodels_model=ols_model.model, artifact_path=artifact_path, conda_env=conda_env
+        )
         mlflow.register_model.assert_not_called()
 
 
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-        ols_model, model_path, statsmodels_custom_env):
+    ols_model, model_path, statsmodels_custom_env
+):
 
     mlflow.statsmodels.save_model(
-        statsmodels_model=ols_model.model, path=model_path, conda_env=statsmodels_custom_env)
+        statsmodels_model=ols_model.model, path=model_path, conda_env=statsmodels_custom_env
+    )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -219,7 +245,8 @@ def test_model_save_accepts_conda_env_as_dict(ols_model, model_path):
     conda_env = dict(mlflow.statsmodels.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.statsmodels.save_model(
-        statsmodels_model=ols_model.model, path=model_path, conda_env=conda_env)
+        statsmodels_model=ols_model.model, path=model_path, conda_env=conda_env
+    )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -231,16 +258,19 @@ def test_model_save_accepts_conda_env_as_dict(ols_model, model_path):
 
 
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
-        ols_model, statsmodels_custom_env):
+    ols_model, statsmodels_custom_env
+):
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.statsmodels.log_model(statsmodels_model=ols_model.model,
-                                     artifact_path=artifact_path,
-                                     conda_env=statsmodels_custom_env)
+        mlflow.statsmodels.log_model(
+            statsmodels_model=ols_model.model,
+            artifact_path=artifact_path,
+            conda_env=statsmodels_custom_env,
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -256,10 +286,12 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        ols_model, model_path):
+    ols_model, model_path
+):
 
-    mlflow.statsmodels.save_model(statsmodels_model=ols_model.model, path=model_path,
-                                  conda_env=None)
+    mlflow.statsmodels.save_model(
+        statsmodels_model=ols_model.model, path=model_path, conda_env=None
+    )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -270,15 +302,17 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        ols_model):
+    ols_model,
+):
 
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.statsmodels.log_model(statsmodels_model=ols_model.model,
-                                     artifact_path=artifact_path, conda_env=None)
+        mlflow.statsmodels.log_model(
+            statsmodels_model=ols_model.model, artifact_path=artifact_path, conda_env=None
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -291,8 +325,9 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(ols_model, model_path):
-    mlflow.statsmodels.save_model(statsmodels_model=ols_model.model, path=model_path,
-                                  conda_env=None)
+    mlflow.statsmodels.save_model(
+        statsmodels_model=ols_model.model, path=model_path, conda_env=None
+    )
 
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
@@ -300,11 +335,13 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(ols_model, model_
         model_uri=model_path,
         data=ols_model.inference_dataframe,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME)
+        flavor=mlflow.pyfunc.FLAVOR_NAME,
+    )
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     pandas.testing.assert_frame_equal(
         deployed_model_preds,
         pd.DataFrame(reloaded_pyfunc.predict(ols_model.inference_dataframe)),
         check_dtype=False,
-        check_less_precise=6)
+        check_less_precise=6,
+    )

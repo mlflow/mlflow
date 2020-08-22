@@ -39,23 +39,30 @@ STATSMODELS_DATA_SUBPATH = "model.statsmodels"
 
 _logger = logging.getLogger(__name__)
 
+
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
     import statsmodels
+
     return _mlflow_conda_env(
-        additional_conda_deps=[
-            "statsmodels={}".format(statsmodels.__version__),
-        ],
+        additional_conda_deps=["statsmodels={}".format(statsmodels.__version__)],
         additional_pip_deps=None,
-        additional_conda_channels=None)
+        additional_conda_channels=None,
+    )
 
 
-def save_model(statsmodels_model, path, conda_env=None, mlflow_model=None,
-               remove_data: bool = False,
-               signature: ModelSignature = None, input_example: ModelInputExample = None):
+def save_model(
+    statsmodels_model,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    remove_data: bool = False,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Save a statsmodels model to a path on the local file system.
 
@@ -130,17 +137,28 @@ def save_model(statsmodels_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.statsmodels",
-                        data=STATSMODELS_DATA_SUBPATH, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, statsmodels_version=statsmodels.__version__,
-                            data=STATSMODELS_DATA_SUBPATH)
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.statsmodels",
+        data=STATSMODELS_DATA_SUBPATH,
+        env=conda_env_subpath,
+    )
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, statsmodels_version=statsmodels.__version__, data=STATSMODELS_DATA_SUBPATH
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(statsmodels_model, artifact_path, conda_env=None, registered_model_name=None,
-              remove_data: bool = False,
-              signature: ModelSignature = None, input_example: ModelInputExample = None,
-              **kwargs):
+def log_model(
+    statsmodels_model,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    remove_data: bool = False,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    **kwargs
+):
     """
     Log a statsmodels model as an MLflow artifact for the current run.
 
@@ -191,15 +209,22 @@ def log_model(statsmodels_model, artifact_path, conda_env=None, registered_model
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.statsmodels,
-              registered_model_name=registered_model_name,
-              statsmodels_model=statsmodels_model, conda_env=conda_env,
-              signature=signature, input_example=input_example,
-              remove_data=remove_data)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.statsmodels,
+        registered_model_name=registered_model_name,
+        statsmodels_model=statsmodels_model,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        remove_data=remove_data,
+        **kwargs
+    )
 
 
 def _load_model(path):
     import statsmodels.iolib.api as smio
+
     return smio.load_pickle(path)
 
 
@@ -231,8 +256,9 @@ def load_model(model_uri):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    statsmodels_model_file_path = os.path.join(local_model_path,
-                                               flavor_conf.get("data", STATSMODELS_DATA_SUBPATH))
+    statsmodels_model_file_path = os.path.join(
+        local_model_path, flavor_conf.get("data", STATSMODELS_DATA_SUBPATH)
+    )
     return _load_model(path=statsmodels_model_file_path)
 
 
@@ -242,6 +268,7 @@ class _StatsmodelsModelWrapper:
 
     def predict(self, dataframe):
         from statsmodels.tsa.base.tsa_model import TimeSeriesModel
+
         model = self.statsmodels_model.model
         if isinstance(model, TimeSeriesModel):
             # Assume the inference dataframe has columns "start" and "end", and just one row
@@ -268,7 +295,7 @@ def autolog():
     """
     Enables automatic logging from statsmodels to MLflow. Logs the following.
 
-    - results metrics returned by `statsmodels.base.model.Model.fit`_.
+    - results metrics returned by method `fit` of any subclass of `statsmodels.base.model.Model`_.
     - trained model.
     """
     import statsmodels
@@ -325,8 +352,8 @@ def autolog():
                     "overwrite the attribute. In the latter case, it is "
                     "recommended to also set the 'store_hit' setting to True in "
                     "order to store the original attribute under a different "
-                    "name so it can still be accessed."
-                    % (patch.name, patch.destination.__name__))
+                    "name so it can still be accessed." % (patch.name, patch.destination.__name__)
+                )
 
             if settings.store_hit:
                 original_name = gorilla._ORIGINAL_NAME % (patch.name,)
@@ -346,9 +373,7 @@ def autolog():
 
         # TODO: add more autologgable methods here (e.g. fit_regularized, from_formula, etc)
         # See https://www.statsmodels.org/dev/api.html
-        autolog_supported_func = {
-            "fit": wrapper_fit
-        }
+        autolog_supported_func = {"fit": wrapper_fit}
 
         glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
         glob_subclasses = set(find_subclasses(klass))
@@ -359,11 +384,13 @@ def autolog():
             # Link the patched function with the original via a local variable in the closure
             # to allow invoking superclass methods in the context of the subclass, and not
             # losing the trace of the true original method
-            gorilla.Patch(c, method_name, wrapper_func(getattr(c, method_name)),
-                          settings=glob_settings)
+            gorilla.Patch(
+                c, method_name, wrapper_func(getattr(c, method_name)), settings=glob_settings
+            )
             for c in glob_subclasses
             for (method_name, wrapper_func) in autolog_supported_func.items()
-            if overrides(c, method_name)]
+            if overrides(c, method_name)
+        ]
 
         for p in patches_list:
             apply_gorilla_patch(p)
@@ -378,17 +405,18 @@ def autolog():
             made to the input dictionary
         """
         import re
+
         keys = list(dictionary.keys())
         d2 = {}
         for k in keys:
-            newkey = re.sub("\(|\)|\[|\]|\.|\+", "_", preffix + "_" + k)
+            newkey = re.sub(r"[(|)|[|\]|.]+", "_", preffix + "_" + k)
             d2[newkey] = dictionary.get(k)
         return d2
 
     def results_to_dict(results):
         """
-        Turns a statsmodels.regression.linear_model.RegressionResultsWrapper into a python dict
-        :param results: instance of a RegressionResultsWrapper returned by a call to fit()
+        Turns a ResultsWrapper object into a python dict
+        :param results: instance of a ResultsWrapper returned by a call to `fit`
         :return: a python dictionary with those metrics that are (a) a real number, or (b) an array
                  of the same length of the number of coefficients
         """
@@ -403,13 +431,19 @@ def autolog():
             try:
                 field = getattr(results, f)
                 # Get all fields except covariances and private ones
-                if not callable(field) and \
-                        not f.startswith('__') and \
-                        not f.startswith('_') and \
-                        not f.startswith('cov_'):
+                if (
+                    not callable(field)
+                    and not f.startswith("__")
+                    and not f.startswith("_")
+                    and not f.startswith("cov_")
+                ):
 
-                    if has_features and isinstance(field, np.ndarray) and \
-                            field.ndim == 1 and field.shape[0] == nfeat:
+                    if (
+                        has_features
+                        and isinstance(field, np.ndarray)
+                        and field.ndim == 1
+                        and field.shape[0] == nfeat
+                    ):
 
                         d = dict(zip(features, field))
                         renamed_keys_dict = prepend_to_keys(d, f)
@@ -436,6 +470,7 @@ def autolog():
         :return: the new fit function, from which we will be doing a call to the original fit
                  method at some point
         """
+
         def fit(self, *args, **kwargs):
 
             should_autolog = False
@@ -455,7 +490,7 @@ def autolog():
 
                 if should_autolog:
                     # Log the model
-                    try_mlflow_log(log_model, model, artifact_path='model')
+                    try_mlflow_log(log_model, model, artifact_path="model")
 
                     # Log the most common metrics
                     if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):

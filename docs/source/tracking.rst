@@ -389,7 +389,7 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
 Statsmodels (experimental)
------------------------
+--------------------------
 Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
 
 Autologging captures the following information:

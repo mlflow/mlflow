@@ -5,12 +5,17 @@ import statsmodels.api as sm
 import mlflow.statsmodels
 from sklearn.metrics import mean_squared_error
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description='Statsmodels example')
-    parser.add_argument('--inverse-method', type=str, default="pinv",
-                        help="Can be 'pinv', or 'qr'. 'pinv' uses the Moore-Penrose pseudoinverse "
-                             "to solve the least squares problem. 'qr' uses the QR factorization. "
-                             "(default: 'pinv')")
+    parser = argparse.ArgumentParser(description="Statsmodels example")
+    parser.add_argument(
+        "--inverse-method",
+        type=str,
+        default="pinv",
+        help="Can be 'pinv', or 'qr'. 'pinv' uses the Moore-Penrose pseudoinverse "
+        "to solve the least squares problem. 'qr' uses the QR factorization. "
+        "(default: 'pinv')",
+    )
     return parser.parse_args()
 
 
@@ -42,8 +47,8 @@ def main():
         mse = mean_squared_error(y, y_pred)
 
         # log metrics
-        mlflow.log_metrics({'mse': mse})
+        mlflow.log_metrics({"mse": mse})
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

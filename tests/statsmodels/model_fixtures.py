@@ -36,16 +36,20 @@ def ols_model(**kwargs):
 
 @pytest.fixture(scope="session")
 def failing_logit_model():
-    X = pd.DataFrame({"x0": np.array([2.0, 3.0, 1.0, 2.0, 20.0, 30.0, 10.0, 20.0]),
-                      "x1": np.array([2.0, 3.0, 1.0, 2.0, 20.0, 30.0, 10.0, 20.0])
-                      },
-                     columns=["x0", "x1"])
+    X = pd.DataFrame(
+        {
+            "x0": np.array([2.0, 3.0, 1.0, 2.0, 20.0, 30.0, 10.0, 20.0]),
+            "x1": np.array([2.0, 3.0, 1.0, 2.0, 20.0, 30.0, 10.0, 20.0]),
+        },
+        columns=["x0", "x1"],
+    )
     y = np.array([0, 0, 0, 0, 1, 1, 1, 1])
     # building the model and fitting the data
     log_reg = sm.Logit(y, X)
     model = log_reg.fit()
 
     return ModelWithResults(model=model, alg=log_reg, inference_dataframe=X)
+
 
 @pytest.fixture(scope="session")
 def gls_model():
@@ -91,15 +95,15 @@ def wls_model():
 def recursivels_model():
     # Recursive Least Squares
     dta = sm.datasets.copper.load_pandas().data
-    dta.index = pd.date_range('1951-01-01', '1975-01-01', freq='AS')
-    endog = dta['WORLDCONSUMPTION']
+    dta.index = pd.date_range("1951-01-01", "1975-01-01", freq="AS")
+    endog = dta["WORLDCONSUMPTION"]
 
     # To the regressors in the dataset, we add a column of ones for an intercept
-    exog = sm.add_constant(dta[['COPPERPRICE', 'INCOMEINDEX', 'ALUMPRICE', 'INVENTORYINDEX']])
+    exog = sm.add_constant(dta[["COPPERPRICE", "INCOMEINDEX", "ALUMPRICE", "INVENTORYINDEX"]])
     rls = sm.RecursiveLS(endog, exog)
     model = rls.fit()
 
-    inference_dataframe = pd.DataFrame([['1951-01-01', '1975-01-01']], columns=["start", "end"])
+    inference_dataframe = pd.DataFrame([["1951-01-01", "1975-01-01"]], columns=["start", "end"])
     return ModelWithResults(model=model, alg=rls, inference_dataframe=inference_dataframe)
 
 
@@ -107,6 +111,7 @@ def recursivels_model():
 def rolling_ols_model():
     # Rolling Ordinary Least Squares (Rolling OLS)
     from statsmodels.regression.rolling import RollingOLS
+
     data = sm.datasets.longley.load(as_pandas=False)
     exog = sm.add_constant(data.exog, prepend=False)
     rolling_ols = RollingOLS(data.endog, exog)
@@ -119,6 +124,7 @@ def rolling_ols_model():
 def rolling_wls_model():
     # Rolling Weighted Least Squares (Rolling WLS)
     from statsmodels.regression.rolling import RollingWLS
+
     data = sm.datasets.longley.load(as_pandas=False)
     exog = sm.add_constant(data.exog, prepend=False)
     rolling_wls = RollingWLS(data.endog, exog)
@@ -134,8 +140,7 @@ def gee_model():
     ind = sm.cov_struct.Independence()
     data_url = "http://vincentarelbundock.github.io/Rdatasets/csv/MASS/epil.csv"
     data = pd.read_csv(data_url)
-    gee = sm.GEE.from_formula("y ~ age + trt + base", "subject",
-                              data, cov_struct=ind, family=fam)
+    gee = sm.GEE.from_formula("y ~ age + trt + base", "subject", data, cov_struct=ind, family=fam)
     model = gee.fit()
 
     return ModelWithResults(model=model, alg=gee, inference_dataframe=data)
@@ -146,8 +151,7 @@ def glm_model():
     # Generalized Linear Model (GLM)
     data = sm.datasets.scotland.load(as_pandas=False)
     data.exog = sm.add_constant(data.exog)
-    glm = sm.GLM(data.endog, data.exog,
-                 family=sm.families.Gamma())
+    glm = sm.GLM(data.endog, data.exog, family=sm.families.Gamma())
     model = glm.fit()
 
     return ModelWithResults(model=model, alg=glm, inference_dataframe=data.exog)
@@ -157,11 +161,13 @@ def glm_model():
 def glmgam_model():
     # Generalized Additive Model (GAM)
     from statsmodels.gam.tests.test_penalized import df_autos
-    x_spline = df_autos[['weight', 'hp']]
+
+    x_spline = df_autos[["weight", "hp"]]
     bs = sm.gam.BSplines(x_spline, df=[12, 10], degree=[3, 3])
     alpha = np.array([21833888.8, 6460.38479])
-    gam_bs = sm.GLMGam.from_formula('city_mpg ~ fuel + drive', data=df_autos,
-                                    smoother=bs, alpha=alpha)
+    gam_bs = sm.GLMGam.from_formula(
+        "city_mpg ~ fuel + drive", data=df_autos, smoother=bs, alpha=alpha
+    )
     model = gam_bs.fit()
 
     return ModelWithResults(model=model, alg=gam_bs, inference_dataframe=df_autos)
@@ -171,17 +177,15 @@ def glmgam_model():
 def arma_model():
     # Autoregressive Moving Average (ARMA)
     np.random.seed(12345)
-    arparams = np.array([.75, -.25])
-    maparams = np.array([.65, .35])
-    arparams = np.r_[1, -arparams]
-    maparams = np.r_[1, maparams]
+    arparams = np.array([1, -0.75, 0.25])
+    maparams = np.array([1, 0.65, 0.35])
     nobs = 250
     y = arma_generate_sample(arparams, maparams, nobs)
-    dates = pd.date_range('1980-1-1', freq="M", periods=nobs)
+    dates = pd.date_range("1980-1-1", freq="M", periods=nobs)
     y = pd.Series(y, index=dates)
 
-    arima = ARIMA(y, order=(2, 0, 2), trend='n')
+    arima = ARIMA(y, order=(2, 0, 2), trend="n")
     model = arima.fit()
-    inference_dataframe = pd.DataFrame([['1999-06-30', '2001-05-31']], columns=["start", "end"])
+    inference_dataframe = pd.DataFrame([["1999-06-30", "2001-05-31"]], columns=["start", "end"])
 
     return ModelWithResults(model=model, alg=arima, inference_dataframe=inference_dataframe)
