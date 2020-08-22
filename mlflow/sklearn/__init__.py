@@ -523,9 +523,8 @@ def autolog():
     **Logged information**
       **Parameters**
         - Parameters obtained by ``estimator.get_params(deep=True)``. Note that ``get_params``
-          is called with ``deep=True``. This means when you fit a meta estimator
-          (e.g. `sklearn.pipeline.Pipeline`_), the parameters of its child estimators
-          are also logged.
+          is called with ``deep=True``. This means when you fit a meta estimator that chains
+          a series of estimators, the parameters of these child estimators are also logged.
 
       **Metrics**
         - A training score obtained by ``estimator.score``. Note that the training score is
@@ -533,23 +532,28 @@ def autolog():
 
       **Tags**
         - An estimator class name (e.g. "LinearRegression").
-        - A qualified estimator class name (e.g. "sklearn.linear_model._base.LinearRegression").
+        - A fully qualified estimator class name
+          (e.g. "sklearn.linear_model._base.LinearRegression").
 
       **Artifacts**
         - A fitted estimator (logged by :py:func:`mlflow.sklearn.log_model()`).
 
-    **Meta estimators**
-      When a meta estimator calls ``fit``, it internally calls ``fit`` on its child estimators.
-      Autologging does NOT perform logging on these constituent `fit`.
+    **How does autologging work for meta estimators?**
+      When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit``, it internally calls
+      ``fit`` on its child estimators. Autologging does NOT perform logging on these constituent
+      ``fit``.
 
     **Supported estimators**
-      All estimators obtained by `sklearn.utils.all_estimators`_.
+      All estimators obtained by `sklearn.utils.all_estimators`_ (including meta estimators).
 
     .. _sklearn.utils.all_estimators:
         https://scikit-learn.org/stable/modules/generated/sklearn.utils.all_estimators.html
 
-    .. _sklearn.pipeline.Pipeline:
+    .. _Pipeline:
         https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+    .. _GridSearchCV:
+        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
     **Example**
 
