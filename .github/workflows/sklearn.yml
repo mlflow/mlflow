@@ -42,9 +42,9 @@ jobs:
         id: check-version
         env:
           COMMAND: >
-            from mlflow.sklearn.util import _is_supported_version;
+            from mlflow.sklearn.utils import _is_supported_version;
             supported = _is_supported_version();
-            print('"::set-output name=supported::{}"'.format(supported));
+            print('::set-output name=supported::{}'.format(supported));
         run: |
           echo $COMMAND
           python -c "$COMMAND"
