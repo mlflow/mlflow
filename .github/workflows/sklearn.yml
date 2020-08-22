@@ -48,14 +48,10 @@ jobs:
         run: |
           python -c "$COMMAND"
       - name: Run tests
-        id: run-tests
         continue-on-error: ${{ steps.check-version.outputs.supported != 'True' }}
-        env:
-          SUPPORTED: steps.check-version.outputs.supported
         run: |
           pytest --verbose tests/sklearn/test_sklearn_autolog.py --large
-
-          # Emit a warning if the tests fail on an unsupported version
-          if [[ "$SUPPORTED" == "True" &&  "$?" != "0" ]]; then
-            echo "::warning ::tests failed"
-          fi
+      - name: Warning
+        if: ${{ failure() && steps.check-version.outputs.supported == 'True' }}
+        run: |
+          echo "::warning ::tests failed"
