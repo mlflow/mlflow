@@ -470,6 +470,7 @@ def autolog():
         :return: the new fit function, from which we will be doing a call to the original fit
                  method at some point
         """
+
         def fit(self, *args, **kwargs):
 
             should_autolog = False
