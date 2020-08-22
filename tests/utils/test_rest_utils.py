@@ -73,7 +73,7 @@ def test_http_request_hostonly(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS
+        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
     )
 
 
@@ -86,7 +86,7 @@ def test_http_request_cleans_hostname(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS
+        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
     )
 
 
@@ -99,7 +99,9 @@ def test_http_request_with_basic_auth(request):
     http_request(host_only, "/my/endpoint")
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Basic dXNlcjpwYXNz"
-    request.assert_called_with(url="http://my-host/my/endpoint", verify=True, headers=headers)
+    request.assert_called_with(
+        url="http://my-host/my/endpoint", verify=True, headers=headers,
+    )
 
 
 @mock.patch("requests.request")
@@ -111,7 +113,9 @@ def test_http_request_with_token(request):
     http_request(host_only, "/my/endpoint")
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Bearer my-token"
-    request.assert_called_with(url="http://my-host/my/endpoint", verify=True, headers=headers)
+    request.assert_called_with(
+        url="http://my-host/my/endpoint", verify=True, headers=headers,
+    )
 
 
 @mock.patch("requests.request")
@@ -122,7 +126,7 @@ def test_http_request_with_insecure(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS
+        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
     )
 
 
@@ -134,7 +138,7 @@ def test_http_request_client_cert_path(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, cert="/some/path", headers=_DEFAULT_HEADERS
+        url="http://my-host/my/endpoint", verify=True, cert="/some/path", headers=_DEFAULT_HEADERS,
     )
 
 
@@ -146,14 +150,14 @@ def test_http_request_server_cert_path(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify="/some/path", headers=_DEFAULT_HEADERS
+        url="http://my-host/my/endpoint", verify="/some/path", headers=_DEFAULT_HEADERS,
     )
 
 
 def test_ignore_tls_verification_not_server_cert_path():
     with pytest.raises(MlflowException):
         MlflowHostCreds(
-            "http://my-host", ignore_tls_verification=True, server_cert_path="/some/path"
+            "http://my-host", ignore_tls_verification=True, server_cert_path="/some/path",
         )
 
 
@@ -196,7 +200,7 @@ def test_http_request_wrapper(request):
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS
+        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
     )
     response.status_code = 400
     response.text = ""
