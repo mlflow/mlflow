@@ -1,12 +1,16 @@
 name: sklearn
 
-# DELETE THIS FILE LATER
+# A cron job to ensure autologging works properly in older versions of scikit-learn
 
 on:
-  push:
-    branches: [master]
+  schedule:
+    # Run this action daily at 7:00 UTC
+    - cron: "0 7 * * *"
   pull_request:
-    branches: [master]
+    branches:
+      - master
+    paths:
+      - mlflow/sklearn/**
 
 jobs:
   sklearn:
@@ -14,7 +18,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: ["0.20.3", "0.22.2", "0.23.2"]
+        version:
+          - "0.19.2"
+          # unsupported versions
+          # --------------------
+          # supported versions
+          - "0.20.3"
+          - "0.21.2"
+          - "0.22.2"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -24,6 +35,8 @@ jobs:
         run: |
           pip install -e .
           pip install -r dev/small-requirements.txt
+      - name: Update scikit-learn
+        run: |
           pip install scikit-learn==${{ matrix.version }}
       - name: Run tests
         run: |
