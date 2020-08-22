@@ -150,7 +150,7 @@ def test_autolog_preserves_original_function_attributes():
 
 
 @pytest.mark.skipif(
-    _is_supported_version(), reason="This test fails on sklearn>={}".format(_MIN_SKLEARN_VERSION)
+    _is_supported_version(), reason="This test fails on unsupported versions of sklearn"
 )
 def test_autolog_emits_warning_on_unsupported_versions_of_sklearn():
     with pytest.warns(
