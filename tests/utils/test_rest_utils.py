@@ -39,7 +39,11 @@ def test_non_json_ok_response():
         request_mock.return_value = response_mock
 
         response_proto = GetRun.Response()
-        with pytest.raises(MlflowException):
+        with pytest.raises(
+            MlflowException,
+            match="API request to endpoint was successful but the response body was not "
+            "in a valid JSON format",
+        ):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
 
