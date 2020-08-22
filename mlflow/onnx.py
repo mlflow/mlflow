@@ -156,7 +156,7 @@ class _OnnxModelWrapper:
 
         self.rt = onnxruntime.InferenceSession(path)
         assert len(self.rt.get_inputs()) >= 1
-        self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
+        self.inputs = self.rt.get_inputs()
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
     @staticmethod
@@ -189,27 +189,35 @@ class _OnnxModelWrapper:
         # client and the scoring server can introduce 64-bit floats. This is being tracked in
         # https://github.com/mlflow/mlflow/issues/1286. Meanwhile, we explicitly cast the input to
         # 32-bit floats when needed. TODO: Remove explicit casting when issue #1286 is fixed.
-        if len(self.inputs) > 1:
-            cols = [name for (name, type) in self.inputs if type == "tensor(float)"]
-        else:
-            cols = dataframe.columns if self.inputs[0][1] == "tensor(float)" else []
 
-        dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
-        if len(self.inputs) > 1:
-            feed_dict = {name: dataframe[name].values for (name, _) in self.inputs}
-        else:
-            feed_dict = {self.inputs[0][0]: dataframe.values}
+        number_inputs = len(self.inputs)
+        number_columns = len(dataframe.columns)
+        if number_inputs == number_columns:
+            column_data = {}
+            for inp in self.inputs:
+                values = np.stack(dataframe[inp.name].values)
+                expected_shape = [x or -1 for x in inp.shape]
+                values = values.reshape(expected_shape)
+                expected_type = inp.type.replace("tensor(", "").replace(")", "")
+                if expected_type == "float":
+                    expected_type = "float32"
+                values = values.astype(expected_type)
+                column_data[inp.name] = values
+            feed_dict = {inp.name: column_data[inp.name] for inp in self.inputs}
+        elif number_inputs > 1 and number_inputs != number_columns:
+            raise MlflowException(
+                "Invalid input to model: The number of columns in the dataframe is not equal to  the number of model inputs."
+            )
+        elif number_inputs == 1:
+            cols = dataframe.columns if self.inputs[0].type == "tensor(float)" else []
+            dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
+            feed_dict = {self.inputs[0].name: dataframe.values}
+
         predicted = self.rt.run(self.output_names, feed_dict)
-
-        def format_output(data):
-            # Output can be list and it should be converted to a numpy array
-            # https://github.com/mlflow/mlflow/issues/2499
-            data = np.asarray(data)
-            return data.reshape(-1)
-
         response = pd.DataFrame.from_dict(
-            {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
+            {c: list(p) for (c, p) in zip(self.output_names, predicted)}
         )
+
         return response
 
 

@@ -142,6 +142,48 @@ def predicted_multiple_inputs(data_multiple_inputs):
     )
 
 
+@pytest.fixture(scope="module")
+def high_dim_model():
+
+    graph = tf.Graph()
+    with graph.as_default():
+        t_in1 = tf.placeholder(tf.int32, (1, 2, 2), name="first_input")
+        t_in2 = tf.placeholder(tf.int32, (1, 2, 2), name="second_input")
+        t_out = tf.add(t_in1, t_in2)
+        t_out_named = tf.identity(t_out, name="output")
+
+    import tf2onnx
+
+    sess = tf.Session(graph=graph)
+
+    onnx_graph = tf2onnx.tfonnx.process_tf_graph(
+        sess.graph, input_names=["first_input:0", "second_input:0",], output_names=["output:0"],
+    )
+    model_proto = onnx_graph.make_model("test")
+    return model_proto
+
+
+@pytest.fixture(scope="module")
+def data_high_dim_inputs():
+    return pd.DataFrame(
+        {
+            "first_input:0": [np.arange(2 * 2, dtype=np.int32).reshape(2, 2)],
+            "second_input:0": [np.arange(2 * 2, dtype=np.int32).reshape(2, 2)],
+        },
+    )
+
+
+@pytest.fixture(scope="module")
+def predicted_high_dim_inputs(data_high_dim_inputs):
+    return pd.DataFrame(
+        {
+            "output:0": (
+                data_high_dim_inputs["first_input:0"] + data_high_dim_inputs["second_input:0"]
+            )
+        },
+    )
+
+
 @pytest.fixture
 def model_path(tmpdir):
     return os.path.join(tmpdir.strpath, "model")
@@ -213,14 +255,18 @@ def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custo
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, predicted):
+    import onnx
     import mlflow.onnx
 
-    x = data[0]
+    x, y = data
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    assert np.allclose(pyfunc_loaded.predict(x).values, predicted, rtol=1e-05, atol=1e-05)
+
+    actual = np.stack(pyfunc_loaded.predict(x)["dense_2"].values)
+    expected = np.stack(predicted)
+    np.testing.assert_allclose(actual, expected, rtol=1e-05, atol=1e-05)
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
@@ -229,8 +275,8 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
     assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
-        predicted,
+        np.stack(pd.read_json(scoring_response.content, orient="records")["dense_2"].values),
+        np.stack(predicted),
         rtol=1e-05,
         atol=1e-05,
     )
@@ -303,6 +349,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
     DataFrame as JSON).
     """
+    import onnx
     import mlflow.onnx
 
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
@@ -315,9 +362,39 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
         rtol=1e-05,
         atol=1e-05,
     )
+    pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
-    with pytest.raises(RuntimeError):
-        pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
+
+@pytest.mark.release
+def test_pyfunc_high_dim_models(
+    high_dim_model, model_path, data_high_dim_inputs, predicted_high_dim_inputs,
+):
+    import onnx
+    import mlflow.onnx
+
+    mlflow.onnx.save_model(high_dim_model, model_path)
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    pd.testing.assert_frame_equal(
+        pyfunc_loaded.predict(data_high_dim_inputs),  # ["output:0"],
+        predicted_high_dim_inputs,  # ["output:0"],
+    )
+
+
+@pytest.mark.release
+def test_pyfunc_incorrect_input(
+    high_dim_model, model_path,
+):
+    import onnx
+    import mlflow.onnx
+
+    mlflow.onnx.save_model(high_dim_model, model_path)
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    with pytest.raises(mlflow.exceptions.MlflowException):
+        pyfunc_loaded.predict(pd.DataFrame([1, 2]))
 
 
 # TODO: Use the default conda environment once MLflow's Travis build supports the onnxruntime
@@ -383,9 +460,10 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
+    import onnx
     import mlflow.onnx
 
-    x = data[0]
+    x, y = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         try:
@@ -399,7 +477,10 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
 
             # Loading pyfunc model
             pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
-            assert np.allclose(pyfunc_loaded.predict(x).values, predicted, rtol=1e-05, atol=1e-05)
+
+            actual = np.stack(pyfunc_loaded.predict(x)["dense_2"].values)
+            expected = np.stack(predicted)
+            np.testing.assert_allclose(actual, expected, rtol=1e-05, atol=1e-05)
         finally:
             mlflow.end_run()
 
