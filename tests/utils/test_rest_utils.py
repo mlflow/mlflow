@@ -29,6 +29,7 @@ def test_well_formed_json_error_response():
         with pytest.raises(RestException):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
+
 def test_non_json_ok_response():
     with mock.patch("requests.request") as request_mock:
         host_only = MlflowHostCreds("http://my-host")
@@ -68,7 +69,7 @@ def test_http_request_hostonly(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
+        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS
     )
 
 
@@ -81,7 +82,7 @@ def test_http_request_cleans_hostname(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS,
+        url="http://my-host/my/endpoint", verify=True, headers=_DEFAULT_HEADERS
     )
 
 
@@ -94,9 +95,7 @@ def test_http_request_with_basic_auth(request):
     http_request(host_only, "/my/endpoint")
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Basic dXNlcjpwYXNz"
-    request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=headers,
-    )
+    request.assert_called_with(url="http://my-host/my/endpoint", verify=True, headers=headers)
 
 
 @mock.patch("requests.request")
@@ -108,9 +107,7 @@ def test_http_request_with_token(request):
     http_request(host_only, "/my/endpoint")
     headers = dict(_DEFAULT_HEADERS)
     headers["Authorization"] = "Bearer my-token"
-    request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, headers=headers,
-    )
+    request.assert_called_with(url="http://my-host/my/endpoint", verify=True, headers=headers)
 
 
 @mock.patch("requests.request")
@@ -121,7 +118,7 @@ def test_http_request_with_insecure(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS
     )
 
 
@@ -133,7 +130,7 @@ def test_http_request_client_cert_path(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=True, cert="/some/path", headers=_DEFAULT_HEADERS,
+        url="http://my-host/my/endpoint", verify=True, cert="/some/path", headers=_DEFAULT_HEADERS
     )
 
 
@@ -145,14 +142,14 @@ def test_http_request_server_cert_path(request):
     request.return_value = response
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify="/some/path", headers=_DEFAULT_HEADERS,
+        url="http://my-host/my/endpoint", verify="/some/path", headers=_DEFAULT_HEADERS
     )
 
 
 def test_ignore_tls_verification_not_server_cert_path():
     with pytest.raises(MlflowException):
         MlflowHostCreds(
-            "http://my-host", ignore_tls_verification=True, server_cert_path="/some/path",
+            "http://my-host", ignore_tls_verification=True, server_cert_path="/some/path"
         )
 
 
@@ -195,18 +192,18 @@ def test_http_request_wrapper(request):
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint")
     request.assert_called_with(
-        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS
     )
     response.status_code = 400
     response.text = ""
     request.return_value = response
     with pytest.raises(MlflowException, match="Response body"):
         http_request_safe(host_only, "/my/endpoint")
-    response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+    response.text = (
+        '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+    )
     request.return_value = response
-    with pytest.raises(
-        RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"
-    ):
+    with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
         http_request_safe(host_only, "/my/endpoint")
 
 
