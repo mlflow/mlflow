@@ -56,8 +56,8 @@ jobs:
 
           pytest --verbose tests/sklearn/test_sklearn_autolog.py --large
           failed=$([ $? -ne 0 ] && echo "true" || echo "false")
-          echo "::set-output name=failed::${failed}'"
-
+          echo "::set-output name=failed::${failed}"
+      - run: echo ${{ steps.tests.outputs.failed }}
       - name: Warn
         if: ${{ steps.version.outputs.supported == 'true' && steps.tests.outputs.failed == 'true' }}
         run: |
