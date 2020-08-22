@@ -713,6 +713,8 @@ def autolog():
                     continue
 
                 patch_func = create_patch_func(func_name)
+                # TODO(harupy): Package this wrap & patch routine into a utility function so we can
+                # reuse it in other autologging integrations.
                 # preserve original function attributes
                 patch_func = functools.wraps(original)(patch_func)
                 patch = gorilla.Patch(class_def, func_name, patch_func, settings=patch_settings)
