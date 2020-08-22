@@ -39,19 +39,26 @@ jobs:
         run: |
           pip install scikit-learn==${{ matrix.version }}
       - name: Check version
-        id: check-version
+        id: version
         env:
           COMMAND: >
             from mlflow.sklearn.utils import _is_supported_version;
             supported = _is_supported_version();
-            print('::set-output name=supported::{}'.format(supported));
+            print('::set-output name=supported::{}'.format(str(supported).lower()));
         run: |
           python -c "$COMMAND"
       - name: Run tests
-        continue-on-error: ${{ steps.check-version.outputs.supported != 'True' }}
+        id: tests
+        continue-on-error: ${{ steps.version.outputs.supported != 'true' }}
         run: |
+          # Use 'pipefail' otherwise this step would exit right after the pytest command fails
+          set -o pipefail
+
           pytest --verbose tests/sklearn/test_sklearn_autolog.py --large
-      - name: Warning
-        if: ${{ failure() && steps.check-version.outputs.supported == 'True' }}
+          failed=$([ $? -ne 0 ] && echo "true" || echo "false")
+          echo "::set-output name=failed::${failed}'"
+
+      - name: Warn
+        if: ${{ steps.version.outputs.supported == 'true' && steps.tests.outputs.failed == 'true' }}
         run: |
-          echo "::warning ::tests failed"
+          echo "::warning ::Tests failed on an unsupported scikit-learn version"
