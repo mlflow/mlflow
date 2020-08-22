@@ -10,7 +10,6 @@ import sklearn.datasets
 
 import mlflow.sklearn
 from mlflow.sklearn.utils import (
-    _MIN_SKLEARN_VERSION,
     _is_supported_version,
     _get_arg_names,
     _truncate_dict,
