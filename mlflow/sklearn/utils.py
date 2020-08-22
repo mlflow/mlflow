@@ -112,7 +112,7 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
     return truncated
 
 
-def _is_old_version():
+def _is_supported_version():
     import sklearn
 
     return LooseVersion(sklearn.__version__) < LooseVersion(_MIN_SKLEARN_VERSION)
