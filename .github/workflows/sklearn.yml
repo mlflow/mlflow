@@ -19,6 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         version:
+          # include this unsupported version to ensure autologging emits a warning properly.
           - "0.20.2"
           # unsupported versions
           # --------------------
@@ -41,4 +42,3 @@ jobs:
       - name: Run tests
         run: |
           pytest --verbose --large tests/sklearn/test_sklearn_autolog.py
-
