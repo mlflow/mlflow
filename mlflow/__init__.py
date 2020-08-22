@@ -162,6 +162,7 @@ __all__ = [
     "sklearn",
     "spacy",
     "spark",
+    "statsmodels",
     "tensorflow",
     "xgboost",
     "shap",

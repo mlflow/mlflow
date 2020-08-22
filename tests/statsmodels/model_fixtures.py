@@ -96,10 +96,12 @@ def recursivels_model():
     # Recursive Least Squares
     dta = sm.datasets.copper.load_pandas().data
     dta.index = pd.date_range("1951-01-01", "1975-01-01", freq="AS")
-    endog = dta["WORLDCONSUMPTION"]
+    endog = dta.WORLDCONSUMPTION
 
     # To the regressors in the dataset, we add a column of ones for an intercept
-    exog = sm.add_constant(dta[["COPPERPRICE", "INCOMEINDEX", "ALUMPRICE", "INVENTORYINDEX"]])
+    exog = sm.add_constant(
+        dta[["COPPERPRICE", "INCOMEINDEX", "ALUMPRICE", "INVENTORYINDEX"]]  # pylint: disable=E1136
+    )
     rls = sm.RecursiveLS(endog, exog)
     model = rls.fit()
 

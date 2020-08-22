@@ -295,7 +295,7 @@ def autolog():
     """
     Enables automatic logging from statsmodels to MLflow. Logs the following.
 
-    - results metrics returned by method `fit` of any subclass of `statsmodels.base.model.Model`_.
+    - results metrics returned by method `fit` of any subclass of statsmodels.base.model.Model
     - trained model.
     """
     import statsmodels
@@ -470,7 +470,6 @@ def autolog():
         :return: the new fit function, from which we will be doing a call to the original fit
                  method at some point
         """
-
         def fit(self, *args, **kwargs):
 
             should_autolog = False
