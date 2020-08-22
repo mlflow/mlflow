@@ -172,11 +172,7 @@ class TestDbfsArtifactRepository(object):
                 "/dbfs/test/test.txt",
                 "/dbfs/test/empty-file",
             }
-            assert set(data) == {
-                TEST_FILE_2_CONTENT,
-                TEST_FILE_3_CONTENT,
-                "",
-            }
+            assert set(data) == {TEST_FILE_2_CONTENT, TEST_FILE_3_CONTENT, ""}
 
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
         with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
@@ -240,11 +236,7 @@ class TestDbfsArtifactRepository(object):
         with mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_is_dir") as is_dir_mock, mock.patch(
             DBFS_ARTIFACT_REPOSITORY + "._dbfs_list_api"
         ) as list_mock, mock.patch(DBFS_ARTIFACT_REPOSITORY + "._dbfs_download") as download_mock:
-            is_dir_mock.side_effect = [
-                True,
-                False,
-                True,
-            ]
+            is_dir_mock.side_effect = [True, False, True]
             list_mock.side_effect = [
                 Mock(text=json.dumps(LIST_ARTIFACTS_RESPONSE)),
                 Mock(text="{}"),  # this call is for listing `/dir`.
