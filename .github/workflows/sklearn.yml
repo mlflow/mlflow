@@ -46,10 +46,8 @@ jobs:
             supported = _is_supported_version();
             print('::set-output name=supported::{}'.format(supported));
         run: |
-          echo $COMMAND
           python -c "$COMMAND"
-      - name: debug
-        run: echo ${{ steps.check-version.outputs.supported }}
       - name: Run tests
+        continue-on-error: ${{ steps.check-version.outputs.supported != 'True' }}
         run: |
           pytest --verbose tests/sklearn/test_sklearn_autolog.py --large
