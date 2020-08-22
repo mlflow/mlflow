@@ -107,7 +107,13 @@ def _file_infos_to_json(file_infos):
     help="URI pointing to the artifact file or artifacts directory; use as an "
     "alternative to specifying --run_id and --artifact-path",
 )
-def download_artifacts(run_id, artifact_path, artifact_uri):
+@click.option(
+    "--dest-path",
+    "-d",
+    help="Destination path where you want to store the artifacts,"
+    "default is in temporary directory: /tmp/XXXXX/"
+)
+def download_artifacts(run_id, artifact_path, artifact_uri, dest_path=None):
     """
     Download an artifact file or directory to a local directory.
     The output is the name of the file or directory on the local disk.
@@ -126,7 +132,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
-    artifact_location = artifact_repo.download_artifacts(artifact_path)
+    artifact_location = artifact_repo.download_artifacts(artifact_path, dest_path)
     print(artifact_location)
 
 
