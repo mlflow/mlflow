@@ -51,8 +51,8 @@ jobs:
         id: tests
         continue-on-error: ${{ steps.version.outputs.supported != 'true' }}
         run: |
-          # Use 'pipefail' otherwise this step would exit right after the pytest command fails
-          set -o pipefail
+          # Disable fast-fail otherwise this step would exit right after the pytest command fails
+          set +e
 
           pytest --verbose tests/sklearn/test_sklearn_autolog.py --large
           failed=$([ $? -ne 0 ] && echo "true" || echo "false")
