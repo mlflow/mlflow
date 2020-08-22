@@ -695,7 +695,20 @@ def autolog():
             if hasattr(class_def, func_name):
                 original = getattr(class_def, func_name)
 
-                # Exclude property methods from patching
+                # A couple of estimators use property methods to return fitting functions,
+                # rather than defining the fitting functions on the estimator class directly.
+                #
+                # Example: https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/neighbors/_lof.py#L183  # noqa
+                #
+                # We currently exclude these property fitting methods from patching because
+                # it's challenging to patch them correctly.
+                #
+                # Excluded fitting methods:
+                # - sklearn.cluster._agglomerative.FeatureAgglomeration.fit_predict
+                # - sklearn.neighbors._lof.LocalOutlierFactor.fit_predict
+                #
+                # You can list property fitting methods by inserting "print(class_def, func_name)"
+                # in the if clause below.
                 if isinstance(original, property):
                     continue
 
