@@ -137,15 +137,51 @@ def rolling_wls_model():
 
 @pytest.fixture(scope="session")
 def gee_model():
-    # Generalized Estimating Equations (GEE)
-    fam = sm.families.Poisson()
-    ind = sm.cov_struct.Independence()
-    data_url = "http://vincentarelbundock.github.io/Rdatasets/csv/MASS/epil.csv"
-    data = pd.read_csv(data_url)
-    gee = sm.GEE.from_formula("y ~ age + trt + base", "subject", data, cov_struct=ind, family=fam)
+    # Example taken from
+    # https://www.statsmodels.org/devel/examples/notebooks/generated/gee_nested_simulation.html
+    np.random.seed(9876789)
+    p = 5
+    groups_var = 1
+    level1_var = 2
+    level2_var = 3
+    resid_var = 4
+    n_groups = 100
+    group_size = 20
+    level1_size = 10
+    level2_size = 5
+    n = n_groups * group_size * level1_size * level2_size
+    xmat = np.random.normal(size=(n, p))
+
+    # Construct labels showing which group each observation belongs to at each level.
+    groups_ix = np.kron(np.arange(n // group_size), np.ones(group_size)).astype(np.int)
+    level1_ix = np.kron(np.arange(n // level1_size), np.ones(level1_size)).astype(np.int)
+    level2_ix = np.kron(np.arange(n // level2_size), np.ones(level2_size)).astype(np.int)
+
+    # Simulate the random effects.
+    groups_re = np.sqrt(groups_var) * np.random.normal(size=n // group_size)
+    level1_re = np.sqrt(level1_var) * np.random.normal(size=n // level1_size)
+    level2_re = np.sqrt(level2_var) * np.random.normal(size=n // level2_size)
+
+    # Simulate the response variable
+    y = groups_re[groups_ix] + level1_re[level1_ix] + level2_re[level2_ix]
+    y += np.sqrt(resid_var) * np.random.normal(size=n)
+
+    # Put everything into a dataframe.
+    df = pd.DataFrame(xmat, columns=["x%d" % j for j in range(p)])
+    df["y"] = y + xmat[:, 0] - xmat[:, 3]
+    df["groups_ix"] = groups_ix
+    df["level1_ix"] = level1_ix
+    df["level2_ix"] = level2_ix
+
+    # Fit the model
+    cs = sm.cov_struct.Nested()
+    dep_fml = "0 + level1_ix + level2_ix"
+    gee = sm.GEE.from_formula(
+        "y ~ x0 + x1 + x2 + x3 + x4", cov_struct=cs, dep_data=dep_fml, groups="groups_ix", data=df
+    )
     model = gee.fit()
 
-    return ModelWithResults(model=model, alg=gee, inference_dataframe=data)
+    return ModelWithResults(model=model, alg=gee, inference_dataframe=df)
 
 
 @pytest.fixture(scope="session")
