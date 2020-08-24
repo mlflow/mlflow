@@ -65,7 +65,7 @@ jobs:
 
             // The storage usage limit for a free github account is up to 500 MB. See the page below for details:
             // https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
-            MAX_SIZE_IN_BYTES = 3_000_000; // 300 MB
+            MAX_SIZE_IN_BYTES = 300_000_000; // 300 MB
 
             let index = 0;
             let sum = 0;
@@ -78,7 +78,7 @@ jobs:
             }
 
             if (sum <= MAX_SIZE_IN_BYTES) {
-              return
+              return;
             }
 
             // Delete old wheels
