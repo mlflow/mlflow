@@ -69,13 +69,13 @@ jobs:
 
             let index = 0;
             let sum = 0;
-            wheels.forEach(({ size_in_bytes }, idx) => {
+            for (const ({ size_in_bytes }) of wheels) {
               index = idx;
               sum += size_in_bytes;
               if (sum > MAX_SIZE_IN_BYTES) {
                 break;
               }
-            });
+            }
 
             if (sum <= MAX_SIZE_IN_BYTES) {
               return
