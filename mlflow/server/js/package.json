@@ -41,7 +41,6 @@
     "react-treebeard": "2.1.0",
     "react-virtualized": "9.21.0",
     "redux": "3.7.2",
-    "redux-mock-store": "^1.5.3",
     "redux-promise-middleware": "5.0.0",
     "redux-thunk": "^2.3.0",
     "sanitize-html": "^1.18.5",
