@@ -691,7 +691,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  objects.
         """
-        parsed_filter = SearchUtils.parse_filter_for_model_versions(filter_string)
+        parsed_filter = SearchModelsUtils.parse_filter_for_model_versions(filter_string)
         if len(parsed_filter) == 0:
             conditions = []
         elif len(parsed_filter) == 1:

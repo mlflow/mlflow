@@ -781,6 +781,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 attribute_filter,
                 "attribute." + attribute_filter,
                 "attr." + attribute_filter,
+                "model" + attribute_filter,
+                "registered_model" + attribute_filter,
+                "models" + attribute_filter,
+                "registered_models" + attribute_filter,
             ]:
                 result_rms, _ = self._search_registered_models(attribute_filter_string)
                 self.assertEqual(result_rms, expected_rms)
@@ -934,18 +938,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         result_rms, _ = self._search_registered_models("tags.`training algorithm` = 'lightgbm'")
         self.assertEqual(result_rms, [prefix + name for name in ["RM1", "RM2", "RM3", "RM4"]])
 
+        # test model_tag, tags aliases with like, != operators
         result_rms, _ = self._search_registered_models(
             "model_tag.`training algorithm` like '%gbm' and tags.owner != 'aaa'"
         )
         self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
 
+        # test tag, registered_model_tag aliases with ilike, != operators
         result_rms, _ = self._search_registered_models(
-            "tag.`training algorithm` ilike 'LIGHT%' " "and tags.owner != 'aaa'"
+            "tag.`training algorithm` ilike 'LIGHT%' and registered_model_tag.owner != 'aaa'"
         )
         self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
 
+        # test registered_model_tags, model_tags aliases with = operator
         result_rms, _ = self._search_registered_models(
-            "registered_model_tags.`training algorithm`" " = 'lightgbm' and tags.owner = 'ddd'"
+            "registered_model_tags.`training algorithm` = 'lightgbm' and model_tags.owner = 'ddd'"
         )
         self.assertEqual(result_rms, [])
 
@@ -964,7 +971,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._set_up_model_and_tags_for_search(prefix)
 
         result_rms, _ = self._search_registered_models(
-            "tags.`training algorithm` = 'lightgbm'" " and name like '%RM1'"
+            "tags.`training algorithm` = 'lightgbm' and name like '%RM1'"
         )
         self.assertEqual(result_rms, [prefix + "RM1"])
 
@@ -983,7 +990,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(result_rms, [prefix + "RM2", prefix + "RM4"])
 
         result_rms, _ = self._search_registered_models(
-            "registered_model_tags.`training algorithm`" " = 'lightgbm' and name = 'jkjk'"
+            "registered_model_tags.`training algorithm` = 'lightgbm' and name = 'jkjk'"
         )
         self.assertEqual(result_rms, [])
 

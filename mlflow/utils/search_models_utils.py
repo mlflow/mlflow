@@ -197,3 +197,73 @@ class SearchModelsUtils(SearchUtils):
                     op = cls.filter_ops.get(comparator)
                     clauses.append(op(attribute, value))
         return clauses
+
+    # TODO: refactor search_model_version and add tags support
+    # TODO: remove _parse_filter_for_model_registry, get_comparison_for_model_registry
+    @classmethod
+    def _parse_filter_for_model_registry(cls, filter_string, valid_search_keys):
+        if not filter_string or filter_string == "":
+            return []
+        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception:
+            raise MlflowException(
+                "Error while parsing filter '%s'. %s" % (filter_string, expected),
+                error_code=INVALID_PARAMETER_VALUE,
+                )
+        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+            raise MlflowException(
+                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif len(parsed) > 1:
+            raise MlflowException(
+                "Search filter '%s' contains multiple expressions. "
+                "%s " % (filter_string, expected),
+                error_code=INVALID_PARAMETER_VALUE,
+                )
+        statement = parsed[0]
+        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
+            raise MlflowException(
+                "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
+                error_code=INVALID_PARAMETER_VALUE,
+                )
+        return [
+            cls._get_comparison_for_model_registry(si, valid_search_keys)
+            for si in statement.tokens
+            if isinstance(si, Comparison)
+        ]
+
+    @classmethod
+    def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        key = stripped_comparison[0].value
+        if key not in valid_search_keys:
+            raise MlflowException(
+                "Invalid attribute key '{}' specified. Valid keys "
+                " are '{}'".format(key, valid_search_keys),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        value_token = stripped_comparison[2]
+        if value_token.ttype not in cls.STRING_VALUE_TYPES:
+            raise MlflowException(
+                "Expected a quoted string value for attributes. "
+                "Got value {value}".format(value=value_token.value),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        comp = {
+            "key": key,
+            "comparator": stripped_comparison[1].value,
+            "value": cls._strip_quotes(value_token.value, expect_quoted_value=True),
+        }
+        return comp
+
+    @classmethod
+    def parse_filter_for_model_versions(cls, filter_string):
+        return cls._parse_filter_for_model_registry(
+            filter_string, cls.VALID_SEARCH_MODEL_VERSION_ATTRIBUTE_KEYS
+        )
