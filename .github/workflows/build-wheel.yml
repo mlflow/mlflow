@@ -46,7 +46,7 @@ jobs:
         run: |
           pip install ${{ steps.build-wheel.outputs.wheel-path }}
 
-      # Anyone with read access can download the uploaded wheel on the GitHub UI.
+      # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Store wheel
         uses: actions/upload-artifact@v2
         if: github.event_name == 'push'
