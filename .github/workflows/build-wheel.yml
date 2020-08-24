@@ -56,7 +56,7 @@ jobs:
           name: ${{ steps.build-wheel.outputs.wheel-name }}
           path: ${{ steps.build-wheel.outputs.wheel-path }}
 
-      - name: Adjust storage usage
+      - name: Remove old wheels
         uses: actions/github-script@v3
         env:
           WHEEL_SIZE: ${{ steps.build-wheel.outputs.wheel-size }}
