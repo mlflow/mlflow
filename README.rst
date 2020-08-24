@@ -45,7 +45,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |downloads| image:: https://pepy.tech/badge/mlflow
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
-.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-violet.svg?logo=slack&logoColor=white&labelColor=3F0E40
+.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40
     :target: `Slack`_
     :alt: Slack
 
