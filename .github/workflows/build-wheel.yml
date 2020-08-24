@@ -60,7 +60,7 @@ jobs:
         env:
           WHEEL_SIZE: ${{ steps.build-wheel.outputs.wheel-size }}
         with:
-          github-token: ${{secrets.GITHUB_TOKEN}}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
 
