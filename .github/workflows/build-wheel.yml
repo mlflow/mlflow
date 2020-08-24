@@ -64,7 +64,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
 
-            // For some reason, the wheel uploaded in the previous step is not included.
+            // For some reason, the newly-uploaded wheel in the previous step is not included.
             const artifactsResp = await github.actions.listArtifactsForRepo({
               owner,
               repo,
