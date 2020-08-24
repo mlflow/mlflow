@@ -15,11 +15,9 @@ environment.
 for more details on necessary prerequisites for running the examples on your own machine.
 
 #### Jupyter Notebook Workflow
-
 [Jupyter Notebook](notebooks/rapids_mlflow.ipynb)
 
 #### CLI Based Workflow
-
 1. Download data
 
    ```shell script
