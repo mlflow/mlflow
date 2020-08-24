@@ -61,7 +61,7 @@ jobs:
               owner,
               repo,
             });
-            const wheels = artifactsResp.data.artifacts.filter(a => a.endsWith(".whl"));
+            const wheels = artifactsResp.data.artifacts.filter(({ name }) => a.endsWith(".whl"));
 
             // The storage usage limit for a free github account is 500 MB. See the page below for details:
             // https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
