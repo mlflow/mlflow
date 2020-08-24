@@ -46,6 +46,9 @@ jobs:
         run: |
           pip install ${{ steps.build-wheel.outputs.wheel-path }}
 
+      # Anyone with read access can download the uploaded wheel on the GitHub UI.
+      # We can provide the download link to an issue reporter and let him/her verify
+      # the issue has been fixed by the corresponding pull request.
       - name: Store wheel
         uses: actions/upload-artifact@v2
         if: github.event_name == 'push'
@@ -95,4 +98,4 @@ jobs:
                 artifact_id,
               })
             );
-            Promise.all(promises).then(results => console.log(results));
+            Promise.all(promises).then(data => console.log(data));
