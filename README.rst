@@ -45,6 +45,11 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |downloads| image:: https://pepy.tech/badge/mlflow
     :target: https://pepy.tech/project/mlflow
     :alt: Total Downloads
+.. |slack| image:: https://img.shields.io/badge/slack-@mlflow--users-blue.svg?logo=slack&logoColor=white&labelColor=3F0E40
+    :target: `Slack`_
+    :alt: Slack
+
+.. _Slack: ttps://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
 
 Installing
 ----------
@@ -66,7 +71,7 @@ or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
 
 For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
-or join us on `Slack <https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g/>`_.
+or join us on `Slack`_.
 
 Running a Sample App With the Tracking API
 ------------------------------------------
