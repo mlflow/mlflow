@@ -74,7 +74,7 @@ jobs:
             MAX_SIZE_IN_BYTES = 300_000_000; // 300 MB
 
             let index = 0;
-            let sum = parseInt(process.env.WHEEL_SIZE);  # include the newly-uploaded wheel
+            let sum = parseInt(process.env.WHEEL_SIZE);  // include the newly-uploaded wheel
             for (const [idx, { size_in_bytes }] of wheels.entries()) {
               index = idx;
               sum += size_in_bytes;
