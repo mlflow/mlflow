@@ -781,10 +781,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 attribute_filter,
                 "attribute." + attribute_filter,
                 "attr." + attribute_filter,
-                "model" + attribute_filter,
-                "registered_model" + attribute_filter,
-                "models" + attribute_filter,
-                "registered_models" + attribute_filter,
+                "model." + attribute_filter,
+                "registered_model." + attribute_filter,
+                "models." + attribute_filter,
+                "registered_models." + attribute_filter,
             ]:
                 result_rms, _ = self._search_registered_models(attribute_filter_string)
                 self.assertEqual(result_rms, expected_rms)
