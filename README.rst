@@ -49,7 +49,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: `Slack`_
     :alt: Slack
 
-.. _Slack: ttps://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
 
 Installing
 ----------
