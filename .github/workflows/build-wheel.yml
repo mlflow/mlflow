@@ -69,7 +69,7 @@ jobs:
 
             let index = 0;
             let sum = 0;
-            for (const ({ size_in_bytes }) of wheels) {
+            for (const { size_in_bytes } of wheels) {
               index = idx;
               sum += size_in_bytes;
               if (sum > MAX_SIZE_IN_BYTES) {
