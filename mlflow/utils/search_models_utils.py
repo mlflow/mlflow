@@ -6,17 +6,34 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelTag,
 )
 import sqlalchemy.sql.expression as sql
-from sqlparse.sql import Comparison
+import sqlparse
+from sqlparse.sql import Comparison, Statement
 
 
 class SearchModelsUtils(SearchUtils):
     _ALTERNATE_MODEL_ATTRIBUTE_IDENTIFIERS = set(
-        ["attr", "attributes", "model", "registered_model", "models", "registered_models"]
+        [
+            "attr",
+            "attributes",
+            "model",
+            "registered_model",
+            "models",
+            "registered_models",
+        ]
     )
     _ALTERNATE_MODEL_TAG_IDENTIFIERS = set(
-        ["tags", "model_tag", "registered_model_tag", "model_tags", "registered_model_tags"]
+        [
+            "tags",
+            "model_tag",
+            "registered_model_tag",
+            "model_tags",
+            "registered_model_tags",
+        ]
     )
-    _MODEL_IDENTIFIERS = [SearchUtils._TAG_IDENTIFIER, SearchUtils._ATTRIBUTE_IDENTIFIER]
+    _MODEL_IDENTIFIERS = [
+        SearchUtils._TAG_IDENTIFIER,
+        SearchUtils._ATTRIBUTE_IDENTIFIER,
+    ]
     _VALID_MODEL_IDENTIFIERS = set(
         _MODEL_IDENTIFIERS
         + list(_ALTERNATE_MODEL_ATTRIBUTE_IDENTIFIERS)
@@ -62,10 +79,13 @@ class SearchModelsUtils(SearchUtils):
 
     @classmethod
     def _get_comparison_for_registered_models(cls, comparison):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        stripped_comparison = [
+            token for token in comparison.tokens if not token.is_whitespace
+        ]
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier_for_registered_models(
-            stripped_comparison[0].value, cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS
+            stripped_comparison[0].value,
+            cls.VALID_SEARCH_REGISTERED_MODEL_ATTRIBUTE_KEYS,
         )
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
@@ -111,9 +131,11 @@ class SearchModelsUtils(SearchUtils):
         if order_by_list:
             for order_by_clause in order_by_list:
                 clause_id += 1
-                (key_type, key, ascending) = cls.parse_order_by_for_search_registered_models(
-                    order_by_clause
-                )
+                (
+                    key_type,
+                    key,
+                    ascending,
+                ) = cls.parse_order_by_for_search_registered_models(order_by_clause)
                 if cls.is_attribute(key_type, "="):
                     order_value = getattr(SqlRegisteredModel, key)
                     clauses.append(
@@ -122,10 +144,14 @@ class SearchModelsUtils(SearchUtils):
                         )
                     )
                 else:
-                    entity = cls._get_subquery_entity_for_registered_models(key_type, "=")
+                    entity = cls._get_subquery_entity_for_registered_models(
+                        key_type, "="
+                    )
                     # build a subquery first because we will join it in the main request so that the
                     # metric we want to sort on is available when we apply the sorting clause
-                    subquery = session.query(entity).filter(entity.key == key).subquery()
+                    subquery = (
+                        session.query(entity).filter(entity.key == key).subquery()
+                    )
                     ordering_joins.append(subquery)
                     order_value = subquery.c.value
                     # sqlite does not support NULLS LAST expression, so we sort first by
@@ -163,7 +189,8 @@ class SearchModelsUtils(SearchUtils):
             return None
         else:
             raise MlflowException(
-                "Invalid identifier type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE,
+                "Invalid identifier type '%s'" % key_type,
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     @classmethod
@@ -172,9 +199,13 @@ class SearchModelsUtils(SearchUtils):
         that will be inner-joined to attribute table to act as multi-clause filters."""
         filters = []
         for sql_statement in parsed:
-            key_type, key_name, value, comparator = cls._parse_sql_statement(sql_statement)
+            key_type, key_name, value, comparator = cls._parse_sql_statement(
+                sql_statement
+            )
             if not SearchUtils.is_attribute(key_type, comparator):
-                entity = cls._get_subquery_entity_for_registered_models(key_type, comparator)
+                entity = cls._get_subquery_entity_for_registered_models(
+                    key_type, comparator
+                )
                 filter_query = cls._get_sqlalchemy_query(
                     entity, comparator, key_name, value, session
                 )
@@ -185,7 +216,9 @@ class SearchModelsUtils(SearchUtils):
     def get_attributes_filtering_clauses_for_registered_model(cls, parsed):
         clauses = []
         for sql_statement in parsed:
-            key_type, key_name, value, comparator = cls._parse_sql_statement(sql_statement)
+            key_type, key_name, value, comparator = cls._parse_sql_statement(
+                sql_statement
+            )
             if cls.is_attribute(key_type, comparator):
                 # key_name is guaranteed to be a valid searchable attribute of SqlRegisteredModel
                 # by the call to parse_search_filter
@@ -211,26 +244,28 @@ class SearchModelsUtils(SearchUtils):
             raise MlflowException(
                 "Error while parsing filter '%s'. %s" % (filter_string, expected),
                 error_code=INVALID_PARAMETER_VALUE,
-                )
+            )
         if len(parsed) == 0 or not isinstance(parsed[0], Statement):
             raise MlflowException(
-                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                "Invalid filter '%s'. Could not be parsed. %s"
+                % (filter_string, expected),
                 error_code=INVALID_PARAMETER_VALUE,
-                )
+            )
         elif len(parsed) > 1:
             raise MlflowException(
                 "Search filter '%s' contains multiple expressions. "
                 "%s " % (filter_string, expected),
                 error_code=INVALID_PARAMETER_VALUE,
-                )
+            )
         statement = parsed[0]
         invalids = list(filter(cls._invalid_statement_token, statement.tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
-                "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
+                "Invalid clause(s) in filter string: %s. "
+                "%s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
-                )
+            )
         return [
             cls._get_comparison_for_model_registry(si, valid_search_keys)
             for si in statement.tokens
@@ -239,7 +274,9 @@ class SearchModelsUtils(SearchUtils):
 
     @classmethod
     def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        stripped_comparison = [
+            token for token in comparison.tokens if not token.is_whitespace
+        ]
         cls._validate_comparison(stripped_comparison)
         key = stripped_comparison[0].value
         if key not in valid_search_keys:
