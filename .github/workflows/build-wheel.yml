@@ -58,6 +58,7 @@ jobs:
 
       - name: Remove old wheels
         uses: actions/github-script@v3
+        if: github.event_name == 'push'
         env:
           WHEEL_SIZE: ${{ steps.build-wheel.outputs.wheel-size }}
         with:
