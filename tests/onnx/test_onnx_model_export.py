@@ -157,7 +157,7 @@ def high_dim_model():
     sess = tf.Session(graph=graph)
 
     onnx_graph = tf2onnx.tfonnx.process_tf_graph(
-        sess.graph, input_names=["first_input:0", "second_input:0",], output_names=["output:0"],
+        sess.graph, input_names=["first_input:0", "second_input:0"], output_names=["output:0"]
     )
     model_proto = onnx_graph.make_model("test")
     return model_proto

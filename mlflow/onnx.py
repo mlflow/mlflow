@@ -206,7 +206,8 @@ class _OnnxModelWrapper:
             feed_dict = {inp.name: column_data[inp.name] for inp in self.inputs}
         elif number_inputs > 1 and number_inputs != number_columns:
             raise MlflowException(
-                "Invalid input to model: The number of columns in the dataframe is not equal to  the number of model inputs."
+                "Invalid input to model: The number of columns in the dataframe is not"
+                + " equal to  the number of model inputs."
             )
         elif number_inputs == 1:
             cols = dataframe.columns if self.inputs[0].type == "tensor(float)" else []
