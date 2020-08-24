@@ -21,7 +21,7 @@ jobs:
       - name: Build UI
         working-directory: mlflow/server/js
         env:
-          # Prevent warnings (emitted from react-pdf) from being treated as errors.
+          # Prevent warnings (emitted from react-pdf) from being treated as errors
           # https://github.com/wojtekmaj/react-pdf/issues/280
           CI: false
         run: |
@@ -37,8 +37,10 @@ jobs:
           # set outputs
           wheel_path=$(find dist -type f)
           wheel_name=$(basename $wheel_path)
+          wheel_size=$(stat -c %s $wheel_path)
           echo "::set-output name=wheel-path::${wheel_path}"
           echo "::set-output name=wheel-name::${wheel_name}"
+          echo "::set-output name=wheel-size::${wheel_size}"
 
       - name: Verify wheel can be installed
         run: |
@@ -53,6 +55,8 @@ jobs:
 
       - name: Adjust storage usage
         uses: actions/github-script@v3
+        env:
+          WHEEL_SIZE: ${{ steps.build-wheel.outputs.wheel-size }}
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -70,7 +74,7 @@ jobs:
             MAX_SIZE_IN_BYTES = 300_000_000; // 300 MB
 
             let index = 0;
-            let sum = 0;
+            let sum = parseInt(process.env.WHEEL_SIZE);
             for (const [idx, { size_in_bytes }] of wheels.entries()) {
               index = idx;
               sum += size_in_bytes;
