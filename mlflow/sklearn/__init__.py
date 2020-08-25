@@ -557,7 +557,7 @@ def autolog():
 
     **Example**
 
-    `See more examples <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_autlog>`_
+    `See more examples <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_autolog>`_
 
     .. code-block:: python
 
