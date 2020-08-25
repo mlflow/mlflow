@@ -46,5 +46,6 @@ jobs:
       - name: Run examples
         working_directory: examples/sklearn_autolog
         run: |
+          set -x
           python simple.py
           python pipeline.py
