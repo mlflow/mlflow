@@ -601,13 +601,16 @@ def autolog():
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
     """
     import sklearn
+    from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _MIN_SKLEARN_VERSION,
         _is_supported_version,
         _chunk_dict,
         _get_args_for_score,
+        _get_Xy,
         _all_estimators,
         _truncate_dict,
+        _get_arg_names,
     )
     from mlflow.utils.validation import (
         MAX_PARAMS_TAGS_PER_BATCH,
@@ -668,7 +671,25 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
-        try_mlflow_log(log_model, self, artifact_path="model")
+        SAMPLE_ROWS = 5
+        fit_arg_names = _get_arg_names(self.fit)
+        X_var_name, y_var_name = fit_arg_names[:2]
+        X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
+        try:
+            model_output = self.predict(X_sample) if hasattr(self, "predict") else None
+        except Exception as e:
+            model_output = None
+            _logger.warning("Failed to get the model output: " + str(e))
+
+        try:
+            signature = infer_signature(X_sample, model_output)
+        except Exception as e:
+            signature = None
+            _logger.warning("Failed to infer the model signature: " + str(e))
+
+        try_mlflow_log(
+            log_model, self, artifact_path="model", signature=signature, input_example=X_sample
+        )
 
         if should_start_run:
             try_mlflow_log(mlflow.end_run)

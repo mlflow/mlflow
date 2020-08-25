@@ -1,19 +1,26 @@
 import functools
 import inspect
+import json
 from mock import mock
+import os
 import warnings
 
 import numpy as np
+import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
+import yaml
 
+from mlflow.models.signature import infer_signature
+from mlflow.models.utils import _Example
 import mlflow.sklearn
 from mlflow.sklearn.utils import (
     _is_supported_version,
     _get_arg_names,
     _truncate_dict,
 )
+from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
@@ -65,6 +72,18 @@ def get_run_data(run_id):
 
 def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+
+
+def read_MLmodel(run_id):
+    with open(os.path.join(get_artifact_uri(run_id), MODEL_DIR, "MLmodel")) as f:
+        return yaml.safe_load(f)
+
+
+def read_input_example(run_id):
+    uri = get_artifact_uri(run_id)
+    artifact_path = read_MLmodel(run_id)["saved_input_example_info"]["artifact_path"]
+    with open(os.path.join(uri, MODEL_DIR, artifact_path)) as f:
+        return json.load(f)
 
 
 def stringify_dict_values(d):
@@ -544,3 +563,22 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
         model.fit(X, y)
         mock_func.assert_called_once()
+
+
+@pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
+def test_autlog_logs_signature_and_input_example(data_type):
+    mlflow.sklearn.autolog()
+
+    X = data_type([[1, 1], [1, 2], [2, 2], [2, 3]])
+    y = [6, 8, 9, 11]
+    model = sklearn.linear_model.LinearRegression()
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    run_id = run._info.run_id
+    mlmodel = read_MLmodel(run_id)
+    input_example = read_input_example(run_id)
+    sig_expected = infer_signature(X, model.predict(X))
+    assert mlmodel["signature"] == sig_expected.to_dict()
+    assert input_example == _Example(X).data
