@@ -245,6 +245,7 @@ class TestRestStore(unittest.TestCase):
             "model-versions/create",
             "POST",
             CreateModelVersion(name="model_1", source="path/to/source", run_id=run_id),
+            self.generate_creds
         )
         # test optional fields
         tags = [
