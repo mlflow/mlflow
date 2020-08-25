@@ -140,6 +140,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                 "Cannot start run with ID {} because it is in the "
                 "deleted state.".format(existing_run_id)
             )
+        MlflowClient().set_running(active_run_obj.info.run_id)
+        active_run_obj = MlflowClient().get_run(existing_run_id)
     else:
         if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_id
@@ -157,7 +159,6 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = MlflowClient().create_run(experiment_id=exp_id_for_run, tags=tags)
-
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
