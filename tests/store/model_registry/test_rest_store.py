@@ -74,7 +74,11 @@ class TestRestStore(unittest.TestCase):
         print(http_request.call_args_list)
         json_body = message_to_json(proto_message)
         http_request.assert_any_call(
-            **(self._args(self.creds, endpoint, method, json_body, host_creds_refresh_func))
+            **(
+                self._args(
+                    self.creds, endpoint, method, json_body, host_creds_refresh_func
+                )
+            )
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -90,9 +94,11 @@ class TestRestStore(unittest.TestCase):
             "registered-models/create",
             "POST",
             CreateRegisteredModel(
-                name="model_1", tags=[tag.to_proto() for tag in tags], description=description
+                name="model_1",
+                tags=[tag.to_proto() for tag in tags],
+                description=description,
             ),
-            self.generate_creds
+            self.generate_creds,
         )
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
@@ -245,7 +251,7 @@ class TestRestStore(unittest.TestCase):
             "model-versions/create",
             "POST",
             CreateModelVersion(name="model_1", source="path/to/source", run_id=run_id),
-            self.generate_creds
+            self.generate_creds,
         )
         # test optional fields
         tags = [
@@ -255,7 +261,12 @@ class TestRestStore(unittest.TestCase):
         run_link = "localhost:5000/path/to/run"
         description = "version description"
         self.store.create_model_version(
-            "model_1", "path/to/source", run_id, tags, run_link=run_link, description=description,
+            "model_1",
+            "path/to/source",
+            run_id,
+            tags,
+            run_link=run_link,
+            description=description,
         )
         self._verify_requests(
             mock_http,
@@ -294,12 +305,16 @@ class TestRestStore(unittest.TestCase):
         name = "model_1"
         version = "5"
         description = "test model version"
-        self.store.update_model_version(name=name, version=version, description=description)
+        self.store.update_model_version(
+            name=name, version=version, description=description
+        )
         self._verify_requests(
             mock_http,
             "model-versions/update",
             "PATCH",
-            UpdateModelVersion(name=name, version=version, description="test model version"),
+            UpdateModelVersion(
+                name=name, version=version, description="test model version"
+            ),
             self.generate_creds,
         )
 
