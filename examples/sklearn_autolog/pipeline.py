@@ -36,7 +36,8 @@ def main():
 
     # show logged data
     for key, data in fetch_logged_data(run._info.run_id).items():
-        print("-" * 20)
+        print("-" * 10, key, "-" * 10)
+        print(key)
         pprint(data)
 
 
