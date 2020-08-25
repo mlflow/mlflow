@@ -369,7 +369,8 @@ Run an MLflow Project on Databricks
 You can run MLflow Projects remotely on Databricks. To use this feature, you must have an enterprise
 Databricks account (Community Edition is not supported) and you must have set up the
 `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find detailed instructions
-in the ` Databricks docs <https://docs.databricks.com/applications/mlflow/index.html>`_.
+in the Databricks docs (`Azure Databricks <https://docs.microsoft.com/en-us/azure/databricks/applications/mlflow/projects#run-an-mlflow-project>`_,
+`Databricks on AWS <https://docs.databricks.com/applications/mlflow/projects.html>`_).
 
 .. _kubernetes_execution:
 
