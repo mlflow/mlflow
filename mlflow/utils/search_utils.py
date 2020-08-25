@@ -29,6 +29,7 @@ class SearchUtils(object):
     _ATTRIBUTE_IDENTIFIER = "attribute"
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+    ORDER_BY_KEY_TIMESTAMP = "timestamp"
 
     filter_ops = {
         ">": operator.gt,
@@ -127,7 +128,8 @@ class SearchUtils(object):
             # Expected to be either "param" or "metric".
             raise MlflowException(
                 "Invalid identifier type. Expected one of "
-                "{}.".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER])
+                "{}.".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]),
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
     @classmethod

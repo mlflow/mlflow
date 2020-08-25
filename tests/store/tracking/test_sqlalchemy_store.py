@@ -1314,7 +1314,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 attribute_filter,
                 "attr." + attribute_filter,
                 "attribute." + attribute_filter,
-                "runs." + attribute_filter,
+                "run." + attribute_filter,
             ]:
                 six.assertCountEqual(self, runs, self._search(experiments, attribute_filter_string))
 
@@ -1393,7 +1393,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             for filter_string in [
                 "attribute.{} = '{}'".format(k, v),
                 "attr.{} = '{}'".format(k, v),
-                "runs.{} = '{}'".format(k, v),
+                "run.{} = '{}'".format(k, v),
                 "{} = '{}'".format(k, v),
             ]:
                 with self.assertRaises(MlflowException) as e:
@@ -1426,13 +1426,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and status = 'FAILED'"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and run.status = 'FAILED'"
         )
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # all params and metrics match
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
@@ -1456,13 +1456,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test with mismatch param
         filter_string = (
-            "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
         )
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 

@@ -28,9 +28,12 @@ class SearchModelsUtils(SearchUtils):
     VALID_ORDER_BY_REGISTERED_MODEL_ATTRIBUTE_KEYS = set(
         [SearchUtils.ORDER_BY_KEY_TIMESTAMP, "last_updated_timestamp", "name"]
     )
-    ORDER_BY_KEY_TIMESTAMP = "timestamp"
     VALID_SEARCH_MODEL_VERSION_ATTRIBUTE_KEYS = set(["name", "run_id", "source_path"])
-    VALID_TIMESTAMP_ORDER_BY_KEYS = set([ORDER_BY_KEY_TIMESTAMP, "last_updated_timestamp"])
+    VALID_TIMESTAMP_ORDER_BY_KEYS = set(
+        [SearchUtils.ORDER_BY_KEY_TIMESTAMP, "last_updated_timestamp"]
+    )
+    VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS = set(["name", "run_id", "source_path"])
+    VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
 
     @classmethod
     def _valid_model_entity_type(cls, entity_type):
@@ -271,10 +274,4 @@ class SearchModelsUtils(SearchUtils):
     def parse_filter_for_model_versions(cls, filter_string):
         return cls._parse_filter_for_model_registry(
             filter_string, cls.VALID_SEARCH_KEYS_FOR_MODEL_VERSIONS
-        )
-
-    @classmethod
-    def parse_filter_for_registered_models(cls, filter_string):
-        return cls._parse_filter_for_model_registry(
-            filter_string, cls.VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS
         )
