@@ -44,6 +44,7 @@ jobs:
         run: |
           pytest --verbose --large tests/sklearn/test_sklearn_autolog.py
       - name: Run examples
+        working_directory: examples/sklearn_autolog
         run: |
-          python examples/sklearn_autolog/simple.py
-          python examples/sklearn_autolog/pipeline.py
+          python simple.py
+          python pipeline.py
