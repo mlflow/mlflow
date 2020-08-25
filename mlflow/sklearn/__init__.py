@@ -606,7 +606,7 @@ def autolog():
         _is_supported_version,
         _chunk_dict,
         _get_args_for_score,
-        _get_args_for_accuracy_score_classifier,
+        _log_accuracy_score_classifier,
         _all_estimators,
         _truncate_dict,
     )
@@ -652,8 +652,6 @@ def autolog():
 
         original_fit = gorilla.get_original_attribute(self, func_name)
 
-        # Always apply fit function to get the trained model
-        trained_model = self.fit(*args, **kwargs)
         try:
             fit_output = original_fit(*args, **kwargs)
         except Exception as e:
@@ -680,18 +678,7 @@ def autolog():
 
         # If the estimator is of classifier type, then log corresponding metrics
         if self._estimator_type == _CLASSIFIER:
-            try:
-                acc_score_args = _get_args_for_accuracy_score_classifier(trained_model, args, kwargs)
-                acc_score = sklearn.metrics.accuracy_score(*acc_score_args)
-            except Exception as e:  # pylint: disable=broad-except
-                msg = (
-                    self.score.__qualname__
-                    + " failed. The 'accuracy_score' metric will not be recorded. Scoring error: "
-                    + str(e)
-                )
-                _logger.warning(msg)
-            else:
-                try_mlflow_log(mlflow.log_metric, "accuracy_score", acc_score)
+            _log_accuracy_score_classifier(self, args, kwargs)
 
         if should_start_run:
             try_mlflow_log(mlflow.end_run)

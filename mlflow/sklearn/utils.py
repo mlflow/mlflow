@@ -1,7 +1,11 @@
-from distutils.version import LooseVersion
 import inspect
-from itertools import islice
 import logging
+import mlflow
+import sklearn
+
+from distutils.version import LooseVersion
+from itertools import islice
+from mlflow.utils.autologging_utils import try_mlflow_log
 
 _logger = logging.getLogger(__name__)
 
@@ -78,9 +82,9 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
     return Xy
 
 
-def _get_args_for_accuracy_score_classifier(trained_classifier, fit_args, fit_kwargs):
+def _log_accuracy_score_classifier(trained_model, fit_args, fit_kwargs):
     """
-    compute accuracy_score for classifier
+    compute and log accuracy_score for classifier
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
 
     By default, we choose the parameter `normalize` to be `True` to output the percentage of accuracy
@@ -88,29 +92,42 @@ def _get_args_for_accuracy_score_classifier(trained_classifier, fit_args, fit_kw
 
     1. Extract X and y_true from fit_args and fit_kwargs.
     2. If the sample_weight argument exists in fit_func (accuracy_score by default has sample_weight),
-       extract it from fit_args or fit_kwargs and return (y_true, y_pred, normalize, sample_weight),
-       otherwise return (y_true, y_pred, normalize)
+       extract it from fit_args or fit_kwargs as (y_true, y_pred, normalize, sample_weight),
+       otherwise as (y_true, y_pred, normalize)
+    3. Compute and log accuracy_score
 
-    :param trained_classifier: the already trained classifier
+    :param trained_model: the already trained classifier
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
-    :returns: the arguments for accuracy score.
+    :returns: NULL
     """
-    fit_arg_names = _get_arg_names(trained_classifier.fit)
+    try:
+        fit_arg_names = _get_arg_names(trained_model.fit)
 
-    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
-    # However, certain sklearn models use different variable names for X and y.
-    # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score # noqa: E501
-    X_var_name, y_var_name = fit_arg_names[:2]
-    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
-    y_pred = trained_classifier.predict(X)
+        # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+        # However, certain sklearn models use different variable names for X and y.
+        # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score # noqa: E501
+        X_var_name, y_var_name = fit_arg_names[:2]
+        X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+        y_pred = trained_model.predict(X)
 
-    if _SAMPLE_WEIGHT in fit_arg_names:
-        sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
-        return y_true, y_pred, True, sample_weight
-
-    return y_true, y_pred, True
+        acc_score_args = []
+        if _SAMPLE_WEIGHT in fit_arg_names:
+            sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+            acc_score_args = y_true, y_pred, True, sample_weight
+        else:
+            acc_score_args = y_true, y_pred, True
+        acc_score = sklearn.metrics.accuracy_score(*acc_score_args)
+    except Exception as e:  # pylint: disable=broad-except
+        msg = (
+                sklearn.metrics.accuracy_score.__qualname__
+                + " failed. The 'accuracy_score' metric will not be recorded. Scoring error: "
+                + str(e)
+        )
+        _logger.warning(msg)
+    else:
+        try_mlflow_log(mlflow.log_metric, "accuracy_score", acc_score)
 
 
 def _chunk_dict(d, chunk_size):
