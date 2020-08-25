@@ -43,7 +43,6 @@ jobs:
       - name: Run tests
         run: |
           pytest --verbose --large tests/sklearn/test_sklearn_autolog.py
-
       - name: Run examples
         run: |
           python examples/sklearn_autolog/simple.py
