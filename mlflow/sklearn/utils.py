@@ -10,6 +10,7 @@ _logger = logging.getLogger(__name__)
 _MIN_SKLEARN_VERSION = "0.20.3"
 
 _SAMPLE_WEIGHT = "sample_weight"
+_NORMALIZE = "normalize"
 
 
 def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -75,6 +76,41 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
         return (*Xy, sample_weight)
 
     return Xy
+
+
+def _get_args_for_accuracy_score_classifier(trained_classifier, fit_args, fit_kwargs):
+    """
+    compute accuracy_score for classifier
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+
+    By default, we choose the parameter `normalize` to be `True` to output the percentage of accuracy
+    as opposed to `False` that outputs the absolute correct number of sample prediction.
+
+    1. Extract X and y_true from fit_args and fit_kwargs.
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default has sample_weight),
+       extract it from fit_args or fit_kwargs and return (y_true, y_pred, normalize, sample_weight),
+       otherwise return (y_true, y_pred, normalize)
+
+    :param trained_classifier: the already trained classifier
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+
+    :returns: the arguments for accuracy score.
+    """
+    fit_arg_names = _get_arg_names(trained_classifier.fit)
+
+    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+    # However, certain sklearn models use different variable names for X and y.
+    # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score # noqa: E501
+    X_var_name, y_var_name = fit_arg_names[:2]
+    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    y_pred = trained_classifier.predict(X)
+
+    if _SAMPLE_WEIGHT in fit_arg_names:
+        sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+        return y_true, y_pred, True, sample_weight
+
+    return y_true, y_pred, True
 
 
 def _chunk_dict(d, chunk_size):

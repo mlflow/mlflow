@@ -24,6 +24,7 @@ from mlflow.utils.validation import (
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
+ACCURACY_SCORE = "accuracy_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
@@ -179,6 +180,27 @@ def test_estimator(fit_func_name):
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+
+
+def test_classifier():
+    mlflow.sklearn.autolog()
+    # use simple `SVC`, which only implements `fit`.
+    model = sklearn.svm.SVC()
+    X, y_true = get_iris()
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+    y_pred = model.predict(X)
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(X, y_true),
+                       ACCURACY_SCORE: sklearn.metrics.accuracy_score(y_true, y_pred)}
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
