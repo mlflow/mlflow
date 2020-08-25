@@ -159,6 +159,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = MlflowClient().create_run(experiment_id=exp_id_for_run, tags=tags)
+
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
