@@ -18,6 +18,7 @@ from mlflow.entities import (
     ViewType,
     SourceType,
     ExperimentTag,
+    Columns,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
@@ -717,8 +718,33 @@ class FileStore(AbstractStore):
                 )
         return run_infos
 
+    def list_all_columns(self, experiment_id, run_view_type):
+        self._check_root_dir()
+        metric_columns = set()
+        tag_columns = set()
+        param_columns = set()
+        if not self._has_experiment(experiment_id):
+            raise MlflowException("Experiment id {} does not exist".format(experiment_id))
+        run_infos = self._list_run_infos(experiment_id, run_view_type)
+        for run_info in run_infos:
+            run = self._get_run_from_info(run_info)
+            metric_columns.update(run.data.metrics.keys())
+            tag_columns.update(run.data.tags.keys())
+            param_columns.update(run.data.params.keys())
+
+        return Columns(
+            metrics=list(metric_columns), params=list(param_columns), tags=list(tag_columns)
+        )
+
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        columns_to_whitelist,
     ):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
@@ -732,6 +758,7 @@ class FileStore(AbstractStore):
             runs.extend(self._get_run_from_info(r) for r in run_infos)
         filtered = SearchUtils.filter(runs, filter_string)
         sorted_runs = SearchUtils.sort(filtered, order_by)
+        sorted_runs = [_filter_columns(run, columns_to_whitelist) for run in sorted_runs]
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
@@ -887,3 +914,28 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        raise ValueError("Artifacts cannot be moved with FileStore backend")
+
+
+def _filter_columns(run, columns_to_whitelist):
+    if columns_to_whitelist is None:
+        return run
+    run_data = run.data
+    metrics = [
+        Metric(name, value, 0, 0)
+        for name, value in run_data.metrics.items()
+        if "metrics.{}".format(name) in columns_to_whitelist
+    ]
+    params = [
+        Param(name, value)
+        for name, value in run_data.params.items()
+        if "params.{}".format(name) in columns_to_whitelist
+    ]
+    tags = [
+        RunTag(name, value)
+        for name, value in run_data.tags.items()
+        if "tags.{}".format(name) not in columns_to_whitelist
+    ]
+    return Run(run_info=run.info, run_data=RunData(metrics=metrics, params=params, tags=tags))

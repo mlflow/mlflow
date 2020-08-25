@@ -82,10 +82,10 @@ _artifact_repository_registry.register("ftp", FTPArtifactRepository)
 _artifact_repository_registry.register("sftp", SFTPArtifactRepository)
 _artifact_repository_registry.register("dbfs", dbfs_artifact_repo_factory)
 _artifact_repository_registry.register("hdfs", HdfsArtifactRepository)
+_artifact_repository_registry.register("har", HdfsArtifactRepository)
 _artifact_repository_registry.register("viewfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("runs", RunsArtifactRepository)
 _artifact_repository_registry.register("models", ModelsArtifactRepository)
-
 _artifact_repository_registry.register_entrypoints()
 
 

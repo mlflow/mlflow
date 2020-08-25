@@ -1,14 +1,19 @@
 import os
 import posixpath
 import tempfile
+import logging
 from contextlib import contextmanager
+import subprocess
+import shlex
 
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
-from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
+
+_logger = logging.getLogger(__name__)
+HAR_EXTENSION = ".har"
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -147,7 +152,12 @@ class HdfsArtifactRepository(ArtifactRepository):
             return local_dir
 
     def _download_file(self, remote_file_path, local_path):
-        raise MlflowException("This is not implemented. Should never be called.")
+        _, _, _, path = _resolve_connection_params(remote_file_path)
+        if path.endswith("/"):
+            path = path[:-1]
+        with hdfs_system(scheme=self.scheme, host=self.host, port=self.port) as hdfs:
+            local_path = os.path.join(local_path, os.path.normpath(path.split("/")[-1]))
+            _download_hdfs_file(hdfs, path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
@@ -187,10 +197,28 @@ def hdfs_system(scheme, host, port):
     connected.close()
 
 
+class HdfsArtifactRepositoryException(Exception):
+    pass
+
+
 def _resolve_connection_params(artifact_uri):
     parsed = urllib.parse.urlparse(artifact_uri)
 
+    if parsed.scheme == "har":
+        return _parse_har_filesystem(artifact_uri)
+
     return parsed.scheme, parsed.hostname, parsed.port, parsed.path
+
+
+def _parse_har_filesystem(artifact_uri):
+    har_extension_index = artifact_uri.find(HAR_EXTENSION)
+    if har_extension_index < 0:
+        error_msg = "{0} is not valid hadoop archive path: no .har extension in path.".format(
+            artifact_uri
+        )
+        raise HdfsArtifactRepositoryException(error_msg)
+    archive_path = artifact_uri[: har_extension_index + len(HAR_EXTENSION)]
+    return "har", archive_path, 0, artifact_uri
 
 
 def _resolve_base_path(path, artifact_path):
@@ -238,3 +266,54 @@ def _parse_extra_conf(extra_conf):
         list_of_key_val = [as_pair(conf) for conf in extra_conf.split(",")]
         return dict(list_of_key_val)
     return None
+
+
+def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
+    """
+    Use hadoop archive to store all artifacts of a run in a har
+
+    :param artifact_path: String path of run artifacts
+    :param dest_path: String path directory where to create the archive
+    :param archive_name: String name of the archive
+
+    :return: path to the new artifact
+    :note: It overrides existing archive.
+    """
+    # clean existing archive if exists
+    remove_folder(dest_path + "/" + archive_name)
+
+    files_info = hdfs_artifact_repository.list_artifacts()
+    if not files_info:
+        return ""
+    list_artifacts = " ".join([file_info.path for file_info in files_info])
+    cmd = (
+        "hadoop archive -archiveName {archive_name} -p {artifact_path} "
+        "{list_artifacts} {dest_path}".format(
+            archive_name=archive_name,
+            artifact_path=hdfs_artifact_repository.path,
+            list_artifacts=list_artifacts,
+            dest_path=dest_path,
+        )
+    )
+    _logger.info("Command to execute to archive artifacts: %s", cmd)
+    subprocess.check_output(shlex.split(cmd))
+    _, _, _, path_in_hdfs = _resolve_connection_params(dest_path)
+    return "har://{scheme}-{host}{path_in_hdfs}/{archive_name}".format(
+        scheme=hdfs_artifact_repository.scheme,
+        host=hdfs_artifact_repository.host,
+        path_in_hdfs=path_in_hdfs,
+        archive_name=archive_name,
+    )
+
+
+def remove_folder(hdfs_folder):
+    """
+    Remove recursively a folder on hdfs
+
+    :param hdfs_folder: folder to remove
+    """
+    folder_path = _resolve_base_path(hdfs_folder, hdfs_folder)
+    scheme, host, port, path = _resolve_connection_params(folder_path)
+    with hdfs_system(scheme, host, port) as hdfs:
+        if hdfs.exists(path):
+            hdfs.rm(path, recursive=True)

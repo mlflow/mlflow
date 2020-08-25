@@ -88,12 +88,14 @@ start_run = mlflow.tracking.fluent.start_run
 end_run = mlflow.tracking.fluent.end_run
 search_runs = mlflow.tracking.fluent.search_runs
 list_run_infos = mlflow.tracking.fluent.list_run_infos
+update_artifacts_location = mlflow.tracking.fluent.update_artifacts_location
 get_artifact_uri = mlflow.tracking.fluent.get_artifact_uri
 set_tracking_uri = tracking.set_tracking_uri
 set_registry_uri = tracking.set_registry_uri
 get_experiment = mlflow.tracking.fluent.get_experiment
 get_experiment_by_name = mlflow.tracking.fluent.get_experiment_by_name
 get_tracking_uri = tracking.get_tracking_uri
+is_tracking_uri_set = tracking.is_tracking_uri_set
 get_registry_uri = tracking.get_registry_uri
 create_experiment = mlflow.tracking.fluent.create_experiment
 set_experiment = mlflow.tracking.fluent.set_experiment
@@ -134,6 +136,8 @@ __all__ = [
     "delete_run",
     "run",
     "register_model",
+    "is_tracking_uri_set",
+    "update_artifacts_location",
     "get_registry_uri",
     "set_registry_uri",
     "list_run_infos",

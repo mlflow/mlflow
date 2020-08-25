@@ -5,7 +5,7 @@ import re
 import shlex
 
 import sqlparse
-from sqlparse.sql import Identifier, Token, Comparison, Statement
+from sqlparse.sql import Identifier, Token, Comparison, Statement, TokenList
 from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import RunInfo
@@ -243,7 +243,23 @@ class SearchUtils(object):
     def _process_statement(cls, statement):
         # check validity
         invalids = list(filter(cls._invalid_statement_token, statement.tokens))
-        if len(invalids) > 0:
+        if len(invalids) % 3 == 0 and len(invalids) != 0:
+            groupby_invalids = [invalids[i : i + 3] for i in range(0, len(invalids), 3)]
+            invalid_clauses = ""
+            for invalid in groupby_invalids:
+                if invalid[1].value.lower() in ["like", "ilike"]:
+                    like_comparison = Comparison(TokenList(invalid))
+                    statement.tokens = [x for x in statement.tokens if type(x) == Comparison]
+                    statement.tokens.append(like_comparison)
+                else:
+                    invalid_clauses += ", ".join("'%s'" % token for token in invalid)
+
+            if invalid_clauses:
+                raise MlflowException(
+                    "Invalid clause(s) in filter string: %s" % invalid_clauses,
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
                 "Invalid clause(s) in filter string: %s" % invalid_clauses,

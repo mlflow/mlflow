@@ -905,7 +905,7 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
 # TODO(czumar) Re-mark this test as "large" instead of "release" after SageMaker docker container
 # build issues have been debugged
 # @pytest.mark.large
-@pytest.mark.release
+@pytest.mark.skip(reason="not used at Criteo, skipped to avoid timout")
 def test_sagemaker_docker_model_scoring_with_default_conda_env(
     sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir
 ):

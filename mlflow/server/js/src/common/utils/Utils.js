@@ -184,6 +184,11 @@ class Utils {
       if (bitbucketMatch[3]) {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
+    } else if (!url && Utils.getPrivateVcsConfig()) {
+      const privateVcsMatch = sourceName.match(window.privateVcsRegex);
+      if (privateVcsMatch) {
+        url = window.privateVcsRepo.replace('privateVcsMatch', privateVcsMatch[2]);
+      }
     }
     return url;
   }
@@ -216,6 +221,12 @@ class Utils {
         sourceVersion +
         '/' +
         bitbucketMatch[3];
+    } else if (!url && Utils.getPrivateVcsConfig()) {
+      const privateVcsMatch = sourceName.match(window.privateVcsRegex);
+      if (privateVcsMatch) {
+        url = window.privateVcsCommit.replace('privateVcsMatch', privateVcsMatch[2]);
+        url = url.replace('sourceVersion', sourceVersion);
+      }
     }
     return url;
   }
@@ -558,10 +569,7 @@ class Utils {
   }
 
   static getAjaxUrl(relativeUrl) {
-    if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true') {
-      return '/' + relativeUrl;
-    }
-    return relativeUrl;
+    return '/' + relativeUrl;
   }
 
   static logErrorAndNotifyUser(e) {
@@ -625,6 +633,56 @@ class Utils {
     }
 
     return aId.localeCompare(bId);
+  }
+
+  /**
+   * Fetch private vcs regex
+   */
+  static getPrivateVcsRegex() {
+    const req = new XMLHttpRequest();
+    let ret = null;
+    req.open('GET', '/api/2.0/mlflow/private_vcs/regex', false);
+    req.send();
+    if (req.status === 200 && req.responseText) {
+      const jsonData = JSON.parse(req.responseText);
+      ret = jsonData['vcs_regex'];
+    }
+    if (ret) {
+      return new RegExp(ret);
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch repo or commit urls for private vcs
+   */
+  static getPrivateVcsUrl(url_type) {
+    const req = new XMLHttpRequest();
+    let ret = null;
+    req.open('GET', '/api/2.0/mlflow/private_vcs/url?type=' + url_type, false);
+    req.send();
+    if (req.status === 200 && req.responseText) {
+      const jsonData = JSON.parse(req.responseText);
+      ret = jsonData['vcs_url'];
+    }
+    return ret;
+  }
+
+  /**
+   * Fetch private VCS config singletons
+   */
+  static getPrivateVcsConfig() {
+    if (!window.privateVcsRegex) {
+      window.privateVcsRegex = Utils.getPrivateVcsRegex();
+    }
+    if (!window.privateVcsRepo) {
+      window.privateVcsRepo = Utils.getPrivateVcsUrl('repo');
+    }
+    if (!window.privateVcsCommit) {
+      window.privateVcsCommit = Utils.getPrivateVcsUrl('commit');
+    }
+    return window.privateVcsRegex && window.privateVcsRepo && window.privateVcsCommit;
   }
 }
 

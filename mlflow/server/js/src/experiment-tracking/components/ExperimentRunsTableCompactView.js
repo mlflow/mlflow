@@ -110,7 +110,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
     nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
-    categorizedUncheckedKeys: PropTypes.object.isRequired,
+    categorizedCheckedKeys: PropTypes.object.isRequired,
   };
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
@@ -132,7 +132,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
       unbaggedMetrics,
       unbaggedParams,
       onRemoveBagged,
-      categorizedUncheckedKeys,
+      categorizedCheckedKeys,
     } = this.props;
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
@@ -151,14 +151,14 @@ export class ExperimentRunsTableCompactView extends React.Component {
         'div',
       ),
     ];
-    const excludedTagsSet = new Set(categorizedUncheckedKeys[ColumnTypes.TAGS]);
+    const includedTagsSet = new Set(categorizedCheckedKeys[ColumnTypes.TAGS]);
     ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
-      _.pickBy(tagsList[idx], (t) => !excludedTagsSet.has(t.key)),
+      _.pickBy(tagsList[idx], (t) => includedTagsSet.has(t.key)),
       isParent,
       'div',
       this.handleCellToggle,
-      categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
+      categorizedCheckedKeys[ColumnTypes.ATTRIBUTES],
     ).forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
@@ -376,7 +376,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
       nextPageToken,
       loadingMore,
       handleLoadMoreRuns,
-      categorizedUncheckedKeys,
+      categorizedCheckedKeys,
     } = this.props;
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
@@ -395,7 +395,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
       orderByKey,
       orderByAsc,
       'div',
-      categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
+      categorizedCheckedKeys[ColumnTypes.ATTRIBUTES],
     ).forEach((headerCell) => headerCells.push(headerCell));
 
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
@@ -453,7 +453,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
               cellMeasurerProps.rowHeight = 32;
             }
             const numVisibleMetaColumns =
-              NUM_RUN_METADATA_COLS - categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].length;
+              NUM_RUN_METADATA_COLS - categorizedCheckedKeys[ColumnTypes.ATTRIBUTES].length;
             return [
               <Table
                 key='table'

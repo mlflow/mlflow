@@ -44,7 +44,7 @@ export class RunPageImpl extends Component {
       .then(() => getRunApi(runUuid, this.getRunRequestId));
   };
 
-  renderRunView = (isLoading, shouldRenderError, requests) => {
+  renderRunView = (isLoading, shouldRenderError, requests, asyncRequests) => {
     if (shouldRenderError) {
       const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
       if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
@@ -52,6 +52,7 @@ export class RunPageImpl extends Component {
       }
       return null;
     }
+
     return (
       <RunView
         runUuid={this.props.runUuid}
