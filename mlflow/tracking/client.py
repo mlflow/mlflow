@@ -460,8 +460,9 @@ class MlflowClient(object):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered models. Currently,
-                it supports only a single filter condition as the name of the model, for example, ``name = 'model_name'``
+        :param filter_string: Filter query string, defaults to searching all registered
+                models. Currently, it supports only a single filter condition as the name
+                of the model, for example, ``name = 'model_name'``
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
@@ -486,7 +487,7 @@ class MlflowClient(object):
             for res in results:
                 for mv in res.latest_versions:
                     print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
-            # Get all registered models and order them by ascending order of the registered model names
+            # Get all registered models and order them by ascending order of the names
             results = client.search_registered_models(order_by=["name ASC"])
             print("-" * 80)
             for res in results:
