@@ -683,7 +683,6 @@ def autolog():
             try:
                 acc_score_args = _get_args_for_accuracy_score_classifier(trained_model, args, kwargs)
                 acc_score = sklearn.metrics.accuracy_score(*acc_score_args)
-                print("source accuracy score: ", acc_score)
             except Exception as e:  # pylint: disable=broad-except
                 msg = (
                     self.score.__qualname__
