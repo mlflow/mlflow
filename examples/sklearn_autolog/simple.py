@@ -12,7 +12,7 @@ def fetch_logged_data(run_id):
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
     artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
     return {
-        "keys": data.params,
+        "params": data.params,
         "metrics": data.metrics,
         "tags": tags,
         "artifacts": artifacts,
