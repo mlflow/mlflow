@@ -8,8 +8,8 @@
 import pytorch_lightning as pl
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
 from pytorch_lightning.logging import MLFlowLogger
+from mlflow.pytorch.pytorch_autolog import autolog
 from sklearn.metrics import accuracy_score
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
@@ -231,16 +231,14 @@ if __name__ == "__main__":
     )
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
+    autolog(log_every_n_iter=2)
+
     args = parser.parse_args()
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
     mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT"
     )
-    trainer = pl.Trainer.from_argparse_args(
-        args,
-        logger=mlflow_logger,
-        callbacks=[__MLflowPLCallback(aggregation_step=500)]
-    )
+    trainer = pl.Trainer.from_argparse_args(args, logger=mlflow_logger)
     trainer.fit(model)
     trainer.test()
