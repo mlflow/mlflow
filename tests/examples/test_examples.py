@@ -105,6 +105,8 @@ def test_mlflow_run_example(directory, params, tmpdir):
                 "0.9",
             ],
         ),
+        ("sklearn_autolog", ["python", "simple.py"]),
+        ("sklearn_autolog", ["python", "pipeline.py"]),
     ],
 )
 def test_command_example(directory, command):
