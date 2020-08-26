@@ -566,7 +566,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
-def test_autlog_logs_signature_and_input_example(data_type):
+def test_autolog_logs_signature_and_input_example(data_type):
     mlflow.sklearn.autolog()
 
     X = data_type([[1, 1], [1, 2], [2, 2], [2, 3]])
