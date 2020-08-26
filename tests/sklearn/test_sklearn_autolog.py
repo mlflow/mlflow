@@ -25,6 +25,16 @@ from mlflow.utils.validation import (
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
 ACCURACY_SCORE = "accuracy_score"
+PRECISION_SCORE = "precision_score"
+RECALL_SCORE = "recall_score"
+F1_SCORE = "f1_score"
+MSE = "mse"
+RMSE = "rmse"
+MAE = "mae"
+COMPLETENESS_SCORE = "completeness_score"
+HOMOGENEITY_SCORE = "homogeneity_score"
+V_MEASURE_SCORE = "v_measure_score"
+R2_SCORE = "r2_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
@@ -195,12 +205,65 @@ def test_classifier():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y_true, "fit")
+
     y_pred = model.predict(X)
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y_true),
-                       ACCURACY_SCORE: sklearn.metrics.accuracy_score(y_true, y_pred)}
+                       ACCURACY_SCORE: sklearn.metrics.accuracy_score(y_true, y_pred),
+                       PRECISION_SCORE: sklearn.metrics.precision_score(y_true, y_pred, average='weighted'),
+                       RECALL_SCORE: sklearn.metrics.recall_score(y_true, y_pred, average='weighted'),
+                       F1_SCORE: sklearn.metrics.f1_score(y_true, y_pred, average='weighted')}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+
+
+def test_regressor():
+    mlflow.sklearn.autolog()
+    # use simple `LinearRegression`, which only implements `fit`.
+    model = sklearn.linear_model.LinearRegression()
+    X, y_true = get_iris()
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    y_pred = model.predict(X)
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(X, y_true),
+                       MSE: sklearn.metrics.mean_squared_error(y_true, y_pred),
+                       RMSE: sklearn.metrics.mean_squared_error(y_true, y_pred, squared=False),
+                       MAE: sklearn.metrics.mean_absolute_error(y_true, y_pred),
+                       R2_SCORE: sklearn.metrics.r2_score(y_true, y_pred)}
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+
+
+def test_clusterer(fit_func_name):
+    mlflow.sklearn.autolog()
+    # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
+    model = sklearn.cluster.KMeans()
+    X, y_true = get_iris()
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, fit_func_name)
+
+    y_pred = model.predict(X)
+    run_id = run._info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    assert metrics == {TRAINING_SCORE: model.score(X, y_true),
+                       COMPLETENESS_SCORE: sklearn.metrics.completeness_score(y_true, y_pred),
+                       HOMOGENEITY_SCORE: sklearn.metrics.homogeneity_score(y_true, y_pred),
+                       V_MEASURE_SCORE: sklearn.metrics.v_measure_score(y_true, y_pred, 1.0)}
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 

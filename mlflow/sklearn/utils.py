@@ -13,8 +13,10 @@ _logger = logging.getLogger(__name__)
 # on scikit-learn older than this version.
 _MIN_SKLEARN_VERSION = "0.20.3"
 
-_SAMPLE_WEIGHT = "sample_weight"
 _NORMALIZE = "normalize"
+_SAMPLE_WEIGHT = "sample_weight"
+
+client = mlflow.tracking.MlflowClient()
 
 
 def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -82,52 +84,187 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
     return Xy
 
 
-def _log_accuracy_score_classifier(trained_model, fit_args, fit_kwargs):
+def _log_classifier_metrics(trained_model, fit_args, fit_kwargs):
     """
-    compute and log accuracy_score for classifier
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+    Compute and log various common metrics for classifiers
 
-    By default, we choose the parameter `normalize` to be `True` to output the percentage of accuracy
-    as opposed to `False` that outputs the absolute correct number of sample prediction.
+    For (1) precision score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html#sklearn.metrics.precision_score
+    (2) recall score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html#sklearn.metrics.recall_score
+    (3) f1_score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
+    By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`, `average` to be `weighted` to
+    compute the weighted precision score.
 
+    For accuracy score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+    we choose the parameter `normalize` to be `True` to output the percentage of accuracy
+    as opposed to `False` that outputs the absolute correct number of sample prediction
+
+    Steps:
     1. Extract X and y_true from fit_args and fit_kwargs.
     2. If the sample_weight argument exists in fit_func (accuracy_score by default has sample_weight),
-       extract it from fit_args or fit_kwargs as (y_true, y_pred, normalize, sample_weight),
-       otherwise as (y_true, y_pred, normalize)
-    3. Compute and log accuracy_score
+       extract it from fit_args or fit_kwargs as (y_true, y_pred, ...... sample_weight),
+       otherwise as (y_true, y_pred, ......)
+    3. Compute and log the specific metric
 
-    :param trained_model: the already trained classifier
+    :param trained_model: The already fitted classifier
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
-
-    :returns: NULL
+    :return:
     """
-    try:
-        fit_arg_names = _get_arg_names(trained_model.fit)
+    fit_arg_names = _get_arg_names(trained_model.fit)
 
-        # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
-        # However, certain sklearn models use different variable names for X and y.
-        # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score # noqa: E501
-        X_var_name, y_var_name = fit_arg_names[:2]
-        X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
-        y_pred = trained_model.predict(X)
+    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+    # However, certain sklearn models use different variable names for X and y.
+    X_var_name, y_var_name = fit_arg_names[:2]
+    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    y_pred = trained_model.predict(X)
 
-        acc_score_args = []
-        if _SAMPLE_WEIGHT in fit_arg_names:
-            sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
-            acc_score_args = y_true, y_pred, True, sample_weight
+    # Maintain 2 metrics dictionary to store metrics info
+    # name_obj_metrics_dict stores pairs of <function name, function object>
+    # name_args_metrics_dict stores pairs of <function name, function arguments>
+    name_obj_metrics_dict = {'precision_score': sklearn.metrics.precision_score,
+                             'recall_score': sklearn.metrics.recall_score,
+                             'f1_score': sklearn.metrics.f1_score,
+                             'accuracy_score': sklearn.metrics.accuracy_score}
+    name_args_metrics_dict = {'precision_score': (y_true, y_pred, None, 1, 'weighted'),
+                              'recall_score': (y_true, y_pred, None, 1, 'weighted'),
+                              'f1_score': (y_true, y_pred, None, 1, 'weighted'),
+                              'accuracy_score': (y_true, y_pred, True)}
+
+    for func_name, func_object in name_obj_metrics_dict.items():
+        try:
+            if _SAMPLE_WEIGHT in fit_arg_names:
+                sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+                func_args = *name_args_metrics_dict[func_name], sample_weight
+            else:
+                func_args = name_args_metrics_dict[func_name]
+            func_score = func_object(*func_args)
+        except Exception as e:  # pylint: disable=broad-except
+            msg = (
+                    func_object.__qualname__
+                    + " failed. The " + func_name + " metric will not be recorded. Scoring error: "
+                    + str(e)
+            )
+            _logger.warning(msg)
         else:
-            acc_score_args = y_true, y_pred, True
-        acc_score = sklearn.metrics.accuracy_score(*acc_score_args)
-    except Exception as e:  # pylint: disable=broad-except
-        msg = (
-                sklearn.metrics.accuracy_score.__qualname__
-                + " failed. The 'accuracy_score' metric will not be recorded. Scoring error: "
-                + str(e)
-        )
-        _logger.warning(msg)
-    else:
-        try_mlflow_log(mlflow.log_metric, "accuracy_score", acc_score)
+            # try_mlflow_log(client.log_metric, mlflow.active_run().info.run_id, func_name, func_score)
+            try_mlflow_log(mlflow.log_metric, func_name, func_score)
+
+
+def _log_regressor_metrics(trained_model, fit_args, fit_kwargs):
+    """
+    Compute and log various common metrics for regressors
+
+    For (1) (root) mean squared error: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html#sklearn.metrics.mean_squared_error
+    (2) mean absolute error: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html#sklearn.metrics.mean_absolute_error
+    (3) r2 score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html#sklearn.metrics.r2_score
+    By default, we choose the parameter `multioutput` to be `uniform_average` to average outputs with uniform weight.
+
+    Steps:
+    1. Extract X and y_true from fit_args and fit_kwargs.
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default has sample_weight),
+       extract it from fit_args or fit_kwargs as (y_true, y_pred, sample_weight, multioutput),
+       otherwise as (y_true, y_pred, multioutput)
+    3. Compute and log the specific metric
+
+    :param trained_model: The already fitted regressor
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+    :return:
+    """
+
+    fit_arg_names = _get_arg_names(trained_model.fit)
+    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+    # However, certain sklearn models use different variable names for X and y.
+    X_var_name, y_var_name = fit_arg_names[:2]
+    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    y_pred = trained_model.predict(X)
+
+    # Maintain 2 metrics dictionary to store metrics info
+    # name_obj_metrics_dict stores pairs of <function name, function object>
+    # name_args_metrics_dict stores pairs of <function name, function arguments>
+    name_obj_metrics_dict = {'mse': sklearn.metrics.mean_squared_error,
+                             'rmse': sklearn.metrics.mean_squared_error,
+                             'mae': sklearn.metrics.mean_absolute_error,
+                             'r2_score': sklearn.metrics.r2_score}
+    name_args_metrics_dict = {'mse': (y_true, y_pred),
+                              'rmse': (y_true, y_pred),
+                              'mae': (y_true, y_pred),
+                              'r2_score': (y_true, y_pred)}
+
+    for func_name, func_object in name_obj_metrics_dict.items():
+        try:
+            if _SAMPLE_WEIGHT in fit_arg_names:
+                sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+                func_args = *name_args_metrics_dict[func_name], sample_weight
+            else:
+                func_args = name_args_metrics_dict[func_name]
+            # Always add the multioutput default value 'uniform_average'
+            # A special case for rmse, the last boolean for parameter 'squared' is needed
+            func_args = (*func_args, 'uniform_average', False) \
+                if (func_name == 'rmse') else (*func_args, 'uniform_average')
+            func_score = func_object(*func_args)
+        except Exception as e:  # pylint: disable=broad-except
+            msg = (
+                    func_object.__qualname__
+                    + " failed. The " + func_name + " metric will not be recorded. Scoring error: "
+                    + str(e)
+            )
+            _logger.warning(msg)
+        else:
+            # try_mlflow_log(client.log_metric, mlflow.active_run().info.run_id, func_name, func_score)
+            try_mlflow_log(mlflow.log_metric, func_name, func_score)
+
+
+def log_clusterer_metrics(trained_model, fit_args, fit_kwargs):
+    """
+    Compute and log various common metrics for clusterers
+
+    For (1) completeness score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.completeness_score.html#sklearn.metrics.completeness_score
+    (2) homogeneity score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.homogeneity_score.html#sklearn.metrics.homogeneity_score
+    (3) v-measure score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.v_measure_score.html#sklearn.metrics.v_measure_score
+    By default, we choose the parameter 'beta' for v-measure score to be 1.0.
+
+    Steps:
+    1. Extract X and y_true from fit_args and fit_kwargs.
+    2. Compute and log the specific metric
+
+    :param trained_model: The already fitted clusterer
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+    :return:
+    """
+    fit_arg_names = _get_arg_names(trained_model.fit)
+
+    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+    # However, certain sklearn models use different variable names for X and y.
+    X_var_name, y_var_name = fit_arg_names[:2]
+    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    y_pred = trained_model.predict(X)
+
+    # Maintain 2 metrics dictionary to store metrics info
+    # name_obj_metrics_dict stores pairs of <function name, function object>
+    # name_args_metrics_dict stores pairs of <function name, function arguments>
+    name_obj_metrics_dict = {'completeness_score': sklearn.metrics.completeness_score,
+                             'homogeneity_score': sklearn.metrics.homogeneity_score,
+                             'v_measure_score': sklearn.metrics.v_measure_score}
+    name_args_metrics_dict = {'completeness_score': (y_true, y_pred),
+                              'homogeneity_score': (y_true, y_pred),
+                              'v_measure_score': (y_true, y_pred, 1.0)}
+
+    for func_name, func_object in name_obj_metrics_dict.items():
+        try:
+            func_args = name_args_metrics_dict[func_name]
+            func_score = func_object(*func_args)
+        except Exception as e:  # pylint: disable=broad-except
+            msg = (
+                    func_object.__qualname__
+                    + " failed. The " + func_name + " metric will not be recorded. Scoring error: "
+                    + str(e)
+            )
+            _logger.warning(msg)
+        else:
+            # try_mlflow_log(client.log_metric, mlflow.active_run().info.run_id, func_name, func_score)
+            try_mlflow_log(mlflow.log_metric, func_name, func_score)
 
 
 def _chunk_dict(d, chunk_size):

@@ -606,7 +606,9 @@ def autolog():
         _is_supported_version,
         _chunk_dict,
         _get_args_for_score,
-        _log_accuracy_score_classifier,
+        _log_classifier_metrics,
+        _log_regressor_metrics,
+        log_clusterer_metrics,
         _all_estimators,
         _truncate_dict,
     )
@@ -677,8 +679,15 @@ def autolog():
         try_mlflow_log(log_model, self, artifact_path="model")
 
         # If the estimator is of classifier type, then log corresponding metrics
-        if self._estimator_type == _CLASSIFIER:
-            _log_accuracy_score_classifier(self, args, kwargs)
+        # Same for the following regressor, clusterer
+        if sklearn.base.is_classifier(self):
+            _log_classifier_metrics(self, args, kwargs)
+
+        if sklearn.base.is_regressor(self):
+            _log_regressor_metrics(self, args, kwargs)
+
+        if hasattr(self, "_estimator_type") and self._estimator_type == "clusterer":
+            log_clusterer_metrics(self, args, kwargs)
 
         if should_start_run:
             try_mlflow_log(mlflow.end_run)
