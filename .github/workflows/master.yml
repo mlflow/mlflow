@@ -270,3 +270,4 @@ jobs:
       - name: mlflow run
         run: |
           mlflow run https://github.com/harupy/mlflow-example.git -P alpha=5.0
+          python -c "import os; print('\n'.join([os.path.join(r, f) for r, ds, fs in os.walk('mlruns') for f in fs]))"
