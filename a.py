@@ -11,7 +11,6 @@ if __name__ == "__main__":
         lr = ElasticNet()
         mlflow.sklearn.log_model(lr, "model")
 
-    print('\n'.join([os.path.join(r, f) for r, ds, fs in os.walk('mlruns') for f in fs]))
-
     for r, ds, fs in os.walk("mlruns"):
-        print([os.path.join() for f in fs])
+        for f in fs:
+            print(os.path.join(r, f))
