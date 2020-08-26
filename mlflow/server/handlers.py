@@ -610,7 +610,9 @@ def _wrap_response(response_message):
 def _create_registered_model():
     request_message = _get_request_message(CreateRegisteredModel())
     registered_model = _get_model_registry_store().create_registered_model(
-        name=request_message.name, tags=request_message.tags
+        name=request_message.name,
+        tags=request_message.tags,
+        description=request_message.description,
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
@@ -722,6 +724,7 @@ def _create_model_version():
         run_id=request_message.run_id,
         run_link=request_message.run_link,
         tags=request_message.tags,
+        description=request_message.description,
     )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)

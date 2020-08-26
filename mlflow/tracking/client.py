@@ -398,17 +398,18 @@ class MlflowClient(object):
     # Registered Model Methods
 
     @experimental
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
+        :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
-        return self._get_registry_client().create_registered_model(name, tags)
+        return self._get_registry_client().create_registered_model(name, tags, description)
 
     @experimental
     def rename_registered_model(self, name, new_name):
@@ -537,7 +538,9 @@ class MlflowClient(object):
     # Model Version Methods
 
     @experimental
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(
+        self, name, source, run_id, tags=None, run_link=None, description=None
+    ):
         """
         Create a new model version from given source (artifact URI).
 
@@ -547,6 +550,7 @@ class MlflowClient(object):
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
@@ -572,7 +576,12 @@ class MlflowClient(object):
                 + " `source` field of the created model version. ==="
             )
         return self._get_registry_client().create_model_version(
-            name=name, source=new_source, run_id=run_id, tags=tags, run_link=run_link
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
         )
 
     def _get_run_link(self, tracking_uri, run_id):
