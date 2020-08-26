@@ -252,6 +252,13 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: 3.7
+      - name: Add miniconda to PATH
+        run: |
+          echo "::add-path::C:\Miniconda"
+          echo "::add-path::C:\Miniconda\Scripts"
+      - name: Run conda init
+        run: |
+          conda init powershell
       - name: Install dependecies
         run: |
           pip install -e .
