@@ -14,7 +14,7 @@ from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer
 
-from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
+from mlflow.pytorch.pytorch_autolog import autolog
 
 
 class GPReviewDataset(Dataset):
@@ -274,6 +274,8 @@ if __name__ == "__main__":
     )
     parser = BertSentinmentClassifier.add_model_specific_args(parent_parser=parser)
 
+    autolog()
+
     args = parser.parse_args()
     dict_args = vars(args)
     model = BertSentinmentClassifier(**dict_args)
@@ -295,7 +297,7 @@ if __name__ == "__main__":
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=mlflow_logger,
-        callbacks=[__MLflowPLCallback(), lr_logger],
+        callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
         train_percent_check=0.1,
