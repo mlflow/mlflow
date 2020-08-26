@@ -53,6 +53,8 @@ class LocalArtifactRepository(ArtifactRepository):
         artifact_dir = (
             os.path.join(self.artifact_dir, artifact_path) if artifact_path else self.artifact_dir
         )
+        print("z" * 100)
+        print(local_dir, artifact_dir)
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
         dir_util.copy_tree(src=local_dir, dst=artifact_dir, preserve_mode=0, preserve_times=0)
