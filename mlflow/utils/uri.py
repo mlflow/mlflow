@@ -54,7 +54,7 @@ def validate_db_scope_prefix_info(scope, prefix):
     if prefix is not None and prefix.strip() == "":
         raise MlflowException(
             "Unsupported Databricks profile key prefix: '%s'." % prefix
-            + " Key prefixes cannot be empty'%s'." % c
+            + " Key prefixes cannot be empty."
         )
 
 
