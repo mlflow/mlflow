@@ -67,8 +67,9 @@ def test_parse_models_uri_invalid_input(uri):
         ModelsArtifactRepository._parse_uri(uri)
 
 
-@pytest.mark.parametrize('artifact_location',
-                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+@pytest.mark.parametrize(
+    "artifact_location", ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"]
+)
 def test_models_artifact_repo_init_with_version_uri(
     host_creds_mock, mock_get_model_version_download_uri, artifact_location
 ):  # pylint: disable=unused-argument
@@ -90,10 +91,12 @@ def test_models_artifact_repo_init_with_version_uri(
             "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
         )
 
-@pytest.mark.parametrize('artifact_location',
-                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+
+@pytest.mark.parametrize(
+    "artifact_location", ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"]
+)
 def test_models_artifact_repo_init_with_version_uri_and_db_profile(
-    mock_get_model_version_download_uri
+    mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     model_uri = "models://profile@databricks/MyModel/12"
     final_uri = "dbfs://profile@databricks/databricks/mlflow-registry/12345/models/keras-model"
@@ -106,10 +109,11 @@ def test_models_artifact_repo_init_with_version_uri_and_db_profile(
         mock_repo.assert_called_once_with(final_uri)
 
 
-@pytest.mark.parametrize('artifact_location',
-                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+@pytest.mark.parametrize(
+    "artifact_location", ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"]
+)
 def test_models_artifact_repo_init_with_version_uri_and_db_profile_from_context(
-        mock_get_model_version_download_uri
+    mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/12"
     with mock.patch(
@@ -123,10 +127,11 @@ def test_models_artifact_repo_init_with_version_uri_and_db_profile_from_context(
         )
 
 
-@pytest.mark.parametrize('artifact_location',
-                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+@pytest.mark.parametrize(
+    "artifact_location", ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"]
+)
 def test_models_artifact_repo_init_with_version_uri_and_bad_db_profile_from_context(
-    mock_get_model_version_download_uri
+    mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/12"
     with mock.patch("mlflow.get_registry_uri", return_value="databricks://scope:key:invalid"):
@@ -135,8 +140,9 @@ def test_models_artifact_repo_init_with_version_uri_and_bad_db_profile_from_cont
         assert "Key prefixes cannot contain" in ex.value.message
 
 
-@pytest.mark.parametrize('artifact_location',
-                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+@pytest.mark.parametrize(
+    "artifact_location", ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"]
+)
 def test_models_artifact_repo_init_with_stage_uri(
     host_creds_mock, mock_get_model_version_download_uri, artifact_location
 ):  # pylint: disable=unused-argument
@@ -162,10 +168,11 @@ def test_models_artifact_repo_init_with_stage_uri(
         assert models_repo.repo.artifact_uri == artifact_location
 
 
-@pytest.mark.parametrize('artifact_location',
-                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+@pytest.mark.parametrize(
+    "artifact_location", ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"]
+)
 def test_models_artifact_repo_init_with_stage_uri_and_db_profile(
-    mock_get_model_version_download_uri
+    mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     model_uri = "models://profile@databricks/MyModel/Staging"
     final_uri = "dbfs://profile@databricks/databricks/mlflow-registry/12345/models/keras-model"
@@ -192,9 +199,9 @@ def test_models_artifact_repo_init_with_stage_uri_and_db_profile(
         mock_repo.assert_called_once_with(final_uri)
 
 
-@pytest.mark.parametrize('artifact_location', ["s3://blah_bucket/"])
+@pytest.mark.parametrize("artifact_location", ["s3://blah_bucket/"])
 def test_models_artifact_repo_uses_repo_download_artifacts(
-    mock_get_model_version_download_uri
+    mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     """
     ``ModelsArtifactRepository`` should delegate `download_artifacts` to its
