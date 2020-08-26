@@ -189,7 +189,7 @@ def test_estimator(fit_func_name):
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -287,8 +287,7 @@ def test_meta_estimator():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    # Added new metrics for classifier so the metrics will have additional ACCURACY_SCORE
-    # assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -308,7 +307,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
     assert params == large_params
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -346,7 +345,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run._info.run_id)
     assert params == truncate_dict(long_params)
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -371,7 +370,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -404,7 +403,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -443,7 +442,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -476,7 +475,7 @@ def test_only_fit_contains_sample_weight():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -509,7 +508,7 @@ def test_only_score_contains_sample_weight():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -557,8 +556,29 @@ def test_autolog_emits_warning_message_when_score_fails():
             "Scoring error: EXCEPTION"
         )
 
-    metrics = get_run_data(run._info.run_id)[1]
-    assert metrics == {}
+
+def test_autolog_emits_warning_message_when_metric_fails():
+    """
+    Take completeness_score metric from clusterer as an example to test metric logging failure
+    :return: NULL
+    """
+    mlflow.sklearn.autolog()
+
+    model = sklearn.cluster.KMeans()
+
+    @functools.wraps(model.score)
+    def throwing_score(y_true, y_pred):  # pylint: disable=unused-argument
+        raise Exception("EXCEPTION")
+
+    sklearn.metrics.completeness_score = throwing_score
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+        model.fit(*get_iris())
+        mock_warning.assert_called_once()
+        mock_warning.called_once_with(
+            "KMeans.completeness_score failed. The 'completeness_score' metric will not be recorded. "
+            "Error: EXCEPTION"
+        )
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
