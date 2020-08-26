@@ -259,3 +259,7 @@ jobs:
       - name: Run tests
         run: |
           python a.py
+
+      - name: mlflow run
+        run: |
+          mlflow run https://github.com/harupy/mlflow-example.git -P alpha=5.0
