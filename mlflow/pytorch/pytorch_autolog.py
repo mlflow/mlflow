@@ -27,9 +27,6 @@ def autolog(log_every_n_iter=1, aggregation_step=None):
             Log loss and other metrics values after each epoch
             """
             if (pl_module.current_epoch - 1) % every_n_iter == 0:
-                print("*" * 100)
-                print(pl_module.current_epoch)
-                print("*" * 100)
                 metrics = trainer.callback_metrics
 
                 if aggregation_step:

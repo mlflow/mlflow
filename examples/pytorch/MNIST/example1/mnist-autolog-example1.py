@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 import os
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
+from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateLogger
@@ -221,7 +221,7 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
+        "--max_epochs", type=int, default=20, help="number of epochs to run (default: 20)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
@@ -234,11 +234,13 @@ if __name__ == "__main__":
     )
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
+    autolog()
+
     args = parser.parse_args()
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
     mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+        experiment_name="EXPERIMENT", tracking_uri="http://IP:PORT/"
     )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
@@ -255,7 +257,7 @@ if __name__ == "__main__":
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=mlflow_logger,
-        callbacks=[__MLflowPLCallback(), lr_logger],
+        callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
         train_percent_check=0.1,
