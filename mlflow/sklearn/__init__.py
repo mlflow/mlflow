@@ -625,10 +625,6 @@ def autolog():
             stacklevel=2,
         )
 
-    _CLASSIFIER = "classifier"
-    _REGRESSOR = "regressor"
-    _CLUSTERER = "clusterer"
-
     def fit_mlflow(self, func_name, *args, **kwargs):
         should_start_run = mlflow.active_run() is None
         if should_start_run:
