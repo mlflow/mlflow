@@ -31,10 +31,11 @@ def main():
     model = LinearRegression()
     with mlflow.start_run() as run:
         model.fit(X, y)
+        print("Logged data and model in run {}".format(run.info.run_id))
 
     # show logged data
     for key, data in fetch_logged_data(run._info.run_id).items():
-        print("-" * 10, key, "-" * 10)
+        print("\n---------- logged {} ----------".format(key))
         pprint(data)
 
 
