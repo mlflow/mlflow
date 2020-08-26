@@ -433,6 +433,18 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
             start_run(run_id)
 
 
+def test_start_run_status_running(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.DELETED
+
+    run_id = uuid.uuid4().hex
+
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        with pytest.raises(MlflowException):
+            run = start_run(run_id)
+            assert run.info.status == RunStatus.FINISHED
+
+
 def test_get_run():
     run_id = uuid.uuid4().hex
     mock_run = mock.Mock()
