@@ -244,3 +244,4 @@ jobs:
       - name: Run tests
         run: |
           pytest --verbose --ignore-flavors --ignore=tests/projects tests
+
