@@ -8,7 +8,7 @@ moto==1.3.7
 h2o==3.22.1.4
 onnx==1.4.1;
 onnxmltools==1.4.0;
-onnxruntime==0.3.0;
+onnxruntime
 mleap==0.16.0
 mxnet==1.5.0
 pyarrow==0.17.0
