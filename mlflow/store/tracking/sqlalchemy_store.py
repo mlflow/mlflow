@@ -442,12 +442,11 @@ class SqlAlchemyStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-    def update_run_info(self, run_id, run_status, start_time, end_time):
+    def update_run_info(self, run_id, run_status, end_time):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
-            run.start_time = start_time
             run.end_time = end_time
 
             self._save_to_db(objs=run, session=session)

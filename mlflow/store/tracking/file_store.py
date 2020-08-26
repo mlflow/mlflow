@@ -441,11 +441,11 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
         return None, None
 
-    def update_run_info(self, run_id, run_status, start_time, end_time):
+    def update_run_info(self, run_id, run_status, end_time):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, start_time, end_time)
+        new_info = run_info._copy_with_overrides(run_status, end_time)
         self._overwrite_run_info(new_info)
         return new_info
 

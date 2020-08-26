@@ -323,19 +323,17 @@ class TrackingServiceClient(object):
         end_time = end_time if end_time else int(time.time() * 1000)
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
         self.store.update_run_info(
-            run_id, run_status=RunStatus.from_string(status), start_time=None, end_time=end_time
+            run_id, run_status=RunStatus.from_string(status), end_time=end_time
         )
 
-    def set_running(self, run_id, status=None, start_time=None):
+    def set_running(self, run_id, status=None):
         """Set a run's status to running.
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
-                       Defaults to "FINISHED".
-        :param start_time: If not provided, defaults to the current time."""
-        start_time = start_time if start_time else int(time.time() * 1000)
+                       Defaults to "FINISHED"."""
         status = status if status else RunStatus.to_string(RunStatus.RUNNING)
         self.store.update_run_info(
-            run_id, run_status=RunStatus.from_string(status), start_time=start_time, end_time=None
+            run_id, run_status=RunStatus.from_string(status), end_time=None
         )
 
     def delete_run(self, run_id):
