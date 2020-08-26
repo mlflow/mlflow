@@ -462,7 +462,9 @@ class MlflowClient(object):
 
         :param filter_string: Filter query string, defaults to searching all registered
                 models. Currently, it supports only a single filter condition as the name
-                of the model, for example, ``name = 'model_name'``
+                of the model, for example, ``name = 'model_name'`` or a search expression
+                to match a pattern in the registered model name.
+                For example, ``name LIKE 'Boston%'`` or ``name ILIKE '%Forecast%'``.
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
@@ -477,16 +479,25 @@ class MlflowClient(object):
 
             import mlflow
 
-            model_name="CordobaWeatherForecastModel"
-            filter_string = "name='{}'".format(model_name)
             client = mlflow.tracking.MlflowClient()
 
             # Get search results filtered by the registered model name
+            model_name="CordobaWeatherForecastModel"
+            filter_string = "name='{}'".format(model_name)
             results = client.search_registered_models(filter_string=filter_string)
             print("-" * 80)
             for res in results:
                 for mv in res.latest_versions:
                     print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+            # Get search results filtered by the registered model name that matches
+            # prefix pattern
+            filter_string = "name LIKE 'Boston%'"
+            results = client.search_registered_models(filter_string=filter_string)
+            for res in results:
+                for mv in res.latest_versions:
+                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
             # Get all registered models and order them by ascending order of the names
             results = client.search_registered_models(order_by=["name ASC"])
             print("-" * 80)
@@ -501,6 +512,9 @@ class MlflowClient(object):
             name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
             name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
             ------------------------------------------------------------------------------------
+            name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
+            name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
+            -----------------------------------------------------------------------------------
             name=AzureWeatherForecastModel; run_id=5fcec6c4f1c947fc9295fef3fa21e52d; version=1
             name=AzureWeatherForecastModel; run_id=8198cb997692417abcdeb62e99052260; version=3
             name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
@@ -714,19 +728,20 @@ class MlflowClient(object):
 
             import mlflow
 
-            model_name = "CordobaWeatherForecastModel"
-            run_id = "e14afa2f47a040728060c1699968fd43"
-            filter_name = "name='{}'".format(model_name)
-            filter_runid = "run_id='{}'".format(run_id)
             client = mlflow.tracking.MlflowClient()
 
             # Get all versions of the model filtered by name
-            results = client.search_model_versions(filter_name)
+            model_name = "CordobaWeatherForecastModel"
+            filter_string = "name='{}'".format(model_name)
+            results = client.search_model_versions(filter_string)
             print("-" * 80)
             for res in results:
                 print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+
             # Get the version of the model filtered by run_id
-            results = client.search_model_versions(filter_runid)
+            run_id = "e14afa2f47a040728060c1699968fd43"
+            filter_string = "run_id='{}'".format(run_id)
+            results = client.search_model_versions(filter_string)
             print("-" * 80)
             for res in results:
                 print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
