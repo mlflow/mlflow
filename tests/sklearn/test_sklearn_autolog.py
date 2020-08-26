@@ -210,11 +210,13 @@ def test_classifier():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y_true),
-                       ACCURACY_SCORE: sklearn.metrics.accuracy_score(y_true, y_pred),
-                       PRECISION_SCORE: sklearn.metrics.precision_score(y_true, y_pred, average='weighted'),
-                       RECALL_SCORE: sklearn.metrics.recall_score(y_true, y_pred, average='weighted'),
-                       F1_SCORE: sklearn.metrics.f1_score(y_true, y_pred, average='weighted')}
+    assert metrics == {
+        TRAINING_SCORE: model.score(X, y_true),
+        ACCURACY_SCORE: sklearn.metrics.accuracy_score(y_true, y_pred),
+        PRECISION_SCORE: sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
+        RECALL_SCORE: sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        F1_SCORE: sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+    }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -235,11 +237,13 @@ def test_regressor():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y_true),
-                       MSE: sklearn.metrics.mean_squared_error(y_true, y_pred),
-                       RMSE: sklearn.metrics.mean_squared_error(y_true, y_pred, squared=False),
-                       MAE: sklearn.metrics.mean_absolute_error(y_true, y_pred),
-                       R2_SCORE: sklearn.metrics.r2_score(y_true, y_pred)}
+    assert metrics == {
+        TRAINING_SCORE: model.score(X, y_true),
+        MSE: sklearn.metrics.mean_squared_error(y_true, y_pred),
+        RMSE: sklearn.metrics.mean_squared_error(y_true, y_pred, squared=False),
+        MAE: sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        R2_SCORE: sklearn.metrics.r2_score(y_true, y_pred),
+    }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -260,10 +264,12 @@ def test_clusterer(fit_func_name):
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y_true),
-                       COMPLETENESS_SCORE: sklearn.metrics.completeness_score(y_true, y_pred),
-                       HOMOGENEITY_SCORE: sklearn.metrics.homogeneity_score(y_true, y_pred),
-                       V_MEASURE_SCORE: sklearn.metrics.v_measure_score(y_true, y_pred, 1.0)}
+    assert metrics == {
+        TRAINING_SCORE: model.score(X, y_true),
+        COMPLETENESS_SCORE: sklearn.metrics.completeness_score(y_true, y_pred),
+        HOMOGENEITY_SCORE: sklearn.metrics.homogeneity_score(y_true, y_pred),
+        V_MEASURE_SCORE: sklearn.metrics.v_measure_score(y_true, y_pred, 1.0),
+    }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -572,7 +578,9 @@ def test_autolog_emits_warning_message_when_metric_fails():
 
     sklearn.metrics.completeness_score = throwing_score
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning:
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(

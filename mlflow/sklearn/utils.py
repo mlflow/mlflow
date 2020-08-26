@@ -130,19 +130,23 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
 
     # Maintain a metrics dictionary to store metrics info
     # name_args_func_metrics_dict stores pairs of (function name, (function arguments, function call))
-    metrics_dict_classifier = {'precision_score':
-                               ((y_true, y_pred, None, 1, 'weighted'), sklearn.metrics.precision_score),
-                               'recall_score': ((y_true, y_pred, None, 1, 'weighted'), sklearn.metrics.recall_score),
-                               'f1_score': ((y_true, y_pred, None, 1, 'weighted'), sklearn.metrics.f1_score),
-                               'accuracy_score': ((y_true, y_pred, True), sklearn.metrics.accuracy_score)}
+    metrics_dict_classifier = {
+        "precision_score": ((y_true, y_pred, None, 1, "weighted"), sklearn.metrics.precision_score),
+        "recall_score": ((y_true, y_pred, None, 1, "weighted"), sklearn.metrics.recall_score),
+        "f1_score": ((y_true, y_pred, None, 1, "weighted"), sklearn.metrics.f1_score),
+        "accuracy_score": ((y_true, y_pred, True), sklearn.metrics.accuracy_score),
+    }
 
     name_score_dict = {}
     for func_name, func_args_call in metrics_dict_classifier.items():
         try:
             func_args = func_args_call[0]
             func_call = func_args_call[1]
-            sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs) \
-                if _SAMPLE_WEIGHT in fit_arg_names else None
+            sample_weight = (
+                _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+                if _SAMPLE_WEIGHT in fit_arg_names
+                else None
+            )
             func_args = (*func_args, sample_weight)
 
             func_score = func_call(*func_args)
@@ -185,23 +189,28 @@ def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
 
     # Maintain a metrics dictionary to store metrics info
     # name_args_func_metrics_dict stores pairs of (function name, (function arguments, function call))
-    metrics_dict_regressor = {'mse': ((y_true, y_pred), sklearn.metrics.mean_squared_error),
-                              'rmse': ((y_true, y_pred), sklearn.metrics.mean_squared_error),
-                              'mae': ((y_true, y_pred), sklearn.metrics.mean_absolute_error),
-                              'r2_score': ((y_true, y_pred), sklearn.metrics.r2_score)}
+    metrics_dict_regressor = {
+        "mse": ((y_true, y_pred), sklearn.metrics.mean_squared_error),
+        "rmse": ((y_true, y_pred), sklearn.metrics.mean_squared_error),
+        "mae": ((y_true, y_pred), sklearn.metrics.mean_absolute_error),
+        "r2_score": ((y_true, y_pred), sklearn.metrics.r2_score),
+    }
 
     name_score_dict = {}
     for func_name, func_args_call in metrics_dict_regressor.items():
         try:
             func_args = func_args_call[0]
             func_call = func_args_call[1]
-            sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs) \
-                if _SAMPLE_WEIGHT in fit_arg_names else None
+            sample_weight = (
+                _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+                if _SAMPLE_WEIGHT in fit_arg_names
+                else None
+            )
             # Always add the multioutput default value 'uniform_average'
-            func_args = (*func_args, sample_weight, 'uniform_average')
+            func_args = (*func_args, sample_weight, "uniform_average")
 
             # For a special case of rmse, the last boolean for parameter 'squared' is needed and should be False
-            func_args = (*func_args, False) if (func_name == 'rmse') else func_args
+            func_args = (*func_args, False) if (func_name == "rmse") else func_args
             func_score = func_call(*func_args)
         except Exception as e:  # pylint: disable=broad-except
             _log_warning(func_name, func_call, e)
@@ -240,9 +249,11 @@ def _get_clusterer_metrics(trained_estimator, fit_args, fit_kwargs):
 
     # Maintain a metrics dictionary to store metrics info
     # name_args_func_metrics_dict stores pairs of (function name, (function arguments, function call))
-    metrics_dict_clusterer = {'completeness_score': ((y_true, y_pred), sklearn.metrics.completeness_score),
-                              'homogeneity_score': ((y_true, y_pred), sklearn.metrics.homogeneity_score),
-                              'v_measure_score': ((y_true, y_pred, 1.0), sklearn.metrics.v_measure_score)}
+    metrics_dict_clusterer = {
+        "completeness_score": ((y_true, y_pred), sklearn.metrics.completeness_score),
+        "homogeneity_score": ((y_true, y_pred), sklearn.metrics.homogeneity_score),
+        "v_measure_score": ((y_true, y_pred, 1.0), sklearn.metrics.v_measure_score),
+    }
 
     name_score_dict = {}
     for func_name, func_args_call in metrics_dict_clusterer.items():
@@ -250,7 +261,7 @@ def _get_clusterer_metrics(trained_estimator, fit_args, fit_kwargs):
             func_args = func_args_call[0]
             func_call = func_args_call[1]
             func_score = func_call(*func_args)
-            print('name {0}, value {1}'.format(func_name, func_score))
+            print("name {0}, value {1}".format(func_name, func_score))
         except Exception as e:  # pylint: disable=broad-except
             _log_warning(func_name, func_call, e)
         else:
@@ -261,11 +272,13 @@ def _get_clusterer_metrics(trained_estimator, fit_args, fit_kwargs):
 
 def _log_warning(func_name, func_call, err):
     msg = (
-            func_call.__qualname__
-            + " failed. The " + func_name + " metric will not be recorded. Error: "
-            + str(err)
+        func_call.__qualname__
+        + " failed. The "
+        + func_name
+        + " metric will not be recorded. Error: "
+        + str(err)
     )
-    print('Exception name {0}'.format(func_name))
+    print("Exception name {0}".format(func_name))
     _logger.warning(msg)
 
 
@@ -277,13 +290,21 @@ def _log_specialized_estimator_content(trained_estimator, run_id, fit_args, fit_
         name_score_dict = _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs)
     elif sklearn.base.is_regressor(trained_estimator):
         name_score_dict = _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs)
-    elif hasattr(trained_estimator, "_estimator_type") and trained_estimator._estimator_type == "clusterer":
+    elif (
+        hasattr(trained_estimator, "_estimator_type")
+        and trained_estimator._estimator_type == "clusterer"
+    ):
         name_score_dict = _get_clusterer_metrics(trained_estimator, fit_args, fit_kwargs)
 
     # batch log all metrics
-    try_mlflow_log(MlflowClient().log_batch, run_id,
-                   metrics=[Metric(key=str(key), value=value, timestamp=time.time() * 1000, step=0)
-                            for key, value in name_score_dict.items()])
+    try_mlflow_log(
+        MlflowClient().log_batch,
+        run_id,
+        metrics=[
+            Metric(key=str(key), value=value, timestamp=time.time() * 1000, step=0)
+            for key, value in name_score_dict.items()
+        ],
+    )
 
 
 def _chunk_dict(d, chunk_size):
