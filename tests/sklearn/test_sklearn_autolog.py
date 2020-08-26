@@ -624,8 +624,6 @@ def test_meta_estimator_fit_performs_logging_only_once():
         with mlflow.start_run() as run:
             model.fit(X, y)
             mock_log_params.assert_called_once()
-            # the log_metric API gets called twice, with additional metric get logged.
-            # mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
