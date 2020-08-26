@@ -464,7 +464,8 @@ class MlflowClient(object):
                 models. Currently, it supports only a single filter condition as the name
                 of the model, for example, ``name = 'model_name'`` or a search expression
                 to match a pattern in the registered model name.
-                For example, ``name LIKE 'Boston%'`` or ``name ILIKE '%Forecast%'``.
+                For example, ``name LIKE 'Boston%'`` (case sensitive) or
+                ``name ILIKE '%boston%'`` (case insensitive).
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
