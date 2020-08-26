@@ -12,6 +12,14 @@ from mlflow.tracking import MlflowClient
 from tests.store.artifact.test_dbfs_artifact_repo_delegation import host_creds_mock
 
 
+@pytest.fixture
+def mock_get_model_version_download_uri(artifact_location):
+    with mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+    ) as mockval:
+        yield mockval.return_value
+
+
 @pytest.mark.parametrize(
     "uri, expected_name, expected_version",
     [
@@ -59,22 +67,20 @@ def test_parse_models_uri_invalid_input(uri):
         ModelsArtifactRepository._parse_uri(uri)
 
 
+@pytest.mark.parametrize('artifact_location',
+                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
 def test_models_artifact_repo_init_with_version_uri(
-    host_creds_mock,
+    host_creds_mock, mock_get_model_version_download_uri, artifact_location
 ):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/12"
-    artifact_location = "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
-    get_model_version_download_uri_patch = mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    )
-    with get_model_version_download_uri_patch:
-        models_repo = ModelsArtifactRepository(model_uri)
-        assert models_repo.artifact_uri == model_uri
-        assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
-        assert models_repo.repo.artifact_uri == artifact_location
+    models_repo = ModelsArtifactRepository(model_uri)
+    assert models_repo.artifact_uri == model_uri
+    assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
+    assert models_repo.repo.artifact_uri == artifact_location
+
     # Also confirm that since no databricks:// registry|tracking URI is set in the environment,
     # databricks profile information not is added to the final DBFS URI.
-    with get_model_version_download_uri_patch, mock.patch(
+    with mock.patch(
         "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
     ) as mock_repo:
         models_repo = ModelsArtifactRepository(model_uri)
@@ -84,15 +90,14 @@ def test_models_artifact_repo_init_with_version_uri(
             "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
         )
 
-
-def test_models_artifact_repo_init_with_version_uri_and_db_profile():
+@pytest.mark.parametrize('artifact_location',
+                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+def test_models_artifact_repo_init_with_version_uri_and_db_profile(
+    mock_get_model_version_download_uri
+):  # pylint: disable=unused-argument
     model_uri = "models://profile@databricks/MyModel/12"
-    artifact_location = "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
     final_uri = "dbfs://profile@databricks/databricks/mlflow-registry/12345/models/keras-model"
-    get_model_version_download_uri_patch = mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    )
-    with get_model_version_download_uri_patch, mock.patch(
+    with mock.patch(
         "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
     ) as mock_repo:
         models_repo = ModelsArtifactRepository(model_uri)
@@ -101,13 +106,13 @@ def test_models_artifact_repo_init_with_version_uri_and_db_profile():
         mock_repo.assert_called_once_with(final_uri)
 
 
-def test_models_artifact_repo_init_with_version_uri_and_db_profile_from_context():
+@pytest.mark.parametrize('artifact_location',
+                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+def test_models_artifact_repo_init_with_version_uri_and_db_profile_from_context(
+        mock_get_model_version_download_uri
+):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/12"
-    artifact_location = "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
-    get_model_version_download_uri_patch = mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    )
-    with get_model_version_download_uri_patch, mock.patch(
+    with mock.patch(
         "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
     ) as mock_repo, mock.patch("mlflow.get_registry_uri", return_value="databricks://scope:key"):
         models_repo = ModelsArtifactRepository(model_uri)
@@ -118,11 +123,24 @@ def test_models_artifact_repo_init_with_version_uri_and_db_profile_from_context(
         )
 
 
+@pytest.mark.parametrize('artifact_location',
+                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+def test_models_artifact_repo_init_with_version_uri_and_bad_db_profile_from_context(
+    mock_get_model_version_download_uri
+):  # pylint: disable=unused-argument
+    model_uri = "models:/MyModel/12"
+    with mock.patch("mlflow.get_registry_uri", return_value="databricks://scope:key:invalid"):
+        with pytest.raises(MlflowException) as ex:
+            ModelsArtifactRepository(model_uri)
+        assert "Key prefixes cannot contain" in ex.value.message
+
+
+@pytest.mark.parametrize('artifact_location',
+                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
 def test_models_artifact_repo_init_with_stage_uri(
-    host_creds_mock,
+    host_creds_mock, mock_get_model_version_download_uri, artifact_location
 ):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/Production"
-    artifact_location = "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
     model_version_detailed = ModelVersion(
         "MyModel",
         "10",
@@ -137,19 +155,19 @@ def test_models_artifact_repo_init_with_stage_uri(
     get_latest_versions_patch = mock.patch.object(
         MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
     )
-    get_model_version_download_uri_patch = mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    )
-    with get_latest_versions_patch, get_model_version_download_uri_patch:
+    with get_latest_versions_patch:
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
         assert models_repo.repo.artifact_uri == artifact_location
 
 
-def test_models_artifact_repo_init_with_stage_uri_and_db_profile():
+@pytest.mark.parametrize('artifact_location',
+                         ["dbfs:/databricks/mlflow-registry/12345/models/keras-model"])
+def test_models_artifact_repo_init_with_stage_uri_and_db_profile(
+    mock_get_model_version_download_uri
+):  # pylint: disable=unused-argument
     model_uri = "models://profile@databricks/MyModel/Staging"
-    artifact_location = "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
     final_uri = "dbfs://profile@databricks/databricks/mlflow-registry/12345/models/keras-model"
     model_version_detailed = ModelVersion(
         "MyModel",
@@ -165,10 +183,7 @@ def test_models_artifact_repo_init_with_stage_uri_and_db_profile():
     get_latest_versions_patch = mock.patch.object(
         MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
     )
-    get_model_version_download_uri_patch = mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    )
-    with get_latest_versions_patch, get_model_version_download_uri_patch, mock.patch(
+    with get_latest_versions_patch, mock.patch(
         "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
     ) as mock_repo:
         models_repo = ModelsArtifactRepository(model_uri)
@@ -177,18 +192,16 @@ def test_models_artifact_repo_init_with_stage_uri_and_db_profile():
         mock_repo.assert_called_once_with(final_uri)
 
 
-def test_models_artifact_repo_uses_repo_download_artifacts():
+@pytest.mark.parametrize('artifact_location', ["s3://blah_bucket/"])
+def test_models_artifact_repo_uses_repo_download_artifacts(
+    mock_get_model_version_download_uri
+):  # pylint: disable=unused-argument
     """
     ``ModelsArtifactRepository`` should delegate `download_artifacts` to its
     ``self.repo.download_artifacts`` function.
     """
     model_uri = "models:/MyModel/12"
-    artifact_location = "s3://blah_bucket/"
-    get_model_version_download_uri_patch = mock.patch.object(
-        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    )
-    with get_model_version_download_uri_patch:
-        models_repo = ModelsArtifactRepository(model_uri)
-        models_repo.repo = Mock()
-        models_repo.download_artifacts("artifact_path", "dst_path")
-        models_repo.repo.download_artifacts.assert_called_once()
+    models_repo = ModelsArtifactRepository(model_uri)
+    models_repo.repo = Mock()
+    models_repo.download_artifacts("artifact_path", "dst_path")
+    models_repo.repo.download_artifacts.assert_called_once()
