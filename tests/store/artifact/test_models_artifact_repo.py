@@ -72,6 +72,17 @@ def test_models_artifact_repo_init_with_version_uri(
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
         assert models_repo.repo.artifact_uri == artifact_location
+    # Also confirm that since no databricks:// registry|tracking URI is set in the environment,
+    # databricks profile information not is added to the final DBFS URI.
+    with get_model_version_download_uri_patch, mock.patch(
+        "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
+    ) as mock_repo:
+        models_repo = ModelsArtifactRepository(model_uri)
+        assert models_repo.artifact_uri == model_uri
+        assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
+        mock_repo.assert_called_once_with(
+            "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
+        )
 
 
 def test_models_artifact_repo_init_with_version_uri_and_db_profile():
@@ -88,6 +99,23 @@ def test_models_artifact_repo_init_with_version_uri_and_db_profile():
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
         mock_repo.assert_called_once_with(final_uri)
+
+
+def test_models_artifact_repo_init_with_version_uri_and_db_profile_from_context():
+    model_uri = "models:/MyModel/12"
+    artifact_location = "dbfs:/databricks/mlflow-registry/12345/models/keras-model"
+    get_model_version_download_uri_patch = mock.patch.object(
+        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+    )
+    with get_model_version_download_uri_patch, mock.patch(
+        "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
+    ) as mock_repo, mock.patch("mlflow.get_registry_uri", return_value="databricks://scope:key"):
+        models_repo = ModelsArtifactRepository(model_uri)
+        assert models_repo.artifact_uri == model_uri
+        assert isinstance(models_repo.repo, DbfsRestArtifactRepository)
+        mock_repo.assert_called_once_with(
+            "dbfs://scope:key@databricks/databricks/mlflow-registry/12345/models/keras-model"
+        )
 
 
 def test_models_artifact_repo_init_with_stage_uri(

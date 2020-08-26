@@ -1,5 +1,6 @@
 from six.moves import urllib
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.uri import (
@@ -66,7 +67,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         # we'll need to add setting of registry URIs via environment variables.
         from mlflow.tracking import MlflowClient
 
-        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(uri)
+        databricks_profile_uri = (
+            get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+        )
         client = MlflowClient(registry_uri=databricks_profile_uri)
         (name, version, stage) = ModelsArtifactRepository._parse_uri(uri)
         if stage is not None:
