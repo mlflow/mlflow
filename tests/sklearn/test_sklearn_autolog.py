@@ -584,7 +584,8 @@ def test_autolog_emits_warning_message_when_metric_fails():
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
-            "KMeans.completeness_score failed. The 'completeness_score' metric will not be recorded. "
+            "KMeans.completeness_score failed. "
+            "The 'completeness_score' metric will not be recorded. "
             "Error: EXCEPTION"
         )
 
