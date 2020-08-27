@@ -601,6 +601,8 @@ def autolog():
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
     """
     import sklearn
+    from sklearn.base import clone
+
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _MIN_SKLEARN_VERSION,
@@ -649,6 +651,7 @@ def autolog():
         )
 
         original_fit = gorilla.get_original_attribute(self, func_name)
+
         try:
             fit_output = original_fit(*args, **kwargs)
         except Exception as e:
@@ -674,18 +677,43 @@ def autolog():
         SAMPLE_ROWS = 5
         fit_arg_names = _get_arg_names(self.fit)
         X_var_name, y_var_name = fit_arg_names[:2]
-        X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
-        try:
-            model_output = self.predict(X_sample) if hasattr(self, "predict") else None
-        except Exception as e:
-            model_output = None
-            _logger.warning("Failed to get the model output: " + str(e))
 
         try:
-            signature = infer_signature(X_sample, model_output)
+            X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
         except Exception as e:
-            signature = None
-            _logger.warning("Failed to infer the model signature: " + str(e))
+            X_sample = None
+            _logger.warning(
+                "Failed to sample `X`. The model signature and input example will not be recorded: "
+                + str(e)
+            )
+
+        # A few estimators define `fit_predict`, but don't define `predict`:
+        # Example: https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html  # NOQA
+        # For models that don't define `predict`, use `fit_predict` to get the model prediction.
+        has_predict = hasattr(self, "predict") or hasattr(self, "fit_predict")
+
+        signature = None
+
+        if (X_sample is not None) and has_predict:
+            # If this function is `fit_predict`, reuse its output (which should be a numpy array).
+            if func_name == "fit_predict":
+                model_output = fit_output[:SAMPLE_ROWS]
+            else:
+                try:
+                    model_output = (
+                        self.predict(X_sample)
+                        if hasattr(self, "predict")
+                        # use `clone` to prevent re-fitting
+                        else clone(self).fit_predict(X_sample)
+                    )
+                except Exception as e:
+                    model_output = None
+                    _logger.warning("Failed to get the model prediction: " + str(e))
+
+            try:
+                signature = infer_signature(X_sample, model_output)
+            except Exception as e:
+                _logger.warning("Failed to infer the model signature: " + str(e))
 
         try_mlflow_log(
             log_model, self, artifact_path="model", signature=signature, input_example=X_sample
@@ -744,3 +772,12 @@ def autolog():
                 patch_func = functools.wraps(original)(patch_func)
                 patch = gorilla.Patch(class_def, func_name, patch_func, settings=patch_settings)
                 gorilla.apply(patch)
+
+
+# if the function is `fit_predict`, we can reuse fit_output
+
+
+# if not
+# check the estimator defines `fit_predict`, but not `predict` (has_fit_predict_but_not_predict)
+
+# if has_fit_predict_but_not_predict

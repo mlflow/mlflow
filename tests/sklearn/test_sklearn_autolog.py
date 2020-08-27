@@ -569,8 +569,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 def test_autolog_logs_signature_and_input_example(data_type):
     mlflow.sklearn.autolog()
 
-    X = data_type([[1, 1], [1, 2], [2, 2], [2, 3]])
-    y = [6, 8, 9, 11]
+    X, y = get_iris()
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run:
@@ -582,3 +581,40 @@ def test_autolog_logs_signature_and_input_example(data_type):
     sig_expected = infer_signature(X, model.predict(X))
     assert mlmodel["signature"] == sig_expected.to_dict()
     assert input_example == _Example(X).data
+
+
+def test_autolog_does_not_throw_when_failing_to_sample_X():
+    class ArrayThrowingWhenSliced(np.ndarray):
+        def __new__(cls, input_array):
+            return np.asarray(input_array).view(cls)
+
+        def __getitem__(self, key):
+            if isinstance(key, slice):
+                raise IndexError("DO NOT SLICE ME")
+            return super().__getitem__(key)
+
+    X, y = get_iris()
+    X_throwing_when_sliced = ArrayThrowingWhenSliced(X)
+
+    # ensure X_throwing_when_sliced throws when sliced
+    with pytest.raises(IndexError, match="DO NOT SLICE ME"):
+        X_throwing_when_sliced[:5]
+
+    mlflow.sklearn.autolog()
+
+    model = sklearn.linear_model.LinearRegression()
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        model.fit(X_throwing_when_sliced, y)
+
+    run_id = run.info.run_id
+    mlmodel = read_MLmodel(run_id)
+
+    from pprint import pprint
+
+    pprint(mlmodel)
+
+    mock_warning.assert_called_once()
+    mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
+    assert "signature" not in mlmodel
+    assert "saved_input_example_info" not in mlmodel
