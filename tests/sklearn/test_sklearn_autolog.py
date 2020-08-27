@@ -4,11 +4,15 @@ from mock import mock
 import warnings
 
 import numpy as np
+import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
+import sklearn.model_selection
+from scipy.stats import uniform
 
 import mlflow.sklearn
+from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
     _is_supported_version,
     _get_arg_names,
@@ -18,6 +22,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
@@ -175,7 +180,7 @@ def test_estimator(fit_func_name):
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, fit_func_name)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -199,7 +204,7 @@ def test_meta_estimator():
     with mlflow.start_run() as run:
         model.fit(X, y)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -219,8 +224,8 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
             model = sklearn.cluster.KMeans()
             model.fit(X, y)
 
-    run_id = run._info.run_id
-    params, metrics, tags, artifacts = get_run_data(run._info.run_id)
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
     assert params == large_params
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
     assert tags == get_expected_class_tags(model)
@@ -257,8 +262,8 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     for idx, msg in enumerate(messages):
         assert mock_warning.call_args_list[idx].startswith(msg)
 
-    run_id = run._info.run_id
-    params, metrics, tags, artifacts = get_run_data(run._info.run_id)
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
     assert params == truncate_dict(long_params)
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
     assert tags == get_expected_class_tags(model)
@@ -282,7 +287,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
         elif Xy_passed_as == "both_kwargs_swapped":
             model.fit(y=y, X=X)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -315,7 +320,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
         model.fit(X, y, intercept_init=0)
         mock_obj.assert_called_once_with(X, y, None)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -354,7 +359,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
             model.fit(X, y, sample_weight=sample_weight)
         mock_obj.assert_called_once_with(X, y, sample_weight)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -387,7 +392,7 @@ def test_only_fit_contains_sample_weight():
         model.fit(X, y)
         mock_obj.assert_called_once_with(X, y)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -420,7 +425,7 @@ def test_only_score_contains_sample_weight():
         model.fit(X, y)
         mock_obj.assert_called_once_with(X, y, None)
 
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {TRAINING_SCORE: model.score(X, y)}
@@ -471,7 +476,7 @@ def test_autolog_emits_warning_message_when_score_fails():
             "Scoring error: EXCEPTION"
         )
 
-    metrics = get_run_data(run._info.run_id)[1]
+    metrics = get_run_data(run.info.run_id)[1]
     assert metrics == {}
 
 
@@ -494,9 +499,9 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run._info.run_id)
-        assert len(mlflow.search_runs([run._info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run._info.experiment_id], query)) == 0
+        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
+        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
+        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 
 
 def test_meta_estimator_fit_performs_logging_only_once():
@@ -522,9 +527,132 @@ def test_meta_estimator_fit_performs_logging_only_once():
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run._info.run_id)
-        assert len(mlflow.search_runs([run._info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run._info.experiment_id], query)) == 0
+        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
+        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
+        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
+
+
+@pytest.mark.parametrize(
+    "cv_class, search_space",
+    [
+        (sklearn.model_selection.GridSearchCV, {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}),
+        (sklearn.model_selection.RandomizedSearchCV, {"C": uniform(loc=0, scale=4)}),
+    ],
+)
+@pytest.mark.parametrize("backend", [None, "threading", "loky"])
+def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
+    mlflow.sklearn.autolog()
+
+    svc = sklearn.svm.SVC()
+    cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
+    X, y = get_iris()
+
+    def train_cv_model():
+        if backend is None:
+            cv_model.fit(X, y)
+        else:
+            with sklearn.utils.parallel_backend(backend=backend):
+                cv_model.fit(X, y)
+
+    with mlflow.start_run() as run:
+        train_cv_model()
+        run_id = run.info.run_id
+
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    expected_cv_params = truncate_dict(stringify_dict_values(cv_model.get_params(deep=False)))
+    expected_cv_params.update(
+        {
+            "best_{}".format(param_name): str(param_value)
+            for param_name, param_value in cv_model.best_params_.items()
+        }
+    )
+    assert params == expected_cv_params
+    assert metrics == {TRAINING_SCORE: cv_model.score(X, y)}
+    assert tags == get_expected_class_tags(cv_model)
+    assert MODEL_DIR in artifacts
+    assert "best_estimator" in artifacts
+    assert "cv_results.csv" in artifacts
+
+    best_estimator = mlflow.sklearn.load_model("runs:/{}/best_estimator".format(run_id))
+    assert isinstance(best_estimator, sklearn.svm.SVC)
+    cv_model = mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+    assert isinstance(cv_model, cv_class)
+
+    client = mlflow.tracking.MlflowClient()
+    child_runs = client.search_runs(
+        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+    )
+    cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
+    # We expect to have created a child run for each point in the parameter search space
+    assert len(child_runs) == len(cv_results)
+
+    # Verify that each set of parameter search results has a corresponding MLflow run
+    # with the expected data
+    for _, result in cv_results.iterrows():
+        result_params = result.get("params", {})
+        params_search_clause = " and ".join(
+            ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
+        )
+        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+            run_id, params_search_clause
+        )
+        child_runs = client.search_runs(run.info.experiment_id, search_filter)
+        assert len(child_runs) == 1
+        child_run = child_runs[0]
+        assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+        _, child_metrics, child_tags, _ = get_run_data(child_run.info.run_id)
+        assert child_tags == get_expected_class_tags(svc)
+        assert "mean_test_score" in child_metrics.keys()
+        assert "std_test_score" in child_metrics.keys()
+        # Ensure that we do not capture separate metrics for each cross validation split, which
+        # would produce very noisy metrics results
+        assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
+
+
+def test_parameter_search_handles_large_volume_of_metric_outputs():
+    mlflow.sklearn.autolog()
+
+    metrics_size = MAX_METRICS_PER_BATCH + 10
+    metrics_to_log = {
+        "score_{}".format(i): sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
+        for i in range(metrics_size)
+    }
+
+    with mlflow.start_run() as run:
+        svc = sklearn.svm.SVC()
+        cv_model = sklearn.model_selection.GridSearchCV(
+            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
+        )
+        cv_model.fit(*get_iris())
+        run_id = run.info.run_id
+
+    client = mlflow.tracking.MlflowClient()
+    child_runs = client.search_runs(
+        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+    )
+    assert len(child_runs) == 1
+    child_run = child_runs[0]
+
+    assert len(child_run.data.metrics) >= metrics_size
+
+
+@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.parametrize(
+    "failing_specialization",
+    [
+        "mlflow.sklearn.utils._log_parameter_search_results_as_artifact",
+        "mlflow.sklearn.utils._create_child_runs_for_parameter_search",
+    ],
+)
+def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_specialization):
+    with mock.patch(failing_specialization, side_effect=Exception("Failed")) as mock_func:
+        # Enable autologging after mocking the parameter search specialization function
+        # to ensure that the mock is applied before the function is imported
+        mlflow.sklearn.autolog()
+        svc = sklearn.svm.SVC()
+        cv_model = sklearn.model_selection.GridSearchCV(svc, {"C": [1]}, n_jobs=1)
+        cv_model.fit(*get_iris())
+        mock_func.assert_called_once()
 
 
 @pytest.mark.disable_force_try_mlflow_log_to_fail
