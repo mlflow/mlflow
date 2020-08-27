@@ -12,5 +12,5 @@ reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
 
 # TODO(harupy): Remove `error_on` once the issue below has been fixed:
 # https://stackoverflow.com/questions/63613301/r-cmd-check-note-unable-to-verify-current-time/63616156#63616156
-devtools::check_built(path = package, error_on = "note", args = "--no-tests", error_on = c("never", "error", "warning"))
+devtools::check_built(path = package, args = "--no-tests")
 source("testthat.R")
