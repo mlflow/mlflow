@@ -24,17 +24,6 @@ from mlflow.utils.validation import (
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
-ACCURACY_SCORE = "accuracy_score"
-PRECISION_SCORE = "precision_score"
-RECALL_SCORE = "recall_score"
-F1_SCORE = "f1_score"
-MSE = "mse"
-RMSE = "rmse"
-MAE = "mae"
-COMPLETENESS_SCORE = "completeness_score"
-HOMOGENEITY_SCORE = "homogeneity_score"
-V_MEASURE_SCORE = "v_measure_score"
-R2_SCORE = "r2_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
@@ -212,10 +201,10 @@ def test_classifier():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        ACCURACY_SCORE: sklearn.metrics.accuracy_score(y_true, y_pred),
-        PRECISION_SCORE: sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
-        RECALL_SCORE: sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        F1_SCORE: sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
+        "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
@@ -239,36 +228,10 @@ def test_regressor():
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        MSE: sklearn.metrics.mean_squared_error(y_true, y_pred),
-        RMSE: sklearn.metrics.mean_squared_error(y_true, y_pred, squared=False),
-        MAE: sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        R2_SCORE: sklearn.metrics.r2_score(y_true, y_pred),
-    }
-    assert tags == get_expected_class_tags(model)
-    assert MODEL_DIR in artifacts
-
-    loaded_model = load_model_by_run_id(run_id)
-    assert_predict_equal(loaded_model, model, X)
-
-
-def test_clusterer(fit_func_name):
-    mlflow.sklearn.autolog()
-    # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
-    model = sklearn.cluster.KMeans()
-    X, y_true = get_iris()
-
-    with mlflow.start_run() as run:
-        model = fit_model(model, X, y_true, fit_func_name)
-
-    y_pred = model.predict(X)
-    run_id = run._info.run_id
-    params, metrics, tags, artifacts = get_run_data(run_id)
-    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {
-        TRAINING_SCORE: model.score(X, y_true),
-        COMPLETENESS_SCORE: sklearn.metrics.completeness_score(y_true, y_pred),
-        HOMOGENEITY_SCORE: sklearn.metrics.homogeneity_score(y_true, y_pred),
-        V_MEASURE_SCORE: sklearn.metrics.v_measure_score(y_true, y_pred, 1.0),
+        "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        "rmse": sklearn.metrics.mean_squared_error(y_true, y_pred, squared=False),
+        "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
@@ -565,18 +528,18 @@ def test_autolog_emits_warning_message_when_score_fails():
 
 def test_autolog_emits_warning_message_when_metric_fails():
     """
-    Take completeness_score metric from clusterer as an example to test metric logging failure
+    Take precision_score metric from SVC as an example to test metric logging failure
     :return: NULL
     """
     mlflow.sklearn.autolog()
 
-    model = sklearn.cluster.KMeans()
+    model = sklearn.svm.SVC()
 
     @functools.wraps(model.score)
     def throwing_score(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    sklearn.metrics.completeness_score = throwing_score
+    sklearn.metrics.precision_score = throwing_score
 
     with mlflow.start_run() as run, mock.patch(
         "mlflow.sklearn.utils._logger.warning"
@@ -584,9 +547,9 @@ def test_autolog_emits_warning_message_when_metric_fails():
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
-            "KMeans.completeness_score failed. "
-            "The 'completeness_score' metric will not be recorded. "
-            "Error: EXCEPTION"
+            "SVC.precision_score failed. "
+            "The 'precision_score' metric will not be recorded. "
+            "Metric error: EXCEPTION"
         )
 
 

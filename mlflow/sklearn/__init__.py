@@ -647,7 +647,6 @@ def autolog():
         )
 
         original_fit = gorilla.get_original_attribute(self, func_name)
-
         try:
             fit_output = original_fit(*args, **kwargs)
         except Exception as e:
@@ -672,7 +671,7 @@ def autolog():
 
         try_mlflow_log(log_model, self, artifact_path="model")
 
-        # log common metrics and artifacts for estimators (classifier, regressor, clusterer)
+        # log common metrics and artifacts for estimators (classifier, regressor)
         _log_specialized_estimator_content(self, mlflow.active_run().info.run_id, args, kwargs)
 
         if should_start_run:
