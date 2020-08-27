@@ -716,38 +716,27 @@ def autolog():
         fit_arg_names = _get_arg_names(estimator.fit)
         X_var_name, y_var_name = fit_arg_names[:2]
 
-        try:
-            X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
-        except Exception as e:
-            X_sample = None
-            _logger.warning(
-                "Failed to sample `X`. The model signature and input example will not be recorded: "
-                + str(e)
-            )
-
+        X_sample = None
         signature = None
 
-        if X_sample is not None:
-            has_predict = hasattr(estimator, "predict")
+        if hasattr(estimator, "predict"):
+            try:
+                X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
+            except Exception as e:
+                _logger.warning("Failed to sample `X`: " + str(e))
 
-            if has_predict:
+            if X_sample is not None:
                 try:
                     model_output = estimator.predict(X_sample)
                 except Exception as e:
                     model_output = None
                     _logger.warning("Failed to get the model prediction: " + str(e))
-            else:
-                model_output = None
 
-            if has_predict:
+            if (X_sample is not None) and (model_output is not None):
                 try:
                     signature = infer_signature(X_sample, model_output)
                 except Exception as e:
                     _logger.warning("Failed to infer the model signature: " + str(e))
-
-        try_mlflow_log(
-            log_model, estimator, artifact_path="model", signature=signature, input_example=X_sample
-        )
 
         if hasattr(estimator, "score"):
             try:
@@ -763,7 +752,9 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
-        try_mlflow_log(log_model, estimator, artifact_path="model")
+        try_mlflow_log(
+            log_model, estimator, artifact_path="model", signature=signature, input_example=X_sample
+        )
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_"):
