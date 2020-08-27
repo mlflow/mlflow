@@ -61,6 +61,11 @@ jobs:
       working-directory: mlflow/R/mlflow
       run: |
         R CMD build .
+    - name: Create test env
+      env:
+      working-directory: mlflow/R/mlflow/tests
+      run: |
+        Rscript ../.create-env.R
     - name: Run tests
       env:
         LINTR_COMMENT_BOT: false
