@@ -288,11 +288,6 @@ def _log_specialized_estimator_content(trained_estimator, run_id, fit_args, fit_
         name_score_dict = _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs)
     elif sklearn.base.is_regressor(trained_estimator):
         name_score_dict = _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs)
-    # elif (
-    #     hasattr(trained_estimator, "_estimator_type")
-    #     and trained_estimator._estimator_type == "clusterer"
-    # ):
-    #     name_score_dict = _get_clusterer_metrics(trained_estimator, fit_args, fit_kwargs)
 
     # batch log all metrics
     try_mlflow_log(
