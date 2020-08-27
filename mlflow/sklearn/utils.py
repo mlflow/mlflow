@@ -1,4 +1,6 @@
 import collections
+from distutils.version import LooseVersion
+from itertools import islice
 import inspect
 import logging
 from numbers import Number

@@ -644,7 +644,7 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         }
     )
     assert params == expected_cv_params
-    assert metrics == {TRAINING_SCORE: cv_model.score(X, y)}
+    assert {TRAINING_SCORE: cv_model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(cv_model)
     assert MODEL_DIR in artifacts
     assert "best_estimator" in artifacts
@@ -698,7 +698,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     with mlflow.start_run() as run:
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
-            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
+            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit="score_0"
         )
         cv_model.fit(*get_iris())
         run_id = run.info.run_id

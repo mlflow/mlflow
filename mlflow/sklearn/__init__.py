@@ -722,7 +722,7 @@ def autolog():
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
-        _log_specialized_estimator_content(self, mlflow.active_run().info.run_id, args, kwargs)
+        _log_specialized_estimator_content(estimator, mlflow.active_run().info.run_id, args, kwargs)
 
         try_mlflow_log(log_model, estimator, artifact_path="model")
 
