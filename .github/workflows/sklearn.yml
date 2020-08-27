@@ -49,3 +49,4 @@ jobs:
           set -x
           python linear_regression.py
           python pipeline.py
+          python grid_search_cv.py
