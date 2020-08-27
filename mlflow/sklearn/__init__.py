@@ -726,7 +726,6 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
-        SAMPLE_ROWS = 5
         fit_arg_names = _get_arg_names(estimator.fit)
         X_var_name, y_var_name = fit_arg_names[:2]
 
@@ -735,6 +734,7 @@ def autolog():
 
         if hasattr(estimator, "predict"):
             try:
+                SAMPLE_ROWS = 5
                 X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
             except Exception as e:
                 _logger.warning("Failed to sample `X`: " + str(e))
