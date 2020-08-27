@@ -70,12 +70,12 @@ jobs:
         Rscript .run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
+      env:
+        COVR_RUNNING: true
       working-directory: mlflow/R/mlflow/tests
       run: |
         export MLFLOW_HOME=$(pwd)
         Rscript -e 'covr::codecov()' || :
-      env:
-        COVR_RUNNING: true
     - name: Show 00check.log on failure
       if: ${{ failure() }}
       run: |
