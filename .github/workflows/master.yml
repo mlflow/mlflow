@@ -57,14 +57,11 @@ jobs:
       run: |
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
-    - name: Install Python dependencies
-      run: |
-        source ./dev/install-common-deps.sh
     - name: Build package
       working-directory: mlflow/R/mlflow
       run: |
         R CMD build .
-    - name:  Run tests
+    - name: Run tests
       env:
         LINTR_COMMENT_BOT: false
       working-directory: mlflow/R/mlflow
