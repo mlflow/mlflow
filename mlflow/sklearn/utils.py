@@ -1,14 +1,21 @@
 import collections
 import inspect
 import logging
+from numbers import Number
 import time
 
-from distutils.version import LooseVersion
-from itertools import islice
-
-from mlflow.entities import Metric
+from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.file_utils import TempDir
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.validation import (
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_METRICS_PER_BATCH,
+    MAX_ENTITIES_PER_BATCH,
+    MAX_ENTITY_KEY_LENGTH,
+    MAX_PARAM_VAL_LENGTH,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -20,6 +27,17 @@ _SAMPLE_WEIGHT = "sample_weight"
 
 # A organized template to store sklearn metrics
 _SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
+
+
+def _get_estimator_info_tags(estimator):
+    """
+    :return: A dictionary of MLflow run tag keys and values
+             describing the specified estimator.
+    """
+    return {
+        "estimator_name": estimator.__class__.__name__,
+        "estimator_class": (estimator.__class__.__module__ + "." + estimator.__class__.__name__),
+    }
 
 
 def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -86,7 +104,7 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
 
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
-    # See: https://scikit-learn.org/stable/modules/generated/sklearn.covariance.GraphicalLasso.html#sklearn.covariance.GraphicalLasso.score # noqa: E501
+    # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
 
@@ -309,6 +327,9 @@ def _chunk_dict(d, chunk_size):
 
 
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
+    def _truncate_and_ellipsize(value, max_length):
+        return str(value)[: (max_length - 3)] + "..."
+
     key_is_none = max_key_length is None
     val_is_none = max_value_length is None
 
@@ -320,19 +341,174 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
         should_truncate_key = (not key_is_none) and (len(str(k)) > max_key_length)
         should_truncate_val = (not val_is_none) and (len(str(v)) > max_value_length)
 
-        new_k = str(k)[:max_key_length] if should_truncate_key else k
+        new_k = _truncate_and_ellipsize(k, max_key_length) if should_truncate_key else k
         if should_truncate_key:
-            msg = "Truncated the key `{}`".format(k)
+            # Use the truncated key for warning logs to avoid noisy printing to stdout
+            msg = "Truncated the key `{}`".format(new_k)
             _logger.warning(msg)
 
-        new_v = str(v)[:max_value_length] if should_truncate_val else v
+        new_v = _truncate_and_ellipsize(v, max_value_length) if should_truncate_val else v
         if should_truncate_val:
-            msg = "Truncated the value `{}` (in the key `{}`)".format(v, k)
+            # Use the truncated key and value for warning logs to avoid noisy printing to stdout
+            msg = "Truncated the value of the key `{}`. Truncated value: `{}`".format(new_k, new_v)
             _logger.warning(msg)
 
         truncated[new_k] = new_v
 
     return truncated
+
+
+def _get_meta_estimators_for_autologging():
+    """
+    :return: A list of meta estimator class definitions
+             (e.g., `sklearn.model_selection.GridSearchCV`) that should be included
+             when patching training functions for autologging
+    """
+    from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+    from sklearn.pipeline import Pipeline
+
+    return [
+        GridSearchCV,
+        RandomizedSearchCV,
+        Pipeline,
+    ]
+
+
+def _is_parameter_search_estimator(estimator):
+    """
+    :return: `True` if the specified scikit-learn estimator is a parameter search estimator,
+             such as `GridSearchCV`. `False` otherwise.
+    """
+    from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+
+    parameter_search_estimators = [
+        GridSearchCV,
+        RandomizedSearchCV,
+    ]
+
+    return any(
+        [
+            isinstance(estimator, param_search_estimator)
+            for param_search_estimator in parameter_search_estimators
+        ]
+    )
+
+
+def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
+    """
+    Records a collection of parameter search results as an MLflow artifact
+    for the specified run.
+
+    :param cv_results_df: A Pandas DataFrame containing the results of a parameter search
+                          training session, which may be obtained by parsing the `cv_results_`
+                          attribute of a trained parameter search estimator such as
+                          `GridSearchCV`.
+    :param run_id: The ID of the MLflow Run to which the artifact should be recorded.
+    """
+    with TempDir() as t:
+        results_path = t.path("cv_results.csv")
+        cv_results_df.to_csv(results_path, index=False)
+        try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
+
+
+def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags=None):
+    """
+    Creates a collection of child runs for a parameter search training session.
+    Runs are reconstructed from the `cv_results_` attribute of the specified trained
+    parameter search estimator - `cv_estimator`, which provides relevant performance
+    metrics for each point in the parameter search space. One child run is created
+    for each point in the parameter search space. For additional information, see
+    `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
+
+    :param cv_estimator: The trained parameter search estimator for which to create
+                         child runs.
+    :param parent_run: A py:class:`mlflow.entities.Run` object referring to the parent
+                       parameter search run for which child runs should be created.
+    :param child_tags: An optional dictionary of MLflow tag keys and values to log
+                       for each child run.
+    """
+    import pandas as pd
+
+    client = MlflowClient()
+    # Use the start time of the parent parameter search run as a rough estimate for the
+    # start time of child runs, since we cannot precisely determine when each point
+    # in the parameter search space was explored
+    child_run_start_time = parent_run.info.start_time
+    child_run_end_time = int(time.time() * 1000)
+
+    seed_estimator = cv_estimator.estimator
+    # In the unlikely case that a seed of a parameter search estimator is,
+    # itself, a parameter search estimator, we should avoid logging the untuned
+    # parameters of the seeds's seed estimator
+    should_log_params_deeply = not _is_parameter_search_estimator(seed_estimator)
+    # Each row of `cv_results_` only provides parameters that vary across
+    # the user-specified parameter grid. In order to log the complete set
+    # of parameters for each child run, we fetch the parameters defined by
+    # the seed estimator and update them with parameter subset specified
+    # in the result row
+    base_params = seed_estimator.get_params(deep=should_log_params_deeply)
+
+    cv_results_df = pd.DataFrame.from_dict(cv_estimator.cv_results_)
+    for _, result_row in cv_results_df.iterrows():
+        tags_to_log = dict(child_tags) if child_tags else {}
+        tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
+        tags_to_log.update(_get_estimator_info_tags(seed_estimator))
+        child_run = client.create_run(
+            experiment_id=parent_run.info.experiment_id,
+            start_time=child_run_start_time,
+            tags=tags_to_log,
+        )
+
+        from itertools import zip_longest
+
+        params_to_log = dict(base_params)
+        params_to_log.update(result_row.get("params", {}))
+        param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
+
+        # Parameters values are recorded twice in the set of search `cv_results_`:
+        # once within a `params` column with dictionary values and once within
+        # a separate dataframe column that is created for each parameter. To prevent
+        # duplication of parameters, we log the consolidated values from the parameter
+        # dictionary column and filter out the other parameter-specific columns with
+        # names of the form `param_{param_name}`. Additionally, `cv_results_` produces
+        # metrics for each training split, which is fairly verbose; accordingly, we filter
+        # out per-split metrics in favor of aggregate metrics (mean, std, etc.)
+        excluded_metric_prefixes = ["param", "split"]
+        metric_batches_to_log = _chunk_dict(
+            {
+                key: value
+                for key, value in result_row.iteritems()
+                if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+                and isinstance(value, Number)
+            },
+            chunk_size=min(
+                MAX_ENTITIES_PER_BATCH - MAX_PARAMS_TAGS_PER_BATCH, MAX_METRICS_PER_BATCH
+            ),
+        )
+
+        for params_batch, metrics_batch in zip_longest(
+            param_batches_to_log, metric_batches_to_log, fillvalue={}
+        ):
+            # Trim any parameter keys / values and metric keys that exceed the limits
+            # imposed by corresponding MLflow Tracking APIs (e.g., LogParam, LogMetric)
+            truncated_params_batch = _truncate_dict(
+                params_batch, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
+            )
+            truncated_metrics_batch = _truncate_dict(
+                metrics_batch, max_key_length=MAX_ENTITY_KEY_LENGTH
+            )
+            client.log_batch(
+                run_id=child_run.info.run_id,
+                params=[
+                    Param(str(key), str(value)) for key, value in truncated_params_batch.items()
+                ],
+                metrics=[
+                    Metric(key=str(key), value=value, timestamp=child_run_end_time, step=0)
+                    for key, value in truncated_metrics_batch.items()
+                ],
+            )
+
+        client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
 
 
 def _is_supported_version():
