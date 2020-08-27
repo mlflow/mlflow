@@ -622,11 +622,20 @@ For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
+If MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check or add use some custom CA bundle to perform this check, respectively:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_IGNORE_TLS=true
+  #or
+  export AWS_CA_BUNDLE=/some/ca/bundle.pem
+
 Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
 
 .. code-block:: bash
 
   export AWS_DEFAULT_REGION=my_region
+
 
 Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
