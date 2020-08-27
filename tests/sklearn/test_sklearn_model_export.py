@@ -535,7 +535,6 @@ def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
     from sklearn.cluster import AgglomerativeClustering
 
     sk_model = AgglomerativeClustering()
-
     assert not hasattr(sk_model, "predict")
 
     mlflow.sklearn.save_model(
