@@ -64,7 +64,7 @@ jobs:
       working-directory: mlflow/R/mlflow
       run: |
         R CMD build .
-    - name:
+    - name:  Run tests
       env:
         LINTR_COMMENT_BOT: false
       working-directory: mlflow/R/mlflow
