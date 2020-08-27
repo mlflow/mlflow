@@ -304,6 +304,8 @@ def _log_specialized_estimator_content(trained_estimator, run_id, fit_args, fit_
     import sklearn
 
     name_score_dict = {}
+    # test case: [test_parameter_search_handles_large_volume_of_metric_outputs] will fail
+    # As GridSearchCV turns out to be a "classifier" in the end
     if sklearn.base.is_classifier(trained_estimator):
         name_score_dict = _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs)
     elif sklearn.base.is_regressor(trained_estimator):

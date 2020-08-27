@@ -698,7 +698,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     with mlflow.start_run() as run:
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
-            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit="score_0"
+            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
         run_id = run.info.run_id
