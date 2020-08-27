@@ -404,7 +404,9 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
     set_running_patch = mock.patch.object(MlflowClient, "set_running")
 
-    with env_patch, set_running_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+    with env_patch, set_running_patch, mock.patch.object(
+        MlflowClient, "get_run", return_value=mock_run
+    ):
         active_run = start_run()
 
         assert is_from_run(active_run, mock_run)
