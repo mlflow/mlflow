@@ -545,4 +545,4 @@ def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
-    assert "python_function" not in model_conf.flavors
+    assert pyfunc.FLAVOR_NAME not in model_conf.flavors

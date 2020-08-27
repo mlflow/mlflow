@@ -15,7 +15,7 @@ from scipy.stats import uniform
 
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _Example
+from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
@@ -85,11 +85,6 @@ def load_model_by_run_id(run_id):
 def get_model_conf(artifact_uri):
     model_conf_path = os.path.join(artifact_uri, MODEL_DIR, "MLmodel")
     return Model.load(model_conf_path)
-
-
-def get_input_example(artifact_uri, model_conf):
-    artifact_path = model_conf.saved_input_example_info["artifact_path"]
-    return read_json(os.path.join(artifact_uri, MODEL_DIR, artifact_path))
 
 
 def stringify_dict_values(d):
@@ -699,16 +694,20 @@ def test_autolog_logs_signature_and_input_example(data_type):
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
+    X = data_type(X)
+    y = data_type(y)
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run:
         model.fit(X, y)
+        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
 
     model_conf = get_model_conf(run.info.artifact_uri)
-    input_example = get_input_example(run.info.artifact_uri, model_conf)
+    input_example = _read_example(model_conf, model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_path)
 
     assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
-    assert input_example == _Example(X[:5]).data
+    np.testing.assert_array_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
@@ -719,7 +718,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
         def __getitem__(self, key):
             if isinstance(key, slice):
                 raise IndexError("DO NOT SLICE ME")
-            return super().__getitem__(key)
+            return super(ArrayThatThrowsWhenSliced, self).__getitem__(key)
 
     X, y = get_iris()
     throwing_X = ArrayThatThrowsWhenSliced(X)

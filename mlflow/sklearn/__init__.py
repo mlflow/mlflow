@@ -188,7 +188,7 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    # `PyFuncModel` doesn't work for sklearn models that don't define `predict()`.
+    # `PyFuncModel` only works for sklearn models that define `predict()`.
     if hasattr(sk_model, "predict"):
         pyfunc.add_to_model(
             mlflow_model,
@@ -726,34 +726,25 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
-        fit_arg_names = _get_arg_names(estimator.fit)
-        X_var_name, y_var_name = fit_arg_names[:2]
 
-        X_sample = None
+        input_example = None
         signature = None
-
         if hasattr(estimator, "predict"):
             try:
+                # Fetch an input example using the first several rows of the array-like
+                # training data supplied to the training routine (e.g., `fit()`)
                 SAMPLE_ROWS = 5
-                X_sample = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
+                fit_arg_names = _get_arg_names(estimator.fit)
+                X_var_name, y_var_name = fit_arg_names[:2]
+                input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
+
+                model_output = estimator.predict(input_example)
+                signature = infer_signature(input_example, model_output)
             except Exception as e:
-                _logger.warning("Failed to sample `X`: " + str(e))
-
-            if X_sample is not None:
-                try:
-                    model_output = estimator.predict(X_sample)
-                except Exception as e:
-                    model_output = None
-                    _logger.warning("Failed to get the model prediction: " + str(e))
-
-            if (X_sample is not None) and (model_output is not None):
-                try:
-                    signature = infer_signature(X_sample, model_output)
-                except Exception as e:
-                    _logger.warning("Failed to infer the model signature: " + str(e))
+                _logger.warning("Failed to infer an input example and model signature: " + str(e))
 
         try_mlflow_log(
-            log_model, estimator, artifact_path="model", signature=signature, input_example=X_sample
+            log_model, estimator, artifact_path="model", signature=signature, input_example=input_example
         )
 
         if _is_parameter_search_estimator(estimator):
