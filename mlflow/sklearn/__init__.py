@@ -688,7 +688,7 @@ def autolog():
 
         # A few estimators define `fit_predict`, but don't define `predict`:
         # Example: https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html  # NOQA
-        # For models that don't define `predict`, use `fit_predict` to get the model prediction.
+        # For estimators that don't define `predict`, use `fit_predict` to get the model prediction.
         has_predict = hasattr(self, "predict") or hasattr(self, "fit_predict")
 
         signature = None
