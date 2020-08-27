@@ -726,7 +726,6 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
-
         input_example = None
         signature = None
         if hasattr(estimator, "predict"):
@@ -744,7 +743,11 @@ def autolog():
                 _logger.warning("Failed to infer an input example and model signature: " + str(e))
 
         try_mlflow_log(
-            log_model, estimator, artifact_path="model", signature=signature, input_example=input_example
+            log_model,
+            estimator,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
         )
 
         if _is_parameter_search_estimator(estimator):
