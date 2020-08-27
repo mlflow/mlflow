@@ -47,11 +47,6 @@ def get_iris():
     return iris.data[:, :2], iris.target
 
 
-def read_json(path):
-    with open(path) as f:
-        return json.load(f)
-
-
 def fit_model(model, X, y, fit_func_name):
     if fit_func_name == "fit":
         model.fit(X, y)
