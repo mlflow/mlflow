@@ -21,7 +21,6 @@ from tests.projects.utils import (
 
 _logger = logging.getLogger(__name__)
 
-TEST_PROJECT_DIR = "/Users/czumar/mlflow/tests/resources/example_project"
 
 @pytest.mark.large
 @pytest.mark.parametrize("name", ["friend", "friend=you", "='friend'"])
