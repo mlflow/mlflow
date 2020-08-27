@@ -62,7 +62,6 @@ jobs:
       run: |
         R CMD build .
     - name: Create test env
-      env:
       working-directory: mlflow/R/mlflow/tests
       run: |
         Rscript ../.create-test-env.R
