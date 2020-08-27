@@ -47,5 +47,5 @@ jobs:
         working-directory: examples/sklearn_autolog
         run: |
           set -x
-          python simple.py
+          python linear_regression.py
           python pipeline.py
