@@ -201,7 +201,7 @@ def _user_args_to_dict(arguments, argument_type="P"):
             value = True
         elif split_index >= 0:
             name = arg[:split_index]
-            value = arg[split_index + 1:]
+            value = arg[split_index + 1 :]
         else:
             eprint(
                 "Invalid format for -%s parameter: '%s'. "
