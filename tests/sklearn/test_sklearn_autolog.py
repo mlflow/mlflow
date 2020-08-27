@@ -718,7 +718,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     X, y = get_iris()
     throwing_X = ArrayThatThrowsWhenSliced(X)
 
-    # ensure X_throwing_when_sliced throws when sliced
+    # ensure throwing_X throws when sliced
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
         throwing_X[:5]
 
