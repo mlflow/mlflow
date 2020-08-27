@@ -143,9 +143,17 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
     By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`, `average` to be `weighted` to
     compute the weighted precision score.
 
-    For accuracy score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+    For (4) accuracy score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
     we choose the parameter `normalize` to be `True` to output the percentage of accuracy,
     as opposed to `False` that outputs the absolute correct number of sample prediction
+
+    We log additional metrics if certain classifier has method `predict_proba`
+    (5) log loss:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html#sklearn.metrics.log_loss
+    (6) roc_auc_score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#r4bb7c4558997-5
+    By default, for roc_auc_score, we pick `average` to be `weighted`, `multi_class` to be `ovo`, to make the
+    output more insensitive to dataset imbalance.
 
     Steps:
     1. Extract X and y_true from fit_args and fit_kwargs, and compute y_pred.
@@ -202,8 +210,6 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
         ),
     ]
 
-    # If this classifier has predict_proba, we add 2 additional metrics to the classifier_metrics:
-    # (1) log_loss (2) roc_auc_score
     if hasattr(trained_estimator, "predict_proba"):
         y_pred_proba = trained_estimator.predict_proba(X)
 
