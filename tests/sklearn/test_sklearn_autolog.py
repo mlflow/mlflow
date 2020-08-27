@@ -193,14 +193,16 @@ def test_estimator(fit_func_name):
 
 def test_classifier():
     mlflow.sklearn.autolog()
-    # use simple `SVC`, which only implements `fit`.
-    model = sklearn.svm.SVC()
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0)
     X, y_true = get_iris()
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y_true, "fit")
 
     y_pred = model.predict(X)
+    y_pred_prob = model.predict_proba(X)
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
@@ -210,6 +212,10 @@ def test_classifier():
         "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
         "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
         "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        "roc_auc_score": sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
+        ),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts

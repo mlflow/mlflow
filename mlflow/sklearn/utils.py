@@ -55,14 +55,14 @@ def _get_Xy(args, kwargs, X_var_name, y_var_name):
     return kwargs[X_var_name], kwargs[y_var_name]
 
 
-def _get_labels_and_predictions(trained_estimator, fit_args, fit_kwargs, fit_arg_names):
+def _get_samples_labels_and_predictions(trained_estimator, fit_args, fit_kwargs, fit_arg_names):
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
     X_var_name, y_var_name = fit_arg_names[:2]
     X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
     y_pred = trained_estimator.predict(X)
 
-    return y_true, y_pred
+    return X, y_true, y_pred
 
 
 def _get_sample_weight(arg_names, args, kwargs):
@@ -162,7 +162,7 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(trained_estimator.fit)
-    y_true, y_pred = _get_labels_and_predictions(
+    X, y_true, y_pred = _get_samples_labels_and_predictions(
         trained_estimator, fit_args, fit_kwargs, fit_arg_names
     )
     sample_weight = (
@@ -202,6 +202,32 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
         ),
     ]
 
+    # If this classifier has predict_proba, we add 2 additional metrics to the classifier_metrics:
+    # (1) log_loss (2) roc_auc_score
+    if hasattr(trained_estimator, "predict_proba"):
+        y_pred_proba = trained_estimator.predict_proba(X)
+
+        classifier_metrics.extend(
+            [
+                _SklearnMetric(
+                    name="log_loss",
+                    function=sklearn.metrics.log_loss,
+                    arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
+                ),
+                _SklearnMetric(
+                    name="roc_auc_score",
+                    function=sklearn.metrics.roc_auc_score,
+                    arguments=dict(
+                        y_true=y_true,
+                        y_score=y_pred_proba,
+                        average="weighted",
+                        sample_weight=sample_weight,
+                        multi_class="ovo",
+                    ),
+                ),
+            ]
+        )
+        print("metrics matrix: ", classifier_metrics)
     return _get_metrics_value_dict(classifier_metrics)
 
 
@@ -232,7 +258,7 @@ def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(trained_estimator.fit)
-    y_true, y_pred = _get_labels_and_predictions(
+    _, y_true, y_pred = _get_samples_labels_and_predictions(
         trained_estimator, fit_args, fit_kwargs, fit_arg_names
     )
     sample_weight = (
