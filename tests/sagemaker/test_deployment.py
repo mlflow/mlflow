@@ -237,11 +237,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert len(endpoint_production_variants) == 1
     model_name = endpoint_production_variants[0]["VariantName"]
     assert model_name in [model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
-    model = [
-        model
-        for model in sagemaker_client.list_models()["Models"]
-        if model["ModelName"] == model_name
-    ][0]
+    model = sagemaker_client.describe_model(ModelName=model_name)
     assert model["PrimaryContainer"]["Environment"]["KEY1"] == env["KEY1"]
     assert model["PrimaryContainer"]["Environment"]["KEY2"] == env["KEY2"]
     object_names = [
@@ -344,11 +340,7 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_
     assert len(endpoint_production_variants) == 1
     model_name = endpoint_production_variants[0]["VariantName"]
     assert model_name in [model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
-    model = [
-        model
-        for model in sagemaker_client.list_models()["Models"]
-        if model["ModelName"] == model_name
-    ][0]
+    model = sagemaker_client.describe_model(ModelName=model_name)
     assert model["PrimaryContainer"]["Environment"]["KEY1"] == env["KEY1"]
     assert model["PrimaryContainer"]["Environment"]["KEY2"] == env["KEY2"]
     object_names = [
