@@ -578,9 +578,9 @@ def test_autolog_logs_signature_and_input_example(data_type):
     run_id = run._info.run_id
     mlmodel = read_MLmodel(run_id)
     input_example = read_input_example(run_id)
-    sig_expected = infer_signature(X, model.predict(X))
+    sig_expected = infer_signature(X, model.predict(X[:5]))
     assert mlmodel["signature"] == sig_expected.to_dict()
-    assert input_example == _Example(X).data
+    assert input_example == _Example(X[:5]).data
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
