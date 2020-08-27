@@ -188,12 +188,14 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.sklearn",
-        model_path=model_data_subpath,
-        env=conda_env_subpath,
-    )
+    # `PyFuncModel` doesn't work for sklearn models that don't define `predict()`.
+    if hasattr(sk_model, "predict"):
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.sklearn",
+            model_path=model_data_subpath,
+            env=conda_env_subpath,
+        )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
