@@ -601,7 +601,6 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
         X_throwing_when_sliced[:5]
 
     mlflow.sklearn.autolog()
-
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
@@ -609,10 +608,6 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
     run_id = run.info.run_id
     mlmodel = read_MLmodel(run_id)
-
-    from pprint import pprint
-
-    pprint(mlmodel)
 
     mock_warning.assert_called_once()
     mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
