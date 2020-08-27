@@ -697,7 +697,7 @@ def autolog():
                     model_output = self.predict(X_sample)
                 except Exception as e:
                     model_output = None
-                    _logger.warning("Failed to get the model prediction values: " + str(e))
+                    _logger.warning("Failed to get the model prediction: " + str(e))
             else:
                 model_output = None
 
