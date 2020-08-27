@@ -10,8 +10,8 @@ import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
-import yaml
 
+from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _Example
 import mlflow.sklearn
@@ -20,7 +20,6 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _truncate_dict,
 )
-from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
@@ -42,6 +41,11 @@ pytestmark = pytest.mark.large
 def get_iris():
     iris = sklearn.datasets.load_iris()
     return iris.data[:, :2], iris.target
+
+
+def read_json(path):
+    with open(path) as f:
+        return json.load(f)
 
 
 def fit_model(model, X, y, fit_func_name):
@@ -74,16 +78,14 @@ def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
-def read_MLmodel(run_id):
-    with open(os.path.join(get_artifact_uri(run_id), MODEL_DIR, "MLmodel")) as f:
-        return yaml.safe_load(f)
+def get_model_conf(artifact_uri):
+    model_conf_path = os.path.join(artifact_uri, MODEL_DIR, "MLmodel")
+    return Model.load(model_conf_path)
 
 
-def read_input_example(run_id):
-    uri = get_artifact_uri(run_id)
-    artifact_path = read_MLmodel(run_id)["saved_input_example_info"]["artifact_path"]
-    with open(os.path.join(uri, MODEL_DIR, artifact_path)) as f:
-        return json.load(f)
+def get_input_example(artifact_uri, model_conf):
+    artifact_path = model_conf.saved_input_example_info["artifact_path"]
+    return read_json(os.path.join(artifact_uri, MODEL_DIR, artifact_path))
 
 
 def stringify_dict_values(d):
@@ -575,16 +577,15 @@ def test_autolog_logs_signature_and_input_example(data_type):
     with mlflow.start_run() as run:
         model.fit(X, y)
 
-    run_id = run._info.run_id
-    mlmodel = read_MLmodel(run_id)
-    input_example = read_input_example(run_id)
-    sig_expected = infer_signature(X, model.predict(X[:5]))
-    assert mlmodel["signature"] == sig_expected.to_dict()
+    model_conf = get_model_conf(run.info.artifact_uri)
+    input_example = get_input_example(run.info.artifact_uri, model_conf)
+
+    assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
     assert input_example == _Example(X[:5]).data
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
-    class ArrayThrowingWhenSliced(np.ndarray):
+    class ArrayThatThrowsWhenSliced(np.ndarray):
         def __new__(cls, input_array):
             return np.asarray(input_array).view(cls)
 
@@ -594,22 +595,21 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
             return super().__getitem__(key)
 
     X, y = get_iris()
-    X_throwing_when_sliced = ArrayThrowingWhenSliced(X)
+    throwing_X = ArrayThatThrowsWhenSliced(X)
 
     # ensure X_throwing_when_sliced throws when sliced
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
-        X_throwing_when_sliced[:5]
+        throwing_X[:5]
 
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        model.fit(X_throwing_when_sliced, y)
+        model.fit(throwing_X, y)
 
-    run_id = run.info.run_id
-    mlmodel = read_MLmodel(run_id)
+    model_conf = get_model_conf(run.info.artifact_uri)
 
     mock_warning.assert_called_once()
     mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
-    assert "signature" not in mlmodel
-    assert "saved_input_example_info" not in mlmodel
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
