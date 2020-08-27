@@ -690,7 +690,9 @@ def autolog():
         signature = None
 
         if X_sample is not None:
-            if hasattr(self, "predict"):
+            has_predict = hasattr(self, "predict")
+
+            if has_predict:
                 try:
                     model_output = self.predict(X_sample)
                 except Exception as e:
@@ -699,10 +701,11 @@ def autolog():
             else:
                 model_output = None
 
-            try:
-                signature = infer_signature(X_sample, model_output)
-            except Exception as e:
-                _logger.warning("Failed to infer the model signature: " + str(e))
+            if has_predict:
+                try:
+                    signature = infer_signature(X_sample, model_output)
+                except Exception as e:
+                    _logger.warning("Failed to infer the model signature: " + str(e))
 
         try_mlflow_log(
             log_model, self, artifact_path="model", signature=signature, input_example=X_sample
