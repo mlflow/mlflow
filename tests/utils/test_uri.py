@@ -43,6 +43,7 @@ def test_extract_db_type_from_uri():
         ("databricks://aAbB/", ("aAbB", None)),
         ("databricks://aAbB/path", ("aAbB", None)),
         ("databricks://profile:prefix", ("profile", "prefix")),
+        ("databricks://profile:prefix/extra", ("profile", "prefix")),
         ("nondatabricks://profile:prefix", (None, None)),
         ("databricks://profile", ("profile", None)),
         ("databricks://profile/", ("profile", None)),
@@ -51,6 +52,23 @@ def test_extract_db_type_from_uri():
 )
 def test_get_db_info_from_uri(server_uri, result):
     assert get_db_info_from_uri(server_uri) == result
+
+
+@pytest.mark.parametrize(
+    "server_uri",
+    [
+        "databricks://profile:prefix:extra",
+        "databricks://profile:prefix:extra  ",
+        "databricks://profile:prefix extra",
+        "databricks://profile:prefix  ",
+        "databricks://profile ",
+        "databricks://profile:",
+        "databricks://profile: ",
+    ],
+)
+def test_get_db_info_from_uri_errors(server_uri):
+    with pytest.raises(MlflowException):
+        get_db_info_from_uri(server_uri)
 
 
 @pytest.mark.parametrize(
@@ -491,6 +509,7 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
         ("dbfs:/path/a/b", "databricks://not:legit:auth"),
         ("dbfs:/path/a/b/", "databricks://scope::key"),
         ("dbfs:/path/a/b/", "databricks://scope:key:/"),
+        ("dbfs:/path/a/b/", "databricks://scope:key "),
     ],
 )
 def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
