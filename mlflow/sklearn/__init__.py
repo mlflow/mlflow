@@ -601,7 +601,6 @@ def autolog():
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
     """
     import sklearn
-    from sklearn.base import clone
 
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
@@ -686,28 +685,17 @@ def autolog():
                 + str(e)
             )
 
-        # A few estimators define `fit_predict`, but don't define `predict`:
-        # Example: https://scikit-learn.org/stable/modules/generated/sklearn.cluster.AgglomerativeClustering.html  # NOQA
-        # For estimators that don't define `predict`, use `fit_predict` to get the model prediction.
-        has_predict = hasattr(self, "predict") or hasattr(self, "fit_predict")
-
         signature = None
 
-        if (X_sample is not None) and has_predict:
-            # If this function is `fit_predict`, reuse its output (which should be a numpy array).
-            if func_name == "fit_predict":
-                model_output = fit_output[:SAMPLE_ROWS]
-            else:
+        if X_sample is not None:
+            if hasattr(self, "predict"):
                 try:
-                    model_output = (
-                        self.predict(X_sample)
-                        if hasattr(self, "predict")
-                        # use `clone` to prevent re-fitting
-                        else clone(self).fit_predict(X_sample)
-                    )
+                    model_output = self.predict(X_sample)
                 except Exception as e:
                     model_output = None
-                    _logger.warning("Failed to get the model prediction: " + str(e))
+                    _logger.warning("Failed to get the model prediction values: " + str(e))
+            else:
+                model_output = None
 
             try:
                 signature = infer_signature(X_sample, model_output)
