@@ -41,6 +41,7 @@ jobs:
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
 
     - name: Cache R packages
+      if: runner.os != 'Windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
