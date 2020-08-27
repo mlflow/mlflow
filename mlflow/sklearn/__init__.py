@@ -712,6 +712,20 @@ def autolog():
                      `fit()`, `fit_transform()`, ...).
         :param kwargs: The keyword arguments passed to the scikit-learn training routine.
         """
+        if hasattr(estimator, "score"):
+            try:
+                score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
+                training_score = estimator.score(*score_args)
+            except Exception as e:  # pylint: disable=broad-except
+                msg = (
+                    estimator.score.__qualname__
+                    + " failed. The 'training_score' metric will not be recorded. Scoring error: "
+                    + str(e)
+                )
+                _logger.warning(msg)
+            else:
+                try_mlflow_log(mlflow.log_metric, "training_score", training_score)
+
         SAMPLE_ROWS = 5
         fit_arg_names = _get_arg_names(estimator.fit)
         X_var_name, y_var_name = fit_arg_names[:2]
@@ -737,20 +751,6 @@ def autolog():
                     signature = infer_signature(X_sample, model_output)
                 except Exception as e:
                     _logger.warning("Failed to infer the model signature: " + str(e))
-
-        if hasattr(estimator, "score"):
-            try:
-                score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
-                training_score = estimator.score(*score_args)
-            except Exception as e:  # pylint: disable=broad-except
-                msg = (
-                    estimator.score.__qualname__
-                    + " failed. The 'training_score' metric will not be recorded. Scoring error: "
-                    + str(e)
-                )
-                _logger.warning(msg)
-            else:
-                try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
         try_mlflow_log(
             log_model, estimator, artifact_path="model", signature=signature, input_example=X_sample
