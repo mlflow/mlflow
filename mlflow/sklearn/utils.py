@@ -4,6 +4,7 @@ from itertools import islice
 import inspect
 import logging
 from numbers import Number
+import numpy as np
 import time
 
 from mlflow.entities import Metric, Param
@@ -123,7 +124,7 @@ def _get_metrics_value_dict(metrics_list):
         try:
             metric_value = metric.function(**metric.arguments)
         except Exception as e:  # pylint: disable=broad-except
-            _log_warning(metric.name, metric.function, e)
+            _log_warning_for_metrics(metric.name, metric.function, e)
         else:
             metric_value_dict[metric.name] = metric_value
 
@@ -140,10 +141,11 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html#sklearn.metrics.recall_score
     (3) f1_score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
-    By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`, `average` to be `weighted` to
-    compute the weighted precision score.
+    By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`,
+    `average` to be `weighted` to compute the weighted precision score.
 
-    For (4) accuracy score: https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+    For (4) accuracy score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
     we choose the parameter `normalize` to be `True` to output the percentage of accuracy,
     as opposed to `False` that outputs the absolute correct number of sample prediction
 
@@ -152,14 +154,14 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html#sklearn.metrics.log_loss
     (6) roc_auc_score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#r4bb7c4558997-5
-    By default, for roc_auc_score, we pick `average` to be `weighted`, `multi_class` to be `ovo`, to make the
-    output more insensitive to dataset imbalance.
+    By default, for roc_auc_score, we pick `average` to be `weighted`, `multi_class` to be `ovo`,
+    to make the output more insensitive to dataset imbalance.
 
     Steps:
     1. Extract X and y_true from fit_args and fit_kwargs, and compute y_pred.
-    2. If the sample_weight argument exists in fit_func (accuracy_score by default has sample_weight),
-       extract it from fit_args or fit_kwargs as (y_true, y_pred, ...... sample_weight),
-       otherwise as (y_true, y_pred, ......)
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default
+    has sample_weight), extract it from fit_args or fit_kwargs as
+    (y_true, y_pred, ...... sample_weight), otherwise as (y_true, y_pred, ......)
     3. return a dictionary of metric(name, value)
 
     :param trained_estimator: The already fitted classifier
@@ -233,7 +235,7 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
                 ),
             ]
         )
-        print("metrics matrix: ", classifier_metrics)
+
     return _get_metrics_value_dict(classifier_metrics)
 
 
@@ -247,13 +249,14 @@ def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html#sklearn.metrics.mean_absolute_error
     (3) r2 score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html#sklearn.metrics.r2_score
-    By default, we choose the parameter `multioutput` to be `uniform_average` to average outputs with uniform weight.
+    By default, we choose the parameter `multioutput` to be `uniform_average`
+    to average outputs with uniform weight.
 
     Steps:
     1. Extract X and y_true from fit_args and fit_kwargs, and compute y_pred.
-    2. If the sample_weight argument exists in fit_func (accuracy_score by default has sample_weight),
-       extract it from fit_args or fit_kwargs as (y_true, y_pred, sample_weight, multioutput),
-       otherwise as (y_true, y_pred, multioutput)
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default
+    has sample_weight), extract it from fit_args or fit_kwargs as
+    (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
     3. return a dictionary of metric(name, value)
 
     :param trained_estimator: The already fitted regressor
@@ -285,17 +288,6 @@ def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name="rmse",
-            function=sklearn.metrics.mean_squared_error,
-            arguments=dict(
-                y_true=y_true,
-                y_pred=y_pred,
-                sample_weight=sample_weight,
-                multioutput="uniform_average",
-                squared=False,
-            ),
-        ),
-        _SklearnMetric(
             name="mae",
             function=sklearn.metrics.mean_absolute_error,
             arguments=dict(
@@ -317,10 +309,16 @@ def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
         ),
     ]
 
-    return _get_metrics_value_dict(regressor_metrics)
+    # To be compatibale with deprecated versions of scikit-learn (below 0.22.2), where
+    # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
+    # we compute it through np.sqrt(<value of mse>)
+    metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
+    metrics_value_dict["rmse"] = np.sqrt(metrics_value_dict["mse"])
+
+    return metrics_value_dict
 
 
-def _log_warning(func_name, func_call, err):
+def _log_warning_for_metrics(func_name, func_call, err):
     msg = (
         func_call.__qualname__
         + " failed. The "
@@ -328,7 +326,6 @@ def _log_warning(func_name, func_call, err):
         + " metric will not be recorded. Metric error: "
         + str(err)
     )
-    print("Exception name {0}".format(func_name))
     _logger.warning(msg)
 
 
@@ -336,22 +333,31 @@ def _log_specialized_estimator_content(trained_estimator, run_id, fit_args, fit_
     import sklearn
 
     name_score_dict = {}
-    # test case: [test_parameter_search_handles_large_volume_of_metric_outputs] will fail
-    # As GridSearchCV turns out to be a "classifier" in the end
-    if sklearn.base.is_classifier(trained_estimator):
-        name_score_dict = _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs)
-    elif sklearn.base.is_regressor(trained_estimator):
-        name_score_dict = _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs)
+    try:
+        if sklearn.base.is_classifier(trained_estimator):
+            name_score_dict = _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs)
+        elif sklearn.base.is_regressor(trained_estimator):
+            name_score_dict = _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs)
 
-    # batch log all metrics
-    try_mlflow_log(
-        MlflowClient().log_batch,
-        run_id,
-        metrics=[
-            Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-            for key, value in name_score_dict.items()
-        ],
-    )
+    except Exception as err:  # pylint: disable=broad-except
+        msg = (
+            "Failed to autolog metrics for"
+            + trained_estimator.__class__.__name__
+            + "Logging error: "
+            + str(err)
+        )
+        _logger.warning(msg)
+
+    else:
+        # batch log all metrics
+        try_mlflow_log(
+            MlflowClient().log_batch,
+            run_id,
+            metrics=[
+                Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
+                for key, value in name_score_dict.items()
+            ],
+        )
 
 
 def _chunk_dict(d, chunk_size):

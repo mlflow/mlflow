@@ -195,7 +195,7 @@ def test_classifier():
     mlflow.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
-    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0)
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
     X, y_true = get_iris()
 
     with mlflow.start_run() as run:
@@ -240,7 +240,7 @@ def test_regressor():
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
         "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        "rmse": sklearn.metrics.mean_squared_error(y_true, y_pred, squared=False),
+        "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
         "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
         "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
@@ -528,7 +528,7 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     model.score = throwing_score
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -552,9 +552,7 @@ def test_autolog_emits_warning_message_when_metric_fails():
 
     sklearn.metrics.precision_score = throwing_score
 
-    with mlflow.start_run() as run, mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
-    ) as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -607,6 +605,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
         with mlflow.start_run() as run:
             model.fit(X, y)
             mock_log_params.assert_called_once()
+            mock_log_metric.assert_called_once()
             mock_set_tags.assert_called_once()
             mock_log_model.assert_called_once()
 
