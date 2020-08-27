@@ -34,14 +34,13 @@ jobs:
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
     - name: Query dependencies
+      shell: Rscript {0}
       run: |
         install.packages('remotes')
         saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
-      shell: Rscript {0}
 
     - name: Cache R packages
-      if: runner.os != 'Windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
@@ -53,23 +52,26 @@ jobs:
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
     - name: Install dependencies
+      shell: Rscript {0}
       run: |
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
-      shell: Rscript {0}
-    - name: Run tests
-      run: |
         source ./dev/install-common-deps.sh
-        cd mlflow/R/mlflow
+    - name: Build package
+      working-directory: mlflow/R/mlflow
+      run: |
         R CMD build .
-        export LINTR_COMMENT_BOT=false
-        cd tests
-        Rscript ../.run-tests.R
+    - name:
+      env:
+        LINTR_COMMENT_BOT=false
+      working-directory: mlflow/R/mlflow
+      run: |
+        Rscript .run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
+      working-directory: mlflow/R/mlflow/tests
       run: |
         export MLFLOW_HOME=$(pwd)
-        cd mlflow/R/mlflow/tests
         Rscript -e 'covr::codecov()' || :
       env:
         COVR_RUNNING: true
