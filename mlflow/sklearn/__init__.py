@@ -8,13 +8,17 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
+import functools
+import gorilla
 import os
 import logging
 import pickle
 import yaml
+import warnings
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -23,8 +27,10 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.autologging_utils import try_mlflow_log
 
 FLAVOR_NAME = "sklearn"
 
@@ -500,3 +506,315 @@ class _SklearnTrainingSession(object):
         return (self._parent is None) or (
             self._parent.allow_children and self._parent.clazz != self.clazz
         )
+
+
+@experimental
+def autolog():
+    """
+    Enables autologging for scikit-learn estimators.
+
+    **When is autologging performed?**
+      Autologging is performed when you call:
+
+      - ``estimator.fit()``
+      - ``estimator.fit_predict()``
+      - ``estimator.fit_transform()``
+
+    **Logged information**
+      **Parameters**
+        - Parameters obtained by ``estimator.get_params(deep=True)``. Note that ``get_params``
+          is called with ``deep=True``. This means when you fit a meta estimator that chains
+          a series of estimators, the parameters of these child estimators are also logged.
+
+      **Metrics**
+        - A training score obtained by ``estimator.score``. Note that the training score is
+          computed using parameters given to ``fit()``.
+
+      **Tags**
+        - An estimator class name (e.g. "LinearRegression").
+        - A fully qualified estimator class name
+          (e.g. "sklearn.linear_model._base.LinearRegression").
+
+      **Artifacts**
+        - A fitted estimator (logged by :py:func:`mlflow.sklearn.log_model()`).
+
+    **How does autologging work for meta estimators?**
+      When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
+      ``fit()`` on its child estimators. Autologging does NOT perform logging on these constituent
+      ``fit()`` calls.
+
+      **Parameter search**
+          In addition to recording the information discussed above, autologging for parameter
+          search meta estimators (`GridSearchCV`_ and `RandomizedSearchCV`_) records child runs
+          with metrics for each set of explored parameters, as well as artifacts and parameters
+          for the best model (if available).
+
+    **Supported estimators**
+      - All estimators obtained by `sklearn.utils.all_estimators`_ (including meta estimators).
+      - `Pipeline`_
+      - Parameter search estimators (`GridSearchCV`_ and `RandomizedSearchCV`_)
+
+    .. _sklearn.utils.all_estimators:
+        https://scikit-learn.org/stable/modules/generated/sklearn.utils.all_estimators.html
+
+    .. _Pipeline:
+        https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+    .. _GridSearchCV:
+        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
+
+    .. _RandomizedSearchCV:
+        https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html
+
+    **Example**
+
+    .. code-block:: python
+
+        from pprint import pprint
+        import numpy as np
+        import sklearn.linear_model
+        import mlflow
+
+        # enable autologging
+        mlflow.sklearn.autolog()
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # train a model
+        with mlflow.start_run() as run:
+            reg = sklearn.linear_model.LinearRegression().fit(X, y)
+
+        def fetch_logged_data(run_id):
+            client = mlflow.tracking.MlflowClient()
+            data = client.get_run(run_id).data
+            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+
+        # fetch logged data
+        params, metrics, tags, artifacts = fetch_logged_data(run._info.run_id)
+
+        pprint(params)
+        # {'copy_X': 'True',
+        #  'fit_intercept': 'True',
+        #  'n_jobs': 'None',
+        #  'normalize': 'False'}
+
+        pprint(metrics)
+        # {'training_score': 1.0}
+
+        pprint(tags)
+        # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+        #  'estimator_name': 'LinearRegression'}
+
+        pprint(artifacts)
+        # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
+    """
+    import sklearn
+    import pandas as pd
+    from mlflow.sklearn.utils import (
+        _MIN_SKLEARN_VERSION,
+        _is_supported_version,
+        _chunk_dict,
+        _get_args_for_score,
+        _all_estimators,
+        _truncate_dict,
+        _get_estimator_info_tags,
+        _get_meta_estimators_for_autologging,
+        _is_parameter_search_estimator,
+        _log_parameter_search_results_as_artifact,
+        _create_child_runs_for_parameter_search,
+    )
+    from mlflow.tracking.context import registry as context_registry
+    from mlflow.utils.validation import (
+        MAX_PARAMS_TAGS_PER_BATCH,
+        MAX_PARAM_VAL_LENGTH,
+        MAX_ENTITY_KEY_LENGTH,
+    )
+
+    if not _is_supported_version():
+        warnings.warn(
+            "Autologging utilities may not work properly on scikit-learn < {} ".format(
+                _MIN_SKLEARN_VERSION
+            )
+            + "(current version: {})".format(sklearn.__version__),
+            stacklevel=2,
+        )
+
+    def fit_mlflow(self, func_name, *args, **kwargs):
+        should_start_run = mlflow.active_run() is None
+        if should_start_run:
+            try_mlflow_log(mlflow.start_run)
+
+        _log_pretraining_metadata(self, *args, **kwargs)
+
+        original_fit = gorilla.get_original_attribute(self, func_name)
+        try:
+            fit_output = original_fit(*args, **kwargs)
+        except Exception as e:
+            if should_start_run:
+                try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
+
+            raise e
+
+        _log_posttraining_metadata(self, *args, **kwargs)
+
+        if should_start_run:
+            try_mlflow_log(mlflow.end_run)
+
+        return fit_output
+
+    def _log_pretraining_metadata(estimator, *args, **kwargs):  # pylint: disable=unused-argument
+        """
+        Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
+        This is intended to be invoked within a patched scikit-learn training routine
+        (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
+        MLflow run that can be referenced via the fluent Tracking API.
+
+        :param estimator: The scikit-learn estimator for which to log metadata.
+        :param args: The arguments passed to the scikit-learn training routine (e.g.,
+                     `fit()`, `fit_transform()`, ...).
+        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
+        """
+        # Deep parameter logging includes parameters from children of a given
+        # estimator. For some meta estimators (e.g., pipelines), recording
+        # these parameters is desirable. For parameter search estimators,
+        # however, child estimators act as seeds for the parameter search
+        # process; accordingly, we avoid logging initial, untuned parameters
+        # for these seed estimators.
+        should_log_params_deeply = not _is_parameter_search_estimator(estimator)
+        # Chunk model parameters to avoid hitting the log_batch API limit
+        for chunk in _chunk_dict(
+            estimator.get_params(deep=should_log_params_deeply),
+            chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+        ):
+            truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+            try_mlflow_log(mlflow.log_params, truncated)
+
+        try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
+
+    def _log_posttraining_metadata(estimator, *args, **kwargs):
+        """
+        Records metadata for a scikit-learn estimator after training has completed.
+        This is intended to be invoked within a patched scikit-learn training routine
+        (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
+        MLflow run that can be referenced via the fluent Tracking API.
+
+        :param estimator: The scikit-learn estimator for which to log metadata.
+        :param args: The arguments passed to the scikit-learn training routine (e.g.,
+                     `fit()`, `fit_transform()`, ...).
+        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
+        """
+        if hasattr(estimator, "score"):
+            try:
+                score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
+                training_score = estimator.score(*score_args)
+            except Exception as e:  # pylint: disable=broad-except
+                msg = (
+                    estimator.score.__qualname__
+                    + " failed. The 'training_score' metric will not be recorded. Scoring error: "
+                    + str(e)
+                )
+                _logger.warning(msg)
+            else:
+                try_mlflow_log(mlflow.log_metric, "training_score", training_score)
+
+        try_mlflow_log(log_model, estimator, artifact_path="model")
+
+        if _is_parameter_search_estimator(estimator):
+            if hasattr(estimator, "best_estimator_"):
+                try_mlflow_log(log_model, estimator.best_estimator_, artifact_path="best_estimator")
+
+            if hasattr(estimator, "best_params_"):
+                best_params = {
+                    "best_{param_name}".format(param_name=param_name): param_value
+                    for param_name, param_value in estimator.best_params_.items()
+                }
+                try_mlflow_log(mlflow.log_params, best_params)
+
+            if hasattr(estimator, "cv_results_"):
+                try:
+                    # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
+                    # information is consistent with the parent run
+                    environment_tags = context_registry.resolve_tags()
+                    _create_child_runs_for_parameter_search(
+                        cv_estimator=estimator,
+                        parent_run=mlflow.active_run(),
+                        child_tags=environment_tags,
+                    )
+                except Exception as e:  # pylint: disable=broad-except
+
+                    msg = (
+                        "Encountered exception during creation of child runs for parameter search."
+                        " Child runs may be missing. Exception: {}".format(str(e))
+                    )
+                    _logger.warning(msg)
+
+                try:
+                    cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
+                    _log_parameter_search_results_as_artifact(
+                        cv_results_df, mlflow.active_run().info.run_id
+                    )
+                except Exception as e:  # pylint: disable=broad-except
+
+                    msg = (
+                        "Failed to log parameter search results as an artifact."
+                        " Exception: {}".format(str(e))
+                    )
+                    _logger.warning(msg)
+
+    def patched_fit(self, func_name, *args, **kwargs):
+        """
+        To be applied to a sklearn model class that defines a `fit` method and
+        inherits from `BaseEstimator` (thereby defining the `get_params()` method)
+        """
+        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+            if t.should_log():
+                return fit_mlflow(self, func_name, *args, **kwargs)
+            else:
+                original_fit = gorilla.get_original_attribute(self, func_name)
+                return original_fit(*args, **kwargs)
+
+    def create_patch_func(func_name):
+        def f(self, *args, **kwargs):
+            return patched_fit(self, func_name, *args, **kwargs)
+
+        return f
+
+    patch_settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    _, estimators_to_patch = zip(*_all_estimators())
+    # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
+    # for patching if they are not already included in the output of `all_estimators()`
+    estimators_to_patch = set(estimators_to_patch).union(
+        set(_get_meta_estimators_for_autologging())
+    )
+    for class_def in estimators_to_patch:
+        for func_name in ["fit", "fit_transform", "fit_predict"]:
+            if hasattr(class_def, func_name):
+                original = getattr(class_def, func_name)
+
+                # A couple of estimators use property methods to return fitting functions,
+                # rather than defining the fitting functions on the estimator class directly.
+                #
+                # Example: https://github.com/scikit-learn/scikit-learn/blob/0.23.2/sklearn/neighbors/_lof.py#L183  # noqa
+                #
+                # We currently exclude these property fitting methods from patching because
+                # it's challenging to patch them correctly.
+                #
+                # Excluded fitting methods:
+                # - sklearn.cluster._agglomerative.FeatureAgglomeration.fit_predict
+                # - sklearn.neighbors._lof.LocalOutlierFactor.fit_predict
+                #
+                # You can list property fitting methods by inserting "print(class_def, func_name)"
+                # in the if clause below.
+                if isinstance(original, property):
+                    continue
+
+                patch_func = create_patch_func(func_name)
+                # TODO(harupy): Package this wrap & patch routine into a utility function so we can
+                # reuse it in other autologging integrations.
+                # preserve original function attributes
+                patch_func = functools.wraps(original)(patch_func)
+                patch = gorilla.Patch(class_def, func_name, patch_func, settings=patch_settings)
+                gorilla.apply(patch)
