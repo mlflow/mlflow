@@ -387,12 +387,12 @@ def test_start_run_existing_run(empty_active_run_stack):
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-
-    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+    set_running_patch = mock.patch.object(MlflowClient, "set_running")
+    with set_running_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         active_run = start_run(run_id)
 
         assert is_from_run(active_run, mock_run)
-        MlflowClient.get_run.assert_called_once_with(run_id)
+        MlflowClient.get_run.assert_called_with(run_id)
 
 
 def test_start_run_existing_run_from_environment(empty_active_run_stack):
@@ -400,13 +400,15 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
 
-    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+    set_running_patch = mock.patch.object(MlflowClient, "set_running")
+
+    with env_patch, set_running_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         active_run = start_run()
 
         assert is_from_run(active_run, mock_run)
-        MlflowClient.get_run.assert_called_once_with(run_id)
+        MlflowClient.get_run.assert_called_with(run_id)
 
 
 def test_start_run_existing_run_from_environment_with_set_environment(empty_active_run_stack):
@@ -433,16 +435,12 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
             start_run(run_id)
 
 
-def test_start_run_status_running(empty_active_run_stack):
-    mock_run = mock.Mock()
-    mock_run.info.lifecycle_stage = LifecycleStage.DELETED
-
-    run_id = uuid.uuid4().hex
-
-    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
-        with pytest.raises(MlflowException):
-            run = start_run(run_id)
-            assert run.info.status == RunStatus.FINISHED
+def test_start_existing_run_status(empty_active_run_stack):
+    run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    assert MlflowClient().get_run(run_id).info.status == RunStatus.to_string(RunStatus.FINISHED)
+    restarted_run = mlflow.start_run(run_id)
+    assert restarted_run.info.status == RunStatus.to_string(RunStatus.RUNNING)
 
 
 def test_get_run():

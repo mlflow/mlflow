@@ -337,8 +337,7 @@ class MlflowClient(object):
         """Set a run's status to running.
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
-                       Defaults to "RUNNING".
-        :param end_time: If not provided, defaults to the time specified in the run."""
+                       Defaults to "RUNNING"."""
         self._tracking_client.set_running(run_id, status)
 
     def delete_run(self, run_id):
