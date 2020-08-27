@@ -150,8 +150,7 @@ def high_dim_model():
         t_in1 = tf.placeholder(tf.int32, (1, 2, 2), name="first_input")
         t_in2 = tf.placeholder(tf.int32, (1, 2, 2), name="second_input")
         t_out = tf.add(t_in1, t_in2)
-        t_out_named = tf.identity(t_out, name="output")
-
+        tf.identity(t_out, name="output")
     import tf2onnx
 
     sess = tf.Session(graph=graph)
@@ -255,10 +254,9 @@ def test_signature_and_examples_are_saved_correctly(onnx_model, data, onnx_custo
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, predicted):
-    import onnx
     import mlflow.onnx
 
-    x, y = data
+    x, _ = data
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading pyfunc model
@@ -349,7 +347,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
     DataFrame as JSON).
     """
-    import onnx
     import mlflow.onnx
 
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
@@ -369,7 +366,6 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
 def test_pyfunc_high_dim_models(
     high_dim_model, model_path, data_high_dim_inputs, predicted_high_dim_inputs,
 ):
-    import onnx
     import mlflow.onnx
 
     mlflow.onnx.save_model(high_dim_model, model_path)
@@ -386,7 +382,6 @@ def test_pyfunc_high_dim_models(
 def test_pyfunc_incorrect_input(
     high_dim_model, model_path,
 ):
-    import onnx
     import mlflow.onnx
 
     mlflow.onnx.save_model(high_dim_model, model_path)
@@ -460,10 +455,9 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
-    import onnx
     import mlflow.onnx
 
-    x, y = data
+    x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         try:
