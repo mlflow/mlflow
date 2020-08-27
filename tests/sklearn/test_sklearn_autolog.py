@@ -734,3 +734,55 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_predict():
+    from sklearn.cluster import AgglomerativeClustering
+
+    mlflow.sklearn.autolog()
+
+    X, y = get_iris()
+    model = AgglomerativeClustering()
+    assert not hasattr(model, "predict")
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+def test_autolog_does_not_throw_when_predict_fails():
+    X, y = get_iris()
+
+    # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
+    with mlflow.start_run() as run, mock.patch(
+        "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
+    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        mlflow.sklearn.autolog()
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    mock_warning.assert_called_with("Failed to infer an input example and model signature: Failed")
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+def test_autolog_does_not_throw_when_infer_signature_fails():
+    X, y = get_iris()
+
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.models.infer_signature", side_effect=Exception("Failed")
+    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        mlflow.sklearn.autolog()
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    mock_warning.assert_called_once_with(
+        "Failed to infer an input example and model signature: Failed"
+    )
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()

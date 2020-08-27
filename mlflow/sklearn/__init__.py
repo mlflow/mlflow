@@ -740,6 +740,7 @@ def autolog():
                 model_output = estimator.predict(input_example)
                 signature = infer_signature(input_example, model_output)
             except Exception as e:
+                input_example = None
                 _logger.warning("Failed to infer an input example and model signature: " + str(e))
 
         try_mlflow_log(
