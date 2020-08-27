@@ -21,11 +21,12 @@ from tests.projects.utils import (
 
 _logger = logging.getLogger(__name__)
 
+TEST_PROJECT_DIR = "/Users/czumar/mlflow/tests/resources/example_project"
 
 @pytest.mark.large
-def test_run_local_params():
+@pytest.mark.parametrize("name", ["friend", "friend=you", "='friend'"])
+def test_run_local_params(name):
     excitement_arg = 2
-    name = "friend"
     invoke_cli_runner(
         cli.run,
         [
