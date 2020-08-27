@@ -27,7 +27,7 @@ jobs:
         source activate test-environment
         ./lint.sh
   r:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
     - uses: r-lib/actions/setup-r@v1
