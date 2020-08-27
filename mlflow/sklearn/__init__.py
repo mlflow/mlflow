@@ -772,12 +772,3 @@ def autolog():
                 patch_func = functools.wraps(original)(patch_func)
                 patch = gorilla.Patch(class_def, func_name, patch_func, settings=patch_settings)
                 gorilla.apply(patch)
-
-
-# if the function is `fit_predict`, we can reuse fit_output
-
-
-# if not
-# check the estimator defines `fit_predict`, but not `predict` (has_fit_predict_but_not_predict)
-
-# if has_fit_predict_but_not_predict
