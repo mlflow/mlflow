@@ -43,7 +43,7 @@ jobs:
         run: |
           ver="${{ matrix.version }}"
           op=$([[ "$ver" =~ https?://.+ ]] && echo "@" || echo "==")
-          pip install "scikit-learn $op $ver"
+          pip install -U "scikit-learn $op $ver"
       - name: Check scikit-learn version
         run: |
           python -c "import sklearn; print(sklearn.__version__)"
