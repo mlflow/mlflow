@@ -53,10 +53,11 @@ jobs:
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
     - name: Install R dependencies
+      working-directory: mlflow/R/mlflow
       shell: Rscript {0}
       run: |
         install.packages("devtools")
-        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
+        remotes::install_deps('.', dependencies = TRUE, upgrade = FALSE)
     - name: Build package
       working-directory: mlflow/R/mlflow
       run: |
