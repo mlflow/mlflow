@@ -1,5 +1,53 @@
 Changelog
 =========
+1.11..dev20200828 (2020-08-28)
+------------------------------
+MLflow 1.11..dev20200828 includes several major features and improvements:
+
+Features:
+
+- Signed impl (#3323, @dbczumar)
+- Support remote Databricks model registries in `mlflow.<flavor>.load_model` (#3330, @sueann)
+- Add autologging for scikit-learn (#3287, @harupy)
+- Add ability to add description in model/version create APIs (#3271, @sueann)
+- support xgboost for R (#3085, @lorenzwalthert)
+- Add Pagination to list_run_infos (#3183, @trangevi)
+- [Model Version Schema] Add Schema Section in Model Version and Compare Model Version View (#3209, @zhidongqu-db)
+- [V2] Enable registering models to a Databricks workspace from outside (#3119, @sueann)
+- [UI] Add run-link and model-registry-tags features (#3187, @harupy)
+- [Multi-Workspace Registry] add client changes for populating registry lineage through run-link (#3164, @ankitmathur-db)
+- Update UI to support `archive-existing-versions` feature (#3134, @harupy)
+- [Multi-Workspace Registry] server-side changes for adding runlink to model version (#3128, @ankitmathur-db)
+
+Bug fixes and documentation updates:
+
+- Fix for parameter parsing when parameter contains '=' (#3347, @dbczumar)
+- Fix with comment (#3348, @dbczumar)
+- Fix bug for sftp_artifact_repo in windows (#3168, @harupy)
+- Fix flaky test_search_attrs (#3244, @harupy)
+- Fix bug with list_artifacts in gcp (#3242, @santosh1994)
+- MlflowClient should pass in the tracking uri info to ArtifactRepository (#3220, @sueann)
+- Fix error due to names with absolute path returned by ftp.nlst (#3210, @shaneing)
+- Fix directory doubling issue for `FTPArtifactRepository.log_artifacts` (#3204, @harupy)
+- Handle 400 error in Models page (#3062, @cafeal)
+- fix(dbfs_artifact_repo.py): use params for GET call instead of json (#2947, @cdemonchy-pro)
+- Do not overwrite local Spark cache when loading SparkML models as spark_udf. (#3193, @tomasatdatabricks)
+- [Issue #3170] PDF viewer doesn't render PDFs in MLflow 1.10 (#3172, @ankitmathur-db)
+- Fix order of parameters in AbstractBackend.run (#3115, @fhoering)
+- Fix order by parsing when name contains a space (#3118, @jdlesage)
+- Fix a bug for `_enforce_type` in pandas >= 1.0 (#3130, @harupy)
+- Fix a bug where spark.log_model doesn't save signature and input_example (#3151, @harupy)
+- Bug-fix: tags table don't fresh after delete a tag from expriments page. (#3135, @ParseDark)
+- Delete Databricks project information from docs (#3328, @apurva-koti)
+- Add example illustrating the use of RAPIDS with MLFlow (#3028, @drobison00)
+- [docs] Make clear that the client is the one logging artifacts to the artifact store (#3046, @OlivierBondu)
+- Update AzureML model deploy  (#3250, @shivp950)
+- Added fastai, spacy, and autologging sections for #issue 3137 (#3194, @dmatrix)
+- Fix command line parameters (remove -P in front of URI) (#3259, @simonhessner)
+- Added fastai autolog examle for FR-3126 (#3158, @dmatrix)
+
+Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation)
+
 1.10.0 (2020-07-20)
 -------------------
 MLflow 1.10.0 includes several major features and improvements, in particular the release of
