@@ -308,6 +308,8 @@ class _HadoopFileSystem:
         try:
             return cls._fs().exists(dfs_path)
         except Exception as ex:  # pylint: disable=broad-except
+            # Log a debug-level message, since existence checks may raise exceptions
+            # in normal operating circumstances that do not warrant warnings
             _logger.debug(
                 "Unexpected exception while checking if model uri is visible on " "DFS: %s", ex
             )
