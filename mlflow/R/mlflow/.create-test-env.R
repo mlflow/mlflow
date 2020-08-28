@@ -7,5 +7,5 @@ library(reticulate)
 use_condaenv(mlflow:::mlflow_conda_env_name())
 # pinning tensorflow version to 1.14 until test_keras_model.R is fixed
 keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(), tensorflow="1.15.2")
-reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
+reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
