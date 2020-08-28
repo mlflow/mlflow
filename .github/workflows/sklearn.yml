@@ -27,7 +27,7 @@ jobs:
           - "0.20.3"
           - "0.21.2"
           - "0.22.2"
-          # For forwards compatibility
+          # To ensure forwards compatibility
           - "dev"
     steps:
       - uses: actions/checkout@v2
