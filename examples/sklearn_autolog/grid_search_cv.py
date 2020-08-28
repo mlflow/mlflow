@@ -1,5 +1,6 @@
 from pprint import pprint
 
+import pandas as pd
 from sklearn import svm, datasets
 from sklearn.model_selection import GridSearchCV
 
@@ -29,7 +30,9 @@ def main():
     runs = mlflow.search_runs(filter_string=filter_child_runs)
     param_cols = ["params.{}".format(p) for p in parameters.keys()]
     metric_cols = ["metrics.mean_test_score"]
+
     print("\n========== child runs ==========\n")
+    pd.set_option("display.max_columns", None)  # show all columns
     print(runs[["run_id", *param_cols, *metric_cols]])
 
 
