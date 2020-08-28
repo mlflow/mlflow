@@ -263,6 +263,7 @@ class _HadoopFileSystem:
     @classmethod
     def _conf(cls):
         from pyspark import SparkContext
+
         sc = SparkContext.getOrCreate()
         return sc._jsc.hadoopConfiguration()
 
