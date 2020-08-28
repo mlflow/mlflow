@@ -546,7 +546,7 @@ def test_autolog_emits_warning_message_when_metric_fails():
 
     model = sklearn.svm.SVC()
 
-    @functools.wraps(model.score)
+    @functools.wraps(sklearn.metrics.precision_score)
     def throwing_score(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
