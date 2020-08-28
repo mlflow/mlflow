@@ -1,6 +1,4 @@
-parent_dir <- dir("./", full.names = TRUE)
-package <- parent_dir[grepl("mlflow_", parent_dir)]
-install.packages(package)
+devtools::install(build = TRUE)
 
 mlflow:::mlflow_maybe_create_conda_env(python_version = "3.6")
 library(reticulate)
