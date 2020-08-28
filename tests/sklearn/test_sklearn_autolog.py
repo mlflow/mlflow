@@ -547,10 +547,10 @@ def test_autolog_emits_warning_message_when_metric_fails():
     model = sklearn.svm.SVC()
 
     @functools.wraps(sklearn.metrics.precision_score)
-    def throwing_score(y_true, y_pred):  # pylint: disable=unused-argument
+    def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    sklearn.metrics.precision_score = throwing_score
+    sklearn.metrics.precision_score = throwing_metrics
 
     with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
