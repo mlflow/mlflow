@@ -41,7 +41,7 @@ jobs:
           pip install -r dev/small-requirements.txt
       - name: Update scikit-learn
         run: |
-          ver="$${{ matrix.version }}"
+          ver="${{ matrix.version }}"
           op=$([[ "$ver" =~ ^git ]] && echo "@" || echo "==")
           pip install -U "scikit-learn $op $ver"
       - name: Check scikit-learn version
