@@ -188,12 +188,14 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.sklearn",
-        model_path=model_data_subpath,
-        env=conda_env_subpath,
-    )
+    # `PyFuncModel` only works for sklearn models that define `predict()`.
+    if hasattr(sk_model, "predict"):
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.sklearn",
+            model_path=model_data_subpath,
+            env=conda_env_subpath,
+        )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
@@ -611,15 +613,19 @@ def autolog():
         pprint(artifacts)
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
     """
-    import sklearn
     import pandas as pd
+    import sklearn
+
+    from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _MIN_SKLEARN_VERSION,
         _is_supported_version,
         _chunk_dict,
         _get_args_for_score,
+        _get_Xy,
         _all_estimators,
         _truncate_dict,
+        _get_arg_names,
         _get_estimator_info_tags,
         _get_meta_estimators_for_autologging,
         _is_parameter_search_estimator,
@@ -720,7 +726,31 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
-        try_mlflow_log(log_model, estimator, artifact_path="model")
+        input_example = None
+        signature = None
+        if hasattr(estimator, "predict"):
+            try:
+                # Fetch an input example using the first several rows of the array-like
+                # training data supplied to the training routine (e.g., `fit()`)
+                SAMPLE_ROWS = 5
+                fit_arg_names = _get_arg_names(estimator.fit)
+                X_var_name, y_var_name = fit_arg_names[:2]
+                input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
+
+                model_output = estimator.predict(input_example)
+                signature = infer_signature(input_example, model_output)
+            except Exception as e:  # pylint: disable=broad-except
+                input_example = None
+                msg = "Failed to infer an input example and model signature: " + str(e)
+                _logger.warning(msg)
+
+        try_mlflow_log(
+            log_model,
+            estimator,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_"):
