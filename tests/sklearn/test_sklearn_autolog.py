@@ -1,6 +1,7 @@
 import functools
 import inspect
 from mock import mock
+import os
 import warnings
 
 import numpy as np
@@ -11,6 +12,9 @@ import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
 
+from mlflow.models import Model
+from mlflow.models.signature import infer_signature
+from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
@@ -70,6 +74,11 @@ def get_run_data(run_id):
 
 def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+
+
+def get_model_conf(artifact_uri):
+    model_conf_path = os.path.join(artifact_uri, MODEL_DIR, "MLmodel")
+    return Model.load(model_conf_path)
 
 
 def stringify_dict_values(d):
@@ -754,3 +763,107 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
         model.fit(X, y)
         mock_func.assert_called_once()
+
+
+@pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
+def test_autolog_logs_signature_and_input_example(data_type):
+    mlflow.sklearn.autolog()
+
+    X, y = get_iris()
+    X = data_type(X)
+    y = data_type(y)
+    model = sklearn.linear_model.LinearRegression()
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        model_path = os.path.join(run.info.artifact_uri, MODEL_DIR)
+
+    model_conf = get_model_conf(run.info.artifact_uri)
+    input_example = _read_example(model_conf, model_path)
+    pyfunc_model = mlflow.pyfunc.load_model(model_path)
+
+    assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
+    np.testing.assert_array_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
+
+
+def test_autolog_does_not_throw_when_failing_to_sample_X():
+    class ArrayThatThrowsWhenSliced(np.ndarray):
+        def __new__(cls, input_array):
+            return np.asarray(input_array).view(cls)
+
+        def __getitem__(self, key):
+            if isinstance(key, slice):
+                raise IndexError("DO NOT SLICE ME")
+            return super(ArrayThatThrowsWhenSliced, self).__getitem__(key)
+
+    X, y = get_iris()
+    throwing_X = ArrayThatThrowsWhenSliced(X)
+
+    # ensure throwing_X throws when sliced
+    with pytest.raises(IndexError, match="DO NOT SLICE ME"):
+        _ = throwing_X[:5]
+
+    mlflow.sklearn.autolog()
+    model = sklearn.linear_model.LinearRegression()
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        model.fit(throwing_X, y)
+
+    model_conf = get_model_conf(run.info.artifact_uri)
+
+    mock_warning.assert_called_once()
+    mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_predict():
+    from sklearn.cluster import AgglomerativeClustering
+
+    mlflow.sklearn.autolog()
+
+    X, y = get_iris()
+    model = AgglomerativeClustering()
+    assert not hasattr(model, "predict")
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+def test_autolog_does_not_throw_when_predict_fails():
+    X, y = get_iris()
+
+    # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
+    with mlflow.start_run() as run, mock.patch(
+        "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
+    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        mlflow.sklearn.autolog()
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    mock_warning.assert_called_with("Failed to infer an input example and model signature: Failed")
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+def test_autolog_does_not_throw_when_infer_signature_fails():
+    X, y = get_iris()
+
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.models.infer_signature", side_effect=Exception("Failed")
+    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        mlflow.sklearn.autolog()
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    mock_warning.assert_called_once_with(
+        "Failed to infer an input example and model signature: Failed"
+    )
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+    assert "saved_input_example_info" not in model_conf.to_dict()
