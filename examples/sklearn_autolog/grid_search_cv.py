@@ -32,7 +32,7 @@ def main():
     metric_cols = ["metrics.mean_test_score"]
 
     print("\n========== child runs ==========\n")
-    pd.set_option("display.max_columns", None)  # show all columns
+    pd.set_option("display.max_columns", None)  # prevent truncating columns
     print(runs[["run_id", *param_cols, *metric_cols]])
 
 
