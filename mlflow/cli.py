@@ -194,14 +194,14 @@ def run(
 def _user_args_to_dict(arguments, argument_type="P"):
     user_dict = {}
     for arg in arguments:
-        split_index = arg.find("=")
+        split = arg.split("=", maxsplit=1)
         # Docker arguments such as `t` don't require a value -> set to True if specified
-        if split_index == -1 and argument_type == "A":
-            name = arg[:split_index]
+        if len(split) == 1 and argument_type == "A":
+            name = split[0]
             value = True
-        elif split_index >= 0:
-            name = arg[:split_index]
-            value = arg[split_index + 1 :]
+        elif len(split) == 2:
+            name = split[0]
+            value = split[1]
         else:
             eprint(
                 "Invalid format for -%s parameter: '%s'. "
