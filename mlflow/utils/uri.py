@@ -237,6 +237,12 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
     return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
 
 
+def is_databricks_model_registry_artifacts_uri(artifact_uri):
+    _MODEL_REGISTRY_ARTIFACT_URI = "databricks/mlflow-registry/"
+    artifact_uri_path = extract_and_normalize_path(artifact_uri)
+    return artifact_uri_path.startswith(_MODEL_REGISTRY_ARTIFACT_URI)
+
+
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if not hostname or not experiment_id or not run_id:
         raise MlflowException(
