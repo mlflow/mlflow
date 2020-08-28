@@ -338,12 +338,12 @@ def _log_warning_for_metrics(func_name, func_call, err):
 def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_kwargs):
     import sklearn
 
-    name_score_dict = {}
+    name_metric_dict = {}
     try:
         if sklearn.base.is_classifier(fitted_estimator):
-            name_score_dict = _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs)
+            name_metric_dict = _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs)
         elif sklearn.base.is_regressor(fitted_estimator):
-            name_score_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
+            name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
 
     except Exception as err:  # pylint: disable=broad-except
         msg = (
@@ -361,7 +361,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             run_id,
             metrics=[
                 Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                for key, value in name_score_dict.items()
+                for key, value in name_metric_dict.items()
             ],
         )
 
