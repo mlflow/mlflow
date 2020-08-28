@@ -62,15 +62,15 @@ jobs:
       run: |
         R CMD build .
     - name: Create test env
-      working-directory: mlflow/R/mlflow/tests
+      working-directory: mlflow/R/mlflow
       run: |
-        Rscript ../.create-test-env.R
+        Rscript .create-test-env.R
     - name: Run tests
       env:
         LINTR_COMMENT_BOT: false
-      working-directory: mlflow/R/mlflow/tests
+      working-directory: mlflow/R/mlflow
       run: |
-        Rscript ../.run-tests.R
+        Rscript .run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
       env:
