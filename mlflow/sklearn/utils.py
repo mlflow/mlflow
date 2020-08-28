@@ -56,12 +56,12 @@ def _get_Xy(args, kwargs, X_var_name, y_var_name):
     return kwargs[X_var_name], kwargs[y_var_name]
 
 
-def _get_samples_labels_and_predictions(trained_estimator, fit_args, fit_kwargs, fit_arg_names):
+def _get_samples_labels_and_predictions(fitted_estimator, fit_args, fit_kwargs, fit_arg_names):
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
     X_var_name, y_var_name = fit_arg_names[:2]
     X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
-    y_pred = trained_estimator.predict(X)
+    y_pred = fitted_estimator.predict(X)
 
     return X, y_true, y_pred
 
@@ -131,7 +131,7 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
+def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
     Compute and log various common metrics for classifiers
 
@@ -164,16 +164,16 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
     (y_true, y_pred, ...... sample_weight), otherwise as (y_true, y_pred, ......)
     3. return a dictionary of metric(name, value)
 
-    :param trained_estimator: The already fitted classifier
+    :param fitted_estimator: The already fitted classifier
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
     :return: dictionary of (function name, computed value)
     """
     import sklearn
 
-    fit_arg_names = _get_arg_names(trained_estimator.fit)
+    fit_arg_names = _get_arg_names(fitted_estimator.fit)
     X, y_true, y_pred = _get_samples_labels_and_predictions(
-        trained_estimator, fit_args, fit_kwargs, fit_arg_names
+        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
     )
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
@@ -212,8 +212,8 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
         ),
     ]
 
-    if hasattr(trained_estimator, "predict_proba"):
-        y_pred_proba = trained_estimator.predict_proba(X)
+    if hasattr(fitted_estimator, "predict_proba"):
+        y_pred_proba = fitted_estimator.predict_proba(X)
 
         classifier_metrics.extend(
             [
@@ -239,7 +239,7 @@ def _get_classifier_metrics(trained_estimator, fit_args, fit_kwargs):
     return _get_metrics_value_dict(classifier_metrics)
 
 
-def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
+def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
     Compute and log various common metrics for regressors
 
@@ -259,16 +259,16 @@ def _get_regressor_metrics(trained_estimator, fit_args, fit_kwargs):
     (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
     3. return a dictionary of metric(name, value)
 
-    :param trained_estimator: The already fitted regressor
+    :param fitted_estimator: The already fitted regressor
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
     :return: dictionary of (function name, computed value)
     """
     import sklearn
 
-    fit_arg_names = _get_arg_names(trained_estimator.fit)
+    fit_arg_names = _get_arg_names(fitted_estimator.fit)
     _, y_true, y_pred = _get_samples_labels_and_predictions(
-        trained_estimator, fit_args, fit_kwargs, fit_arg_names
+        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
     )
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
