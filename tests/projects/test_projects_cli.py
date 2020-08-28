@@ -12,11 +12,13 @@ from mlflow import cli
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
+from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import (
     TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
     SSH_PROJECT_URI,
     TEST_NO_SPEC_PROJECT_DIR,
+    TEST_DOCKER_PROJECT_DIR,
 )
 
 _logger = logging.getLogger(__name__)
@@ -38,6 +40,22 @@ def test_run_local_params(name):
             "name=%s" % name,
             "-P",
             "excitement=%s" % excitement_arg,
+        ],
+    )
+
+
+@pytest.mark.large
+def test_run_local_with_docker_args(docker_example_base_image): # pylint: disable=unused-argument
+    # Verify that Docker project execution is successful when Docker flag and string 
+    # commandline arguments are supplied (`tty` and `name`, respectively)
+    result = invoke_cli_runner(
+        cli.run,
+        [
+            TEST_DOCKER_PROJECT_DIR,
+            "-A",
+            "tty",
+            "-A",
+            "name=mycontainer",
         ],
     )
 
