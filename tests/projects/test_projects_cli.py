@@ -48,9 +48,7 @@ def test_run_local_params(name):
 def test_run_local_with_docker_args(docker_example_base_image):  # pylint: disable=unused-argument
     # Verify that Docker project execution is successful when Docker flag and string
     # commandline arguments are supplied (`tty` and `name`, respectively)
-    result = invoke_cli_runner(
-        cli.run, [TEST_DOCKER_PROJECT_DIR, "-A", "tty", "-A", "name=mycontainer"]
-    )
+    invoke_cli_runner(cli.run, [TEST_DOCKER_PROJECT_DIR, "-A", "tty", "-A", "name=mycontainer"])
 
 
 @pytest.mark.large
