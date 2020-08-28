@@ -19,6 +19,7 @@ import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
     _is_supported_version,
+    _is_metric_supported,
     _get_arg_names,
     _truncate_dict,
 )
@@ -36,7 +37,6 @@ TRAINING_SCORE = "training_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
-
 
 pytestmark = pytest.mark.large
 
@@ -215,17 +215,22 @@ def test_classifier():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {
+
+    expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
         "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
         "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
         "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
         "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
         "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
-        "roc_auc_score": sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
-        ),
     }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
+        )
+
+    assert metrics == expected_metrics
+
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -549,7 +554,6 @@ def test_autolog_emits_warning_message_when_score_fails():
 def test_autolog_emits_warning_message_when_metric_fails():
     """
     Take precision_score metric from SVC as an example to test metric logging failure
-    :return: NULL
     """
     mlflow.sklearn.autolog()
 
@@ -571,6 +575,41 @@ def test_autolog_emits_warning_message_when_metric_fails():
         )
 
 
+def test_autolog_emits_warning_message_when_model_prediction_fails():
+    """
+    Take GridSearchCV as an example, whose base class is "classifier" and will go
+    through classifier's metric logging. When refit=False, the model will never get
+    refitted, while during the metric logging what ".predict()" expects is a fitted model.
+    Thus, a warning will be logged.
+    """
+    mlflow.sklearn.autolog()
+
+    metrics_size = 2
+    metrics_to_log = {
+        "score_{}".format(i): sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
+        for i in range(metrics_size)
+    }
+
+    @functools.wraps(sklearn.model_selection.GridSearchCV.predict)
+    def throwing_predict(X):  # pylint: disable=unused-argument
+        raise Exception("EXCEPTION")
+
+    sklearn.model_selection.GridSearchCV.predict = throwing_predict
+
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+        svc = sklearn.svm.SVC()
+        cv_model = sklearn.model_selection.GridSearchCV(
+            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
+        )
+        cv_model.fit(*get_iris())
+        mock_warning.assert_called_once()
+        mock_warning.called_once_with(
+            "Failed to autolog metrics for "
+            + sklearn.model_selection.GridSearchCV.__class__.__name__
+            + ". Logging error: EXCEPTION"
+        )
+
+
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
     mlflow.sklearn.autolog()
 
@@ -582,7 +621,6 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
     ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
-
         with mlflow.start_run() as run:
             model = fit_model(model, X, y, fit_func_name)
             mock_log_params.assert_called_once()
@@ -610,7 +648,6 @@ def test_meta_estimator_fit_performs_logging_only_once():
     ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
-
         with mlflow.start_run() as run:
             model.fit(X, y)
             mock_log_params.assert_called_once()
@@ -760,7 +797,6 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
     with mlflow.start_run(), mock.patch(
         func_to_fail, side_effect=Exception(func_to_fail)
     ) as mock_func:
-
         model.fit(X, y)
         mock_func.assert_called_once()
 

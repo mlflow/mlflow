@@ -824,13 +824,6 @@ def autolog():
         set(_get_meta_estimators_for_autologging())
     )
 
-    # from sklearn.utils.testing import all_estimators
-    # estimators = all_estimators()
-    #
-    # for name, class_ in estimators:
-    #     if hasattr(class_, 'predict_proba'):
-    #         print("estimator: ", name)
-
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(class_def, func_name):

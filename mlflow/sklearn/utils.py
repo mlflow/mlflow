@@ -28,7 +28,8 @@ _MIN_SKLEARN_VERSION = "0.20.3"
 
 _SAMPLE_WEIGHT = "sample_weight"
 
-# A organized template to store sklearn metrics
+# _SklearnMetric represents a metric (e.g, precision_score) that will be computed and logged
+# during the autologging routine for a particular model type (eg, classifier, regressor).
 _SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
 
 
@@ -214,7 +215,6 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
 
     if hasattr(fitted_estimator, "predict_proba"):
         y_pred_proba = fitted_estimator.predict_proba(X)
-
         classifier_metrics.extend(
             [
                 _SklearnMetric(
@@ -222,19 +222,25 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
                     function=sklearn.metrics.log_loss,
                     arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
                 ),
-                _SklearnMetric(
-                    name="roc_auc_score",
-                    function=sklearn.metrics.roc_auc_score,
-                    arguments=dict(
-                        y_true=y_true,
-                        y_score=y_pred_proba,
-                        average="weighted",
-                        sample_weight=sample_weight,
-                        multi_class="ovo",
-                    ),
-                ),
             ]
         )
+
+        if _is_metric_supported("roc_auc_score"):
+            classifier_metrics.extend(
+                [
+                    _SklearnMetric(
+                        name="roc_auc_score",
+                        function=sklearn.metrics.roc_auc_score,
+                        arguments=dict(
+                            y_true=y_true,
+                            y_score=y_pred_proba,
+                            average="weighted",
+                            sample_weight=sample_weight,
+                            multi_class="ovo",
+                        ),
+                    ),
+                ]
+            )
 
     return _get_metrics_value_dict(classifier_metrics)
 
@@ -309,7 +315,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
         ),
     ]
 
-    # To be compatibale with deprecated versions of scikit-learn (below 0.22.2), where
+    # To be compatible with older versions of scikit-learn (below 0.22.2), where
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
@@ -341,9 +347,9 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
 
     except Exception as err:  # pylint: disable=broad-except
         msg = (
-            "Failed to autolog metrics for"
+            "Failed to autolog metrics for "
             + fitted_estimator.__class__.__name__
-            + "Logging error: "
+            + ". Logging error: "
             + str(err)
         )
         _logger.warning(msg)
@@ -557,6 +563,16 @@ def _is_supported_version():
     import sklearn
 
     return LooseVersion(sklearn.__version__) >= LooseVersion(_MIN_SKLEARN_VERSION)
+
+
+# Util function to check whether a metric is able to be computed in given sklearn version
+def _is_metric_supported(metric_name):
+    import sklearn
+
+    # This dict can be extended to store special metrics' specific supported versions
+    _metric_supported_version = {"roc_auc_score": "0.22.2"}
+
+    return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
 
 
 def _all_estimators():
