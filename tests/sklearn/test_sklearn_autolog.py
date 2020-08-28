@@ -593,7 +593,7 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
 
     best_estimator_path = os.path.join(run.info.artifact_uri, "best_estimator")
     input_example = _read_example(best_estimator_conf, best_estimator_path)
-    best_estimator.predict(input_example) # Ensure that input example evaluation succeeds
+    best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
 
     client = mlflow.tracking.MlflowClient()
     child_runs = client.search_runs(
