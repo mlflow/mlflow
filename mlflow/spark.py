@@ -581,6 +581,9 @@ def _load_pyfunc(path):
         spark = (
             pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)
             .config("spark.databricks.io.cache.enabled", False)
+            # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
+            # a SparkSession on the workers
+            .config("spark.executor.allowSparkContext", "true")
             .master("local[1]")
             .getOrCreate()
         )
