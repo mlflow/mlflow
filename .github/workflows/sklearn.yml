@@ -29,7 +29,7 @@ jobs:
           - "0.21.2"
           - "0.22.2"
           # To ensure forwards compatibility
-          - "dev"
+          - "https://github.com/scikit-learn/scikit-learn.git@master"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -41,11 +41,9 @@ jobs:
           pip install -r dev/small-requirements.txt
       - name: Update scikit-learn
         run: |
-          if [ "${{ matrix.version }}" = "dev" ]; then
-            pip install git+https://github.com/scikit-learn/scikit-learn.git@master
-          else
-            pip install scikit-learn==${{ matrix.version }}
-          fi
+          ver="${{ matrix.version }}"
+          op=$([[ "$ver" =~ https?://.+ ]] && echo "@" || echo "==")
+          pip install "scikit-learn $op $ver"
       - name: Check scikit-learn version
         run: |
           python -c "import sklearn; print(sklearn.__version__)"
