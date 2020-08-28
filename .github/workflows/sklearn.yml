@@ -45,8 +45,10 @@ jobs:
           op=$([[ "$ver" =~ ^git ]] && echo "@" || echo "==")
           pip install -U "scikit-learn $op $ver"
       - name: Check scikit-learn version
+        shell: python
         run: |
-          python -c "import sklearn; print(sklearn.__version__)"
+          import sklearn
+          print(sklearn.__version__)
       - name: Run tests
         run: |
           pytest --verbose --large tests/sklearn/test_sklearn_autolog.py
