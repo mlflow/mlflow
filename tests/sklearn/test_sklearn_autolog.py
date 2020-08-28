@@ -218,14 +218,16 @@ def test_classifier():
 
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
-        "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
-        "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
-        "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
-    if _is_metric_supported("roc_auc_score"):
-        expected_metrics["roc_auc_score"] = sklearn.metrics.roc_auc_score(
+    if _is_metric_supported("training_roc_auc_score"):
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
             y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
         )
 
@@ -251,12 +253,13 @@ def test_regressor():
     run_id = run._info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+        "training_mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        "training_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        "training_mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts

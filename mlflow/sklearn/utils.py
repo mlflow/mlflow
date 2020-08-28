@@ -184,28 +184,28 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
 
     classifier_metrics = [
         _SklearnMetric(
-            name="precision_score",
+            name="training_precision_score",
             function=sklearn.metrics.precision_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name="recall_score",
+            name="training_recall_score",
             function=sklearn.metrics.recall_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name="f1_score",
+            name="training_f1_score",
             function=sklearn.metrics.f1_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name="accuracy_score",
+            name="training_accuracy_score",
             function=sklearn.metrics.accuracy_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, normalize=True, sample_weight=sample_weight
@@ -218,18 +218,18 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
         classifier_metrics.extend(
             [
                 _SklearnMetric(
-                    name="log_loss",
+                    name="training_log_loss",
                     function=sklearn.metrics.log_loss,
                     arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
                 ),
             ]
         )
 
-        if _is_metric_supported("roc_auc_score"):
+        if _is_metric_supported("training_roc_auc_score"):
             classifier_metrics.extend(
                 [
                     _SklearnMetric(
-                        name="roc_auc_score",
+                        name="training_roc_auc_score",
                         function=sklearn.metrics.roc_auc_score,
                         arguments=dict(
                             y_true=y_true,
@@ -284,7 +284,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
 
     regressor_metrics = [
         _SklearnMetric(
-            name="mse",
+            name="training_mse",
             function=sklearn.metrics.mean_squared_error,
             arguments=dict(
                 y_true=y_true,
@@ -294,7 +294,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name="mae",
+            name="training_mae",
             function=sklearn.metrics.mean_absolute_error,
             arguments=dict(
                 y_true=y_true,
@@ -304,7 +304,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name="r2_score",
+            name="training_r2_score",
             function=sklearn.metrics.r2_score,
             arguments=dict(
                 y_true=y_true,
@@ -319,7 +319,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict["rmse"] = np.sqrt(metrics_value_dict["mse"])
+    metrics_value_dict["training_rmse"] = np.sqrt(metrics_value_dict["training_mse"])
 
     return metrics_value_dict
 
@@ -570,7 +570,7 @@ def _is_metric_supported(metric_name):
     import sklearn
 
     # This dict can be extended to store special metrics' specific supported versions
-    _metric_supported_version = {"roc_auc_score": "0.22.2"}
+    _metric_supported_version = {"training_roc_auc_score": "0.22.2"}
 
     return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
 
