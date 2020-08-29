@@ -570,12 +570,21 @@ def autolog():
 
     **Example**
 
+    `See more examples <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_autolog>`_
+
     .. code-block:: python
 
         from pprint import pprint
         import numpy as np
-        import sklearn.linear_model
+        from sklearn.linear_model import LinearRegression
         import mlflow
+
+        def fetch_logged_data(run_id):
+            client = mlflow.tracking.MlflowClient()
+            data = client.get_run(run_id).data
+            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+            return data.params, data.metrics, tags, artifacts
 
         # enable autologging
         mlflow.sklearn.autolog()
@@ -585,17 +594,12 @@ def autolog():
         y = np.dot(X, np.array([1, 2])) + 3
 
         # train a model
+        model = LinearRegression()
         with mlflow.start_run() as run:
-            reg = sklearn.linear_model.LinearRegression().fit(X, y)
-
-        def fetch_logged_data(run_id):
-            client = mlflow.tracking.MlflowClient()
-            data = client.get_run(run_id).data
-            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
-            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+            model.fit(X, y)
 
         # fetch logged data
-        params, metrics, tags, artifacts = fetch_logged_data(run._info.run_id)
+        params, metrics, tags, artifacts = fetch_logged_data(run.info.run_id)
 
         pprint(params)
         # {'copy_X': 'True',
