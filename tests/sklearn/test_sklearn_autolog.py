@@ -18,6 +18,7 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
+    _METRICS_PREFIX,
     _is_supported_version,
     _is_metric_supported,
     _get_arg_names,
@@ -212,22 +213,22 @@ def test_classifier():
 
     y_pred = model.predict(X)
     y_pred_prob = model.predict_proba(X)
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
 
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
-        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        "training_precision_score": sklearn.metrics.precision_score(
+        _METRICS_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        _METRICS_PREFIX + "precision_score": sklearn.metrics.precision_score(
             y_true, y_pred, average="weighted"
         ),
-        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
-        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        _METRICS_PREFIX + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
-    if _is_metric_supported("training_roc_auc_score"):
-        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics[_METRICS_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
             y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
         )
 
@@ -250,16 +251,16 @@ def test_regressor():
         model = fit_model(model, X, y_true, "fit")
 
     y_pred = model.predict(X)
-    run_id = run._info.run_id
+    run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
 
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        "training_mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        "training_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        "training_mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+        _METRICS_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        _METRICS_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        _METRICS_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        _METRICS_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts

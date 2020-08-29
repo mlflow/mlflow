@@ -26,6 +26,7 @@ _logger = logging.getLogger(__name__)
 # on scikit-learn older than this version.
 _MIN_SKLEARN_VERSION = "0.20.3"
 
+_METRICS_PREFIX = "training_"
 _SAMPLE_WEIGHT = "sample_weight"
 
 # _SklearnMetric represents a metric (e.g, precision_score) that will be computed and logged
@@ -137,11 +138,11 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     Compute and log various common metrics for classifiers
 
     For (1) precision score:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html#sklearn.metrics.precision_score
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
     (2) recall score:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html#sklearn.metrics.recall_score
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
     (3) f1_score:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html#sklearn.metrics.f1_score
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
     By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`,
     `average` to be `weighted` to compute the weighted precision score.
 
@@ -152,9 +153,9 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
 
     We log additional metrics if certain classifier has method `predict_proba`
     (5) log loss:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html#sklearn.metrics.log_loss
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html
     (6) roc_auc_score:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#r4bb7c4558997-5
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
     By default, for roc_auc_score, we pick `average` to be `weighted`, `multi_class` to be `ovo`,
     to make the output more insensitive to dataset imbalance.
 
@@ -184,28 +185,28 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
 
     classifier_metrics = [
         _SklearnMetric(
-            name="training_precision_score",
+            name=_METRICS_PREFIX + "precision_score",
             function=sklearn.metrics.precision_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name="training_recall_score",
+            name=_METRICS_PREFIX + "recall_score",
             function=sklearn.metrics.recall_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name="training_f1_score",
+            name=_METRICS_PREFIX + "f1_score",
             function=sklearn.metrics.f1_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name="training_accuracy_score",
+            name=_METRICS_PREFIX + "accuracy_score",
             function=sklearn.metrics.accuracy_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, normalize=True, sample_weight=sample_weight
@@ -218,18 +219,18 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
         classifier_metrics.extend(
             [
                 _SklearnMetric(
-                    name="training_log_loss",
+                    name=_METRICS_PREFIX + "log_loss",
                     function=sklearn.metrics.log_loss,
                     arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
                 ),
             ]
         )
 
-        if _is_metric_supported("training_roc_auc_score"):
+        if _is_metric_supported("roc_auc_score"):
             classifier_metrics.extend(
                 [
                     _SklearnMetric(
-                        name="training_roc_auc_score",
+                        name=_METRICS_PREFIX + "roc_auc_score",
                         function=sklearn.metrics.roc_auc_score,
                         arguments=dict(
                             y_true=y_true,
@@ -250,11 +251,11 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     Compute and log various common metrics for regressors
 
     For (1) (root) mean squared error:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html#sklearn.metrics.mean_squared_error
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
     (2) mean absolute error:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html#sklearn.metrics.mean_absolute_error
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
     (3) r2 score:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html#sklearn.metrics.r2_score
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
     By default, we choose the parameter `multioutput` to be `uniform_average`
     to average outputs with uniform weight.
 
@@ -284,7 +285,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
 
     regressor_metrics = [
         _SklearnMetric(
-            name="training_mse",
+            name=_METRICS_PREFIX + "mse",
             function=sklearn.metrics.mean_squared_error,
             arguments=dict(
                 y_true=y_true,
@@ -294,7 +295,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name="training_mae",
+            name=_METRICS_PREFIX + "mae",
             function=sklearn.metrics.mean_absolute_error,
             arguments=dict(
                 y_true=y_true,
@@ -304,7 +305,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name="training_r2_score",
+            name=_METRICS_PREFIX + "r2_score",
             function=sklearn.metrics.r2_score,
             arguments=dict(
                 y_true=y_true,
@@ -319,7 +320,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict["training_rmse"] = np.sqrt(metrics_value_dict["training_mse"])
+    metrics_value_dict[_METRICS_PREFIX + "rmse"] = np.sqrt(metrics_value_dict[_METRICS_PREFIX + "mse"])
 
     return metrics_value_dict
 
@@ -570,7 +571,7 @@ def _is_metric_supported(metric_name):
     import sklearn
 
     # This dict can be extended to store special metrics' specific supported versions
-    _metric_supported_version = {"training_roc_auc_score": "0.22.2"}
+    _metric_supported_version = {"roc_auc_score": "0.22.2"}
 
     return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
 
