@@ -220,10 +220,10 @@ def test_classifier():
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
         _METRICS_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        _METRICS_PREFIX + "precision_score": sklearn.metrics.precision_score(
-            y_true, y_pred, average="weighted"
-        ),
-        _METRICS_PREFIX + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX
+        + "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX
+        + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
         _METRICS_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
         _METRICS_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }

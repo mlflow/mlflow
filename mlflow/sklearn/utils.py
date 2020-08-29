@@ -320,7 +320,9 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict[_METRICS_PREFIX + "rmse"] = np.sqrt(metrics_value_dict[_METRICS_PREFIX + "mse"])
+    metrics_value_dict[_METRICS_PREFIX + "rmse"] = np.sqrt(
+        metrics_value_dict[_METRICS_PREFIX + "mse"]
+    )
 
     return metrics_value_dict
 
