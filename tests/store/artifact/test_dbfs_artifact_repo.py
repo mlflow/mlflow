@@ -27,7 +27,18 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
 
 @pytest.mark.parametrize(
     "artifact_uri",
-    [("dbfs://someProfile@databricks/path"), ("dbfs://somewhere:else@databricks/path")],
+    [
+        "dbfs://someProfile@databricks/path",
+        "dbfs://somewhere:else@databricks/path",
+        # Model registry paths should use the REST artifact repo, both when communicating
+        # with the current workspace (authority component = "databricks") and other workspaces
+        # (authority component = "someProfile@databricks"), as model registry paths cannot
+        # be accessed via the local filesystem (via FUSE)
+        "dbfs://databricks/databricks/mlflow-registry/abcdefg123/path",
+        "dbfs://someProfile@databricks/mlflow-registry/abcdefg123/path",
+        "dbfs://somewhere:else@databricks/mlflow-registry/abcdefg123/path",
+        "dbfs:/databricks/mlflow-registry/abcdefg123/path",
+    ],
 )
 def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
     with mock.patch(
