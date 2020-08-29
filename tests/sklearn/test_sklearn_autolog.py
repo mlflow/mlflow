@@ -76,8 +76,8 @@ def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
-def get_model_conf(artifact_uri):
-    model_conf_path = os.path.join(artifact_uri, MODEL_DIR, "MLmodel")
+def get_model_conf(artifact_uri, model_subpath=MODEL_DIR):
+    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
     return Model.load(model_conf_path)
 
 
@@ -586,6 +586,14 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
     assert isinstance(best_estimator, sklearn.svm.SVC)
     cv_model = mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
     assert isinstance(cv_model, cv_class)
+
+    # Ensure that a signature and input example are produced for the best estimator
+    best_estimator_conf = get_model_conf(run.info.artifact_uri, "best_estimator")
+    assert best_estimator_conf.signature == infer_signature(X, best_estimator.predict(X[:5]))
+
+    best_estimator_path = os.path.join(run.info.artifact_uri, "best_estimator")
+    input_example = _read_example(best_estimator_conf, best_estimator_path)
+    best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
 
     client = mlflow.tracking.MlflowClient()
     child_runs = client.search_runs(
