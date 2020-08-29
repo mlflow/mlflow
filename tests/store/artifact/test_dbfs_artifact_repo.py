@@ -37,6 +37,7 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
         "dbfs://databricks/databricks/mlflow-registry/abcdefg123/path",
         "dbfs://someProfile@databricks/mlflow-registry/abcdefg123/path",
         "dbfs://somewhere:else@databricks/mlflow-registry/abcdefg123/path",
+        "dbfs:/databricks/mlflow-registry/abcdefg123/path",
     ],
 )
 def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
