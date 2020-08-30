@@ -22,7 +22,7 @@ def main():
         print("Logged data and model in run {}".format(run.info.run_id))
 
     # show logged data
-    for key, data in fetch_logged_data(run._info.run_id).items():
+    for key, data in fetch_logged_data(run.info.run_id).items():
         print("\n---------- logged {} ----------".format(key))
         pprint(data)
 
