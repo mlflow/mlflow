@@ -616,7 +616,6 @@ def autolog():
 
         pprint(artifacts)
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
-
     """
     import pandas as pd
     import sklearn
