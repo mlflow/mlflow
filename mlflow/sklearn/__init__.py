@@ -759,7 +759,13 @@ def autolog():
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_"):
-                try_mlflow_log(log_model, estimator.best_estimator_, artifact_path="best_estimator")
+                try_mlflow_log(
+                    log_model,
+                    estimator.best_estimator_,
+                    artifact_path="best_estimator",
+                    signature=signature,
+                    input_example=input_example,
+                )
 
             if hasattr(estimator, "best_params_"):
                 best_params = {
