@@ -111,7 +111,7 @@ def _file_infos_to_json(file_infos):
     "--dest-path",
     "-d",
     help="Destination path where you want to store the artifacts,"
-    "default is in temporary directory: /tmp/XXXXX/"
+    "default is in temporary directory: /tmp/XXXXX/",
 )
 def download_artifacts(run_id, artifact_path, artifact_uri, dest_path=None):
     """
