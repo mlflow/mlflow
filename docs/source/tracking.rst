@@ -377,12 +377,12 @@ See an example usage with `sklearn_autolog <https://github.com/mlflow/mlflow/tre
 
 Autologging captures the following information:
 
-+------------+-----------------+------------------------------------------------------------+-------------------------+------------------+
-| Framework  | Metrics         | Parameters                                                 | Tags                    | Artifacts        |
-+------------+-----------------+------------------------------------------------------------+-------------------------+------------------+
-| sklearn    | Training score  | Parameters obtained by ``estimator.get_params(deep=True)`` |  - Class name           | Fitted estimator |
-|            |                 |                                                            |  - Fully qualified name |                  |
-+------------+-----------------+------------------------------------------------------------+-------------------------+------------------+
++------------+-----------------+------------------------------------------------------------+-------------------------------+------------------+
+| Framework  | Metrics         | Parameters                                                 | Tags                          | Artifacts        |
++------------+-----------------+------------------------------------------------------------+-------------------------------+------------------+
+| sklearn    | Training score  | Parameters obtained by ``estimator.get_params(deep=True)`` |  - Class name                 | Fitted estimator |
+|            |                 |                                                            |  - Fully qualified class name |                  |
++------------+-----------------+------------------------------------------------------------+-------------------------------+------------------+
 
 .. note::
   This feature is experimental - the API and format of the logged data are subject to change.
