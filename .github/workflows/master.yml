@@ -192,7 +192,7 @@ jobs:
           python-version: '3.6'
       - name: Install mlflow
         run: |
-          pip install "setuptools<50.0.0"
+          pip install "setuptools==49.6.0"
           pip install mlflow
       - name: Verify mlflow can be imported without errors
         run: |
