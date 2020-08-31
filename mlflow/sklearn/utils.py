@@ -58,14 +58,13 @@ def _get_Xy(args, kwargs, X_var_name, y_var_name):
     return kwargs[X_var_name], kwargs[y_var_name]
 
 
-def _get_samples_labels_and_predictions(fitted_estimator, fit_args, fit_kwargs, fit_arg_names):
+def _get_samples_and_labels(fit_args, fit_kwargs, fit_arg_names):
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
     # However, certain sklearn models use different variable names for X and y.
     X_var_name, y_var_name = fit_arg_names[:2]
     X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
-    y_pred = fitted_estimator.predict(X)
 
-    return X, y_true, y_pred
+    return X, y_true
 
 
 def _get_sample_weight(arg_names, args, kwargs):
@@ -132,10 +131,17 @@ def _get_metrics_value_dict(metrics_list):
 
     return metric_value_dict
 
+# def _get_artifacts_list(artifacts_list):
+#     artifact_value_list = {}
+#     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, random_state=42)
+#     for artifact in artifacts_list:
+#         try:
+#
+
 
 def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
-    Compute and log various common metrics for classifiers
+    Compute and record various common metrics for classifiers
 
     For (1) precision score:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
@@ -174,9 +180,10 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
+    X, y_true = _get_samples_and_labels(
+        fit_args, fit_kwargs, fit_arg_names
     )
+    y_pred = fitted_estimator.predict(X)
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         if _SAMPLE_WEIGHT in fit_arg_names
@@ -246,9 +253,50 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     return _get_metrics_value_dict(classifier_metrics)
 
 
+def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
+    """
+    Draw and record various common artifacts for classifier
+
+    For all classifiers, we always log:
+    (1) confusion matrix:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.plot_confusion_matrix.html
+
+    For only binary classifiers, we will log:
+    (3) precision recall curve:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.plot_precision_recall_curve.html#sklearn.metrics.plot_precision_recall_curve
+    (2) roc curve:
+    https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
+
+    Steps:
+    1. Extract X and y_true from fit_args and fit_kwargs, and split into train & test datasets.
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default
+    has sample_weight), extract it from fit_args or fit_kwargs as
+    (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
+    3. return a list of artifacts path to be logged
+
+    :param fitted_estimator: The already fitted regressor
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+    :return: List of artifacts to be logged
+    """
+    import sklearn
+
+    fit_arg_names = _get_arg_names(fitted_estimator.fit)
+    X, y_true = _get_samples_and_labels(
+        fit_args, fit_kwargs, fit_arg_names
+    )
+    sample_weight = (
+        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+        if _SAMPLE_WEIGHT in fit_arg_names
+        else None
+    )
+
+
+
+
 def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
-    Compute and log various common metrics for regressors
+    Compute and record various common metrics for regressors
 
     For (1) (root) mean squared error:
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
@@ -274,9 +322,10 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    _, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
+    X, y_true = _get_samples_and_labels(
+        fit_args, fit_kwargs, fit_arg_names
     )
+    y_pred = fitted_estimator.predict(X)
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         if _SAMPLE_WEIGHT in fit_arg_names
