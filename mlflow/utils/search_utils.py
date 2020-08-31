@@ -14,8 +14,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 import math
 
-from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel
-
 
 class SearchUtils(object):
     LIKE_OPERATOR = "LIKE"
@@ -54,7 +52,7 @@ class SearchUtils(object):
     # Registered Models Constants
     ORDER_BY_KEY_TIMESTAMP = "timestamp"
     ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP = "last_updated_timestamp"
-    ORDER_BY_KEY_MODEL_NAME = SqlRegisteredModel.name.key
+    ORDER_BY_KEY_MODEL_NAME = "name"
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = set(
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
     )

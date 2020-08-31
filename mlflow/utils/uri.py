@@ -40,7 +40,7 @@ def construct_db_uri_from_profile(profile):
 # Both scope and key_prefix should not contain special chars for URIs, like '/'
 # and ':'.
 def validate_db_scope_prefix_info(scope, prefix):
-    for c in ["/", ":"]:
+    for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
                 "Unsupported Databricks profile name: %s." % scope
@@ -51,6 +51,11 @@ def validate_db_scope_prefix_info(scope, prefix):
                 "Unsupported Databricks profile key prefix: %s." % prefix
                 + " Key prefixes cannot contain '%s'." % c
             )
+    if prefix is not None and prefix.strip() == "":
+        raise MlflowException(
+            "Unsupported Databricks profile key prefix: '%s'." % prefix
+            + " Key prefixes cannot be empty."
+        )
 
 
 def get_db_info_from_uri(uri):
@@ -230,6 +235,12 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
     _ACLED_ARTIFACT_URI = "databricks/mlflow-tracking/"
     artifact_uri_path = extract_and_normalize_path(artifact_uri)
     return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
+
+
+def is_databricks_model_registry_artifacts_uri(artifact_uri):
+    _MODEL_REGISTRY_ARTIFACT_URI = "databricks/mlflow-registry/"
+    artifact_uri_path = extract_and_normalize_path(artifact_uri)
+    return artifact_uri_path.startswith(_MODEL_REGISTRY_ARTIFACT_URI)
 
 
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
