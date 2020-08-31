@@ -1,6 +1,6 @@
 Changelog
 =========
-1.11.0 (2020-08-28)
+1.11.0 (2020-08-31)
 -------------------
 MLflow 1.11.0 includes several major features and improvements:
 
