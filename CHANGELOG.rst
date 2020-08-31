@@ -6,7 +6,7 @@ MLflow 1.11.0 includes several major features and improvements:
 
 Features:
 
-- New ``mlflow.sklearn.autolog()`` API for automatic logging of metrics, params, and models from scikit-learn model training (#3287, @harupy; #3323, @dbczumar)
+- New ``mlflow.sklearn.autolog()`` API for automatic logging of metrics, params, and models from scikit-learn model training (#3287, @harupy; #3323, #3358 @dbczumar)
 - Registered model & model version creation APIs now support specifying an initial ``description`` (#3271, @sueann)
 - The R ``mlflow_log_model`` and ``mlflow_load_model`` APIs now support XGBoost models (#3085, @lorenzwalthert)
 - New ``mlflow.list_run_infos`` fluent API for listing run metadata (#3183, @trangevi)
@@ -31,7 +31,7 @@ Bug fixes and documentation updates:
 - Fixed bug in runs UI where tags table did not reflect deletion of tags. (#3135, @ParseDark)
 - Added example illustrating the use of RAPIDS with MLFlow (#3028, @drobison00)
 
-Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
+Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244, #3359 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, #3360, #3363 @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
 
 1.10.0 (2020-07-20)
 -------------------
