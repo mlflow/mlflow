@@ -193,6 +193,7 @@ jobs:
       - name: Install mlflow
         run: |
           pip install "setuptools==50.0.0"
+          pip install "pip==20.0.2"
           pip install wheel
           pip install "mlflow==1.10.0"
       - name: Verify mlflow can be imported without errors
