@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.abspath("."))
 from languagesections import *
 
 # -- General configuration ------------------------------------------------
-
+sys.path.append(os.path.abspath('extensions'))
 # If your documentation needs a minimal Sphinx version, state it here.
 # needs_sphinx = '1.0'
 
@@ -37,6 +37,7 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
+    "tile_toctree"
 ]
 
 # Add any paths that contain templates here, relative to this directory.

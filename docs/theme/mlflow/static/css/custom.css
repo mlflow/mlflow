@@ -1099,3 +1099,63 @@ text-transform: capitalize;
 .plain-section ul.section-selector li.selected:hover {
     background-color: #333;
 }
+
+.tile-toctree.tile-toctree > ul {
+  display: block;
+  margin: 32px 0 0;
+  padding: 0;
+}
+
+.title-toctree__right {
+  margin-bottom: 0 !important;
+}
+
+.tile-toctree__item.tile-toctree__item  {
+  display: flex;
+  list-style-type: none;
+  flex-direction: row;
+  padding: 20px 24px;
+  border: 1px solid #cccccc;
+  border-radius: 5px;
+  margin-top: 0 !important;
+  margin-right: 0;
+  margin-bottom: 32px;
+  margin-left: 0 !important;
+}
+
+.tile-toctree__item:hover{
+  border-color: #00add5;
+}
+
+.tile-toctree__icon.tile-toctree__icon  {
+  display: block;
+  height: 45px !important;
+  width: 45px;
+  object-fit: contain;
+  margin: 2px 28px 0 0;
+  position: relative;
+  top: 5px;
+}
+
+.tile-toctree__title {
+  font-size: 18px;
+  line-height: 18px;
+}
+
+.tile-toctree__description.tile-toctree__description {
+  font-size: 15px;
+  margin-top: 11px;
+}
+
+@media screen and (min-width: 1400px) {
+  .tile-toctree.tile-toctree > ul {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .tile-toctree__item {
+    width: calc(50% - 16px);
+  }
+}

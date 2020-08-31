@@ -11,6 +11,8 @@ exposed in the :py:mod:`mlflow` module, so we recommend starting there.
 
   tracking-home
   models-home
+  projects-home
+  deployments-home
 
 
 See also the :ref:`index of all functions and classes<genindex>`.

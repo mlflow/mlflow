@@ -1,4 +1,4 @@
-Models
+Deployments
 =========
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec molestie dui quis dui aliquet hendrerit.
@@ -7,5 +7,6 @@ Cras efficitur magna ut tellus consequat mollis. Sed tempor odio non purus pulvi
 .. toctree::
     :maxdepth: 1
 
-    mlflow.models
-    mlflow.pyfunc
+    mlflow.azureml
+    mlflow.sagemaker
+    mlflow.deployments
