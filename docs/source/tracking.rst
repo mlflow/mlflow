@@ -369,6 +369,21 @@ Autologging captures the following information:
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
+Scikit-learn (experimental)
+---------------------------
+
+Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of metrics and parameters.
+See an example usage with `sklearn_autolog <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
+
+Autologging captures the following information:
+
++------------+-----------------+------------------------------------------------------------+-------------------------+------------------+
+| Framework  | Metrics         | Parameters                                                 | Tags                    | Artifacts        |
++------------+-----------------+------------------------------------------------------------+-------------------------+------------------+
+| sklearn    | Training score  | Parameters obtained by ``estimator.get_params(deep=True)`` |  - Class name           | Fitted estimator |
+|            |                 |                                                            |  - Fully qualified name |                  |
++------------+-----------------+------------------------------------------------------------+-------------------------+------------------+
+
 .. note::
   This feature is experimental - the API and format of the logged data are subject to change.
 
