@@ -4,10 +4,20 @@ Tracking
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec molestie dui quis dui aliquet hendrerit.
 Cras efficitur magna ut tellus consequat mollis. Sed tempor odio non purus pulvinar ullamcorper.
 
+MLflow Client
+---------------------
+
 .. toctree::
     :maxdepth: 1
 
     mlflow.tracking
+
+Flavors
+---------------------
+
+.. toctree::
+    :maxdepth: 1
+
     mlflow.sklearn
     mlflow.spacy
     mlflow.spark
