@@ -194,7 +194,7 @@ jobs:
         run: |
           pip install "setuptools==49.6.0"
           pip install wheel
-          pip install mlflow
+          pip install "mlflow==1.10.0"
       - name: Verify mlflow can be imported without errors
         run: |
           python -c "import mlflow"
