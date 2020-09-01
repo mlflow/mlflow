@@ -531,6 +531,56 @@ def autolog():
       **Metrics**
         - A training score obtained by ``estimator.score``. Note that the training score is
           computed using parameters given to ``fit()``.
+        - Common metrics for classifier:
+
+          - `precision score`_
+
+          .. _precision score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
+
+          - `recall score`_
+
+          .. _recall score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
+
+          - `f1 score`_
+
+          .. _f1 score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+
+          - `accuracy score`_
+
+          .. _accuracy score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+
+          If the classifier has method ``predict_proba``, we additionally log:
+
+          - `log loss`_
+
+          .. _log loss:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html
+
+          - `roc auc score`_
+
+          .. _roc auc score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
+
+        - Common metrics for regressor:
+
+          - `(root) mean squared error`_
+
+          .. _(root) mean squared error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+
+          - `mean absolute error`_
+
+          .. _mean absolute error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
+
+          - `r2 score`_
+
+          .. _r2 score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
 
       **Tags**
         - An estimator class name (e.g. "LinearRegression").
@@ -626,6 +676,7 @@ def autolog():
         _is_supported_version,
         _chunk_dict,
         _get_args_for_score,
+        _log_specialized_estimator_content,
         _get_Xy,
         _all_estimators,
         _truncate_dict,
@@ -730,6 +781,9 @@ def autolog():
             else:
                 try_mlflow_log(mlflow.log_metric, "training_score", training_score)
 
+        # log common metrics and artifacts for estimators (classifier, regressor)
+        _log_specialized_estimator_content(estimator, mlflow.active_run().info.run_id, args, kwargs)
+
         input_example = None
         signature = None
         if hasattr(estimator, "predict"):
@@ -829,6 +883,7 @@ def autolog():
     estimators_to_patch = set(estimators_to_patch).union(
         set(_get_meta_estimators_for_autologging())
     )
+
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(class_def, func_name):
