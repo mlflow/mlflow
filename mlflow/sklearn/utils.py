@@ -1,8 +1,10 @@
+import collections
 from distutils.version import LooseVersion
-import inspect
 from itertools import islice
+import inspect
 import logging
 from numbers import Number
+import numpy as np
 import time
 
 from mlflow.entities import Metric, Param
@@ -24,7 +26,12 @@ _logger = logging.getLogger(__name__)
 # on scikit-learn older than this version.
 _MIN_SKLEARN_VERSION = "0.20.3"
 
+_METRICS_PREFIX = "training_"
 _SAMPLE_WEIGHT = "sample_weight"
+
+# _SklearnMetric represents a metric (e.g, precision_score) that will be computed and logged
+# during the autologging routine for a particular model type (eg, classifier, regressor).
+_SklearnMetric = collections.namedtuple("_SklearnMetric", ["name", "function", "arguments"])
 
 
 def _get_estimator_info_tags(estimator):
@@ -49,6 +56,16 @@ def _get_Xy(args, kwargs, X_var_name, y_var_name):
 
     # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
     return kwargs[X_var_name], kwargs[y_var_name]
+
+
+def _get_samples_labels_and_predictions(fitted_estimator, fit_args, fit_kwargs, fit_arg_names):
+    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
+    # However, certain sklearn models use different variable names for X and y.
+    X_var_name, y_var_name = fit_arg_names[:2]
+    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    y_pred = fitted_estimator.predict(X)
+
+    return X, y_true, y_pred
 
 
 def _get_sample_weight(arg_names, args, kwargs):
@@ -101,6 +118,255 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
         return (*Xy, sample_weight)
 
     return Xy
+
+
+def _get_metrics_value_dict(metrics_list):
+    metric_value_dict = {}
+    for metric in metrics_list:
+        try:
+            metric_value = metric.function(**metric.arguments)
+        except Exception as e:  # pylint: disable=broad-except
+            _log_warning_for_metrics(metric.name, metric.function, e)
+        else:
+            metric_value_dict[metric.name] = metric_value
+
+    return metric_value_dict
+
+
+def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
+    """
+    Compute and log various common metrics for classifiers
+
+    For (1) precision score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
+    (2) recall score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
+    (3) f1_score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+    By default, we choose the parameter `labels` to be `None`, `pos_label` to be `1`,
+    `average` to be `weighted` to compute the weighted precision score.
+
+    For (4) accuracy score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+    we choose the parameter `normalize` to be `True` to output the percentage of accuracy,
+    as opposed to `False` that outputs the absolute correct number of sample prediction
+
+    We log additional metrics if certain classifier has method `predict_proba`
+    (5) log loss:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html
+    (6) roc_auc_score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
+    By default, for roc_auc_score, we pick `average` to be `weighted`, `multi_class` to be `ovo`,
+    to make the output more insensitive to dataset imbalance.
+
+    Steps:
+    1. Extract X and y_true from fit_args and fit_kwargs, and compute y_pred.
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default
+    has sample_weight), extract it from fit_args or fit_kwargs as
+    (y_true, y_pred, ...... sample_weight), otherwise as (y_true, y_pred, ......)
+    3. return a dictionary of metric(name, value)
+
+    :param fitted_estimator: The already fitted classifier
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+    :return: dictionary of (function name, computed value)
+    """
+    import sklearn
+
+    fit_arg_names = _get_arg_names(fitted_estimator.fit)
+    X, y_true, y_pred = _get_samples_labels_and_predictions(
+        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
+    )
+    sample_weight = (
+        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+        if _SAMPLE_WEIGHT in fit_arg_names
+        else None
+    )
+
+    classifier_metrics = [
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "precision_score",
+            function=sklearn.metrics.precision_score,
+            arguments=dict(
+                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+            ),
+        ),
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "recall_score",
+            function=sklearn.metrics.recall_score,
+            arguments=dict(
+                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+            ),
+        ),
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "f1_score",
+            function=sklearn.metrics.f1_score,
+            arguments=dict(
+                y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
+            ),
+        ),
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "accuracy_score",
+            function=sklearn.metrics.accuracy_score,
+            arguments=dict(
+                y_true=y_true, y_pred=y_pred, normalize=True, sample_weight=sample_weight
+            ),
+        ),
+    ]
+
+    if hasattr(fitted_estimator, "predict_proba"):
+        y_pred_proba = fitted_estimator.predict_proba(X)
+        classifier_metrics.extend(
+            [
+                _SklearnMetric(
+                    name=_METRICS_PREFIX + "log_loss",
+                    function=sklearn.metrics.log_loss,
+                    arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
+                ),
+            ]
+        )
+
+        if _is_metric_supported("roc_auc_score"):
+            classifier_metrics.extend(
+                [
+                    _SklearnMetric(
+                        name=_METRICS_PREFIX + "roc_auc_score",
+                        function=sklearn.metrics.roc_auc_score,
+                        arguments=dict(
+                            y_true=y_true,
+                            y_score=y_pred_proba,
+                            average="weighted",
+                            sample_weight=sample_weight,
+                            multi_class="ovo",
+                        ),
+                    ),
+                ]
+            )
+
+    return _get_metrics_value_dict(classifier_metrics)
+
+
+def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
+    """
+    Compute and log various common metrics for regressors
+
+    For (1) (root) mean squared error:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+    (2) mean absolute error:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
+    (3) r2 score:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
+    By default, we choose the parameter `multioutput` to be `uniform_average`
+    to average outputs with uniform weight.
+
+    Steps:
+    1. Extract X and y_true from fit_args and fit_kwargs, and compute y_pred.
+    2. If the sample_weight argument exists in fit_func (accuracy_score by default
+    has sample_weight), extract it from fit_args or fit_kwargs as
+    (y_true, y_pred, sample_weight, multioutput), otherwise as (y_true, y_pred, multioutput)
+    3. return a dictionary of metric(name, value)
+
+    :param fitted_estimator: The already fitted regressor
+    :param fit_args: Positional arguments given to fit_func.
+    :param fit_kwargs: Keyword arguments given to fit_func.
+    :return: dictionary of (function name, computed value)
+    """
+    import sklearn
+
+    fit_arg_names = _get_arg_names(fitted_estimator.fit)
+    _, y_true, y_pred = _get_samples_labels_and_predictions(
+        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
+    )
+    sample_weight = (
+        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+        if _SAMPLE_WEIGHT in fit_arg_names
+        else None
+    )
+
+    regressor_metrics = [
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "mse",
+            function=sklearn.metrics.mean_squared_error,
+            arguments=dict(
+                y_true=y_true,
+                y_pred=y_pred,
+                sample_weight=sample_weight,
+                multioutput="uniform_average",
+            ),
+        ),
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "mae",
+            function=sklearn.metrics.mean_absolute_error,
+            arguments=dict(
+                y_true=y_true,
+                y_pred=y_pred,
+                sample_weight=sample_weight,
+                multioutput="uniform_average",
+            ),
+        ),
+        _SklearnMetric(
+            name=_METRICS_PREFIX + "r2_score",
+            function=sklearn.metrics.r2_score,
+            arguments=dict(
+                y_true=y_true,
+                y_pred=y_pred,
+                sample_weight=sample_weight,
+                multioutput="uniform_average",
+            ),
+        ),
+    ]
+
+    # To be compatible with older versions of scikit-learn (below 0.22.2), where
+    # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
+    # we compute it through np.sqrt(<value of mse>)
+    metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
+    metrics_value_dict[_METRICS_PREFIX + "rmse"] = np.sqrt(
+        metrics_value_dict[_METRICS_PREFIX + "mse"]
+    )
+
+    return metrics_value_dict
+
+
+def _log_warning_for_metrics(func_name, func_call, err):
+    msg = (
+        func_call.__qualname__
+        + " failed. The "
+        + func_name
+        + " metric will not be recorded. Metric error: "
+        + str(err)
+    )
+    _logger.warning(msg)
+
+
+def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_kwargs):
+    import sklearn
+
+    name_metric_dict = {}
+    try:
+        if sklearn.base.is_classifier(fitted_estimator):
+            name_metric_dict = _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs)
+        elif sklearn.base.is_regressor(fitted_estimator):
+            name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
+
+    except Exception as err:  # pylint: disable=broad-except
+        msg = (
+            "Failed to autolog metrics for "
+            + fitted_estimator.__class__.__name__
+            + ". Logging error: "
+            + str(err)
+        )
+        _logger.warning(msg)
+
+    else:
+        # batch log all metrics
+        try_mlflow_log(
+            MlflowClient().log_batch,
+            run_id,
+            metrics=[
+                Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
+                for key, value in name_metric_dict.items()
+            ],
+        )
 
 
 def _chunk_dict(d, chunk_size):
@@ -302,6 +568,16 @@ def _is_supported_version():
     return LooseVersion(sklearn.__version__) >= LooseVersion(_MIN_SKLEARN_VERSION)
 
 
+# Util function to check whether a metric is able to be computed in given sklearn version
+def _is_metric_supported(metric_name):
+    import sklearn
+
+    # This dict can be extended to store special metrics' specific supported versions
+    _metric_supported_version = {"roc_auc_score": "0.22.2"}
+
+    return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
+
+
 def _all_estimators():
     try:
         from sklearn.utils import all_estimators
@@ -323,7 +599,6 @@ def _backported_all_estimators(type_filter=None):
        the testing utility variant of `all_estimators`.
 
     ========== original docstring ==========
-
     Get a list of all estimators from sklearn.
     This function crawls the module and gets all classes that inherit
     from BaseEstimator. Classes that are defined in test-modules are not
