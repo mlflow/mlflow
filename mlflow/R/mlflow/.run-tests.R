@@ -10,5 +10,7 @@ keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(
 reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
 
-devtools::check_built(path = package, error_on = "note", args = "--no-tests")
+# TODO(harupy): Add `error_on = "note"` once the issue below has been fixed:
+# https://stackoverflow.com/questions/63613301/r-cmd-check-note-unable-to-verify-current-time/63616156#63616156
+devtools::check_built(path = package, args = "--no-tests")
 source("testthat.R")

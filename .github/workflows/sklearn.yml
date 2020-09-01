@@ -10,6 +10,7 @@ on:
     branches:
       - master
     paths:
+      - .github/workflows/sklearn.yml
       - mlflow/sklearn/**
 
 jobs:
@@ -27,6 +28,8 @@ jobs:
           - "0.20.3"
           - "0.21.2"
           - "0.22.2"
+          # To ensure forwards compatibility
+          - "git+https://github.com/scikit-learn/scikit-learn.git@master"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -38,7 +41,21 @@ jobs:
           pip install -r dev/small-requirements.txt
       - name: Update scikit-learn
         run: |
-          pip install scikit-learn==${{ matrix.version }}
+          ver="${{ matrix.version }}"
+          op=$([[ "$ver" =~ ^git ]] && echo "@" || echo "==")
+          pip install -U "scikit-learn $op $ver"
+      - name: Check scikit-learn version
+        shell: python
+        run: |
+          import sklearn
+          print(sklearn.__version__)
       - name: Run tests
         run: |
           pytest --verbose --large tests/sklearn/test_sklearn_autolog.py
+      - name: Run examples
+        working-directory: examples/sklearn_autolog
+        run: |
+          set -x
+          python linear_regression.py
+          python pipeline.py
+          python grid_search_cv.py
