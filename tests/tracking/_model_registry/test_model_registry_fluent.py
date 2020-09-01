@@ -12,6 +12,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import TempDir
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 def test_register_model_raises_exception_with_unsupported_registry_store():
@@ -65,7 +66,10 @@ def test_register_model_with_non_runs_uri():
         register_model("s3:/some/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
         MlflowClient.create_model_version.assert_called_once_with(
-            "Model 1", run_id=None, source="s3:/some/path/to/model"
+            "Model 1",
+            run_id=None,
+            source="s3:/some/path/to/model",
+            await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         )
 
 
@@ -84,7 +88,10 @@ def test_register_model_with_existing_registered_model():
         register_model("s3:/some/path/to/model", "Model 1")
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
         MlflowClient.create_model_version.assert_called_once_with(
-            "Model 1", run_id=None, source="s3:/some/path/to/model"
+            "Model 1",
+            run_id=None,
+            source="s3:/some/path/to/model",
+            await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         )
 
 
