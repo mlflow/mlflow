@@ -28,7 +28,7 @@ import gorilla
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -379,6 +379,14 @@ def autolog():
         else:
             kwargs["callbacks"] = [callback]
 
+        # Fetch an input example using the first several rows of the array-like
+        # training data supplied to this training method
+        train_data = args[1] if len(args) > 1 else kwargs["train_data"]
+
+        # input_example = None
+        # if isinstance(train_data, str):
+        #     input_example = train_data.data[:5]
+
         # training model
         model = original(*args, **kwargs)
 
@@ -424,7 +432,21 @@ def autolog():
             finally:
                 shutil.rmtree(tmpdir)
 
-        try_mlflow_log(log_model, model, artifact_path="model")
+        signature = None
+
+        ## check for existence of predict fn??
+        try:
+            input_example = train_data.get_data()[:5]
+            model_output = model.predict(input_example)
+            signature = infer_signature(input_example, model_output)
+        except Exception as e:  # pylint: disable=broad-except
+            input_example = None
+            msg = "Failed to infer an input example and model signature: " + str(e)
+            _logger.warning(msg)
+
+        try_mlflow_log(log_model, model, artifact_path="model", signature=signature, input_example=input_example)
+
+        # try_mlflow_log(log_model, model, artifact_path="model")
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)

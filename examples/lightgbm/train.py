@@ -44,7 +44,7 @@ def main():
     X = iris.data
     y = iris.target
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    train_set = lgb.Dataset(X_train, label=y_train)
+    train_set = lgb.Dataset(X_train, label=y_train, free_raw_data=False)
 
     # enable auto logging
     mlflow.lightgbm.autolog()
