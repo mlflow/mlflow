@@ -101,6 +101,37 @@ export class CompareRunView extends Component {
                 })}
               </tr>
               <tr>
+                <th scope='row' className='data-value'>
+                  End Time:
+                </th>
+                {this.props.runInfos.map((run) => {
+                  const endTime = run.end_time
+                    ? Utils.formatTimestamp(run.end_time)
+                    : '(unknown)';
+                  return (
+                    <td className='meta-info' key={run.run_uuid}>
+                      {endTime}
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
+                <th scope='row' className='data-value'>
+                  Run Duration:
+                </th>
+                {this.props.runInfos.map((run) => {
+                  const span = (run.end_time !== null && run.start_time !== null) ? (run.end_time - run.start_time) : null;
+                  const formattedSpan = span
+                    ? Math.floor(span / 60000) + 'm ' + Math.floor((span % 60000) / 1000) + 's ' + (span % 60000) % 1000 + 'ms'
+                    : '(unknown)';
+                  return (
+                    <td className='meta-info' key={run.run_uuid}>
+                      {formattedSpan}
+                    </td>
+                  );
+                })}
+              </tr>
+              <tr>
                 <th
                   scope='rowgroup'
                   className='inter-title'
