@@ -7,5 +7,13 @@
 
 .ShowArtifactPage .text-area-border-box {
   width: 100%;
-  height: 500px;
+}
+
+.ShowArtifactPage .text-area-border-box pre {
+  padding-left: 1em!important;
+  padding-top: 0.5em!important;
+  margin: 0!important;
+  border: none!important;
+  height: 500px!important;
+  overflow: auto!important;
 }
