@@ -567,9 +567,14 @@ def autolog():
 
         - Common metrics for regressor:
 
-          - `(root) mean squared error`_
+          - `mean squared error`_
 
-          .. _(root) mean squared error:
+          .. _mean squared error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+
+          - `root mean squared error`_
+
+          .. _root mean squared error:
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
 
           - `mean absolute error`_
