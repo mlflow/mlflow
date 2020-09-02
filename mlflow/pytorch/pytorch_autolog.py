@@ -191,7 +191,8 @@ def autolog(log_every_n_iter=1, aggregation_step=None):
         This method would be called from patched fit method and
         It adds the custom callback class into callback list.
         """
-        self.callbacks += [__MLflowPLCallback()]
+        if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
+            self.callbacks += [__MLflowPLCallback()]
         result = original(self, *args, **kwargs)
         return result
 
