@@ -379,13 +379,9 @@ def autolog():
         else:
             kwargs["callbacks"] = [callback]
 
-        # Fetch an input example using the first several rows of the array-like
-        # training data supplied to this training method
+        # We set free_raw_data to false on the Dataset object so that we can access the original data later.
         train_data = args[1] if len(args) > 1 else kwargs["train_data"]
-
-        # input_example = None
-        # if isinstance(train_data, str):
-        #     input_example = train_data.data[:5]
+        train_data.free_raw_data = False
 
         # training model
         model = original(*args, **kwargs)
@@ -436,7 +432,8 @@ def autolog():
 
         ## check for existence of predict fn??
         try:
-            input_example = train_data.get_data()[:5]
+            SAMPLE_ROWS = 5
+            input_example = train_data.get_data()[:SAMPLE_ROWS]
             model_output = model.predict(input_example)
             signature = infer_signature(input_example, model_output)
         except Exception as e:  # pylint: disable=broad-except
