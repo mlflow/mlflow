@@ -350,6 +350,11 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
         params = args[0] if len(args) > 0 else kwargs["params"]
+        dtrain = args[1] if len(args) > 1 else kwargs["dtrain"]
+        logging.warning("AAAAAA")
+        logging.warning(dtrain.feature_names)
+        logging.warning(dtrain.feature_types)
+
         try_mlflow_log(mlflow.log_params, params)
 
         unlogged_params = [
