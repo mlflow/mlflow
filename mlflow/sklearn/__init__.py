@@ -572,7 +572,7 @@ def autolog():
           .. _mean squared error:
               https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
 
-          - `root mean squared error`
+          - root mean squared error
 
           - `mean absolute error`_
 
