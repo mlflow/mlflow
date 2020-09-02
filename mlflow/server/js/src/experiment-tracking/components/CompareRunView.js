@@ -105,9 +105,7 @@ export class CompareRunView extends Component {
                   End Time:
                 </th>
                 {this.props.runInfos.map((run) => {
-                  const endTime = run.end_time
-                    ? Utils.formatTimestamp(run.end_time)
-                    : '(unknown)';
+                  const endTime = run.end_time ? Utils.formatTimestamp(run.end_time) : '(unknown)';
                   return (
                     <td className='meta-info' key={run.run_uuid}>
                       {endTime}
@@ -120,9 +118,17 @@ export class CompareRunView extends Component {
                   Run Duration:
                 </th>
                 {this.props.runInfos.map((run) => {
-                  const span = (run.end_time !== null && run.start_time !== null) ? (run.end_time - run.start_time) : null;
+                  const span =
+                    run.end_time !== null && run.start_time !== null
+                      ? run.end_time - run.start_time
+                      : null;
                   const formattedSpan = span
-                    ? Math.floor(span / 60000) + 'm ' + Math.floor((span % 60000) / 1000) + 's ' + (span % 60000) % 1000 + 'ms'
+                    ? Math.floor(span / 60000) +
+                      'm ' +
+                      Math.floor((span % 60000) / 1000) +
+                      's ' +
+                      ((span % 60000) % 1000) +
+                      'ms'
                     : '(unknown)';
                   return (
                     <td className='meta-info' key={run.run_uuid}>
