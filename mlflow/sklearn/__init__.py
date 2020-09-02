@@ -663,7 +663,11 @@ def autolog():
         #  'normalize': 'False'}
 
         pprint(metrics)
-        # {'training_score': 1.0}
+        # {'training_score': 1.0,
+           'training_mae': 2.220446049250313e-16,
+           'training_mse': 1.9721522630525295e-31,
+           'training_r2_score': 1.0,
+           'training_rmse': 4.440892098500626e-16}
 
         pprint(tags)
         # {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
