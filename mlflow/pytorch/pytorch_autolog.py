@@ -14,6 +14,8 @@ def autolog(log_every_n_iter=1, aggregation_step=None):
     global every_n_iter
     every_n_iter = log_every_n_iter
 
+    global training_metrics
+
     class __MLflowPLCallback(pl.Callback):
         """
         Callback for auto-logging metrics and parameters.
@@ -26,18 +28,19 @@ def autolog(log_every_n_iter=1, aggregation_step=None):
             """
             Log loss and other metrics values after each epoch
             """
+            global training_metrics
             if (pl_module.current_epoch - 1) % every_n_iter == 0:
-                metrics = trainer.callback_metrics
+                training_metrics = trainer.callback_metrics
 
                 if aggregation_step:
                     metrics = dict(
-                        (key, float(value)) for key, value in metrics.items()
+                        (key, float(value)) for key, value in training_metrics.items()
                     )
                     trainer.logger.agg_and_log_metrics(
                         metrics=metrics, step=aggregation_step
                     )
                 else:
-                    for key, value in metrics.items():
+                    for key, value in training_metrics.items():
                         trainer.logger.experiment.log_metric(
                             trainer.logger.run_id,
                             key,
@@ -120,13 +123,14 @@ def autolog(log_every_n_iter=1, aggregation_step=None):
             """
             Logs accuracy and other relevant metrics on the testing end
             """
+            global training_metrics
             metrics = trainer.callback_metrics
 
             for key, value in metrics.items():
-                # if key not in self.metrics:
-                trainer.logger.experiment.log_metric(
-                    trainer.logger.run_id, key, float(value)
-                )
+                if key not in training_metrics:
+                    trainer.logger.experiment.log_metric(
+                        trainer.logger.run_id, key, float(value)
+                    )
 
         def _log_early_stop_params(self, trainer, early_stop_obj):
             """
