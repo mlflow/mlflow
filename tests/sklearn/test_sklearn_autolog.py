@@ -18,7 +18,7 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
-    _METRICS_PREFIX,
+    _TRAINING_PREFIX,
     _is_supported_version,
     _is_metric_supported,
     _get_arg_names,
@@ -219,16 +219,16 @@ def test_classifier():
 
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
-        _METRICS_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        _METRICS_PREFIX
+        _TRAINING_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        _TRAINING_PREFIX
         + "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX
+        _TRAINING_PREFIX
         + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        _TRAINING_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        _TRAINING_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
     if _is_metric_supported("roc_auc_score"):
-        expected_metrics[_METRICS_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
+        expected_metrics[_TRAINING_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
             y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
         )
 
@@ -257,10 +257,10 @@ def test_regressor():
 
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        _METRICS_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        _METRICS_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        _METRICS_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        _METRICS_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+        _TRAINING_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        _TRAINING_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        _TRAINING_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        _TRAINING_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
