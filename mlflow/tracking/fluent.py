@@ -261,8 +261,8 @@ def get_run(run_id):
         run_ids = ["13ee9e661cbf4095a7c92cc55b4e12b4", "948fbf2d0b7f4056b3dd4914845a1e1b"]
 
         # Get run info for each runs
-        [print("run_id={}; lifecycle_stage={}".format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
-            for run_id in run_ids]
+        [print("run_id={};lifecycle_stage={}".format(run_id,
+            mlflow.get_run(run_id).info.lifecycle_stage)) for run_id in run_ids]
 
     .. code-block:: Text
         :caption: Output
@@ -371,9 +371,10 @@ def log_metrics(metrics, step=None):
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
 
-    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
-                    such as +/- Infinity may be replaced by other values depending on the store.
-                    For example, sql based store may replace +/- Infinity with max / min float values.
+    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special
+                    values such as +/- Infinity may be replaced by other values depending on
+                    the store. For example, sql based store may replace +/- Infinity with
+                    max / min float values.
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
@@ -667,8 +668,8 @@ def delete_run(run_id):
         # Delete run_ids and fetch the results.
         # Note that runs are not actually delete, only lifecycle stage is set to "deleted"
         [mlflow.delete_run(run_id) for run_id in run_ids]
-        [print("run_id={}; lifecycle_stage={}".format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
-            for run_id in run_ids]
+        [print("run_id={}; lifecycle_stage={}".format(run_id,
+            mlflow.get_run(run_id).info.lifecycle_stage)) for run_id in run_ids]
 
     .. code-block:: text
         :caption: Output
@@ -724,8 +725,8 @@ def get_artifact_uri(artifact_path=None):
     .. code-block:: text
         :caption: Output
 
-        Artifact uri=file:///.../mlruns/0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts
-        Artifact uri=file:///.../mlruns/0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
+        Artifact uri=file:///.../0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts
+        Artifact uri=file:///.../0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
     """
     return artifact_utils.get_artifact_uri(
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
