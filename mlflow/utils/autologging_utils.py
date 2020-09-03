@@ -94,19 +94,19 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
             try_mlflow_log(mlflow.log_param, param_name, kwargs[param_name])
 
 
-def wrap_patch(destination, name, original, patch, settings=None):
+def wrap_patch(destination, name, patch, settings=None):
     """
     Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
 
     :param destination: Patch destination
     :param name: Name of the attribute at the destination
-    :param original: Original function
     :param patch: Patch function
     :param settings: Settings for gorilla.Patch
     """
     if settings is None:
         settings = gorilla.Settings(allow_hit=True, store_hit=True)
 
+    original = getattr(destination, name)
     wrapped = functools.wraps(original)(patch)
     patch = gorilla.Patch(destination, name, wrapped, settings=settings)
     gorilla.apply(patch)
