@@ -152,7 +152,7 @@ def test_wrap_patch_with_class():
         return 2 * orig(*args, **kwargs)
 
     before = get_func_attrs(Math.add)
-    wrap_patch(Math, Math.add.__name__, Math.add, new_add)
+    wrap_patch(Math, Math.add.__name__, new_add)
     after = get_func_attrs(Math.add)
 
     assert after == before
@@ -166,7 +166,7 @@ def test_wrap_patch_with_module():
         return (key, value)
 
     before = get_func_attrs(mlflow.log_param)
-    wrap_patch(mlflow, mlflow.log_param.__name__, mlflow.log_param, new_log_param)
+    wrap_patch(mlflow, mlflow.log_param.__name__, new_log_param)
     after = get_func_attrs(mlflow.log_param)
 
     assert after == before
