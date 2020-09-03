@@ -131,6 +131,8 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
         def __call__(self, x):
             if x is None:
                 return True
+            elif isinstance(x, float) and np.isnan(x):
+                return True
             elif any(map(lambda c: isinstance(x, c), self.classes)):
                 self.seen_instances += 1
                 return True
@@ -157,7 +159,7 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
         else:
             raise MlflowException(
                 "Unable to map 'np.object' type to MLflow DataType. np.object can"
-                "be mapped iff all values have identical data type which is one "
+                "be mapped if all values have identical data type which is one "
                 "of (string, (bytes or byterray),  int, float)."
             )
     else:
