@@ -1,5 +1,6 @@
 import json
 import numpy as np
+import pandas as pd
 
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.types import DataType
@@ -45,3 +46,9 @@ def test_signature_inference_infers_input_and_output_as_expected():
     sig1 = infer_signature(np.array([1]), np.array([1]))
     assert sig1.inputs == sig0.inputs
     assert sig1.outputs == sig0.inputs
+
+
+def test_infer_signature_does_not_throw_when_np_object_type_column_contains_nan():
+    df = pd.DataFrame({"a": ["x", np.nan, float("nan")]})
+    sig = infer_signature(df)
+    assert sig.inputs == Schema([ColSpec(DataType.string, name="a")])
