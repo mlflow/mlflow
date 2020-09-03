@@ -155,44 +155,72 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           headerName: 'Run Name',
           pinned: 'left',
           field: 'runName',
+          searchableField: '$$$tag$$$-mlflow.runName',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.runName`',
           },
-          filter: false,
+          filter: 'agTextColumnFilter',
+          filterParams: {
+            textCustomComparator: (filter, value, filterText) => true,
+            filterOptions: ['contains'],
+            debounceMs: 2000,
+            suppressAndOrCondition: true,
+          },
         },
         {
           headerName: 'User',
           field: 'user',
+          searchableField: '$$$tag$$$-mlflow.user',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.user`',
           },
-          filter: false,
+          filter: 'agTextColumnFilter',
+          filterParams: {
+            textCustomComparator: (filter, value, filterText) => true,
+            filterOptions: ['contains'],
+            debounceMs: 2000,
+            suppressAndOrCondition: true,
+          },
         },
         {
           headerName: 'Source',
           field: 'source',
+          searchableField: '$$$tag$$$-mlflow.source.name',
           cellRenderer: 'sourceCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.source.name`',
           },
-          filter: false,
+          filter: 'agTextColumnFilter',
+          filterParams: {
+            textCustomComparator: (filter, value, filterText) => true,
+            filterOptions: ['contains'],
+            debounceMs: 2000,
+            suppressAndOrCondition: true,
+          },
         },
         {
           headerName: 'Version',
           field: 'version',
+          searchableField: '$$$tag$$$-mlflow.source.git.commit',
           cellRenderer: 'versionCellRenderer',
           sortable: true,
           headerComponentParams: {
             ...commonSortOrderProps,
             canonicalSortKey: 'tags.`mlflow.source.git.commit`',
           },
-          filter: false,
+          filter: 'agTextColumnFilter',
+          filterParams: {
+            textCustomComparator: (filter, value, filterText) => true,
+            filterOptions: ['contains'],
+            debounceMs: 2000,
+            suppressAndOrCondition: true,
+          },
         },
       ].filter(
         (c) =>
@@ -446,7 +474,10 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     this.columnApi.getAllDisplayedColumns().forEach((column) => {
       const filterInstance = this.gridApi.getFilterInstance(column.colId);
       if (filterInstance.getModel() !== undefined && filterInstance.getModel() !== null) {
-        const columnSplitId = column.colDef.field.split('-');
+        let columnSplitId = column.colDef.field.split('-');
+        if (columnSplitId.length === 1) {
+          columnSplitId = column.colDef.searchableField.split('-');
+        }
         if (MAP_COLUMNNAMES_TO_MLFLOW_NAMES.has(columnSplitId[0])) {
           const columnType = MAP_COLUMNNAMES_TO_MLFLOW_NAMES.get(columnSplitId[0]);
           const columnName = columnSplitId[1];
