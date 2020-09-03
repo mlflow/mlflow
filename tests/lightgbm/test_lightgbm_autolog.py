@@ -344,6 +344,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
     for i in range(5):
         assert (input_example[i] == iris.data[i][:2]).all
 
+
 @pytest.mark.large
 def test_lgb_autolog_infers_schema_correctly(bst_params):
     iris = datasets.load_iris()
@@ -369,5 +370,11 @@ def test_lgb_autolog_infers_schema_correctly(bst_params):
 
     assert data
     assert data["signature"]
-    assert data["signature"]["inputs"] == '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width (cm)", "type": "double"}]'
-    assert data["signature"]["outputs"] == '[{"type": "double"}, {"type": "double"}, {"type": "double"}]'
+    assert (
+        data["signature"]["inputs"]
+        == '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width (cm)", "type": "double"}]'
+    )
+    assert (
+        data["signature"]["outputs"]
+        == '[{"type": "double"}, {"type": "double"}, {"type": "double"}]'
+    )

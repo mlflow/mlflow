@@ -433,7 +433,9 @@ def autolog():
         try:
             raw_data = train_data.get_data()
             if isinstance(raw_data, str):
-                raise Exception("The training data was given as a path, currently input example and model signature inference is not supported for datasets specified by paths")
+                raise Exception(
+                    "The training data was given as a path, currently input example and model signature inference is not supported for datasets specified by paths"
+                )
 
             SAMPLE_ROWS = 5
             input_example = raw_data[:SAMPLE_ROWS]
@@ -444,7 +446,13 @@ def autolog():
             msg = "Failed to infer an input example and model signature: " + str(e)
             _logger.warning(msg)
 
-        try_mlflow_log(log_model, model, artifact_path="model", signature=signature, input_example=input_example)
+        try_mlflow_log(
+            log_model,
+            model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
