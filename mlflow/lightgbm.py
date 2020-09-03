@@ -435,8 +435,8 @@ def autolog():
             raw_data = train_data.get_data()
             if isinstance(raw_data, str):
                 raise Exception(
-                    "The training data was given as a path, currently input example and"
-                    + "model signature inference is not supported for datasets specified by paths"
+                    "The training data was given as a path. Input example and"
+                    + " model signature inference is not supported for datasets specified by paths."
                 )
 
             SAMPLE_ROWS = 5
