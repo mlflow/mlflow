@@ -33,11 +33,13 @@ _TRAINING_PREFIX = "training_"
 
 _SAMPLE_WEIGHT = "sample_weight"
 
-# _SklearnMetricOrArtifact represents a metric (e.g, precision_score) or artifact (e.g confusion matrix)
-# that will be computed and logged during the autologging routine for a particular model type
+# _SklearnMetricOrArtifact represents a metric (e.g, precision_score)
+# or artifact (e.g confusion matrix) that will be computed and
+# logged during the autologging routine for a particular model type
 # (eg, classifier, regressor). "title" will only be used for recording artifacts
-_SklearnMetricOrArtifact = collections.namedtuple("_SklearnMetricOrArtifact",
-                                                  ["name", "function", "arguments", "title"])
+_SklearnMetricOrArtifact = collections.namedtuple(
+    "_SklearnMetricOrArtifact", ["name", "function", "arguments", "title"]
+)
 
 
 def _get_estimator_info_tags(estimator):
@@ -143,20 +145,22 @@ def _get_labels(y_true):
     return [x for x in y_true if not (x in seen or seen.add(x))]
 
 
-def _get_artifacts_list(artifacts_list, X, y_pred):
-    import matplotlib.pyplot as plt
-
-    artifact_path_list = {}
+def _get_artifacts_list(artifacts_list):
+    artifacts_dir = tempfile.mkdtemp()
     for artifact in artifacts_list:
         try:
+            # print(_get_arg_names(artifact.function))
             display = artifact.function(**artifact.arguments)
             display.ax_.set_title(artifact.title)
-            tmpdir = tempfile.mkdtemp()
-            filepath = os.path.join(tmpdir, "{}.png".format(artifact.name))
+            filepath = os.path.join(artifacts_dir, "{}.png".format(artifact.name))
+            display.figure_.savefig(filepath)
         except Exception as e:  # pylint: disable=broad-except
+            print("function name: ", artifact.name)
+            print("error: ", e)
             _log_warning_for_metrics_or_artifacts(artifact.name, artifact.function, e, False)
-        else:
-            artifact_path_list[artifact.name] =
+
+    return artifacts_dir
+
 
 def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
@@ -199,9 +203,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true = _get_samples_and_labels(
-        fit_args, fit_kwargs, fit_arg_names
-    )
+    X, y_true = _get_samples_and_labels(fit_args, fit_kwargs, fit_arg_names)
     y_pred = fitted_estimator.predict(X)
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
@@ -258,6 +260,11 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
         )
 
         if _is_metric_supported("roc_auc_score"):
+            # For binary case, the parameter `y_score` expect scores must be
+            # the scores of the class with the greater label.
+            if y_pred_proba.shape[1] == 2:
+                y_pred_proba_binary = [prob[1] for prob in y_pred_proba]
+
             classifier_metrics.extend(
                 [
                     _SklearnMetricOrArtifact(
@@ -265,7 +272,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
                         function=sklearn.metrics.roc_auc_score,
                         arguments=dict(
                             y_true=y_true,
-                            y_score=y_pred_proba,
+                            y_score=y_pred_proba_binary,
                             average="weighted",
                             sample_weight=sample_weight,
                             multi_class="ovo",
@@ -307,9 +314,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true = _get_samples_and_labels(
-        fit_args, fit_kwargs, fit_arg_names
-    )
+    X, y_true = _get_samples_and_labels(fit_args, fit_kwargs, fit_arg_names)
     y_pred = fitted_estimator.predict(X)
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
@@ -322,19 +327,40 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
             name=_TRAINING_PREFIX + "confusion_matrix",
             function=sklearn.metrics.plot_confusion_matrix,
             arguments=dict(
-                estimator=fitted_estimator, X=X, y_pred=y_pred,
-                sample_weight=sample_weight, normalize=True, display_labels=labels,
+                estimator=fitted_estimator,
+                X=X,
+                y_true=y_pred,
+                sample_weight=sample_weight,
+                normalize="true",
+                labels=labels,
             ),
             title="Confusion Matrix",
         ),
     ]
 
-    _get_artifacts_list(classifier_artifacts, X, y_pred)
+    if len(labels) == 2:
+        classifier_artifacts.extend(
+            [
+                _SklearnMetricOrArtifact(
+                    name=_TRAINING_PREFIX + "roc_curve",
+                    function=sklearn.metrics.plot_roc_curve,
+                    arguments=dict(
+                        estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
+                    ),
+                    title="roc curve",
+                ),
+                _SklearnMetricOrArtifact(
+                    name=_TRAINING_PREFIX + "precision_recall_curve",
+                    function=sklearn.metrics.plot_precision_recall_curve,
+                    arguments=dict(
+                        estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
+                    ),
+                    title="precision recall curve",
+                ),
+            ]
+        )
 
-
-
-
-
+    return _get_artifacts_list(classifier_artifacts)
 
 
 def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
@@ -365,9 +391,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true = _get_samples_and_labels(
-        fit_args, fit_kwargs, fit_arg_names
-    )
+    X, y_true = _get_samples_and_labels(fit_args, fit_kwargs, fit_arg_names)
     y_pred = fitted_estimator.predict(X)
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
@@ -423,13 +447,12 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
 
 
 def _log_warning_for_metrics_or_artifacts(func_name, func_call, err, is_metric):
-    type_name = (" metric "
-                 if is_metric is True
-                 else " artifact ")
+    type_name = " metric " if is_metric is True else " artifact "
     msg = (
         func_call.__qualname__
         + " failed. The "
-        + func_name + type_name
+        + func_name
+        + type_name
         + "will not be recorded."
         + type_name
         + "error: "
@@ -442,9 +465,12 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
     import sklearn
 
     name_metric_dict = {}
+    artifact_dir = None
     try:
         if sklearn.base.is_classifier(fitted_estimator):
             name_metric_dict = _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs)
+            artifact_dir = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
+
         elif sklearn.base.is_regressor(fitted_estimator):
             name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
     except Exception as err:  # pylint: disable=broad-except
@@ -458,14 +484,18 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
 
     else:
         # batch log all metrics
+        mlflow_client = MlflowClient()
         try_mlflow_log(
-            MlflowClient().log_batch,
+            mlflow_client.log_batch,
             run_id,
             metrics=[
                 Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
                 for key, value in name_metric_dict.items()
             ],
         )
+
+        if artifact_dir is not None:
+            try_mlflow_log(mlflow_client.log_artifacts, run_id, artifact_dir)
 
 
 def _chunk_dict(d, chunk_size):
@@ -698,7 +728,6 @@ def _backported_all_estimators(type_filter=None):
        the testing utility variant of `all_estimators`.
 
     ========== original docstring ==========
-
     Get a list of all estimators from sklearn.
     This function crawls the module and gets all classes that inherit
     from BaseEstimator. Classes that are defined in test-modules are not

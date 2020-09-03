@@ -77,8 +77,8 @@ def load_model_by_run_id(run_id):
     return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
-def get_model_conf(artifact_uri):
-    model_conf_path = os.path.join(artifact_uri, MODEL_DIR, "MLmodel")
+def get_model_conf(artifact_uri, model_subpath=MODEL_DIR):
+    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
     return Model.load(model_conf_path)
 
 
@@ -206,13 +206,18 @@ def test_classifier():
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
-    X, y_true = get_iris()
+
+    # use binary datasets to cover the test for roc curve & precision recall curve
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y_true, "fit")
 
     y_pred = model.predict(X)
     y_pred_prob = model.predict_proba(X)
+    # For bonary classification, y_score only accepts the probability of greater label
+    y_pred_prob_roc = [prob[1] for prob in y_pred_prob]
+
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
@@ -229,13 +234,23 @@ def test_classifier():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics[_TRAINING_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
+            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo", labels=[0, 1]
         )
 
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+    plot_names = [
+        "{}.png".format(_TRAINING_PREFIX + "confusion_matrix"),
+        "{}.png".format(_TRAINING_PREFIX + "roc_curve"),
+        "{}.png".format(_TRAINING_PREFIX + "precision_recall_curve"),
+    ]
+
+    assert all(x in artifacts for x in plot_names)
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -595,12 +610,14 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
     }
 
     @functools.wraps(sklearn.model_selection.GridSearchCV.predict)
-    def throwing_predict(X):  # pylint: disable=unused-argument
+    def throwing_predict():  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    sklearn.model_selection.GridSearchCV.predict = throwing_predict
-
-    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning, mock.patch(
+        "sklearn.model_selection.GridSearchCV.predict", side_effect=throwing_predict
+    ):
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
@@ -709,6 +726,14 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
     assert isinstance(best_estimator, sklearn.svm.SVC)
     cv_model = mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
     assert isinstance(cv_model, cv_class)
+
+    # Ensure that a signature and input example are produced for the best estimator
+    best_estimator_conf = get_model_conf(run.info.artifact_uri, "best_estimator")
+    assert best_estimator_conf.signature == infer_signature(X, best_estimator.predict(X[:5]))
+
+    best_estimator_path = os.path.join(run.info.artifact_uri, "best_estimator")
+    input_example = _read_example(best_estimator_conf, best_estimator_path)
+    best_estimator.predict(input_example)  # Ensure that input example evaluation succeeds
 
     client = mlflow.tracking.MlflowClient()
     child_runs = client.search_runs(

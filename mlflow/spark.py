@@ -308,7 +308,9 @@ class _HadoopFileSystem:
         try:
             return cls._fs().exists(dfs_path)
         except Exception as ex:  # pylint: disable=broad-except
-            _logger.warning(
+            # Log a debug-level message, since existence checks may raise exceptions
+            # in normal operating circumstances that do not warrant warnings
+            _logger.debug(
                 "Unexpected exception while checking if model uri is visible on " "DFS: %s", ex
             )
         return False
@@ -581,6 +583,9 @@ def _load_pyfunc(path):
         spark = (
             pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)
             .config("spark.databricks.io.cache.enabled", False)
+            # In Spark 3.1 and above, we need to set this conf explicitly to enable creating
+            # a SparkSession on the workers
+            .config("spark.executor.allowSparkContext", "true")
             .master("local[1]")
             .getOrCreate()
         )

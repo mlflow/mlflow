@@ -17,6 +17,7 @@ from mlflow.utils.string_utils import strip_prefix
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_acled_artifacts_uri,
+    is_databricks_model_registry_artifacts_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
@@ -214,7 +215,7 @@ def dbfs_artifact_repo_factory(artifact_uri):
     elif (
         mlflow.utils.databricks_utils.is_dbfs_fuse_available()
         and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false"
-        and not artifact_uri.startswith("dbfs:/databricks/mlflow-registry")
+        and not is_databricks_model_registry_artifacts_uri(artifact_uri)
         and (db_profile_uri is None or db_profile_uri == "databricks")
     ):
         # If the DBFS FUSE mount is available, write artifacts directly to

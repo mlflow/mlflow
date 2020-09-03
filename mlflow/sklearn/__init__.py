@@ -531,6 +531,56 @@ def autolog():
       **Metrics**
         - A training score obtained by ``estimator.score``. Note that the training score is
           computed using parameters given to ``fit()``.
+        - Common metrics for classifier:
+
+          - `precision score`_
+
+          .. _precision score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html
+
+          - `recall score`_
+
+          .. _recall score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.recall_score.html
+
+          - `f1 score`_
+
+          .. _f1 score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html
+
+          - `accuracy score`_
+
+          .. _accuracy score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.accuracy_score.html
+
+          If the classifier has method ``predict_proba``, we additionally log:
+
+          - `log loss`_
+
+          .. _log loss:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.log_loss.html
+
+          - `roc auc score`_
+
+          .. _roc auc score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html
+
+        - Common metrics for regressor:
+
+          - `(root) mean squared error`_
+
+          .. _(root) mean squared error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_squared_error.html
+
+          - `mean absolute error`_
+
+          .. _mean absolute error:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.mean_absolute_error.html
+
+          - `r2 score`_
+
+          .. _r2 score:
+              https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html
 
       **Tags**
         - An estimator class name (e.g. "LinearRegression").
@@ -570,12 +620,21 @@ def autolog():
 
     **Example**
 
+    `See more examples <https://github.com/mlflow/mlflow/blob/master/examples/sklearn_autolog>`_
+
     .. code-block:: python
 
         from pprint import pprint
         import numpy as np
-        import sklearn.linear_model
+        from sklearn.linear_model import LinearRegression
         import mlflow
+
+        def fetch_logged_data(run_id):
+            client = mlflow.tracking.MlflowClient()
+            data = client.get_run(run_id).data
+            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+            return data.params, data.metrics, tags, artifacts
 
         # enable autologging
         mlflow.sklearn.autolog()
@@ -585,17 +644,12 @@ def autolog():
         y = np.dot(X, np.array([1, 2])) + 3
 
         # train a model
+        model = LinearRegression()
         with mlflow.start_run() as run:
-            reg = sklearn.linear_model.LinearRegression().fit(X, y)
-
-        def fetch_logged_data(run_id):
-            client = mlflow.tracking.MlflowClient()
-            data = client.get_run(run_id).data
-            tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
-            artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+            model.fit(X, y)
 
         # fetch logged data
-        params, metrics, tags, artifacts = fetch_logged_data(run._info.run_id)
+        params, metrics, tags, artifacts = fetch_logged_data(run.info.run_id)
 
         pprint(params)
         # {'copy_X': 'True',
@@ -758,7 +812,13 @@ def autolog():
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_"):
-                try_mlflow_log(log_model, estimator.best_estimator_, artifact_path="best_estimator")
+                try_mlflow_log(
+                    log_model,
+                    estimator.best_estimator_,
+                    artifact_path="best_estimator",
+                    signature=signature,
+                    input_example=input_example,
+                )
 
             if hasattr(estimator, "best_params_"):
                 best_params = {
