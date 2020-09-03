@@ -75,6 +75,7 @@ class HomeView extends Component {
               className='expander fa fa-chevron-right login-icon'
             />
           </div>
+          <p></p>
           <div className='experiment-page-container'>
             {this.props.experimentId !== undefined ? (
               <ExperimentPage experimentId={this.props.experimentId} />
