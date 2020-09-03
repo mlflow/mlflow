@@ -65,7 +65,6 @@ def set_experiment(experiment_name):
         Artifact Location=file:///.../apis/mlruns/1
         Tags={}
         Lifecycle_stage=active
-
     """
     client = MlflowClient()
     experiment = client.get_experiment_by_name(experiment_name)
@@ -235,7 +234,6 @@ def active_run():
         {'engineering': 'ML Platform',
          'release.candidate': 'RC1',
          'release.version': '2.2.0'}
-
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
@@ -271,10 +269,7 @@ def get_run(run_id):
 
         run_id=13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage=active
         run_id=948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage=active
-
     """
-
-
     return MlflowClient().get_run(run_id)
 
 
@@ -296,7 +291,6 @@ def log_param(key, value):
         # Use context manager to create a new run and log parameters
         with mlflow.start_run(run_name="My Runs"):
             [mlflow.log_param(key, val) for key, val in params.items()]
-
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_param(run_id, key, value)
@@ -322,7 +316,6 @@ def set_tag(key, value):
         # Use context manager to create a new run and set tags
         with mlflow.start_run(run_name="My Runs"):
            [mlflow.set_tag(key, value) for key, value in tags.items()]
-
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().set_tag(run_id, key, value)
@@ -342,7 +335,6 @@ def delete_tag(key):
 
         # remove a tag from this run
         mlflow.delete_tag("engineering_remote")
-
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
@@ -369,7 +361,6 @@ def log_metric(key, value, step=None):
         # Use context manager to create a new run and log metrics
         with mlflow.start_run(run_name="My Runs"):
             [mlflow.log_metric(key, value) for key, value in metrics.items()]
-
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
@@ -398,7 +389,6 @@ def log_metrics(metrics, step=None):
         # Use context manager to create a new run and log a batch of metrics
         with mlflow.start_run(run_name="My Runs"):
             mlflow.log_metrics(metrics)
-
     """
     run_id = _get_or_start_run().info.run_id
     timestamp = int(time.time() * 1000)
@@ -425,7 +415,6 @@ def log_params(params):
         # Use context manager to create a new run and log a batch of parameters
         with mlflow.start_run(run_name="My Runs"):
             mlflow.log_params(params)
-
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
@@ -453,7 +442,6 @@ def set_tags(tags):
         # Use context manager to create a new run and set a batch of tags
         with mlflow.start_run(run_name="My Runs"):
             mlflow.set_tags(tags)
-
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
@@ -482,7 +470,6 @@ def log_artifact(local_path, artifact_path=None):
         # in a directory "features" under the root artifact_uri/features
         with mlflow.start_run(run_name="My Runs"):
             mlflow.log_artifact("features.txt", artifact_path="features")
-
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
@@ -516,7 +503,6 @@ def log_artifacts(local_dir, artifact_path=None):
         # in "data" to root artifact_uri/states
         with mlflow.start_run(run_name="My Runs"):
             mlflow.log_artifacts("data", artifact_path="states")
-
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
@@ -555,7 +541,6 @@ def get_experiment(experiment_id):
         Artifact Location=file:///.../apis/mlruns/0
         Tags={}
         Lifecycle_stage=active
-
     """
     return MlflowClient().get_experiment(experiment_id)
 
@@ -588,7 +573,6 @@ def get_experiment_by_name(name):
         Artifact Location=file:///.../apis/mlruns/0
         Tags={}
         Lifecycle_stage=active
-
     """
     return MlflowClient().get_experiment_by_name(name)
 
@@ -628,7 +612,6 @@ def create_experiment(name, artifact_location=None):
         Artifact Location=file:///.../apis/mlruns/1
         Tags={}
         Lifecycle_stage=active
-
     """
     return MlflowClient().create_experiment(name, artifact_location)
 
@@ -663,7 +646,6 @@ def delete_experiment(experiment_id):
         Name=Social NLP Experiments
         Tags={}
         Lifecycle_stage=deleted
-
     """
     MlflowClient().delete_experiment(experiment_id)
 
@@ -693,7 +675,6 @@ def delete_run(run_id):
 
         run_id=13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage=deleted
         run_id=948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage=deleted
-
     """
     MlflowClient().delete_run(run_id)
 
@@ -745,7 +726,6 @@ def get_artifact_uri(artifact_path=None):
 
         Artifact uri=file:///.../mlruns/0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts
         Artifact uri=file:///.../mlruns/0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
-
     """
     return artifact_utils.get_artifact_uri(
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
@@ -910,7 +890,6 @@ def list_run_infos(
          "run_id='a07fb678df7749b3bfe91333ccf16e54', "
          "run_uuid='a07fb678df7749b3bfe91333ccf16e54', start_time=1599085184661, "
          "status='FINISHED', user_id='julesdamji'>]")
-
     """
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess

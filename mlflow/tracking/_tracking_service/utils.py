@@ -66,7 +66,6 @@ def set_tracking_uri(uri):
         :caption: Output
 
         Current tracking uri=file:///tmp/my_tracking
-
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -96,7 +95,6 @@ def get_tracking_uri():
         :caption: Output
 
         Current tracking uri=file:///.../apis/mlruns
-
     """
     global _tracking_uri
     if _tracking_uri is not None:

@@ -50,7 +50,6 @@ def register_model(model_uri, name):
          "run_id='acd04001d9874ce5956f701583596cbc', run_link=None,"
          "source='./mlruns/0/acd04001d9874ce5956f701583596cbc/artifacts',"
          "status='READY', status_message=None, tags={}, user_id=None, version=1>")
-
     """
     client = MlflowClient()
     try:

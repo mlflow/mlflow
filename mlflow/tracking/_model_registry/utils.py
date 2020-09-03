@@ -69,7 +69,6 @@ def set_registry_uri(uri):
 
         Current registry uri=sqlite:///tmp/registry.db
         Current tracking uri=file:///.../apis/mlruns
-
     """
     global _registry_uri
     _registry_uri = uri
@@ -106,7 +105,6 @@ def get_registry_uri():
 
         Current model registry uri=file:///.../apis/mlruns
         Current tracking uri=file:///.../apis/mlruns
-
     """
     return _get_registry_uri_from_context() or get_tracking_uri()
 
