@@ -21,6 +21,36 @@ def register_model(model_uri, name):
                  automatically.
     :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
              backend.
+
+    .. code-block:: python
+        :caption: Example
+
+        from pprint import pprint
+        import mlflow
+
+        local_store_uri = "sqlite:///api_mlruns.db"
+        mlflow.set_tracking_uri(local_store_uri)
+
+        run_id = "acd04001d9874ce5956f701583596cbc"
+        model_uri = "runs:/{}".format(run_id)
+
+        # Register the model
+        mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
+        pprint("Registered Model Version Info={}".format(mv))
+
+    .. code-block:: text
+        :caption: Output
+
+        Successfully registered model 'RandomForestRegressionModel'.
+        Created version '1' of model 'RandomForestRegressionModel'.
+
+        ('Registered Model Version Info=<ModelVersion: '
+         "creation_timestamp=1599148895473, current_stage='None', description=None,"
+         "last_updated_timestamp=1599148895473, name='RandomForestRegressionModel',"
+         "run_id='acd04001d9874ce5956f701583596cbc', run_link=None,"
+         "source='./mlruns/0/acd04001d9874ce5956f701583596cbc/artifacts',"
+         "status='READY', status_message=None, tags={}, user_id=None, version=1>")
+
     """
     client = MlflowClient()
     try:

@@ -52,6 +52,21 @@ def set_tracking_uri(uri):
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        mlflow.set_tracking_uri("file:///tmp/my_tracking")
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri={}".format(tracking_uri))
+
+    .. code-block:: text
+        :caption: Output
+
+        Current tracking uri=file:///tmp/my_tracking
+
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -67,6 +82,21 @@ def get_tracking_uri():
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
 
     :return: The tracking URI.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Get the current tracking uri
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri={}".format(tracking_uri))
+
+    .. code-block:: text
+        :caption: Output
+
+        Current tracking uri=file:///.../apis/mlruns
+
     """
     global _tracking_uri
     if _tracking_uri is not None:
