@@ -1,6 +1,7 @@
 import os
 import json
 import pytest
+import yaml
 import numpy as np
 import pandas as pd
 from sklearn import datasets
@@ -312,3 +313,61 @@ def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     np.testing.assert_array_almost_equal(
         model.predict(train_set.data), loaded_model.predict(train_set.data)
     )
+
+
+@pytest.mark.large
+def test_lgb_autolog_gets_input_example(bst_params):
+    # we need to check the example input against the initial input given to train function.
+    # we can't use the train_set fixture for this as it defines free_raw_data=False but this
+    # feature should work even if it is True
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
+
+    mlflow.lightgbm.autolog()
+    model = lgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    input_example_filename = "input_example.json"
+    assert "model/" + input_example_filename in artifacts
+    input_example_path = os.path.join(artifacts_dir, "model", input_example_filename)
+
+    input_example = None
+    with open(input_example_path, "r") as f:
+        input_example = json.load(f)["data"]
+
+    for i in range(5):
+        assert (input_example[i] == iris.data[i][:2]).all
+
+@pytest.mark.large
+def test_lgb_autolog_infers_schema_correctly(bst_params):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
+
+    mlflow.lightgbm.autolog()
+    model = lgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    ml_model_filename = "MLmodel"
+    assert "model/" + ml_model_filename in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+
+    data = None
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    assert data
+    assert data["signature"]
+    assert data["signature"]["inputs"] == '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width (cm)", "type": "double"}]'
+    assert data["signature"]["outputs"] == '[{"type": "double"}, {"type": "double"}, {"type": "double"}]'
