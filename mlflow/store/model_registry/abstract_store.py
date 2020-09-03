@@ -19,13 +19,14 @@ class AbstractStore:
     # CRUD API for RegisteredModel objects
 
     @abstractmethod
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A list of :py:class:`mlflow.entities.model_registry.RegisteredModelTag`
                      instances associated with this registered model.
+        :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
@@ -145,7 +146,9 @@ class AbstractStore:
     # CRUD API for ModelVersion objects
 
     @abstractmethod
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(
+        self, name, source, run_id, tags=None, run_link=None, description=None
+    ):
         """
         Create a new model version from given source and run ID.
 
@@ -155,6 +158,7 @@ class AbstractStore:
         :param tags: A list of :py:class:`mlflow.entities.model_registry.ModelVersionTag`
                      instances associated with this model version.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
         :return: A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
                  created in the backend.
         """
