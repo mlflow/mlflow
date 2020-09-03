@@ -326,7 +326,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
     dataset = lgb.Dataset(X, y, free_raw_data=True)
 
     mlflow.lightgbm.autolog()
-    model = lgb.train(bst_params, dataset)
+    lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
@@ -353,7 +353,7 @@ def test_lgb_autolog_infers_schema_correctly(bst_params):
     dataset = lgb.Dataset(X, y, free_raw_data=True)
 
     mlflow.lightgbm.autolog()
-    model = lgb.train(bst_params, dataset)
+    lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
     artifacts_dir = run.info.artifact_uri.replace("file://", "")
@@ -372,7 +372,8 @@ def test_lgb_autolog_infers_schema_correctly(bst_params):
     assert data["signature"]
     assert (
         data["signature"]["inputs"]
-        == '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width (cm)", "type": "double"}]'
+        == '[{"name": "sepal length (cm)", "type": "double"}, '
+        + '{"name": "sepal width (cm)", "type": "double"}]'
     )
     assert (
         data["signature"]["outputs"]

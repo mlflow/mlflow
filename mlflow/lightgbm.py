@@ -379,7 +379,8 @@ def autolog():
         else:
             kwargs["callbacks"] = [callback]
 
-        # We set free_raw_data to false on the Dataset object so that we can access the original data later.
+        # We set free_raw_data to false on the Dataset object
+        # so that we can access the original data later.
         train_data = args[1] if len(args) > 1 else kwargs["train_data"]
         train_data.free_raw_data = False
 
@@ -434,7 +435,8 @@ def autolog():
             raw_data = train_data.get_data()
             if isinstance(raw_data, str):
                 raise Exception(
-                    "The training data was given as a path, currently input example and model signature inference is not supported for datasets specified by paths"
+                    "The training data was given as a path, currently input example and"
+                    + "model signature inference is not supported for datasets specified by paths"
                 )
 
             SAMPLE_ROWS = 5
