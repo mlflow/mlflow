@@ -346,7 +346,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
 
 
 @pytest.mark.large
-def test_lgb_autolog_infers_schema_correctly(bst_params):
+def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
@@ -379,3 +379,35 @@ def test_lgb_autolog_infers_schema_correctly(bst_params):
         data["signature"]["outputs"]
         == '[{"type": "double"}, {"type": "double"}, {"type": "double"}]'
     )
+
+
+@pytest.mark.large
+def test_lgb_autolog_continues_logging_even_if_signature_inference_fails():
+    # signature and input example inference should fail here since the dataset is given
+    #   as a file path
+    dataset = lgb.Dataset(os.path.join(os.path.dirname(__file__), "iris_training.csv"))
+
+    bst_params = {
+        "objective": "multiclass",
+        "num_class": 3,
+    }
+
+    mlflow.lightgbm.autolog()
+    lgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    ml_model_filename = "MLmodel"
+    assert str(os.path.join("model", ml_model_filename)) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+
+    data = None
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    assert data is not None
+    assert "run_id" in data
+    assert "signature" not in data
