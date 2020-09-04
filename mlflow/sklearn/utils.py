@@ -325,7 +325,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                 cmap='Blues',
                 labels=list(labels),
             ),
-            title="Confusion matrix",
+            title="Normalized confusion matrix",
         ),
     ]
 
@@ -341,7 +341,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                         arguments=dict(
                             estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
                         ),
-                        title="Roc curve",
+                        title="ROC curve",
                     ),
                 ]
             )
