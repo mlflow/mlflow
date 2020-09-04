@@ -291,6 +291,17 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     import xgboost
     import numpy as np
 
+    def __init__(self, *args, **kwargs):
+        data = args[0] if len(args) > 0 else kwargs["data"]
+
+        original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
+
+        obj = original(self, *args, **kwargs)
+
+        self.data_copy = deepcopy(data)
+
+        return obj
+
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
@@ -352,6 +363,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         params = args[0] if len(args) > 0 else kwargs["params"]
         dtrain = args[1] if len(args) > 1 else kwargs["dtrain"]
         logging.warning("AAAAAA")
+        logging.warning(dtrain.data_copy)
         logging.warning(dtrain.feature_names)
         logging.warning(dtrain.feature_types)
 
@@ -435,3 +447,4 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         return model
 
     wrap_patch(xgboost, "train", train)
+    wrap_patch(xgboost.DMatrix, "__init__", __init__)
