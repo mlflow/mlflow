@@ -253,7 +253,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
             # For binary case, the parameter `y_score` expect scores must be
             # the scores of the class with the greater label.
             if y_pred_proba.shape[1] == 2:
-                y_pred_proba_binary = [prob[1] for prob in y_pred_proba]
+                y_pred_proba = [prob[1] for prob in y_pred_proba]
 
             classifier_metrics.extend(
                 [
@@ -262,7 +262,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
                         function=sklearn.metrics.roc_auc_score,
                         arguments=dict(
                             y_true=y_true,
-                            y_score=y_pred_proba_binary,
+                            y_score=y_pred_proba,
                             average="weighted",
                             sample_weight=sample_weight,
                             multi_class="ovo",
@@ -322,7 +322,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                 y_true=y_pred,
                 sample_weight=sample_weight,
                 normalize="true",
-                cmap='Blues',
+                cmap="Blues",
                 labels=list(labels),
             ),
             title="Normalized confusion matrix",
@@ -470,6 +470,7 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_kwargs):
     import sklearn
 
+    mlflow_client = MlflowClient()
     name_metric_dict = {}
     try:
         if sklearn.base.is_classifier(fitted_estimator):
@@ -487,7 +488,6 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
         _logger.warning(msg)
     else:
         # batch log all metrics
-        mlflow_client = MlflowClient()
         try_mlflow_log(
             mlflow_client.log_batch,
             run_id,
