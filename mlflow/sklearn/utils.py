@@ -249,7 +249,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
         if _is_metric_supported("roc_auc_score"):
             # For binary case, the parameter `y_score` expect scores must be
             # the scores of the class with the greater label.
-            if y_pred_proba.shape[1] == 2:
+            if len(y_pred_proba[0]) == 2:
                 y_pred_proba = [prob[1] for prob in y_pred_proba]
 
             classifier_metrics.extend(
@@ -455,7 +455,7 @@ def _log_warning_for_artifacts(func_name, func_call, err):
         func_call.__qualname__
         + " failed. The artifact "
         + func_name
-        + "will not be recorded."
+        + " will not be recorded."
         + " Artifact error: "
         + str(err)
     )
@@ -511,7 +511,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
         if bool(name_artifact_dict):
             with TempDir() as tmp:
                 for name, display in name_artifact_dict.items():
-                    filepath = os.path.join(tmp.path(), "{}.png".format(name))
+                    filepath = tmp.path("{}.png".format(name))
                     display.figure_.savefig(filepath)
                 try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp.path())
 
