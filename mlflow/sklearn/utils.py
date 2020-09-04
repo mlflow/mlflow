@@ -325,7 +325,6 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                     sample_weight=sample_weight,
                     normalize="true",
                     cmap="Blues",
-                    labels=list(labels),
                 ),
                 title="Normalized confusion matrix",
             ),

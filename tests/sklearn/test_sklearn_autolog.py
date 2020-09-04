@@ -200,7 +200,7 @@ def test_estimator(fit_func_name):
     assert_predict_equal(loaded_model, model, X)
 
 
-def test_classifier():
+def test_classifier_binary():
     mlflow.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
@@ -215,7 +215,7 @@ def test_classifier():
     y_pred = model.predict(X)
     y_pred_prob = model.predict_proba(X)
     # For binary classification, y_score only accepts the probability of greater label
-    y_pred_prob_roc = [prob[1] for prob in y_pred_prob]
+    y_pred_prob_roc = y_pred_prob[:, 1]
 
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
@@ -233,7 +233,7 @@ def test_classifier():
     }
     if _is_metric_supported("roc_auc_score"):
         expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo", labels=[0, 1],
+            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
         )
 
     assert metrics == expected_metrics
@@ -246,15 +246,65 @@ def test_classifier():
 
     plot_names = []
     if _is_plotting_supported():
-        plot_names.append("{}.png".format("training_confusion_matrix"))
+        plot_names.extend(
+            [
+                "{}.png".format("training_confusion_matrix"),
+                "{}.png".format("training_roc_curve"),
+                "{}.png".format("training_precision_recall_curve"),
+            ]
+        )
 
-        if len(set(y_true)) == 2:
-            plot_names.extend(
-                [
-                    "{}.png".format("training_roc_curve"),
-                    "{}.png".format("training_precision_recall_curve"),
-                ]
-            )
+    assert all(x in artifacts for x in plot_names)
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+
+
+def test_classifier_multi_class():
+    mlflow.sklearn.autolog()
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use multi-class datasets to verify that roc curve & precision recall curve care not recorded
+    X, y_true = get_iris()
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    y_pred = model.predict(X)
+    y_pred_prob = model.predict_proba(X)
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+
+    expected_metrics = {
+        TRAINING_SCORE: model.score(X, y_true),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+        )
+
+    assert metrics == expected_metrics
+
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names = ["{}.png".format("training_confusion_matrix")]
 
     assert all(x in artifacts for x in plot_names)
 
