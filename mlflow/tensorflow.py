@@ -1056,8 +1056,8 @@ def autolog(every_n_iter=100):
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", fit),
         (tensorflow.keras.Model, "fit_generator", fit_generator),
-        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model,),
-        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel,),
+        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
         (FileWriter, "add_summary", add_summary),
     ]
 
