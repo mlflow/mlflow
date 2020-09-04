@@ -6,7 +6,6 @@ import logging
 from numbers import Number
 import numpy as np
 import os
-import tempfile
 import time
 
 from mlflow.entities import Metric, Param
