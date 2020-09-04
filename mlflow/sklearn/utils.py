@@ -315,21 +315,23 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     classifier_artifacts = []
     if _is_plotting_supported():
         labels = set(y_true)
-        classifier_artifacts.append([
-            _SklearnArtifact(
-                name=_TRAINING_PREFIX + "confusion_matrix",
-                function=sklearn.metrics.plot_confusion_matrix,
-                arguments=dict(
-                    estimator=fitted_estimator,
-                    X=X,
-                    y_true=y_pred,
-                    sample_weight=sample_weight,
-                    normalize="true",
-                    cmap="Blues",
+        classifier_artifacts.extend(
+            [
+                _SklearnArtifact(
+                    name=_TRAINING_PREFIX + "confusion_matrix",
+                    function=sklearn.metrics.plot_confusion_matrix,
+                    arguments=dict(
+                        estimator=fitted_estimator,
+                        X=X,
+                        y_true=y_pred,
+                        sample_weight=sample_weight,
+                        normalize="true",
+                        cmap="Blues",
+                    ),
+                    title="Normalized confusion matrix",
                 ),
-                title="Normalized confusion matrix",
-            ),
-        ])
+            ]
+        )
 
         # The plot_roc_curve and plot_precision_recall_curve can only be
         # supported for binary classifier
