@@ -728,7 +728,7 @@ def _is_artifact_supported(artifact_name):
     import sklearn
 
     # This dict can be extended to store special artifacts' specific supported versions
-    _artifact_supported_version = {"roc_curve": "0.22.2", "precision_recall_curve": "0.22.0"}
+    _artifact_supported_version = {"roc_curve": "0.22.0", "precision_recall_curve": "0.22.0"}
 
     return LooseVersion(sklearn.__version__) >= LooseVersion(
         _artifact_supported_version[artifact_name]

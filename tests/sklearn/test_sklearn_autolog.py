@@ -213,7 +213,7 @@ def test_classifier():
 
     y_pred = model.predict(X)
     y_pred_prob = model.predict_proba(X)
-    # For bonary classification, y_score only accepts the probability of greater label
+    # For binary classification, y_score only accepts the probability of greater label
     y_pred_prob_roc = [prob[1] for prob in y_pred_prob]
 
     run_id = run.info.run_id
@@ -248,7 +248,8 @@ def test_classifier():
         "{}.png".format("training_precision_recall_curve"),
     ]
 
-    assert all(x in artifacts for x in plot_names)
+    # assert all(x in artifacts for x in plot_names)
+    assert(artifacts == plot_names)
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
