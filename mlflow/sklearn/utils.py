@@ -723,11 +723,11 @@ def _is_metric_supported(metric_name):
 
 
 # Util function to check whether artifact plotting functions are able to be computed
-# in given sklearn version (should >= 0.22.0)
+# in given sklearn version (should >= 0.23.2)
 def _is_plotting_supported():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
+    return LooseVersion(sklearn.__version__) >= LooseVersion("0.23.2")
 
 
 def _all_estimators():
