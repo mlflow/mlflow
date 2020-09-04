@@ -36,7 +36,7 @@ from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
 from mlflow.entities import Metric
 
 
@@ -852,7 +852,6 @@ def autolog(every_n_iter=100):
         if mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
             try_mlflow_log(mlflow.end_run)
 
-    @gorilla.patch(tensorflow.estimator.Estimator)
     def train(self, *args, **kwargs):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, "train")
@@ -871,7 +870,6 @@ def autolog(every_n_iter=100):
 
             return result
 
-    @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
         auto_end = False
         if not mlflow.active_run():
@@ -899,7 +897,6 @@ def autolog(every_n_iter=100):
             try_mlflow_log(mlflow.end_run)
         return serialized
 
-    @gorilla.patch(tensorflow.estimator.Estimator)
     def export_savedmodel(self, *args, **kwargs):
         auto_end = False
         global _AUTOLOG_RUN_ID
@@ -979,7 +976,6 @@ def autolog(every_n_iter=100):
                     last_epoch = len(history.history[metric_key])
                     try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
 
-    @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit")
@@ -1016,7 +1012,6 @@ def autolog(every_n_iter=100):
 
             return history
 
-    @gorilla.patch(tensorflow.keras.Model)
     def fit_generator(self, *args, **kwargs):
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
@@ -1044,40 +1039,27 @@ def autolog(every_n_iter=100):
 
             return result
 
-    @gorilla.patch(EventFileWriter)
     def add_event(self, event):
         _log_event(event)
         original = gorilla.get_original_attribute(EventFileWriter, "add_event")
         return original(self, event)
 
-    @gorilla.patch(FileWriter)
     def add_summary(self, *args, **kwargs):
         original = gorilla.get_original_attribute(FileWriter, "add_summary")
         result = original(self, *args, **kwargs)
         _flush_queue()
         return result
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patches = [
-        gorilla.Patch(EventFileWriter, "add_event", add_event, settings=settings),
-        gorilla.Patch(EventFileWriterV2, "add_event", add_event, settings=settings),
-        gorilla.Patch(tensorflow.estimator.Estimator, "train", train, settings=settings),
-        gorilla.Patch(tensorflow.keras.Model, "fit", fit, settings=settings),
-        gorilla.Patch(tensorflow.keras.Model, "fit_generator", fit_generator, settings=settings),
-        gorilla.Patch(
-            tensorflow.estimator.Estimator,
-            "export_saved_model",
-            export_saved_model,
-            settings=settings,
-        ),
-        gorilla.Patch(
-            tensorflow.estimator.Estimator,
-            "export_savedmodel",
-            export_savedmodel,
-            settings=settings,
-        ),
-        gorilla.Patch(FileWriter, "add_summary", add_summary, settings=settings),
+        (EventFileWriter, "add_event", add_event),
+        (EventFileWriterV2, "add_event", add_event),
+        (tensorflow.estimator.Estimator, "train", train),
+        (tensorflow.keras.Model, "fit", fit),
+        (tensorflow.keras.Model, "fit_generator", fit_generator),
+        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model,),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel,),
+        (FileWriter, "add_summary", add_summary),
     ]
 
-    for x in patches:
-        gorilla.apply(x)
+    for p in patches:
+        wrap_patch(*p)
