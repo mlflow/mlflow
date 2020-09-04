@@ -25,6 +25,7 @@ import shutil
 import inspect
 import logging
 import gorilla
+from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
@@ -382,7 +383,18 @@ def autolog():
         # We set free_raw_data to false on the Dataset object
         # so that we can access the original data later.
         train_data = args[1] if len(args) > 1 else kwargs["train_data"]
-        train_data.free_raw_data = False
+
+        input_example = None
+        try:
+            if isinstance(train_data.data, str):
+                raise Exception("The input data was of type string.")
+
+            SAMPLE_ROWS = 5
+            input_example = deepcopy(train_data.data[:SAMPLE_ROWS])
+        except Exception as e:  # pylint: disable=broad-except
+            input_example = None
+            msg = "Failed to gather an input example: " + str(e)
+            _logger.warning(msg)
 
         # training model
         model = original(*args, **kwargs)
@@ -429,23 +441,16 @@ def autolog():
             finally:
                 shutil.rmtree(tmpdir)
 
-        input_example = None
         signature = None
         try:
-            raw_data = train_data.get_data()
-            if isinstance(raw_data, str):
-                raise Exception(
-                    "The training data was given as a path. Input example and"
-                    + " model signature inference is not supported for datasets specified by paths."
-                )
+            if input_example is None:
+                raise Exception("failed to gather example input.")
 
-            SAMPLE_ROWS = 5
-            input_example = raw_data[:SAMPLE_ROWS]
             model_output = model.predict(input_example)
             signature = infer_signature(input_example, model_output)
         except Exception as e:  # pylint: disable=broad-except
             input_example = None
-            msg = "Failed to infer an input example and model signature: " + str(e)
+            msg = "Failed to infer the model signature: " + str(e)
             _logger.warning(msg)
 
         try_mlflow_log(
