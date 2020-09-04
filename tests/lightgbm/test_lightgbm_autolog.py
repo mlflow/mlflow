@@ -368,8 +368,8 @@ def test_lgb_autolog_infers_schema_correctly(bst_params):
     with open(ml_model_path, "r") as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
 
-    assert data
-    assert data["signature"]
+    assert data is not None
+    assert "signature" in data
     assert (
         data["signature"]["inputs"]
         == '[{"name": "sepal length (cm)", "type": "double"}, '
