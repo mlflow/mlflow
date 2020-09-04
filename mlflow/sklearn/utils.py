@@ -459,6 +459,7 @@ def _log_warning_for_artifacts(func_name, func_call, err):
         + " Artifact error: "
         + str(err)
     )
+    print("2: ", msg)
     _logger.warning(msg)
 
 
@@ -480,6 +481,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             + ". Logging error: "
             + str(err)
         )
+        print("3: ", msg)
         _logger.warning(msg)
     else:
         # batch log all metrics
@@ -503,6 +505,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             + ". Logging error: "
             + str(err)
         )
+        print("4: ", msg)
         _logger.warning(msg)
     else:
         if bool(name_artifact_dict):
@@ -723,11 +726,11 @@ def _is_metric_supported(metric_name):
 
 
 # Util function to check whether artifact plotting functions are able to be computed
-# in given sklearn version (should >= 0.23.2)
+# in given sklearn version (should >= 0.22.0)
 def _is_plotting_supported():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion("0.23.2")
+    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
 
 
 def _all_estimators():
