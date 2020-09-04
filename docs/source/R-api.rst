@@ -1429,6 +1429,42 @@ Arguments
 |                               | the path of all static paths.        |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_experiment``
+=========================
+
+Set Experiment
+
+Sets an experiment as the active experiment. Either the name or ID of
+the experiment can be provided. If the a name is provided but the
+experiment does not exist, this function creates an experiment with
+provided name. Returns the ID of the active experiment.
+
+.. code:: r
+
+   mlflow_set_experiment(
+     experiment_name = NULL,
+     experiment_id = NULL,
+     artifact_location = NULL
+   )
+
+.. _arguments-32:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``experiment_name``           | Name of experiment to be activated.  |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | ID of experiment to be activated.    |
++-------------------------------+--------------------------------------+
+| ``artifact_location``         | Location where all artifacts for     |
+|                               | this experiment are stored. If not   |
+|                               | provided, the remote server will     |
+|                               | select an appropriate default.       |
++-------------------------------+--------------------------------------+
+
 ``mlflow_set_experiment_tag``
 =============================
 
@@ -1441,7 +1477,7 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
-.. _arguments-32:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1471,42 +1507,6 @@ Arguments
 |                               | (the common case), MLflow will use   |
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
-+-------------------------------+--------------------------------------+
-
-``mlflow_set_experiment``
-=========================
-
-Set Experiment
-
-Sets an experiment as the active experiment. Either the name or ID of
-the experiment can be provided. If the a name is provided but the
-experiment does not exist, this function creates an experiment with
-provided name. Returns the ID of the active experiment.
-
-.. code:: r
-
-   mlflow_set_experiment(
-     experiment_name = NULL,
-     experiment_id = NULL,
-     artifact_location = NULL
-   )
-
-.. _arguments-33:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``experiment_name``           | Name of experiment to be activated.  |
-+-------------------------------+--------------------------------------+
-| ``experiment_id``             | ID of experiment to be activated.    |
-+-------------------------------+--------------------------------------+
-| ``artifact_location``         | Location where all artifacts for     |
-|                               | this experiment are stored. If not   |
-|                               | provided, the remote server will     |
-|                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_set_tag``

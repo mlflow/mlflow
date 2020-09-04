@@ -3,8 +3,8 @@
 Python API
 ==========
 
-The MLflow Python API is organized into the following modules. The most common functions are
-exposed in the :py:mod:`mlflow` module, so we recommend starting there.
+The MLflow Python API is organized into the following sections. APIs for common workflows, such as starting a run and
+logging metrics and parameters, are exposed in the :py:mod:`mlflow` module. We recommend starting there.
 
 .. tile-toctree::
   :glob:

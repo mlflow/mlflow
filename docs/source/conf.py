@@ -37,7 +37,8 @@ extensions = [
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
-    "tile_toctree"
+    "tile_toctree",
+    "sphinx_tabs.tabs"
 ]
 
 # Add any paths that contain templates here, relative to this directory.

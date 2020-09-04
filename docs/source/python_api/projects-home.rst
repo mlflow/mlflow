@@ -1,8 +1,10 @@
+:toc-description: Packaged and reusable data science code.
+:toc-icon: /_static/icons/deploy.png
+
 Projects
 =========
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec molestie dui quis dui aliquet hendrerit.
-Cras efficitur magna ut tellus consequat mollis. Sed tempor odio non purus pulvinar ullamcorper.
+This section contains the MLflow projects module.
 
 .. toctree::
     :maxdepth: 1

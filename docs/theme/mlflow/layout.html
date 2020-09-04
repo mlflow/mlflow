@@ -68,6 +68,9 @@
       <link rel="stylesheet" href="{{ pathto('_static/css/custom-azure.css', 1) }}" type="text/css" />
     {% endif %}
     <link rel="stylesheet" href="{{ pathto('_static/css/algolia.css', 1) }}" type="text/css" />
+    {%- for cssfile in css_files %}
+    <link rel="stylesheet" href="{{ pathto(cssfile, 1) }}" type="text/css" />
+    {%- endfor %}
     
   {% endif %}
 

@@ -1,8 +1,10 @@
-Deployments
-=========
+:toc-description: Deploying models to custom serving tools.
+:toc-icon: /_static/icons/deploy.png
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec molestie dui quis dui aliquet hendrerit.
-Cras efficitur magna ut tellus consequat mollis. Sed tempor odio non purus pulvinar ullamcorper.
+Deployments
+============
+
+This section contains modules related to deploying MLflow models to custom serving tools.
 
 .. toctree::
     :maxdepth: 1
