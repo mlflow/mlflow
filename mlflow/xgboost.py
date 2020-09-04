@@ -286,7 +286,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     import xgboost
     import numpy as np
 
-    @gorilla.patch(xgboost)
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
