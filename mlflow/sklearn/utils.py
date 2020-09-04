@@ -301,7 +301,6 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     :return: List of artifacts to be logged
     """
     import sklearn
-    import matplotlib.pyplot as plt
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
     X, y_true, y_pred = _get_samples_labels_and_predictions(
@@ -323,7 +322,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                 y_true=y_pred,
                 sample_weight=sample_weight,
                 normalize="true",
-                cmap=plt.cm.Blues,
+                cmap='Blues',
                 labels=list(labels),
             ),
             title="Confusion matrix",
