@@ -50,13 +50,13 @@ def set_experiment(experiment_name):
         mlflow.set_experiment("Social NLP Experiments")
 
         # Get Experiment Details
-        data = mlflow.get_experiment_by_name("Social NLP Experiments")
+        experiment = mlflow.get_experiment_by_name("Social NLP Experiments")
 
         # Print the contents of Experiment data
-        print("Experiment_id={}".format(data.experiment_id))
-        print("Artifact Location={}".format(data.artifact_location))
-        print("Tags={}".format(data.tags))
-        print("Lifecycle_stage={}".format(data.lifecycle_stage))
+        print("Experiment_id={}".format(experiment.experiment_id))
+        print("Artifact Location={}".format(experiment.artifact_location))
+        print("Tags={}".format(experiment.tags))
+        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
@@ -260,9 +260,10 @@ def get_run(run_id):
         # Set existing run_ids
         run_ids = ["13ee9e661cbf4095a7c92cc55b4e12b4", "948fbf2d0b7f4056b3dd4914845a1e1b"]
 
-        # Get run info for each runs
-        [print("run_id={};lifecycle_stage={}".format(run_id,
-            mlflow.get_run(run_id).info.lifecycle_stage)) for run_id in run_ids]
+        # Get run info state for each run
+        for run_id in run_ids:
+            (print("run_id={}; lifecycle_stage={}"
+               .format(run_id, mlflow.get_run(run_id).info.lifecycle_stage)))
 
     .. code-block:: Text
         :caption: Output
@@ -286,11 +287,8 @@ def log_param(key, value):
 
         import mlflow
 
-        params = {"learning_rate": 0.01, "n_estimators": 10}
-
-        # Use context manager to create a new run and log parameters
-        with mlflow.start_run(run_name="My Runs"):
-            [mlflow.log_param(key, val) for key, val in params.items()]
+        with mlflow.start_run():
+            mlflow.log_param("learning_rate", 0.01)
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_param(run_id, key, value)
@@ -309,13 +307,8 @@ def set_tag(key, value):
 
         import mlflow
 
-        tags = {"engineering": "ML Platform",
-                "release.candidate": "RC1",
-                "release.version": "2.2.0"}
-
-        # Use context manager to create a new run and set tags
-        with mlflow.start_run(run_name="My Runs"):
-           [mlflow.set_tag(key, value) for key, value in tags.items()]
+        with mlflow.start_run():
+           mlflow.set_tag("release.version", "2.2.0")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().set_tag(run_id, key, value)
@@ -333,7 +326,7 @@ def delete_tag(key):
 
         import mlflow
 
-        # remove a tag from this run
+        # Remove a tag from this run
         mlflow.delete_tag("engineering_remote")
     """
     run_id = _get_or_start_run().info.run_id
@@ -356,11 +349,8 @@ def log_metric(key, value, step=None):
 
         import mlflow
 
-        metrics = {"mse": 2500.00, "rmse": 50.00}
-
-        # Use context manager to create a new run and log metrics
-        with mlflow.start_run(run_name="My Runs"):
-            [mlflow.log_metric(key, value) for key, value in metrics.items()]
+        with mlflow.start_run():
+            mlflow.log_metric("mse", 2500.00)
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
@@ -387,8 +377,8 @@ def log_metrics(metrics, step=None):
 
         metrics = {"mse": 2500.00, "rmse": 50.00}
 
-        # Use context manager to create a new run and log a batch of metrics
-        with mlflow.start_run(run_name="My Runs"):
+        # Log a batch of metrics
+        with mlflow.start_run():
             mlflow.log_metrics(metrics)
     """
     run_id = _get_or_start_run().info.run_id
@@ -413,8 +403,8 @@ def log_params(params):
 
         params = {"learning_rate": 0.01, "n_estimators": 10}
 
-        # Use context manager to create a new run and log a batch of parameters
-        with mlflow.start_run(run_name="My Runs"):
+        # Log a batch of parameters
+        with mlflow.start_run():
             mlflow.log_params(params)
     """
     run_id = _get_or_start_run().info.run_id
@@ -440,8 +430,8 @@ def set_tags(tags):
                  "release.candidate": "RC1",
                  "release.version": "2.2.0"}
 
-        # Use context manager to create a new run and set a batch of tags
-        with mlflow.start_run(run_name="My Runs"):
+        # Set a batch of tags
+        with mlflow.start_run():
             mlflow.set_tags(tags)
     """
     run_id = _get_or_start_run().info.run_id
@@ -467,10 +457,10 @@ def log_artifact(local_path, artifact_path=None):
         with open("features.txt", 'w') as f:
             f.write(features)
 
-        # Use context manager to create a new run and write this file
-        # in a directory "features" under the root artifact_uri/features
-        with mlflow.start_run(run_name="My Runs"):
-            mlflow.log_artifact("features.txt", artifact_path="features")
+        # With artifact_path=None write features.txt under
+        # root artifact_uri/artifacts directory
+        with mlflow.start_run():
+            mlflow.log_artifact("features.txt")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
@@ -491,7 +481,7 @@ def log_artifacts(local_dir, artifact_path=None):
 
         # Create some files to preserve as artifacts
         features = "rooms, zipcode, median_price, school_rating, transport"
-        data = [{"state": "TX", "Available": 25, "Type": "Bunglow"},
+        data = [{"state": "TX", "Available": 25, "Type": "Detached"},
                 {"state": "OR", "Available": 83, "Type": "Condo"}]
 
         # Create couple of artifact files under the directory "data"
@@ -500,9 +490,8 @@ def log_artifacts(local_dir, artifact_path=None):
         with open("data/features.txt", 'w') as f:
             f.write(features)
 
-        # Use context manager to create a new run and write all files
-        # in "data" to root artifact_uri/states
-        with mlflow.start_run(run_name="My Runs"):
+        # Write all files in "data" to root artifact_uri/states
+        with mlflow.start_run():
             mlflow.log_artifacts("data", artifact_path="states")
     """
     run_id = _get_or_start_run().info.run_id
@@ -527,13 +516,13 @@ def get_experiment(experiment_id):
         import mlflow
 
         # Convert an experiment ID as a string argument
-        data = mlflow.get_experiment(str(0))
+        experiment = mlflow.get_experiment(str(0))
 
         # Print the contents of Experiment data
-        print("Name={}".format(data.name))
-        print("Artifact Location={}".format(data.artifact_location))
-        print("Tags={}".format(data.tags))
-        print("Lifecycle_stage={}".format(data.lifecycle_stage))
+        print("Name={}".format(experiment.name))
+        print("Artifact Location={}".format(experiment.artifact_location))
+        print("Tags={}".format(experiment.tags))
+        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
@@ -559,13 +548,13 @@ def get_experiment_by_name(name):
         import mlflow
 
         # Case sensitive name
-        data = mlflow.get_experiment_by_name("Default")
+        experiment = mlflow.get_experiment_by_name("Default")
 
         # Print the contents of Experiment data
-        print("Experiment_id={}".format(data.experiment_id))
-        print("Artifact Location={}".format(data.artifact_location))
-        print("Tags={}".format(data.tags))
-        print("Lifecycle_stage={}".format(data.lifecycle_stage))
+        print("Experiment_id={}".format(experiment.experiment_id))
+        print("Artifact Location={}".format(experiment.artifact_location))
+        print("Tags={}".format(experiment.tags))
+        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
@@ -596,14 +585,14 @@ def create_experiment(name, artifact_location=None):
         experiment_id = mlflow.create_experiment("Social NLP Experiments")
 
         # Convert an experiment ID as a string argument and fetch its data
-        data = mlflow.get_experiment(str(experiment_id))
+        experiment = mlflow.get_experiment(str(experiment_id))
 
         # Print the contents of experiment data
-        print("Name={}".format(data.name))
-        print("Experiment_id={}".format(data.experiment_id))
-        print("Artifact Location={}".format(data.artifact_location))
-        print("Tags={}".format(data.tags))
-        print("Lifecycle_stage={}".format(data.lifecycle_stage))
+        print("Name={}".format(experiment.name))
+        print("Experiment_id={}".format(experiment.experiment_id))
+        print("Artifact Location={}".format(experiment.artifact_location))
+        print("Tags={}".format(experiment.tags))
+        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
@@ -634,12 +623,12 @@ def delete_experiment(experiment_id):
         # Examine the deleted experiment details.
         # Note: Deleted experiments are moved to a .thrash folder under
         # the artifact location top level directory.
-        data = mlflow.get_experiment(str(1))
+        experiment = mlflow.get_experiment(str(1))
 
         # Print the contents of deleted Experiment data
-        print("Name={}".format(data.name))
-        print("Tags={}".format(data.tags))
-        print("Lifecycle_stage={}".format(data.lifecycle_stage))
+        print("Name={}".format(experiment.name))
+        print("Tags={}".format(experiment.tags))
+        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
@@ -667,9 +656,10 @@ def delete_run(run_id):
 
         # Delete run_ids and fetch the results.
         # Note that runs are not actually delete, only lifecycle stage is set to "deleted"
-        [mlflow.delete_run(run_id) for run_id in run_ids]
-        [print("run_id={}; lifecycle_stage={}".format(run_id,
-            mlflow.get_run(run_id).info.lifecycle_stage)) for run_id in run_ids]
+        for run_id in run_ids:
+            mlflow.delete_run(run_id)
+            (print("run_id={}; lifecycle_stage={}".format(run_id,
+                mlflow.get_run(run_id).info.lifecycle_stage)))
 
     .. code-block:: text
         :caption: Output
@@ -708,12 +698,11 @@ def get_artifact_uri(artifact_path=None):
         with open("features.txt", 'w') as f:
             f.write(features)
 
-        # Use context manager to create a run and log the artifact
-        # in a directory "features" under the root artifact_uri/features
+        # Log the artifact in a directory "features" under the root artifact_uri/features
         with mlflow.start_run():
             mlflow.log_artifact("features.txt", artifact_path="features")
 
-            # Fetch the artifact uri
+            # Fetch the artifact uri root directory
             artifact_uri = mlflow.get_artifact_uri()
             print("Artifact uri={}".format(artifact_uri))
 
@@ -889,7 +878,7 @@ def list_run_infos(
          "artifact_uri='file:///apis/mlruns/0/a07fb678df7749b3bfe91333ccf16e54/artifacts',"
          "end_time=1599085184693, experiment_id='0', lifecycle_stage='active', "
          "run_id='a07fb678df7749b3bfe91333ccf16e54', "
-         "run_uuid='a07fb678df7749b3bfe91333ccf16e54', start_time=1599085184661, "
+         "run_uuid='a07fb678df7749b3bfe91333ccf16e54', start_time=1599085184661,"
          "status='FINISHED', user_id='julesdamji'>]")
     """
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
