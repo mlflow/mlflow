@@ -727,7 +727,7 @@ def _is_metric_supported(metric_name):
 def _is_plotting_supported():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion("0.23.2")
+    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
 
 
 def _all_estimators():
