@@ -143,17 +143,15 @@ def _get_metrics_value_dict(metrics_list):
 
 
 def _get_artifacts_list(artifacts_list):
-    artifacts_dir = tempfile.mkdtemp()
+    artifacts_value_dict = {}
     for artifact in artifacts_list:
         try:
             display = artifact.function(**artifact.arguments)
             display.ax_.set_title(artifact.title)
-            filepath = os.path.join(artifacts_dir, "{}.png".format(artifact.name))
-            display.figure_.savefig(filepath)
+            artifacts_value_dict[artifact.name] = display
         except Exception as e:  # pylint: disable=broad-except
             _log_warning_for_artifacts(artifact.name, artifact.function, e)
-
-    return artifacts_dir
+    return artifacts_value_dict
 
 
 def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
@@ -495,10 +493,10 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             ],
         )
 
-    artifact_dir = None
+    name_artifact_dict = {}
     try:
         if sklearn.base.is_classifier(fitted_estimator):
-            artifact_dir = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
+            name_artifact_dict = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
     except Exception as err:  # pylint: disable=broad-except
         msg = (
             "Failed to autolog artifacts for "
@@ -508,8 +506,12 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
         )
         _logger.warning(msg)
     else:
-        if artifact_dir is not None:
-            try_mlflow_log(mlflow_client.log_artifacts, run_id, artifact_dir)
+        if bool(name_artifact_dict):
+            with TempDir() as tmp:
+                for name, display in name_artifact_dict.items():
+                    filepath = os.path.join(tmp.path(), "{}.png".format(name))
+                    display.figure_.savefig(filepath)
+                try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp.path())
 
 
 def _chunk_dict(d, chunk_size):
