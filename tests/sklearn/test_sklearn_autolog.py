@@ -3,7 +3,7 @@ import inspect
 from mock import mock
 import os
 import warnings
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -18,7 +18,6 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
-    _TRAINING_PREFIX,
     _is_supported_version,
     _is_metric_supported,
     _get_arg_names,
@@ -224,17 +223,17 @@ def test_classifier():
 
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
-        _TRAINING_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        _TRAINING_PREFIX
-        + "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
-        _TRAINING_PREFIX
-        + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        _TRAINING_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
-        _TRAINING_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
     if _is_metric_supported("roc_auc_score"):
-        expected_metrics[_TRAINING_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo", labels=[0, 1]
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo", labels=[0, 1],
         )
 
     assert metrics == expected_metrics
@@ -245,9 +244,9 @@ def test_classifier():
     client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
     plot_names = [
-        "{}.png".format(_TRAINING_PREFIX + "confusion_matrix"),
-        "{}.png".format(_TRAINING_PREFIX + "roc_curve"),
-        "{}.png".format(_TRAINING_PREFIX + "precision_recall_curve"),
+        "{}.png".format("training_confusion_matrix"),
+        "{}.png".format("training_roc_curve"),
+        "{}.png".format("training_precision_recall_curve"),
     ]
 
     assert all(x in artifacts for x in plot_names)
@@ -272,10 +271,10 @@ def test_regressor():
 
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        _TRAINING_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        _TRAINING_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        _TRAINING_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        _TRAINING_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+        "training_mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        "training_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        "training_mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
@@ -582,9 +581,9 @@ def test_autolog_emits_warning_message_when_metric_fails():
     def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    sklearn.metrics.precision_score = throwing_metrics
-
-    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
