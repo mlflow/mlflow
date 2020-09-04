@@ -311,28 +311,29 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
         if _SAMPLE_WEIGHT in fit_arg_names
         else None
     )
-    labels = set(y_true)
-    classifier_artifacts = [
-        _SklearnArtifact(
-            name=_TRAINING_PREFIX + "confusion_matrix",
-            function=sklearn.metrics.plot_confusion_matrix,
-            arguments=dict(
-                estimator=fitted_estimator,
-                X=X,
-                y_true=y_pred,
-                sample_weight=sample_weight,
-                normalize="true",
-                cmap="Blues",
-                labels=list(labels),
-            ),
-            title="Normalized confusion matrix",
-        ),
-    ]
 
-    # Only plot_roc_curve and plot_precision_recall_curve can only be
-    # supported for binary classifier
-    if len(labels) == 2:
-        if _is_artifact_supported("roc_curve"):
+    if _is_plotting_supported():
+        labels = set(y_true)
+        classifier_artifacts = [
+            _SklearnArtifact(
+                name=_TRAINING_PREFIX + "confusion_matrix",
+                function=sklearn.metrics.plot_confusion_matrix,
+                arguments=dict(
+                    estimator=fitted_estimator,
+                    X=X,
+                    y_true=y_pred,
+                    sample_weight=sample_weight,
+                    normalize="true",
+                    cmap="Blues",
+                    labels=list(labels),
+                ),
+                title="Normalized confusion matrix",
+            ),
+        ]
+
+        # The plot_roc_curve and plot_precision_recall_curve can only be
+        # supported for binary classifier
+        if len(labels) == 2:
             classifier_artifacts.extend(
                 [
                     _SklearnArtifact(
@@ -343,11 +344,6 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                         ),
                         title="ROC curve",
                     ),
-                ]
-            )
-        if _is_artifact_supported("precision_recall_curve"):
-            classifier_artifacts.extend(
-                [
                     _SklearnArtifact(
                         name=_TRAINING_PREFIX + "precision_recall_curve",
                         function=sklearn.metrics.plot_precision_recall_curve,
@@ -723,16 +719,12 @@ def _is_metric_supported(metric_name):
     return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
 
 
-# Util function to check whether an artifact is able to be computed in given sklearn version
-def _is_artifact_supported(artifact_name):
+# Util function to check whether artifact plotting functions are able to be computed
+# in given sklearn version (should >= 0.22.0)
+def _is_plotting_supported():
     import sklearn
 
-    # This dict can be extended to store special artifacts' specific supported versions
-    _artifact_supported_version = {"roc_curve": "0.22.0", "precision_recall_curve": "0.22.0"}
-
-    return LooseVersion(sklearn.__version__) >= LooseVersion(
-        _artifact_supported_version[artifact_name]
-    )
+    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
 
 
 def _all_estimators():

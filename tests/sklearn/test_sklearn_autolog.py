@@ -19,6 +19,7 @@ from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
     _is_supported_version,
     _is_metric_supported,
+    _is_plotting_supported,
     _get_arg_names,
     _truncate_dict,
 )
@@ -242,14 +243,21 @@ def test_classifier():
 
     client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
-    plot_names = [
-        "{}.png".format("training_confusion_matrix"),
-        "{}.png".format("training_roc_curve"),
-        "{}.png".format("training_precision_recall_curve"),
-    ]
 
-    # assert all(x in artifacts for x in plot_names)
-    assert(artifacts == plot_names)
+    if _is_plotting_supported():
+        plot_names = [
+            "{}.png".format("training_confusion_matrix"),
+        ]
+
+        if len(set(y_true)) == 2:
+            plot_names.extend(
+                [
+                    "{}.png".format("training_roc_curve"),
+                    "{}.png".format("training_precision_recall_curve"),
+                ]
+            )
+
+    assert all(x in artifacts for x in plot_names)
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
