@@ -881,7 +881,6 @@ def autolog():
 
         return f
 
-    patch_settings = gorilla.Settings(allow_hit=True, store_hit=True)
     _, estimators_to_patch = zip(*_all_estimators())
     # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
     # for patching if they are not already included in the output of `all_estimators()`
