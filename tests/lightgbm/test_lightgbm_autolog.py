@@ -334,7 +334,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     input_example_filename = "input_example.json"
-    assert "model/" + input_example_filename in artifacts
+    assert str(os.path.join("model", input_example_filename)) in artifacts
     input_example_path = os.path.join(artifacts_dir, "model", input_example_filename)
 
     input_example = None
@@ -361,7 +361,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
-    assert "model/" + ml_model_filename in artifacts
+    assert str(os.path.join("model", ml_model_filename)) in artifacts
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
