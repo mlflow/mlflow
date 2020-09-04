@@ -244,10 +244,9 @@ def test_classifier():
     client = mlflow.tracking.MlflowClient()
     artifacts = [x.path for x in client.list_artifacts(run_id)]
 
+    plot_names = []
     if _is_plotting_supported():
-        plot_names = [
-            "{}.png".format("training_confusion_matrix"),
-        ]
+        plot_names.append("{}.png".format("training_confusion_matrix"))
 
         if len(set(y_true)) == 2:
             plot_names.extend(
@@ -630,12 +629,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "Failed to autolog metrics for "
-            + sklearn.model_selection.GridSearchCV.__class__.__name__
-            + ". Logging error: EXCEPTION"
-        )
+        mock_warning.assert_called()
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
