@@ -18,7 +18,9 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
+    _METRICS_PREFIX,
     _is_supported_version,
+    _is_metric_supported,
     _get_arg_names,
     _truncate_dict,
 )
@@ -36,7 +38,6 @@ TRAINING_SCORE = "training_score"
 ESTIMATOR_CLASS = "estimator_class"
 ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
-
 
 pytestmark = pytest.mark.large
 
@@ -192,7 +193,75 @@ def test_estimator(fit_func_name):
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+
+
+def test_classifier():
+    mlflow.sklearn.autolog()
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+    X, y_true = get_iris()
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    y_pred = model.predict(X)
+    y_pred_prob = model.predict_proba(X)
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+
+    expected_metrics = {
+        TRAINING_SCORE: model.score(X, y_true),
+        _METRICS_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        _METRICS_PREFIX
+        + "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX
+        + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        _METRICS_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics[_METRICS_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
+        )
+
+    assert metrics == expected_metrics
+
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+
+
+def test_regressor():
+    mlflow.sklearn.autolog()
+    # use simple `LinearRegression`, which only implements `fit`.
+    model = sklearn.linear_model.LinearRegression()
+    X, y_true = get_iris()
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    y_pred = model.predict(X)
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+
+    assert metrics == {
+        TRAINING_SCORE: model.score(X, y_true),
+        _METRICS_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        _METRICS_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        _METRICS_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        _METRICS_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+    }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
 
@@ -216,7 +285,7 @@ def test_meta_estimator():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -236,7 +305,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run.info.run_id)
     assert params == large_params
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -274,7 +343,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run.info.run_id)
     assert params == truncate_dict(long_params)
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -299,7 +368,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -332,7 +401,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -371,7 +440,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -404,7 +473,7 @@ def test_only_fit_contains_sample_weight():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -437,7 +506,7 @@ def test_only_score_contains_sample_weight():
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
-    assert metrics == {TRAINING_SCORE: model.score(X, y)}
+    assert {TRAINING_SCORE: model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
     assert_predict_equal(load_model_by_run_id(run_id), model, X)
@@ -477,7 +546,7 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     model.score = throwing_score
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -485,8 +554,66 @@ def test_autolog_emits_warning_message_when_score_fails():
             "Scoring error: EXCEPTION"
         )
 
-    metrics = get_run_data(run.info.run_id)[1]
-    assert metrics == {}
+
+def test_autolog_emits_warning_message_when_metric_fails():
+    """
+    Take precision_score metric from SVC as an example to test metric logging failure
+    """
+    mlflow.sklearn.autolog()
+
+    model = sklearn.svm.SVC()
+
+    @functools.wraps(sklearn.metrics.precision_score)
+    def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
+        raise Exception("EXCEPTION")
+
+    sklearn.metrics.precision_score = throwing_metrics
+
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+        model.fit(*get_iris())
+        mock_warning.assert_called_once()
+        mock_warning.called_once_with(
+            "SVC.precision_score failed. "
+            "The 'precision_score' metric will not be recorded. "
+            "Metric error: EXCEPTION"
+        )
+
+
+def test_autolog_emits_warning_message_when_model_prediction_fails():
+    """
+    Take GridSearchCV as an example, whose base class is "classifier" and will go
+    through classifier's metric logging. When refit=False, the model will never get
+    refitted, while during the metric logging what ".predict()" expects is a fitted model.
+    Thus, a warning will be logged.
+    """
+    mlflow.sklearn.autolog()
+
+    metrics_size = 2
+    metrics_to_log = {
+        "score_{}".format(i): sklearn.metrics.make_scorer(lambda y, y_pred, **kwargs: 10)
+        for i in range(metrics_size)
+    }
+
+    @functools.wraps(sklearn.model_selection.GridSearchCV.predict)
+    def throwing_predict():  # pylint: disable=unused-argument
+        raise Exception("EXCEPTION")
+
+    with mlflow.start_run(), mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning, mock.patch(
+        "sklearn.model_selection.GridSearchCV.predict", side_effect=throwing_predict
+    ):
+        svc = sklearn.svm.SVC()
+        cv_model = sklearn.model_selection.GridSearchCV(
+            svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
+        )
+        cv_model.fit(*get_iris())
+        mock_warning.assert_called_once()
+        mock_warning.called_once_with(
+            "Failed to autolog metrics for "
+            + sklearn.model_selection.GridSearchCV.__class__.__name__
+            + ". Logging error: EXCEPTION"
+        )
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
@@ -500,7 +627,6 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
     ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
-
         with mlflow.start_run() as run:
             model = fit_model(model, X, y, fit_func_name)
             mock_log_params.assert_called_once()
@@ -528,7 +654,6 @@ def test_meta_estimator_fit_performs_logging_only_once():
     ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
-
         with mlflow.start_run() as run:
             model.fit(X, y)
             mock_log_params.assert_called_once()
@@ -576,7 +701,7 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         }
     )
     assert params == expected_cv_params
-    assert metrics == {TRAINING_SCORE: cv_model.score(X, y)}
+    assert {TRAINING_SCORE: cv_model.score(X, y)}.items() <= metrics.items()
     assert tags == get_expected_class_tags(cv_model)
     assert MODEL_DIR in artifacts
     assert "best_estimator" in artifacts
@@ -686,7 +811,6 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
     with mlflow.start_run(), mock.patch(
         func_to_fail, side_effect=Exception(func_to_fail)
     ) as mock_func:
-
         model.fit(X, y)
         mock_func.assert_called_once()
 
