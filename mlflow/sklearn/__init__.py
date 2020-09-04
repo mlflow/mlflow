@@ -8,7 +8,6 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
-import functools
 import gorilla
 import os
 import logging
