@@ -10,6 +10,8 @@ import matplotlib as mpl
 
 import mlflow
 import mlflow.lightgbm
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
 
 mpl.use("Agg")
 
@@ -328,21 +330,18 @@ def test_lgb_autolog_gets_input_example(bst_params):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, dataset)
     run = get_latest_run()
-    run_id = run.info.run_id
-    artifacts_dir = run.info.artifact_uri.replace("file://", "")
-    client = mlflow.tracking.MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
-    input_example_filename = "input_example.json"
-    assert str(os.path.join("model", input_example_filename)) in artifacts
-    input_example_path = os.path.join(artifacts_dir, "model", input_example_filename)
+    model_path = os.path.join(run.info.artifact_uri, "model")
+    model_conf = Model.load(os.path.join(model_path, "MLmodel"))
 
-    input_example = None
-    with open(input_example_path, "r") as f:
-        input_example = json.load(f)["data"]
+    input_example = _read_example(model_conf, model_path)
 
-    for i in range(5):
-        assert (input_example[i] == iris.data[i][:2]).all
+    assert input_example.equals(X[:5])
+
+    pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+
+    # make sure reloading the input_example and predicting on it does not error
+    pyfunc_model.predict(input_example)
 
 
 @pytest.mark.large
@@ -370,15 +369,21 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
 
     assert data is not None
     assert "signature" in data
-    assert (
-        data["signature"]["inputs"]
-        == '[{"name": "sepal length (cm)", "type": "double"}, '
-        + '{"name": "sepal width (cm)", "type": "double"}]'
-    )
-    assert (
-        data["signature"]["outputs"]
-        == '[{"type": "double"}, {"type": "double"}, {"type": "double"}]'
-    )
+    signature = data["signature"]
+    assert signature is not None
+
+    assert "inputs" in signature
+    assert json.loads(signature["inputs"]) == [
+        {"name": "sepal length (cm)", "type": "double"},
+        {"name": "sepal width (cm)", "type": "double"},
+    ]
+
+    assert "outputs" in signature
+    assert json.loads(signature["outputs"]) == [
+        {"type": "double"},
+        {"type": "double"},
+        {"type": "double"},
+    ]
 
 
 @pytest.mark.large
