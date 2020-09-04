@@ -3,7 +3,6 @@ import inspect
 from mock import mock
 import os
 import warnings
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
