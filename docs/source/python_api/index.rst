@@ -9,10 +9,12 @@ logging metrics and parameters, are exposed in the :py:mod:`mlflow` module. We r
 .. tile-toctree::
   :glob:
 
+  mlflow
   tracking-home
   models-home
   projects-home
   deployments-home
+  entities-home
 
 
 See also the :ref:`index of all functions and classes<genindex>`.
