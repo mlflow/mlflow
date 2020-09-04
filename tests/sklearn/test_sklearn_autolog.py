@@ -629,6 +629,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
+        # Will be called twice, once for metrics, once for artifacts
         mock_warning.assert_called()
 
 

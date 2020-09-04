@@ -136,7 +136,6 @@ def _get_metrics_value_dict(metrics_list):
         try:
             metric_value = metric.function(**metric.arguments)
         except Exception as e:  # pylint: disable=broad-except
-            print("3")
             _log_warning_for_metrics(metric.name, metric.function, e)
         else:
             metric_value_dict[metric.name] = metric_value
@@ -152,7 +151,6 @@ def _get_artifacts_list(artifacts_list):
             filepath = os.path.join(artifacts_dir, "{}.png".format(artifact.name))
             display.figure_.savefig(filepath)
         except Exception as e:  # pylint: disable=broad-except
-            print("4")
             _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
     return artifacts_dir
@@ -477,7 +475,6 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
         elif sklearn.base.is_regressor(fitted_estimator):
             name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
     except Exception as err:  # pylint: disable=broad-except
-        print("1")
         msg = (
             "Failed to autolog metrics for "
             + fitted_estimator.__class__.__name__
@@ -501,7 +498,6 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
         if sklearn.base.is_classifier(fitted_estimator):
             artifact_dir = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
     except Exception as err:  # pylint: disable=broad-except
-        print("2")
         msg = (
             "Failed to autolog artifacts for "
             + fitted_estimator.__class__.__name__
