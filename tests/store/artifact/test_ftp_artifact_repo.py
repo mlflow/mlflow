@@ -212,13 +212,10 @@ def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
 
 
 def __posixpath_parents(pathname, root):
-    parents = []
-    parent, _ = posixpath.split(pathname)
+    parents = [posixpath.dirname(pathname)]
     root = posixpath.normpath(root)
-    parents.append(parent)
-    while parent != "/" and parent != root:
-        parent, _ = posixpath.split(parent)
-        parents.append(parent)
+    while parents[-1] != "/" and parents[-1] != root:
+        parents.append(posixpath.dirname(parents[-1]))
     return parents
 
 
@@ -232,25 +229,23 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
-    dir_created = set([dest_path_root])
-    file_created = set()
-    cwd_history = []
+    dirs_created = set([dest_path_root])
+    files_created = set()
+    cwd_history = ["/"]
 
     def mkd_mock(pathname):
-        assert pathname == posixpath.abspath(pathname), "mock not implemented"
-        parent, _ = posixpath.split(pathname)
-        if parent not in dir_created:
+        abs_pathname = posixpath.join(cwd_history[-1], pathname)
+        if posixpath.dirname(abs_pathname) not in dirs_created:
             raise ftplib.error_perm
-        assert pathname not in dir_created, "mock not implemented"
-        dir_created.add(pathname)
+        dirs_created.add(abs_pathname)
 
     ftp_mock.mkd = MagicMock(side_effect=mkd_mock)
 
     def cwd_mock(pathname):
-        assert pathname == posixpath.abspath(pathname), "mock not implemented"
-        if pathname not in dir_created:
+        abs_pathname = posixpath.join(cwd_history[-1], pathname)
+        if abs_pathname not in dirs_created:
             raise ftplib.error_perm
-        cwd_history.append(pathname)
+        cwd_history.append(abs_pathname)
 
     ftp_mock.cwd = MagicMock(side_effect=cwd_mock)
 
@@ -258,8 +253,7 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
         head, basename = cmd.split(" ", 1)
         assert head == "STOR"
         assert "/" not in basename
-        assert len(cwd_history) > 0, "mock not implemented"
-        file_created.add(posixpath.join(cwd_history[-1], basename))
+        files_created.add(posixpath.join(cwd_history[-1], basename))
 
     ftp_mock.storbinary = MagicMock(side_effect=storbinary_mock)
 
@@ -278,7 +272,7 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     dest_path = (
         dest_path_root if artifact_path is None else posixpath.join(dest_path_root, artifact_path)
     )
-    dir_expected = set(
+    dirs_expected = set(
         [
             dest_path,
             posixpath.join(dest_path, "empty1"),
@@ -286,7 +280,7 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
             posixpath.join(dest_path, "subsubdir", "empty2"),
         ]
     )
-    file_expected = set(
+    files_expected = set(
         [
             posixpath.join(dest_path, "a.txt"),
             posixpath.join(dest_path, "b.txt"),
@@ -297,13 +291,13 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
         ]
     )
 
-    for dir_expected_i in set(dir_expected):
-        if dir_expected_i != dest_path_root:
-            dir_expected |= set(__posixpath_parents(dir_expected_i, root=dest_path_root))
+    for dirs_expected_i in dirs_expected.copy():
+        if dirs_expected_i != dest_path_root:
+            dirs_expected |= set(__posixpath_parents(dirs_expected_i, root=dest_path_root))
 
     repo.log_artifacts(subd.strpath, artifact_path)
-    assert dir_created == dir_expected
-    assert file_created == file_expected
+    assert dirs_created == dirs_expected
+    assert files_created == files_expected
 
 
 def test_download_artifacts_single(ftp_mock):
