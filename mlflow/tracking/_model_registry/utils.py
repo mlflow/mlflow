@@ -57,9 +57,9 @@ def set_registry_uri(uri):
         # it with the tracking uri. They should be different
         mlflow.set_registry_uri("sqlite:///tmp/registry.db")
         mr_uri = mlflow.get_registry_uri()
-        print("Current registry uri={}".format(mr_uri))
+        print("Current registry uri: {}".format(mr_uri))
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri={}".format(tracking_uri))
+        print("Current tracking uri: {}".format(tracking_uri))
 
         # They should be different
         assert(tracking_uri != mr_uri)
@@ -67,8 +67,8 @@ def set_registry_uri(uri):
     .. code-block:: text
         :caption: Output
 
-        Current registry uri=sqlite:///tmp/registry.db
-        Current tracking uri=file:///.../apis/mlruns
+        Current registry uri: sqlite:///tmp/registry.db
+        Current tracking uri: file:///.../apis/mlruns
     """
     global _registry_uri
     _registry_uri = uri
@@ -91,11 +91,11 @@ def get_registry_uri():
 
         # Get the current model registry uri
         mr_uri = mlflow.get_registry_uri()
-        print("Current model registry uri={}".format(mr_uri))
+        print("Current model registry uri: {}".format(mr_uri))
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri={}".format(tracking_uri))
+        print("Current tracking uri: {}".format(tracking_uri))
 
         # They should be the same
         assert(mr_uri == tracking_uri)
@@ -103,8 +103,8 @@ def get_registry_uri():
     .. code-block:: text
         :caption: Output
 
-        Current model registry uri=file:///.../apis/mlruns
-        Current tracking uri=file:///.../apis/mlruns
+        Current model registry uri: file:///.../apis/mlruns
+        Current tracking uri: file:///.../apis/mlruns
     """
     return _get_registry_uri_from_context() or get_tracking_uri()
 

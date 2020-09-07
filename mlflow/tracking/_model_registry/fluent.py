@@ -36,7 +36,7 @@ def register_model(model_uri, name):
 
         # Register the model
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
-        pprint("Registered Model Version Info={}".format(mv))
+        pprint("Registered Model Version Info: {}".format(mv))
 
     .. code-block:: text
         :caption: Output

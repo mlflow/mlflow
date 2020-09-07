@@ -60,12 +60,12 @@ def set_tracking_uri(uri):
 
         mlflow.set_tracking_uri("file:///tmp/my_tracking")
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri={}".format(tracking_uri))
+        print("Current tracking uri: {}".format(tracking_uri))
 
     .. code-block:: text
         :caption: Output
 
-        Current tracking uri=file:///tmp/my_tracking
+        Current tracking uri: file:///tmp/my_tracking
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -89,12 +89,12 @@ def get_tracking_uri():
 
         # Get the current tracking uri
         tracking_uri = mlflow.get_tracking_uri()
-        print("Current tracking uri={}".format(tracking_uri))
+        print("Current tracking uri: {}".format(tracking_uri))
 
     .. code-block:: text
         :caption: Output
 
-        Current tracking uri=file:///.../apis/mlruns
+        Current tracking uri: file:///.../apis/mlruns
     """
     global _tracking_uri
     if _tracking_uri is not None:

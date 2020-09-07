@@ -53,18 +53,18 @@ def set_experiment(experiment_name):
         experiment = mlflow.get_experiment_by_name("Social NLP Experiments")
 
         # Print the contents of Experiment data
-        print("Experiment_id={}".format(experiment.experiment_id))
-        print("Artifact Location={}".format(experiment.artifact_location))
-        print("Tags={}".format(experiment.tags))
-        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
+        print("Experiment_id: {}".format(experiment.experiment_id))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        Experiment_id=1
-        Artifact Location=file:///.../apis/mlruns/1
-        Tags={}
-        Lifecycle_stage=active
+        Experiment_id: 1
+        Artifact Location: file:///.../apis/mlruns/1
+        Tags: {}
+        Lifecycle_stage: active
     """
     client = MlflowClient()
     experiment = client.get_experiment_by_name(experiment_name)
@@ -216,14 +216,12 @@ def active_run():
         client = mlflow.tracking.MlflowClient()
         data = client.get_run(mlflow.active_run().info.run_id).data
 
-        # Extract params, metric, and tags from data
-        params = {k: v for k, v in data.params.items()}
-        metrics = {k: v for k, v in data.metrics.items()}
+        # Extract only user defined tags; skip System tags starting with "mlflow."
         tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
 
         # Pretty print the dictionary
-        pprint(params)
-        pprint(metrics)
+        pprint(data.params)
+        pprint(data.metrics)
         pprint(tags)
 
     .. code-block:: text
@@ -262,14 +260,14 @@ def get_run(run_id):
 
         # Get run info state for each run
         for run_id in run_ids:
-            (print("run_id={}; lifecycle_stage={}"
-               .format(run_id, mlflow.get_run(run_id).info.lifecycle_stage)))
+            print("run_id: {}; lifecycle_stage: {}"
+               .format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
 
     .. code-block:: Text
         :caption: Output
 
-        run_id=13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage=active
-        run_id=948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage=active
+        run_id: 13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage: active
+        run_id: 948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage: active
     """
     return MlflowClient().get_run(run_id)
 
@@ -477,16 +475,17 @@ def log_artifacts(local_dir, artifact_path=None):
     .. code-block:: python
         :caption: Example
 
+        import os
         import mlflow
 
         # Create some files to preserve as artifacts
         features = "rooms, zipcode, median_price, school_rating, transport"
-        data = [{"state": "TX", "Available": 25, "Type": "Detached"},
-                {"state": "OR", "Available": 83, "Type": "Condo"}]
+        data = {"state": "TX", "Available": 25, "Type": "Detached"}
 
         # Create couple of artifact files under the directory "data"
+        os.makedirs("data", exist_ok=True)
         with open("data/data.json", 'w', encoding='utf-8') as f:
-            [json.dump(d, f, indent=4) for d in data]
+            json.dump(data, f, indent=2)
         with open("data/features.txt", 'w') as f:
             f.write(features)
 
@@ -519,18 +518,18 @@ def get_experiment(experiment_id):
         experiment = mlflow.get_experiment(str(0))
 
         # Print the contents of Experiment data
-        print("Name={}".format(experiment.name))
-        print("Artifact Location={}".format(experiment.artifact_location))
-        print("Tags={}".format(experiment.tags))
-        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
+        print("Name: {}".format(experiment.name))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        Name=Default
-        Artifact Location=file:///.../apis/mlruns/0
-        Tags={}
-        Lifecycle_stage=active
+        Name: Default
+        Artifact Location: file:///.../apis/mlruns/0
+        Tags: {}
+        Lifecycle_stage: active
     """
     return MlflowClient().get_experiment(experiment_id)
 
@@ -551,18 +550,18 @@ def get_experiment_by_name(name):
         experiment = mlflow.get_experiment_by_name("Default")
 
         # Print the contents of Experiment data
-        print("Experiment_id={}".format(experiment.experiment_id))
-        print("Artifact Location={}".format(experiment.artifact_location))
-        print("Tags={}".format(experiment.tags))
-        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
+        print("Experiment_id: {}".format(experiment.experiment_id))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        Experiment_id=0
-        Artifact Location=file:///.../apis/mlruns/0
-        Tags={}
-        Lifecycle_stage=active
+        Experiment_id: 0
+        Artifact Location: file:///.../apis/mlruns/0
+        Tags: {}
+        Lifecycle_stage: active
     """
     return MlflowClient().get_experiment_by_name(name)
 
@@ -588,20 +587,20 @@ def create_experiment(name, artifact_location=None):
         experiment = mlflow.get_experiment(str(experiment_id))
 
         # Print the contents of experiment data
-        print("Name={}".format(experiment.name))
-        print("Experiment_id={}".format(experiment.experiment_id))
-        print("Artifact Location={}".format(experiment.artifact_location))
-        print("Tags={}".format(experiment.tags))
-        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
+        print("Name: {}".format(experiment.name))
+        print("Experiment_id: {}".format(experiment.experiment_id))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        Name=Social NLP Experiments
-        Experiment_id=1
-        Artifact Location=file:///.../apis/mlruns/1
-        Tags={}
-        Lifecycle_stage=active
+        Name: Social NLP Experiments
+        Experiment_id: 1
+        Artifact Location: file:///.../apis/mlruns/1
+        Tags= {}
+        Lifecycle_stage: active
     """
     return MlflowClient().create_experiment(name, artifact_location)
 
@@ -626,16 +625,16 @@ def delete_experiment(experiment_id):
         experiment = mlflow.get_experiment(str(1))
 
         # Print the contents of deleted Experiment data
-        print("Name={}".format(experiment.name))
-        print("Tags={}".format(experiment.tags))
-        print("Lifecycle_stage={}".format(experiment.lifecycle_stage))
+        print("Name: {}".format(experiment.name))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        Name=Social NLP Experiments
-        Tags={}
-        Lifecycle_stage=deleted
+        Name: Social NLP Experiments
+        Tags: {}
+        Lifecycle_stage: deleted
     """
     MlflowClient().delete_experiment(experiment_id)
 
@@ -658,14 +657,14 @@ def delete_run(run_id):
         # Note that runs are not actually delete, only lifecycle stage is set to "deleted"
         for run_id in run_ids:
             mlflow.delete_run(run_id)
-            (print("run_id={}; lifecycle_stage={}".format(run_id,
-                mlflow.get_run(run_id).info.lifecycle_stage)))
+            print("run_id: {}; lifecycle_stage: {}".format(run_id,
+                mlflow.get_run(run_id).info.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        run_id=13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage=deleted
-        run_id=948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage=deleted
+        run_id: 13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage: deleted
+        run_id: 948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage: deleted
     """
     MlflowClient().delete_run(run_id)
 
@@ -704,18 +703,18 @@ def get_artifact_uri(artifact_path=None):
 
             # Fetch the artifact uri root directory
             artifact_uri = mlflow.get_artifact_uri()
-            print("Artifact uri={}".format(artifact_uri))
+            print("Artifact uri: {}".format(artifact_uri))
 
             # Fetch a specific artifact uri
             artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
-            print("Artifact uri={}".format(artifact_uri))
+            print("Artifact uri: {}".format(artifact_uri))
 
 
     .. code-block:: text
         :caption: Output
 
-        Artifact uri=file:///.../0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts
-        Artifact uri=file:///.../0/1a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
+        Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts
+        Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
     """
     return artifact_utils.get_artifact_uri(
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
@@ -850,26 +849,26 @@ def list_run_infos(
         import mlflow
 
         # Get run info for experiment id 0, include only active runs
-        pprint("RunInfo={}".format(mlflow.list_run_infos(str(0), run_view_type=1)))
+        pprint("RunInfo: {}".format(mlflow.list_run_infos(str(0), run_view_type=1)))
 
         print("-" * 80)
 
         # Get run info for experiment id 0, include all runs
         # order_by types are ['metric.key', 'parameter.key', 'tag.key', 'attribute.key']
-        pprint("RunInfo={}".format(mlflow.list_run_infos(str(0), run_view_type=3,
+        pprint("RunInfo: {}".format(mlflow.list_run_infos(str(0), run_view_type=3,
                                                      order_by=["metric.click-rate DESC"])))
 
     .. code-block:: text
         :caption: Output
 
-        ('RunInfo=[<RunInfo: '
+        ('RunInfo: [<RunInfo: '
         "artifact_uri='file:///apis/mlruns/0/a07fb678df7749b3bfe91333ccf16e54/artifacts',"
         "end_time=1599085184693, experiment_id='0', lifecycle_stage='active', "
         "run_id='a07fb678df7749b3bfe91333ccf16e54', "
         "run_uuid='a07fb678df7749b3bfe91333ccf16e54', start_time=1599085184661, "
         "status='FINISHED', user_id='julesdamji'>]")
         --------------------------------------------------------------------------------
-        ('RunInfo=[<RunInfo: '
+        ('RunInfo: [<RunInfo: '
          "artifact_uri='file:///apis/mlruns/0/9010b659f83142938e21dc2baa8fcbe8/artifacts',"
          "end_time=1599085041270, experiment_id='0', lifecycle_stage='deleted', "
          "run_id='9010b659f83142938e21dc2baa8fcbe8', "
