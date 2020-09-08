@@ -91,6 +91,12 @@ class MlflowClient(object):
                 )
         return registry_client
 
+    def get_store(self):
+        """
+        :return: The tracking client's `mlflow.store.tracking.AbstractStore` object.
+        """
+        return self._tracking_client.store
+
     # Tracking API
 
     def get_run(self, run_id):
@@ -332,12 +338,6 @@ class MlflowClient(object):
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
         self._tracking_client.set_terminated(run_id, status, end_time)
-
-    def get_store(self):
-        """
-        :return: The tracking client's :py:class:`mlflow.store.tracking.AbstractStore` object.
-        """
-        return self._tracking_client.store
 
     def delete_run(self, run_id):
         """
