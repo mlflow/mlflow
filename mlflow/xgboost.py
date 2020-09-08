@@ -297,10 +297,10 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
         data_copy = deepcopy(data)
-        original(*args, **kwargs)
-        setattr(original, "data_copy", data_copy)
+        s = original(*args, **kwargs)
+        setattr(s, "data_copy", data_copy)
 
-        return original
+        return s
 
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
