@@ -53,7 +53,7 @@ def _get_context_tag(context_tag_key):
 def acl_path_of_acl_root():
     try:
         return _get_command_context().aclPathOfAclRoot().get()
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return _get_extra_context("aclPathOfAclRoot")
 
 
@@ -130,7 +130,7 @@ def get_notebook_path():
         return path
     try:
         return _get_command_context().notebookPath().get()
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return _get_extra_context("notebook_path")
 
 
@@ -163,14 +163,14 @@ def get_webapp_url():
         return url
     try:
         return _get_command_context().apiUrl().get()
-    except:
+    except Exception:  # pylint: disable=broad-except
         return _get_extra_context("api_url")
 
 
 def get_workspace_id():
     try:
         return _get_command_context().workspaceId().get()
-    except:
+    except Exception:  # pylint: disable=broad-except
         return _get_context_tag("orgId")
 
 
