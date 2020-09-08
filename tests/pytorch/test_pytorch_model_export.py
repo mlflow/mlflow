@@ -98,6 +98,7 @@ def get_subclassed_model_definition():
     can be invoked within a module to define the class in the module's scope.
     """
 
+    # pylint: disable=W0223
     class SubclassedModel(torch.nn.Module):
         def __init__(self):
             super(SubclassedModel, self).__init__()
@@ -123,6 +124,7 @@ def main_scoped_subclassed_model(data):
     return model
 
 
+# pylint: disable=W0223
 class ModuleScopedSubclassedModel(get_subclassed_model_definition()):
     """
     A custom PyTorch model class defined in the test module scope. This is a subclass of
