@@ -335,7 +335,7 @@ class MlflowClient(object):
 
     def get_store(self):
         """
-        :return: The tracking client's :py:class:`mlflow.store.tracking.abstract_store.AbstractStore` object.
+        :return: The tracking client's :py:class:`mlflow.store.tracking.AbstractStore` object.
         """
         return self._tracking_client.store
 
