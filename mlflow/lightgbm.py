@@ -382,7 +382,7 @@ def autolog():
 
         # We set free_raw_data to false on the Dataset object
         # so that we can access the original data later.
-        train_data = args[1] if len(args) > 1 else kwargs["train_data"]
+        train_data = args[1] if len(args) > 1 else kwargs.get("train_data")
 
         input_example = None
         try:
