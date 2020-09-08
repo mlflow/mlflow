@@ -195,6 +195,11 @@ class ModelRegistryClient(object):
         tags = [ModelVersionTag(key, str(value)) for key, value in tags.items()]
         mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
+            _logger.info(
+                "Waiting upto {} seconds for model version to finish creation. Model name: {}".format(
+                    await_creation_for, name
+                )
+            )
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
             while mv.status == pending_status:
