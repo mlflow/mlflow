@@ -296,11 +296,11 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
 
         original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
-        obj = original(self, *args, **kwargs)
+        data_copy = deepcopy(data)
+        original(*args, **kwargs)
+        setattr(original, "data_copy", data_copy)
 
-        self.data_copy = deepcopy(data)
-
-        return obj
+        return original
 
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
@@ -446,5 +446,11 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             try_mlflow_log(mlflow.end_run)
         return model
 
+<<<<<<< HEAD
     wrap_patch(xgboost, "train", train)
     wrap_patch(xgboost.DMatrix, "__init__", __init__)
+=======
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    gorilla.apply(gorilla.Patch(xgboost, "train", train, settings=settings))
+    gorilla.apply(gorilla.Patch(xgboost.DMatrix, "__init__", __init__, settings=settings))
+>>>>>>> dc794a22... try again
