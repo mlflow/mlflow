@@ -326,15 +326,6 @@ class TrackingServiceClient(object):
             run_id, run_status=RunStatus.from_string(status), end_time=end_time
         )
 
-    def set_running(self, run_id, status=None):
-        """Set a run's status to running.
-
-        :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
-                       Defaults to "FINISHED".
-        """
-        status = status if status else RunStatus.to_string(RunStatus.RUNNING)
-        self.store.update_run_info(run_id, run_status=RunStatus.from_string(status), end_time=None)
-
     def delete_run(self, run_id):
         """
         Deletes a run with the given ID.
