@@ -109,7 +109,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs["endpoint"])
                 data.append(kwargs["data"].read())
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, artifact_path)
@@ -122,7 +122,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs["endpoint"] == "/dbfs/test/empty-file"
                 assert kwargs["data"] == ""
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(os.path.join(test_dir.strpath, "empty-file"))
@@ -133,7 +133,7 @@ class TestDbfsArtifactRepository(object):
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 assert kwargs["endpoint"] == "/dbfs/test/test.txt"
                 assert kwargs["data"].read() == TEST_FILE_1_CONTENT
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifact(test_file.strpath, "")
@@ -163,7 +163,7 @@ class TestDbfsArtifactRepository(object):
                     data.append(kwargs["data"])
                 else:
                     data.append(kwargs["data"].read())
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)
@@ -214,7 +214,7 @@ class TestDbfsArtifactRepository(object):
 
             def my_http_request(host_creds, **kwargs):  # pylint: disable=unused-argument
                 endpoints.append(kwargs["endpoint"])
-                return Mock(status_code=200)
+                return Mock(status_code=200, text="{}")
 
             http_request_mock.side_effect = my_http_request
             dbfs_artifact_repo.log_artifacts(test_dir.strpath, artifact_path)

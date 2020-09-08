@@ -529,3 +529,20 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
         reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+
+def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
+    from sklearn.cluster import AgglomerativeClustering
+
+    sk_model = AgglomerativeClustering()
+    assert not hasattr(sk_model, "predict")
+
+    mlflow.sklearn.save_model(
+        sk_model=sk_model,
+        path=model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+    )
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    assert pyfunc.FLAVOR_NAME not in model_conf.flavors
