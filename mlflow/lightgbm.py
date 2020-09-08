@@ -25,10 +25,11 @@ import shutil
 import inspect
 import logging
 import gorilla
+from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -276,7 +277,9 @@ def autolog():
     - metrics on each iteration (if ``valid_sets`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance (both "split" and "gain") as JSON files and plots.
-    - trained model.
+    - trained model, including:
+        - an example of valid input.
+        - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is not supported.
     """
@@ -378,6 +381,21 @@ def autolog():
         else:
             kwargs["callbacks"] = [callback]
 
+        # We set free_raw_data to false on the Dataset object
+        # so that we can access the original data later.
+        train_data = args[1] if len(args) > 1 else kwargs.get("train_data")
+
+        input_example = None
+        try:
+            if isinstance(train_data.data, str):
+                raise Exception("The input data was of type string.")
+
+            SAMPLE_ROWS = 5
+            input_example = deepcopy(train_data.data[:SAMPLE_ROWS])
+        except Exception as e:  # pylint: disable=broad-except
+            msg = "Failed to gather an input example: " + str(e)
+            _logger.warning(msg)
+
         # training model
         model = original(*args, **kwargs)
 
@@ -423,7 +441,25 @@ def autolog():
             finally:
                 shutil.rmtree(tmpdir)
 
-        try_mlflow_log(log_model, model, artifact_path="model")
+        signature = None
+        try:
+            if input_example is None:
+                raise Exception("failed to gather example input.")
+
+            model_output = model.predict(input_example)
+            signature = infer_signature(input_example, model_output)
+        except Exception as e:  # pylint: disable=broad-except
+            input_example = None
+            msg = "Failed to infer the model signature: " + str(e)
+            _logger.warning(msg)
+
+        try_mlflow_log(
+            log_model,
+            model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
