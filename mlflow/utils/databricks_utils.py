@@ -177,7 +177,6 @@ def get_workspace_id():
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        print("Yo fro msid")
         workspace_host = get_webapp_url()
         workspace_id = get_workspace_id()
         return workspace_host, workspace_id
