@@ -103,9 +103,39 @@ def test_get_workspace_info_from_databricks_secrets():
 
 def test_get_workspace_info_from_dbutils():
     mock_dbutils = mock.MagicMock()
-    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.apiUrl.returnValue.get.return_value = "https://mlflow.databricks.com"
-    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.workspaceId.returnValue.get.return_value = "1111"
-    print(mock_dbutils.notebook.entry_point.getDbutils().notebook().getContext().apiUrl().get())
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.apiUrl.return_value.get.return_value = (
+        "https://mlflow.databricks.com"
+    )
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.workspaceId.return_value.get.return_value = (
+        "1111"
+    )
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        assert workspace_host == "https://mlflow.databricks.com"
+        assert workspace_id == "1111"
+
+
+def test_get_workspace_info_from_dbutils_old_runtimes():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.toJson.return_value = (  # noqa
+        '{"extraContext":'
+        '{"api_url": "https://mlflow.databricks.com"},'
+        '"tags": {"orgId" : "1111"}}'
+    )
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.apiUrl.return_value.get.return_value = (
+        "https://mlflow.databricks.com"
+    )
+    # Mock out workspace ID tag
+    mock_workspace_id_tag_opt = mock.MagicMock()
+    mock_workspace_id_tag_opt.isDefined.return_value = True
+    mock_workspace_id_tag_opt.get.return_value = "1111"
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.tags.return_value.get.return_value = (
+        mock_workspace_id_tag_opt
+    )
+    # Mimic old runtimes by raising an exception when the nonexistent "workspaceId" method is called
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.workspaceId.side_effect = Exception(
+        "workspaceId method not defined!"
+    )
     with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
         workspace_host, workspace_id = get_workspace_info_from_dbutils()
         assert workspace_host == "https://mlflow.databricks.com"

@@ -50,6 +50,7 @@ def _get_context_tag(context_tag_key):
     else:
         return None
 
+
 def acl_path_of_acl_root():
     try:
         return _get_command_context().aclPathOfAclRoot().get()
@@ -162,12 +163,8 @@ def get_webapp_url():
     if url is not None:
         return url
     try:
-        print("yo yo from sid")
-        res =  _get_command_context().apiUrl().get()
-        print("got res %s" % res)
-        return res
-    except Exception as e:
-        print("@Sid got eception %s" % e)
+        return _get_command_context().apiUrl().get()
+    except:
         return _get_extra_context("api_url")
 
 
@@ -176,6 +173,7 @@ def get_workspace_id():
         return _get_command_context().workspaceId().get()
     except:
         return _get_context_tag("orgId")
+
 
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
