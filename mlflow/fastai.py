@@ -30,7 +30,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
 
 
 FLAVOR_NAME = "fastai"
@@ -414,11 +414,9 @@ def autolog():
 
         return result
 
-    @gorilla.patch(Learner)
     def fit(self, *args, **kwargs):
         original = gorilla.get_original_attribute(Learner, "fit")
         unlogged_params = ["self", "callbacks", "learner"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 3)
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(Learner, "fit", fit, settings=settings))
+    wrap_patch(Learner, "fit", fit)
