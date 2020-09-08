@@ -162,20 +162,25 @@ def get_webapp_url():
     if url is not None:
         return url
     try:
-        return _get_command_context().apiUrl().get()
-    except:
+        print("yo yo from sid")
+        res =  _get_command_context().apiUrl().get()
+        print("got res %s" % res)
+        return res
+    except Exception as e:
+        print("@Sid got eception %s" % e)
         return _get_extra_context("api_url")
 
 
 def get_workspace_id():
     try:
-        return _get_command_context().apiUrl().get()
+        return _get_command_context().workspaceId().get()
     except:
         return _get_context_tag("orgId")
 
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
+        print("Yo fro msid")
         workspace_host = get_webapp_url()
         workspace_id = get_workspace_id()
         return workspace_host, workspace_id
