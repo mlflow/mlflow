@@ -141,7 +141,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                 "deleted state.".format(existing_run_id)
             )
         end_time = active_run_obj.info.end_time
-        MlflowClient().get_store().update_run_info(run_id, run_status=RunStatus.RUNNING, end_time=end_time)
+        MlflowClient().get_store().update_run_info(
+            run_id, run_status=RunStatus.RUNNING, end_time=end_time
+        )
         active_run_obj = MlflowClient().get_run(existing_run_id)
     else:
         if len(_active_run_stack) > 0:
