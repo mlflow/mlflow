@@ -277,6 +277,8 @@ def autolog():
     - metrics on each iteration (if ``valid_sets`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance (both "split" and "gain") as JSON files and plots.
+    - an example of valid input
+    - inferred signature of the inputs and outputs of the model
     - trained model.
 
     Note that the `scikit-learn API`_ is not supported.
