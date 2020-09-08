@@ -392,7 +392,6 @@ def autolog():
             SAMPLE_ROWS = 5
             input_example = deepcopy(train_data.data[:SAMPLE_ROWS])
         except Exception as e:  # pylint: disable=broad-except
-            input_example = None
             msg = "Failed to gather an input example: " + str(e)
             _logger.warning(msg)
 

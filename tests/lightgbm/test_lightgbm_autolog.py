@@ -413,7 +413,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
 
     ml_model_filename = "MLmodel"
-    assert str(os.path.join("model", ml_model_filename)) in artifacts
+    assert os.path.join("model", ml_model_filename) in artifacts
     ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
 
     data = None
