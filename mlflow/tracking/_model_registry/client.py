@@ -196,7 +196,8 @@ class ModelRegistryClient(object):
         mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
             _logger.info(
-                "Waiting upto {} seconds for model version to finish creation. Model name: {}".format(
+                "Waiting upto {} seconds for model version to finish creation. \
+                    Model name: {}".format(
                     await_creation_for, name
                 )
             )
