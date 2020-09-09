@@ -36,7 +36,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
 
 FLAVOR_NAME = "xgboost"
 
@@ -286,7 +286,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     import xgboost
     import numpy as np
 
-    @gorilla.patch(xgboost)
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
@@ -423,5 +422,4 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             try_mlflow_log(mlflow.end_run)
         return model
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(xgboost, "train", train, settings=settings))
+    wrap_patch(xgboost, "train", train)

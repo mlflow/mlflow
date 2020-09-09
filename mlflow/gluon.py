@@ -13,7 +13,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
 from mlflow.utils.environment import _mlflow_conda_env
 
 FLAVOR_NAME = "gluon"
@@ -345,7 +345,6 @@ def autolog():
             if isinstance(estimator.net, HybridSequential):
                 try_mlflow_log(log_model, estimator.net, artifact_path="model")
 
-    @gorilla.patch(Estimator)
     def fit(self, *args, **kwargs):
         if not mlflow.active_run():
             auto_end_run = True
@@ -366,5 +365,4 @@ def autolog():
             mlflow.end_run()
         return result
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(Estimator, "fit", fit, settings=settings))
+    wrap_patch(Estimator, "fit", fit)
