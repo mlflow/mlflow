@@ -197,8 +197,9 @@ class ModelRegistryClient(object):
         if await_creation_for and await_creation_for > 0:
             _logger.info(
                 "Waiting upto %d seconds for model version to finish creation. \
-                    Model name: %s"
-                % (await_creation_for, name)
+                    Model name: %s",
+                await_creation_for,
+                name,
             )
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
