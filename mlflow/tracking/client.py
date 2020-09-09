@@ -13,6 +13,7 @@ from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFA
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._model_registry import utils as registry_utils
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
@@ -576,7 +577,14 @@ class MlflowClient(object):
 
     @experimental
     def create_model_version(
-        self, name, source, run_id, tags=None, run_link=None, description=None
+        self,
+        name,
+        source,
+        run_id,
+        tags=None,
+        run_link=None,
+        description=None,
+        await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ):
         """
         Create a new model version from given source (artifact URI).
@@ -588,6 +596,9 @@ class MlflowClient(object):
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
         :param description: Description of the version.
+        :param await_creation_for: Number of seconds to wait for the model version to finish being
+                                    created and is in ``READY`` status. By default, the function
+                                    waits for five minutes. Specify 0 or None to skip waiting.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
@@ -619,6 +630,7 @@ class MlflowClient(object):
             tags=tags,
             run_link=run_link,
             description=description,
+            await_creation_for=await_creation_for,
         )
 
     def _get_run_link(self, tracking_uri, run_id):
