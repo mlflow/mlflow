@@ -1,6 +1,7 @@
 import os
 import json
 import pytest
+import yaml
 import numpy as np
 import pandas as pd
 from sklearn import datasets
@@ -9,6 +10,8 @@ import matplotlib as mpl
 
 import mlflow
 import mlflow.lightgbm
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
 
 mpl.use("Agg")
 
@@ -312,3 +315,111 @@ def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
     np.testing.assert_array_almost_equal(
         model.predict(train_set.data), loaded_model.predict(train_set.data)
     )
+
+
+@pytest.mark.large
+def test_lgb_autolog_gets_input_example(bst_params):
+    # we need to check the example input against the initial input given to train function.
+    # we can't use the train_set fixture for this as it defines free_raw_data=False but this
+    # feature should work even if it is True
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
+
+    mlflow.lightgbm.autolog()
+    lgb.train(bst_params, dataset)
+    run = get_latest_run()
+
+    model_path = os.path.join(run.info.artifact_uri, "model")
+    model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+
+    input_example = _read_example(model_conf, model_path)
+
+    assert input_example.equals(X[:5])
+
+    pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+
+    # make sure reloading the input_example and predicting on it does not error
+    pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+def test_lgb_autolog_infers_model_signature_correctly(bst_params):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
+
+    mlflow.lightgbm.autolog()
+    lgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    ml_model_filename = "MLmodel"
+    assert str(os.path.join("model", ml_model_filename)) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+
+    data = None
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    assert data is not None
+    assert "signature" in data
+    signature = data["signature"]
+    assert signature is not None
+
+    assert "inputs" in signature
+    assert json.loads(signature["inputs"]) == [
+        {"name": "sepal length (cm)", "type": "double"},
+        {"name": "sepal width (cm)", "type": "double"},
+    ]
+
+    assert "outputs" in signature
+    assert json.loads(signature["outputs"]) == [
+        {"type": "double"},
+        {"type": "double"},
+        {"type": "double"},
+    ]
+
+
+@pytest.mark.large
+def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir):
+    tmp_csv = tmpdir.join("data.csv")
+    tmp_csv.write("2,6.4,2.8,5.6,2.2\n")
+    tmp_csv.write("1,5.0,2.3,3.3,1.0\n")
+    tmp_csv.write("2,4.9,2.5,4.5,1.7\n")
+    tmp_csv.write("0,4.9,3.1,1.5,0.1\n")
+    tmp_csv.write("0,5.7,3.8,1.7,0.3\n")
+
+    # signature and input example inference should fail here since the dataset is given
+    #   as a file path
+    dataset = lgb.Dataset(tmp_csv.strpath)
+
+    bst_params = {
+        "objective": "multiclass",
+        "num_class": 3,
+    }
+
+    mlflow.lightgbm.autolog()
+    lgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    ml_model_filename = "MLmodel"
+    assert os.path.join("model", ml_model_filename) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+
+    data = None
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    assert data is not None
+    assert "run_id" in data
+    assert "signature" not in data
