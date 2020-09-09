@@ -1,6 +1,7 @@
 import os
 import json
 import pytest
+import mock
 import numpy as np
 import pandas as pd
 from sklearn import datasets
@@ -295,3 +296,23 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
 
     loaded_model = mlflow.xgboost.load_model("runs:/{}/model".format(run_id))
     np.testing.assert_array_almost_equal(model.predict(dtrain), loaded_model.predict(dtrain))
+
+@pytest.mark.large
+def test_xgb_autolog_does_not_throw_if_importance_values_missing(dtrain):
+    # the gblinear booster does not support calling get_score on it,
+    #   where get_score is used to create the importance values plot.
+    bst_params = {
+        "objective": "multi:softprob",
+        "num_class": 3,
+        "booster": "gblinear"
+    }
+
+    mlflow.xgboost.autolog()
+
+    # we make sure here that we do not throw while attempting to plot
+    #   importance values on a model with a linear booster.
+    model = xgb.train(bst_params, dtrain)
+    run = get_latest_run()
+    run_id = run.info.run_id
+
+    loaded_model = mlflow.xgboost.load_model("runs:/{}/model".format(run_id))

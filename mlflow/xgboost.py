@@ -397,8 +397,8 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
-            imp = model.get_score(importance_type=imp_type)
             try:
+                imp = model.get_score(importance_type=imp_type)
                 features, importance = zip(*imp.items())
                 log_feature_importance_plot(features, importance, imp_type)
             except Exception:  # pylint: disable=broad-except
