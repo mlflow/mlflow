@@ -12,6 +12,7 @@ from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
+_PATH_PREFIX = "/api/2.0"
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 
 _logger = logging.getLogger(__name__)
@@ -122,7 +123,7 @@ def verify_rest_response(response, endpoint):
             )
             raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
 
-    if not _can_parse_as_json(response.text):
+    if endpoint.startswith(_PATH_PREFIX) and not _can_parse_as_json(response.text):
         base_msg = (
             "API request to endpoint was successful but the response body was not "
             "in a valid JSON format"
