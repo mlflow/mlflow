@@ -137,7 +137,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(Py4JJavaError):
+        with pytest.raises(PythonException, match="Model input is missing columns."):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
