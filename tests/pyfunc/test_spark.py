@@ -86,9 +86,7 @@ def model_path(tmpdir):
 @pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path,
-        loader_module=__name__,
-        code_path=[os.path.dirname(tests.__file__)],
+        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
     )
     reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
 
@@ -181,9 +179,7 @@ def test_struct_type_for_spark_udf(spark):
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path,
-        loader_module=__name__,
-        code_path=[os.path.dirname(tests.__file__)],
+        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
     )
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)
