@@ -7,8 +7,16 @@ import pytest
 import pyspark
 from pyspark.sql import Row
 from pyspark.sql.utils import PythonException
-from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType, \
-    StructField, StructType
+from pyspark.sql.types import (
+    ArrayType,
+    DoubleType,
+    LongType,
+    StringType,
+    FloatType,
+    IntegerType,
+    StructField,
+    StructType,
+)
 
 import mlflow
 import mlflow.pyfunc
@@ -78,7 +86,9 @@ def model_path(tmpdir):
 @pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
+        path=model_path,
+        loader_module=__name__,
+        code_path=[os.path.dirname(tests.__file__)],
     )
     reloaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_path)
 
@@ -153,27 +163,27 @@ def test_struct_type_for_spark_udf(spark):
 
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel())
-        return_type = StructType([
-            StructField('a', StringType()),
-            StructField('b', IntegerType())
-            ])
-        udf = mlflow.pyfunc.spark_udf(spark, "runs:/{}/model".format(run.info.run_id),
-                                      result_type=return_type)
+        return_type = StructType([StructField("a", StringType()), StructField("b", IntegerType())])
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=return_type
+        )
 
         input_data = list(Row(a=str(i), b=i) for i in range(10))
-        data = [Row(input=row)for row in input_data]
+        data = [Row(input=row) for row in input_data]
         spark_df = spark.createDataFrame(data)
-        res = spark_df.withColumn('res', udf("input")).select("res")
+        res = spark_df.withColumn("res", udf("input")).select("res")
         pdres = res.toPandas()
         expected = input_data
-        actual = list(row for row in pdres['res'])
+        actual = list(row for row in pdres["res"])
         assert expected == actual
 
 
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
-        path=model_path, loader_module=__name__, code_path=[os.path.dirname(tests.__file__)],
+        path=model_path,
+        loader_module=__name__,
+        code_path=[os.path.dirname(tests.__file__)],
     )
 
     archive_path = SparkModelCache.add_local_model(spark, model_path)

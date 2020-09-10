@@ -41,21 +41,23 @@ def _assert_spark_data_logged(run, path, data_format, version=None):
 
 def _get_or_create_spark_session(jars=None):
     jar_path = jars if jars is not None else _get_mlflow_spark_jar_path()
-    return SparkSession.builder \
-        .config("spark.jars", jar_path) \
-        .config("spark.sql.sources.useV1SourceList", "") \
-        .master("local[*]") \
+    return (
+        SparkSession.builder.config("spark.jars", jar_path)
+        .config("spark.sql.sources.useV1SourceList", "")
+        .master("local[*]")
         .getOrCreate()
+    )
 
 
 @pytest.fixture(scope="session")
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
-    session = SparkSession.builder \
-        .config("spark.jars", jar_path) \
-        .config("spark.sql.sources.useV1SourceList", "") \
-        .master("local[*]") \
+    session = (
+        SparkSession.builder.config("spark.jars", jar_path)
+        .config("spark.sql.sources.useV1SourceList", "")
+        .master("local[*]")
         .getOrCreate()
+    )
     yield session
     session.stop()
 
