@@ -313,7 +313,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
                     raise Exception("The input data was of type string.")
 
                 input_example_info = _InputExampleInfo(input_example=deepcopy(data[:5]))
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 input_example_info = _InputExampleInfo(error_msg=str(e))
 
             original(self, *args, **kwargs)
