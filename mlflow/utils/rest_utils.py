@@ -123,6 +123,8 @@ def verify_rest_response(response, endpoint):
             )
             raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
 
+    # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
+    # response
     if endpoint.startswith(_PATH_PREFIX) and not _can_parse_as_json(response.text):
         base_msg = (
             "API request to endpoint was successful but the response body was not "
