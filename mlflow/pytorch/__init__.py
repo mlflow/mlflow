@@ -12,7 +12,7 @@ import logging
 import os
 import yaml
 
-import cloudpickle
+import pickle
 import numpy as np
 import pandas as pd
 
@@ -52,12 +52,6 @@ def get_default_conda_env():
             "pytorch={}".format(torch.__version__),
             "torchvision={}".format(torchvision.__version__),
         ],
-        additional_pip_deps=[
-            # We include CloudPickle in the default environment because
-            # it's required by the default pickle module used by `save_model()`
-            # and `log_model()`: `mlflow.pytorch.pickle_module`.
-            "cloudpickle=={}".format(cloudpickle.__version__)
-        ],
         additional_conda_channels=["pytorch"],
     )
 
@@ -67,7 +61,7 @@ def log_model(
     artifact_path,
     conda_env=None,
     code_paths=None,
-    pickle_module=None,
+    pickle_module=pickle,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -183,7 +177,6 @@ def log_model(
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.log_model(model, "models")
     """
-    pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.pytorch,
@@ -205,7 +198,7 @@ def save_model(
     conda_env=None,
     mlflow_model=None,
     code_paths=None,
-    pickle_module=None,
+    pickle_module=pickle,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     **kwargs
@@ -290,8 +283,6 @@ def save_model(
     """
     import torch
 
-    pickle_module = pickle_module or mlflow_pytorch_pickle_module
-
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
     if code_paths is not None:
@@ -325,7 +316,7 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
-    torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+    torch.save(pytorch_model, model_path, pickle_module=pickle_module, _use_new_zipfile_serialization=True, **kwargs)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
