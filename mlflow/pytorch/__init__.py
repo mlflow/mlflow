@@ -17,6 +17,7 @@ import numpy as np
 import pandas as pd
 
 import mlflow
+import shutil
 import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -27,7 +28,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -72,6 +73,7 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    artifacts=None,
     **kwargs
 ):
     """
@@ -132,10 +134,28 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
+                      are resolved to absolute filesystem paths, producing a dictionary of
+                      ``<name, absolute_path>`` entries. ``python_model`` can reference these
+                      resolved entries as the ``artifacts`` property of the ``context`` parameter
+                      in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+                      For example, consider the following ``artifacts`` dictionary::
+
+                        {
+                            "my_file": "s3://my-bucket/path/to/my/file"
+                        }
+
+                      In this case, the ``"my_file"`` artifact is downloaded from S3. The
+                      ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
+                      path via ``context.artifacts["my_file"]``.
+
+                      If ``None``, no artifacts are added to the model.
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -195,6 +215,7 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        artifacts=artifacts,
         **kwargs
     )
 
@@ -208,6 +229,7 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    artifacts=None,
     **kwargs
 ):
     """
@@ -268,6 +290,25 @@ def save_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
+                      are resolved to absolute filesystem paths, producing a dictionary of
+                      ``<name, absolute_path>`` entries. ``python_model`` can reference these
+                      resolved entries as the ``artifacts`` property of the ``context`` parameter
+                      in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
+                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
+                      For example, consider the following ``artifacts`` dictionary::
+
+                        {
+                            "my_file": "s3://my-bucket/path/to/my/file"
+                        }
+
+                      In this case, the ``"my_file"`` artifact is downloaded from S3. The
+                      ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
+                      path via ``context.artifacts["my_file"]``.
+
+                      If ``None``, no artifacts are added to the model.
+
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -325,6 +366,23 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    if artifacts:
+        if not isinstance(artifacts, dict):
+            raise TypeError("Argument artifacts should be a dict")
+
+        with TempDir() as tmp_artifacts_dir:
+            tmp_artifacts_config = {}
+            saved_artifacts_dir_subpath = "artifacts"
+            for artifact_name, artifact_uri in artifacts.items():
+                tmp_artifact_path = _download_artifact_from_uri(
+                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                )
+                tmp_artifacts_config[artifact_name] = tmp_artifact_path
+
+            shutil.move(
+                tmp_artifacts_dir.path(),
+                os.path.join(path, saved_artifacts_dir_subpath),
+            )
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     conda_env_subpath = "conda.yaml"

@@ -11,6 +11,7 @@ import pickle
 import pytest
 import numpy as np
 import pandas as pd
+import shutil
 import sklearn.datasets as datasets
 import yaml
 
@@ -811,3 +812,86 @@ def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0], sequential_predicted, decimal=4
     )
+
+
+@pytest.fixture
+def create_artifact(tmpdir):
+    artifact_file_name = "requirements.txt"
+    fp = tmpdir.mkdir("artifacts").join(artifact_file_name)
+    test_string = "pytest"
+    fp.write(test_string)
+    yield fp
+    shutil.rmtree(str(tmpdir))
+
+
+def test_artifacts_log_model(create_artifact, sequential_model):
+    artifact_file_path = create_artifact
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            artifacts={"requirements.txt": str(artifact_file_path)},
+        )
+
+        model_uri = "runs:/{run_id}/{model_path}".format(
+            run_id=mlflow.active_run().info.run_id, model_path="models"
+        )
+        with TempDir(remove_on_exit=True) as tmp:
+            model_path = _download_artifact_from_uri(model_uri, tmp.path())
+            assert os.path.isdir(os.path.join(model_path, "artifacts")) is True
+            requirements_file = os.path.join(
+                model_path, "artifacts", "requirements.txt"
+            )
+            assert os.path.isfile(requirements_file) is True
+            with open(requirements_file) as fp:
+                content = fp.read()
+            assert "pytest" in content
+
+
+def test_artifacts_save_model(create_artifact, sequential_model):
+    artifact_path = create_artifact
+    with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
+        model_path = os.path.join(tmp.path(), "models")
+        mlflow.pytorch.save_model(
+            pytorch_model=sequential_model,
+            path=model_path,
+            artifacts={"requirements.txt": str(artifact_path)},
+        )
+
+        assert os.path.isdir(os.path.join(model_path, "artifacts")) is True
+        requirements_file = os.path.join(model_path, "artifacts", "requirements.txt")
+        assert os.path.isfile(requirements_file) is True
+        with open(requirements_file) as fp:
+            content = fp.read()
+
+        assert "pytest" in content
+
+
+def test_log_model_invalid_path(create_artifact, sequential_model):
+    artifact_file_path = create_artifact
+    print("Artifact Path {}".format(artifact_file_path))
+    with mlflow.start_run(), pytest.raises(FileNotFoundError):
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            artifacts={
+                "requirements.txt": str(artifact_file_path).replace(
+                    "requirements", "requirements1"
+                )
+            },
+        )
+
+
+def test_log_model_invalid_type(create_artifact, sequential_model):
+    artifact_file_path = create_artifact
+    print("Artifact Path {}".format(artifact_file_path))
+    with mlflow.start_run(), pytest.raises(TypeError) as exc_info:
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            artifacts=str(artifact_file_path).replace("requirements", "requirements1"),
+        )
+        assert "Argument artifacts should be a list" in str(exc_info)
