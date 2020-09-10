@@ -311,7 +311,10 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
 
     # we make sure here that we do not throw while attempting to plot
     #   importance values on a model with a linear booster.
-    xgb.train(bst_params, dtrain)
+    model = xgb.train(bst_params, dtrain)
+
+    with pytest.raises(Exception):
+        model.get_score(importance_type='weight')
 
 
 @pytest.mark.large
@@ -327,4 +330,6 @@ def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, t
 
     # we make sure here that we do not throw while attempting to plot
     #   importance values on a dataset that returns no importance values.
-    xgb.train(bst_params, dataset)
+    model = xgb.train(bst_params, dataset)
+
+    assert model.get_score(importance_type='weight') == {}
