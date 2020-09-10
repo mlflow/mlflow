@@ -375,14 +375,47 @@ Scikit-learn (experimental)
 Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of metrics and parameters.
 See an example usage with `sklearn_autolog <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
 
-Autologging captures the following information:
+Autologging for estimators (e.g. `LinearRegression`_) and meta estimators (e.g. `Pipeline`_) create a single run and logs the following information:
 
-+------------+-----------------+------------------------------------------------------------+-------------------------------+------------------+
-| Framework  | Metrics         | Parameters                                                 | Tags                          | Artifacts        |
-+------------+-----------------+------------------------------------------------------------+-------------------------------+------------------+
-| sklearn    | Training score  | Parameters obtained by ``estimator.get_params(deep=True)`` |  - Class name                 | Fitted estimator |
-|            |                 |                                                            |  - Fully qualified class name |                  |
-+------------+-----------------+------------------------------------------------------------+-------------------------------+------------------+
++------------+-------------------------+--------------------------+------------------------------+------------------+
+| Framework  | Metrics                 | Parameters               | Tags                         | Artifacts        |
++------------+-------------------------+--------------------------+------------------------------+------------------+
+| sklearn    | Training score obtained | Parameters obtained by   | - Class name                 | Fitted estimator |
+|            | by ``estimator.score``  | ``estimator.get_params`` | - Fully qualified class name |                  |
++------------+-------------------------+--------------------------+------------------------------+------------------+
+
+
+.. _LinearRegression:
+    https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
+
+.. _Pipeline:
+    https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+
+Autologging for parameter search estimators (e.g. `GridSearchCV`_) creates a single parent run and nested child runs.
+
+.. code-block::
+
+  - Parent run
+    - Child run 1
+    - Child run 2
+    - ...
+
+Each run type logs the following information:
+
++-----------+------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Framework | Run type         | Metrics                    | Parameters                                | Tags                         | Artifacts                           |
++-----------+------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| sklearn   | Parent           | Training score             | - Parameter search estimator's parameters | - Class name                 | - Fitted parameter search estimator |
+|           |                  |                            | - Best parameter combination              | - Fully qualified class name | - Fitted best estimator             |
+|           |                  |                            |                                           |                              | - Search results csv file           |
++-----------+------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| sklearn   | Child            | CV test score for          | Each parameter combination                | - Class name                 | --                                  |
+|           |                  | each parameter combination |                                           | - Fully qualified class name |                                     |
++-----------+------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+
+.. _GridSearchCV:
+    https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
 
 .. note::
   This feature is experimental - the API and format of the logged data are subject to change.
