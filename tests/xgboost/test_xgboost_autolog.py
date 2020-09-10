@@ -298,7 +298,7 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
     np.testing.assert_array_almost_equal(model.predict(dtrain), loaded_model.predict(dtrain))
 
 @pytest.mark.large
-def test_xgb_autolog_does_not_throw_if_importance_values_missing(dtrain):
+def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     # the gblinear booster does not support calling get_score on it,
     #   where get_score is used to create the importance values plot.
     bst_params = {
@@ -311,8 +311,20 @@ def test_xgb_autolog_does_not_throw_if_importance_values_missing(dtrain):
 
     # we make sure here that we do not throw while attempting to plot
     #   importance values on a model with a linear booster.
-    model = xgb.train(bst_params, dtrain)
-    run = get_latest_run()
-    run_id = run.info.run_id
+    xgb.train(bst_params, dtrain)
 
-    loaded_model = mlflow.xgboost.load_model("runs:/{}/model".format(run_id))
+
+@pytest.mark.large
+def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
+    tmp_csv = tmpdir.join("data2.csv")
+    tmp_csv.write("1,0.3,1.2\n")
+    tmp_csv.write("0,2.4,5.2\n")
+    tmp_csv.write("1,0.3,-1.2\n")
+
+    mlflow.xgboost.autolog()
+
+    dataset = xgb.DMatrix(tmp_csv.strpath + "?format=csv&label_column=0")
+
+    # we make sure here that we do not throw while attempting to plot
+    #   importance values on a dataset that returns no importance values.
+    xgb.train(bst_params, dataset)
