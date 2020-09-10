@@ -44,7 +44,7 @@ def test_non_json_ok_response():
             match="API request to endpoint was successful but the response body was not "
             "in a valid JSON format",
         ):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+            call_endpoint(host_only, "/api/2.0/fetch-model", "GET", "", response_proto)
 
 
 @pytest.mark.parametrize(
