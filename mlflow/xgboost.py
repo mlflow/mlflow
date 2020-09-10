@@ -300,11 +300,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
 
-        if data is None:
-            # pass to original DMatrix constructor to let it give a good
-            #   error message to the user
-            original(self, *args, **kwargs)
-        else:
+        if data is not None:
             original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
             input_example_info = None
@@ -316,8 +312,9 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             except Exception as e:  # pylint: disable=broad-except
                 input_example_info = _InputExampleInfo(error_msg=str(e))
 
-            original(self, *args, **kwargs)
             setattr(self, "input_example_info", input_example_info)
+
+        original(self, *args, **kwargs)
 
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
