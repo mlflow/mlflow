@@ -465,15 +465,17 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             input_example_info = getattr(dtrain, "input_example_info", None)
 
             if input_example_info is None:
-                raise Exception("please ensure "+
-            "that autologging is enabled before constructing the dataset.")
+                raise Exception(
+                    "please ensure "
+                    + "that autologging is enabled before constructing the dataset."
+                )
 
             input_example = input_example_info.input_example
             if input_example is None:
                 raise Exception(input_example_info.error_msg)
         except Exception as e:  # pylint: disable=broad-except
             _logger.warning("Failed to gather example input: " + str(e))
-        
+
         if input_example is not None:
             try:
                 model_output = model.predict(xgb.DMatrix(input_example))
