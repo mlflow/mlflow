@@ -622,7 +622,7 @@ For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
-If MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check or add use some custom CA bundle to perform this check, respectively:
+If the MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check, or add a custom CA bundle to perform this check, respectively:
 
 .. code-block:: bash
 
