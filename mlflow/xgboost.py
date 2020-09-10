@@ -463,17 +463,19 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
 
             if input_example_info is None:
                 raise Exception(
-                    "please ensure "
-                    + "that autologging is enabled before constructing the dataset."
+                    "please ensure that autologging is "
+                    + "enabled before constructing the dataset."
                 )
 
             input_example = input_example_info.input_example
             if input_example is None:
+                # input example collection failed
                 raise Exception(input_example_info.error_msg)
         except Exception as e:  # pylint: disable=broad-except
             _logger.warning("Failed to gather example input: " + str(e))
 
         if input_example is not None:
+            # input example collection succeeded, move on to signature prediction
             try:
                 model_output = model.predict(xgb.DMatrix(input_example))
                 signature = infer_signature(input_example, model_output)
