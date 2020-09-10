@@ -364,6 +364,8 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
+        import xgboost as xgb
+
         original = gorilla.get_original_attribute(xgboost, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
