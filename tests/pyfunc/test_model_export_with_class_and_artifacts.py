@@ -1,8 +1,8 @@
 import cloudpickle
 import os
 import json
-import mock
 from subprocess import Popen, PIPE
+from unittest import mock
 
 import numpy as np
 import pandas as pd

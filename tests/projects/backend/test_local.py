@@ -1,5 +1,5 @@
-import mock
 import os
+from unittest import mock
 
 from mlflow.projects.backend.local import _get_docker_artifact_storage_cmd_and_envs
 

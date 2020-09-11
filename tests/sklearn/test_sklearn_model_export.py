@@ -1,5 +1,5 @@
 import sys
-import mock
+from unittest import mock
 import os
 import pickle
 import pytest

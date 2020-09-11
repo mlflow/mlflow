@@ -1,6 +1,6 @@
 import os
 
-import mock
+from unittest import mock
 from unittest.mock import ANY
 
 import mlflow

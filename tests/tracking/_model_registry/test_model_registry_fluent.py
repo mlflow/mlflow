@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import pytest
 
 from mlflow import register_model, set_registry_uri, get_registry_uri

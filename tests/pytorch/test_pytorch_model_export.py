@@ -5,8 +5,8 @@ import importlib
 import os
 import json
 import logging
-import mock
 import pickle
+from unittest import mock
 
 import pytest
 import numpy as np

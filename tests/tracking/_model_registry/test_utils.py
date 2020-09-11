@@ -1,6 +1,6 @@
-import mock
 import os
 import pytest
+from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES

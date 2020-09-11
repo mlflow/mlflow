@@ -1,12 +1,12 @@
 # pep8: disable=E501
 
 import collections
-import mock
 import os
 import shutil
 import pytest
 import yaml
 import json
+from unittest import mock
 
 import numpy as np
 import pandas as pd

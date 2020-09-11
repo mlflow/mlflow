@@ -2,7 +2,7 @@ import json
 import os
 import posixpath
 
-from mock import mock
+from unittest import mock
 
 import mlflow
 import mlflow.pyfunc

@@ -1,6 +1,6 @@
-import mock
 import yaml
 import pytest
+from unittest import mock
 
 import kubernetes
 from kubernetes.config.config_exception import ConfigException

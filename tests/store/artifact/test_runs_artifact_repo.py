@@ -1,6 +1,6 @@
 import pytest
-import mock
-from mock import Mock
+import unittest.mock
+from unittest.mock import Mock
 
 import mlflow
 from mlflow.exceptions import MlflowException

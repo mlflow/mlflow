@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import pytest
 from six.moves import reload_module as reload
 

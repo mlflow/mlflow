@@ -3,7 +3,6 @@ azure-storage-blob==12.3.0
 google-cloud-storage==1.14.0
 botocore==1.12.84
 boto3==1.9.84
-mock==2.0.0
 moto==1.3.7
 h2o==3.22.1.4
 onnx==1.4.1;

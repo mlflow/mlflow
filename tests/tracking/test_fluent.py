@@ -3,11 +3,11 @@ import random
 import uuid
 import inspect
 
-import mock
 import numpy as np
 import pandas as pd
 import pytest
 from six.moves import reload_module as reload
+from unittest import mock
 
 import mlflow
 import mlflow.tracking.context.registry
