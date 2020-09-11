@@ -197,7 +197,7 @@ jobs:
         run: |
           python -c "import mlflow"
       - name: Verify `mlruns` directory doesn't exist
-        # This step prevents an issue like: https://github.com/mlflow/mlflow/issues/3400
+        # This step prevents issues like: https://github.com/mlflow/mlflow/issues/3400
         run: |
           if [ -d "./mlruns" ]; then
             exit 1
