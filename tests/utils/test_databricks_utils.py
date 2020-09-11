@@ -104,7 +104,7 @@ def test_get_workspace_info_from_databricks_secrets():
 def test_get_workspace_info_from_dbutils():
     mock_dbutils = mock.MagicMock()
     mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.toJson.return_value = (  # noqa
-        '"tags": {"orgId" : "1111", "browserHostName": "mlflow.databricks.com"}}'
+        '{"tags": {"orgId" : "1111", "browserHostName": "mlflow.databricks.com"}}'
     )
     with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
         workspace_host, workspace_id = get_workspace_info_from_dbutils()
