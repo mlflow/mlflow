@@ -140,7 +140,10 @@ class TrackingServiceClient(object):
         """
         _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
+        return self.store.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+        )
 
     def delete_experiment(self, experiment_id):
         """

@@ -42,7 +42,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     GetExperimentByName,
     LogModel,
-    SafeToEditRun
+    SafeToEditRun,
 )
 from mlflow.protos.model_registry_pb2 import (
     ModelRegistryService,
@@ -462,7 +462,9 @@ def _safe_to_edit_run():
     registered_versions = _get_model_registry_store().search_model_versions(f"run_id='{run_id}'")
 
     safe_to_edit = True
-    if os.getenv(FREEZE_PRODUCTION_MODELS) and any(x.current_stage==STAGE_PRODUCTION for x in registered_versions):
+    if os.getenv(FREEZE_PRODUCTION_MODELS) and any(
+        x.current_stage == STAGE_PRODUCTION for x in registered_versions
+    ):
         safe_to_edit = False
 
     response_message.value = safe_to_edit
@@ -470,6 +472,7 @@ def _safe_to_edit_run():
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
 
 @catch_mlflow_exception
 def _safe_to_delete_model():
@@ -485,7 +488,10 @@ def _safe_to_delete_model():
     safe_to_delete = True
     if os.getenv(FREEZE_PRODUCTION_MODELS):
         if model_version:
-            if any(x.current_stage == STAGE_PRODUCTION and x.version == int(model_version) for x in registered_versions):
+            if any(
+                x.current_stage == STAGE_PRODUCTION and x.version == int(model_version)
+                for x in registered_versions
+            ):
                 safe_to_delete = False
         else:
             if any(x.current_stage == STAGE_PRODUCTION for x in registered_versions):

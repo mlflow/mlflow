@@ -286,7 +286,9 @@ class RestStore(AbstractStore):
         return ModelVersion.from_proto(response_proto.model_version)
 
     def safe_to_delete_model(self, model_name, model_version=None):
-        req_body = message_to_json(SafeToDeleteModel(model_name=model_name, model_version=str(model_version)))
+        req_body = message_to_json(
+            SafeToDeleteModel(model_name=model_name, model_version=str(model_version))
+        )
         response_proto = self._call_endpoint(SafeToDeleteModel, req_body)
         return response_proto.value
 

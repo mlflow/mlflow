@@ -113,7 +113,7 @@ def _run_server(
     gunicorn_opts=None,
     waitress_opts=None,
     expose_prometheus=None,
-    freeze_production_models=False
+    freeze_production_models=False,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
