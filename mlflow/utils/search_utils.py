@@ -490,13 +490,22 @@ class SearchUtils(object):
                 "Invalid order_by entity type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
             )
 
-        # Return a key such that None values are always at the end.
-        is_null_or_nan = sort_value is None or (
-            isinstance(sort_value, float) and math.isnan(sort_value)
-        )
+        # Return a key such that runs are always sorted in the order: [ valid_value, nan, None ]
+        is_none = sort_value is None
+        is_nan = isinstance(sort_value, float) and math.isnan(sort_value)
+
+        def get_inf():
+            return math.inf if ascending else -math.inf
+
+        if is_none:
+            sort_value = get_inf()
+
+        if is_nan:
+            sort_value = -get_inf()
+
         if ascending:
-            return (is_null_or_nan, sort_value)
-        return (not is_null_or_nan, sort_value)
+            return (is_none or is_nan, sort_value)
+        return (not (is_none or is_nan), sort_value)
 
     @classmethod
     def sort(cls, runs, order_by_list):
