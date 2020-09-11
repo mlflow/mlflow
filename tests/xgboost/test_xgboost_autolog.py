@@ -315,7 +315,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
-    tmp_csv = tmpdir.join("data2.csv")
+    tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("1,0.3,1.2\n")
     tmp_csv.write("0,2.4,5.2\n")
     tmp_csv.write("1,0.3,-1.2\n")
