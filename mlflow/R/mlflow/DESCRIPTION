@@ -47,5 +47,6 @@ Suggests:
   lintr,
   testthat,
   stringi (< 1.4.4),
-  xgboost
+  xgboost,
+  h2o
 RoxygenNote: 7.1.1

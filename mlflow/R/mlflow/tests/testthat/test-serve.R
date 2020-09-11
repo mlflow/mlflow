@@ -21,7 +21,7 @@ test_that("mlflow can serve a model function", {
   )
   Sys.sleep(10)
   tryCatch({
-    status_code <- httr::status_code(httr::GET("http://127.0.0.1:8090"))
+    status_code <- httr::status_code(httr::GET("http://127.0.0.1:8090/ping/"))
   }, error = function(e) {
     write("FAILED!", stderr())
     error_text <- model_server$read_error()
@@ -57,10 +57,13 @@ wait_for_server_to_start <- function(server_process) {
   status_code <- 500
   for (i in 1:5) {
     tryCatch({
-      status_code <- httr::status_code(httr::GET("http://127.0.0.1:54321/ping"))
+      status_code <- httr::status_code(httr::GET("http://127.0.0.1:54321/ping/"))
     }, error = function(...) {
       Sys.sleep(5)
     })
+    if (status_code == 200) {
+      break
+    }
   }
   if (status_code != 200) {
     write("FAILED to start the server!", stderr())
@@ -70,6 +73,8 @@ wait_for_server_to_start <- function(server_process) {
 }
 
 test_that("mlflow models server api works with R model function", {
+  unlink("model", recursive = TRUE)
+
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, path = "model")
