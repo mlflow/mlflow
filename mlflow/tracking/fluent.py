@@ -259,7 +259,8 @@ def get_run(run_id):
             mlflow.log_param("p", 0)
 
         run_id = run.info.run_id
-        print("run_id: {}; lifecycle_stage: {}".format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
+        print("run_id: {}; lifecycle_stage: {}".format(run_id,
+            mlflow.get_run(run_id).info.lifecycle_stage))
 
     .. code-block:: Text
         :caption: Output
@@ -658,7 +659,8 @@ def delete_run(run_id):
         run_id = run.info.run_id
         mlflow.delete_run(run_id)
 
-        print("run_id: {}; lifecycle_stage: {}".format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
+        print("run_id: {}; lifecycle_stage: {}".format(run_id,
+            mlflow.get_run(run_id).info.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
