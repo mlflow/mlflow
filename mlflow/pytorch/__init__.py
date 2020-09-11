@@ -15,6 +15,7 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
+import posixpath
 
 import mlflow
 import shutil
@@ -381,7 +382,7 @@ def save_model(
 
             shutil.move(
                 tmp_artifacts_dir.path(),
-                os.path.join(path, saved_artifacts_dir_subpath),
+                posixpath.join(path, saved_artifacts_dir_subpath),
             )
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
