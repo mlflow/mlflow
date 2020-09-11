@@ -37,7 +37,12 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
@@ -282,7 +287,9 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     - metrics on each iteration (if ``evals`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance as JSON files and plots.
-    - trained model.
+    - trained model, including:
+        - an example of valid input.
+        - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is not supported.
 
@@ -297,6 +304,10 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             self.input_example = input_example
             self.error_msg = error_msg
 
+    # Patching this function so we can get a copy of the data given to DMatrix.__init__
+    #   to use as an input example and for inferring the model signature.
+    #   (there is no way to get the data back from a DMatrix object)
+    # We store it on the DMatrix object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
 
@@ -306,9 +317,13 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             input_example_info = None
             try:
                 if isinstance(data, str):
-                    raise Exception("The input data was of type string.")
+                    raise Exception(
+                        "cannot gather example input when " + "dataset is loaded from a file."
+                    )
 
-                input_example_info = _InputExampleInfo(input_example=deepcopy(data[:5]))
+                input_example_info = _InputExampleInfo(
+                    input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
+                )
             except Exception as e:  # pylint: disable=broad-except
                 input_example_info = _InputExampleInfo(error_msg=str(e))
 
@@ -451,7 +466,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         # dtrain must exist as the original train function already ran successfully
         dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
 
-        input_example_info = None
         input_example = None
         signature = None
         try:
@@ -469,18 +483,13 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             if input_example is None:
                 # input example collection failed
                 raise Exception(input_example_info.error_msg)
-        except Exception as e:  # pylint: disable=broad-except
-            _logger.warning("Failed to gather example input: " + str(e))
 
-        if input_example is not None:
-            # input example collection succeeded, move on to signature prediction
-            try:
-                model_output = model.predict(xgboost.DMatrix(input_example))
-                signature = infer_signature(input_example, model_output)
-            except Exception as e:  # pylint: disable=broad-except
-                input_example = None
-                msg = "Failed to infer the model signature: " + str(e)
-                _logger.warning(msg)
+            model_output = model.predict(xgboost.DMatrix(input_example))
+            signature = infer_signature(input_example, model_output)
+        except Exception as e:  # pylint: disable=broad-except
+            input_example = None
+            msg = "Failed to gather example input and model signature: " + str(e)
+            _logger.warning(msg)
 
         try_mlflow_log(
             log_model,
