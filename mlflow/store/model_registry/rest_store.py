@@ -26,10 +26,13 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
+from mlflow.utils.rest_utils import (
+    call_endpoint,
+    extract_api_info_for_service,
+    _REST_API_PATH_PREFIX,
+)
 
-_PATH_PREFIX = "/api/2.0"
-_METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _REST_API_PATH_PREFIX)
 
 
 _logger = logging.getLogger(__name__)

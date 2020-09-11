@@ -33,11 +33,20 @@ class S3ArtifactRepository(ArtifactRepository):
         from botocore.client import Config
 
         s3_endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
+        ignore_tls = os.environ.get("MLFLOW_S3_IGNORE_TLS")
+
+        verify = True
+        if ignore_tls:
+            verify = ignore_tls.lower() not in ["true", "yes", "1"]
+
         # NOTE: If you need to specify this env variable, please file an issue at
         # https://github.com/mlflow/mlflow/issues so we know your use-case!
         signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
         return boto3.client(
-            "s3", config=Config(signature_version=signature_version), endpoint_url=s3_endpoint_url
+            "s3",
+            config=Config(signature_version=signature_version),
+            endpoint_url=s3_endpoint_url,
+            verify=verify,
         )
 
     def _upload_file(self, s3_client, local_file, bucket, key):
