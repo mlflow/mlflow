@@ -31,6 +31,7 @@ def register_model(model_uri, name):
         local_store_uri = "sqlite:///api_mlruns.db"
         mlflow.set_tracking_uri(local_store_uri)
 
+        # Set an existing run_id
         run_id = "acd04001d9874ce5956f701583596cbc"
         model_uri = "runs:/{}".format(run_id)
 

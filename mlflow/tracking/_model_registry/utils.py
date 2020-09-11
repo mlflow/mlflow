@@ -62,7 +62,7 @@ def set_registry_uri(uri):
         print("Current tracking uri: {}".format(tracking_uri))
 
         # They should be different
-        assert(tracking_uri != mr_uri)
+        assert tracking_uri != mr_uri
 
     .. code-block:: text
         :caption: Output
@@ -98,7 +98,7 @@ def get_registry_uri():
         print("Current tracking uri: {}".format(tracking_uri))
 
         # They should be the same
-        assert(mr_uri == tracking_uri)
+        assert mr_uri == tracking_uri
 
     .. code-block:: text
         :caption: Output

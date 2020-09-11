@@ -255,19 +255,16 @@ def get_run(run_id):
 
         import mlflow
 
-        # Set existing run_ids
-        run_ids = ["13ee9e661cbf4095a7c92cc55b4e12b4", "948fbf2d0b7f4056b3dd4914845a1e1b"]
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
 
-        # Get run info state for each run
-        for run_id in run_ids:
-            print("run_id: {}; lifecycle_stage: {}"
-               .format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
+        run_id = run.info.run_id
+        print("run_id: {}; lifecycle_stage: {}".format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
 
     .. code-block:: Text
         :caption: Output
 
-        run_id: 13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage: active
-        run_id: 948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage: active
+        run_id: 7472befefc754e388e8e922824a0cca5; lifecycle_stage: active
     """
     return MlflowClient().get_run(run_id)
 
@@ -324,8 +321,14 @@ def delete_tag(key):
 
         import mlflow
 
-        # Remove a tag from this run
-        mlflow.delete_tag("engineering_remote")
+        tags = {"engineering": "ML Platform",
+                "engineering_remote": "ML Platform"}
+
+        with mlflow.start_run() as run:
+            mlflow.set_tags(tags)
+
+        with mlflow.start_run(run_id=run.info.run_id):
+            mlflow.delete_tag("engineering_remote")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
@@ -573,7 +576,7 @@ def create_experiment(name, artifact_location=None):
     :param name: The experiment name, which must be unique and is case sensitive
     :param artifact_location: The location to store run artifacts.
                               If not provided, the server picks an appropriate default.
-    :return: Integer ID of the created experiment.
+    :return: String ID of the created experiment.
 
     .. code-block:: python
         :caption: Example
@@ -582,9 +585,7 @@ def create_experiment(name, artifact_location=None):
 
         # Create an experiment name, which must be unique and case sensitve
         experiment_id = mlflow.create_experiment("Social NLP Experiments")
-
-        # Convert an experiment ID as a string argument and fetch its data
-        experiment = mlflow.get_experiment(str(experiment_id))
+        experiment = mlflow.get_experiment(experiment_id)
 
         # Print the contents of experiment data
         print("Name: {}".format(experiment.name))
@@ -616,24 +617,25 @@ def delete_experiment(experiment_id):
 
         import mlflow
 
-        # Convert experiment ID as a string argument
-        mlflow.delete_experiment(str(1))
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
 
-        # Examine the deleted experiment details.
-        # Note: Deleted experiments are moved to a .thrash folder under
-        # the artifact location top level directory.
-        experiment = mlflow.get_experiment(str(1))
+        # Examine the deleted experiment details. Deleted experiments
+        # are moved to a .thrash folder under the artifact location top
+        # level directory.
+        experiment = mlflow.get_experiment(experiment_id)
 
         # Print the contents of deleted Experiment data
         print("Name: {}".format(experiment.name))
-        print("Tags: {}".format(experiment.tags))
+        print("Artifact Location: {}".format(experiment.artifact_location))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
 
     .. code-block:: text
         :caption: Output
 
-        Name: Social NLP Experiments
-        Tags: {}
+        Name: New Experiment
+        Artifact Location: file:///.../apis/mlruns/2
         Lifecycle_stage: deleted
     """
     MlflowClient().delete_experiment(experiment_id)
@@ -650,21 +652,18 @@ def delete_run(run_id):
 
         import mlflow
 
-        # Set existing run_ids to delete
-        run_ids = ["13ee9e661cbf4095a7c92cc55b4e12b4", "948fbf2d0b7f4056b3dd4914845a1e1b"]
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
 
-        # Delete run_ids and fetch the results.
-        # Note that runs are not actually delete, only lifecycle stage is set to "deleted"
-        for run_id in run_ids:
-            mlflow.delete_run(run_id)
-            print("run_id: {}; lifecycle_stage: {}".format(run_id,
-                mlflow.get_run(run_id).info.lifecycle_stage))
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
+
+        print("run_id: {}; lifecycle_stage: {}".format(run_id, mlflow.get_run(run_id).info.lifecycle_stage))
 
     .. code-block:: text
         :caption: Output
 
-        run_id: 13ee9e661cbf4095a7c92cc55b4e12b4; lifecycle_stage: deleted
-        run_id: 948fbf2d0b7f4056b3dd4914845a1e1b; lifecycle_stage: deleted
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
     """
     MlflowClient().delete_run(run_id)
 
@@ -845,40 +844,39 @@ def list_run_infos(
     .. code-block:: python
         :caption: Example
 
-        from pprint import pprint
-        import mlflow
+        # Create two runs
+        with mlflow.start_run() as run1:
+            mlflow.log_param("p", 0)
 
-        # Get run info for experiment id 0, include only active runs
-        pprint("RunInfo: {}".format(mlflow.list_run_infos(str(0), run_view_type=1)))
+        with mlflow.start_run() as run2:
+            mlflow.log_param("p", 1)
 
-        print("-" * 80)
+        # Delete the last run
+        mlflow.delete_run(run2.info.run_id)
 
-        # Get run info for experiment id 0, include all runs
-        # order_by types are ['metric.key', 'parameter.key', 'tag.key', 'attribute.key']
-        pprint("RunInfo: {}".format(mlflow.list_run_infos(str(0), run_view_type=3,
-                                                     order_by=["metric.click-rate DESC"])))
+        def print_run_infos(run_infos):
+            for r in run_infos:
+                print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
+
+        print("Active runs:")
+        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
+
+        print("Deleted runs:")
+        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
+
+        print("All runs:")
+        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL))
 
     .. code-block:: text
         :caption: Output
 
-        ('RunInfo: [<RunInfo: '
-        "artifact_uri='file:///apis/mlruns/0/a07fb678df7749b3bfe91333ccf16e54/artifacts',"
-        "end_time=1599085184693, experiment_id='0', lifecycle_stage='active', "
-        "run_id='a07fb678df7749b3bfe91333ccf16e54', "
-        "run_uuid='a07fb678df7749b3bfe91333ccf16e54', start_time=1599085184661, "
-        "status='FINISHED', user_id='julesdamji'>]")
-        --------------------------------------------------------------------------------
-        ('RunInfo: [<RunInfo: '
-         "artifact_uri='file:///apis/mlruns/0/9010b659f83142938e21dc2baa8fcbe8/artifacts',"
-         "end_time=1599085041270, experiment_id='0', lifecycle_stage='deleted', "
-         "run_id='9010b659f83142938e21dc2baa8fcbe8', "
-         "run_uuid='9010b659f83142938e21dc2baa8fcbe8', start_time=1599085041241, "
-         "status='FINISHED', user_id='julesdamji'>, <RunInfo: "
-         "artifact_uri='file:///apis/mlruns/0/a07fb678df7749b3bfe91333ccf16e54/artifacts',"
-         "end_time=1599085184693, experiment_id='0', lifecycle_stage='active', "
-         "run_id='a07fb678df7749b3bfe91333ccf16e54', "
-         "run_uuid='a07fb678df7749b3bfe91333ccf16e54', start_time=1599085184661,"
-         "status='FINISHED', user_id='julesdamji'>]")
+        Active runs:
+        - run_id: 6c74d388ef324af19933f65ac02c46c5, lifecycle_stage: active
+        Deleted runs:
+        - run_id: 7d9e96d092644bc59d6cd7cd6677da6e, lifecycle_stage: deleted
+        All runs:
+        - run_id: 7d9e96d092644bc59d6cd7cd6677da6e, lifecycle_stage: deleted
+        - run_id: 6c74d388ef324af19933f65ac02c46c5, lifecycle_stage: active
     """
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
