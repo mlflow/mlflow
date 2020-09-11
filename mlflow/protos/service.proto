@@ -346,6 +346,19 @@ service MlflowService {
     };
   }
 
+  rpc safeToEditRun (SafeToEditRun) returns (SafeToEditRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/config/safe_to_edit_run/get",
+        since {major: 2, minor: 0}
+      }]
+      visibility: PUBLIC,
+      rpc_doc_title: "Returns true iff it's ok to edit this run in place"
+    };
+  }
+
+
   // Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and
   // :ref:`mlflowParam` keys.
   //
@@ -899,6 +912,18 @@ message DeleteTag {
   optional string key = 2 [(validate_required) = true];
 
   message Response {
+  }
+}
+
+message SafeToEditRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run to fetch. Must be provided.
+  optional string run_id = 2;
+
+  message Response {
+    // Run metadata (name, start time, etc) and data (metrics, params, and tags).
+    optional bool value = 1;
   }
 }
 

@@ -22,6 +22,7 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteRegisteredModelTag,
     DeleteModelVersionTag,
+    SafeToDeleteModel,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
@@ -283,6 +284,11 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(UpdateModelVersion, req_body)
         return ModelVersion.from_proto(response_proto.model_version)
+
+    def safe_to_delete_model(self, model_name, model_version=None):
+        req_body = message_to_json(SafeToDeleteModel(model_name=model_name, model_version=str(model_version)))
+        response_proto = self._call_endpoint(SafeToDeleteModel, req_body)
+        return response_proto.value
 
     def delete_model_version(self, name, version):
         """

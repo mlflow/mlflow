@@ -78,7 +78,10 @@ class ModelRegistryClient(object):
 
         :param name: Name of the registered model to update.
         """
-        self.store.delete_registered_model(name)
+        if self.store.safe_to_delete_model(name):
+            self.store.delete_registered_model(name)
+        else:
+            raise MlflowException("DANGER")
 
     def list_registered_models(
         self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
@@ -226,7 +229,10 @@ class ModelRegistryClient(object):
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         """
-        self.store.delete_model_version(name, version)
+        if self.store.safe_to_delete_model(name, version):
+            self.store.delete_model_version(name, version)
+        else:
+            raise MlflowException("DANGER")
 
     def get_model_version_download_uri(self, name, version):
         """

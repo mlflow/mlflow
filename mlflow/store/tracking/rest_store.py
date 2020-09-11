@@ -24,6 +24,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     SetExperimentTag,
     GetExperimentByName,
+    SafeToEditRun,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -101,6 +102,11 @@ class RestStore(AbstractStore):
             UpdateExperiment(experiment_id=str(experiment_id), new_name=new_name)
         )
         self._call_endpoint(UpdateExperiment, req_body)
+
+    def safe_to_edit_run(self, run_id):
+        req_body = message_to_json(SafeToEditRun(run_id=run_id))
+        response_proto = self._call_endpoint(SafeToEditRun, req_body)
+        return response_proto.value
 
     def get_run(self, run_id):
         """
