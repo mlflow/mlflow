@@ -157,7 +157,7 @@ def get_workspace_info_from_dbutils():
         context = json.loads(
             dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
         )
-        workspace_host = 'https://' + context["extraContext"]["browserHostName"]
+        workspace_host = "https://" + context["extraContext"]["browserHostName"]
         workspace_id = context["tags"]["orgId"]
         return workspace_host, workspace_id
     return None, None
