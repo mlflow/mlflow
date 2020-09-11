@@ -1,8 +1,8 @@
 import os
 import pytest
 import time
-import mock
 from collections import namedtuple
+from unittest import mock
 
 import boto3
 import botocore
