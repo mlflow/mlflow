@@ -2,9 +2,10 @@
 Simple unit tests to confirm that ModelRegistryClient properly calls the registry Store methods
 and returns values when required.
 """
+
 import pytest
 from unittest import mock
-from unittest.mock import ANY
+from unittest.mock import ANY, patch
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -194,6 +195,44 @@ def test_delete_registered_model_tag(mock_store):
 
 
 # Model Version API
+@patch(
+    "mlflow.tracking._model_registry.client.AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS", 1
+)
+def test_create_model_version_when_wait_exceeds_time(mock_store):
+    name = "Model 1"
+    version = "1"
+
+    mv = ModelVersion(
+        name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
+    )
+    mock_store.create_model_version.return_value = mv
+    mock_store.get_model_version.return_value = mv
+
+    with pytest.raises(MlflowException):
+        newModelRegistryClient().create_model_version(
+            name, "uri:/source", "run123", await_creation_for=1
+        )
+
+
+def test_create_model_version_does_not_wait_when_await_creation_param_is_false(mock_store):
+    name = "Model 1"
+    version = "1"
+
+    mock_store.create_model_version.return_value = ModelVersion(
+        name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
+    )
+
+    result = newModelRegistryClient().create_model_version(
+        name, "uri:/source", "run123", await_creation_for=None
+    )
+    result = newModelRegistryClient().create_model_version(
+        name, "uri:/source", "run123", await_creation_for=0
+    )
+
+    mock_store.get_model_version.assert_not_called()
+
+    assert result.name == name
+    assert result.version == version
 
 
 def test_create_model_version(mock_store):

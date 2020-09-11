@@ -273,6 +273,7 @@ def _get_s3_artifact_cmd_and_envs(artifact_repo):
         "AWS_SECRET_ACCESS_KEY": os.environ.get("AWS_SECRET_ACCESS_KEY"),
         "AWS_ACCESS_KEY_ID": os.environ.get("AWS_ACCESS_KEY_ID"),
         "MLFLOW_S3_ENDPOINT_URL": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
+        "MLFLOW_S3_IGNORE_TLS": os.environ.get("MLFLOW_S3_IGNORE_TLS"),
     }
     envs = dict((k, v) for k, v in envs.items() if v is not None)
     return volumes, envs

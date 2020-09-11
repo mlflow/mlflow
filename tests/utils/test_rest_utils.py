@@ -44,7 +44,7 @@ def test_non_json_ok_response():
             match="API request to endpoint was successful but the response body was not "
             "in a valid JSON format",
         ):
-            call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+            call_endpoint(host_only, "/api/2.0/fetch-model", "GET", "", response_proto)
 
 
 @pytest.mark.parametrize(
@@ -197,6 +197,12 @@ def test_http_request_wrapper(request):
     response = mock.MagicMock()
     response.status_code = 200
     response.text = "{}"
+    request.return_value = response
+    http_request_safe(host_only, "/my/endpoint")
+    request.assert_called_with(
+        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+    )
+    response.text = "non json"
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint")
     request.assert_called_with(
