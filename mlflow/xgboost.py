@@ -370,8 +370,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
-        import xgboost as xgb
-
         original = gorilla.get_original_attribute(xgboost, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
@@ -477,7 +475,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         if input_example is not None:
             # input example collection succeeded, move on to signature prediction
             try:
-                model_output = model.predict(xgb.DMatrix(input_example))
+                model_output = model.predict(xgboost.DMatrix(input_example))
                 signature = infer_signature(input_example, model_output)
             except Exception as e:  # pylint: disable=broad-except
                 input_example = None
