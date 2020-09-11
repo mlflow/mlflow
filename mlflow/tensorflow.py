@@ -587,9 +587,6 @@ def _flush_queue():
     _metric_queue = []
 
 
-atexit.register(_flush_queue)
-
-
 def _add_to_queue(key, value, step, time, run_id):
     """
     Add a metric to the metric queue. Flush the queue if it exceeds
@@ -827,6 +824,8 @@ def autolog(every_n_iter=100):
 
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
+
+    atexit.register(_flush_queue)
 
     if LooseVersion(tensorflow.__version__) < LooseVersion("1.12"):
         warnings.warn(
