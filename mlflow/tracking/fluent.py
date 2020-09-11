@@ -518,8 +518,7 @@ def get_experiment(experiment_id):
 
         import mlflow
 
-        # Convert an experiment ID as a string argument
-        experiment = mlflow.get_experiment(str(0))
+        experiment = mlflow.get_experiment("0")
 
         # Print the contents of Experiment data
         print("Name: {}".format(experiment.name))
