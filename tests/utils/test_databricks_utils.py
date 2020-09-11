@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import pytest
 
 from mlflow.utils import databricks_utils

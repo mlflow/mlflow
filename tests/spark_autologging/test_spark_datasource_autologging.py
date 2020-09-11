@@ -1,7 +1,7 @@
-import mock
 import time
 
 import pytest
+from unittest import mock
 
 import mlflow
 import mlflow.spark

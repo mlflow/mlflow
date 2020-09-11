@@ -1,5 +1,5 @@
-import mock
 import pytest
+from unittest import mock
 
 from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag

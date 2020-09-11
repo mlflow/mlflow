@@ -1,7 +1,7 @@
 import sys
 import os
 import pytest
-import mock
+from unittest import mock
 
 from keras.models import Sequential
 from keras.layers import Dense

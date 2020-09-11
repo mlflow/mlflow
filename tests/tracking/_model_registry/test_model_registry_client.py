@@ -2,9 +2,10 @@
 Simple unit tests to confirm that ModelRegistryClient properly calls the registry Store methods
 and returns values when required.
 """
-from mock import ANY, patch
+
 import pytest
-import mock
+from unittest import mock
+from unittest.mock import ANY, patch
 
 from mlflow.entities.model_registry import (
     ModelVersion,
