@@ -44,7 +44,7 @@ def register_model(model_uri, name):
         print("Version: {}".format(mv.version))
 
     .. code-block:: text
-        : Output
+        :caption: Output
 
         Name: RandomForestRegressionModel
         Version: 1
