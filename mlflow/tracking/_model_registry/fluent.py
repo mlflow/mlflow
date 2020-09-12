@@ -36,13 +36,12 @@ def register_model(model_uri, name):
             rfr = RandomForestRegressor(params)
             mlflow.log_params(params)
             mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
-    
+
         model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print("Name: {}".format(mv.name))
         print("Version: {}".format(mv.version))
-
-
+        
     .. code-block:: text
         :caption: Output
 
