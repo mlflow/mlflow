@@ -28,20 +28,20 @@ def register_model(model_uri, name):
         import mlflow.sklearn
         from sklearn.ensemble import RandomForestRegressor
 
-        local_store_uri = "sqlite:///api_mlruns.db"
-        mlflow.set_tracking_uri(local_store_uri)
+        mlflow.set_tracking_uri("sqlite:////tmp/mlruns.db")
         params = {"n_estimators": 3, "random_state": 42}
 
         # Log MLflow entities
         with mlflow.start_run(run_name="My Runs") as run:
-            sk_learn_rfr = RandomForestRegressor(params)
+            rfr = RandomForestRegressor(params)
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(sk_learn_rfr, artifact_path="sklearn-model")
-
-        model_uri = "runs:/{}".format(run.info.run_id)
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+    
+        model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
         print("Name: {}".format(mv.name))
         print("Version: {}".format(mv.version))
+
 
     .. code-block:: text
         :caption: Output
