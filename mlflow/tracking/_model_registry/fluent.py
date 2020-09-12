@@ -44,7 +44,7 @@ def register_model(model_uri, name):
         
     .. code-block:: text
         :caption: Output
-
+        
         Name: RandomForestRegressionModel
         Version: 1
     """
