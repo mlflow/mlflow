@@ -32,11 +32,10 @@ def register_model(model_uri, name):
         params = {"n_estimators": 3, "random_state": 42}
 
         # Log MLflow entities
-        with mlflow.start_run(run_name="My Runs") as run:
+        with mlflow.start_run() as run:
            rfr = RandomForestRegressor(params)
            mlflow.log_params(params)
            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
-
 
         model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")

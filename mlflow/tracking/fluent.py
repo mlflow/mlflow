@@ -429,8 +429,8 @@ def set_tags(tags):
         import mlflow
 
         tags = {"engineering": "ML Platform",
-                 "release.candidate": "RC1",
-                 "release.version": "2.2.0"}
+                "release.candidate": "RC1",
+                "release.version": "2.2.0"}
 
         # Set a batch of tags
         with mlflow.start_run():
@@ -872,12 +872,12 @@ def list_run_infos(
         :caption: Output
 
         Active runs:
-        - run_id: 6c74d388ef324af19933f65ac02c46c5, lifecycle_stage: active
+        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
         Deleted runs:
-        - run_id: 7d9e96d092644bc59d6cd7cd6677da6e, lifecycle_stage: deleted
+        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
         All runs:
-        - run_id: 7d9e96d092644bc59d6cd7cd6677da6e, lifecycle_stage: deleted
-        - run_id: 6c74d388ef324af19933f65ac02c46c5, lifecycle_stage: active
+        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
+        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
     """
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess
