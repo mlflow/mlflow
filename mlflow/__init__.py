@@ -157,3 +157,13 @@ __all__ = [
     "xgboost",
     "shap",
 ]
+
+def autolog():
+    mlflow.tensorflow.autolog()
+    mlflow.keras.autolog()
+    mlflow.gluon.autolog()
+    mlflow.xgboost.autolog()
+    mlflow.lightgbm.autolog()
+    #mlflow.spark.autolog()
+    mlflow.fastai.autolog()
+    mlflow.sklearn.autolog()
