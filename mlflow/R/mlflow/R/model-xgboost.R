@@ -36,13 +36,13 @@ mlflow_save_model.xgb.Booster <- function(model,
 
 #' @export
 mlflow_load_flavor.mlflow_flavor_xgboost <- function(flavor, model_path) {
-  xgboost_assert_installed()
+  assert_pkg_installed("xgboost")
   model_data_subpath <- "model.xgb"
   xgboost::xgb.load(file.path(model_path, model_data_subpath))
 }
 
 #' @export
 mlflow_predict.xgb.Booster <- function(model, data, ...) {
-  xgboost_assert_installed()
+  assert_pkg_installed("xgboost")
   stats::predict(model, xgboost::xgb.DMatrix(as.matrix(data)), ...)
 }

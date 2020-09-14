@@ -17,7 +17,7 @@ create_default_conda_env_if_absent <- function(
     conda_env_file_name <- "conda_env.yaml"
     create_conda_env(
       name = "conda_env",
-      path = file.path(path, conda_env_file_name),
+      path = file.path(model_path, conda_env_file_name),
       conda_deps = default_conda_deps,
       pip_deps = default_pip_deps
     )

@@ -37,7 +37,7 @@ mlflow_save_model.H2OModel <- function(model,
   )
 
   conda_env <- create_default_conda_env_if_absent(
-    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o==", version))
+    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o>=", version))
   )
 
   h2o_conf <- list(
@@ -55,7 +55,7 @@ mlflow_save_model.H2OModel <- function(model,
 #' @importFrom rlang %||%
 #' @export
 mlflow_load_flavor.mlflow_flavor_h2o <- function(flavor, model_path) {
-  h2o_assert_installed()
+  assert_pkg_installed("h2o")
 
   model_path <- normalizePath(model_path)
   # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
@@ -69,6 +69,6 @@ mlflow_load_flavor.mlflow_flavor_h2o <- function(flavor, model_path) {
 
 #' @export
 mlflow_predict.H2OModel <- function(model, data, ...) {
-  h2o_assert_installed()
+  assert_pkg_installed("h2o")
   as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(data), ...))
 }
