@@ -292,11 +292,11 @@ Call :py:func:`mlflow.xgboost.autolog` before your training code to enable autom
 
 Autologging captures the following information:
 
-+-----------+------------------------+-----------------------------+---------------+------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                                          |
-+-----------+------------------------+-----------------------------+---------------+------------------------------------------------------------------------------------+
-| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) on training end; feature importance; input example |
-+-----------+------------------------+-----------------------------+---------------+------------------------------------------------------------------------------------+
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                                                               |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) with model signature on training end; feature importance; input example |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
@@ -314,11 +314,11 @@ Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable auto
 
 Autologging captures the following information:
 
-+-----------+------------------------+------------------------------+---------------+--------------------------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                                            |
-+-----------+------------------------+------------------------------+---------------+--------------------------------------------------------------------------------------+
-| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) on training end; feature importance; input example  |
-+-----------+------------------------+------------------------------+---------------+--------------------------------------------------------------------------------------+
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                                                                 |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) with model signature on training end; feature importance; input example  |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
