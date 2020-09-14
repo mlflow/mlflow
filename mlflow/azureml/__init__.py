@@ -2,6 +2,7 @@
 The ``mlflow.azureml`` module provides an API for deploying MLflow models to Azure
 Machine Learning.
 """
+import mlflow
 import sys
 import os
 import subprocess
@@ -380,16 +381,35 @@ def deploy(
             _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path),
         )
 
-        registered_model = AzureModel.register(
-            workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags
-        )
+        registered_model = None
 
-        _logger.info(
-            "Registered an Azure Model with name: `%s` and version: `%s`",
-            registered_model.name,
-            registered_model.version,
-        )
+        try:
+            if model_uri.startswith("models:/"):
+                m_name = model_uri.split('/')[-2]
+                m_version = int(model_uri.split('/')[-1])
+                m_id = "{}:{}".format(m_name, m_version)
+                registered_model = AzureModel(workspace, id=m_id)
 
+                _logger.info("Found registered model in AzureML with ID '{}'".format(m_id))
+            elif model_uri.startswith("runs:/") and \
+                    mlflow.get_tracking_uri().startswith("azureml:/"):
+                m = mlflow.register_model(model_uri, model_name)
+                m_id = "{}:{}".format(m.name, m.version)
+                registered_model = AzureModel(workspace, id=m_id)
+
+                _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
+                             registered_model.name, registered_model.version)
+        except:
+            _logger.info("Unable to find model in AzureML with ID '{}', will register the "
+                         "model.".format(m_id))
+
+        if not registered_model:
+            registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
+                                                   model_name=model_name, tags=tags)
+
+            _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
+                         registered_model.name, registered_model.version)
+        
         # Create an execution script (entry point) for the image's model server. Azure ML requires
         # the container's execution script to be located in the current working directory during
         # image creation, so we create the execution script as a temporary file in the current
@@ -546,7 +566,7 @@ def _load_pyfunc_conf_with_model(model_path):
         raise MlflowException(
             message=(
                 "The specified model does not contain the `python_function` flavor. This "
-                " flavor is required for model deployment required for model deployment."
+                " flavor is required for model deployment."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
