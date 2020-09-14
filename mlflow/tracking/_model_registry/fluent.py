@@ -33,7 +33,7 @@ def register_model(model_uri, name):
 
         # Log MLflow entities
         with mlflow.start_run() as run:
-           rfr = RandomForestRegressor(params)
+           rfr = RandomForestRegressor(**params)
            mlflow.log_params(params)
            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 

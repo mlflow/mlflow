@@ -62,7 +62,7 @@ def set_experiment(experiment_name):
         :caption: Output
 
         Experiment_id: 1
-        Artifact Location: file:///.../apis/mlruns/1
+        Artifact Location: file:///.../mlruns/1
         Tags: {}
         Lifecycle_stage: active
     """
@@ -213,25 +213,30 @@ def active_run():
         from pprint import pprint
         import mlflow
 
+        mlflow.start_run()
+
+        mlflow.log_param("p", 0)
+        mlflow.log_metric("m", 1)
+        mlflow.set_tag("t", 2)
+
         client = mlflow.tracking.MlflowClient()
         data = client.get_run(mlflow.active_run().info.run_id).data
 
         # Extract only user defined tags; skip System tags starting with "mlflow."
         tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
 
-        # Pretty print the dictionary
         pprint(data.params)
         pprint(data.metrics)
         pprint(tags)
 
+        mlflow.end_run()
+
     .. code-block:: text
         :caption: Output
 
-        {'learning_rate': '0.01', 'n_estimators': '10'}
-        {'mse': 2500.0, 'rmse': 50.0}
-        {'engineering': 'ML Platform',
-         'release.candidate': 'RC1',
-         'release.version': '2.2.0'}
+        {'p': '0'}
+        {'m': 1.0}
+        {'t': '2'}
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
@@ -562,7 +567,7 @@ def get_experiment_by_name(name):
         :caption: Output
 
         Experiment_id: 0
-        Artifact Location: file:///.../apis/mlruns/0
+        Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
     """
@@ -599,7 +604,7 @@ def create_experiment(name, artifact_location=None):
 
         Name: Social NLP Experiments
         Experiment_id: 1
-        Artifact Location: file:///.../apis/mlruns/1
+        Artifact Location: file:///.../mlruns/1
         Tags= {}
         Lifecycle_stage: active
     """
@@ -635,7 +640,7 @@ def delete_experiment(experiment_id):
         :caption: Output
 
         Name: New Experiment
-        Artifact Location: file:///.../apis/mlruns/2
+        Artifact Location: file:///.../mlruns/2
         Lifecycle_stage: deleted
     """
     MlflowClient().delete_experiment(experiment_id)
