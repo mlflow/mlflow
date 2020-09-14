@@ -387,8 +387,9 @@ def test_start_run_existing_run(empty_active_run_stack):
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
 
     run_id = uuid.uuid4().hex
-    get_store_patch = mock.patch.object(MlflowClient, "get_store")
-    with get_store_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+    mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
+
+    with mock_get_store, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         active_run = start_run(run_id)
 
         assert is_from_run(active_run, mock_run)
@@ -401,9 +402,9 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
 
     run_id = uuid.uuid4().hex
     env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
-    get_store_patch = mock.patch.object(MlflowClient, "get_store")
+    mock_get_store = mock.patch("mlflow.tracking.fluent._get_store")
 
-    with env_patch, get_store_patch, mock.patch.object(
+    with env_patch, mock_get_store, mock.patch.object(
         MlflowClient, "get_run", return_value=mock_run
     ):
         active_run = start_run()

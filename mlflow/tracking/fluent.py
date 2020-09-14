@@ -14,7 +14,7 @@ from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import artifact_utils
+from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
@@ -141,7 +141,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                 "deleted state.".format(existing_run_id)
             )
         end_time = active_run_obj.info.end_time
-        MlflowClient().get_store().update_run_info(
+        _get_store().update_run_info(
             existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
         )
         active_run_obj = MlflowClient().get_run(existing_run_id)

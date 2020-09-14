@@ -91,12 +91,6 @@ class MlflowClient(object):
                 )
         return registry_client
 
-    def get_store(self):
-        """
-        :return: The tracking client's `mlflow.store.tracking.AbstractStore` object.
-        """
-        return self._tracking_client.store
-
     # Tracking API
 
     def get_run(self, run_id):
