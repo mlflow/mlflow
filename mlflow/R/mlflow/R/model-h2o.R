@@ -1,3 +1,6 @@
+#' @include model-utils.R
+NULL
+
 #' @rdname mlflow_save_model
 #' @export
 mlflow_save_model.H2OModel <- function(model,
@@ -5,7 +8,7 @@ mlflow_save_model.H2OModel <- function(model,
                                        model_spec = list(),
                                        conda_env = NULL,
                                        ...) {
-  h2o_assert_installed()
+  assert_pkg_installed("h2o")
 
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path, recursive = TRUE)
@@ -28,27 +31,14 @@ mlflow_save_model.H2OModel <- function(model,
   )
   yaml::write_yaml(settings, file.path(model_data_path, "h2o.yaml"))
 
-  version <- as.character(utils::packageVersion("h2o"))
   # needed because R and python packages may not have the same patch number
-  version <- gsub("([^.]*\\.[^.]*)(\\..*)", "\\1", version)
+  version <- remove_patch_version(
+    as.character(utils::packageVersion("h2o"))
+  )
 
-  conda_env <- if (!is.null(conda_env)) {
-    dst <- file.path(path, basename(conda_env))
-    if (conda_env != dst) {
-      file.copy(from = conda_env, to = dst)
-    }
-    basename(conda_env)
-  } else { # create default conda environment
-    conda_deps <- list()
-    pip_deps <- list("mlflow", paste0("h2o==", version))
-    create_conda_env(
-      name = "conda_env",
-      path = file.path(path, "conda_env.yaml"),
-      conda_deps = conda_deps,
-      pip_deps = pip_deps
-    )
-    "conda_env.yaml"
-  }
+  conda_env <- create_default_conda_env_if_absent(
+    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o==", version))
+  )
 
   h2o_conf <- list(
     h2o = list(h2o_version = version, data = model_data_subpath)
@@ -81,10 +71,4 @@ mlflow_load_flavor.mlflow_flavor_h2o <- function(flavor, model_path) {
 mlflow_predict.H2OModel <- function(model, data, ...) {
   h2o_assert_installed()
   as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(data), ...))
-}
-
-h2o_assert_installed <- function() {
-  if (!requireNamespace("h2o", quietly = TRUE)) {
-    stop("The 'h2o' package must be installed.")
-  }
 }
