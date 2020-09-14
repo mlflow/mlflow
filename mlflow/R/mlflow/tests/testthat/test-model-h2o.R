@@ -28,6 +28,11 @@ test_that("can load model and predict with rfunc backend", {
   )
 })
 
+test_that("can print model correctly after it is loaded", {
+  saved_model <- mlflow_load_model("model")
+  expect_equal(capture_output(print(model)), capture_output(print(saved_model)))
+})
+
 test_that("can load and predict with python pyfunct and h2o backend", {
   pyfunc <- import("mlflow.pyfunc")
   py_model <- pyfunc$load_model("model")
