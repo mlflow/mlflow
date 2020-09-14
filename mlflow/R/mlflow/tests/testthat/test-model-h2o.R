@@ -1,7 +1,8 @@
 context("Model h2o")
 
 idx <- withr::with_seed(3809, sample(nrow(iris)))
-predictor <- "Species"
+prediction <- "Species"
+predictors <- setdiff(colnames(iris), prediction)
 
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
@@ -9,7 +10,7 @@ test <- iris[idx[101:nrow(iris)], ]
 h2o::h2o.init()
 
 model <- h2o::h2o.randomForest(
-  x = setdiff(colnames(iris), predictor), y = predictor, training_frame = h2o::as.h2o(train)
+  x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
 )
 
 test_that("mlflow can save model", {
@@ -54,4 +55,53 @@ test_that("can load and predict with python pyfunct and h2o backend", {
     ),
     expected
   )
+})
+
+test_that("Can predict with cli backend", {
+  expected <- as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(test)))
+
+  # # Test that we can score this model with pyfunc backend
+  temp_in_csv <- tempfile(fileext = ".csv")
+  temp_in_json <- tempfile(fileext = ".json")
+  temp_in_json_split <- tempfile(fileext = ".json")
+  temp_out <- tempfile(fileext = ".json")
+
+  check_output <- function() {
+    actual <- do.call(
+      rbind,
+      lapply(jsonlite::read_json(temp_out), as.data.frame)
+    )
+
+    expect_true(!is.null(actual))
+    actual$predict <- as.factor(actual$predict)
+    expect_equal(actual, expected)
+  }
+
+  write.csv(test[, predictors], temp_in_csv, row.names = FALSE)
+  mlflow_cli(
+    "models", "predict", "-m", "model", "-i", temp_in_csv,
+    "-o", temp_out, "-t", "csv"
+  )
+  check_output()
+
+  # json records
+  jsonlite::write_json(test[, predictors], temp_in_json)
+  mlflow_cli(
+    "models", "predict", "-m", "model", "-i", temp_in_json, "-o", temp_out,
+    "-t", "json",
+    "--json-format", "records"
+  )
+  check_output()
+
+  # json split
+  mtcars_split <- list(
+    columns = colnames(test), index = row.names(test), data = as.matrix(test)
+  )
+  jsonlite::write_json(mtcars_split, temp_in_json_split)
+  mlflow_cli(
+    "models", "predict", "-m", "model", "-i", temp_in_json_split,
+    "-o", temp_out, "-t",
+    "json", "--json-format", "split"
+  )
+  check_output()
 })
