@@ -303,7 +303,10 @@ H\ :sub:`2`\ O (``h2o``)
 The ``h2o`` model flavor enables logging and loading H2O models.
 
 The :py:mod:`mlflow.h2o` module defines :py:func:`save_model() <mlflow.h2o.save_model>` and
-:py:func:`log_model() <mlflow.h2o.log_model>` methods in python and `mlflow_save_model <R-api.html#mlflow-save-model-h2o>`__ and `mlflow_log_model <R-api.html#mlflow-log-model>`__ in R respectively for saving H2O models in MLflow Model format.
+:py:func:`log_model() <mlflow.h2o.log_model>` methods in python, and
+`mlflow_save_model <R-api.html#mlflow-save-model-h2o>`__ and
+`mlflow_log_model <R-api.html#mlflow-log-model>`__ in R for saving H2O models in MLflow Model
+format.
 These methods produce MLflow Models with the ``python_function`` flavor, allowing you to load them
 as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. When you load
 MLflow Models with the ``h2o`` flavor using :py:func:`mlflow.pyfunc.load_model()`,
