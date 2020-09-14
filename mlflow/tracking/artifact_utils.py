@@ -74,6 +74,13 @@ def _download_http_file_artifact(artifact_uri, artifact_path, dst_path=None):
     return fullpath
 
 
+def _download_artifact(artifact_uri, output_path=None):
+    parsed_uri = urllib.parse.urlparse(artifact_uri)
+    if parsed_uri.scheme.startswith("http"):
+        return _download_http_file_artifact(artifact_uri, parsed_uri.path, output_path)
+    return _download_artifact_from_uri(artifact_uri, output_path)
+
+
 # TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path
 # or no path.
 def _download_artifact_from_uri(artifact_uri, output_path=None):
@@ -88,9 +95,6 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         # relative path is a special case, urllib does not reconstruct it properly
         prefix = parsed_uri.scheme + ":"
         parsed_uri = parsed_uri._replace(scheme="")
-
-    if parsed_uri.scheme.startswith("http"):
-        return _download_http_file_artifact(artifact_uri, parsed_uri.path, output_path)
 
     # For models:/ URIs, it doesn't make sense to initialize a ModelsArtifactRepository with only
     # the model name portion of the URI, then call download_artifacts with the version info.
