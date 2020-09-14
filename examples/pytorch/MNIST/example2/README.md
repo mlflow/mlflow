@@ -3,7 +3,7 @@
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
 The code is trained using pytorch lightning loop - we add a autolog callback class in the trainer `callbacks=[__MLflowPLCallback()]` which logs the params, metrics, model summary and the model. 
 This example logs metrics only after n epoch iterations. The iteration limit can be set in the trainer module using `log_every_n_iter=NUMBER-OF-ITERATIONS`.
-To log the data after n steps `aggregation_step=NUMBER-OF-STEPS` can be added into the trainer module as given in the example - `mnist-example2.py`.
+To log the data after n steps `aggregation_step=NUMBER-OF-STEPS` can be added into the trainer module as given in the example - `mnist_autolog_example2.py`.
 
 ### Code related to MLflow:
 * [`mlflow.pytorch.pytorch_autolog`]
@@ -17,7 +17,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/ex
 mlflow run .
 ```
 
-This will run `mnist-example2.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_autolog_example2.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
