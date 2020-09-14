@@ -82,6 +82,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
 
+    If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
+
     MLflow sets a variety of default tags on the run, as defined in
     :ref:`MLflow system tags <system_tags>`.
 
