@@ -24,10 +24,11 @@ import tempfile
 import inspect
 import logging
 import gorilla
+from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, ModelInputExample
+from mlflow.models import Model, ModelInputExample, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
@@ -296,11 +297,18 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
 
         original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
-        data_copy = deepcopy(data)
-        s = original(*args, **kwargs)
-        setattr(s, "data_copy", data_copy)
+        data_copy = None
+        try:
+            if isinstance(data, str):
+                raise Exception("The input data was of type string.")
 
-        return s
+            data_copy = deepcopy(data[:5])
+        except Exception as e:
+            msg = "Failed to gather an input example: " + str(e)
+            _logger.warning(msg)
+
+        original(self, *args, **kwargs)
+        setattr(self, "data_copy", data_copy)
 
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
@@ -361,11 +369,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
         params = args[0] if len(args) > 0 else kwargs["params"]
-        dtrain = args[1] if len(args) > 1 else kwargs["dtrain"]
-        logging.warning("AAAAAA")
-        logging.warning(dtrain.data_copy)
-        logging.warning(dtrain.feature_names)
-        logging.warning(dtrain.feature_types)
 
         try_mlflow_log(mlflow.log_params, params)
 
@@ -440,17 +443,36 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
                 finally:
                     shutil.rmtree(tmpdir)
 
-        try_mlflow_log(log_model, model, artifact_path="model")
+        # dtrain must exist as the original train function already ran successfully
+        dtrain = args[1] if len(args) > 1 else kwargs["dtrain"]
+
+        input_example = None
+        signature = None
+        try:
+            input_example = dtrain.data_copy
+
+            # it is possible that the dataset was constructed before the patched
+            #   constructor was applied, so we cannot assume the data_copy exists
+            if input_example is None:
+                raise Exception("failed to gather example input.")
+
+            model_output = model.predict(xgb.DMatrix(input_example))
+            signature = infer_signature(input_example, model_output)
+        except Exception as e:  # pylint: disable=broad-except
+            msg = "Failed to infer the model signature: " + str(e)
+            _logger.warning(msg)
+
+        try_mlflow_log(
+            log_model,
+            model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
         return model
 
-<<<<<<< HEAD
     wrap_patch(xgboost, "train", train)
     wrap_patch(xgboost.DMatrix, "__init__", __init__)
-=======
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(xgboost, "train", train, settings=settings))
-    gorilla.apply(gorilla.Patch(xgboost.DMatrix, "__init__", __init__, settings=settings))
->>>>>>> dc794a22... try again

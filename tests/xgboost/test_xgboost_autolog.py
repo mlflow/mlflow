@@ -6,9 +6,12 @@ import pandas as pd
 from sklearn import datasets
 import xgboost as xgb
 import matplotlib as mpl
+import yaml
 
 import mlflow
 import mlflow.xgboost
+from mlflow.models import Model
+from mlflow.models.utils import _read_example
 
 mpl.use("Agg")
 
@@ -314,6 +317,78 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
 
 
 @pytest.mark.large
+def test_xgb_autolog_gets_input_example(bst_params):
+    mlflow.xgboost.autolog()
+
+    # we cannot use dtrain fixture, as the dataset must be constructed
+    #   after the call to autolog() in order to get the input example
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = xgb.DMatrix(X, y)
+
+    xgb.train(bst_params, dataset)
+    run = get_latest_run()
+
+    model_path = os.path.join(run.info.artifact_uri, "model")
+    model_conf = Model.load(os.path.join(model_path, "MLmodel"))
+
+    input_example = _read_example(model_conf, model_path)
+
+    assert input_example.equals(X[:5])
+
+    pyfunc_model = mlflow.pyfunc.load_model(os.path.join(run.info.artifact_uri, "model"))
+
+    # make sure reloading the input_example and predicting on it does not error
+    pyfunc_model.predict(input_example)
+
+
+@pytest.mark.large
+def test_xgb_autolog_infers_model_signature_correctly(bst_params):
+    mlflow.xgboost.autolog()
+
+    # we cannot use dtrain fixture, as the dataset must be constructed
+    #   after the call to autolog() in order to get the input example
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = xgb.DMatrix(X, y)
+
+    xgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    ml_model_filename = "MLmodel"
+    assert str(os.path.join("model", ml_model_filename)) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+
+    data = None
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    assert data is not None
+    assert "signature" in data
+    signature = data["signature"]
+    assert signature is not None
+
+    assert "inputs" in signature
+    assert json.loads(signature["inputs"]) == [
+        {"name": "sepal length (cm)", "type": "double"},
+        {"name": "sepal width (cm)", "type": "double"},
+    ]
+
+    assert "outputs" in signature
+    assert json.loads(signature["outputs"]) == [
+        {"type": "float"},
+        {"type": "float"},
+        {"type": "float"},
+    ]
+
+
+@pytest.mark.large
 def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
     tmp_csv = tmpdir.join("data.csv")
     tmp_csv.write("1,0.3,1.2\n")
@@ -329,3 +404,36 @@ def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, t
     model = xgb.train(bst_params, dataset)
 
     assert model.get_score(importance_type="weight") == {}
+
+
+@pytest.mark.large
+def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_params, tmpdir):
+    tmp_csv = tmpdir.join("data.csv")
+    tmp_csv.write("1,0.3,1.2\n")
+    tmp_csv.write("0,2.4,5.2\n")
+    tmp_csv.write("1,0.3,-1.2\n")
+
+    mlflow.xgboost.autolog(importance_types=[])
+
+    # signature and input example inference should fail here since the dataset is given
+    #   as a file path
+    dataset = xgb.DMatrix(tmp_csv.strpath + "?format=csv&label_column=0")
+
+    xgb.train(bst_params, dataset)
+    run = get_latest_run()
+    run_id = run.info.run_id
+    artifacts_dir = run.info.artifact_uri.replace("file://", "")
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id, "model")]
+
+    ml_model_filename = "MLmodel"
+    assert os.path.join("model", ml_model_filename) in artifacts
+    ml_model_path = os.path.join(artifacts_dir, "model", ml_model_filename)
+
+    data = None
+    with open(ml_model_path, "r") as f:
+        data = yaml.load(f, Loader=yaml.FullLoader)
+
+    assert data is not None
+    assert "run_id" in data
+    assert "signature" not in data
