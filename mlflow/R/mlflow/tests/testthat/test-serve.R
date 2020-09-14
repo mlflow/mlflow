@@ -2,6 +2,27 @@ context("Serve")
 
 library("carrier")
 
+wait_for_server_to_start <- function(server_process, port) {
+  status_code <- 500
+  for (i in 1:5) {
+    tryCatch({
+      status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
+    }, error = function(...) {
+      status_code <- 500
+    })
+    if (status_code != 200) {
+      Sys.sleep(5)
+    } else {
+      break
+    }
+  }
+  if (status_code != 200) {
+    write("FAILED to start the server!", stderr())
+    error_text <- server_process$read_error()
+    stop("Failed to start the server!", error_text)
+  }
+}
+
 test_that("mlflow can serve a model function", {
   mlflow_clear_test_dir("model")
 
@@ -9,11 +30,15 @@ test_that("mlflow can serve a model function", {
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, path = "model")
   expect_true(dir.exists("model"))
+  port <- 51234
   model_server <- processx::process$new(
     "Rscript",
     c(
       "-e",
-      "mlflow::mlflow_rfunc_serve('model', browse = FALSE)"
+      sprintf(
+        "mlflow::mlflow_rfunc_serve('model', port = %d, browse = FALSE)",
+	port
+      )
     ),
     supervise = TRUE,
     stdout = "|",
@@ -21,7 +46,7 @@ test_that("mlflow can serve a model function", {
   )
   Sys.sleep(10)
   tryCatch({
-    status_code <- httr::status_code(httr::GET("http://127.0.0.1:8090/ping/"))
+    status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
   }, error = function(e) {
     write("FAILED!", stderr())
     error_text <- model_server$read_error()
@@ -35,7 +60,7 @@ test_that("mlflow can serve a model function", {
 
   http_prediction <- httr::content(
     httr::POST(
-      "http://127.0.0.1:8090/predict/",
+      sprintf("http://127.0.0.1:%d/predict/", port),
       body = jsonlite::toJSON(as.list(newdata))
     )
   )
@@ -52,37 +77,19 @@ test_that("mlflow can serve a model function", {
   )
 })
 
-
-wait_for_server_to_start <- function(server_process) {
-  status_code <- 500
-  for (i in 1:5) {
-    tryCatch({
-      status_code <- httr::status_code(httr::GET("http://127.0.0.1:54321/ping/"))
-    }, error = function(...) {
-      Sys.sleep(5)
-    })
-    if (status_code == 200) {
-      break
-    }
-  }
-  if (status_code != 200) {
-    write("FAILED to start the server!", stderr())
-    error_text <- server_process$read_error()
-    stop("Failed to start the server!", error_text)
-  }
-}
-
 test_that("mlflow models server api works with R model function", {
   unlink("model", recursive = TRUE)
+  dir.create("model")
 
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, path = "model")
   expect_true(dir.exists("model"))
-  server_process <- mlflow:::mlflow_cli("models", "serve", "-m", "model", "-p", "54321",
+  port <- 53124
+  server_process <- mlflow:::mlflow_cli("models", "serve", "-m", "model", "-p", as.character(port),
                                         background = TRUE)
   tryCatch({
-    wait_for_server_to_start(server_process)
+    wait_for_server_to_start(server_process, port)
     newdata <- iris[1:2, c("Sepal.Length", "Petal.Width")]
     check_prediction <- function(http_prediction) {
       if (is.character(http_prediction)) {
@@ -98,7 +105,7 @@ test_that("mlflow models server api works with R model function", {
     check_prediction(
       httr::content(
         httr::POST(
-          "http://127.0.0.1:54321/invocation/",
+          sprintf("http://127.0.0.1:%d/invocation/", port),
           httr::content_type("application/json; format=pandas-records"),
           body = jsonlite::toJSON(as.list(newdata))
         )
@@ -113,7 +120,7 @@ test_that("mlflow models server api works with R model function", {
       check_prediction(
         httr::content(
           httr::POST(
-            "http://127.0.0.1:54321/invocation/",
+            sprintf("http://127.0.0.1:%d/invocation/", port),
             httr::content_type(content_type),
             body = jsonlite::toJSON(newdata_split)
           )
@@ -128,7 +135,7 @@ test_that("mlflow models server api works with R model function", {
     check_prediction(
       httr::content(
         httr::POST(
-          "http://127.0.0.1:54321/invocation/",
+          sprintf("http://127.0.0.1:%d/invocation/", port),
           httr::content_type("text/csv"),
           body = newdata_csv
         )
