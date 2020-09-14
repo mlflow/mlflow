@@ -295,3 +295,37 @@ def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
 
     loaded_model = mlflow.xgboost.load_model("runs:/{}/model".format(run_id))
     np.testing.assert_array_almost_equal(model.predict(dtrain), loaded_model.predict(dtrain))
+
+
+@pytest.mark.large
+def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
+    # the gblinear booster does not support calling get_score on it,
+    #   where get_score is used to create the importance values plot.
+    bst_params = {"objective": "multi:softprob", "num_class": 3, "booster": "gblinear"}
+
+    mlflow.xgboost.autolog()
+
+    # we make sure here that we do not throw while attempting to plot
+    #   importance values on a model with a linear booster.
+    model = xgb.train(bst_params, dtrain)
+
+    with pytest.raises(Exception):
+        model.get_score(importance_type="weight")
+
+
+@pytest.mark.large
+def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
+    tmp_csv = tmpdir.join("data.csv")
+    tmp_csv.write("1,0.3,1.2\n")
+    tmp_csv.write("0,2.4,5.2\n")
+    tmp_csv.write("1,0.3,-1.2\n")
+
+    mlflow.xgboost.autolog()
+
+    dataset = xgb.DMatrix(tmp_csv.strpath + "?format=csv&label_column=0")
+
+    # we make sure here that we do not throw while attempting to plot
+    #   importance values on a dataset that returns no importance values.
+    model = xgb.train(bst_params, dataset)
+
+    assert model.get_score(importance_type="weight") == {}

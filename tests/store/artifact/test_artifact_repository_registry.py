@@ -1,6 +1,6 @@
-import mock
 import pytest
 from six.moves import reload_module as reload
+from unittest import mock
 
 import mlflow
 from mlflow.store.artifact import artifact_repository_registry

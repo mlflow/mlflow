@@ -1,5 +1,5 @@
 from click.testing import CliRunner
-from mock import mock
+from unittest import mock
 import numpy as np
 import os
 import pandas as pd

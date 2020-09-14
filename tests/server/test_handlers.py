@@ -1,8 +1,8 @@
 import json
 import uuid
 
-import mock
 import pytest
+from unittest import mock
 
 import os
 import mlflow

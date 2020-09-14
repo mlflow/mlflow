@@ -10,8 +10,8 @@ import time
 import unittest
 import uuid
 
-import mock
 import pytest
+from unittest import mock
 
 from mlflow.entities import (
     Metric,

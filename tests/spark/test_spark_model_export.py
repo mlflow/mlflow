@@ -2,7 +2,7 @@ import logging
 import os
 
 import json
-import mock
+from unittest import mock
 import numpy as np
 import pandas as pd
 import pyspark

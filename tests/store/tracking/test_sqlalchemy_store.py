@@ -6,7 +6,6 @@ import unittest
 import warnings
 
 import math
-import mock
 import pytest
 import sqlalchemy
 import time
@@ -14,6 +13,7 @@ import mlflow
 import uuid
 import json
 import pandas as pd
+from unittest import mock
 
 import mlflow.db
 import mlflow.store.db.base_sql_model

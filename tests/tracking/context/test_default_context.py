@@ -1,5 +1,5 @@
-import mock
 import pytest
+from unittest import mock
 
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE

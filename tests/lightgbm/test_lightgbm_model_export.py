@@ -1,9 +1,9 @@
-import mock
 import os
 import pytest
 import yaml
 import json
 from collections import namedtuple
+from unittest import mock
 
 import numpy as np
 import pandas as pd

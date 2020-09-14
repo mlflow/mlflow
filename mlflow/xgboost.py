@@ -402,24 +402,26 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
-            imp = model.get_score(importance_type=imp_type)
-            features, importance = zip(*imp.items())
+            imp = None
             try:
+                imp = model.get_score(importance_type=imp_type)
+                features, importance = zip(*imp.items())
                 log_feature_importance_plot(features, importance, imp_type)
             except Exception:  # pylint: disable=broad-except
                 _logger.exception(
-                    "Failed to log feature importance plot. LightGBM autologging "
+                    "Failed to log feature importance plot. XGBoost autologging "
                     "will ignore the failure and continue. Exception: "
                 )
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
-                with open(filepath, "w") as f:
-                    json.dump(imp, f)
-                try_mlflow_log(mlflow.log_artifact, filepath)
-            finally:
-                shutil.rmtree(tmpdir)
+            if imp is not None:
+                tmpdir = tempfile.mkdtemp()
+                try:
+                    filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                    with open(filepath, "w") as f:
+                        json.dump(imp, f)
+                    try_mlflow_log(mlflow.log_artifact, filepath)
+                finally:
+                    shutil.rmtree(tmpdir)
 
         try_mlflow_log(log_model, model, artifact_path="model")
 

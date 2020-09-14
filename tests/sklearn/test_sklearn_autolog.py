@@ -1,6 +1,6 @@
 import functools
 import inspect
-from mock import mock
+from unittest import mock
 import os
 import warnings
 

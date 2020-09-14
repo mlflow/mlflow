@@ -2,9 +2,9 @@ import unittest
 from itertools import combinations
 
 import json
-import mock
 import pytest
 import uuid
+from unittest import mock
 
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.protos.model_registry_pb2 import (

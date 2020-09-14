@@ -21,7 +21,7 @@ import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 import yaml
-import mock
+from unittest import mock
 
 import mlflow
 import mlflow.keras

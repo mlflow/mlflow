@@ -2,10 +2,10 @@ import os
 import shlex
 import sys
 from tempfile import NamedTemporaryFile
+from unittest import mock
 
-import mock
 import pytest
-from mock import call, mock_open
+from unittest.mock import call, mock_open
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
