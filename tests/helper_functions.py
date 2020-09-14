@@ -1,6 +1,6 @@
 import os
 import random
-import mock
+from unittest import mock
 
 import requests
 import string

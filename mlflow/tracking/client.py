@@ -13,6 +13,7 @@ from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFA
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._model_registry import utils as registry_utils
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
@@ -381,17 +382,18 @@ class MlflowClient(object):
     # Registered Model Methods
 
     @experimental
-    def create_registered_model(self, name, tags=None):
+    def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
 
         :param name: Name of the new model. This is expected to be unique in the backend store.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.RegisteredModelTag` objects.
+        :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
-        return self._get_registry_client().create_registered_model(name, tags)
+        return self._get_registry_client().create_registered_model(name, tags, description)
 
     @experimental
     def rename_registered_model(self, name, new_name):
@@ -459,7 +461,12 @@ class MlflowClient(object):
         """
         Search for registered models in backend that satisfy the filter criteria.
 
-        :param filter_string: Filter query string, defaults to searching all registered models.
+        :param filter_string: Filter query string, defaults to searching all registered
+                models. Currently, it supports only a single filter condition as the name
+                of the model, for example, ``name = 'model_name'`` or a search expression
+                to match a pattern in the registered model name.
+                For example, ``name LIKE 'Boston%'`` (case sensitive) or
+                ``name ILIKE '%boston%'`` (case insensitive).
         :param max_results: Maximum number of registered models desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
@@ -468,6 +475,55 @@ class MlflowClient(object):
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                 that satisfy the search expressions. The pagination token for the next page can be
                 obtained via the ``token`` attribute of the object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+
+            client = mlflow.tracking.MlflowClient()
+
+            # Get search results filtered by the registered model name
+            model_name="CordobaWeatherForecastModel"
+            filter_string = "name='{}'".format(model_name)
+            results = client.search_registered_models(filter_string=filter_string)
+            print("-" * 80)
+            for res in results:
+                for mv in res.latest_versions:
+                    print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+            # Get search results filtered by the registered model name that matches
+            # prefix pattern
+            filter_string = "name LIKE 'Boston%'"
+            results = client.search_registered_models(filter_string=filter_string)
+            for res in results:
+                for mv in res.latest_versions:
+                print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+            # Get all registered models and order them by ascending order of the names
+            results = client.search_registered_models(order_by=["name ASC"])
+            print("-" * 80)
+            for res in results:
+                for mv in res.latest_versions:
+                    print("name={}; run_id={}; version={}".format(mv.name, mv.run_id, mv.version))
+
+        .. code-block:: text
+            :caption: Output
+
+            ------------------------------------------------------------------------------------
+            name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
+            name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
+            ------------------------------------------------------------------------------------
+            name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
+            name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
+            -----------------------------------------------------------------------------------
+            name=AzureWeatherForecastModel; run_id=5fcec6c4f1c947fc9295fef3fa21e52d; version=1
+            name=AzureWeatherForecastModel; run_id=8198cb997692417abcdeb62e99052260; version=3
+            name=BostonWeatherForecastModel; run_id=ddc51b9407a54b2bb795c8d680e63ff6; version=1
+            name=BostonWeatherForecastModel; run_id=48ac94350fba40639a993e1b3d4c185d; version=2
+            name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
+            name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
+
         """
         return self._get_registry_client().search_registered_models(
             filter_string, max_results, order_by, page_token
@@ -520,7 +576,16 @@ class MlflowClient(object):
     # Model Version Methods
 
     @experimental
-    def create_model_version(self, name, source, run_id, tags=None, run_link=None):
+    def create_model_version(
+        self,
+        name,
+        source,
+        run_id,
+        tags=None,
+        run_link=None,
+        description=None,
+        await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    ):
         """
         Create a new model version from given source (artifact URI).
 
@@ -530,6 +595,10 @@ class MlflowClient(object):
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         :param run_link: Link to the run from an MLflow tracking server that generated this model.
+        :param description: Description of the version.
+        :param await_creation_for: Number of seconds to wait for the model version to finish being
+                                    created and is in ``READY`` status. By default, the function
+                                    waits for five minutes. Specify 0 or None to skip waiting.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
@@ -555,7 +624,13 @@ class MlflowClient(object):
                 + " `source` field of the created model version. ==="
             )
         return self._get_registry_client().create_model_version(
-            name=name, source=new_source, run_id=run_id, tags=tags, run_link=run_link
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
+            await_creation_for=await_creation_for,
         )
 
     def _get_run_link(self, tracking_uri, run_id):
@@ -656,10 +731,42 @@ class MlflowClient(object):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
-        :param filter_string: A filter string expression. Currently supports a single filter
-                              condition either name of model like ``name = 'model_name'`` or
+        :param filter_string: A filter string expression. Currently, it supports a single filter
+                              condition either a name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+
+            client = mlflow.tracking.MlflowClient()
+
+            # Get all versions of the model filtered by name
+            model_name = "CordobaWeatherForecastModel"
+            filter_string = "name='{}'".format(model_name)
+            results = client.search_model_versions(filter_string)
+            print("-" * 80)
+            for res in results:
+                print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+
+            # Get the version of the model filtered by run_id
+            run_id = "e14afa2f47a040728060c1699968fd43"
+            filter_string = "run_id='{}'".format(run_id)
+            results = client.search_model_versions(filter_string)
+            print("-" * 80)
+            for res in results:
+                print("name={}; run_id={}; version={}".format(res.name, res.run_id, res.version))
+
+        .. code-block:: text
+            :caption: Output
+
+            ------------------------------------------------------------------------------------
+            name=CordobaWeatherForecastModel; run_id=eaef868ee3d14d10b4299c4c81ba8814; version=1
+            name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
+            ------------------------------------------------------------------------------------
+            name=CordobaWeatherForecastModel; run_id=e14afa2f47a040728060c1699968fd43; version=2
         """
         return self._get_registry_client().search_model_versions(filter_string)
 

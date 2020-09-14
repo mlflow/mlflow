@@ -1,8 +1,8 @@
 import os
 
-import mock
 import pytest
 import posixpath  # pylint: disable=unused-import
+from unittest import mock
 
 from databricks_cli.configure.provider import DatabricksConfig
 

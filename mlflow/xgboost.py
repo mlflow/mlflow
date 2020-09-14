@@ -36,7 +36,8 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
 
@@ -154,6 +155,7 @@ def log_model(
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
     """
@@ -202,7 +204,9 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
     Model.log(
@@ -213,6 +217,7 @@ def log_model(
         conda_env=conda_env,
         signature=signature,
         input_example=input_example,
+        await_registration_for=await_registration_for,
         **kwargs
     )
 
@@ -286,7 +291,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     import xgboost
     import numpy as np
 
-    @gorilla.patch(xgboost)
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
@@ -398,24 +402,26 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
-            imp = model.get_score(importance_type=imp_type)
-            features, importance = zip(*imp.items())
+            imp = None
             try:
+                imp = model.get_score(importance_type=imp_type)
+                features, importance = zip(*imp.items())
                 log_feature_importance_plot(features, importance, imp_type)
             except Exception:  # pylint: disable=broad-except
                 _logger.exception(
-                    "Failed to log feature importance plot. LightGBM autologging "
+                    "Failed to log feature importance plot. XGBoost autologging "
                     "will ignore the failure and continue. Exception: "
                 )
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
-                with open(filepath, "w") as f:
-                    json.dump(imp, f)
-                try_mlflow_log(mlflow.log_artifact, filepath)
-            finally:
-                shutil.rmtree(tmpdir)
+            if imp is not None:
+                tmpdir = tempfile.mkdtemp()
+                try:
+                    filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                    with open(filepath, "w") as f:
+                        json.dump(imp, f)
+                    try_mlflow_log(mlflow.log_artifact, filepath)
+                finally:
+                    shutil.rmtree(tmpdir)
 
         try_mlflow_log(log_model, model, artifact_path="model")
 
@@ -423,5 +429,4 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             try_mlflow_log(mlflow.end_run)
         return model
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(xgboost, "train", train, settings=settings))
+    wrap_patch(xgboost, "train", train)

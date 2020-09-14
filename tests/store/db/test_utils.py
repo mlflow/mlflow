@@ -1,5 +1,5 @@
-import mock
 import os
+from unittest import mock
 
 from mlflow.store.db import utils
 

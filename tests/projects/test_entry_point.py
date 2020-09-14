@@ -1,8 +1,8 @@
 import os
 
-import mock
 import pytest
 from six.moves import shlex_quote
+from unittest import mock
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects._project_spec import EntryPoint

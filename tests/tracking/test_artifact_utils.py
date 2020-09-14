@@ -3,7 +3,7 @@ import os
 import pytest
 from requests.models import Response
 
-import mock
+from unittest import mock
 from unittest.mock import ANY
 
 import mlflow

@@ -194,7 +194,7 @@ def run(
 def _user_args_to_dict(arguments, argument_type="P"):
     user_dict = {}
     for arg in arguments:
-        split = arg.split("=")
+        split = arg.split("=", maxsplit=1)
         # Docker arguments such as `t` don't require a value -> set to True if specified
         if len(split) == 1 and argument_type == "A":
             name = split[0]

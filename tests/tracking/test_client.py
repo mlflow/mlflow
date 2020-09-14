@@ -1,8 +1,8 @@
-import mock
 import pytest
+from unittest import mock
 
 from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
-from mlflow.entities.model_registry import ModelVersion
+from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -44,7 +44,7 @@ def test_client_create_run(mock_store, mock_time):
     MlflowClient().create_run(experiment_id)
 
     mock_store.create_run.assert_called_once_with(
-        experiment_id=experiment_id, user_id="unknown", start_time=int(mock_time * 1000), tags=[]
+        experiment_id=experiment_id, user_id="unknown", start_time=int(mock_time * 1000), tags=[],
     )
 
 
@@ -215,16 +215,29 @@ def test_update_registered_model(mock_registry_store):
     mock_registry_store.rename_registered_model.assert_not_called()
 
 
+def test_create_model_version(mock_registry_store):
+    """
+    Basic test for create model version.
+    """
+    mock_registry_store.create_model_version.return_value = _default_model_version()
+    res = MlflowClient(registry_uri="sqlite:///somedb.db").create_model_version(
+        "orig name", "source", "run-id", tags={"key": "value"}, description="desc"
+    )
+    assert res == _default_model_version()
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "orig name", "source", "run-id", [ModelVersionTag(key="key", value="value")], None, "desc",
+    )
+
+
 def test_update_model_version(mock_registry_store):
     """
     Update registered model no longer support state changes.
     """
-    expected_return_value = "some expected return value."
-    mock_registry_store.update_model_version.return_value = expected_return_value
+    mock_registry_store.update_model_version.return_value = _default_model_version()
     res = MlflowClient(registry_uri="sqlite:///somedb.db").update_model_version(
         name="orig name", version="1", description="desc"
     )
-    assert expected_return_value == res
+    assert _default_model_version() == res
     mock_registry_store.update_model_version.assert_called_once_with(
         name="orig name", version="1", description="desc"
     )
@@ -292,7 +305,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     assert model_version.run_id == "runid"
     # verify that the store was not provided a run link
     mock_registry_store.create_model_version.assert_called_once_with(
-        "name", "source", "runid", [], None
+        "name", "source", "runid", [], None, None
     )
 
 
@@ -316,11 +329,11 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], run_link
+            "name", "source", "runid", [], run_link, None
         )
 
 
-def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
+def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store,):
     experiment_id = "test-exp-id"
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
@@ -345,7 +358,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url
+            "name", "source", "runid", [], workspace_url, None
         )
 
 
@@ -374,21 +387,21 @@ def test_create_model_version_run_link_with_configured_profile(mock_registry_sto
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name", "source", "runid", [], workspace_url
+            "name", "source", "runid", [], workspace_url, None
         )
 
 
 def test_create_model_version_copy_called_db_to_db(mock_registry_store):
     client = MlflowClient(
-        tracking_uri="databricks://tracking", registry_uri="databricks://registry:workspace"
+        tracking_uri="databricks://tracking", registry_uri="databricks://registry:workspace",
     )
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
-            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test"
+            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test",
         )
         upload_mock.assert_called_once_with(
-            "dbfs:/source", "run_12345", "databricks://tracking", "databricks://registry:workspace"
+            "dbfs:/source", "run_12345", "databricks://tracking", "databricks://registry:workspace",
         )
 
 
@@ -396,13 +409,13 @@ def test_create_model_version_copy_called_nondb_to_db(mock_registry_store):
     client = MlflowClient(
         tracking_uri="https://tracking", registry_uri="databricks://registry:workspace"
     )
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
             "model name", "s3:/source", "run_12345", run_link="not:/important/for/test"
         )
         upload_mock.assert_called_once_with(
-            "s3:/source", "run_12345", "https://tracking", "databricks://registry:workspace"
+            "s3:/source", "run_12345", "https://tracking", "databricks://registry:workspace",
         )
 
 
@@ -411,19 +424,23 @@ def test_create_model_version_copy_not_called_to_db(mock_registry_store):
         tracking_uri="databricks://registry:workspace",
         registry_uri="databricks://registry:workspace",
     )
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
-            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test"
+            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test",
         )
         upload_mock.assert_not_called()
 
 
 def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks://tracking", registry_uri="https://registry")
-    mock_registry_store.create_model_version.return_value = ""
+    mock_registry_store.create_model_version.return_value = _default_model_version()
     with mock.patch("mlflow.tracking.client._upload_artifacts_to_databricks") as upload_mock:
         client.create_model_version(
-            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test"
+            "model name", "dbfs:/source", "run_12345", run_link="not:/important/for/test",
         )
         upload_mock.assert_not_called()
+
+
+def _default_model_version():
+    return ModelVersion("model name", 1, creation_timestamp=123, status="READY")
