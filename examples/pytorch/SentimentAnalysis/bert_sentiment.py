@@ -83,7 +83,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=0,
+            default=1,
             metavar="N",
             help="number of workers (default: 0)",
         )
@@ -278,7 +278,7 @@ if __name__ == "__main__":
     dict_args = vars(args)
     model = BertSentinmentClassifier(**dict_args)
     mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+        experiment_name="Default", tracking_uri="http://localhost:5000/"
     )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 

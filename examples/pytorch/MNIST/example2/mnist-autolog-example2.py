@@ -9,7 +9,7 @@ import pytorch_lightning as pl
 import torch
 from argparse import ArgumentParser
 from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
-from pytorch_lightning.logging import MLFlowLogger
+from pytorch_lightning.loggers import MLFlowLogger
 from sklearn.metrics import accuracy_score
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
@@ -47,7 +47,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=0,
+            default=1,
             metavar="N",
             help="number of workers (default: 0)",
         )
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
     mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+        experiment_name="Default", tracking_uri="http://localhost:5000/"
     )
     trainer = pl.Trainer.from_argparse_args(
         args,
