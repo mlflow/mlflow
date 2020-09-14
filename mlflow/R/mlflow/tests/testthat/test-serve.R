@@ -78,9 +78,6 @@ test_that("mlflow can serve a model function", {
 })
 
 test_that("mlflow models server api works with R model function", {
-  unlink("model", recursive = TRUE)
-  dir.create("model")
-
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, path = "model")
