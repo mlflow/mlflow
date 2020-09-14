@@ -13,7 +13,7 @@ entry_points:
       learning_rate: {type: float, default: 1e-3}
 
     command: |
-          python mnist-autolog-example1.py \
+          python mnist_autolog_example1.py \
             --max_epochs {epochs} \
             --gpus {gpus} \
             --distributed_backend {distributed_backend} \
