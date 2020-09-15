@@ -680,7 +680,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         )
         cv_model.fit(*get_iris())
         # Will be called twice, once for metrics, once for artifacts
-        assert(mock_warning.call_count == 2)
+        assert mock_warning.call_count == 2
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
