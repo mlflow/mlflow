@@ -445,6 +445,18 @@ def test_start_existing_run_status(empty_active_run_stack):
     assert restarted_run.info.status == RunStatus.to_string(RunStatus.RUNNING)
 
 
+def test_start_existing_run_end_time(empty_active_run_stack):
+    run_id = mlflow.start_run().info.run_id
+    mlflow.end_run()
+    run_obj_info = MlflowClient().get_run(run_id).info
+    old_end = run_obj_info.end_time
+    assert run_obj_info.status == RunStatus.to_string(RunStatus.FINISHED)
+    mlflow.start_run(run_id)
+    mlflow.end_run()
+    run_obj_info = MlflowClient().get_run(run_id).info
+    assert run_obj_info.end_time > old_end
+
+
 def test_get_run():
     run_id = uuid.uuid4().hex
     mock_run = mock.Mock()
