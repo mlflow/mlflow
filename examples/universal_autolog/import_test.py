@@ -3,15 +3,15 @@ import argparse
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, log_loss
-import xgboost as xgb
-import lightgbm as lgb
-import matplotlib as mpl
+# import xgboost as xgb
+# import lightgbm as lgb
+# import matplotlib as mpl
 
 
 import mlflow
 import mlflow.xgboost
 
-mpl.use("Agg")
+# mpl.use("Agg")
 
 
 def parse_args():
@@ -42,7 +42,7 @@ def main():
     args = parse_args()
 
     # enable universal autologging!!
-    mlflow.xgboost.autolog()
+    mlflow.autolog()
 
     # # prepare train and test data
     # iris = datasets.load_iris()
