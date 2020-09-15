@@ -28,6 +28,7 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 import sys
+import logging
 
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
@@ -64,6 +65,8 @@ import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
 import mlflow.shap as shap  # noqa: E402
 
+
+_logger = logging.getLogger(__name__)
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
@@ -159,11 +162,23 @@ __all__ = [
 ]
 
 def autolog():
-    mlflow.tensorflow.autolog()
-    mlflow.keras.autolog()
-    mlflow.gluon.autolog()
-    mlflow.xgboost.autolog()
-    mlflow.lightgbm.autolog()
-    #mlflow.spark.autolog()
-    mlflow.fastai.autolog()
-    mlflow.sklearn.autolog()
+    autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "fastai", "sklearn"]
+
+    for flavor in autolog_flavors:
+        flavor_obj = getattr(mlflow, flavor)
+
+        try:
+            autolog_fn = getattr(flavor_obj, "autolog")
+            autolog_fn()
+            _logger.info("successfully set up autologging for flavor " + flavor)
+        except Exception as e:
+            _logger.warning("failed to set up autologging for flavor " + flavor + ", error was:\n" + str(e))
+
+    # mlflow.tensorflow.autolog()
+    # mlflow.keras.autolog()
+    # mlflow.gluon.autolog()
+    # mlflow.xgboost.autolog()
+    # mlflow.lightgbm.autolog()
+    # #mlflow.spark.autolog()
+    # mlflow.fastai.autolog()
+    # mlflow.sklearn.autolog()
