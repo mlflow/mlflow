@@ -4,8 +4,8 @@ from itertools import islice
 import inspect
 import logging
 from numbers import Number
+import matplotlib.pyplot as plt
 import numpy as np
-import os
 import time
 
 from mlflow.entities import Metric, Param
@@ -513,6 +513,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
                 for name, display in name_artifact_dict.items():
                     filepath = tmp.path("{}.png".format(name))
                     display.figure_.savefig(filepath)
+                    plt.close(display.figure_)
                 try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp.path())
 
 

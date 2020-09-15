@@ -3,6 +3,7 @@ import inspect
 from unittest import mock
 import os
 import warnings
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -258,6 +259,8 @@ def test_classifier_binary():
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
+    # verify no figure is open
+    assert len(plt.get_fignums()) == 0
 
 
 def test_classifier_multi_class():
