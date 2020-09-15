@@ -440,7 +440,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
 
 
 @pytest.mark.large
-def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params):
+def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     mlflow.xgboost.autolog()
 
     # we cannot use dtrain fixture, as the dataset must be constructed
@@ -452,6 +452,5 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params):
 
     xgb.train(bst_params, dataset)
 
-    dataset.save_binary("dataset_serialization_test")  # serialization should not throw
-    xgb.DMatrix("dataset_serialization_test")  # deserialization also should not throw
-    os.remove("dataset_serialization_test")
+    dataset.save_binary(tmpdir.join("dataset_serialization_test"))  # serialization should not throw
+    xgb.DMatrix(tmpdir.join("dataset_serialization_test"))  # deserialization also should not throw
