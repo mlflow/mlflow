@@ -250,7 +250,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
             # For binary case, the parameter `y_score` expect scores must be
             # the scores of the class with the greater label.
             if len(y_pred_proba[0]) == 2:
-                y_pred_proba = [prob[1] for prob in y_pred_proba]
+                y_pred_proba = y_pred_proba[:, 1]
 
             classifier_metrics.extend(
                 [
