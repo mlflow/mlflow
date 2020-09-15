@@ -14,7 +14,7 @@ from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import artifact_utils
+from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
@@ -82,6 +82,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
 
+    If resuming an existing run, the run status is set to ``RunStatus.RUNNING``.
+
     MLflow sets a variety of default tags on the run, as defined in
     :ref:`MLflow system tags <system_tags>`.
 
@@ -140,6 +142,12 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                 "Cannot start run with ID {} because it is in the "
                 "deleted state.".format(existing_run_id)
             )
+        # Use previous end_time because a value is required for update_run_info
+        end_time = active_run_obj.info.end_time
+        _get_store().update_run_info(
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time
+        )
+        active_run_obj = MlflowClient().get_run(existing_run_id)
     else:
         if len(_active_run_stack) > 0:
             parent_run_id = _active_run_stack[-1].info.run_id
