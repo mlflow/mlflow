@@ -210,33 +210,17 @@ def active_run():
     .. code-block:: python
         :caption: Example
 
-        from pprint import pprint
         import mlflow
 
         mlflow.start_run()
-
-        mlflow.log_param("p", 0)
-        mlflow.log_metric("m", 1)
-        mlflow.set_tag("t", 2)
-
-        client = mlflow.tracking.MlflowClient()
-        data = client.get_run(mlflow.active_run().info.run_id).data
-
-        # Extract only user defined tags; skip System tags starting with "mlflow."
-        tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
-
-        pprint(data.params)
-        pprint(data.metrics)
-        pprint(tags)
-
+        run = mlflow.active_run()
+        print("Active run_id: {}".format(run.info.run_id))
         mlflow.end_run()
 
-    .. code-block:: text
+    .. code-block: text
         :caption: Output
 
-        {'p': '0'}
-        {'m': 1.0}
-        {'t': '2'}
+        Active run_id: 6f252757005748708cd3aad75d1ff462
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
