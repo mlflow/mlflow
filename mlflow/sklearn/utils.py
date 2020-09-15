@@ -280,9 +280,9 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     https://scikit-learn.org/stable/modules/generated/sklearn.metrics.plot_confusion_matrix.html
 
     For only binary classifiers, we will log:
-    (3) precision recall curve:
-    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.plot_precision_recall_curve.html#sklearn.metrics.plot_precision_recall_curve
-    (2) roc curve:
+    (2) precision recall curve:
+    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.plot_precision_recall_curve.html
+    (3) roc curve:
     https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html
 
     Steps:
