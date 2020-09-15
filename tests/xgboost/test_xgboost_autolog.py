@@ -444,7 +444,7 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     mlflow.xgboost.autolog()
 
     # we cannot use dtrain fixture, as the dataset must be constructed
-    #   after the call to autolog() in order to get the input example
+    #   after the call to autolog() in order to test the serialization
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
