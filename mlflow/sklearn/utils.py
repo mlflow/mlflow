@@ -459,7 +459,6 @@ def _log_warning_for_artifacts(func_name, func_call, err):
         + " Artifact error: "
         + str(err)
     )
-    print("2: ", msg)
     _logger.warning(msg)
 
 
@@ -481,7 +480,6 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             + ". Logging error: "
             + str(err)
         )
-        print("3: ", msg)
         _logger.warning(msg)
     else:
         # batch log all metrics
@@ -505,7 +503,6 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             + ". Logging error: "
             + str(err)
         )
-        print("4: ", msg)
         _logger.warning(msg)
     else:
         if bool(name_artifact_dict):
