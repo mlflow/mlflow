@@ -701,7 +701,10 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         }
     )
     assert params == expected_cv_params
-    assert {TRAINING_SCORE: cv_model.score(X, y)}.items() <= metrics.items()
+    assert {
+        TRAINING_SCORE: cv_model.score(X, y),
+        "best_cv_score": cv_model.best_score_,
+    }.items() <= metrics.items()
     assert tags == get_expected_class_tags(cv_model)
     assert MODEL_DIR in artifacts
     assert "best_estimator" in artifacts

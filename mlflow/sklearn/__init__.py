@@ -830,6 +830,9 @@ def autolog():
                     input_example=input_example,
                 )
 
+            if hasattr(estimator, "best_score_"):
+                try_mlflow_log(mlflow.log_metric, "best_cv_score", estimator.best_score_)
+
             if hasattr(estimator, "best_params_"):
                 best_params = {
                     "best_{param_name}".format(param_name=param_name): param_value
