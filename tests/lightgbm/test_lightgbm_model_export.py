@@ -1,9 +1,9 @@
-import mock
 import os
 import pytest
 import yaml
 import json
 from collections import namedtuple
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -22,6 +22,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -166,7 +167,9 @@ def test_log_model_calls_register_model(lgb_model):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(lgb_model):

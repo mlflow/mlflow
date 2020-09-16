@@ -30,9 +30,13 @@ def _fetch_s3(uri, local_path):
 
     client_kwargs = {}
     endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
+    ignore_tls = os.environ.get("MLFLOW_S3_IGNORE_TLS")
 
     if endpoint_url:
         client_kwargs["endpoint_url"] = endpoint_url
+
+    if ignore_tls:
+        client_kwargs["verify"] = ignore_tls.lower() not in ["true", "yes", "1"]
 
     (bucket, s3_path) = parse_s3_uri(uri)
     boto3.client("s3", **client_kwargs).download_file(bucket, s3_path, local_path)

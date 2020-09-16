@@ -21,7 +21,7 @@ import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 import yaml
-import mock
+from unittest import mock
 
 import mlflow
 import mlflow.keras
@@ -40,6 +40,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -367,7 +368,9 @@ def test_log_model_calls_register_model(model):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(model):

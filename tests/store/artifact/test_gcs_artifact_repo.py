@@ -1,8 +1,8 @@
 # pylint: disable=redefined-outer-name
 import os
-import mock
 import posixpath
 import pytest
+from unittest import mock
 
 from google.cloud.storage import client as gcs_client
 

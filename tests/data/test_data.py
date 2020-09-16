@@ -2,8 +2,8 @@ from contextlib import contextmanager
 import os
 import shutil
 import tempfile
+from unittest import mock
 
-import mock
 import pytest
 
 from mlflow.data import is_uri, download_uri, DownloadException

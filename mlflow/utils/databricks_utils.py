@@ -174,10 +174,17 @@ def get_workspace_id():
         return _get_context_tag("orgId")
 
 
+def get_browser_hostname():
+    try:
+        return _get_command_context().browserHostName().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("browserHostName")
+
+
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        workspace_host = get_webapp_url()
+        workspace_host = get_browser_hostname()
         workspace_id = get_workspace_id()
         return workspace_host, workspace_id
     return None, None

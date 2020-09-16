@@ -6,19 +6,21 @@ For example:
 .. code:: python
 
     import mlflow
+
     mlflow.start_run()
     mlflow.log_param("my", "param")
     mlflow.log_metric("score", 100)
     mlflow.end_run()
 
-You can also use syntax like this:
+You can also use the context manager syntax like this:
 
 .. code:: python
 
     with mlflow.start_run() as run:
-        ...
+        mlflow.log_param("my", "param")
+        mlflow.log_metric("score", 100)
 
-which automatically terminates the run at the end of the block.
+which automatically terminates the run at the end of the ``with`` block.
 
 The fluent tracking API is not currently threadsafe. Any concurrent callers to the tracking API must
 implement mutual exclusion manually.

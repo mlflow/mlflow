@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 import pytest
 
 from mlflow.utils import databricks_utils
@@ -103,7 +103,7 @@ def test_get_workspace_info_from_databricks_secrets():
 
 def test_get_workspace_info_from_dbutils():
     mock_dbutils = mock.MagicMock()
-    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.apiUrl.return_value.get.return_value = (  # noqa
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.browserHostName.return_value.get.return_value = (  # noqa
         "https://mlflow.databricks.com"
     )
     mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.workspaceId.return_value.get.return_value = (  # noqa
@@ -118,11 +118,9 @@ def test_get_workspace_info_from_dbutils():
 def test_get_workspace_info_from_dbutils_old_runtimes():
     mock_dbutils = mock.MagicMock()
     mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.toJson.return_value = (  # noqa
-        '{"extraContext":'
-        '{"api_url": "https://mlflow.databricks.com"},'
-        '"tags": {"orgId" : "1111"}}'
+        '{"tags": {"orgId" : "1111", "browserHostName": "mlflow.databricks.com"}}'
     )
-    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.apiUrl.return_value.get.return_value = (  # noqa
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.browserHostName.return_value.get.return_value = (  # noqa
         "https://mlflow.databricks.com"
     )
     # Mock out workspace ID tag

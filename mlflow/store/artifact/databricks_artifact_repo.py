@@ -23,7 +23,11 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_in_chunks
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
+from mlflow.utils.rest_utils import (
+    call_endpoint,
+    extract_api_info_for_service,
+    _REST_API_PATH_PREFIX,
+)
 from mlflow.utils.uri import (
     extract_and_normalize_path,
     get_databricks_profile_uri_from_artifact_uri,
@@ -33,11 +37,10 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
-_PATH_PREFIX = "/api/2.0"
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
 _SERVICE_AND_METHOD_TO_INFO = {
-    service: extract_api_info_for_service(service, _PATH_PREFIX)
+    service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
 

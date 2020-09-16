@@ -47,6 +47,28 @@ def set_registry_uri(uri):
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
+
+    .. code-block:: python
+        :caption: Example
+
+        import mflow
+
+        # Set model registry uri, fetch the set uri, and compare
+        # it with the tracking uri. They should be different
+        mlflow.set_registry_uri("sqlite:////tmp/registry.db")
+        mr_uri = mlflow.get_registry_uri()
+        print("Current registry uri: {}".format(mr_uri))
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri: {}".format(tracking_uri))
+
+        # They should be different
+        assert tracking_uri != mr_uri
+
+    .. code-block:: text
+        :caption: Output
+
+        Current registry uri: sqlite:////tmp/registry.db
+        Current tracking uri: file:///.../mlruns
     """
     global _registry_uri
     _registry_uri = uri
@@ -63,6 +85,26 @@ def get_registry_uri():
     Get the current registry URI. If none has been specified, defaults to the tracking URI.
 
     :return: The registry URI.
+
+    .. code-block:: python
+        :caption: Example
+
+        # Get the current model registry uri
+        mr_uri = mlflow.get_registry_uri()
+        print("Current model registry uri: {}".format(mr_uri))
+
+        # Get the current tracking uri
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri: {}".format(tracking_uri))
+
+        # They should be the same
+        assert mr_uri == tracking_uri
+
+    .. code-block:: text
+        :caption: Output
+
+        Current model registry uri: file:///.../mlruns
+        Current tracking uri: file:///.../mlruns
     """
     return _get_registry_uri_from_context() or get_tracking_uri()
 

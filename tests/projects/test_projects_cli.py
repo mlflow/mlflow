@@ -1,9 +1,9 @@
 import json
 import hashlib
-import mock
 import os
 import shutil
 import logging
+from unittest import mock
 
 from click.testing import CliRunner
 import pytest
