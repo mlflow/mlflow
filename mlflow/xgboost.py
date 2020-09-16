@@ -314,7 +314,6 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         if data is not None:
             original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
-            input_example_info = None
             try:
                 if isinstance(data, str):
                     raise Exception(
