@@ -141,18 +141,6 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_artifacts_list(artifacts_list):
-    artifacts_value_dict = {}
-    for artifact in artifacts_list:
-        try:
-            display = artifact.function(**artifact.arguments)
-            display.ax_.set_title(artifact.title)
-            artifacts_value_dict[artifact.name] = display
-        except Exception as e:  # pylint: disable=broad-except
-            _log_warning_for_artifacts(artifact.name, artifact.function, e)
-    return artifacts_value_dict
-
-
 def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
     Compute and record various common metrics for classifiers
@@ -354,7 +342,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                 ]
             )
 
-    return _get_artifacts_list(classifier_artifacts)
+    return classifier_artifacts
 
 
 def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
@@ -492,26 +480,31 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             ],
         )
 
-    name_artifact_dict = {}
-    try:
-        if sklearn.base.is_classifier(fitted_estimator):
-            name_artifact_dict = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
-    except Exception as err:  # pylint: disable=broad-except
-        msg = (
-            "Failed to autolog artifacts for "
-            + fitted_estimator.__class__.__name__
-            + ". Logging error: "
-            + str(err)
-        )
-        _logger.warning(msg)
-    else:
-        if bool(name_artifact_dict):
-            with TempDir() as tmp:
-                for name, display in name_artifact_dict.items():
-                    filepath = tmp.path("{}.png".format(name))
+    if sklearn.base.is_classifier(fitted_estimator):
+        try:
+            artifacts = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
+        except Exception as e:  # pylint: disable=broad-except
+            msg = (
+                "Failed to autolog artifacts for "
+                + fitted_estimator.__class__.__name__
+                + ". Logging error: "
+                + str(e)
+            )
+            _logger.warning(msg)
+            return
+
+        with TempDir() as tmp_dir:
+            for artifact in artifacts:
+                try:
+                    display = artifact.function(**artifact.arguments)
+                    display.ax_.set_title(artifact.title)
+                    filepath = tmp_dir.path("{}.png".format(artifact.name))
                     display.figure_.savefig(filepath)
                     plt.close(display.figure_)
-                try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp.path())
+                except Exception as e:  # pylint: disable=broad-except
+                    _log_warning_for_artifacts(artifact.name, artifact.function, e)
+
+            try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
 
 
 def _chunk_dict(d, chunk_size):
