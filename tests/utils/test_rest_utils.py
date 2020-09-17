@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import mock
+from unittest import mock
 import numpy
 import pytest
 
@@ -28,6 +28,23 @@ def test_well_formed_json_error_response():
         response_proto = GetRun.Response()
         with pytest.raises(RestException):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
+
+
+def test_non_json_ok_response():
+    with mock.patch("requests.request") as request_mock:
+        host_only = MlflowHostCreds("http://my-host")
+        response_mock = mock.MagicMock()
+        response_mock.status_code = 200
+        response_mock.text = "<html></html>"
+        request_mock.return_value = response_mock
+
+        response_proto = GetRun.Response()
+        with pytest.raises(
+            MlflowException,
+            match="API request to endpoint was successful but the response body was not "
+            "in a valid JSON format",
+        ):
+            call_endpoint(host_only, "/api/2.0/fetch-model", "GET", "", response_proto)
 
 
 @pytest.mark.parametrize(
@@ -179,6 +196,13 @@ def test_http_request_wrapper(request):
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()
     response.status_code = 200
+    response.text = "{}"
+    request.return_value = response
+    http_request_safe(host_only, "/my/endpoint")
+    request.assert_called_with(
+        url="http://my-host/my/endpoint", verify=False, headers=_DEFAULT_HEADERS,
+    )
+    response.text = "non json"
     request.return_value = response
     http_request_safe(host_only, "/my/endpoint")
     request.assert_called_with(

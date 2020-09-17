@@ -1,5 +1,4 @@
 import os
-import json
 import logging
 import subprocess
 
@@ -35,16 +34,27 @@ def _get_java_dbutils():
     return dbutils.notebook.entry_point.getDbutils()
 
 
+def _get_command_context():
+    return _get_java_dbutils().notebook().getContext()
+
+
 def _get_extra_context(context_key):
-    return _get_java_dbutils().notebook().getContext().extraContext().get(context_key).get()
+    return _get_command_context().extraContext().get(context_key).get()
 
 
 def _get_context_tag(context_tag_key):
-    tag_opt = _get_java_dbutils().notebook().getContext().tags().get(context_tag_key)
+    tag_opt = _get_command_context().tags().get(context_tag_key)
     if tag_opt.isDefined():
         return tag_opt.get()
     else:
         return None
+
+
+def acl_path_of_acl_root():
+    try:
+        return _get_command_context().aclPathOfAclRoot().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_extra_context("aclPathOfAclRoot")
 
 
 def _get_property_from_spark_context(key):
@@ -66,7 +76,7 @@ def is_in_databricks_notebook():
     if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
-        return _get_extra_context("aclPathOfAclRoot").startswith("/workspace")
+        return acl_path_of_acl_root().startswith("/workspace")
     except Exception:  # pylint: disable=broad-except
         return False
 
@@ -107,7 +117,7 @@ def get_notebook_id():
     notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
     if notebook_id is not None:
         return notebook_id
-    acl_path = _get_extra_context("aclPathOfAclRoot")
+    acl_path = acl_path_of_acl_root()
     if acl_path.startswith("/workspace"):
         return acl_path.split("/")[-1]
     return None
@@ -118,7 +128,10 @@ def get_notebook_path():
     path = _get_property_from_spark_context("spark.databricks.notebook.path")
     if path is not None:
         return path
-    return _get_extra_context("notebook_path")
+    try:
+        return _get_command_context().notebookPath().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_extra_context("notebook_path")
 
 
 def get_cluster_id():
@@ -148,17 +161,31 @@ def get_webapp_url():
     url = _get_property_from_spark_context("spark.databricks.api.url")
     if url is not None:
         return url
-    return _get_extra_context("api_url")
+    try:
+        return _get_command_context().apiUrl().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_extra_context("api_url")
+
+
+def get_workspace_id():
+    try:
+        return _get_command_context().workspaceId().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("orgId")
+
+
+def get_browser_hostname():
+    try:
+        return _get_command_context().browserHostName().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("browserHostName")
 
 
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        context = json.loads(
-            dbutils.notebook.entry_point.getDbutils().notebook().getContext().toJson()
-        )
-        workspace_host = context["extraContext"]["api_url"]
-        workspace_id = context["tags"]["orgId"]
+        workspace_host = get_browser_hostname()
+        workspace_id = get_workspace_id()
         return workspace_host, workspace_id
     return None, None
 

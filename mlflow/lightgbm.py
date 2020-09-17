@@ -25,10 +25,11 @@ import shutil
 import inspect
 import logging
 import gorilla
+from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -37,7 +38,13 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+)
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 FLAVOR_NAME = "lightgbm"
@@ -158,6 +165,7 @@ def log_model(
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
     """
@@ -206,7 +214,9 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     :param kwargs: kwargs to pass to `lightgbm.Booster.save_model`_ method.
     """
     Model.log(
@@ -217,6 +227,7 @@ def log_model(
         conda_env=conda_env,
         signature=signature,
         input_example=input_example,
+        await_registration_for=await_registration_for,
         **kwargs
     )
 
@@ -276,14 +287,15 @@ def autolog():
     - metrics on each iteration (if ``valid_sets`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance (both "split" and "gain") as JSON files and plots.
-    - trained model.
+    - trained model, including:
+        - an example of valid input.
+        - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is not supported.
     """
     import lightgbm
     import numpy as np
 
-    @gorilla.patch(lightgbm)
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
@@ -379,6 +391,20 @@ def autolog():
         else:
             kwargs["callbacks"] = [callback]
 
+        # We set free_raw_data to false on the Dataset object
+        # so that we can access the original data later.
+        train_data = args[1] if len(args) > 1 else kwargs.get("train_data")
+
+        input_example = None
+        try:
+            if isinstance(train_data.data, str):
+                raise Exception("The input data was of type string.")
+
+            input_example = deepcopy(train_data.data[:INPUT_EXAMPLE_SAMPLE_ROWS])
+        except Exception as e:  # pylint: disable=broad-except
+            msg = "Failed to gather an input example: " + str(e)
+            _logger.warning(msg)
+
         # training model
         model = original(*args, **kwargs)
 
@@ -424,11 +450,28 @@ def autolog():
             finally:
                 shutil.rmtree(tmpdir)
 
-        try_mlflow_log(log_model, model, artifact_path="model")
+        signature = None
+        try:
+            if input_example is None:
+                raise Exception("failed to gather example input.")
+
+            model_output = model.predict(input_example)
+            signature = infer_signature(input_example, model_output)
+        except Exception as e:  # pylint: disable=broad-except
+            input_example = None
+            msg = "Failed to infer the model signature: " + str(e)
+            _logger.warning(msg)
+
+        try_mlflow_log(
+            log_model,
+            model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
         return model
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(lightgbm, "train", train, settings=settings))
+    wrap_patch(lightgbm, "train", train)

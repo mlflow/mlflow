@@ -5,8 +5,8 @@ import tempfile
 import time
 
 import attrdict
-import mock
 import pytest
+from unittest import mock
 
 import mlflow
 from mlflow import tracking

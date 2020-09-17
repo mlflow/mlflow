@@ -1,6 +1,12 @@
 import inspect
-import mlflow
+import functools
+import gorilla
 import warnings
+
+import mlflow
+
+
+INPUT_EXAMPLE_SAMPLE_ROWS = 5
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -89,3 +95,21 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     for param_name in kwargs:
         if param_name not in unlogged:
             try_mlflow_log(mlflow.log_param, param_name, kwargs[param_name])
+
+
+def wrap_patch(destination, name, patch, settings=None):
+    """
+    Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
+
+    :param destination: Patch destination
+    :param name: Name of the attribute at the destination
+    :param patch: Patch function
+    :param settings: Settings for gorilla.Patch
+    """
+    if settings is None:
+        settings = gorilla.Settings(allow_hit=True, store_hit=True)
+
+    original = getattr(destination, name)
+    wrapped = functools.wraps(original)(patch)
+    patch = gorilla.Patch(destination, name, wrapped, settings=settings)
+    gorilla.apply(patch)

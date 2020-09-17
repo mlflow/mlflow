@@ -12,6 +12,7 @@ from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
+_REST_API_PATH_PREFIX = "/api/2.0"
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 
 _logger = logging.getLogger(__name__)
@@ -111,7 +112,7 @@ def http_request_safe(host_creds, endpoint, **kwargs):
 
 
 def verify_rest_response(response, endpoint):
-    """Verify the return code and raise exception if the request was not successful."""
+    """Verify the return code and format, raise exception if the request was not successful."""
     if response.status_code != 200:
         if _can_parse_as_json(response.text):
             raise RestException(json.loads(response.text))
@@ -121,6 +122,16 @@ def verify_rest_response(response, endpoint):
                 response.status_code,
             )
             raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+
+    # Skip validation for endpoints (e.g. DBFS file-download API) which may return a non-JSON
+    # response
+    if endpoint.startswith(_REST_API_PATH_PREFIX) and not _can_parse_as_json(response.text):
+        base_msg = (
+            "API request to endpoint was successful but the response body was not "
+            "in a valid JSON format"
+        )
+        raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
+
     return response
 
 

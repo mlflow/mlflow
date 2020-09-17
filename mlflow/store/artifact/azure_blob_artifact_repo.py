@@ -90,7 +90,14 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                     container_client.upload_blob(remote_file_path, file)
 
     def list_artifacts(self, path=None):
-        from azure.storage.blob._models import BlobPrefix
+        # Newer versions of `azure-storage-blob` (>= 12.4.0) provide a public
+        # `azure.storage.blob.BlobPrefix` object to signify that a blob is a directory,
+        # while older versions only expose this API internally as
+        # `azure.storage.blob._models.BlobPrefix`
+        try:
+            from azure.storage.blob import BlobPrefix
+        except ImportError:
+            from azure.storage.blob._models import BlobPrefix
 
         (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)

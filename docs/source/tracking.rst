@@ -228,6 +228,58 @@ log statements, and is currently supported for:
   :local:
   :depth: 1
 
+
+Scikit-learn (experimental)
+---------------------------
+
+Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of sklearn metrics, params, and models.
+See example usage `here <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
+
+Autologging for estimators (e.g. `LinearRegression`_) and meta estimators (e.g. `Pipeline`_) creates a single run and logs:
+
++-------------------------+--------------------------+------------------------------+------------------+
+| Metrics                 | Parameters               | Tags                         | Artifacts        |
++-------------------------+--------------------------+------------------------------+------------------+
+| Training score obtained | Parameters obtained by   | - Class name                 | Fitted estimator |
+| by ``estimator.score``  | ``estimator.get_params`` | - Fully qualified class name |                  |
++-------------------------+--------------------------+------------------------------+------------------+
+
+
+.. _LinearRegression:
+    https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
+
+.. _Pipeline:
+    https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+
+Autologging for parameter search estimators (e.g. `GridSearchCV`_) creates a single parent run and nested child runs
+
+.. code-block::
+
+  - Parent run
+    - Child run 1
+    - Child run 2
+    - ...
+
+containing the following data:
+
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Run type         | Metrics                    | Parameters                                | Tags                         | Artifacts                           |
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Parent           | Training score             | - Parameter search estimator's parameters | - Class name                 | - Fitted parameter search estimator |
+|                  |                            | - Best parameter combination              | - Fully qualified class name | - Fitted best estimator             |
+|                  |                            |                                           |                              | - Search results csv file           |
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Child            | CV test score for          | Each parameter combination                | - Class name                 | --                                  |
+|                  | each parameter combination |                                           | - Fully qualified class name |                                     |
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+
+.. _GridSearchCV:
+    https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
+
+.. note::
+  This feature is experimental - the API and format of the logged data are subject to change.  
+
 TensorFlow and Keras (experimental)
 -----------------------------------
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
@@ -292,11 +344,11 @@ Call :py:func:`mlflow.xgboost.autolog` before your training code to enable autom
 
 Autologging captures the following information:
 
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                           |
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
-| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) on training end; feature importance |
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                                                               |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) with model signature on training end; feature importance; input example |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
@@ -314,11 +366,11 @@ Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable auto
 
 Autologging captures the following information:
 
-+-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                            |
-+-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
-| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) on training end; feature importance |
-+-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                                                                 |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) with model signature on training end; feature importance; input example  |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
@@ -368,9 +420,6 @@ Autologging captures the following information:
 |           |                        | Logs the parameters of the `EarlyStoppingCallback`_ and  |               |                                                                                                                                                                       |
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-.. note::
-  This feature is experimental - the API and format of the logged data are subject to change.
 
 .. _organizing_runs_in_experiments:
 
@@ -582,11 +631,20 @@ For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
+If the MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check, or add a custom CA bundle to perform this check, respectively:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_IGNORE_TLS=true
+  #or
+  export AWS_CA_BUNDLE=/some/ca/bundle.pem
+
 Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
 
 .. code-block:: bash
 
   export AWS_DEFAULT_REGION=my_region
+
 
 Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
