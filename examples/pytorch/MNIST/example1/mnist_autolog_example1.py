@@ -6,11 +6,15 @@
 #       and mlflow (using pip install mlflow).
 #
 import pytorch_lightning as pl
+import os
 import torch
 from argparse import ArgumentParser
 from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
-from pytorch_lightning.logging import MLFlowLogger
-from sklearn.metrics import accuracy_score
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateLogger
+from pytorch_lightning.loggers import MLFlowLogger
+from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
@@ -47,7 +51,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=0,
+            default=1,
             metavar="N",
             help="number of workers (default: 0)",
         )
@@ -107,15 +111,14 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = val_batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
-        return {"val_loss": loss}
+        return {"val_step_loss": loss}
 
     def validation_epoch_end(self, outputs):
         """
         Computes average validation accuracy
         """
-        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        tensorboard_logs = {"val_loss": avg_loss}
-        return {"avg_val_loss": avg_loss, "log": tensorboard_logs}
+        avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
+        return {"val_loss": avg_loss}
 
     def test_step(self, test_batch, batch_idx):
         """
@@ -124,7 +127,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = test_batch
         output = self.forward(x)
         a, y_hat = torch.max(output, dim=1)
-        test_acc = accuracy_score(y_hat.cpu(), y.cpu())
+        test_acc = accuracy(y_hat.cpu(), y.cpu())
         return {"test_acc": torch.tensor(test_acc)}
 
     def test_epoch_end(self, outputs):
@@ -235,12 +238,27 @@ if __name__ == "__main__":
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
     mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
+        experiment_name="Default", tracking_uri="http://localhost:5000/"
     )
+    early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
+
+    checkpoint_callback = ModelCheckpoint(
+        filepath=os.getcwd(),
+        save_top_k=1,
+        verbose=True,
+        monitor="val_loss",
+        mode="min",
+        prefix="",
+    )
+    lr_logger = LearningRateLogger()
+
     trainer = pl.Trainer.from_argparse_args(
         args,
         logger=mlflow_logger,
-        callbacks=[__MLflowPLCallback(aggregation_step=500)]
+        callbacks=[__MLflowPLCallback(), lr_logger],
+        early_stop_callback=early_stopping,
+        checkpoint_callback=checkpoint_callback,
+        train_percent_check=0.1,
     )
     trainer.fit(model)
     trainer.test()

@@ -5,7 +5,7 @@ from iris import IrisClassification
 from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.logging import MLFlowLogger
+from pytorch_lightning.loggers import MLFlowLogger
 
 NUM_EPOCHS = 20
 
