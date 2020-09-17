@@ -83,7 +83,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=0,
+            default=1,
             metavar="N",
             help="number of workers (default: 0)",
         )
