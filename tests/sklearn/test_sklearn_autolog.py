@@ -3,7 +3,7 @@ import inspect
 from unittest import mock
 import os
 import warnings
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -18,9 +18,9 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
-    _METRICS_PREFIX,
     _is_supported_version,
     _is_metric_supported,
+    _is_plotting_supported,
     _get_arg_names,
     _truncate_dict,
 )
@@ -201,11 +201,75 @@ def test_estimator(fit_func_name):
     assert_predict_equal(loaded_model, model, X)
 
 
-def test_classifier():
+def test_classifier_binary():
     mlflow.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use binary datasets to cover the test for roc curve & precision recall curve
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    y_pred = model.predict(X)
+    y_pred_prob = model.predict_proba(X)
+    # For binary classification, y_score only accepts the probability of greater label
+    y_pred_prob_roc = y_pred_prob[:, 1]
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+
+    expected_metrics = {
+        TRAINING_SCORE: model.score(X, y_true),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+        )
+
+    assert metrics == expected_metrics
+
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names.extend(
+            [
+                "{}.png".format("training_confusion_matrix"),
+                "{}.png".format("training_roc_curve"),
+                "{}.png".format("training_precision_recall_curve"),
+            ]
+        )
+
+    assert all(x in artifacts for x in plot_names)
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+    # verify no figure is open
+    assert len(plt.get_fignums()) == 0
+
+
+def test_classifier_multi_class():
+    mlflow.sklearn.autolog()
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use multi-class datasets to verify that roc curve & precision recall curve care not recorded
     X, y_true = get_iris()
 
     with mlflow.start_run() as run:
@@ -213,29 +277,39 @@ def test_classifier():
 
     y_pred = model.predict(X)
     y_pred_prob = model.predict_proba(X)
+
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
 
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
-        _METRICS_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        _METRICS_PREFIX
-        + "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX
-        + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
     if _is_metric_supported("roc_auc_score"):
-        expected_metrics[_METRICS_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo",
         )
 
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names = ["{}.png".format("training_confusion_matrix")]
+
+    assert all(x in artifacts for x in plot_names)
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -257,10 +331,10 @@ def test_regressor():
 
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        _METRICS_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        _METRICS_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        _METRICS_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        _METRICS_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+        "training_mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        "training_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        "training_mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
@@ -567,9 +641,9 @@ def test_autolog_emits_warning_message_when_metric_fails():
     def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    sklearn.metrics.precision_score = throwing_metrics
-
-    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -608,12 +682,8 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "Failed to autolog metrics for "
-            + sklearn.model_selection.GridSearchCV.__class__.__name__
-            + ". Logging error: EXCEPTION"
-        )
+        # Will be called twice, once for metrics, once for artifacts
+        assert mock_warning.call_count == 2
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
