@@ -22,6 +22,8 @@ import os
 import yaml
 import logging
 import re
+import shutil
+import tempfile
 import traceback
 
 import mlflow
@@ -197,24 +199,35 @@ def log_model(
             input_example=input_example,
             await_registration_for=await_registration_for,
         )
-    # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
-    # model
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
-    try:
-        spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
-    except Py4JJavaError:
-        return Model.log(
-            artifact_path=artifact_path,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            dfs_tmpdir=dfs_tmpdir,
-            sample_input=sample_input,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-        )
+    if model_dir.startswith("dbfs:/databricks/mlflow-tracking"):
+        # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
+        # directory, then use FUSE to upload directly to the artifact location
+        fuse_tmpdir = tempfile.mkdtemp(dir="/dbfs/tmp/mlflow")
+        spark_model.save(fuse_tmpdir)
+        mlflow.log_artifacts(fuse_tmpdir, artifact_path)
+        pass
+    else:
+        # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
+        # model
+        try:
+            spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
+        except Py4JJavaError:
+
+            return Model.log(
+                artifact_path=artifact_path,
+                flavor=mlflow.spark,
+                spark_model=spark_model,
+                conda_env=conda_env,
+                dfs_tmpdir=dfs_tmpdir,
+                sample_input=sample_input,
+                registered_model_name=registered_model_name,
+                signature=signature,
+                input_example=input_example,
+                await_registration_for=await_registration_for,
+            )
+
+
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -500,7 +513,13 @@ def save_model(
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
+    # If running against dbfs:/ URLs, copy to local FS via the FUSE mount
+    if (tmp_path.startswith("dbfs:/")):
+        tmp_path_fuse = "/dbfs/" + tmp_path.split("dbfs:/")[1]
+        shutil.copytree(src=tmp_path_fuse, dst=sparkml_data_path)
+        shutil.rmtree(tmp_path_fuse)
+    else:
+        _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(
         dst_dir=path,
         spark_model=spark_model,
