@@ -566,6 +566,7 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
     do.call(mlflow_create_run, args)
   }
   mlflow_set_active_run_id(mlflow_id(run))
+  mlflow_set_experiment(experiment_id = args$experiment_id)
   run
 }
 
