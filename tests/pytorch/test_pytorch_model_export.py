@@ -870,7 +870,6 @@ def test_artifacts_save_model(create_artifact, sequential_model):
 
 def test_log_model_invalid_path(create_artifact, sequential_model):
     artifact_file_path = create_artifact
-    print("Artifact Path {}".format(artifact_file_path))
     with mlflow.start_run(), pytest.raises(FileNotFoundError):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
@@ -886,7 +885,6 @@ def test_log_model_invalid_path(create_artifact, sequential_model):
 
 def test_log_model_invalid_type(create_artifact, sequential_model):
     artifact_file_path = create_artifact
-    print("Artifact Path {}".format(artifact_file_path))
     with mlflow.start_run(), pytest.raises(TypeError) as exc_info:
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
