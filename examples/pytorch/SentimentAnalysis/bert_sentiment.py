@@ -4,10 +4,10 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
+import mlflow
 import torch
 import torch.nn.functional as F
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateLogger
-from pytorch_lightning.loggers import MLFlowLogger
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from torch import nn
@@ -257,6 +257,7 @@ class BertSentinmentClassifier(pl.LightningModule):
 
 
 if __name__ == "__main__":
+    mlflow.set_tracking_uri("http://localhost:5000/")
     parser = ArgumentParser(description="Bert-Sentiment Classifier Example")
 
     # Add trainer specific arguments
@@ -279,9 +280,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
     model = BertSentinmentClassifier(**dict_args)
-    mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT/"
-    )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
@@ -296,7 +294,6 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        logger=mlflow_logger,
         callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,

@@ -7,13 +7,13 @@
 #
 import pytorch_lightning as pl
 import os
+import mlflow
 import torch
 from argparse import ArgumentParser
 from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateLogger
-from pytorch_lightning.logging import MLFlowLogger
 from sklearn.metrics import accuracy_score
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
@@ -217,6 +217,7 @@ class LightningMNISTClassifier(pl.LightningModule):
 
 
 if __name__ == "__main__":
+    mlflow.set_tracking_uri("http://localhost:5000/")
     parser = ArgumentParser(description="PyTorch Lightning Mnist Example")
 
     # Add trainer specific arguments
@@ -239,9 +240,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
-    mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT", tracking_uri="http://IP:PORT/"
-    )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
@@ -256,7 +254,6 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        logger=mlflow_logger,
         callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,

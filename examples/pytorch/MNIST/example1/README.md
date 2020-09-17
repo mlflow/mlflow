@@ -1,7 +1,8 @@
 ## MNIST example with MLFlow
 
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop - we add a autolog callback class in the trainer `callbacks=[__MLflowPLCallback()]` which logs the params, metrics, model summary and the model. 
+The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+is responsible for logging the params, metrics, model summary and the model.
 Early stopping condition and Model Checkpoint are added in this example.
 
 ### Code related to MLflow:
@@ -41,5 +42,3 @@ mlflow ui
 and navigating to [http://localhost:5000](http://localhost:5000).
 
 For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
-
-

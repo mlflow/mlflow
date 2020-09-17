@@ -1,9 +1,10 @@
 ## MNIST example with MLFlow
 
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop - we add a autolog callback class in the trainer `callbacks=[__MLflowPLCallback()]` which logs the params, metrics, model summary and the model. 
-This example logs metrics only after n epoch iterations. The iteration limit can be set in the trainer module using `log_every_n_iter=NUMBER-OF-ITERATIONS`.
-To log the data after n steps `aggregation_step=NUMBER-OF-STEPS` can be added into the trainer module as given in the example - `mnist-example2.py`.
+The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+is responsible for logging the params, metrics, model summary and the model.
+This example logs metrics only after n epoch iterations. The iteration limit can be set in the autolog method using the parameter `log_every_n_iter=NUMBER-OF-ITERATIONS`.
+For ex: `autolog(log_every_n_iter=5)`
 
 ### Code related to MLflow:
 * [`mlflow.pytorch.pytorch_autolog`]

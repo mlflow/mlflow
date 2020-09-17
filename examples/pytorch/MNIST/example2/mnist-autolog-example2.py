@@ -5,10 +5,10 @@
 # pytorch-lightning (using pip install pytorch-lightning)
 #       and mlflow (using pip install mlflow).
 #
+import mlflow
 import pytorch_lightning as pl
 import torch
 from argparse import ArgumentParser
-from pytorch_lightning.logging import MLFlowLogger
 from mlflow.pytorch.pytorch_autolog import autolog
 from sklearn.metrics import accuracy_score
 from torch.nn import functional as F
@@ -214,6 +214,7 @@ class LightningMNISTClassifier(pl.LightningModule):
 
 
 if __name__ == "__main__":
+    mlflow.set_tracking_uri("http://localhost:5000/")
     parser = ArgumentParser(description="PyTorch Lightning Mnist Example")
 
     # Add trainer specific arguments
@@ -236,9 +237,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
     model = LightningMNISTClassifier(**dict_args)
-    mlflow_logger = MLFlowLogger(
-        experiment_name="EXPERIMENT_NAME", tracking_uri="http://IP:PORT"
-    )
-    trainer = pl.Trainer.from_argparse_args(args, logger=mlflow_logger)
+    trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model)
     trainer.test()
