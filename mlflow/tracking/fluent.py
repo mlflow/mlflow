@@ -127,6 +127,37 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nest run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create nested runs
+        with mlflow.start_run(run_name='PARENT_RUN', nested=True) as parent_run:
+            mlflow.log_param("parent", "yes")
+            with mlflow.start_run(run_name='CHILD_RUN', nested=True) as child_run:
+                mlflow.log_param("child", "yes")
+
+        print("parent run_id: {}".format(parent_run.info.run_id))
+        print("child run_id : {}".format(child_run.info.run_id))
+        print("--")
+
+        # Search all child runs with a parent id
+        query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
+        results = mlflow.search_runs(filter_string=query)
+
+        # Print the pandas DataFrame columns
+        print(results.loc[:, ["run_id", "params.child", "tags.mlflow.runName"]].to_string())
+
+    .. code-block:: text
+        :caption: Output
+
+        parent run_id: 5ec0e7ae18f54c2694ffb48c2fccf25c
+        child run_id : 78b3b0d264b44cd29e8dc389749bb4be
+        --
+                                     run_id params.child tags.mlflow.runName
+        0  78b3b0d264b44cd29e8dc389749bb4be          yes           CHILD_RUN
     """
     global _active_run_stack
     # back compat for int experiment_id
@@ -196,7 +227,29 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
 
 def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
-    """End an active MLflow run (if there is one)."""
+    """End an active MLflow run (if there is one).
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Start run and get status
+        mlflow.start_run()
+        run = mlflow.active_run()
+        print("run_id: {}; status: {}".format(run.info.run_id, run.info.status))
+
+        # End run and get status
+        mlflow.end_run()
+        run = mlflow.get_run(run.info.run_id)
+        print("run_id: {}; status: {}".format(run.info.run_id, run.info.status))
+
+    .. code-block:: python
+        :caption: Output
+
+        run_id: b47ee4563368419880b44ad8535f6371; status: RUNNING
+        run_id: b47ee4563368419880b44ad8535f6371; status: FINISHED
+    """
     global _active_run_stack
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
@@ -742,6 +795,45 @@ def search_runs(
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
         value will be (NumPy) Nan, None, or None respectively.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create an experiment and log two runs under it
+        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        with mlflow.start_run(experiment_id=experiment_id):
+            mlflow.log_metric("m", 1.55)
+            mlflow.set_tag("s.release", "1.1.0-RC")
+        with mlflow.start_run(experiment_id=experiment_id):
+            mlflow.log_metric("m", 2.50)
+            mlflow.set_tag("s.release", "1.2.0-GA")
+
+        # Search all runs in experiment_id
+        df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
+
+        # Print pandas DataFrame's rows and columns
+        print(df.loc[:, ["metrics.m", "tags.s.release", "run_id"]].to_string())
+        print("--")
+
+        # Search the experiment_id using a filter_string with tag
+        # that has a case insensitive pattern
+        filter_string = "tags.s.release ILIKE '%rc%'"
+        df = mlflow.search_runs([experiment_id], filter_string=filter_string)
+
+        # Print pandas DataFrame's rows and columns
+        print(df.loc[:, ["metrics.m", "tags.s.release", "run_id"]].to_string())
+
+    .. code-block:: text
+        :caption: Output
+
+           metrics.m tags.s.release                            run_id
+        0       2.50       1.2.0-GA  147eed886ab44633902cc8e19b2267e2
+        1       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
+        --
+           metrics.m tags.s.release                            run_id
+        0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
