@@ -1,5 +1,9 @@
 context("Tracking")
 
+teardown({
+  mlflow_clear_test_dir("mlruns")
+})
+
 test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()

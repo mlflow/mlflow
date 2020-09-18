@@ -1,5 +1,9 @@
 context("client")
 
+teardown({
+  mlflow_clear_test_dir("mlruns")
+})
+
 test_that("http(s) clients work as expected", {
   mlflow_clear_test_dir("mlruns")
   with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
