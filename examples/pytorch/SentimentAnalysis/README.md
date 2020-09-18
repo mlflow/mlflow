@@ -10,6 +10,11 @@ is responsible for logging the params, metrics, model summary and the model.
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
 
+## Setup
+
+Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `bert_sentiment.py`
+Change the variables according to the environment setup.
+
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/SentimentAnalysis` directory and run the command
 

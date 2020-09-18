@@ -14,6 +14,10 @@ The metrics are logged during training of the model.
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example2` directory and run the command
 
+## Setup
+Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `mnist_autolog_example2.py`
+Change the variables according to the environment setup.
+
 ```
 mlflow run .
 ```

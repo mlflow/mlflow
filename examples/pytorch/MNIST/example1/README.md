@@ -10,6 +10,10 @@ Early stopping condition and Model Checkpoint are added in this example.
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
 
+## Setup
+Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `mnist_autolog_example1.py`
+Change the variables according to the environment setup.
+
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example1` directory and run the command
 
