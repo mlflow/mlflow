@@ -457,15 +457,18 @@ def _safe_to_edit_run():
 
     request_message = _get_request_message(SafeToEditRun())
     response_message = SafeToEditRun.Response()
-
     run_id = request_message.run_id
-    registered_versions = _get_model_registry_store().search_model_versions(f"run_id='{run_id}'")
-
     safe_to_edit = True
-    if os.getenv(FREEZE_PRODUCTION_MODELS) and any(
-        x.current_stage == STAGE_PRODUCTION for x in registered_versions
-    ):
-        safe_to_edit = False
+    try:
+        registry = _get_model_registry_store()
+    except UnsupportedModelRegistryStoreURIException as e:
+        safe_to_edit = True
+    else:
+        registered_versions = registry.search_model_versions(f"run_id='{run_id}'")
+        if os.getenv(FREEZE_PRODUCTION_MODELS) and any(
+                x.current_stage == STAGE_PRODUCTION for x in registered_versions
+        ):
+            safe_to_edit = False
 
     response_message.value = safe_to_edit
 
