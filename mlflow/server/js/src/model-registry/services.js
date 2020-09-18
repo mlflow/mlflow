@@ -111,7 +111,7 @@ export class Services {
    * @returns {*|jQuery|*|*}
    */
   static setRegisteredModelTag({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/set-tag'), {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/registered-models/set-tag'), {
       type: 'POST',
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
@@ -130,7 +130,7 @@ export class Services {
    * @returns {*|jQuery|*|*}
    */
   static deleteRegisteredModelTag({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/registered-models/delete-tag'), {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/registered-models/delete-tag'), {
       type: 'DELETE',
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
@@ -285,7 +285,7 @@ export class Services {
    * @returns {*|jQuery|*|*}
    */
   static setModelVersionTag({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/set-tag'), {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/model-versions/set-tag'), {
       type: 'POST',
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',
@@ -304,7 +304,7 @@ export class Services {
    * @returns {*|jQuery|*|*}
    */
   static deleteModelVersionTag({ data, success, error }) {
-    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/model-versions/delete-tag'), {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/mlflow/model-versions/delete-tag'), {
       type: 'DELETE',
       dataType: 'json',
       contentType: 'application/json; charset=utf-8',

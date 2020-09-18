@@ -39589,7 +39589,7 @@ public final class ModelRegistry {
       "com.databricks.rpc.RPC[$this.Response]*R" +
       "\n\022ModelVersionStatus\022\030\n\024PENDING_REGISTRA" +
       "TION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005READY" +
-      "\020\0032\307\033\n\024ModelRegistryService\022\266\001\n\025createRe" +
+      "\020\0032\226\035\n\024ModelRegistryService\022\266\001\n\025createRe" +
       "gisteredModel\022\035.mlflow.CreateRegisteredM" +
       "odel\032&.mlflow.CreateRegisteredModel.Resp" +
       "onse\"V\362\206\031R\n6\n\004POST\022(/preview/mlflow/regi" +
@@ -39658,27 +39658,32 @@ public final class ModelRegistry {
       "nDownloadUri.Response\"q\362\206\031m\n<\n\003GET\022//pre" +
       "view/mlflow/model-versions/get-download-" +
       "uri\032\004\010\002\020\000\020\001*+Get Download URI For ModelV" +
-      "ersion Artifacts\022\271\001\n\025setRegisteredModelT" +
+      "ersion Artifacts\022\354\001\n\025setRegisteredModelT" +
       "ag\022\035.mlflow.SetRegisteredModelTag\032&.mlfl" +
-      "ow.SetRegisteredModelTag.Response\"Y\362\206\031U\n" +
-      "7\n\004POST\022)/preview/mlflow/registered-mode" +
-      "ls/set-tag\032\004\010\002\020\000\020\001*\030Set Registered Model" +
-      " Tag\022\252\001\n\022setModelVersionTag\022\032.mlflow.Set" +
-      "ModelVersionTag\032#.mlflow.SetModelVersion" +
-      "Tag.Response\"S\362\206\031O\n4\n\004POST\022&/preview/mlf" +
-      "low/model-versions/set-tag\032\004\010\002\020\000\020\001*\025Set " +
-      "Model Version Tag\022\312\001\n\030deleteRegisteredMo" +
-      "delTag\022 .mlflow.DeleteRegisteredModelTag" +
-      "\032).mlflow.DeleteRegisteredModelTag.Respo" +
-      "nse\"a\362\206\031]\n<\n\006DELETE\022,/preview/mlflow/reg" +
-      "istered-models/delete-tag\032\004\010\002\020\000\020\001*\033Delet" +
-      "e Registered Model Tag\022\273\001\n\025deleteModelVe" +
-      "rsionTag\022\035.mlflow.DeleteModelVersionTag\032" +
-      "&.mlflow.DeleteModelVersionTag.Response\"" +
-      "[\362\206\031W\n9\n\006DELETE\022)/preview/mlflow/model-v" +
-      "ersions/delete-tag\032\004\010\002\020\000\020\001*\030Delete Model" +
-      " Version TagB!\n\024org.mlflow.api.proto\220\001\001\240" +
-      "\001\001\342?\002\020\001"
+      "ow.SetRegisteredModelTag.Response\"\213\001\362\206\031\206" +
+      "\001\n/\n\004POST\022!/mlflow/registered-models/set" +
+      "-tag\032\004\010\002\020\000\n7\n\004POST\022)/preview/mlflow/regi" +
+      "stered-models/set-tag\032\004\010\002\020\000\020\001*\030Set Regis" +
+      "tered Model Tag\022\331\001\n\022setModelVersionTag\022\032" +
+      ".mlflow.SetModelVersionTag\032#.mlflow.SetM" +
+      "odelVersionTag.Response\"\201\001\362\206\031}\n,\n\004POST\022\036" +
+      "/mlflow/model-versions/set-tag\032\004\010\002\020\000\n4\n\004" +
+      "POST\022&/preview/mlflow/model-versions/set" +
+      "-tag\032\004\010\002\020\000\020\001*\025Set Model Version Tag\022\202\002\n\030" +
+      "deleteRegisteredModelTag\022 .mlflow.Delete" +
+      "RegisteredModelTag\032).mlflow.DeleteRegist" +
+      "eredModelTag.Response\"\230\001\362\206\031\223\001\n4\n\006DELETE\022" +
+      "$/mlflow/registered-models/delete-tag\032\004\010" +
+      "\002\020\000\n<\n\006DELETE\022,/preview/mlflow/registere" +
+      "d-models/delete-tag\032\004\010\002\020\000\020\001*\033Delete Regi" +
+      "stered Model Tag\022\360\001\n\025deleteModelVersionT" +
+      "ag\022\035.mlflow.DeleteModelVersionTag\032&.mlfl" +
+      "ow.DeleteModelVersionTag.Response\"\217\001\362\206\031\212" +
+      "\001\n1\n\006DELETE\022!/mlflow/model-versions/dele" +
+      "te-tag\032\004\010\002\020\000\n9\n\006DELETE\022)/preview/mlflow/" +
+      "model-versions/delete-tag\032\004\010\002\020\000\020\001*\030Delet" +
+      "e Model Version TagB!\n\024org.mlflow.api.pr" +
+      "oto\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

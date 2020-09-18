@@ -231,8 +231,12 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/registered-models/set-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/registered-models/set-tag"
-        since { major: 2, minor: 0},
+        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Set Registered Model Tag",
@@ -245,8 +249,12 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/model-versions/set-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/model-versions/set-tag"
-        since { major: 2, minor: 0},
+        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Set Model Version Tag",
@@ -259,8 +267,12 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
+        path: "/mlflow/registered-models/delete-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "DELETE",
         path: "/preview/mlflow/registered-models/delete-tag"
-        since { major: 2, minor: 0},
+        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Registered Model Tag",
@@ -273,8 +285,12 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
+        path: "/mlflow/model-versions/delete-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "DELETE",
         path: "/preview/mlflow/model-versions/delete-tag"
-        since { major: 2, minor: 0},
+        since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Delete Model Version Tag",
