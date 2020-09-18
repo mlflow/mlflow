@@ -76,30 +76,51 @@ def main():
         # log metrics
         mlflow.log_metrics({"log_loss": loss, "accuracy": acc})
 
-    # some LightGBM training
-    with mlflow.start_run():
         # train model
         params = {
-            "objective": "multiclass",
+            "objective": "multi:softprob",
             "num_class": 3,
             "learning_rate": args.learning_rate,
-            "metric": "multi_logloss",
+            "eval_metric": "mlogloss",
             "colsample_bytree": args.colsample_bytree,
             "subsample": args.subsample,
             "seed": 42,
         }
-        model = lgb.train(
-            params, lgb_dtrain, num_boost_round=10, valid_sets=[lgb_dtrain], valid_names=["train"]
-        )
+        model = xgb.train(params, xgb_dtrain, evals=[(xgb_dtrain, "train")])
 
         # evaluate model
-        y_proba = model.predict(X_test)
+        y_proba = model.predict(dtest)
         y_pred = y_proba.argmax(axis=1)
         loss = log_loss(y_test, y_proba)
         acc = accuracy_score(y_test, y_pred)
 
         # log metrics
         mlflow.log_metrics({"log_loss": loss, "accuracy": acc})
+
+    # # some LightGBM training
+    # with mlflow.start_run():
+    #     # train model
+    #     params = {
+    #         "objective": "multiclass",
+    #         "num_class": 3,
+    #         "learning_rate": args.learning_rate,
+    #         "metric": "multi_logloss",
+    #         "colsample_bytree": args.colsample_bytree,
+    #         "subsample": args.subsample,
+    #         "seed": 42,
+    #     }
+    #     model = lgb.train(
+    #         params, lgb_dtrain, num_boost_round=10, valid_sets=[lgb_dtrain], valid_names=["train"]
+    #     )
+
+    #     # evaluate model
+    #     y_proba = model.predict(X_test)
+    #     y_pred = y_proba.argmax(axis=1)
+    #     loss = log_loss(y_test, y_proba)
+    #     acc = accuracy_score(y_test, y_pred)
+
+    #     # log metrics
+    #     mlflow.log_metrics({"log_loss": loss, "accuracy": acc})
 
 
 if __name__ == "__main__":
