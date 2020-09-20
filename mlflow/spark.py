@@ -21,10 +21,12 @@ Spark MLlib (native) format
 import os
 import yaml
 import logging
+import posixpath
 import re
 import shutil
 import tempfile
 import traceback
+import uuid
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -204,12 +206,13 @@ def log_model(
         # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
         # directory, then use FUSE to upload directly to the artifact location
         fuse_tmpdir = tempfile.mkdtemp(dir="/dbfs/tmp/mlflow")
-        spark_model.save(fuse_tmpdir)
+        hdfs_tmpdir = "dbfs:/" + fuse_tmpdir.split("/dbfs")[1]
+        spark_model.save(hdfs_tmpdir)
         mlflow.log_artifacts(fuse_tmpdir, artifact_path)
-        pass
+        shutil.rmtree(fuse_tmpdir)
     else:
-        # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
-        # model
+        # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
+        # to persist the model
         try:
             spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
         except Py4JJavaError:
@@ -537,6 +540,18 @@ def _load_model(model_uri, dfs_tmpdir=None):
     if dfs_tmpdir is None:
         dfs_tmpdir = DFS_TMP
     tmp_path = _tmp_path(dfs_tmpdir)
+    if model_uri.startswith("dbfs:/databricks/mlflow-tracking"):
+        from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+        # To load Spark model from ACL'd DBFS, copy it to standard DBFS tmpdir via FUSE, read model,
+        # and remove tmpdir
+        fuse_tmpdir = posixpath.join("/dbfs/tmp/mlflow", uuid.uuid4().hex)
+        os.mkdir(fuse_tmpdir)
+        try:
+            DatabricksArtifactRepository(model_uri).download_artifacts("", dst_path=fuse_tmpdir)
+            dbfs_hdfs_tmpdir = "dbfs:" + fuse_tmpdir.split("/dbfs")[1]
+            return PipelineModel.load(dbfs_hdfs_tmpdir)
+        finally:
+            shutil.rmtree(fuse_tmpdir)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
