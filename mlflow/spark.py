@@ -40,6 +40,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.utils import databricks_utils
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
@@ -206,10 +207,13 @@ def log_model(
         # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
         # directory, then use FUSE to upload directly to the artifact location
         fuse_tmpdir = tempfile.mkdtemp(dir="/dbfs/tmp/mlflow")
-        hdfs_tmpdir = "dbfs:/" + fuse_tmpdir.split("/dbfs")[1]
-        spark_model.save(hdfs_tmpdir)
-        mlflow.log_artifacts(fuse_tmpdir, artifact_path)
-        shutil.rmtree(fuse_tmpdir)
+        try:
+            hdfs_tmpdir = databricks_utils.dbfs_fuse_path_to_hdfs_uri(fuse_tmpdir)
+            spark_model.save(hdfs_tmpdir)
+            mlflow.log_artifacts(fuse_tmpdir, artifact_path)
+        finally:
+            shutil.rmtree(fuse_tmpdir)
+
     else:
         # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
         # to persist the model
@@ -518,9 +522,8 @@ def save_model(
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
     # If running against dbfs:/ URLs, copy to local FS via the FUSE mount
     if (tmp_path.startswith("dbfs:/")):
-        tmp_path_fuse = "/dbfs/" + tmp_path.split("dbfs:/")[1]
-        shutil.copytree(src=tmp_path_fuse, dst=sparkml_data_path)
-        shutil.rmtree(tmp_path_fuse)
+        tmp_path_fuse = databricks_utils.dbfs_hdfs_uri_to_fuse_path(tmp_path)
+        shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
         _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(

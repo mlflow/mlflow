@@ -10,6 +10,8 @@ from mlflow.utils.uri import get_db_info_from_uri
 
 _logger = logging.getLogger(__name__)
 
+_DBFS_FUSE_PREFIX = "/dbfs/"
+_DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 def _get_dbutils():
     try:
@@ -265,3 +267,16 @@ def get_databricks_host_creds(server_uri=None):
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
+
+def dbfs_fuse_path_to_hdfs_uri(fuse_path):
+    if not fuse_path.startswith(_DBFS_FUSE_PREFIX):
+        raise MlflowException("Path '%s' did not start with expected DBFS FUSE prefix '%s'" %
+                              fuse_path, _DBFS_FUSE_PREFIX)
+    return _DBFS_HDFS_URI_PREFIX + fuse_path[len(_DBFS_FUSE_PREFIX):]
+
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+    if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
+        raise MlflowException("Path '%s' did not start with expected DBFS URI prefix '%s'" %
+                              dbfs_uri, _DBFS_HDFS_URI_PREFIX)
+
+    return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX):]
