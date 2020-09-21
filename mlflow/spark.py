@@ -24,7 +24,6 @@ import logging
 import posixpath
 import re
 import shutil
-import tempfile
 import traceback
 import uuid
 
@@ -57,7 +56,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
-DFS_TMP = "dbfs:/tmp/mlflow"
+DFS_TMP = "tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
@@ -89,6 +88,18 @@ def get_default_conda_env():
         additional_conda_channels=None,
     )
 
+
+def _log_spark_model_databricks_artifact_acl(spark_model, artifact_path, dfs_tmpdir):
+    # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
+    # directory, then use FUSE to upload directly to the artifact location
+    hdfs_tmpdir_base = _tmp_path(dfs_tmpdir)
+    fuse_tmpdir_base = dbfs_hdfs_uri_to_fuse_path(hdfs_tmpdir_base)
+    hdfs_tmpdir = posixpath.join(hdfs_tmpdir_base, _SPARK_MODEL_PATH_SUB)
+    spark_model.save(hdfs_tmpdir)
+    try:
+        mlflow.log_artifacts(fuse_tmpdir_base, artifact_path)
+    finally:
+        shutil.rmtree(fuse_tmpdir_base)
 
 def log_model(
     spark_model,
@@ -190,6 +201,8 @@ def log_model(
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
+    if dfs_tmpdir is None:
+        dfs_tmpdir = DFS_TMP
     # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
     # since Spark may not be able to write directly to the driver's filesystem. For example,
     # writing to `file:/uri` will write to the local filesystem from each executor, which will
@@ -210,24 +223,13 @@ def log_model(
         )
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
     if is_databricks_acled_artifacts_uri(model_dir):
-        # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
-        # directory, then use FUSE to upload directly to the artifact location
-        hdfs_tmpdir_base = _tmp_path(dfs_tmpdir or DFS_TMP)
-        fuse_tmpdir_base = dbfs_hdfs_uri_to_fuse_path(hdfs_tmpdir_base)
-        hdfs_tmpdir = posixpath.join(hdfs_tmpdir_base, _SPARK_MODEL_PATH_SUB)
-        spark_model.save(hdfs_tmpdir)
-        try:
-            mlflow.log_artifacts(fuse_tmpdir_base, artifact_path)
-        finally:
-            shutil.rmtree(fuse_tmpdir_base)
-
+        _log_spark_model_databricks_artifact_acl(spark_model, artifact_path, dfs_tmpdir=dfs_tmpdir)
     else:
         # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
         # to persist the model
         try:
             spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
         except Py4JJavaError:
-
             return Model.log(
                 artifact_path=artifact_path,
                 flavor=mlflow.spark,

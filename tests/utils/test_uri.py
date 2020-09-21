@@ -555,8 +555,24 @@ def test_dbfs_fuse_path_to_hdfs_uri(path, result):
 
 
 @pytest.mark.parametrize(
+    "path",
+    [
+        "dbfs:/a/b/c",
+        "/tmp/some/local/path",
+        "relative/path",
+        "s3:/some/s3/path",
+        "C:/cool/windows/path",
+    ],
+)
+def test_dbfs_fuse_path_to_hdfs_uri_raises(path):
+    with pytest.raises(MlflowException):
+        dbfs_fuse_path_to_hdfs_uri(path)
+
+
+@pytest.mark.parametrize(
     "uri, result",
     [
+        ("/tmp/path", "/dbfs/tmp/path"),
         ("dbfs:/path", "/dbfs/path"),
         ("dbfs:/path/a/b", "/dbfs/path/a/b"),
         ("dbfs:/dbfs/123/abc", "/dbfs/dbfs/123/abc"),
@@ -564,3 +580,16 @@ def test_dbfs_fuse_path_to_hdfs_uri(path, result):
 )
 def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
     assert dbfs_hdfs_uri_to_fuse_path(uri) == result
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "some/relative/path",
+        "s3:/some/s3/path",
+        "C:/cool/windows/path",
+    ],
+)
+def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
+    with pytest.raises(MlflowException):
+        dbfs_fuse_path_to_hdfs_uri(path)

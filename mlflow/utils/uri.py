@@ -280,6 +280,9 @@ def dbfs_fuse_path_to_hdfs_uri(fuse_path):
 
 
 def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+    # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
+    if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
+        dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
             "Path '%s' did not start with expected DBFS URI prefix '%s'" %
