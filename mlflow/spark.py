@@ -212,20 +212,20 @@ def log_model(
     if is_databricks_acled_artifacts_uri(model_dir):
         # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
         # directory, then use FUSE to upload directly to the artifact location
-        dbfs_fuse_tmpdir_base = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir or DFS_TMP)
-        fuse_tmpdir = tempfile.mkdtemp(dir=dbfs_fuse_tmpdir_base)
+        hdfs_tmpdir_base = _tmp_path(dfs_tmpdir or DFS_TMP)
+        fuse_tmpdir_base = dbfs_hdfs_uri_to_fuse_path(hdfs_tmpdir_base)
+        hdfs_tmpdir = posixpath.join(hdfs_tmpdir_base, _SPARK_MODEL_PATH_SUB)
+        spark_model.save(hdfs_tmpdir)
         try:
-            hdfs_tmpdir = dbfs_fuse_path_to_hdfs_uri(fuse_tmpdir)
-            spark_model.save(hdfs_tmpdir)
-            mlflow.log_artifacts(fuse_tmpdir, artifact_path)
+            mlflow.log_artifacts(fuse_tmpdir_base, artifact_path)
         finally:
-            shutil.rmtree(fuse_tmpdir)
+            shutil.rmtree(fuse_tmpdir_base)
 
     else:
         # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
         # to persist the model
         try:
-            spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
+            spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
         except Py4JJavaError:
 
             return Model.log(
@@ -539,31 +539,57 @@ def save_model(
         input_example=input_example,
     )
 
+def _load_model_databricks_acled_artifacts_uri(model_uri):
+    from pyspark.ml.pipeline import PipelineModel
+    from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+    # To load Spark model from ACL'd DBFS, copy it to standard DBFS tmpdir via FUSE, read model,
+    # and remove tmpdir
+    fuse_tmpdir = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+    os.mkdir(fuse_tmpdir)
+    try:
+        DatabricksArtifactRepository(model_uri).download_artifacts("", dst_path=fuse_tmpdir)
+        dbfs_hdfs_tmpdir = dbfs_fuse_path_to_hdfs_uri(fuse_tmpdir)
+        return PipelineModel.load(dbfs_hdfs_tmpdir)
+    finally:
+        # TODO: Ask Tomas if this is safe, given the comment below (that Spark may read
+        # from the model files at any point)
+        shutil.rmtree(fuse_tmpdir)
+
+def _load_model_local_uri(model_path, dfs_tmpdir_base=None):
+    from pyspark.ml.pipeline import PipelineModel
+    # Load spark model saved to a local path
+    # We reupload the model to a temporary DFS path, then load from there
+    if dfs_tmpdir_base is None:
+        dfs_tmpdir_base = "dbfs:/tmp/mlflow"
+    dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
+    fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
+    os.mkdir(fuse_dfs_tmpdir)
+    # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
+    # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
+    for (dirpath, dirnames, filenames) in os.walk(model_path):
+        for dirname in dirnames:
+            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), model_path)
+            # Compute corresponding FUSE path of each local directory and create an equivalent
+            # FUSE directory
+            fuse_dir_path = os.path.join(fuse_dfs_tmpdir, relative_dir_path)
+            os.mkdir(fuse_dir_path)
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            relative_file_path = os.path.relpath(file_path, model_path)
+            fuse_file_path = os.path.join(fuse_dfs_tmpdir, relative_file_path)
+            shutil.copyfile(file_path, fuse_file_path)
+    return PipelineModel.load(dfs_tmpdir)
+
+
 
 def _load_model(model_uri, dfs_tmpdir=None):
     from pyspark.ml.pipeline import PipelineModel
-
-    if dfs_tmpdir is None:
-        dfs_tmpdir = DFS_TMP
-    tmp_path = _tmp_path(dfs_tmpdir)
-    if model_uri.startswith("dbfs:/databricks/mlflow-tracking"):
-        from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-
-        # To load Spark model from ACL'd DBFS, copy it to standard DBFS tmpdir via FUSE, read model,
-        # and remove tmpdir
-        fuse_tmpdir = posixpath.join("/dbfs/tmp/mlflow", uuid.uuid4().hex)
-        os.mkdir(fuse_tmpdir)
-        try:
-            DatabricksArtifactRepository(model_uri).download_artifacts("", dst_path=fuse_tmpdir)
-            dbfs_hdfs_tmpdir = "dbfs:" + fuse_tmpdir.split("/dbfs")[1]
-            return PipelineModel.load(dbfs_hdfs_tmpdir)
-        finally:
-            shutil.rmtree(fuse_tmpdir)
-    # Spark ML expects the model to be stored on DFS
-    # Copy the model to a temp DFS location first. We cannot delete this file, as
-    # Spark may read from it at any point.
-    model_path = _HadoopFileSystem.maybe_copy_from_uri(model_uri, tmp_path)
-    return PipelineModel.load(model_path)
+    if is_databricks_acled_artifacts_uri(model_uri):
+        return _load_model_databricks_acled_artifacts_uri(model_uri)
+    elif is_local_uri(model_uri):
+        return _load_model_local_uri(model_uri, dfs_tmpdir)
+    # If not a special-case URI, try reading model directly from the provided URI
+    return PipelineModel.load(model_uri)
 
 
 def load_model(model_uri, dfs_tmpdir=None):

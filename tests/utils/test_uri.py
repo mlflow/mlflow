@@ -543,15 +543,15 @@ def test_is_valid_dbfs_uri(uri, result):
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    "path, result",
     [
         ("dbfs:/path", "/dbfs/path"),
         ("dbfs:/path/a/b", "/dbfs/path/a/b"),
         ("dbfs:/dbfs/123/abc", "/dbfs/dbfs/123/abc"),
     ],
 )
-def test_dbfs_fuse_path_to_hdfs_uri(uri, result):
-    assert dbfs_fuse_path_to_hdfs_uri("/dbfs/a/b/c") == "dbfs:/a/b/c"
+def test_dbfs_fuse_path_to_hdfs_uri(path, result):
+    assert dbfs_fuse_path_to_hdfs_uri(path) == result
 
 
 @pytest.mark.parametrize(
@@ -563,4 +563,4 @@ def test_dbfs_fuse_path_to_hdfs_uri(uri, result):
     ],
 )
 def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
-    assert dbfs_hdfs_uri_to_fuse_path("dbfs:/a/b/c") == "/dbfs/a/b/c"
+    assert dbfs_hdfs_uri_to_fuse_path(uri) == result
