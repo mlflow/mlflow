@@ -40,9 +40,15 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils import databricks_utils
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import is_local_uri, append_to_uri_path
+from mlflow.utils.uri import (
+    is_local_uri,
+    append_to_uri_path,
+    dbfs_hdfs_uri_to_fuse_path,
+    dbfs_fuse_path_to_hdfs_uri,
+    is_databricks_acled_artifacts_uri,
+    is_valid_dbfs_uri,
+)
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -51,7 +57,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
-DFS_TMP = "/tmp/mlflow"
+DFS_TMP = "dbfs:/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
@@ -203,12 +209,13 @@ def log_model(
             await_registration_for=await_registration_for,
         )
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
-    if model_dir.startswith("dbfs:/databricks/mlflow-tracking"):
+    if is_databricks_acled_artifacts_uri(model_dir):
         # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
         # directory, then use FUSE to upload directly to the artifact location
-        fuse_tmpdir = tempfile.mkdtemp(dir="/dbfs/tmp/mlflow")
+        dbfs_fuse_tmpdir_base = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir or DFS_TMP)
+        fuse_tmpdir = tempfile.mkdtemp(dir=dbfs_fuse_tmpdir_base)
         try:
-            hdfs_tmpdir = databricks_utils.dbfs_fuse_path_to_hdfs_uri(fuse_tmpdir)
+            hdfs_tmpdir = dbfs_fuse_path_to_hdfs_uri(fuse_tmpdir)
             spark_model.save(hdfs_tmpdir)
             mlflow.log_artifacts(fuse_tmpdir, artifact_path)
         finally:
@@ -234,8 +241,6 @@ def log_model(
                 await_registration_for=await_registration_for,
             )
 
-
-
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
     with TempDir() as tmp:
@@ -259,9 +264,7 @@ def log_model(
 
 
 def _tmp_path(dfs_tmp):
-    import uuid
-
-    return os.path.join(dfs_tmp, str(uuid.uuid4()))
+    return posixpath.join(dfs_tmp, str(uuid.uuid4()))
 
 
 class _HadoopFileSystem:
@@ -520,9 +523,9 @@ def save_model(
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    # If running against dbfs:/ URLs, copy to local FS via the FUSE mount
-    if (tmp_path.startswith("dbfs:/")):
-        tmp_path_fuse = databricks_utils.dbfs_hdfs_uri_to_fuse_path(tmp_path)
+    # If running against artifact-ACL'd location, copy to local FS via the FUSE mount
+    if is_valid_dbfs_uri(tmp_path):
+        tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
         _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
@@ -545,6 +548,7 @@ def _load_model(model_uri, dfs_tmpdir=None):
     tmp_path = _tmp_path(dfs_tmpdir)
     if model_uri.startswith("dbfs:/databricks/mlflow-tracking"):
         from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+
         # To load Spark model from ACL'd DBFS, copy it to standard DBFS tmpdir via FUSE, read model,
         # and remove tmpdir
         fuse_tmpdir = posixpath.join("/dbfs/tmp/mlflow", uuid.uuid4().hex)

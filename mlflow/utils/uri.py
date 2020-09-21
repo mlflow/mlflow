@@ -11,6 +11,9 @@ _INVALID_DB_URI_MSG = (
     "format specifications."
 )
 
+_DBFS_FUSE_PREFIX = "/dbfs/"
+_DBFS_HDFS_URI_PREFIX = "dbfs:/"
+
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
@@ -265,3 +268,22 @@ def is_valid_dbfs_uri(uri):
     except MlflowException:
         db_profile_uri = None
     return not parsed.netloc or db_profile_uri is not None
+
+
+def dbfs_fuse_path_to_hdfs_uri(fuse_path):
+    if not fuse_path.startswith(_DBFS_FUSE_PREFIX):
+        raise MlflowException(
+            "Path '%s' did not start with expected DBFS FUSE prefix '%s'" % fuse_path,
+            _DBFS_FUSE_PREFIX,
+        )
+    return _DBFS_HDFS_URI_PREFIX + fuse_path[len(_DBFS_FUSE_PREFIX) :]
+
+
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+    if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
+        raise MlflowException(
+            "Path '%s' did not start with expected DBFS URI prefix '%s'" % dbfs_uri,
+            _DBFS_HDFS_URI_PREFIX,
+        )
+
+    return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]
