@@ -10,6 +10,8 @@ from mlflow.utils.autologging_utils import try_mlflow_log
 
 logging.basicConfig(level=logging.ERROR)
 
+every_n_iter = 1
+
 
 def autolog(log_every_n_iter=1):
     global every_n_iter
@@ -21,7 +23,7 @@ def autolog(log_every_n_iter=1):
         """
 
         def __init__(self):
-            super().__init__()
+            pass
 
         def on_epoch_end(self, trainer, pl_module):
             """
@@ -29,7 +31,9 @@ def autolog(log_every_n_iter=1):
             """
             if (pl_module.current_epoch - 1) % every_n_iter == 0:
                 for key, value in trainer.callback_metrics.items():
-                    try_mlflow_log(mlflow.log_metric, key, float(value), step=pl_module.current_epoch)
+                    try_mlflow_log(
+                        mlflow.log_metric, key, float(value), step=pl_module.current_epoch
+                    )
 
             if trainer.early_stop_callback:
                 self._early_stop_check(trainer.early_stop_callback)
@@ -72,11 +76,12 @@ def autolog(log_every_n_iter=1):
 
             mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="models")
 
-            if (
-                trainer.early_stop_callback
-                and trainer.checkpoint_callback.best_model_path
-            ):
-                try_mlflow_log(mlflow.log_artifact, local_path=trainer.checkpoint_callback.best_model_path, artifact_path="restored_model_checkpoint")
+            if trainer.early_stop_callback and trainer.checkpoint_callback.best_model_path:
+                try_mlflow_log(
+                    mlflow.log_artifact,
+                    local_path=trainer.checkpoint_callback.best_model_path,
+                    artifact_path="restored_model_checkpoint",
+                )
 
         def on_test_end(self, trainer, pl_module):
             """
@@ -114,7 +119,9 @@ def autolog(log_every_n_iter=1):
             if early_stop_callback.stopped_epoch != 0:
 
                 if hasattr(early_stop_callback, "stopped_epoch"):
-                    try_mlflow_log(mlflow.log_metric, "Stopped_Epoch", early_stop_callback.stopped_epoch)
+                    try_mlflow_log(
+                        mlflow.log_metric, "Stopped_Epoch", early_stop_callback.stopped_epoch
+                    )
                     restored_epoch = early_stop_callback.stopped_epoch - max(
                         1, early_stop_callback.patience
                     )

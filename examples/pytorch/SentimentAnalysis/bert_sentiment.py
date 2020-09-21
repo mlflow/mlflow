@@ -1,3 +1,4 @@
+# pylint: disable=W0221
 import os
 from argparse import ArgumentParser
 
@@ -7,7 +8,11 @@ import pytorch_lightning as pl
 import mlflow
 import torch
 import torch.nn.functional as F
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateLogger
+from pytorch_lightning.callbacks import (
+    EarlyStopping,
+    ModelCheckpoint,
+    LearningRateLogger,
+)
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from torch import nn
@@ -45,14 +50,26 @@ class GPReviewDataset(Dataset):
             "review_text": review,
             "input_ids": encoding["input_ids"].flatten(),
             "attention_mask": encoding["attention_mask"].flatten(),
-            "targets": torch.tensor(target, dtype=torch.long)
+            "targets": torch.Tensor(target, dtype=torch.long),
         }
 
 
 class BertSentinmentClassifier(pl.LightningModule):
     def __init__(self, **kwargs):
         super(BertSentinmentClassifier, self).__init__()
-        #self.PRE_TRAINED_MODEL_NAME = "bert_base_cased"
+        # self.PRE_TRAINED_MODEL_NAME = "bert_base_cased"
+        self.tokenizer = None
+        self.encoding = None
+        self.MAX_LEN = 160
+        self.df_train = None
+        self.df_val = None
+        self.df_test = None
+        self.optimizer = None
+        self.scheduler = None
+        self.train_data_loader = None
+        self.val_data_loader = None
+        self.test_data_loader = None
+        self.BATCH_SIZE = 16
         self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         self.drop = nn.Dropout(p=0.3)
@@ -63,9 +80,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.args = kwargs
 
     def forward(self, input_ids, attention_mask):
-        _, pooled_output = self.bert_model(
-            input_ids=input_ids, attention_mask=attention_mask
-        )
+        _, pooled_output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         output = self.drop(pooled_output)
         F.softmax(output, dim=1)
         return self.out(output)
@@ -88,11 +103,7 @@ class BertSentinmentClassifier(pl.LightningModule):
             help="number of workers (default: 0)",
         )
         parser.add_argument(
-            "--lr",
-            type=float,
-            default=1e-3,
-            metavar="LR",
-            help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
         )
         return parser
 
@@ -136,22 +147,16 @@ class BertSentinmentClassifier(pl.LightningModule):
             tokens = self.tokenizer.encode(txt, max_length=512, truncation=True)
             token_lens.append(len(tokens))
 
-        self.MAX_LEN = 160
-
         RANDOM_SEED = 42
         np.random.seed(RANDOM_SEED)
         torch.manual_seed(RANDOM_SEED)
 
-        self.df_train, df_test = train_test_split(
-            df, test_size=0.1, random_state=RANDOM_SEED
-        )
+        self.df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
         self.df_val, self.df_test = train_test_split(
             df_test, test_size=0.5, random_state=RANDOM_SEED
         )
 
-        self.BATCH_SIZE = 16
-
-    def create_data_loader(self, df, tokenizer, max_len, batch_size):
+    def create_data_loader(self, df, tokenizer, max_len):
         ds = GPReviewDataset(
             reviews=df.content.to_numpy(),
             targets=df.sentiment.to_numpy(),
@@ -159,30 +164,28 @@ class BertSentinmentClassifier(pl.LightningModule):
             max_length=max_len,
         )
 
-        return DataLoader(ds, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"])
+        return DataLoader(
+            ds, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
+        )
 
     def train_dataloader(self):
         print("In Train Data Loader")
         self.train_data_loader = self.create_data_loader(
-            self.df_train, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
+            self.df_train, self.tokenizer, self.MAX_LEN
         )
         return self.train_data_loader
 
     def val_dataloader(self):
         print("In Val Data Loader")
-        self.val_data_loader = self.create_data_loader(
-            self.df_val, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
-        )
+        self.val_data_loader = self.create_data_loader(self.df_val, self.tokenizer, self.MAX_LEN)
         return self.val_data_loader
 
     def test_dataloader(self):
         print("In Test Data Loader")
-        self.test_data_loader = self.create_data_loader(
-            self.df_test, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
-        )
+        self.test_data_loader = self.create_data_loader(self.df_test, self.tokenizer, self.MAX_LEN)
         return self.test_data_loader
 
-    def training_step(self, train_batch, batch_idx):
+    def training_step(self, train_batch):
         """training the data as batches and returns training loss on each batch"""
         input_ids = train_batch["input_ids"].to(self.device)
         attention_mask = train_batch["attention_mask"].to(self.device)
@@ -191,17 +194,17 @@ class BertSentinmentClassifier(pl.LightningModule):
         loss = F.nll_loss(output, targets)
         return {"loss": loss}
 
-    def test_step(self, test_batch, batch_idx):
-        '''Performs test and computes the accuracy of the model'''
+    def test_step(self, test_batch):
+        """Performs test and computes the accuracy of the model"""
         input_ids = test_batch["input_ids"].to(self.device)
         attention_mask = test_batch["attention_mask"].to(self.device)
         targets = test_batch["targets"].to(self.device)
         output = self.forward(input_ids, attention_mask)
-        a, y_hat = torch.max(output, dim=1)
+        _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy_score(y_hat.cpu(), targets.cpu())
-        return {"test_acc": torch.tensor(test_acc)}
+        return {"test_acc": torch.Tensor(test_acc)}
 
-    def validation_step(self, val_batch, batch_idx):
+    def validation_step(self, val_batch):
         """ Performs validation of data in batches"""
         input_ids = val_batch["input_ids"].to(self.device)
         attention_mask = val_batch["attention_mask"].to(self.device)
@@ -220,18 +223,11 @@ class BertSentinmentClassifier(pl.LightningModule):
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         return {"avg_test_acc": avg_test_acc}
 
-
-
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode="min",
-                factor=0.2,
-                patience=2,
-                min_lr=1e-6,
-                verbose=True,
+                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
             )
         }
         return [self.optimizer], [self.scheduler]
@@ -241,19 +237,18 @@ class BertSentinmentClassifier(pl.LightningModule):
         return nn.CrossEntropyLoss().to(self.device)
 
     def optimizer_step(
-            self,
-            epoch,
-            batch_idx,
-            optimizer,
-            optimizer_idx,
-            second_order_closure=None,
-            on_tpu=False,
-            using_lbfgs=False,
-            using_native_amp=False,
+        self,
+        epoch,
+        batch_idx,
+        optimizer,
+        optimizer_idx,
+        second_order_closure=None,
+        on_tpu=False,
+        using_lbfgs=False,
+        using_native_amp=False,
     ):
         self.optimizer.step()
         self.optimizer.zero_grad()
-
 
 
 if __name__ == "__main__":
@@ -283,12 +278,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(),
-        save_top_k=1,
-        verbose=True,
-        monitor="val_loss",
-        mode="min",
-        prefix="",
+        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
     lr_logger = LearningRateLogger()
 
@@ -301,4 +291,3 @@ if __name__ == "__main__":
     )
     trainer.fit(model)
     trainer.test()
-

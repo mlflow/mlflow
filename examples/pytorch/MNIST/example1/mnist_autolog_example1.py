@@ -5,6 +5,7 @@
 # pytorch-lightning (using pip install pytorch-lightning)
 #       and mlflow (using pip install mlflow).
 #
+# pylint: disable=W0221
 import pytorch_lightning as pl
 import os
 import mlflow
@@ -28,6 +29,8 @@ class LightningMNISTClassifier(pl.LightningModule):
         super(LightningMNISTClassifier, self).__init__()
 
         # mnist images are (1, 28, 28) (channels, width, height)
+        self.optimizer = None
+        self.scheduler = None
         self.layer_1 = torch.nn.Linear(28 * 28, 128)
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
@@ -56,11 +59,7 @@ class LightningMNISTClassifier(pl.LightningModule):
             help="number of workers (default: 0)",
         )
         parser.add_argument(
-            "--lr",
-            type=float,
-            default=1e-3,
-            metavar="LR",
-            help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
         )
         return parser
 
@@ -68,7 +67,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         Forward Function
         """
-        batch_size, channels, width, height = x.size()
+        batch_size = x.size()[0]
 
         # (b, 1, 28, 28) -> (b, 1*28*28)
         x = x.view(batch_size, -1)
@@ -95,7 +94,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         return F.nll_loss(logits, labels)
 
-    def training_step(self, train_batch, batch_idx):
+    def training_step(self, train_batch):
         """
         training the data as batches and returns training loss on each batch
         """
@@ -104,7 +103,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         loss = self.cross_entropy_loss(logits, y)
         return {"loss": loss}
 
-    def validation_step(self, val_batch, batch_idx):
+    def validation_step(self, val_batch):
         """
         Performs validation of data in batches
         """
@@ -120,15 +119,15 @@ class LightningMNISTClassifier(pl.LightningModule):
         avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
         return {"val_loss": avg_loss}
 
-    def test_step(self, test_batch, batch_idx):
+    def test_step(self, test_batch):
         """
         Performs test and computes test accuracy
         """
         x, y = test_batch
         output = self.forward(x)
-        a, y_hat = torch.max(output, dim=1)
+        _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy(y_hat.cpu(), y.cpu())
-        return {"test_acc": torch.tensor(test_acc)}
+        return {"test_acc": torch.Tensor(test_acc)}
 
     def test_epoch_end(self, outputs):
         """
@@ -147,41 +146,29 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         Loading training data as batches
         """
-        mnist_train = datasets.MNIST(
-            "dataset", download=True, train=True, transform=self.transform
-        )
+        mnist_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
         return DataLoader(
-            mnist_train,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            mnist_train, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def val_dataloader(self):
         """
         Loading validation data as batches
         """
-        mnist_train = datasets.MNIST(
-            "dataset", download=True, train=True, transform=self.transform
-        )
+        mnist_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
         mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
 
         return DataLoader(
-            mnist_val,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            mnist_val, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def test_dataloader(self):
         """
         Loading test data as batches
         """
-        mnist_test = datasets.MNIST(
-            "dataset", download=True, train=False, transform=self.transform
-        )
+        mnist_test = datasets.MNIST("dataset", download=True, train=False, transform=self.transform)
         return DataLoader(
-            mnist_test,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            mnist_test, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def configure_optimizers(self):
@@ -191,12 +178,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode="min",
-                factor=0.2,
-                patience=2,
-                min_lr=1e-6,
-                verbose=True,
+                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
             )
         }
         return [self.optimizer], [self.scheduler]
@@ -243,12 +225,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(),
-        save_top_k=1,
-        verbose=True,
-        monitor="val_loss",
-        mode="min",
-        prefix="",
+        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
     lr_logger = LearningRateLogger()
 
