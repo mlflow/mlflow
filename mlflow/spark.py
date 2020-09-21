@@ -675,9 +675,10 @@ def autolog():
         df.write.csv(os.path.join(tempdir, "my-data-path"), header=True)
         # Enable Spark datasource autologging.
         mlflow.spark.autolog()
-        loaded_df = spark.read.csv(os.path.join(tempdir, "my-data-path"), header=True, inferSchema=True)
+        loaded_df = spark.read.csv(os.path.join(tempdir, "my-data-path"),
+                        header=True, inferSchema=True)
         # Call toPandas() to trigger a read of the Spark datasource. Datasource info
-        # (path and format) is logged to the current active run, or the 
+        # (path and format) is logged to the current active run, or the
         # next-created MLflow run if no run is currently active
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
