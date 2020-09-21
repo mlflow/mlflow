@@ -38,7 +38,12 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
@@ -395,8 +400,7 @@ def autolog():
             if isinstance(train_data.data, str):
                 raise Exception("The input data was of type string.")
 
-            SAMPLE_ROWS = 5
-            input_example = deepcopy(train_data.data[:SAMPLE_ROWS])
+            input_example = deepcopy(train_data.data[:INPUT_EXAMPLE_SAMPLE_ROWS])
         except Exception as e:  # pylint: disable=broad-except
             msg = "Failed to gather an input example: " + str(e)
             _logger.warning(msg)

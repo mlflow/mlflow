@@ -201,6 +201,12 @@ jobs:
         run: |
           python -c "import mlflow"
 
+          # Just importing mlflow should not create `mlruns` directory
+          # See: https://github.com/mlflow/mlflow/issues/3400
+          if [ -d "./mlruns" ]; then
+            exit 1
+          fi
+
   tensorflow:
     runs-on: ubuntu-latest
     steps:

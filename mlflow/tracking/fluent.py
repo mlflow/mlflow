@@ -39,7 +39,32 @@ def set_experiment(experiment_name):
     Set given experiment as active experiment. If experiment does not exist, create an experiment
     with provided name.
 
-    :param experiment_name: Name of experiment to be activated.
+    :param experiment_name: Case sensitive name of an experiment to be activated.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Set an experiment name, which must be unique and case sensitive.
+        mlflow.set_experiment("Social NLP Experiments")
+
+        # Get Experiment Details
+        experiment = mlflow.get_experiment_by_name("Social NLP Experiments")
+
+        # Print the contents of Experiment data
+        print("Experiment_id: {}".format(experiment.experiment_id))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+    .. code-block:: text
+        :caption: Output
+
+        Experiment_id: 1
+        Artifact Location: file:///.../mlruns/1
+        Tags: {}
+        Lifecycle_stage: active
     """
     client = MlflowClient()
     experiment = client.get_experiment_by_name(experiment_name)
@@ -190,10 +215,20 @@ def active_run():
     (parameters, metrics, etc.) through the run returned by ``mlflow.active_run``. In order
     to access such attributes, use the :py:class:`mlflow.tracking.MlflowClient` as follows:
 
-    .. code-block:: py
+    .. code-block:: python
+        :caption: Example
 
-        client = mlflow.tracking.MlflowClient()
-        data = client.get_run(mlflow.active_run().info.run_id).data
+        import mlflow
+
+        mlflow.start_run()
+        run = mlflow.active_run()
+        print("Active run_id: {}".format(run.info.run_id))
+        mlflow.end_run()
+
+    .. code-block: text
+        :caption: Output
+
+        Active run_id: 6f252757005748708cd3aad75d1ff462
     """
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
@@ -211,6 +246,23 @@ def get_run(run_id):
 
     :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                 raises an exception.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+
+        run_id = run.info.run_id
+        print("run_id: {}; lifecycle_stage: {}".format(run_id,
+            mlflow.get_run(run_id).info.lifecycle_stage))
+
+    .. code-block:: Text
+        :caption: Output
+
+        run_id: 7472befefc754e388e8e922824a0cca5; lifecycle_stage: active
     """
     return MlflowClient().get_run(run_id)
 
@@ -222,6 +274,14 @@ def log_param(key, value):
 
     :param key: Parameter name (string)
     :param value: Parameter value (string, but will be string-ified if not)
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.log_param("learning_rate", 0.01)
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_param(run_id, key, value)
@@ -234,6 +294,14 @@ def set_tag(key, value):
 
     :param key: Tag name (string)
     :param value: Tag value (string, but will be string-ified if not)
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+           mlflow.set_tag("release.version", "2.2.0")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().set_tag(run_id, key, value)
@@ -245,6 +313,20 @@ def delete_tag(key):
     will create a new active run.
 
     :param key: Name of the tag
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        tags = {"engineering": "ML Platform",
+                "engineering_remote": "ML Platform"}
+
+        with mlflow.start_run() as run:
+            mlflow.set_tags(tags)
+
+        with mlflow.start_run(run_id=run.info.run_id):
+            mlflow.delete_tag("engineering_remote")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
@@ -257,9 +339,17 @@ def log_metric(key, value, step=None):
 
     :param key: Metric name (string).
     :param value: Metric value (float). Note that some special values such as +/- Infinity may be
-                  replaced by other values depending on the store. For example, sFor example, the
-                  SQLAlchemy store replaces +/- Inf with max / min float values.
+                  replaced by other values depending on the store. For example, the
+                  SQLAlchemy store replaces +/- Infinity with max / min float values.
     :param step: Metric step (int). Defaults to zero if unspecified.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.log_metric("mse", 2500.00)
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
@@ -270,13 +360,25 @@ def log_metrics(metrics, step=None):
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
 
-    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
-                    such as +/- Infinity may be replaced by other values depending on the store.
-                    For example, sql based store may replace +/- Inf with max / min float values.
+    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special
+                    values such as +/- Infinity may be replaced by other values depending on
+                    the store. For example, sql based store may replace +/- Infinity with
+                    max / min float values.
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
     :returns: None
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        metrics = {"mse": 2500.00, "rmse": 50.00}
+
+        # Log a batch of metrics
+        with mlflow.start_run():
+            mlflow.log_metrics(metrics)
     """
     run_id = _get_or_start_run().info.run_id
     timestamp = int(time.time() * 1000)
@@ -292,6 +394,17 @@ def log_params(params):
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
     :returns: None
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        params = {"learning_rate": 0.01, "n_estimators": 10}
+
+        # Log a batch of parameters
+        with mlflow.start_run():
+            mlflow.log_params(params)
     """
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
@@ -306,6 +419,19 @@ def set_tags(tags):
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
     :returns: None
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        tags = {"engineering": "ML Platform",
+                "release.candidate": "RC1",
+                "release.version": "2.2.0"}
+
+        # Set a batch of tags
+        with mlflow.start_run():
+            mlflow.set_tags(tags)
     """
     run_id = _get_or_start_run().info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
@@ -329,6 +455,21 @@ def log_artifact(local_path, artifact_path=None):
 
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create a features.txt artifact file
+        features = "rooms, zipcode, median_price, school_rating, transport"
+        with open("features.txt", 'w') as f:
+            f.write(features)
+
+        # With artifact_path=None write features.txt under
+        # root artifact_uri/artifacts directory
+        with mlflow.start_run():
+            mlflow.log_artifact("features.txt")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
@@ -341,6 +482,27 @@ def log_artifacts(local_dir, artifact_path=None):
 
     :param local_dir: Path to the directory of files to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+    .. code-block:: python
+        :caption: Example
+
+        import os
+        import mlflow
+
+        # Create some files to preserve as artifacts
+        features = "rooms, zipcode, median_price, school_rating, transport"
+        data = {"state": "TX", "Available": 25, "Type": "Detached"}
+
+        # Create couple of artifact files under the directory "data"
+        os.makedirs("data", exist_ok=True)
+        with open("data/data.json", 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        with open("data/features.txt", 'w') as f:
+            f.write(features)
+
+        # Write all files in "data" to root artifact_uri/states
+        with mlflow.start_run():
+            mlflow.log_artifacts("data", artifact_path="states")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
@@ -355,8 +517,29 @@ def get_experiment(experiment_id):
     """
     Retrieve an experiment by experiment_id from the backend store
 
-    :param experiment_id: The experiment ID returned from ``create_experiment``.
+    :param experiment_id: The string-ified experiment ID returned from ``create_experiment``.
     :return: :py:class:`mlflow.entities.Experiment`
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        experiment = mlflow.get_experiment("0")
+
+        # Print the contents of Experiment data
+        print("Name: {}".format(experiment.name))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: Default
+        Artifact Location: file:///.../apis/mlruns/0
+        Tags: {}
+        Lifecycle_stage: active
     """
     return MlflowClient().get_experiment(experiment_id)
 
@@ -365,8 +548,30 @@ def get_experiment_by_name(name):
     """
     Retrieve an experiment by experiment name from the backend store
 
-    :param name: The experiment name.
+    :param name: The case senstive experiment name.
     :return: :py:class:`mlflow.entities.Experiment`
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Case sensitive name
+        experiment = mlflow.get_experiment_by_name("Default")
+
+        # Print the contents of Experiment data
+        print("Experiment_id: {}".format(experiment.experiment_id))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+    .. code-block:: text
+        :caption: Output
+
+        Experiment_id: 0
+        Artifact Location: file:///.../mlruns/0
+        Tags: {}
+        Lifecycle_stage: active
     """
     return MlflowClient().get_experiment_by_name(name)
 
@@ -375,10 +580,35 @@ def create_experiment(name, artifact_location=None):
     """
     Create an experiment.
 
-    :param name: The experiment name. Must be unique.
+    :param name: The experiment name, which must be unique and is case sensitive
     :param artifact_location: The location to store run artifacts.
                               If not provided, the server picks an appropriate default.
-    :return: Integer ID of the created experiment.
+    :return: String ID of the created experiment.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create an experiment name, which must be unique and case sensitve
+        experiment_id = mlflow.create_experiment("Social NLP Experiments")
+        experiment = mlflow.get_experiment(experiment_id)
+
+        # Print the contents of experiment data
+        print("Name: {}".format(experiment.name))
+        print("Experiment_id: {}".format(experiment.experiment_id))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Tags: {}".format(experiment.tags))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: Social NLP Experiments
+        Experiment_id: 1
+        Artifact Location: file:///.../mlruns/1
+        Tags= {}
+        Lifecycle_stage: active
     """
     return MlflowClient().create_experiment(name, artifact_location)
 
@@ -387,7 +617,33 @@ def delete_experiment(experiment_id):
     """
     Delete an experiment from the backend store.
 
-    :param experiment_id: The experiment ID returned from ``create_experiment``.
+    :param experiment_id: The The string-ified experiment ID returned from ``create_experiment``.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        experiment_id = mlflow.create_experiment("New Experiment")
+        mlflow.delete_experiment(experiment_id)
+
+        # Examine the deleted experiment details. Deleted experiments
+        # are moved to a .thrash folder under the artifact location top
+        # level directory.
+        experiment = mlflow.get_experiment(experiment_id)
+
+        # Print the contents of deleted Experiment data
+        print("Name: {}".format(experiment.name))
+        print("Artifact Location: {}".format(experiment.artifact_location))
+        print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: New Experiment
+        Artifact Location: file:///.../mlruns/2
+        Lifecycle_stage: deleted
     """
     MlflowClient().delete_experiment(experiment_id)
 
@@ -397,6 +653,25 @@ def delete_run(run_id):
     Deletes a run with the given ID.
 
     :param run_id: Unique identifier for the run to delete.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run() as run:
+            mlflow.log_param("p", 0)
+
+        run_id = run.info.run_id
+        mlflow.delete_run(run_id)
+
+        print("run_id: {}; lifecycle_stage: {}".format(run_id,
+            mlflow.get_run(run_id).info.lifecycle_stage))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 45f4af3e6fd349e58579b27fcb0b8277; lifecycle_stage: deleted
     """
     MlflowClient().delete_run(run_id)
 
@@ -419,6 +694,34 @@ def get_artifact_uri(artifact_path=None):
              ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
              is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        features = "rooms, zipcode, median_price, school_rating, transport"
+        with open("features.txt", 'w') as f:
+            f.write(features)
+
+        # Log the artifact in a directory "features" under the root artifact_uri/features
+        with mlflow.start_run():
+            mlflow.log_artifact("features.txt", artifact_path="features")
+
+            # Fetch the artifact uri root directory
+            artifact_uri = mlflow.get_artifact_uri()
+            print("Artifact uri: {}".format(artifact_uri))
+
+            # Fetch a specific artifact uri
+            artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
+            print("Artifact uri: {}".format(artifact_uri))
+
+
+    .. code-block:: text
+        :caption: Output
+
+        Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts
+        Artifact uri: file:///.../0/a46a80f1c9644bd8f4e5dd5553fffce/artifacts/features/features.txt
     """
     return artifact_utils.get_artifact_uri(
         run_id=_get_or_start_run().info.run_id, artifact_path=artifact_path
@@ -548,10 +851,49 @@ def list_run_infos(
     :param experiment_id: The experiment id which to search
     :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
     :param max_results: Maximum number of results desired.
-    :param order_by: List of order_by clauses.
+    :param order_by: List of order_by clauses. Currently supported values are
+           are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
+           For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
 
     :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
         search expressions.
+
+    .. code-block:: python
+        :caption: Example
+
+        # Create two runs
+        with mlflow.start_run() as run1:
+            mlflow.log_param("p", 0)
+
+        with mlflow.start_run() as run2:
+            mlflow.log_param("p", 1)
+
+        # Delete the last run
+        mlflow.delete_run(run2.info.run_id)
+
+        def print_run_infos(run_infos):
+            for r in run_infos:
+                print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
+
+        print("Active runs:")
+        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
+
+        print("Deleted runs:")
+        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
+
+        print("All runs:")
+        print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL))
+
+    .. code-block:: text
+        :caption: Output
+
+        Active runs:
+        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
+        Deleted runs:
+        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
+        All runs:
+        - run_id: b13f1badbed842cf9975c023d23da300, lifecycle_stage: deleted
+        - run_id: 4937823b730640d5bed9e3e5057a2b34, lifecycle_stage: active
     """
     # Using an internal function as the linter doesn't like assigning a lambda, and inlining the
     # full thing is a mess

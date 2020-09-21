@@ -383,7 +383,7 @@ def _load_model(path, **kwargs):
         else:
             try:
                 kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
-            except ImportError:
+            except ImportError as exc:
                 raise MlflowException(
                     message=(
                         "Failed to import the pickle module that was used to save the PyTorch"
@@ -392,7 +392,7 @@ def _load_model(path, **kwargs):
                         )
                     ),
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                )
+                ) from exc
 
     else:
         model_path = path
