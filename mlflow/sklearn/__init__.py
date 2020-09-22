@@ -515,7 +515,7 @@ class _SklearnTrainingSession(object):
 
 
 @experimental
-def autolog():
+def autolog(log_input_example=False, log_model_signature=True):
     """
     Enables autologging for scikit-learn estimators.
 
@@ -806,8 +806,8 @@ def autolog():
                     :INPUT_EXAMPLE_SAMPLE_ROWS
                 ]
 
-                model_output = estimator.predict(input_example)
-                signature = infer_signature(input_example, model_output)
+                if log_model_signature:
+                    signature = infer_signature(input_example, estimator.predict(input_example))
             except Exception as e:  # pylint: disable=broad-except
                 input_example = None
                 msg = "Failed to infer an input example and model signature: " + str(e)
@@ -818,7 +818,7 @@ def autolog():
             estimator,
             artifact_path="model",
             signature=signature,
-            input_example=input_example,
+            input_example=input_example if log_input_example else None,
         )
 
         if _is_parameter_search_estimator(estimator):
