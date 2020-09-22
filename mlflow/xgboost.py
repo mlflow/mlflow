@@ -317,7 +317,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             try:
                 if isinstance(data, str):
                     raise Exception(
-                        "cannot gather example input when " + "dataset is loaded from a file."
+                        "cannot gather example input when dataset is loaded from a file."
                     )
 
                 input_example_info = _InputExampleInfo(

@@ -997,6 +997,7 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
 
+
 def test_autolog_configuration_options():
     X, y = get_iris()
 
