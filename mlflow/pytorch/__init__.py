@@ -362,14 +362,11 @@ def save_model(
             raise TypeError("Argument artifacts should be a dict")
 
         with TempDir() as tmp_artifacts_dir:
-            tmp_artifacts_config = {}
             saved_artifacts_dir_subpath = "artifacts"
-            for artifact_name, artifact_uri in artifacts.items():
-                tmp_artifact_path = _download_artifact_from_uri(
+            for _, artifact_uri in artifacts.items():
+                _download_artifact_from_uri(
                     artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
                 )
-                tmp_artifacts_config[artifact_name] = tmp_artifact_path
-
             shutil.move(
                 tmp_artifacts_dir.path(),
                 posixpath.join(path, saved_artifacts_dir_subpath),

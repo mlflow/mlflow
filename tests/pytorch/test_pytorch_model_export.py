@@ -11,7 +11,6 @@ from unittest import mock
 import pytest
 import numpy as np
 import pandas as pd
-import shutil
 import sklearn.datasets as datasets
 import yaml
 
@@ -823,7 +822,6 @@ def create_artifact(tmpdir):
     test_string = "pytest"
     fp.write(test_string)
     yield fp
-    shutil.rmtree(str(tmpdir))
 
 
 def test_artifacts_log_model(create_artifact, sequential_model):
@@ -841,11 +839,11 @@ def test_artifacts_log_model(create_artifact, sequential_model):
         )
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
-            assert os.path.isdir(os.path.join(model_path, "artifacts")) is True
+            assert os.path.isdir(os.path.join(model_path, "artifacts"))
             requirements_file = os.path.join(
                 model_path, "artifacts", "requirements.txt"
             )
-            assert os.path.isfile(requirements_file) is True
+            assert os.path.isfile(requirements_file)
             with open(requirements_file) as fp:
                 content = fp.read()
             assert "pytest" in content
@@ -861,37 +859,32 @@ def test_artifacts_save_model(create_artifact, sequential_model):
             artifacts={"requirements.txt": str(artifact_path)},
         )
 
-        assert os.path.isdir(os.path.join(model_path, "artifacts")) is True
+        assert os.path.isdir(os.path.join(model_path, "artifacts"))
         requirements_file = os.path.join(model_path, "artifacts", "requirements.txt")
-        assert os.path.isfile(requirements_file) is True
+        assert os.path.isfile(requirements_file)
         with open(requirements_file) as fp:
             content = fp.read()
 
         assert "pytest" in content
 
 
-def test_log_model_invalid_path(create_artifact, sequential_model):
-    artifact_file_path = create_artifact
+def test_log_model_invalid_path(sequential_model):
     with mlflow.start_run(), pytest.raises(FileNotFoundError):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
             conda_env=None,
             artifacts={
-                "requirements.txt": str(artifact_file_path).replace(
-                    "requirements", "requirements1"
-                )
+                "requirements.txt": "inexistent_file.txt"
             },
         )
 
 
-def test_log_model_invalid_type(create_artifact, sequential_model):
-    artifact_file_path = create_artifact
-    with mlflow.start_run(), pytest.raises(TypeError) as exc_info:
+def test_log_model_invalid_type(sequential_model):
+    with mlflow.start_run(), pytest.raises(TypeError, match="Argument artifacts should be a dict"):
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
             conda_env=None,
-            artifacts=str(artifact_file_path).replace("requirements", "requirements1"),
+            artifacts="inexistent_file.txt",
         )
-        assert "Argument artifacts should be a list" in str(exc_info)
