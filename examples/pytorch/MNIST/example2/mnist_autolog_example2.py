@@ -6,6 +6,7 @@
 #       and mlflow (using pip install mlflow).
 #
 # pylint: disable=W0221
+# pylint: disable=W0613
 import mlflow
 import pytorch_lightning as pl
 import torch
@@ -90,7 +91,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         return F.nll_loss(logits, labels)
 
-    def training_step(self, train_batch):
+    def training_step(self, train_batch, batch_idx):
         """
         training the data as batches and returns training loss on each batch
         """
@@ -99,7 +100,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         loss = self.cross_entropy_loss(logits, y)
         return {"loss": loss}
 
-    def validation_step(self, val_batch):
+    def validation_step(self, val_batch, batch_idx):
         """
         Performs validation of data in batches
         """
@@ -116,7 +117,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         tensorboard_logs = {"val_loss": avg_loss}
         return {"avg_val_loss": avg_loss, "log": tensorboard_logs}
 
-    def test_step(self, test_batch):
+    def test_step(self, test_batch, batch_idx):
         """
         Performs test and computes test accuracy
         """
@@ -124,7 +125,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         output = self.forward(x)
         _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy(y_hat.cpu(), y.cpu())
-        return {"test_acc": torch.Tensor(test_acc)}
+        return {"test_acc": test_acc}
 
     def test_epoch_end(self, outputs):
         """
