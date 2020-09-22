@@ -34,7 +34,7 @@ setup(
         "alembic<=1.4.1",
         "azure-storage-blob>=12.0",
         "click>=7.0",
-        "cloudpickle",
+        "cloudpickle==1.6.0",
         "databricks-cli>=0.8.7",
         "requests>=2.17.3",
         "six>=1.10.0",
