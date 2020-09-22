@@ -279,7 +279,8 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog():
+def autolog(log_input_example=False, log_model_signature=True):
+    # TODO: Add parameter info to the docs below
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
@@ -455,8 +456,9 @@ def autolog():
             if input_example is None:
                 raise Exception("failed to gather example input.")
 
-            model_output = model.predict(input_example)
-            signature = infer_signature(input_example, model_output)
+            if log_model_signature:
+                model_output = model.predict(input_example)
+                signature = infer_signature(input_example, model_output)
         except Exception as e:  # pylint: disable=broad-except
             input_example = None
             msg = "Failed to infer the model signature: " + str(e)
@@ -467,7 +469,7 @@ def autolog():
             model,
             artifact_path="model",
             signature=signature,
-            input_example=input_example,
+            input_example=input_example if log_input_example else None,
         )
 
         if auto_end_run:
