@@ -134,7 +134,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         import mlflow
 
         # Create nested runs
-        with mlflow.start_run(run_name='PARENT_RUN', nested=True) as parent_run:
+        with mlflow.start_run(run_name='PARENT_RUN') as parent_run:
             mlflow.log_param("parent", "yes")
             with mlflow.start_run(run_name='CHILD_RUN', nested=True) as child_run:
                 mlflow.log_param("child", "yes")
@@ -148,7 +148,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         results = mlflow.search_runs(filter_string=query)
 
         # Print the pandas DataFrame columns
-        print(results.loc[:, ["run_id", "params.child", "tags.mlflow.runName"]].to_string())
+        print(results[["run_id", "params.child", "tags.mlflow.runName"]])
 
     .. code-block:: text
         :caption: Output
@@ -243,12 +243,18 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
         mlflow.end_run()
         run = mlflow.get_run(run.info.run_id)
         print("run_id: {}; status: {}".format(run.info.run_id, run.info.status))
+        print("--")
 
-    .. code-block:: python
+        # Check for any active runs
+        print("Active runs: {}".format(mlflow.active_run()))
+
+    .. code-block:: text
         :caption: Output
 
         run_id: b47ee4563368419880b44ad8535f6371; status: RUNNING
         run_id: b47ee4563368419880b44ad8535f6371; status: FINISHED
+        --
+        Active runs: None
     """
     global _active_run_stack
     if len(_active_run_stack) > 0:
@@ -278,7 +284,7 @@ def active_run():
         print("Active run_id: {}".format(run.info.run_id))
         mlflow.end_run()
 
-    .. code-block: text
+    .. code-block:: text
         :caption: Output
 
         Active run_id: 6f252757005748708cd3aad75d1ff462
@@ -312,7 +318,7 @@ def get_run(run_id):
         print("run_id: {}; lifecycle_stage: {}".format(run_id,
             mlflow.get_run(run_id).info.lifecycle_stage))
 
-    .. code-block:: Text
+    .. code-block:: text
         :caption: Output
 
         run_id: 7472befefc754e388e8e922824a0cca5; lifecycle_stage: active
@@ -759,7 +765,6 @@ def get_artifact_uri(artifact_path=None):
             artifact_uri = mlflow.get_artifact_uri(artifact_path="features/features.txt")
             print("Artifact uri: {}".format(artifact_uri))
 
-
     .. code-block:: text
         :caption: Output
 
@@ -814,7 +819,7 @@ def search_runs(
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
 
         # Print pandas DataFrame's rows and columns
-        print(df.loc[:, ["metrics.m", "tags.s.release", "run_id"]].to_string())
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
 
         # Search the experiment_id using a filter_string with tag
@@ -823,7 +828,7 @@ def search_runs(
         df = mlflow.search_runs([experiment_id], filter_string=filter_string)
 
         # Print pandas DataFrame's rows and columns
-        print(df.loc[:, ["metrics.m", "tags.s.release", "run_id"]].to_string())
+        print(df[["metrics.m", "tags.s.release", "run_id"]])
 
     .. code-block:: text
         :caption: Output
