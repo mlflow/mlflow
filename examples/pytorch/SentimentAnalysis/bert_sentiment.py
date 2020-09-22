@@ -1,5 +1,6 @@
 # pylint: disable=W0221
 # pylint: disable=W0613
+# pylint: disable=E1102
 
 import os
 from argparse import ArgumentParser
@@ -52,7 +53,7 @@ class GPReviewDataset(Dataset):
             "review_text": review,
             "input_ids": encoding["input_ids"].flatten(),
             "attention_mask": encoding["attention_mask"].flatten(),
-            "targets": torch.Tensor(target, dtype=torch.long),
+            "targets": torch.tensor(target, dtype=torch.long)
         }
 
 
@@ -222,7 +223,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         output = self.forward(input_ids, attention_mask)
         _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy_score(y_hat.cpu(), targets.cpu())
-        return {"test_acc": torch.Tensor(test_acc)}
+        return {"test_acc": torch.tensor(test_acc)}
 
     def validation_step(self, val_batch, batch_idx):
         """ Performs validation of data in batches"""
