@@ -516,6 +516,7 @@ class _SklearnTrainingSession(object):
 
 @experimental
 def autolog(log_input_example=False, log_model_signature=True):
+    # TODO: Add parameter info to the docs below
     """
     Enables autologging for scikit-learn estimators.
 
