@@ -279,7 +279,9 @@ class _XGBModelWrapper:
 
 
 @experimental
-def autolog(importance_types=["weight"], log_input_example=False, log_model_signature=True):  # pylint: disable=W0102
+def autolog(
+    importance_types=["weight"], log_input_example=False, log_model_signature=True
+):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
