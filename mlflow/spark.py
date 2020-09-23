@@ -48,6 +48,7 @@ from mlflow.utils.uri import (
     is_databricks_acled_artifacts_uri,
     is_valid_dbfs_uri,
 )
+from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -557,7 +558,7 @@ def _load_model_databricks_acled_artifacts_uri(model_uri):
         # from the model files at any point)
         shutil.rmtree(fuse_tmpdir)
 
-def _load_model_local_uri(model_path, dfs_tmpdir_base=None):
+def _load_model_local_uri_databricks(model_path, dfs_tmpdir_base=None):
     from pyspark.ml.pipeline import PipelineModel
     # Load spark model saved to a local path
     # We reupload the model to a temporary DFS path, then load from there
@@ -588,8 +589,9 @@ def _load_model(model_uri, dfs_tmpdir=None):
     from pyspark.ml.pipeline import PipelineModel
     if is_databricks_acled_artifacts_uri(model_uri):
         return _load_model_databricks_acled_artifacts_uri(model_uri)
-    elif is_local_uri(model_uri):
-        return _load_model_local_uri(model_uri, dfs_tmpdir)
+    elif is_local_uri(model_uri) and databricks_utils.is_in_cluster():
+        return _load_model_local_uri_databricks(model_uri, dfs_tmpdir)
+
     # If not a special-case URI, try reading model directly from the provided URI
     return PipelineModel.load(model_uri)
 
