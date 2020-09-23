@@ -41,11 +41,11 @@
     </dependency>
     <dependency>
       <groupId>ml.combust.mleap</groupId>
-      <artifactId>mleap-spark_2.11</artifactId>
+      <artifactId>mleap-spark_${scala.binary.version}</artifactId>
     </dependency>
     <dependency>
       <groupId>ml.combust.mleap</groupId>
-      <artifactId>mleap-runtime_2.11</artifactId>
+      <artifactId>mleap-runtime_${scala.binary.version}</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.maven.plugins</groupId>

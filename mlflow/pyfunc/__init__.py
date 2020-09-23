@@ -603,7 +603,14 @@ def spark_udf(spark, model_uri, result_type="double"):
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
     from pyspark.sql.types import ArrayType, DataType as SparkDataType
-    from pyspark.sql.types import DoubleType, IntegerType, FloatType, LongType, StringType
+    from pyspark.sql.types import (
+        DoubleType,
+        IntegerType,
+        FloatType,
+        LongType,
+        StringType,
+        StructType,
+    )
 
     if not isinstance(result_type, SparkDataType):
         result_type = _parse_datatype_string(result_type)
@@ -612,7 +619,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     if isinstance(elem_type, ArrayType):
         elem_type = elem_type.elementType
 
-    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType]
+    supported_types = [IntegerType, LongType, FloatType, DoubleType, StringType, StructType]
 
     if not any([isinstance(elem_type, x) for x in supported_types]):
         raise MlflowException(
@@ -691,6 +698,8 @@ def spark_udf(spark, model_uri, result_type="double"):
 
         if type(result_type) == ArrayType:
             return pandas.Series([row[1].values for row in result.iterrows()])
+        elif type(result_type) == StructType:
+            return result
         else:
             return result[result.columns[0]]
 
