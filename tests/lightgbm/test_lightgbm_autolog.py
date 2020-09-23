@@ -28,8 +28,8 @@ def get_model_conf(artifact_uri, model_subpath="model"):
 
 @pytest.fixture(autouse=True, scope="function")
 def input_example_and_signature_on():
-return { "log_input_example": True, 
-    "log_model_signature": True }
+    return { "log_input_example": True, 
+        "log_model_signature": True }
 
 
 @pytest.fixture(scope="session")
