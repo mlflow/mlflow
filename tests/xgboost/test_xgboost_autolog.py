@@ -21,6 +21,17 @@ def get_latest_run():
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
+def get_model_conf(artifact_uri, model_subpath="model"):
+    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
+    return Model.load(model_conf_path)
+
+
+@pytest.fixture(autouse=True, scope="function")
+def input_example_and_signature_on():
+    return { "log_input_example": True,     
+    "log_model_signature": True }
+
+
 @pytest.fixture(scope="session")
 def bst_params():
     return {
@@ -39,14 +50,14 @@ def dtrain():
 
 @pytest.mark.large
 def test_xgb_autolog_ends_auto_created_run(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     xgb.train(bst_params, dtrain)
     assert mlflow.active_run() is None
 
 
 @pytest.mark.large
 def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     with mlflow.start_run() as run:
         xgb.train(bst_params, dtrain)
         assert mlflow.active_run()
@@ -55,7 +66,7 @@ def test_xgb_autolog_persists_manually_created_run(bst_params, dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_logs_default_params(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     xgb.train(bst_params, dtrain)
     run = get_latest_run()
     params = run.data.params
@@ -89,7 +100,7 @@ def test_xgb_autolog_logs_default_params(bst_params, dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     expected_params = {
         "num_boost_round": 20,
         "early_stopping_rounds": 5,
@@ -122,7 +133,7 @@ def test_xgb_autolog_logs_specified_params(bst_params, dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     evals_result = {}
     xgb.train(
         bst_params, dtrain, num_boost_round=20, evals=[(dtrain, "train")], evals_result=evals_result
@@ -139,7 +150,7 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     evals_result = {}
     evals = [(dtrain, "train"), (dtrain, "valid")]
     xgb.train(bst_params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
@@ -156,7 +167,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     evals_result = {}
     params = {"eval_metric": ["merror", "mlogloss"]}
     params.update(bst_params)
@@ -176,7 +187,7 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     evals_result = {}
     params = {"eval_metric": ["merror", "mlogloss"]}
     params.update(bst_params)
@@ -198,7 +209,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     evals_result = {}
     params = {"eval_metric": ["merror", "mlogloss"]}
     params.update(bst_params)
@@ -235,7 +246,7 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -260,7 +271,7 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
 @pytest.mark.large
 def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     importance_types = ["weight", "total_gain"]
-    mlflow.xgboost.autolog(importance_types)
+    mlflow.xgboost.autolog(importance_types, **input_example_and_signature_on())
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -284,14 +295,14 @@ def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
 
 @pytest.mark.large
 def test_no_figure_is_opened_after_logging(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     xgb.train(bst_params, dtrain)
     assert mpl.pyplot.get_fignums() == []
 
 
 @pytest.mark.large
 def test_xgb_autolog_loads_model_from_artifact(bst_params, dtrain):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -306,7 +317,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
     #   where get_score is used to create the importance values plot.
     bst_params = {"objective": "multi:softprob", "num_class": 3, "booster": "gblinear"}
 
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
 
     # we make sure here that we do not throw while attempting to plot
     #   importance values on a model with a linear booster.
@@ -318,7 +329,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_gets_input_example(bst_params):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
 
     # we cannot use dtrain fixture, as the dataset must be constructed
     #   after the call to autolog() in order to get the input example
@@ -345,7 +356,7 @@ def test_xgb_autolog_gets_input_example(bst_params):
 
 @pytest.mark.large
 def test_xgb_autolog_infers_model_signature_correctly(bst_params):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
 
     # we cannot use dtrain fixture, as the dataset must be constructed
     #   after the call to autolog() in order to get the input example
@@ -395,7 +406,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, t
     tmp_csv.write("0,2.4,5.2\n")
     tmp_csv.write("1,0.3,-1.2\n")
 
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
 
     dataset = xgb.DMatrix(tmp_csv.strpath + "?format=csv&label_column=0")
 
@@ -413,7 +424,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     tmp_csv.write("0,2.4,5.2\n")
     tmp_csv.write("1,0.3,-1.2\n")
 
-    mlflow.xgboost.autolog(importance_types=[])
+    mlflow.xgboost.autolog(importance_types=[], **input_example_and_signature_on())
 
     # signature and input example inference should fail here since the dataset is given
     #   as a file path
@@ -441,7 +452,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
 
 @pytest.mark.large
 def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(**input_example_and_signature_on())
 
     # we cannot use dtrain fixture, as the dataset must be constructed
     #   after the call to autolog() in order to test the serialization
@@ -454,3 +465,42 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
 
     dataset.save_binary(tmpdir.join("dataset_serialization_test"))  # serialization should not throw
     xgb.DMatrix(tmpdir.join("dataset_serialization_test"))  # deserialization also should not throw
+
+
+@pytest.mark.large
+def test_lgb_autolog_configuration_options(bst_params):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_input_example=False, log_model_signature=False)
+        dataset = xgb.DMatrix(X, y)
+        xgb.train(bst_params, dataset)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "saved_input_example_info" not in model_conf.to_dict()
+    assert "signature" not in model_conf.to_dict()
+
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_input_example=False, log_model_signature=True)
+        dataset = xgb.DMatrix(X, y)
+        xgb.train(bst_params, dataset)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "saved_input_example_info" not in model_conf.to_dict()
+    assert "signature" in model_conf.to_dict()
+
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_input_example=True, log_model_signature=False)
+        dataset = xgb.DMatrix(X, y)
+        xgb.train(bst_params, dataset)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "saved_input_example_info" in model_conf.to_dict()
+    assert "signature" not in model_conf.to_dict()
+
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_input_example=True, log_model_signature=True)
+        dataset = xgb.DMatrix(X, y)
+        xgb.train(bst_params, dataset)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "saved_input_example_info" in model_conf.to_dict()
+    assert "signature" in model_conf.to_dict()
