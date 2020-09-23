@@ -280,7 +280,6 @@ class _LGBModelWrapper:
 
 @experimental
 def autolog(log_input_example=False, log_model_signature=True):
-    # TODO: Add parameter info to the docs below
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
@@ -293,6 +292,9 @@ def autolog(log_input_example=False, log_model_signature=True):
         - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is not supported.
+
+    :param log_input_example: whether to log a sample of the training data as an example for future reference.
+    :param log_model_signature: whether to log the signature of the inputs and outputs to the model.
     """
     import lightgbm
     import numpy as np
