@@ -437,7 +437,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
 
 
 @pytest.mark.large
-def test_autolog_configuration_options(bst_params):
+def test_lgb_autolog_configuration_options(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target

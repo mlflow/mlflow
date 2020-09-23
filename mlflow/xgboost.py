@@ -279,7 +279,7 @@ class _XGBModelWrapper:
 
 
 @experimental
-def autolog(importance_types=["weight"]):  # pylint: disable=W0102
+def autolog(importance_types=["weight"], log_input_example=False, log_model_signature=True):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
@@ -483,8 +483,9 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
                 # input example collection failed
                 raise Exception(input_example_info.error_msg)
 
-            model_output = model.predict(xgboost.DMatrix(input_example))
-            signature = infer_signature(input_example, model_output)
+            if log_model_signature:
+                model_output = model.predict(xgboost.DMatrix(input_example))
+                signature = infer_signature(input_example, model_output)
         except Exception as e:  # pylint: disable=broad-except
             input_example = None
             msg = "Failed to gather example input and model signature: " + str(e)
@@ -495,7 +496,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             model,
             artifact_path="model",
             signature=signature,
-            input_example=input_example,
+            input_example=input_example if log_input_example else None,
         )
 
         if auto_end_run:
