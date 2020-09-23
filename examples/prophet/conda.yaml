@@ -5,7 +5,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.6
-  - fbprophet
+  - fbprophet<=0.7
   - pip
   - pip:
     - mlflow>=1.0

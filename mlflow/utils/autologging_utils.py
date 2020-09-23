@@ -6,6 +6,9 @@ import warnings
 import mlflow
 
 
+INPUT_EXAMPLE_SAMPLE_ROWS = 5
+
+
 def try_mlflow_log(fn, *args, **kwargs):
     """
     Catch exceptions and log a warning to avoid autolog throwing.

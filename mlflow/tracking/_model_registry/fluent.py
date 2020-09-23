@@ -25,6 +25,32 @@ def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLE
                             waits for five minutes. Specify 0 or None to skip waiting.
     :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
              backend.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.sklearn
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.set_tracking_uri("sqlite:////tmp/mlruns.db")
+        params = {"n_estimators": 3, "random_state": 42}
+
+        # Log MLflow entities
+        with mlflow.start_run() as run:
+           rfr = RandomForestRegressor(**params)
+           mlflow.log_params(params)
+           mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+        model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+        mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
+        print("Name: {}".format(mv.name))
+        print("Version: {}".format(mv.version))
+
+    .. code-block:: text
+        :caption: Output
+
+        Name: RandomForestRegressionModel
+        Version: 1
     """
     client = MlflowClient()
     try:

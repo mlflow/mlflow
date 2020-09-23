@@ -1,7 +1,7 @@
 import os
 import posixpath
-import mock
 import pytest
+from unittest import mock
 
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob._models import BlobPrefix, BlobProperties

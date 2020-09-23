@@ -29,7 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
+from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, INPUT_EXAMPLE_SAMPLE_ROWS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "sklearn"
@@ -800,10 +800,11 @@ def autolog():
             try:
                 # Fetch an input example using the first several rows of the array-like
                 # training data supplied to the training routine (e.g., `fit()`)
-                SAMPLE_ROWS = 5
                 fit_arg_names = _get_arg_names(estimator.fit)
                 X_var_name, y_var_name = fit_arg_names[:2]
-                input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][:SAMPLE_ROWS]
+                input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][
+                    :INPUT_EXAMPLE_SAMPLE_ROWS
+                ]
 
                 model_output = estimator.predict(input_example)
                 signature = infer_signature(input_example, model_output)
@@ -829,6 +830,9 @@ def autolog():
                     signature=signature,
                     input_example=input_example,
                 )
+
+            if hasattr(estimator, "best_score_"):
+                try_mlflow_log(mlflow.log_metric, "best_cv_score", estimator.best_score_)
 
             if hasattr(estimator, "best_params_"):
                 best_params = {

@@ -1,6 +1,6 @@
-import mock
 import pytest
-from mock import Mock
+from unittest import mock
+from unittest.mock import Mock
 
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException

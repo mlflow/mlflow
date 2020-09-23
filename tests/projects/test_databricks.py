@@ -1,8 +1,8 @@
 import filecmp
 import json
-import mock
 import os
 import shutil
+from unittest import mock
 
 from databricks_cli.configure.provider import DatabricksConfig
 import databricks_cli

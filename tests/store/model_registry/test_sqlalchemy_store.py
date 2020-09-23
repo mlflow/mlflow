@@ -1,8 +1,8 @@
 import os
 import unittest
 
-import mock
 import tempfile
+from unittest import mock
 import uuid
 
 import mlflow

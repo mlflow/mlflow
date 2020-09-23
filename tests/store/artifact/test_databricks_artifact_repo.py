@@ -2,10 +2,10 @@
 import os
 
 from azure.storage.blob import BlobClient
-import mock
 import pytest
 import posixpath
 from requests.models import Response
+from unittest import mock
 from unittest.mock import ANY
 
 from mlflow.entities.file_info import FileInfo as FileInfoEntity

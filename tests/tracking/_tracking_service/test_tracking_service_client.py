@@ -1,5 +1,5 @@
 import pytest
-import mock
+from unittest import mock
 
 from mlflow.entities import Run, RunInfo
 from mlflow.tracking._tracking_service.client import TrackingServiceClient

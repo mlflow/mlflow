@@ -1,5 +1,5 @@
 import pytest
-import mock
+from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.dbfs_artifact_repo import (
