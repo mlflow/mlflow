@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 _logger = logging.getLogger(__name__)
 
@@ -43,6 +44,8 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
+        self.mlflow_version = MLFLOW_VERSION 
+
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):

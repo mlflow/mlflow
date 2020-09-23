@@ -67,3 +67,17 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
             RESOURCE_DOES_NOT_EXIST,
         )
     return model_conf.flavors[flavor_name]
+
+
+def _get_mlflow_version(model_path):
+    model_configuration_path = os.path.join(model_path, MLMODEL_FILE_NAME)
+    if not os.path.exists(model_configuration_path):
+        raise MlflowException(
+            'Could not find an "{model_file}" configuration file at "{model_path}"'.format(
+                model_file=MLMODEL_FILE_NAME, model_path=model_path
+            ),
+            RESOURCE_DOES_NOT_EXIST,
+        )
+
+    model_conf = Model.load(model_configuration_path)
+    return getattr(model_conf, 'mlflow_version')

@@ -21,12 +21,13 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
+import mlflow.utils.cloudpickle
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.model_utils import _get_flavor_configuration, _get_mlflow_version
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -376,6 +377,8 @@ def _save_custom_objects(path, custom_objects):
 
 
 def _load_model(model_path, keras_module, **kwargs):
+    from distutils.version import StrictVersion, LooseVersion
+
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
     custom_objects_path = None
@@ -384,13 +387,14 @@ def _load_model(model_path, keras_module, **kwargs):
             custom_objects_path = os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)
         model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
     if custom_objects_path is not None:
-        import cloudpickle
+        mlflow_version = _get_mlflow_version(model_path)
+        if mlflow_version and LooseVersion(mlflow_version) > LooseVersion(1.11.0):
+            pickled_custom_objects = _load_custom_objects_with_inlined_cloudpickle(custom_objects_path)
+        else:
+            pickled_custom_objects = _load_custom_objects_with_pypi_cloudpickle(custom_objects_path)
 
-        with open(custom_objects_path, "rb") as in_f:
-            pickled_custom_objects = cloudpickle.load(in_f)
-            pickled_custom_objects.update(custom_objects)
-            custom_objects = pickled_custom_objects
-    from distutils.version import StrictVersion
+        pickled_custom_objects.update(custom_objects)
+        custom_objects = pickled_custom_objects
 
     if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
@@ -402,6 +406,17 @@ def _load_model(model_path, keras_module, **kwargs):
     else:
         # NOTE: Older versions of Keras only handle filepath.
         return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
+
+
+def _load_custom_objects_with_inlined_cloudpickle(custom_objects_path):
+    with open(custom_objects_path, "rb") as f:
+        return mlflow.utils.cloudpickle.load(f)
+
+
+def _load_custom_objects_with_pypi_cloudpickle(custom_objects_path):
+    import cloudpickle
+    with open(custom_objects_path, "rb") as f:
+        return cloudpickle.load(in_f)
 
 
 class _KerasModelWrapper:
