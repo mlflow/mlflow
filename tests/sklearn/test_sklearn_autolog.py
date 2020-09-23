@@ -32,6 +32,8 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+from tests.config_helper import input_example_and_signature_on
+
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -99,12 +101,6 @@ def get_expected_class_tags(model):
 
 def assert_predict_equal(left, right, X):
     np.testing.assert_array_equal(left.predict(X), right.predict(X))
-
-
-@pytest.fixture(autouse=True, scope="function")
-def input_example_and_signature_on():
-    return { "log_input_example": True, 
-        "log_model_signature": True }
 
 
 @pytest.fixture(params=FIT_FUNC_NAMES)
@@ -751,7 +747,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
 def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)

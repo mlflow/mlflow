@@ -12,6 +12,8 @@ import mlflow
 import mlflow.xgboost
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from tests.config_helper import input_example_and_signature_on
+
 
 mpl.use("Agg")
 
@@ -25,10 +27,6 @@ def get_model_conf(artifact_uri, model_subpath="model"):
     model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
     return Model.load(model_conf_path)
 
-@pytest.fixture(autouse=True, scope="function")
-def input_example_and_signature_on():
-    return { "log_input_example": True,     
-    "log_model_signature": True }
 
 @pytest.fixture(scope="session")
 def bst_params():
@@ -470,7 +468,7 @@ def test_lgb_autolog_configuration_options(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
-    
+
     with mlflow.start_run() as run:
         mlflow.xgboost.autolog(log_input_example=False, log_model_signature=False)
         dataset = xgb.DMatrix(X, y)
