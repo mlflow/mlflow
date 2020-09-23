@@ -296,7 +296,8 @@ def autolog(
     Note that the `scikit-learn API`_ is not supported.
 
     :param importance_types: importance types to log.
-
+    :param log_input_example: whether to log a sample of the training data as an example for future reference.
+    :param log_model_signature: whether to log the signature of the inputs and outputs to the model.
     """
     import xgboost
     import numpy as np
