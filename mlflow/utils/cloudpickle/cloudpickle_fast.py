@@ -25,8 +25,8 @@ import typing
 from enum import Enum
 from collections import ChainMap
 
-from .compat import pickle, Pickler
-from .cloudpickle import (
+from mlflow.utils.cloudpickle.compat import pickle, Pickler
+from mlflow.utils.cloudpickle.cloudpickle import (
     _extract_code_globals, _BUILTIN_TYPE_NAMES, DEFAULT_PROTOCOL,
     _find_imported_submodules, _get_cell_contents, _is_importable,
     _builtin_type, _get_or_create_tracker_id,  _make_skeleton_class,

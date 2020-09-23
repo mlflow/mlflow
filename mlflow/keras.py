@@ -388,7 +388,7 @@ def _load_model(model_path, keras_module, **kwargs):
         model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
     if custom_objects_path is not None:
         mlflow_version = _get_mlflow_version(model_path)
-        if mlflow_version and LooseVersion(mlflow_version) > LooseVersion(1.11.0):
+        if mlflow_version and LooseVersion(mlflow_version) > LooseVersion("1.11.0"):
             pickled_custom_objects = _load_custom_objects_with_inlined_cloudpickle(custom_objects_path)
         else:
             pickled_custom_objects = _load_custom_objects_with_pypi_cloudpickle(custom_objects_path)
