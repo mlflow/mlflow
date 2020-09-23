@@ -139,6 +139,7 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
@@ -146,13 +147,17 @@ def log_model(
                       in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
                       and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
                       For example, consider the following ``artifacts`` dictionary::
+
                         {
                             "my_file": "s3://my-bucket/path/to/my/file"
                         }
+
                       In this case, the ``"my_file"`` artifact is downloaded from S3. The
                       ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
                       path via ``context.artifacts["my_file"]``.
+
                       If ``None``, no artifacts are added to the model.
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -286,6 +291,7 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
@@ -293,13 +299,17 @@ def save_model(
                       in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
                       and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
                       For example, consider the following ``artifacts`` dictionary::
+
                         {
                             "my_file": "s3://my-bucket/path/to/my/file"
                         }
+
                       In this case, the ``"my_file"`` artifact is downloaded from S3. The
                       ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
                       path via ``context.artifacts["my_file"]``.
+
                       If ``None``, no artifacts are added to the model.
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
