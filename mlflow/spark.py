@@ -682,11 +682,6 @@ def autolog():
         # next-created MLflow run if no run is currently active
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
-            text = pandas_df["text"]
-            print("Logged dataframe info to run with ID %s" % active_run.info.run_id)
-            # Train a model etc
-            import time
-            time.sleep(3)
     """
     from mlflow import _spark_autologging
 
