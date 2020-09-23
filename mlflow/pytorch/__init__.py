@@ -12,12 +12,12 @@ import logging
 import os
 import yaml
 
-import cloudpickle
 import numpy as np
 import pandas as pd
 
 import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
+import mlflow.utils.
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
@@ -53,9 +53,10 @@ def get_default_conda_env():
             "torchvision={}".format(torchvision.__version__),
         ],
         additional_pip_deps=[
-            # We include CloudPickle in the default environment because
-            # it's required by the default pickle module used by `save_model()`
-            # and `log_model()`: `mlflow.pytorch.pickle_module`.
+            # By default, cloudpickle is used to serialize and deserialize PyTorch model classes. 
+            # To maintain compatibility with older versions of MLflow, which install cloudpickle via
+            # pip or conda instead of using an MLflow-inlined copy of the library, we include the
+            # version string of the MLflow-inlined copy in the conda environment
             "cloudpickle=={}".format(cloudpickle.__version__)
         ],
         additional_conda_channels=["pytorch"],

@@ -29,7 +29,6 @@ pysftp==0.2.9
 keras==2.3.1
 attrdict==2.0.0
 azureml-sdk==1.2.0; python_version >= "3.0"
-cloudpickle==0.8.0
 pytest-localserver==0.5.0
 sqlalchemy==1.3.0
 kubernetes==9.0.0
