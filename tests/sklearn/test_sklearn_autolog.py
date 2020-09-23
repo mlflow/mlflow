@@ -161,7 +161,7 @@ def test_autolog_preserves_original_function_attributes():
         return attrs
 
     before = [get_cls_attrs(cls) for _, cls in mlflow.sklearn.utils._all_estimators()]
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     after = [get_cls_attrs(cls) for _, cls in mlflow.sklearn.utils._all_estimators()]
 
     for b, a in zip(before, after):
@@ -175,11 +175,11 @@ def test_autolog_emits_warning_on_unsupported_versions_of_sklearn():
     with pytest.warns(
         UserWarning, match="Autologging utilities may not work properly on scikit-learn"
     ):
-        mlflow.sklearn.autolog(*input_example_and_signature_on())
+        mlflow.sklearn.autolog(**input_example_and_signature_on())
 
 
 def test_autolog_does_not_terminate_active_run():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     mlflow.start_run()
     sklearn.cluster.KMeans().fit(*get_iris())
     assert mlflow.active_run() is not None
@@ -187,7 +187,7 @@ def test_autolog_does_not_terminate_active_run():
 
 
 def test_estimator(fit_func_name):
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
     model = sklearn.cluster.KMeans()
@@ -208,7 +208,7 @@ def test_estimator(fit_func_name):
 
 
 def test_classifier_binary():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
@@ -270,7 +270,7 @@ def test_classifier_binary():
 
 
 def test_classifier_multi_class():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
@@ -322,7 +322,7 @@ def test_classifier_multi_class():
 
 
 def test_regressor():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     # use simple `LinearRegression`, which only implements `fit`.
     model = sklearn.linear_model.LinearRegression()
     X, y_true = get_iris()
@@ -350,7 +350,7 @@ def test_regressor():
 
 
 def test_meta_estimator():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     estimators = [
         ("std_scaler", sklearn.preprocessing.StandardScaler()),
@@ -372,7 +372,7 @@ def test_meta_estimator():
 
 
 def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_batch():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     large_params = {str(i): str(i) for i in range(MAX_PARAMS_TAGS_PER_BATCH + 1)}
     X, y = get_iris()
@@ -407,7 +407,7 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
     ],
 )
 def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_params, messages):
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     X, y = get_iris()
 
@@ -432,7 +432,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
 
 @pytest.mark.parametrize("Xy_passed_as", ["only_y_kwarg", "both_kwarg", "both_kwargs_swapped"])
 def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
@@ -455,7 +455,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
 
 
 def test_call_fit_with_arguments_score_does_not_accept():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     from sklearn.linear_model import SGDRegressor
 
@@ -489,7 +489,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
 
 @pytest.mark.parametrize("sample_weight_passed_as", ["positional", "keyword"])
 def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     from sklearn.linear_model import SGDRegressor
 
@@ -527,7 +527,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
 
 
 def test_only_fit_contains_sample_weight():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     from sklearn.linear_model import RANSACRegressor
 
@@ -560,7 +560,7 @@ def test_only_fit_contains_sample_weight():
 
 
 def test_only_score_contains_sample_weight():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     from sklearn.gaussian_process import GaussianProcessRegressor
 
@@ -593,7 +593,7 @@ def test_only_score_contains_sample_weight():
 
 
 def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     with pytest.raises(ValueError, match="Penalty term must be positive"):
         sklearn.svm.LinearSVC(C=-1).fit(*get_iris())
@@ -604,7 +604,7 @@ def test_autolog_terminates_run_when_active_run_does_not_exist_and_fit_fails():
 
 
 def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     run = mlflow.start_run()
 
     with pytest.raises(ValueError, match="Penalty term must be positive"):
@@ -616,7 +616,7 @@ def test_autolog_does_not_terminate_run_when_active_run_exists_and_fit_fails():
 
 
 def test_autolog_emits_warning_message_when_score_fails():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     model = sklearn.cluster.KMeans()
 
@@ -639,7 +639,7 @@ def test_autolog_emits_warning_message_when_metric_fails():
     """
     Take precision_score metric from SVC as an example to test metric logging failure
     """
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     model = sklearn.svm.SVC()
 
@@ -666,7 +666,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
     refitted, while during the metric logging what ".predict()" expects is a fitted model.
     Thus, a warning will be logged.
     """
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     metrics_size = 2
     metrics_to_log = {
@@ -693,7 +693,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
@@ -716,7 +716,7 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
 
 
 def test_meta_estimator_fit_performs_logging_only_once():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     estimators = [
         ("std_scaler", sklearn.preprocessing.StandardScaler()),
@@ -831,7 +831,7 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
 
 
 def test_parameter_search_handles_large_volume_of_metric_outputs():
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     metrics_size = MAX_METRICS_PER_BATCH + 10
     metrics_to_log = {
@@ -869,7 +869,7 @@ def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_spec
     with mock.patch(failing_specialization, side_effect=Exception("Failed")) as mock_func:
         # Enable autologging after mocking the parameter search specialization function
         # to ensure that the mock is applied before the function is imported
-        mlflow.sklearn.autolog(*input_example_and_signature_on())
+        mlflow.sklearn.autolog(**input_example_and_signature_on())
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(svc, {"C": [1]}, n_jobs=1)
         cv_model.fit(*get_iris())
@@ -882,7 +882,7 @@ def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_spec
     ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
 )
 def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
-    mlflow.sklearn.autolog(*input_example_and_signature_on())
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     model = sklearn.cluster.KMeans()
     X, y = get_iris()
@@ -896,7 +896,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
 def test_autolog_logs_signature_and_input_example(data_type):
-    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     X, y = get_iris()
     X = data_type(X)
@@ -932,7 +932,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
         _ = throwing_X[:5]
 
-    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
@@ -949,7 +949,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_predict():
     from sklearn.cluster import AgglomerativeClustering
 
-    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.sklearn.autolog(**input_example_and_signature_on())
 
     X, y = get_iris()
     model = AgglomerativeClustering()
@@ -970,7 +970,7 @@ def test_autolog_does_not_throw_when_predict_fails():
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(*input_example_and_signature_on())
+        mlflow.sklearn.autolog(**input_example_and_signature_on())
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -986,7 +986,7 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     with mlflow.start_run() as run, mock.patch(
         "mlflow.models.infer_signature", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(*input_example_and_signature_on())
+        mlflow.sklearn.autolog(**input_example_and_signature_on())
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
