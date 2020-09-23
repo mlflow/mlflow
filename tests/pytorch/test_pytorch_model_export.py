@@ -818,7 +818,7 @@ def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_
 @pytest.fixture
 def create_artifact(tmpdir):
     artifact_file_name = "requirements.txt"
-    fp = tmpdir.mkdir("artifacts").join(artifact_file_name)
+    fp = tmpdir.join(artifact_file_name)
     test_string = "pytest"
     fp.write(test_string)
     yield fp
