@@ -8,7 +8,7 @@ dependencies:
   - python=3.6
   - pip
   - pip:
-    - torch==1.4.0
+    - torch==1.6.0
     - torchvision==0.5.0
     - mlflow>=1.0
     - tensorboardX

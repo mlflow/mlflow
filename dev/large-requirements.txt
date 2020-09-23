@@ -19,7 +19,7 @@ scipy==1.2.1
 spacy==2.2.3
 tensorflow==1.15.2
 tf2onnx==1.5.4;
-torch==1.4.0
+torch==1.6.0
 torchvision==0.5.0
 xgboost>=0.82
 lightgbm==2.3.0
