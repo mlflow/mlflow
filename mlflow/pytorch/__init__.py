@@ -368,8 +368,7 @@ def save_model(
                     artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
                 )
             shutil.move(
-                tmp_artifacts_dir.path(),
-                posixpath.join(path, saved_artifacts_dir_subpath),
+                tmp_artifacts_dir.path(), posixpath.join(path, saved_artifacts_dir_subpath),
             )
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 

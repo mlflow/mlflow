@@ -840,9 +840,7 @@ def test_artifacts_log_model(create_artifact, sequential_model):
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
             assert os.path.isdir(os.path.join(model_path, "artifacts"))
-            requirements_file = os.path.join(
-                model_path, "artifacts", "requirements.txt"
-            )
+            requirements_file = os.path.join(model_path, "artifacts", "requirements.txt")
             assert os.path.isfile(requirements_file)
             with open(requirements_file) as fp:
                 content = fp.read()
@@ -874,9 +872,7 @@ def test_log_model_invalid_path(sequential_model):
             pytorch_model=sequential_model,
             artifact_path="models",
             conda_env=None,
-            artifacts={
-                "requirements.txt": "inexistent_file.txt"
-            },
+            artifacts={"requirements.txt": "inexistent_file.txt"},
         )
 
 
