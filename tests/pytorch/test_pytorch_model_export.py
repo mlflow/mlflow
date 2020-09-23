@@ -172,7 +172,7 @@ def _predict(model, data):
     with torch.no_grad():
         for i, batch in enumerate(dataloader):
             y_preds = model(batch[0]).squeeze(dim=1).numpy()
-            predictions[i * batch_size : (i + 1) * batch_size] = y_preds
+            predictions[i * batch_size: (i + 1) * batch_size] = y_preds
     return predictions
 
 
@@ -498,6 +498,23 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
 
 
 @pytest.mark.large
+def test_save_model_throws_exception_with_main_scoped_subclassed_model_and_pickle(
+    main_scoped_subclassed_model, model_path
+):
+    with pytest.raises(
+            AttributeError,
+            match="Can't pickle local object "
+                  "'get_subclassed_model_definition.<locals>.SubclassedModel'"
+    ):
+        mlflow.pytorch.save_model(
+            path=model_path,
+            pytorch_model=main_scoped_subclassed_model,
+            conda_env=None,
+            pickle_module=pickle,
+        )
+
+
+@pytest.mark.large
 def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
     main_scoped_subclassed_model, model_path, data
 ):
@@ -771,10 +788,10 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
 
 @pytest.mark.large
 def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
-    main_scoped_subclassed_model, model_path
+    module_scoped_subclassed_model, model_path
 ):
     mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=main_scoped_subclassed_model, conda_env=None
+        path=model_path, pytorch_model=module_scoped_subclassed_model, conda_env=None
     )
 
     bad_pickle_module_name = "not.a.real.module"
