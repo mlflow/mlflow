@@ -1,14 +1,12 @@
 import os
-import yaml
+from distutils.version import LooseVersion
 
-import mlflow.utils.cloudpickle
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
-from mlflow.version import VERSION as MLFLOW_VERSION
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -72,28 +70,25 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     return model_conf.flavors[flavor_name]
 
 
-class _CloudpickleInfo:
-    def __init__(
-        self,
-        mlflow_version=None,
-        mlflow_pickle_version=None,
-        mlflow_pickle_module_name=None,
-        **kwargs
-    ):
-        self.mlflow_version = mlflow_version
-        self.mlflow_pickle_version = mlflow_pickle_version
-        self.mlflow_pickle_module_name = mlflow_pickle_module_name
-        self.__dict__.update(kwargs)
+def _get_cloudpickle_module_for_deserialization(mlflow_version=None):
+    """
+    Gets the cloudpickle module used for deserializing MLflow Model
+    artifacts that were persisted using cloudpickle serialization format. Versions
+    of MLflow > 1.11.0 use an inlined version of cloudpickle, while older versions
+    use a standalone version of cloudpickle installed from PyPI/Anaconda
 
-    def save_yaml(self, path):
-        with open(path, "w") as f:
-            yaml.safe_dump(self.__dict__, f, default_flow_style=False)
+    :param mlflow_version: The string version of MLflow for which to obtain a deserialization
+                           model. If unspecified, we assume a version of MLflow <= 1.11.0
+                           because models persisted in these versions do not contain version
+                           information.
+    """
+    if mlflow_version and LooseVersion(mlflow_version) > LooseVersion("1.11.0"):
+        import mlflow.utils.cloudpickle
+
+        return mlflow.utils.cloudpickle
+    else:
+        import cloudpickle
+
+        return cloudpickle
 
 
-def _write_mlflow_cloudpickle_info_yaml(path):
-    info = _CloudpickleInfo(
-        mlflow_version=MLFLOW_VERSION,
-        mlflow_pickle_version=mlflow.utils.cloudpickle.__version__,
-        mlflow_pickle_module_name=mlflow.utils.cloudpickle.__name__,
-    )
-    info.save_yaml(path)

@@ -11,6 +11,7 @@ import importlib
 import logging
 import os
 import yaml
+from distutils.version import LooseVersion
 
 import numpy as np
 import pandas as pd
@@ -25,24 +26,29 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
-from mlflow.utils.model_utils import _get_flavor_configuration, _write_mlflow_cloudpickle_info_yaml
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
-# Path to a file containing information about the versions of cloudpickle and
-# mlflow that were used to persist an `mlflow.pytorch` model
-_MLFLOW_CLOUDPICKLE_INFO_PATH = "cloudpickle_conf.yaml"
+_MLFLOW_VERSION_FILE_NAME = "mlflow_version.txt"
+
+_PYTORCH_CLOUDPICKLE_MODULE_NAME = "mlflow.pytorch.pickle_module"
 
 _logger = logging.getLogger(__name__)
 
 
 def get_default_conda_env(include_cloudpickle=True):
     """
+    :param include_cloudpickle: If `True`, includes cloudpickle as a dependency in the conda
+                                environment. This is only required if you need to load
+                                cloudpickle-persisted `mlflow.pytorch` models in versions of 
+                                MLflow <= 1.11.0.
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
@@ -51,16 +57,14 @@ def get_default_conda_env(include_cloudpickle=True):
 
     pip_deps = []
     if include_cloudpickle:
-        "cloudpickle=={}".format(mlflow.utils.cloudpickle.__version__)
+        pip_deps.append("cloudpickle=={}".format(mlflow.utils.cloudpickle.__version__))
 
     return _mlflow_conda_env(
         additional_conda_deps=[
             "pytorch={}".format(torch.__version__),
             "torchvision={}".format(torchvision.__version__),
         ],
-        additional_pip_deps=[
-            # By default, cloudpickle is used to serialize and deserialize PyTorch model classes.
-        ],
+        additional_pip_deps=pip_deps,
         additional_conda_channels=["pytorch"],
     )
 
@@ -316,10 +320,18 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
 
+    # Persist the version of MLflow as a file in the model's `data` directory in order to
+    # determine how to deserialize the model later on (e.g., whether or not to use an MLflow-inlined
+    # installation of cloudpickle). This is necessary because the `data` directory is the only 
+    # available parameter to `_load_pyfunc`, and it does not contain the MLmodel configuration; 
+    # therefore, it is not sufficient to place the version in the MLmodel file
+    with open(os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME), "w") as f:
+        f.write(MLFLOW_VERSION)
+
     # Persist the pickle module name as a file in the model's `data` directory. This is necessary
     # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
     # does not contain the MLmodel configuration; therefore, it is not sufficient to place
-    # the module name in the MLmodel
+    # the module name in the MLmodel file
     #
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
@@ -328,12 +340,8 @@ def save_model(
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, we refer to the
         # deprecated `mlflow.pytorch.pickle_module` that uses a standalone installation of
-        # cloudpickle. In order to use the MLflow-inlined cloudpickle in the current version
-        # of MLflow, we persist a separate YAML file
-        pickle_module_name = "mlflow.pytorch.pickle_module"
-        _write_mlflow_cloudpickle_info_yaml(
-            os.path.join(model_data_path, _MLFLOW_CLOUDPICKLE_INFO_PATH)
-        )
+        # cloudpickle
+        pickle_module_name = _PYTORCH_CLOUDPICKLE_MODULE_NAME
     else:
         pickle_module_name = pickle_module.__name__
     with open(pickle_module_path, "w") as f:
@@ -406,15 +414,24 @@ def _get_pickle_module(model_data_path):
                             for which to fetch the pickle module
     :return: A Python module defining pickle functions (e.g., `load()` and `dump()`)
     """
-    if os.path.exists(os.path.join(model_data_path, _MLFLOW_CLOUDPICKLE_INFO_PATH)):
-        # The presence of an MLflow-inlined cloudpickle informational file indicates
-        # that the `mlflow.pytorch` model was persisted using the MLflow-inlined
-        # cloudpickle module
-        return mlflow.utils.cloudpickle
+    mlflow_version = None
+    mlflow_version_file_path = os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME) 
+    if os.path.exists(mlflow_version_file_path):
+        with open(os.path.join(mlflow_version_file_path), "r") as f:
+            mlflow_version = f.read()
 
     pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
     with open(pickle_module_path, "r") as f:
         pickle_module_name = f.read()
+
+    if (pickle_module_name == _PYTORCH_CLOUDPICKLE_MODULE_NAME and
+            LooseVersion(mlflow_version) > LooseVersion("1.11.0")):
+        # To maintain compatibility with older versions of MLflow, which install cloudpickle via
+        # pip or conda instead of using an MLflow-inlined copy of the library, versions of
+        # MLflow > 1.11.0 use `mlflow.pytorch.pickle_module` as an alias for 
+        # `mlflow.utils.cloudpickle` during model serialization
+        pickle_module_name = mlflow.utils.cloudpickle.__name__
+
     try:
         return importlib.import_module(pickle_module_name)
     except ImportError as exc:

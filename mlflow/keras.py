@@ -27,7 +27,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration, _write_mlflow_cloudpickle_info_yaml
+from mlflow.utils.model_utils import _get_flavor_configuration 
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -37,17 +37,23 @@ FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
-# Path to a file containing information about the versions of cloudpickle and
-# mlflow that were used to persist an `mlflow.keras` model
-_MLFLOW_CLOUDPICKLE_INFO_PATH = "cloudpickle_info.yaml"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model.h5"
 # Conda env subpath when saving/loading model
 _CONDA_ENV_SUBPATH = "conda.yaml"
+_MLFLOW_VERSION_SUBPATH= "mlflow_version.txt"
 
 
 def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     """
+    :param include_cloudpickle: If `True`, includes cloudpickle as a dependency in the Conda
+                                environment. This is only required if you need to load
+                                `mlflow.keras` models with custom objects in versions of 
+                                MLflow <= 1.11.0.
+    :param keras_module: The Keras module to include within the Conda environment. The version
+                         of the module is extracted used to specify a pinned dependency on a
+                         particular release of Keras. If unspecified, the module is assumed to be
+                         `keras` (rather than `tf.keras`).
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
@@ -209,12 +215,17 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
+    # Persist the version of MLflow as a file in the model's `data` directory in order to
+    # determine how to deserialize model artifacts (i.e. custom Keras objects) later on.
+    # This is necessary because the `data` directory is the only  available parameter to 
+    # `_load_pyfunc`, and it does not contain the MLmodel configuration;  therefore, it 
+    # is not sufficient to place the version in the MLmodel file
+    with open(os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME), "w") as f:
+        f.write(MLFLOW_VERSION)
+
     # save custom objects if there are custom objects
     if custom_objects is not None:
         _save_custom_objects(data_path, custom_objects)
-        # save information about the MLflow-inlined version of cloudpickle that will
-        # be used to deserialize custom objects during the model loading procedure
-        _write_mlflow_cloudpickle_info_yaml(os.path.join(data_path, _MLFLOW_CLOUDPICKLE_INFO_PATH))
 
     # save keras module spec to path/data/keras_module.txt
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
@@ -386,26 +397,9 @@ def _save_custom_objects(path, custom_objects):
 def _load_model(model_path, keras_module, **kwargs):
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
-    custom_objects_path = None
     if os.path.isdir(model_path):
-        if os.path.isfile(os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)):
-            custom_objects_path = os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)
-        mlflow_cloudpickle_info_path = os.path.join(model_path, _MLFLOW_CLOUDPICKLE_INFO_PATH)
         model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
-    if custom_objects_path is not None:
-        if os.path.exists(mlflow_cloudpickle_info_path):
-            # Custom objects were saved using a version of MLflow with an inlined copy of
-            # the cloudpickle library and should be loaded using an inlined cloudpickle
-            pickled_custom_objects = _load_custom_objects_with_inlined_cloudpickle(
-                custom_objects_path
-            )
-        else:
-            # Custom objects were saved using a version of MLflow that installed cloudpickle
-            # via pip or conda; these customn objects should therefore be loaded using a
-            # pip/conda installation of cloudpickle
-            pickled_custom_objects = _load_custom_objects_with_standalone_cloudpickle(
-                custom_objects_path
-            )
+        pickled_custom_objects = _load_pickled_custom_objects(model_path)
         pickled_custom_objects.update(custom_objects)
         custom_objects = pickled_custom_objects
 
@@ -422,23 +416,26 @@ def _load_model(model_path, keras_module, **kwargs):
         return keras_models.load_model(model_path, custom_objects=custom_objects, **kwargs)
 
 
-def _load_custom_objects_with_inlined_cloudpickle(custom_objects_path):
+def _load_pickled_custom_objects(model_data_path):
     """
-    Loads custom Keras objects using an inlined copy of cloudpickle included in MLflow
+    :return: A dictionary mapping string names to classes / functions used for
+             Keras model deserialization.
     """
+    custom_objects_path = os.path.join(model_data_path, _CUSTOM_OBJECTS_SAVE_PATH)
+    mlflow_version_path = os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME)
+
+    if not os.path.isfile(custom_objects_path):
+        return {}
+    
+    mlflow_version = None
+    if os.path.isfile(mlflow_version_path):
+        with open(mlflow_version_path, "r") as f:
+            mlflow_version = f.read()
+
+    cloudpickle = _get_cloudpickle_module_for_deserialization(mlflow_version)
     with open(custom_objects_path, "rb") as f:
-        return mlflow.utils.cloudpickle.load(f)
-
-
-def _load_custom_objects_with_standalone_cloudpickle(custom_objects_path):
-    """
-    Loads custom Keras objects using a standalone version of cloudpickle (e.g.,
-    a copy of the library installed from Anaconda or PyPI)
-    """
-    import cloudpickle
-
-    with open(custom_objects_path, "rb") as f:
-        return cloudpickle.load(f)
+        pickled_custom_objects = cloudpickle.load(f)
+    return pickled_custom_objects
 
 
 class _KerasModelWrapper:

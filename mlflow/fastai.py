@@ -37,8 +37,11 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "fastai"
 
 
-def get_default_conda_env():
+def get_default_conda_env(include_cloudpickle=False):
     """
+    :param include_cloudpickle: This parameter is deprecated and has no impact on the
+                                resulting Conda environment. It will be removed in a
+                                future release.
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
