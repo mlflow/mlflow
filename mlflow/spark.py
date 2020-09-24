@@ -529,9 +529,9 @@ def save_model(
     )
 
 
-
 def _load_model_databricks(model_uri, dfs_tmpdir):
     from pyspark.ml.pipeline import PipelineModel
+
     # Download model saved to remote URI to local filesystem
     local_model_path = _download_artifact_from_uri(model_uri)
     # Spark ML expects the model to be stored on DFS
@@ -558,6 +558,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
 
 def _load_model(model_uri, dfs_tmpdir_base=None):
     from pyspark.ml.pipeline import PipelineModel
+
     if dfs_tmpdir_base is None:
         dfs_tmpdir_base = DFS_TMP
     dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
