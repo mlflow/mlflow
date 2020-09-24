@@ -196,7 +196,23 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
 
 def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
-    """End an active MLflow run (if there is one)."""
+    """End an active MLflow run (if there is one).
+
+    It removes the active run from the global variable keeping track of
+    active runs, unset the ``MLFLOW_RUN_ID`` environment variable and
+    send a termination signal with the ``MLFlowClient``, updating the
+    status on the tracking URI.
+
+    Note that ``end_run()`` is automatically called at exit time (when
+    your script completes).
+
+    In distributed situations, your master node may start a new MLFlow
+    run, forward the MLFlow ``run_id`` to an executor (using the
+    environment variable ``MLFLOW_RUN_ID`` for example), and terminate,
+    even though the executor has not completed. To avoid unwanted early
+    termination of the MLFlow run, use ``atexit.unregister(end_run)``
+    on the master node.
+    """
     global _active_run_stack
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
