@@ -53,7 +53,8 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 Installing
 ----------
-Install MLflow from PyPI via ``pip install mlflow``
+Install MLflow from PyPI via ``pip install mlflow``. New releases of MLflow (1.8.0 and above)
+require Python >= 3.5.
 
 MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
 
