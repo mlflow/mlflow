@@ -529,67 +529,41 @@ def save_model(
     )
 
 
-def _load_model_databricks_acled_artifacts_uri(model_uri):
+
+def _load_model_databricks(model_uri, dfs_tmpdir):
     from pyspark.ml.pipeline import PipelineModel
-    from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-
-    # To load Spark model from ACL'd DBFS, copy it to standard DBFS tmpdir via FUSE, read model,
-    # and remove tmpdir
-    fuse_tmpdir = dbfs_hdfs_uri_to_fuse_path(tmp_path)
-    os.mkdir(fuse_tmpdir)
-    try:
-        DatabricksArtifactRepository(model_uri).download_artifacts("", dst_path=fuse_tmpdir)
-        dbfs_hdfs_tmpdir = dbfs_fuse_path_to_hdfs_uri(fuse_tmpdir)
-        return PipelineModel.load(dbfs_hdfs_tmpdir)
-    finally:
-        # TODO: Ask Tomas if this is safe, given the comment below (that Spark may read
-        # from the model files at any point)
-        shutil.rmtree(fuse_tmpdir)
-
-
-def _load_model_local_uri_databricks(model_path, dfs_tmpdir_base=None):
-    from pyspark.ml.pipeline import PipelineModel
-
-    # Load spark model saved to a local path
-    # We reupload the model to a temporary DFS path, then load from there
-    if dfs_tmpdir_base is None:
-        dfs_tmpdir_base = "dbfs:/tmp/mlflow"
-    dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
+    # Download model saved to remote URI to local filesystem
+    local_model_path = _download_artifact_from_uri(model_uri)
+    # Spark ML expects the model to be stored on DFS
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
     fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
     os.mkdir(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
-    for (dirpath, dirnames, filenames) in os.walk(model_path):
+    for (dirpath, dirnames, filenames) in os.walk(local_model_path):
         for dirname in dirnames:
-            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), model_path)
+            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), local_model_path)
             # Compute corresponding FUSE path of each local directory and create an equivalent
             # FUSE directory
             fuse_dir_path = os.path.join(fuse_dfs_tmpdir, relative_dir_path)
             os.mkdir(fuse_dir_path)
         for filename in filenames:
             file_path = os.path.join(dirpath, filename)
-            relative_file_path = os.path.relpath(file_path, model_path)
+            relative_file_path = os.path.relpath(file_path, local_model_path)
             fuse_file_path = os.path.join(fuse_dfs_tmpdir, relative_file_path)
             shutil.copyfile(file_path, fuse_file_path)
     return PipelineModel.load(dfs_tmpdir)
 
 
-def _load_model(model_uri, dfs_tmpdir=None):
+def _load_model(model_uri, dfs_tmpdir_base=None):
     from pyspark.ml.pipeline import PipelineModel
-
-    if is_databricks_acled_artifacts_uri(model_uri) and databricks_utils.is_in_cluster():
-        return _load_model_databricks_acled_artifacts_uri(model_uri)
-    elif is_local_uri(model_uri) and databricks_utils.is_in_cluster():
-        return _load_model_local_uri_databricks(model_uri, dfs_tmpdir)
-
-    if dfs_tmpdir is None:
-        dfs_tmpdir = DFS_TMP
-    tmp_path = _tmp_path(dfs_tmpdir)
-    # Spark ML expects the model to be stored on DFS
-    # Copy the model to a temp DFS location first. We cannot delete this file, as
-    # Spark may read from it at any point.
-    model_path = _HadoopFileSystem.maybe_copy_from_uri(model_uri, tmp_path)
-    # If not a special-case URI, try reading model directly from the provided URI
+    if dfs_tmpdir_base is None:
+        dfs_tmpdir_base = DFS_TMP
+    dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
+    if databricks_utils.is_in_cluster():
+        return _load_model_databricks(model_uri, dfs_tmpdir)
+    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
     return PipelineModel.load(model_uri)
 
 
