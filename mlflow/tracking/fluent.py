@@ -51,8 +51,6 @@ def set_experiment(experiment_name):
 
         # Get Experiment Details
         experiment = mlflow.get_experiment_by_name("Social NLP Experiments")
-
-        # Print the contents of Experiment data
         print("Experiment_id: {}".format(experiment.experiment_id))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
@@ -146,8 +144,6 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         # Search all child runs with a parent id
         query = "tags.mlflow.parentRunId = '{}'".format(parent_run.info.run_id)
         results = mlflow.search_runs(filter_string=query)
-
-        # Print the pandas DataFrame columns
         print(results[["run_id", "params.child", "tags.mlflow.runName"]])
 
     .. code-block:: text
@@ -246,7 +242,7 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
         print("--")
 
         # Check for any active runs
-        print("Active runs: {}".format(mlflow.active_run()))
+        print("Active run: {}".format(mlflow.active_run()))
 
     .. code-block:: text
         :caption: Output
@@ -254,7 +250,7 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
         run_id: b47ee4563368419880b44ad8535f6371; status: RUNNING
         run_id: b47ee4563368419880b44ad8535f6371; status: FINISHED
         --
-        Active runs: None
+        Active run: None
     """
     global _active_run_stack
     if len(_active_run_stack) > 0:
@@ -575,8 +571,6 @@ def get_experiment(experiment_id):
         import mlflow
 
         experiment = mlflow.get_experiment("0")
-
-        # Print the contents of Experiment data
         print("Name: {}".format(experiment.name))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
@@ -586,7 +580,7 @@ def get_experiment(experiment_id):
         :caption: Output
 
         Name: Default
-        Artifact Location: file:///.../apis/mlruns/0
+        Artifact Location: file:///.../mlruns/0
         Tags: {}
         Lifecycle_stage: active
     """
@@ -607,8 +601,6 @@ def get_experiment_by_name(name):
 
         # Case sensitive name
         experiment = mlflow.get_experiment_by_name("Default")
-
-        # Print the contents of Experiment data
         print("Experiment_id: {}".format(experiment.experiment_id))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Tags: {}".format(experiment.tags))
@@ -642,8 +634,6 @@ def create_experiment(name, artifact_location=None):
         # Create an experiment name, which must be unique and case sensitve
         experiment_id = mlflow.create_experiment("Social NLP Experiments")
         experiment = mlflow.get_experiment(experiment_id)
-
-        # Print the contents of experiment data
         print("Name: {}".format(experiment.name))
         print("Experiment_id: {}".format(experiment.experiment_id))
         print("Artifact Location: {}".format(experiment.artifact_location))
@@ -680,12 +670,9 @@ def delete_experiment(experiment_id):
         # are moved to a .thrash folder under the artifact location top
         # level directory.
         experiment = mlflow.get_experiment(experiment_id)
-
-        # Print the contents of deleted Experiment data
         print("Name: {}".format(experiment.name))
         print("Artifact Location: {}".format(experiment.artifact_location))
         print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
-
 
     .. code-block:: text
         :caption: Output
@@ -817,8 +804,6 @@ def search_runs(
 
         # Search all runs in experiment_id
         df = mlflow.search_runs([experiment_id], order_by=["metrics.m DESC"])
-
-        # Print pandas DataFrame's rows and columns
         print(df[["metrics.m", "tags.s.release", "run_id"]])
         print("--")
 
@@ -826,8 +811,6 @@ def search_runs(
         # that has a case insensitive pattern
         filter_string = "tags.s.release ILIKE '%rc%'"
         df = mlflow.search_runs([experiment_id], filter_string=filter_string)
-
-        # Print pandas DataFrame's rows and columns
         print(df[["metrics.m", "tags.s.release", "run_id"]])
 
     .. code-block:: text
