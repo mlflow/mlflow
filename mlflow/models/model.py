@@ -43,7 +43,6 @@ class Model(object):
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
-
         self.__dict__.update(kwargs)
 
     def __eq__(self, other):
