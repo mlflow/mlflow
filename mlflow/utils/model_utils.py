@@ -72,7 +72,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     return model_conf.flavors[flavor_name]
 
 
-class _CloudpickleConf:
+class _CloudpickleInfo:
 
     def __init__(self, mlflow_version=None, mlflow_pickle_version=None, mlflow_pickle_module_name=None, **kwargs):
         self.mlflow_version = mlflow_version
@@ -84,10 +84,10 @@ class _CloudpickleConf:
         with open(path, "w") as f:
             yaml.safe_dump(self.__dict__, f, default_flow_style=False)
 
-def _write_mlflow_cloudpickle_conf_yaml(path):
-    conf = _CloudpickleConf(
+def _write_mlflow_cloudpickle_info_yaml(path):
+    info = _CloudpickleInfo(
         mlflow_version=MLFLOW_VERSION, 
         mlflow_pickle_version=mlflow.utils.cloudpickle.__version__,
         mlflow_pickle_module_name=mlflow.utils.cloudpickle.__name__,
     )
-    conf.save_yaml(path)
+    info.save_yaml(path)

@@ -1,4 +1,8 @@
 """
+**DEPRECATED**
+This module is deprecated and is only used to load PyTorch models that were saved in MLflow
+versions <= 1.11.0.
+
 This module imports contents from CloudPickle in a way that is compatible with the
 ``pickle_module`` parameter of PyTorch's model persistence function: ``torch.save``
 (see https://github.com/pytorch/pytorch/blob/692898fe379c9092f5e380797c32305145cd06e1/torch/

@@ -8,11 +8,11 @@ import posixpath
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
-
-import cloudpickle
+from distutils.version import LooseVersion
 
 import mlflow.pyfunc
 import mlflow.utils
+import mlflow.utils.cloudpickle
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -21,12 +21,14 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
 CONFIG_KEY_ARTIFACT_URI = "uri"
 CONFIG_KEY_PYTHON_MODEL = "python_model"
 CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
+CONFIG_KEY_MLFLOW_VERSION = "mlflow_version"
 
 
 def get_default_conda_env():
@@ -38,7 +40,10 @@ def get_default_conda_env():
     """
     return _mlflow_conda_env(
         additional_conda_deps=None,
-        additional_pip_deps=["cloudpickle=={}".format(cloudpickle.__version__)],
+        # To maintain compatibility with older versions of MLflow, which install cloudpickle via
+        # pip or conda instead of using an MLflow-inlined copy of the library, we include the
+        # version of the MLflow-inlined copy in the conda environment 
+        additional_pip_deps=["cloudpickle=={}".format(mlflow.utils.cloudpickle.__version__)],
         additional_conda_channels=None,
     )
 
@@ -130,12 +135,13 @@ def _save_model_with_class_artifacts_params(
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
     custom_model_config_kwargs = {
-        CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
+        CONFIG_KEY_CLOUDPICKLE_VERSION: mlflow.utils.cloudpickle.__version__,
+        CONFIG_KEY_MLFLOW_VERSION: MLFLOW_VERSION,
     }
     if isinstance(python_model, PythonModel):
         saved_python_model_subpath = "python_model.pkl"
         with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-            cloudpickle.dump(python_model, out)
+            mlflow.utils.cloudpickle.dump(python_model, out)
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
     else:
         raise MlflowException(
@@ -197,6 +203,8 @@ def _load_pyfunc(model_path):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
+    python_model_mlflow_version = pyfunc_config.get(CONFIG_KEY_MLFLOW_VERSION, None)
+    cloudpickle = _get_cloudpickle_module(python_model_mlflow_version)
 
     python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
     if python_model_cloudpickle_version is None:
@@ -233,6 +241,19 @@ def _load_pyfunc(model_path):
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)
     return _PythonModelPyfuncWrapper(python_model=python_model, context=context)
+
+
+def _get_cloudpickle_module(mlflow_version=None):
+    """
+    Gets the cloudpickle module used for deserializing Python model artifacts. Versions 
+    of MLflow > 1.11.0 use an inlined version of cloudpickle, while older versions use a 
+    standalone version of cloudpickle installed from PyPI/Anaconda
+    """
+    if mlflow_version and LooseVersion(mlflow_version) > LooseVersion("1.11.0"):
+        return mlflow.utils.cloudpickle
+    else:
+        import cloudpickle
+        return cloudpickle
 
 
 class _PythonModelPyfuncWrapper(object):

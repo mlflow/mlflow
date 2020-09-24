@@ -14,8 +14,10 @@ import logging
 import pickle
 import yaml
 import warnings
+from distutils.version import LooseVersion
 
 import mlflow
+import mlflow.utils.cloudpickle
 from mlflow import pyfunc
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
@@ -26,11 +28,12 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, INPUT_EXAMPLE_SAMPLE_ROWS
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 FLAVOR_NAME = "sklearn"
 
@@ -51,9 +54,7 @@ def get_default_conda_env(include_cloudpickle=False):
 
     pip_deps = None
     if include_cloudpickle:
-        import cloudpickle
-
-        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
+        pip_deps = ["cloudpickle=={}".format(mlflow.utils.cloudpickle.__version__)]
     return _mlflow_conda_env(
         additional_conda_deps=["scikit-learn={}".format(sklearn.__version__)],
         additional_pip_deps=pip_deps,
@@ -179,8 +180,13 @@ def save_model(
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
+        # To maintain compatibility with older versions of MLflow, which install cloudpickle via
+        # pip or conda instead of using an MLflow-inlined copy of the library, we include the
+        # version of the MLflow-inlined copy in the conda environment. This cloudpickle dependency 
+        # is only necessary when the specified serialization format is 'cloudpickle'. 
+        include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE 
         conda_env = get_default_conda_env(
-            include_cloudpickle=serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+            include_cloudpickle=include_cloudpickle
         )
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
@@ -201,6 +207,7 @@ def save_model(
         pickled_model=model_data_subpath,
         sklearn_version=sklearn.__version__,
         serialization_format=serialization_format,
+        mlflow_version=MLFLOW_VERSION,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -303,13 +310,14 @@ def log_model(
     )
 
 
-def _load_model_from_local_file(path, serialization_format):
+def _load_model_from_local_file(path, serialization_format, mlflow_version=None):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system.
 
     :param path: Local filesystem path to the MLflow Model saved with the ``sklearn`` flavor
     :param serialization_format: The format in which the model was serialized. This should be one of
                                  the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
                                  ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    :param mlflow_version: The version of MLflow that was used to persist the model
     """
     # TODO: we could validate the scikit-learn version here
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
@@ -329,9 +337,22 @@ def _load_model_from_local_file(path, serialization_format):
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             return pickle.load(f)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-            import cloudpickle
-
+            cloudpickle = _get_cloudpickle_module(mlflow_version)
             return cloudpickle.load(f)
+
+
+def _get_cloudpickle_module(mlflow_version=None):
+    """
+    Gets the cloudpickle module used for deserializing `mlflow.sklearn` model
+    artifacts that were saved in the 'cloudpickle' serialization format. Versions
+    of MLflow > 1.11.0 use an inlined version of cloudpickle, while older versions
+    use a standalone version of cloudpickle installed from PyPI/Anaconda
+    """
+    if mlflow_version and LooseVersion(mlflow_version) > LooseVersion("1.11.0"):
+        return mlflow.utils.cloudpickle
+    else:
+        import cloudpickle
+        return cloudpickle
 
 
 def _load_pyfunc(path):
@@ -340,6 +361,7 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
+    mlflow_version = None
     if os.path.isfile(path):
         # Scikit-learn models saved in older versions of MLflow (<= 1.9.1) specify the ``data``
         # field within the pyfunc flavor configuration. For these older models, the ``path``
@@ -361,6 +383,7 @@ def _load_pyfunc(path):
             serialization_format = sklearn_flavor_conf.get(
                 "serialization_format", SERIALIZATION_FORMAT_PICKLE
             )
+            mlflow_version = sklearn_flavor_conf.get("mlflow_version")
         except MlflowException:
             _logger.warning(
                 "Could not find scikit-learn flavor configuration during model loading process."
@@ -373,7 +396,7 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
-    return _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    return _load_model_from_local_file(path=path, serialization_format=serialization_format, mlflow_version=mlflow_version)
 
 
 def _save_model(sk_model, output_path, serialization_format):
@@ -388,9 +411,7 @@ def _save_model(sk_model, output_path, serialization_format):
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             pickle.dump(sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-            import cloudpickle
-
-            cloudpickle.dump(sk_model, out)
+            mlflow.utils.cloudpickle.dump(sk_model, out)
         else:
             raise MlflowException(
                 message="Unrecognized serialization format: {serialization_format}".format(
