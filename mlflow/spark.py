@@ -528,9 +528,11 @@ def save_model(
         input_example=input_example,
     )
 
+
 def _load_model_databricks_acled_artifacts_uri(model_uri):
     from pyspark.ml.pipeline import PipelineModel
     from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+
     # To load Spark model from ACL'd DBFS, copy it to standard DBFS tmpdir via FUSE, read model,
     # and remove tmpdir
     fuse_tmpdir = dbfs_hdfs_uri_to_fuse_path(tmp_path)
@@ -544,8 +546,10 @@ def _load_model_databricks_acled_artifacts_uri(model_uri):
         # from the model files at any point)
         shutil.rmtree(fuse_tmpdir)
 
+
 def _load_model_local_uri_databricks(model_path, dfs_tmpdir_base=None):
     from pyspark.ml.pipeline import PipelineModel
+
     # Load spark model saved to a local path
     # We reupload the model to a temporary DFS path, then load from there
     if dfs_tmpdir_base is None:
@@ -570,9 +574,9 @@ def _load_model_local_uri_databricks(model_path, dfs_tmpdir_base=None):
     return PipelineModel.load(dfs_tmpdir)
 
 
-
 def _load_model(model_uri, dfs_tmpdir=None):
     from pyspark.ml.pipeline import PipelineModel
+
     if is_databricks_acled_artifacts_uri(model_uri) and databricks_utils.is_in_cluster():
         return _load_model_databricks_acled_artifacts_uri(model_uri)
     elif is_local_uri(model_uri) and databricks_utils.is_in_cluster():

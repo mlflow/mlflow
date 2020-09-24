@@ -583,12 +583,7 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
 
 
 @pytest.mark.parametrize(
-    "path",
-    [
-        "some/relative/path",
-        "s3:/some/s3/path",
-        "C:/cool/windows/path",
-    ],
+    "path", ["some/relative/path", "s3:/some/s3/path", "C:/cool/windows/path",],
 )
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
     with pytest.raises(MlflowException):
