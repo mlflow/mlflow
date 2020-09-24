@@ -755,14 +755,14 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     ) as mlflow_torch_pickle_load_mock, mock.patch("mlflow.pytorch._logger.warning") as warn_mock:
         mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
         warn_mock.side_effect = custom_warn
-        mlflow.pytorch.load_model(model_uri=model_path, pickle_module=mlflow_pytorch_pickle_module)
+        mlflow.pytorch.load_model(model_uri=model_path, pickle_module=mlflow.utils.cloudpickle)
 
     assert all(pickle_call_results.values())
     assert any(
         [
             "does not match the pickle module that was used to save the model" in log_message
             and pickle.__name__ in log_message
-            and mlflow_pytorch_pickle_module.__name__ in log_message
+            and mlflow.utils.cloudpickle.__name__ in log_message
             for log_message in log_messages
         ]
     )
@@ -786,6 +786,7 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
         os.path.join(model_data_path, mlflow.pytorch._PICKLE_MODULE_INFO_FILE_NAME), "w"
     ) as f:
         f.write(bad_pickle_module_name)
+    os.remove(os.path.join(model_data_path, mlflow.pytorch._MLFLOW_CLOUDPICKLE_INFO_PATH))
 
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pytorch.load_model(model_uri=model_path)
