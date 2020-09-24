@@ -324,7 +324,7 @@ def save_model(
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
     pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
-    if pickle_module == mlfow.utils.cloudpickle:
+    if pickle_module == mlflow.utils.cloudpickle:
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, we refer to the
         # deprecated `mlflow.pytorch.pickle_module` that uses a standalone installation of
@@ -343,7 +343,6 @@ def save_model(
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        import mlflow.utils.cloudpickle
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, we include the
         # version of the MLflow-inlined copy in the conda environment. This dependency is only

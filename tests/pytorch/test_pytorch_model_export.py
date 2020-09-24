@@ -17,11 +17,11 @@ import yaml
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.utils.cloudpickle
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -498,14 +498,13 @@ def test_save_model_with_wrong_codepaths_fails_corrrectly(
 
 
 @pytest.mark.large
-def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
+def test_pyfunc_model_serving_with_main_scoped_subclassed_model(
     main_scoped_subclassed_model, model_path, data
 ):
     mlflow.pytorch.save_model(
         path=model_path,
         pytorch_model=main_scoped_subclassed_model,
         conda_env=None,
-        pickle_module=mlflow_pytorch_pickle_module,
     )
 
     scoring_response = pyfunc_serve_and_score_model(
@@ -737,7 +736,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         pickle_module=pickle,
     )
 
-    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.load
+    mlflow_torch_pickle_load = mlflow.utils.cloudpickle.load
     pickle_call_results = {
         "mlflow_torch_pickle_load_called": False,
     }
