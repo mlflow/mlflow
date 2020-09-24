@@ -21,9 +21,10 @@ You install MLflow by running:
 
 .. note::
 
-    MLflow works on MacOS. If you run into issues with the default system Python on MacOS, try
-    installing Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
-    ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
+    MLflow works on MacOS, and new versions of MLflow (1.8.0 and above) require Python >= 3.5. If
+    you run into issues with the default system Python on MacOS, try installing Python 3 through
+    the `Homebrew <https://brew.sh/>`_ package manager using ``brew install python``. (In this case,
+    installing MLflow is now ``pip3 install mlflow``).
 
 In order to use some of MLflow features (ML librairies, storage options, ...), you may need to install extra libraries.
 For example, the ``mlflow.tensorflow`` module requires TensorFlow to be installed.
