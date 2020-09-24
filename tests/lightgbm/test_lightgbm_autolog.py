@@ -331,9 +331,10 @@ def test_lgb_autolog_gets_input_example(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
-    dataset = lgb.Dataset(X, y, free_raw_data=True)
 
     mlflow.lightgbm.autolog(**input_example_and_signature_on())
+
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
 
@@ -355,9 +356,10 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
-    dataset = lgb.Dataset(X, y, free_raw_data=True)
 
     mlflow.lightgbm.autolog(**input_example_and_signature_on())
+
+    dataset = lgb.Dataset(X, y, free_raw_data=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -401,16 +403,15 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     tmp_csv.write("0,4.9,3.1,1.5,0.1\n")
     tmp_csv.write("0,5.7,3.8,1.7,0.3\n")
 
+    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+
     # signature and input example inference should fail here since the dataset is given
     #   as a file path
     dataset = lgb.Dataset(tmp_csv.strpath)
-
     bst_params = {
         "objective": "multiclass",
         "num_class": 3,
     }
-
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
     lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -466,5 +467,38 @@ def test_lgb_autolog_configuration_options(bst_params):
         dataset = lgb.Dataset(X, y)
         lgb.train(bst_params, dataset)
     model_conf = get_model_conf(run.info.artifact_uri)
+    assert "saved_input_example_info" in model_conf.to_dict()
+    assert "signature" in model_conf.to_dict()
+
+
+@pytest.mark.large
+def test_lgb_dataset_can_be_used_more_than_once(bst_params):
+    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = lgb.Dataset(X, y)
+
+    for _ in range(2):
+        with mlflow.start_run() as run:
+            lgb.train(bst_params, dataset)
+            model_conf = get_model_conf(run.info.artifact_uri)
+        assert "saved_input_example_info" in model_conf.to_dict()
+        assert "signature" in model_conf.to_dict()
+
+
+@pytest.mark.large
+def test_lgb_autolog_works_with_keyword_arguments(bst_params):
+    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    dataset = lgb.Dataset(data=X, label=y)
+
+    with mlflow.start_run() as run:
+            lgb.train(params=bst_params, train_set=dataset)
+            model_conf = get_model_conf(run.info.artifact_uri)
     assert "saved_input_example_info" in model_conf.to_dict()
     assert "signature" in model_conf.to_dict()
