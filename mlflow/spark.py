@@ -90,18 +90,6 @@ def get_default_conda_env():
     )
 
 
-def _log_spark_model_databricks_artifact_acl(spark_model, artifact_path, dfs_tmpdir):
-    # If writing to dbfs:/databricks/mlflow-tracking locations, write to a temporary DFS
-    # directory, then use FUSE to upload directly to the artifact location
-    hdfs_tmpdir_base = _tmp_path(dfs_tmpdir)
-    fuse_tmpdir_base = dbfs_hdfs_uri_to_fuse_path(hdfs_tmpdir_base)
-    hdfs_tmpdir = posixpath.join(hdfs_tmpdir_base, _SPARK_MODEL_PATH_SUB)
-    spark_model.save(hdfs_tmpdir)
-    try:
-        mlflow.log_artifacts(fuse_tmpdir_base, artifact_path)
-    finally:
-        shutil.rmtree(fuse_tmpdir_base)
-
 def log_model(
     spark_model,
     artifact_path,
@@ -223,26 +211,23 @@ def log_model(
             await_registration_for=await_registration_for,
         )
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
-    if is_databricks_acled_artifacts_uri(model_dir):
-        _log_spark_model_databricks_artifact_acl(spark_model, artifact_path, dfs_tmpdir=dfs_tmpdir)
-    else:
-        # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
-        # to persist the model
-        try:
-            spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
-        except Py4JJavaError:
-            return Model.log(
-                artifact_path=artifact_path,
-                flavor=mlflow.spark,
-                spark_model=spark_model,
-                conda_env=conda_env,
-                dfs_tmpdir=dfs_tmpdir,
-                sample_input=sample_input,
-                registered_model_name=registered_model_name,
-                signature=signature,
-                input_example=input_example,
-                await_registration_for=await_registration_for,
-            )
+    # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
+    # to persist the model
+    try:
+        spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
+    except Py4JJavaError:
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=mlflow.spark,
+            spark_model=spark_model,
+            conda_env=conda_env,
+            dfs_tmpdir=dfs_tmpdir,
+            sample_input=sample_input,
+            registered_model_name=registered_model_name,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+        )
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -526,8 +511,9 @@ def save_model(
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    # If running against artifact-ACL'd location, copy to local FS via the FUSE mount
-    if is_valid_dbfs_uri(tmp_path):
+    # If spark DFS is DBFS and we're running on a Databricks cluster, copy to local FS
+    # via the FUSE mount
+    if is_valid_dbfs_uri(tmp_path) and databricks_utils.is_in_cluster():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
@@ -587,11 +573,18 @@ def _load_model_local_uri_databricks(model_path, dfs_tmpdir_base=None):
 
 def _load_model(model_uri, dfs_tmpdir=None):
     from pyspark.ml.pipeline import PipelineModel
-    if is_databricks_acled_artifacts_uri(model_uri):
+    if is_databricks_acled_artifacts_uri(model_uri) and databricks_utils.is_in_cluster():
         return _load_model_databricks_acled_artifacts_uri(model_uri)
     elif is_local_uri(model_uri) and databricks_utils.is_in_cluster():
         return _load_model_local_uri_databricks(model_uri, dfs_tmpdir)
 
+    if dfs_tmpdir is None:
+        dfs_tmpdir = DFS_TMP
+    tmp_path = _tmp_path(dfs_tmpdir)
+    # Spark ML expects the model to be stored on DFS
+    # Copy the model to a temp DFS location first. We cannot delete this file, as
+    # Spark may read from it at any point.
+    model_path = _HadoopFileSystem.maybe_copy_from_uri(model_uri, tmp_path)
     # If not a special-case URI, try reading model directly from the provided URI
     return PipelineModel.load(model_uri)
 
