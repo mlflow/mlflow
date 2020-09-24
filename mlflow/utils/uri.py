@@ -270,15 +270,6 @@ def is_valid_dbfs_uri(uri):
     return not parsed.netloc or db_profile_uri is not None
 
 
-def dbfs_fuse_path_to_hdfs_uri(fuse_path):
-    if not fuse_path.startswith(_DBFS_FUSE_PREFIX):
-        raise MlflowException(
-            "Path '%s' did not start with expected DBFS FUSE prefix '%s'"
-            % (fuse_path, _DBFS_FUSE_PREFIX),
-        )
-    return _DBFS_HDFS_URI_PREFIX + fuse_path[len(_DBFS_FUSE_PREFIX) :]
-
-
 def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
     # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):

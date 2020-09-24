@@ -44,8 +44,6 @@ from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
     dbfs_hdfs_uri_to_fuse_path,
-    dbfs_fuse_path_to_hdfs_uri,
-    is_databricks_acled_artifacts_uri,
     is_valid_dbfs_uri,
 )
 from mlflow.utils import databricks_utils
@@ -613,7 +611,7 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+    return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
 def _load_pyfunc(path):

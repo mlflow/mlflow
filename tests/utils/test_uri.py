@@ -18,7 +18,6 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
-    dbfs_fuse_path_to_hdfs_uri,
     dbfs_hdfs_uri_to_fuse_path,
 )
 
@@ -543,33 +542,6 @@ def test_is_valid_dbfs_uri(uri, result):
 
 
 @pytest.mark.parametrize(
-    "path, result",
-    [
-        ("/dbfs/path", "dbfs:/path"),
-        ("/dbfs/path/a/b", "dbfs:/path/a/b"),
-        ("/dbfs/dbfs/123/abc", "dbfs:/dbfs/123/abc"),
-    ],
-)
-def test_dbfs_fuse_path_to_hdfs_uri(path, result):
-    assert dbfs_fuse_path_to_hdfs_uri(path) == result
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "dbfs:/a/b/c",
-        "/tmp/some/local/path",
-        "relative/path",
-        "s3:/some/s3/path",
-        "C:/cool/windows/path",
-    ],
-)
-def test_dbfs_fuse_path_to_hdfs_uri_raises(path):
-    with pytest.raises(MlflowException):
-        dbfs_fuse_path_to_hdfs_uri(path)
-
-
-@pytest.mark.parametrize(
     "uri, result",
     [
         ("/tmp/path", "/dbfs/tmp/path"),
@@ -583,8 +555,8 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
 
 
 @pytest.mark.parametrize(
-    "path", ["some/relative/path", "s3:/some/s3/path", "C:/cool/windows/path",],
+    "path", ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
 )
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
     with pytest.raises(MlflowException):
-        dbfs_fuse_path_to_hdfs_uri(path)
+        dbfs_hdfs_uri_to_fuse_path(path)
