@@ -1,12 +1,17 @@
+import logging
 import os
 from distutils.version import LooseVersion
 
+import mlflow.utils.cloudpickle
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_flavor_configuration(model_path, flavor_name):
@@ -82,13 +87,15 @@ def _get_cloudpickle_module_for_deserialization(mlflow_version=None):
                            because models persisted in these versions do not contain version
                            information.
     """
-    if mlflow_version and LooseVersion(mlflow_version) > LooseVersion("1.11.0"):
-        import mlflow.utils.cloudpickle
+    if not mlflow_version or LooseVersion(mlflow_version) < LooseVersion("1.11.0"):
+        try:
+            import cloudpickle
+            return cloudpickle
+        except ImportError:
+            _logger.warning(
+                "Failed to import a standalone installation of cloudpickle for compatibility with"
+                " models saved in MLflow version <= '1.11.0'. Using an inlined installation of"
+                " cloudpickle with version '%s' instead. " % mlflow.utils.cloudpickle.__version___
+            )
 
-        return mlflow.utils.cloudpickle
-    else:
-        import cloudpickle
-
-        return cloudpickle
-
-
+    return mlflow.utils.cloudpickle
