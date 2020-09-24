@@ -384,8 +384,6 @@ def _save_custom_objects(path, custom_objects):
 
 
 def _load_model(model_path, keras_module, **kwargs):
-    from distutils.version import StrictVersion, LooseVersion
-
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
     custom_objects_path = None
@@ -408,10 +406,10 @@ def _load_model(model_path, keras_module, **kwargs):
             pickled_custom_objects = _load_custom_objects_with_standalone_cloudpickle(
                 custom_objects_path
             )
-
         pickled_custom_objects.update(custom_objects)
         custom_objects = pickled_custom_objects
 
+    from distutils.version import StrictVersion
     if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
