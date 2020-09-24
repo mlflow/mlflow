@@ -386,8 +386,8 @@ def deploy(
 
         try:
             if model_uri.startswith("models:/"):
-                m_name = model_uri.split('/')[-2]
-                m_version = int(model_uri.split('/')[-1])
+                m_name = model_uri.split("/")[-2]
+                m_version = int(model_uri.split("/")[-1])
                 m_id = "{}:{}".format(m_name, m_version)
                 registered_model = AzureModel(workspace, id=m_id)
 
@@ -397,19 +397,28 @@ def deploy(
                 m_id = "{}:{}".format(m.name, m.version)
                 registered_model = AzureModel(workspace, id=m_id)
 
-                _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
-                             registered_model.name, registered_model.version)
+                _logger.info(
+                    "Registered an Azure Model with name: `%s` and version: `%s`",
+                    registered_model.name,
+                    registered_model.version,
+                )
         except:
-            _logger.info("Unable to find model in AzureML with ID '{}', will register the "
-                         "model.".format(m_id))
+            _logger.info(
+                "Unable to find model in AzureML with ID '{}', will register the "
+                "model.".format(m_id)
+            )
 
         if not registered_model:
-            registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
-                                                   model_name=model_name, tags=tags)
+            registered_model = AzureModel.register(
+                workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags
+            )
 
-            _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
-                         registered_model.name, registered_model.version)
-        
+            _logger.info(
+                "Registered an Azure Model with name: `%s` and version: `%s`",
+                registered_model.name,
+                registered_model.version,
+            )
+
         # Create an execution script (entry point) for the image's model server. Azure ML requires
         # the container's execution script to be located in the current working directory during
         # image creation, so we create the execution script as a temporary file in the current
