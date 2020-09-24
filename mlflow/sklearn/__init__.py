@@ -454,8 +454,9 @@ def load_model(model_uri):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
+    mlflow_version = flavor_conf.get("mlflow_version")
     return _load_model_from_local_file(
-        path=sklearn_model_artifacts_path, serialization_format=serialization_format
+        path=sklearn_model_artifacts_path, serialization_format=serialization_format, mlflow_version=mlflow_version
     )
 
 
