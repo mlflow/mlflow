@@ -26,11 +26,14 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import (
+    _get_flavor_configuration, _get_cloudpickle_module_for_deserialization
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.version import VERSION as MLFLOW_VERSION
 
 
 FLAVOR_NAME = "keras"
@@ -41,7 +44,7 @@ _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _MODEL_SAVE_PATH = "model.h5"
 # Conda env subpath when saving/loading model
 _CONDA_ENV_SUBPATH = "conda.yaml"
-_MLFLOW_VERSION_SUBPATH= "mlflow_version.txt"
+_MLFLOW_VERSION_FILE_NAME = "mlflow_version.txt"
 
 
 def get_default_conda_env(include_cloudpickle=False, keras_module=None):
@@ -220,7 +223,7 @@ def save_model(
     # This is necessary because the `data` directory is the only  available parameter to 
     # `_load_pyfunc`, and it does not contain the MLmodel configuration;  therefore, it 
     # is not sufficient to place the version in the MLmodel file
-    with open(os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME), "w") as f:
+    with open(os.path.join(data_path, _MLFLOW_VERSION_FILE_NAME), "w") as f:
         f.write(MLFLOW_VERSION)
 
     # save custom objects if there are custom objects
@@ -398,10 +401,10 @@ def _load_model(model_path, keras_module, **kwargs):
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
     if os.path.isdir(model_path):
-        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
         pickled_custom_objects = _load_pickled_custom_objects(model_path)
         pickled_custom_objects.update(custom_objects)
         custom_objects = pickled_custom_objects
+        model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
 
     from distutils.version import StrictVersion
     if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
