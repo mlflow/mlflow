@@ -32,7 +32,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import (
-    _get_flavor_configuration, _get_cloudpickle_module_for_deserialization
+    _get_flavor_configuration,
+    _get_cloudpickle_module_for_deserialization,
 )
 from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, INPUT_EXAMPLE_SAMPLE_ROWS
 from mlflow.version import VERSION as MLFLOW_VERSION

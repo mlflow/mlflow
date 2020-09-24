@@ -29,7 +29,8 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import (
-    _get_flavor_configuration, _get_cloudpickle_module_for_deserialization
+    _get_flavor_configuration,
+    _get_cloudpickle_module_for_deserialization,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
@@ -220,8 +221,8 @@ def save_model(
 
     # Persist the version of MLflow as a file in the model's `data` directory in order to
     # determine how to deserialize model artifacts (i.e. custom Keras objects) later on.
-    # This is necessary because the `data` directory is the only  available parameter to 
-    # `_load_pyfunc`, and it does not contain the MLmodel configuration;  therefore, it 
+    # This is necessary because the `data` directory is the only  available parameter to
+    # `_load_pyfunc`, and it does not contain the MLmodel configuration;  therefore, it
     # is not sufficient to place the version in the MLmodel file
     with open(os.path.join(data_path, _MLFLOW_VERSION_FILE_NAME), "w") as f:
         f.write(MLFLOW_VERSION)
@@ -407,6 +408,7 @@ def _load_model(model_path, keras_module, **kwargs):
         model_path = os.path.join(model_path, _MODEL_SAVE_PATH)
 
     from distutils.version import StrictVersion
+
     if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
@@ -429,7 +431,7 @@ def _load_pickled_custom_objects(model_data_path):
 
     if not os.path.isfile(custom_objects_path):
         return {}
-    
+
     mlflow_version = None
     if os.path.isfile(mlflow_version_path):
         with open(mlflow_version_path, "r") as f:

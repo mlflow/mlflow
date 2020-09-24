@@ -20,7 +20,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import (
-    _get_flavor_configuration, _get_cloudpickle_module_for_deserialization
+    _get_flavor_configuration,
+    _get_cloudpickle_module_for_deserialization,
 )
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.version import VERSION as MLFLOW_VERSION

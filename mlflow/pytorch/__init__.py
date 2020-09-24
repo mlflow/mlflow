@@ -29,7 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
-from mlflow.utils.model_utils import _get_flavor_configuration 
+from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 FLAVOR_NAME = "pytorch"
@@ -322,8 +322,8 @@ def save_model(
 
     # Persist the version of MLflow as a file in the model's `data` directory in order to
     # determine how to deserialize the model later on (e.g., whether or not to use an MLflow-inlined
-    # installation of cloudpickle). This is necessary because the `data` directory is the only 
-    # available parameter to `_load_pyfunc`, and it does not contain the MLmodel configuration; 
+    # installation of cloudpickle). This is necessary because the `data` directory is the only
+    # available parameter to `_load_pyfunc`, and it does not contain the MLmodel configuration;
     # therefore, it is not sufficient to place the version in the MLmodel file
     with open(os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME), "w") as f:
         f.write(MLFLOW_VERSION)
@@ -415,7 +415,7 @@ def _get_pickle_module(model_data_path):
     :return: A Python module defining pickle functions (e.g., `load()` and `dump()`)
     """
     mlflow_version = None
-    mlflow_version_file_path = os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME) 
+    mlflow_version_file_path = os.path.join(model_data_path, _MLFLOW_VERSION_FILE_NAME)
     if os.path.exists(mlflow_version_file_path):
         with open(os.path.join(mlflow_version_file_path), "r") as f:
             mlflow_version = f.read()
@@ -424,11 +424,12 @@ def _get_pickle_module(model_data_path):
     with open(pickle_module_path, "r") as f:
         pickle_module_name = f.read()
 
-    if (pickle_module_name == _PYTORCH_CLOUDPICKLE_MODULE_NAME and
-            LooseVersion(mlflow_version) > LooseVersion("1.11.0")):
+    if pickle_module_name == _PYTORCH_CLOUDPICKLE_MODULE_NAME and LooseVersion(
+        mlflow_version
+    ) > LooseVersion("1.11.0"):
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, versions of
-        # MLflow > 1.11.0 use `mlflow.pytorch.pickle_module` as an alias for 
+        # MLflow > 1.11.0 use `mlflow.pytorch.pickle_module` as an alias for
         # `mlflow.utils.cloudpickle` during model serialization
         pickle_module_name = mlflow.utils.cloudpickle.__name__
 

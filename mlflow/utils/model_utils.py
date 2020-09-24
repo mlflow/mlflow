@@ -90,6 +90,7 @@ def _get_cloudpickle_module_for_deserialization(mlflow_version=None):
     if not mlflow_version or LooseVersion(mlflow_version) < LooseVersion("1.11.0"):
         try:
             import cloudpickle
+
             return cloudpickle
         except ImportError:
             _logger.warning(
