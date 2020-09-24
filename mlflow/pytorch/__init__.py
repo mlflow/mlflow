@@ -59,7 +59,7 @@ def get_default_conda_env(include_cloudpickle=True):
             "torchvision={}".format(torchvision.__version__),
         ],
         additional_pip_deps=[
-            # By default, cloudpickle is used to serialize and deserialize PyTorch model classes. 
+            # By default, cloudpickle is used to serialize and deserialize PyTorch model classes.
         ],
         additional_conda_channels=["pytorch"],
     )
@@ -331,7 +331,9 @@ def save_model(
         # cloudpickle. In order to use the MLflow-inlined cloudpickle in the current version
         # of MLflow, we persist a separate YAML file
         pickle_module_name = "mlflow.pytorch.pickle_module"
-        _write_mlflow_cloudpickle_info_yaml(os.path.join(model_data_path, _MLFLOW_CLOUDPICKLE_INFO_PATH))
+        _write_mlflow_cloudpickle_info_yaml(
+            os.path.join(model_data_path, _MLFLOW_CLOUDPICKLE_INFO_PATH)
+        )
     else:
         pickle_module_name = pickle_module.__name__
     with open(pickle_module_path, "w") as f:

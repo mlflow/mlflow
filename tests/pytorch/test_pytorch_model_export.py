@@ -502,9 +502,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model(
     main_scoped_subclassed_model, model_path, data
 ):
     mlflow.pytorch.save_model(
-        path=model_path,
-        pytorch_model=main_scoped_subclassed_model,
-        conda_env=None,
+        path=model_path, pytorch_model=main_scoped_subclassed_model, conda_env=None,
     )
 
     scoring_response = pyfunc_serve_and_score_model(

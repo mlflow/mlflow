@@ -182,12 +182,10 @@ def save_model(
     if conda_env is None:
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, we include the
-        # version of the MLflow-inlined copy in the conda environment. This cloudpickle dependency 
-        # is only necessary when the specified serialization format is 'cloudpickle'. 
-        include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE 
-        conda_env = get_default_conda_env(
-            include_cloudpickle=include_cloudpickle
-        )
+        # version of the MLflow-inlined copy in the conda environment. This cloudpickle dependency
+        # is only necessary when the specified serialization format is 'cloudpickle'.
+        include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+        conda_env = get_default_conda_env(include_cloudpickle=include_cloudpickle)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -352,6 +350,7 @@ def _get_cloudpickle_module(mlflow_version=None):
         return mlflow.utils.cloudpickle
     else:
         import cloudpickle
+
         return cloudpickle
 
 
@@ -396,7 +395,9 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
-    return _load_model_from_local_file(path=path, serialization_format=serialization_format, mlflow_version=mlflow_version)
+    return _load_model_from_local_file(
+        path=path, serialization_format=serialization_format, mlflow_version=mlflow_version
+    )
 
 
 def _save_model(sk_model, output_path, serialization_format):
@@ -456,7 +457,9 @@ def load_model(model_uri):
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
     mlflow_version = flavor_conf.get("mlflow_version")
     return _load_model_from_local_file(
-        path=sklearn_model_artifacts_path, serialization_format=serialization_format, mlflow_version=mlflow_version
+        path=sklearn_model_artifacts_path,
+        serialization_format=serialization_format,
+        mlflow_version=mlflow_version,
     )
 
 

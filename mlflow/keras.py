@@ -209,11 +209,10 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-
     # save custom objects if there are custom objects
     if custom_objects is not None:
         _save_custom_objects(data_path, custom_objects)
-        # save information about the MLflow-inlined version of cloudpickle that will 
+        # save information about the MLflow-inlined version of cloudpickle that will
         # be used to deserialize custom objects during the model loading procedure
         _write_mlflow_cloudpickle_info_yaml(os.path.join(data_path, _MLFLOW_CLOUDPICKLE_INFO_PATH))
 
@@ -246,7 +245,7 @@ def save_model(
     if conda_env is None:
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, we include the
-        # version of the MLflow-inlined copy in the conda environment. This cloudpickle dependency 
+        # version of the MLflow-inlined copy in the conda environment. This cloudpickle dependency
         # is only necessary when custom objects are specified
         include_cloudpickle = custom_objects is not None
         conda_env = get_default_conda_env(
@@ -399,12 +398,16 @@ def _load_model(model_path, keras_module, **kwargs):
         if os.path.exists(mlflow_cloudpickle_info_path):
             # Custom objects were saved using a version of MLflow with an inlined copy of
             # the cloudpickle library and should be loaded using an inlined cloudpickle
-            pickled_custom_objects = _load_custom_objects_with_inlined_cloudpickle(custom_objects_path)
+            pickled_custom_objects = _load_custom_objects_with_inlined_cloudpickle(
+                custom_objects_path
+            )
         else:
             # Custom objects were saved using a version of MLflow that installed cloudpickle
             # via pip or conda; these customn objects should therefore be loaded using a
             # pip/conda installation of cloudpickle
-            pickled_custom_objects = _load_custom_objects_with_standalone_cloudpickle(custom_objects_path)
+            pickled_custom_objects = _load_custom_objects_with_standalone_cloudpickle(
+                custom_objects_path
+            )
 
         pickled_custom_objects.update(custom_objects)
         custom_objects = pickled_custom_objects
@@ -435,6 +438,7 @@ def _load_custom_objects_with_standalone_cloudpickle(custom_objects_path):
     a copy of the library installed from Anaconda or PyPI)
     """
     import cloudpickle
+
     with open(custom_objects_path, "rb") as f:
         return cloudpickle.load(f)
 

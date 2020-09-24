@@ -42,7 +42,7 @@ def get_default_conda_env():
         additional_conda_deps=None,
         # To maintain compatibility with older versions of MLflow, which install cloudpickle via
         # pip or conda instead of using an MLflow-inlined copy of the library, we include the
-        # version of the MLflow-inlined copy in the conda environment 
+        # version of the MLflow-inlined copy in the conda environment
         additional_pip_deps=["cloudpickle=={}".format(mlflow.utils.cloudpickle.__version__)],
         additional_conda_channels=None,
     )
@@ -253,6 +253,7 @@ def _get_cloudpickle_module(mlflow_version=None):
         return mlflow.utils.cloudpickle
     else:
         import cloudpickle
+
         return cloudpickle
 
 
