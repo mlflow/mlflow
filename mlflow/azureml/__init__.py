@@ -392,7 +392,7 @@ def deploy(
                 registered_model = AzureModel(workspace, id=m_id)
 
                 _logger.info("Found registered model in AzureML with ID '{}'".format(m_id))
-            elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml:/"):
+            elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml"):
                 m = mlflow_register_model(model_uri, model_name)
                 m_id = "{}:{}".format(m.name, m.version)
                 registered_model = AzureModel(workspace, id=m_id)
