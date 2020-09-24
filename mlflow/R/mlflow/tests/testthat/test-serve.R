@@ -5,11 +5,14 @@ library("carrier")
 wait_for_server_to_start <- function(server_process, port) {
   status_code <- 500
   for (i in 1:5) {
-    tryCatch({
-      status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
-    }, error = function(...) {
-      status_code <- 500
-    })
+    tryCatch(
+      {
+        status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
+      },
+      error = function(...) {
+        status_code <- 500
+      }
+    )
     if (status_code != 200) {
       Sys.sleep(5)
     } else {
@@ -45,7 +48,7 @@ test_that("mlflow can serve a model function", {
       "-e",
       sprintf(
         "mlflow::mlflow_rfunc_serve('model', port = %d, browse = FALSE)",
-	port
+        port
       )
     ),
     supervise = TRUE,
@@ -53,14 +56,17 @@ test_that("mlflow can serve a model function", {
     stderr = "|"
   )
   Sys.sleep(10)
-  tryCatch({
-    status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
-  }, error = function(e) {
-    write("FAILED!", stderr())
-    error_text <- testthat_model_server$read_error()
-    testthat_model_server$kill()
-    stop(e$message, ": ", error_text)
-  })
+  tryCatch(
+    {
+      status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
+    },
+    error = function(e) {
+      write("FAILED!", stderr())
+      error_text <- testthat_model_server$read_error()
+      testthat_model_server$kill()
+      stop(e$message, ": ", error_text)
+    }
+  )
 
   expect_equal(status_code, 200)
 
@@ -90,7 +96,8 @@ test_that("mlflow models server api works with R model function", {
   expect_true(dir.exists("model"))
   port <- httpuv::randomPort()
   testthat_model_server <<- mlflow:::mlflow_cli("models", "serve", "-m", "model", "-p", as.character(port),
-                                      background = TRUE)
+    background = TRUE
+  )
   wait_for_server_to_start(testthat_model_server, port)
   newdata <- iris[1:2, c("Sepal.Length", "Petal.Width")]
   check_prediction <- function(http_prediction) {
@@ -113,12 +120,16 @@ test_that("mlflow models server api works with R model function", {
       )
     )
   )
-  newdata_split <- list(columns = names(newdata), index = row.names(newdata),
-                        data = as.matrix(newdata))
+  newdata_split <- list(
+    columns = names(newdata), index = row.names(newdata),
+    data = as.matrix(newdata)
+  )
   # json split
-  for (content_type in c("application/json",
-                         "application/json; format=pandas-split",
-                         "application/json-numpy-split")) {
+  for (content_type in c(
+    "application/json",
+    "application/json; format=pandas-split",
+    "application/json-numpy-split"
+  )) {
     check_prediction(
       httr::content(
         httr::POST(
