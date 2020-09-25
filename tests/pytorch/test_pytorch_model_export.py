@@ -821,7 +821,7 @@ def create_artifact(tmpdir):
     fp = tmpdir.join(artifact_file_name)
     test_string = "pytest"
     fp.write(test_string)
-    yield fp
+    return fp
 
 
 def test_artifacts_log_model(create_artifact, sequential_model):
