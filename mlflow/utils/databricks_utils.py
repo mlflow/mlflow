@@ -143,17 +143,26 @@ def get_cluster_id():
 
 def get_job_id():
     """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("jobId")
+    try:
+        return _get_command_context().jobId().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("jobId")
 
 
 def get_job_run_id():
     """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("idInJob")
+    try:
+        return _get_command_context().idInJob().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("idInJob")
 
 
 def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("jobTaskType")
+    try:
+        return _get_command_context().jobTaskType().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("jobTaskType")
 
 
 def get_webapp_url():
