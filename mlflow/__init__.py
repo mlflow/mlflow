@@ -65,6 +65,8 @@ import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
 import mlflow.shap as shap  # noqa: E402
 
+from wrapt import when_imported
+
 
 _logger = logging.getLogger(__name__)
 
@@ -164,6 +166,8 @@ __all__ = [
 def autolog():
     autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "fastai", "sklearn"]
 
+    # for each autolog library, try to initialize autolog immediately.
+    # if it fails due to missing dependency, set up an import hook on it so that autolog is initialized when it is imported.
     for flavor in autolog_flavors:
         flavor_obj = getattr(mlflow, flavor)
 
@@ -172,13 +176,17 @@ def autolog():
             autolog_fn()
             _logger.info("successfully set up autologging for flavor " + flavor)
         except Exception as e:
-            _logger.warning("failed to set up autologging for flavor " + flavor + ", error was:\n" + str(e))
+            @when_imported(flavor)
+            def setup_autologging(module):
+                # invoke the mlflow.library.autolog() function
+                getattr(flavor_obj, "autolog")()
+
 
     # mlflow.tensorflow.autolog()
     # mlflow.keras.autolog()
     # mlflow.gluon.autolog()
     # mlflow.xgboost.autolog()
     # mlflow.lightgbm.autolog()
-    # #mlflow.spark.autolog()
+    # mlflow.spark.autolog()
     # mlflow.fastai.autolog()
     # mlflow.sklearn.autolog()
