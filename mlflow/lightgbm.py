@@ -499,9 +499,9 @@ def autolog(log_input_example=False, log_model_signature=True):
             input_example_info, log_input_example, log_model_signature, model.predict,
         )
 
-        if log_input_example:
+        if log_input_example and input_example_user_msg is not None:
             _logger.warning(input_example_user_msg)
-        if log_model_signature:
+        if log_model_signature and signature_user_msg is not None:
             _logger.warning(signature_user_msg)
 
         try_mlflow_log(
