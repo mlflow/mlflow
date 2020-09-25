@@ -391,7 +391,7 @@ def deploy(
                 m_id = "{}:{}".format(m_name, m_version)
                 registered_model = AzureModel(workspace, id=m_id)
 
-                _logger.info("Found registered model in AzureML with ID '{}'".format(m_id))
+                _logger.info("Found registered model in AzureML with ID '%s'", m_id)
             elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml"):
                 m = mlflow_register_model(model_uri, model_name)
                 m_id = "{}:{}".format(m.name, m.version)
@@ -402,10 +402,9 @@ def deploy(
                     registered_model.name,
                     registered_model.version,
                 )
-        except:
+        except Exception:
             _logger.info(
-                "Unable to find model in AzureML with ID '{}', will register the "
-                "model.".format(m_id)
+                "Unable to find model in AzureML with ID '%s', will register the model.", m_id
             )
 
         if not registered_model:
