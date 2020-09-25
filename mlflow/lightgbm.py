@@ -307,7 +307,7 @@ def autolog(log_input_example=False, log_model_signature=True):
 
     # Patching this function so we can get a copy of the data given to Dataset.__init__
     #   to use as an input example and for inferring the model signature.
-    #   (there is no way to get the data back from a Dataset object once it is comsumed by train)
+    #   (there is no way to get the data back from a Dataset object once it is consumed by train)
     # We store it on the Dataset object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
