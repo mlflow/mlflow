@@ -28,7 +28,7 @@ from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, ModelInputExample, infer_signature
+from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
@@ -303,11 +303,6 @@ def autolog(
     import xgboost
     import numpy as np
 
-    class _InputExampleInfo:
-        def __init__(self, input_example=None, error_msg=None):
-            self.input_example = input_example
-            self.error_msg = error_msg
-
     # Patching this function so we can get a copy of the data given to DMatrix.__init__
     #   to use as an input example and for inferring the model signature.
     #   (there is no way to get the data back from a DMatrix object)
@@ -469,31 +464,11 @@ def autolog(
         # dtrain must exist as the original train function already ran successfully
         dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
 
-        input_example = None
-        signature = None
-        try:
-            # it is possible that the dataset was constructed before the patched
-            #   constructor was applied, so we cannot assume the input_example_info exists
-            input_example_info = getattr(dtrain, "input_example_info", None)
-
-            if input_example_info is None:
-                raise Exception(
-                    "please ensure that autologging is "
-                    + "enabled before constructing the dataset."
-                )
-
-            input_example = input_example_info.input_example
-            if input_example is None:
-                # input example collection failed
-                raise Exception(input_example_info.error_msg)
-
-            if log_model_signature:
-                model_output = model.predict(xgboost.DMatrix(input_example))
-                signature = infer_signature(input_example, model_output)
-        except Exception as e:  # pylint: disable=broad-except
-            input_example = None
-            msg = "Failed to gather example input and model signature: " + str(e)
-            _logger.warning(msg)
+        # it is possible that the dataset was constructed before the patched
+        #   constructor was applied, so we cannot assume the input_example_info exists
+        input_example_info = getattr(dtrain, "input_example_info", None)
+        model_output = model.predict(xgboost.DMatrix(input_example))
+        utils.handlefdsafasdfa
 
         try_mlflow_log(
             log_model,
