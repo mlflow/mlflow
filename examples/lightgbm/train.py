@@ -46,7 +46,8 @@ def main():
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     # enable auto logging
-    mlflow.lightgbm.autolog(log_input_example=False, log_model_signature=False)
+    mlflow.lightgbm.autolog()
+    
     train_set = lgb.Dataset(X_train, label=y_train)
 
     with mlflow.start_run():
