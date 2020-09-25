@@ -159,18 +159,13 @@ def test_avoids_inferring_if_not_needed(successful_input_example_info, monkeypat
     def throws(_1, _2):
         raise Exception()
 
-    monkeypatch.setattr(
-        "mlflow.utils.input_example_and_signature_utils.infer_signature",
-        throws
-    )
+    monkeypatch.setattr("mlflow.utils.input_example_and_signature_utils.infer_signature", throws)
 
     (
         input_example,
         signature,
         input_example_user_msg,
         model_signature_user_msg,
-    ) = utils._process_and_build_user_facing_messages(
-        successful_input_example_info, some_fn, False
-    )
+    ) = utils._process_and_build_user_facing_messages(successful_input_example_info, some_fn, False)
 
     assert model_signature_user_msg is None

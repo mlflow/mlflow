@@ -45,7 +45,10 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.input_example_and_signature_utils import handle_input_example_and_signature, _InputExampleInfo
+from mlflow.utils.input_example_and_signature_utils import (
+    handle_input_example_and_signature,
+    _InputExampleInfo,
+)
 
 FLAVOR_NAME = "lightgbm"
 
@@ -493,10 +496,7 @@ def autolog(log_input_example=False, log_model_signature=True):
             input_example_user_msg,
             signature_user_msg,
         ) = handle_input_example_and_signature(
-            input_example_info,
-            log_input_example,
-            log_model_signature,
-            model.predict,
+            input_example_info, log_input_example, log_model_signature, model.predict,
         )
 
         if log_input_example:

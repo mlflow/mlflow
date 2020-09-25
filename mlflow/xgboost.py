@@ -44,7 +44,10 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.input_example_and_signature_utils import handle_input_example_and_signature, _InputExampleInfo
+from mlflow.utils.input_example_and_signature_utils import (
+    handle_input_example_and_signature,
+    _InputExampleInfo,
+)
 
 FLAVOR_NAME = "xgboost"
 
