@@ -44,6 +44,7 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.input_example_and_signature_utils import handle_input_example_and_signature, _InputExampleInfo
 
 FLAVOR_NAME = "xgboost"
 
@@ -467,15 +468,30 @@ def autolog(
         # it is possible that the dataset was constructed before the patched
         #   constructor was applied, so we cannot assume the input_example_info exists
         input_example_info = getattr(dtrain, "input_example_info", None)
-        model_output = model.predict(xgboost.DMatrix(input_example))
-        utils.handlefdsafasdfa
+
+        (
+            input_example,
+            signature,
+            input_example_user_msg,
+            signature_user_msg,
+        ) = handle_input_example_and_signature(
+            input_example_info,
+            log_input_example,
+            log_model_signature,
+            lambda data: model.predict(xgboost.DMatrix(data)),
+        )
+
+        if log_input_example:
+            _logger.warning(input_example_user_msg)
+        if log_model_signature:
+            _logger.warning(signature_user_msg)
 
         try_mlflow_log(
             log_model,
             model,
             artifact_path="model",
             signature=signature,
-            input_example=input_example if log_input_example else None,
+            input_example=input_example,
         )
 
         if auto_end_run:

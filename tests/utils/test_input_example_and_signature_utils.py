@@ -150,11 +150,19 @@ def test_happy_path_works(successful_input_example_info):
     assert model_signature_user_msg is None
 
 
-def test_avoids_inferring_if_not_needed(successful_input_example_info):
-    x = 0
+def test_avoids_inferring_if_not_needed(successful_input_example_info, monkeypatch):
+    # We patch the infer_signature function to throw.
+    # If it was invoked, model_signature_user_msg should be populated,
+    #   as there was an exception when trying to infer.
+    # If it was not invoked, there should be no exception, hence the message
+    #   is empty.
+    def throws(_1, _2):
+        raise Exception()
 
-    def modifies_x(_):
-        x = 1
+    monkeypatch.setattr(
+        "mlflow.utils.input_example_and_signature_utils.infer_signature",
+        throws
+    )
 
     (
         input_example,
@@ -162,7 +170,7 @@ def test_avoids_inferring_if_not_needed(successful_input_example_info):
         input_example_user_msg,
         model_signature_user_msg,
     ) = utils._process_and_build_user_facing_messages(
-        successful_input_example_info, modifies_x, False
+        successful_input_example_info, some_fn, False
     )
 
-    assert x == 0
+    assert model_signature_user_msg is None

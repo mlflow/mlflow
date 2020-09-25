@@ -45,7 +45,7 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
+from mlflow.utils.input_example_and_signature_utils import handle_input_example_and_signature, _InputExampleInfo
 
 FLAVOR_NAME = "lightgbm"
 
@@ -300,6 +300,32 @@ def autolog(log_input_example=False, log_model_signature=True):
     import lightgbm
     import numpy as np
 
+    # Patching this function so we can get a copy of the data given to Dataset.__init__
+    #   to use as an input example and for inferring the model signature.
+    #   (there is no way to get the data back from a Dataset object once it is consumed by train)
+    # We store it on the Dataset object so the train function is able to read it.
+    def __init__(self, *args, **kwargs):
+        data = args[0] if len(args) > 0 else kwargs.get("data")
+
+        if data is not None:
+            original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
+
+            try:
+                if isinstance(data, str):
+                    raise Exception(
+                        "cannot gather example input when dataset is loaded from a file."
+                    )
+
+                input_example_info = _InputExampleInfo(
+                    input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
+                )
+            except Exception as e:  # pylint: disable=broad-except
+                input_example_info = _InputExampleInfo(error_msg=str(e))
+
+            setattr(self, "input_example_info", input_example_info)
+
+        original(self, *args, **kwargs)
+
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
@@ -454,25 +480,36 @@ def autolog(log_input_example=False, log_model_signature=True):
             finally:
                 shutil.rmtree(tmpdir)
 
-        signature = None
-        try:
-            if input_example is None:
-                raise Exception("failed to gather example input.")
+        # train_set must exist as the original train function already ran successfully
+        train_set = args[1] if len(args) > 1 else kwargs.get("train_set")
 
-            if log_model_signature:
-                model_output = model.predict(input_example)
-                signature = infer_signature(input_example, model_output)
-        except Exception as e:  # pylint: disable=broad-except
-            input_example = None
-            msg = "Failed to infer the model signature: " + str(e)
-            _logger.warning(msg)
+        # it is possible that the dataset was constructed before the patched
+        #   constructor was applied, so we cannot assume the input_example_info exists
+        input_example_info = getattr(train_set, "input_example_info", None)
+
+        (
+            input_example,
+            signature,
+            input_example_user_msg,
+            signature_user_msg,
+        ) = handle_input_example_and_signature(
+            input_example_info,
+            log_input_example,
+            log_model_signature,
+            model.predict,
+        )
+
+        if log_input_example:
+            _logger.warning(input_example_user_msg)
+        if log_model_signature:
+            _logger.warning(signature_user_msg)
 
         try_mlflow_log(
             log_model,
             model,
             artifact_path="model",
             signature=signature,
-            input_example=input_example if log_input_example else None,
+            input_example=input_example,
         )
 
         if auto_end_run:
@@ -480,3 +517,4 @@ def autolog(log_input_example=False, log_model_signature=True):
         return model
 
     wrap_patch(lightgbm, "train", train)
+    wrap_patch(lightgbm.Dataset, "__init__", __init__)
