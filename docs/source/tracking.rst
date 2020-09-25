@@ -392,7 +392,8 @@ Spark (experimental)
 --------------------
 
 Initialize a SparkSession with the mlflow-spark JAR attached (e.g.
-``SparkSession.builder.config("spark.jars.packages", "org.mlflow.mlflow-spark")``) and then
+``SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:1.12.0")``
+or start `pyspark` with `--packages org.mlflow:mlflow-spark:1.12.0`) and then
 call :py:func:`mlflow.spark.autolog` to enable automatic logging of Spark datasource
 information at read-time, without the need for explicit
 log statements. Note that autologging of Spark ML (MLlib) models is not yet supported.
