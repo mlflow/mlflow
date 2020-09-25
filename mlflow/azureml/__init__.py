@@ -406,7 +406,9 @@ def deploy(
             except Exception as e:  # pylint: disable=broad-except
                 _logger.info(
                     "Unable to find model in AzureML with ID '%s', will register the model.\n"
-                    "Exception was: %s", m_id, e
+                    "Exception was: %s",
+                    m_id,
+                    e,
                 )
 
         if not registered_model:
