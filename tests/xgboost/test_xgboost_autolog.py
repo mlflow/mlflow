@@ -13,7 +13,6 @@ import mlflow.xgboost
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 
-
 mpl.use("Agg")
 
 

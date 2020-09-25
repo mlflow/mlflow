@@ -33,7 +33,6 @@ from mlflow.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
 )
 
-
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
 ESTIMATOR_CLASS = "estimator_class"
@@ -927,7 +926,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     with pytest.raises(IndexError, match="DO NOT SLICE ME"):
         _ = throwing_X[:5]
 
-    mlflow.sklearn.autolog
+    mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
