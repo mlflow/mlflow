@@ -15,7 +15,7 @@ def successful_input_example_info():
     return utils._InputExampleInfo("data", None)
 
 
-def some_fn(some_arg):
+def some_fn(_):
     return "signature"
 
 
@@ -24,7 +24,8 @@ def some_fn(some_arg):
 @pytest.mark.parametrize("log_model_signature", [True, False])
 def test_filters_out_data_and_messages(log_input_example, log_model_signature, monkeypatch):
     monkeypatch.setattr(
-        "tests.utils.test_input_example_and_signature_utils.utils._process_and_build_user_facing_messages",
+        "tests.utils.test_input_example_and_signature_utils.utils."
+        + "_process_and_build_user_facing_messages",
         lambda _1, _2, _3: (
             "data",
             "signature",
@@ -62,7 +63,8 @@ def test_returns_nothing_if_no_input_example_info(
     log_input_example, log_model_signature, monkeypatch
 ):
     monkeypatch.setattr(
-        "tests.utils.test_input_example_and_signature_utils.utils._process_and_build_user_facing_messages",
+        "tests.utils.test_input_example_and_signature_utils.utils."
+        + "_process_and_build_user_facing_messages",
         lambda _1, _2, _3: (
             "data",
             "signature",
@@ -161,11 +163,8 @@ def test_avoids_inferring_if_not_needed(successful_input_example_info, monkeypat
 
     monkeypatch.setattr("mlflow.utils.input_example_and_signature_utils.infer_signature", throws)
 
-    (
-        input_example,
-        signature,
-        input_example_user_msg,
-        model_signature_user_msg,
-    ) = utils._process_and_build_user_facing_messages(successful_input_example_info, some_fn, False)
+    (_, _, _, model_signature_user_msg,) = utils._process_and_build_user_facing_messages(
+        successful_input_example_info, some_fn, False
+    )
 
     assert model_signature_user_msg is None

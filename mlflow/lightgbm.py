@@ -29,7 +29,7 @@ from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
