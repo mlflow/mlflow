@@ -994,41 +994,16 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     assert "saved_input_example_info" not in model_conf.to_dict()
 
 
-def test_autolog_configuration_options():
+@pytest.mark.large
+@pytest.mark.parametrize("log_input_example", [True, False])
+@pytest.mark.parametrize("log_model_signature", [True, False])
+def test_autolog_configuration_options(log_input_example, log_model_signature):
     X, y = get_iris()
 
     with mlflow.start_run() as run:
-        mlflow.sklearn.autolog(log_input_example=False, log_model_signature=False)
+        mlflow.sklearn.autolog(log_input_example=log_input_example, log_model_signature=log_model_signature)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
-
     model_conf = get_model_conf(run.info.artifact_uri)
-    assert "saved_input_example_info" not in model_conf.to_dict()
-    assert "signature" not in model_conf.to_dict()
-
-    with mlflow.start_run() as run:
-        mlflow.sklearn.autolog(log_input_example=True, log_model_signature=False)
-        model = sklearn.linear_model.LinearRegression()
-        model.fit(X, y)
-
-    model_conf = get_model_conf(run.info.artifact_uri)
-    assert "saved_input_example_info" in model_conf.to_dict()
-    assert "signature" not in model_conf.to_dict()
-
-    with mlflow.start_run() as run:
-        mlflow.sklearn.autolog(log_input_example=False, log_model_signature=True)
-        model = sklearn.linear_model.LinearRegression()
-        model.fit(X, y)
-
-    model_conf = get_model_conf(run.info.artifact_uri)
-    assert "saved_input_example_info" not in model_conf.to_dict()
-    assert "signature" in model_conf.to_dict()
-
-    with mlflow.start_run() as run:
-        mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
-        model = sklearn.linear_model.LinearRegression()
-        model.fit(X, y)
-
-    model_conf = get_model_conf(run.info.artifact_uri)
-    assert "saved_input_example_info" in model_conf.to_dict()
-    assert "signature" in model_conf.to_dict()
+    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
+    assert ("signature" in model_conf.to_dict()) == log_model_signature
