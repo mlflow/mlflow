@@ -383,29 +383,31 @@ def deploy(
         )
 
         registered_model = None
+        m_id = None
 
-        try:
-            if model_uri.startswith("models:/"):
-                m_name = model_uri.split("/")[-2]
-                m_version = int(model_uri.split("/")[-1])
-                m_id = "{}:{}".format(m_name, m_version)
-                registered_model = AzureModel(workspace, id=m_id)
+        if model_uri.startswith("models:/"):
+            m_name = model_uri.split("/")[-2]
+            m_version = int(model_uri.split("/")[-1])
+            m_id = "{}:{}".format(m_name, m_version)
+        elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml"):
+            m = mlflow_register_model(model_uri, model_name)
+            m_id = "{}:{}".format(m.name, m.version)
 
-                _logger.info("Found registered model in AzureML with ID '%s'", m_id)
-            elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml"):
-                m = mlflow_register_model(model_uri, model_name)
-                m_id = "{}:{}".format(m.name, m.version)
-                registered_model = AzureModel(workspace, id=m_id)
-
-                _logger.info(
-                    "Registered an Azure Model with name: `%s` and version: `%s`",
-                    registered_model.name,
-                    registered_model.version,
-                )
-        except Exception:  # pylint: disable=broad-except
             _logger.info(
-                "Unable to find model in AzureML with ID '%s', will register the model.", m_id
+                "Registered an Azure Model with name: `%s` and version: `%s`",
+                registered_model.name,
+                registered_model.version,
             )
+
+        if m_id:
+            try:
+                registered_model = AzureModel(workspace, id=m_id)
+                _logger.info("Found registered model in AzureML with ID '%s'", m_id)
+            except Exception as e:  # pylint: disable=broad-except
+                _logger.info(
+                    "Unable to find model in AzureML with ID '%s', will register the model.\n"
+                    "Exception was: %s", m_id, e
+                )
 
         if not registered_model:
             registered_model = AzureModel.register(
