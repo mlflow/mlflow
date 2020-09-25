@@ -47,7 +47,7 @@ def main():
 
     # enable auto logging
     mlflow.lightgbm.autolog()
-    
+
     train_set = lgb.Dataset(X_train, label=y_train)
 
     with mlflow.start_run():
