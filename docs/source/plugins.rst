@@ -311,3 +311,13 @@ The following known plugins provide support for running `MLflow projects <https:
 against custom execution backends.
 
 - `mlflow-yarn <https://github.com/criteo/mlflow-yarn>`_ Running mlflow on Hadoop/YARN
+
+Tracking Store Plugins
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for running `MLflow Tracking Store <https://www.mlflow.org/docs/latest/tracking.html>`_
+against custom databases.
+
+- `mlflow-elasticsearchstore <https://github.com/criteo/mlflow-elasticsearchstore>`_ Running MLflow Tracking Store with Elasticsearch
+
+This plugin is experimental please refer to <https://github.com/criteo/mlflow-elasticsearchstore/issues> to have the list of limitations.
