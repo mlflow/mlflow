@@ -12,7 +12,6 @@ import mlflow
 import mlflow.lightgbm
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from tests.config_helper import input_example_and_signature_on
 
 mpl.use("Agg")
 
@@ -46,14 +45,14 @@ def train_set():
 
 @pytest.mark.large
 def test_lgb_autolog_ends_auto_created_run(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=1)
     assert mlflow.active_run() is None
 
 
 @pytest.mark.large
 def test_lgb_autolog_persists_manually_created_run(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     with mlflow.start_run() as run:
         lgb.train(bst_params, train_set, num_boost_round=1)
         assert mlflow.active_run()
@@ -62,7 +61,7 @@ def test_lgb_autolog_persists_manually_created_run(bst_params, train_set):
 
 @pytest.mark.large
 def test_lgb_autolog_logs_default_params(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set)
     run = get_latest_run()
     params = run.data.params
@@ -99,7 +98,7 @@ def test_lgb_autolog_logs_default_params(bst_params, train_set):
 
 @pytest.mark.large
 def test_lgb_autolog_logs_specified_params(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     expected_params = {
         "num_boost_round": 10,
         "early_stopping_rounds": 5,
@@ -134,7 +133,7 @@ def test_lgb_autolog_logs_specified_params(bst_params, train_set):
 
 @pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     evals_result = {}
     lgb.train(
         bst_params,
@@ -156,7 +155,7 @@ def test_lgb_autolog_logs_metrics_with_validation_data(bst_params, train_set):
 
 @pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     evals_result = {}
     # If we use [train_set, train_set] here, LightGBM ignores the first dataset.
     # To avoid that, create a new Dataset object.
@@ -183,7 +182,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data(bst_params, train_s
 
 @pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     evals_result = {}
     params = {"metric": ["multi_error", "multi_logloss"]}
     params.update(bst_params)
@@ -210,7 +209,7 @@ def test_lgb_autolog_logs_metrics_with_multi_metrics(bst_params, train_set):
 
 @pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     evals_result = {}
     params = {"metric": ["multi_error", "multi_logloss"]}
     params.update(bst_params)
@@ -240,7 +239,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 
 @pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     evals_result = {}
     params = {"metric": ["multi_error", "multi_logloss"]}
     params.update(bst_params)
@@ -277,7 +276,7 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
 
 @pytest.mark.large
 def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     model = lgb.train(bst_params, train_set, num_boost_round=10)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -305,14 +304,14 @@ def test_lgb_autolog_logs_feature_importance(bst_params, train_set):
 
 @pytest.mark.large
 def test_no_figure_is_opened_after_logging(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=10)
     assert mpl.pyplot.get_fignums() == []
 
 
 @pytest.mark.large
 def test_lgb_autolog_loads_model_from_artifact(bst_params, train_set):
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog()
     model = lgb.train(bst_params, train_set, num_boost_round=10)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -333,7 +332,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
     y = iris.target
     dataset = lgb.Dataset(X, y, free_raw_data=True)
 
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog(log_input_example=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
 
@@ -357,7 +356,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     y = iris.target
     dataset = lgb.Dataset(X, y, free_raw_data=True)
 
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog(log_model_signature=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -410,7 +409,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
         "num_class": 3,
     }
 
-    mlflow.lightgbm.autolog(**input_example_and_signature_on())
+    mlflow.lightgbm.autolog(log_model_signature=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -440,7 +439,9 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_example, log_mo
     y = iris.target
 
     with mlflow.start_run() as run:
-        mlflow.lightgbm.autolog(log_input_example=log_input_example, log_model_signature=log_model_signature)
+        mlflow.lightgbm.autolog(
+            log_input_example=log_input_example, log_model_signature=log_model_signature
+        )
         dataset = lgb.Dataset(X, y)
         lgb.train(bst_params, dataset)
     model_conf = get_model_conf(run.info.artifact_uri)

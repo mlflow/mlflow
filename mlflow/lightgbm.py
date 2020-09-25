@@ -293,8 +293,8 @@ def autolog(log_input_example=False, log_model_signature=True):
 
     Note that the `scikit-learn API`_ is not supported.
 
-    :param log_input_example: whether to log a sample of the training data
-                              as an example for future reference.
+    :param log_input_example: whether to log a sample of the training data as an example for future
+                              reference.
     :param log_model_signature: whether to log the signature of the inputs and outputs to the model.
     """
     import lightgbm
