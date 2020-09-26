@@ -690,7 +690,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.applymap(str)
 
         if type(result_type) == ArrayType:
-            return pandas.Series([row[1].values for row in result.iterrows()])
+            return pandas.Series(result.to_numpy().tolist())
         else:
             return result[result.columns[0]]
 
