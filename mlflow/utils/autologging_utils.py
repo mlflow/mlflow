@@ -125,7 +125,10 @@ class _InputExampleInfo:
         self.input_example = input_example
         self.error_msg = error_msg
 
-def handle_input_example_and_signature(get_input_example, infer_model_signature, log_input_example, log_model_signature, logger):
+
+def handle_input_example_and_signature(
+    get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
+):
     input_example = None
     input_example_user_msg = None
     input_example_failure_msg = None
@@ -141,7 +144,9 @@ def handle_input_example_and_signature(get_input_example, infer_model_signature,
     if log_model_signature:
         try:
             if input_example is None:
-                raise Exception("could not sample data to infer model signature: " + input_example_failure_msg)
+                raise Exception(
+                    "could not sample data to infer model signature: " + input_example_failure_msg
+                )
             model_signature = infer_model_signature(input_example)
         except Exception as e:  # pylint: disable=broad-except
             model_signature_user_msg = FAILED_MODEL_SIGNATURE_PREFIX_TEXT + str(e)

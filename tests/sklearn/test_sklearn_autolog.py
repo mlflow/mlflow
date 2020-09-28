@@ -982,9 +982,7 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_once_with(
-        "Failed to infer model signature: Failed"
-    )
+    mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
 

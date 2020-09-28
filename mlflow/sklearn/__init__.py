@@ -34,7 +34,6 @@ from mlflow.utils.autologging_utils import (
     wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     handle_input_example_and_signature,
-    _InputExampleInfo,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -822,7 +821,7 @@ def autolog(log_input_example=False, log_model_signature=True):
             infer_model_signature,
             log_input_example,
             log_model_signature and hasattr(estimator, "predict"),
-            _logger
+            _logger,
         )
 
         try_mlflow_log(

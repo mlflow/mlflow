@@ -11,7 +11,6 @@ from mlflow.utils.autologging_utils import (
     handle_input_example_and_signature,
     FAILED_INPUT_EXAMPLE_PREFIX_TEXT,
     FAILED_MODEL_SIGNATURE_PREFIX_TEXT,
-    ENSURE_AUTOLOGGING_ENABLED_TEXT,
 )
 
 # Example function signature we are testing on
@@ -177,36 +176,51 @@ def test_wrap_patch_with_module():
     assert mlflow.log_param("foo", "bar") == ("foo", "bar")
 
 
-
-
 @pytest.fixture()
 def logger():
     return Mock()
 
+
 def get_input_example():
     return "data"
+
 
 def infer_model_signature(_):
     return "signature"
 
+
 def test_if_getting_input_example_fails(logger):
     error_msg = "NoneType has no whatever"
+
     def throws():
         raise Exception(error_msg)
 
-    input_example, signature = handle_input_example_and_signature(throws, infer_model_signature, True, True, logger)
+    input_example, signature = handle_input_example_and_signature(
+        throws, infer_model_signature, True, True, logger
+    )
 
     assert input_example is None
     assert signature is None
-    calls = [call(FAILED_INPUT_EXAMPLE_PREFIX_TEXT + error_msg), call(FAILED_MODEL_SIGNATURE_PREFIX_TEXT + "could not sample data to infer model signature: " + error_msg)]
+    calls = [
+        call(FAILED_INPUT_EXAMPLE_PREFIX_TEXT + error_msg),
+        call(
+            FAILED_MODEL_SIGNATURE_PREFIX_TEXT
+            + "could not sample data to infer model signature: "
+            + error_msg
+        ),
+    ]
     assert logger.warning.has_calls(calls)
+
 
 def test_if_model_signature_inference_fails(logger):
     error_msg = "stack overflow"
+
     def throws(_):
         raise Exception(error_msg)
 
-    input_example, signature = handle_input_example_and_signature(get_input_example, throws, True, True, logger)
+    input_example, signature = handle_input_example_and_signature(
+        get_input_example, throws, True, True, logger
+    )
 
     assert input_example == "data"
     assert signature is None
@@ -214,7 +228,9 @@ def test_if_model_signature_inference_fails(logger):
 
 
 def test_happy_path_works(logger):
-    input_example, signature = handle_input_example_and_signature(get_input_example, infer_model_signature, True, True, logger)
+    input_example, signature = handle_input_example_and_signature(
+        get_input_example, infer_model_signature, True, True, logger
+    )
 
     assert input_example == "data"
     assert signature == "signature"
@@ -225,11 +241,12 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     # We create a infer_signature that modifies the value of x
     # If infer_signature was not invoked, x should not have been modified.
 
-    x = { "data": 0 }
+    x = {"data": 0}
+
     def throws(_):
         x["data"] = 1
 
     _, _ = handle_input_example_and_signature(get_input_example, throws, True, False, logger)
 
-    assert(x["data"] == 0)
+    assert x["data"] == 0
     logger.warning.assert_not_called()

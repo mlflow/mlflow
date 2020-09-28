@@ -490,7 +490,9 @@ def autolog(log_input_example=False, log_model_signature=True):
 
         def get_input_example():
             if input_example_info is None:
-                raise Exception("please ensure that autologging is enabled before constructing the dataset.")
+                raise Exception(
+                    "please ensure that autologging is enabled before constructing the dataset."
+                )
             if input_example_info.error_msg is not None:
                 raise Exception(input_example_info.error_msg)
             return input_example_info.input_example
@@ -505,9 +507,9 @@ def autolog(log_input_example=False, log_model_signature=True):
             infer_model_signature,
             log_input_example,
             log_model_signature,
-            _logger
+            _logger,
         )
-        
+
         try_mlflow_log(
             log_model,
             model,
