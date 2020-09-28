@@ -828,10 +828,7 @@ def autolog(every_n_iter=100):
     atexit.register(_flush_queue)
 
     if LooseVersion(tensorflow.__version__) < LooseVersion("1.12"):
-        warnings.warn(
-            "Could not log to MLflow. Only TensorFlow versions"
-            + "1.12 <= v <= 2.0.0 are supported."
-        )
+        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
     try:
@@ -840,10 +837,7 @@ def autolog(every_n_iter=100):
         from tensorflow.python.saved_model import tag_constants
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
-        warnings.warn(
-            "Could not log to MLflow. Only TensorFlow versions"
-            + "1.12 <= v <= 2.0.0 are supported."
-        )
+        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
     @contextmanager
