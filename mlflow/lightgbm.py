@@ -29,7 +29,7 @@ from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -490,20 +490,26 @@ def autolog(log_input_example=False, log_model_signature=True):
         #   constructor was applied, so we cannot assume the input_example_info exists
         input_example_info = getattr(train_set, "input_example_info", None)
 
-        (
-            input_example,
-            signature,
-            input_example_user_msg,
-            signature_user_msg,
-        ) = handle_input_example_and_signature(
-            input_example_info, log_input_example, log_model_signature, model.predict,
+        def get_input_example():
+            if input_example_info is None:
+                raise Exception("please ensure that autologging is enabled before constructing the dataset.")
+            if input_example_info.error_msg is not None:
+                raise Exception(input_example_info.error_msg)
+            return input_example_info.input_example
+
+        def get_model_signature(input_example):
+            model_output = model.predict(input_example)
+            model_signature = infer_signature(input_example, model_output)
+            return model_signature
+
+        input_example, signature = handle_input_example_and_signature(
+            get_input_example,
+            get_model_signature,
+            log_input_example,
+            log_model_signature,
+            _logger
         )
-
-        if log_input_example and input_example_user_msg is not None:
-            _logger.warning(input_example_user_msg)
-        if log_model_signature and signature_user_msg is not None:
-            _logger.warning(signature_user_msg)
-
+        
         try_mlflow_log(
             log_model,
             model,
