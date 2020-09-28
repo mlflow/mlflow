@@ -244,6 +244,29 @@ def run(
                    creating a new run.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        project_uri = "https://github.com/mlflow/mlflow-example"
+        params = {"alpha": 0.5, "l1_ratio": 0.01}
+
+        # Run MLflow project and create a reproducible conda environment
+        # on a local host
+        mlflow.run(project_uri, parameters=params)
+
+    .. code-block:: text
+        :caption: Output
+
+        ...
+        ...
+        Elasticnet model (alpha=0.500000, l1_ratio=0.010000):
+        RMSE: 0.788347345611717
+        MAE: 0.6155576449938276
+        R2: 0.19729662005412607
+        ... mlflow.projects: === Run (ID '6a5109febe5e4a549461e149590d0a7c') succeeded ===
     """
     backend_config_dict = backend_config if backend_config is not None else {}
     if (

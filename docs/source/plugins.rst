@@ -302,3 +302,12 @@ for installation instructions, and see the
 for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
+
+
+Project Backend Plugins
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for running `MLflow projects <https://www.mlflow.org/docs/latest/projects.html>`_
+against custom execution backends.
+
+- `mlflow-yarn <https://github.com/criteo/mlflow-yarn>`_ Running mlflow on Hadoop/YARN
