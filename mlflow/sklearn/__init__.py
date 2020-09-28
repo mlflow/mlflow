@@ -800,22 +800,21 @@ def autolog(log_input_example=False, log_model_signature=True):
 
         input_example = None
         signature = None
-        if hasattr(estimator, "predict"):
-            try:
-                # Fetch an input example using the first several rows of the array-like
-                # training data supplied to the training routine (e.g., `fit()`)
-                fit_arg_names = _get_arg_names(estimator.fit)
-                X_var_name, y_var_name = fit_arg_names[:2]
-                input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][
-                    :INPUT_EXAMPLE_SAMPLE_ROWS
-                ]
+        try:
+            # Fetch an input example using the first several rows of the array-like
+            # training data supplied to the training routine (e.g., `fit()`)
+            fit_arg_names = _get_arg_names(estimator.fit)
+            X_var_name, y_var_name = fit_arg_names[:2]
+            input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][
+                :INPUT_EXAMPLE_SAMPLE_ROWS
+            ]
 
-                if log_model_signature:
-                    signature = infer_signature(input_example, estimator.predict(input_example))
-            except Exception as e:  # pylint: disable=broad-except
-                input_example = None
-                msg = "Failed to infer an input example and model signature: " + str(e)
-                _logger.warning(msg)
+            if log_model_signature and hasattr(estimator, "predict"):
+                signature = infer_signature(input_example, estimator.predict(input_example))
+        except Exception as e:  # pylint: disable=broad-except
+            input_example = None
+            msg = "Failed to infer an input example and model signature: " + str(e)
+            _logger.warning(msg)
 
         try_mlflow_log(
             log_model,
