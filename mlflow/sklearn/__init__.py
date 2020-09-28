@@ -29,7 +29,13 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, INPUT_EXAMPLE_SAMPLE_ROWS
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    wrap_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+    handle_input_example_and_signature,
+    _InputExampleInfo,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "sklearn"
@@ -798,9 +804,7 @@ def autolog(log_input_example=False, log_model_signature=True):
         # log common metrics and artifacts for estimators (classifier, regressor)
         _log_specialized_estimator_content(estimator, mlflow.active_run().info.run_id, args, kwargs)
 
-        input_example = None
-        signature = None
-        try:
+        def get_input_example():
             # Fetch an input example using the first several rows of the array-like
             # training data supplied to the training routine (e.g., `fit()`)
             fit_arg_names = _get_arg_names(estimator.fit)
@@ -808,20 +812,25 @@ def autolog(log_input_example=False, log_model_signature=True):
             input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][
                 :INPUT_EXAMPLE_SAMPLE_ROWS
             ]
+            return input_example
 
-            if log_model_signature and hasattr(estimator, "predict"):
-                signature = infer_signature(input_example, estimator.predict(input_example))
-        except Exception as e:  # pylint: disable=broad-except
-            input_example = None
-            msg = "Failed to infer an input example and model signature: " + str(e)
-            _logger.warning(msg)
+        def infer_model_signature(input_example):
+            return infer_signature(input_example, estimator.predict(input_example))
+
+        input_example, signature = handle_input_example_and_signature(
+            get_input_example,
+            infer_model_signature,
+            log_input_example,
+            log_model_signature and hasattr(estimator, "predict"),
+            _logger
+        )
 
         try_mlflow_log(
             log_model,
             estimator,
             artifact_path="model",
             signature=signature,
-            input_example=input_example if log_input_example else None,
+            input_example=input_example,
         )
 
         if _is_parameter_search_estimator(estimator):

@@ -42,12 +42,10 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
-)
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.input_example_and_signature_utils import (
     handle_input_example_and_signature,
     _InputExampleInfo,
 )
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
 
@@ -479,14 +477,14 @@ def autolog(
                 raise Exception(input_example_info.error_msg)
             return input_example_info.input_example
 
-        def get_model_signature(input_example):
+        def infer_model_signature(input_example):
             model_output = model.predict(xgboost.DMatrix(input_example))
             model_signature = infer_signature(input_example, model_output)
             return model_signature
 
         input_example, signature = handle_input_example_and_signature(
             get_input_example,
-            get_model_signature,
+            infer_model_signature,
             log_input_example,
             log_model_signature,
             _logger
