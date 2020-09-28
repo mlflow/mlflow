@@ -129,6 +129,29 @@ class _InputExampleInfo:
 def handle_input_example_and_signature(
     get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
 ):
+    """
+    Handles the logic of calling functions to gather the input example and infer the model
+    signature.
+
+    :param get_input_example: function which returns an input example, usually sliced from a
+                              dataset. This function can raise an exception, its message will be
+                              shown to the user in a warning in the logs.
+    :param infer_model_signature: function which takes an input example and returns the signature
+                                  of the inputs and outputs of the model. This function can raise
+                                  an exception, its message will be shown to the user in a warning
+                                  in the logs.
+    :param log_input_example: whether to log errors while collecting the input example, and if it
+                              succeeds, whether to return the input example to the user. We collect
+                              it even if this parameter is False because it is needed for inferring
+                              the model signature.
+    :param log_model_signature: whether to infer and return the model signature.
+    :param logger: the logger instance used to log warnings to the user during input example
+                   collection and model signature inference.
+
+    :return: A tuple of input_example and signature. Either or both could be None based on the
+             values of log_input_example and log_model_signature.
+    """
+
     input_example = None
     input_example_user_msg = None
     input_example_failure_msg = None
