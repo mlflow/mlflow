@@ -28,6 +28,9 @@ def autolog(log_every_n_iter=1):
         def on_epoch_end(self, trainer, pl_module):
             """
             Log loss and other metrics values after each epoch
+
+            :param trainer: pytorch lightning model instance
+            :param pl_module: pytorch lightning base module
             """
             if (pl_module.current_epoch - 1) % every_n_iter == 0:
                 for key, value in trainer.callback_metrics.items():
@@ -41,6 +44,9 @@ def autolog(log_every_n_iter=1):
         def on_train_start(self, trainer, pl_module):
             """
             Logs Optimizer related metrics when the train begins
+
+            :param trainer: pytorch lightning model instance
+            :param pl_module: pytorch lightning base module
             """
             mlflow.set_tag(key="Mode", value="training")
             if trainer.early_stop_callback:
@@ -72,6 +78,9 @@ def autolog(log_every_n_iter=1):
         def on_train_end(self, trainer, pl_module):
             """
             Logs the model checkpoint into mlflow - models folder on the training end
+
+            :param trainer: pytorch lightning model instance
+            :param pl_module: pytorch lightning base module
             """
 
             mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="models")
@@ -86,6 +95,9 @@ def autolog(log_every_n_iter=1):
         def on_test_end(self, trainer, pl_module):
             """
             Logs accuracy and other relevant metrics on the testing end
+
+            :param trainer: pytorch lightning model instance
+            :param pl_module: pytorch lightning base module
             """
             mlflow.set_tag(key="Mode", value="testing")
             for key, value in trainer.callback_metrics.items():
@@ -95,6 +107,8 @@ def autolog(log_every_n_iter=1):
         def _log_early_stop_params(early_stop_obj):
             """
             Logs Early Stop parameters into mlflow
+
+            :param early_stop_obj: Early stopping callback dict
             """
             if hasattr(early_stop_obj, "monitor"):
                 try_mlflow_log(mlflow.log_param, "monitor", early_stop_obj.monitor)
@@ -115,6 +129,8 @@ def autolog(log_every_n_iter=1):
         def _early_stop_check(early_stop_callback):
             """
             Logs all early stopping metrics
+
+            :param early_stop_callback: Early stopping callback object
             """
             if early_stop_callback.stopped_epoch != 0:
 
