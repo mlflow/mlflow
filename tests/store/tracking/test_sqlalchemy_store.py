@@ -35,13 +35,14 @@ from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
+from mlflow.utils.search_runs_utils import SearchRunsUtils
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
@@ -1308,6 +1309,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
     def test_search_attrs(self):
+        def test_all_attribute_filter(runs, experiments, attribute_filter):
+            for attribute_filter_string in [
+                attribute_filter,
+                "attr." + attribute_filter,
+                "attribute." + attribute_filter,
+                "run." + attribute_filter,
+            ]:
+                six.assertCountEqual(self, runs, self._search(experiments, attribute_filter_string))
+
         e1 = self._experiment_factory("search_attributes_1")
         r1 = self._run_factory(self._get_run_configs(experiment_id=e1)).info.run_id
 
@@ -1317,62 +1327,62 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         filter_string = ""
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status != 'blah'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        filter_string = "status != 'blah'"
+        test_all_attribute_filter([r1, r2], [e1, e2], filter_string)
 
-        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        filter_string = "status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
+        test_all_attribute_filter([r1, r2], [e1, e2], filter_string)
 
         # change status for one of the runs
         self.store.update_run_info(r2, RunStatus.FAILED, 300)
 
-        filter_string = "attribute.status = 'RUNNING'"
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "status = 'RUNNING'"
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attribute.status = 'FAILED'"
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
+        filter_string = "status = 'FAILED'"
+        test_all_attribute_filter([r2], [e1, e2], filter_string)
 
-        filter_string = "attribute.status != 'SCHEDULED'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        filter_string = "status != 'SCHEDULED'"
+        test_all_attribute_filter([r1, r2], [e1, e2], filter_string)
 
-        filter_string = "attribute.status = 'SCHEDULED'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        filter_string = "status = 'SCHEDULED'"
+        test_all_attribute_filter([], [e1, e2], filter_string)
 
-        filter_string = "attribute.status = 'KILLED'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        filter_string = "status = 'KILLED'"
+        test_all_attribute_filter([], [e1, e2], filter_string)
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
+        test_all_attribute_filter([], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri = 'random_artifact_path'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri = 'random_artifact_path'"
+        test_all_attribute_filter([], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri != 'random_artifact_path'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri != 'random_artifact_path'"
+        test_all_attribute_filter([r1, r2], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri LIKE '%{}%'".format(r1)
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri LIKE '%{}%'".format(r1[:16])
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri LIKE '%{}%'".format(r1[-16:])
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri LIKE '%{}%'".format(r1.upper())
+        test_all_attribute_filter([], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri ILIKE '%{}%'".format(r1.upper())
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
+        test_all_attribute_filter([r1], [e1, e2], filter_string)
 
         for (k, v) in {
             "experiment_id": e1,
@@ -1380,9 +1390,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             "run_id": r1,
             "run_uuid": r2,
         }.items():
-            with self.assertRaises(MlflowException) as e:
-                self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
-            self.assertIn("Invalid attribute key", e.exception.message)
+            for filter_string in [
+                "attribute.{} = '{}'".format(k, v),
+                "attr.{} = '{}'".format(k, v),
+                "run.{} = '{}'".format(k, v),
+                "{} = '{}'".format(k, v),
+            ]:
+                with self.assertRaises(MlflowException) as e:
+                    self._search([e1, e2], filter_string)
+                self.assertIn("Invalid attribute key", e.exception.message)
 
     def test_search_full(self):
         experiment_id = self._experiment_factory("search_params")
@@ -1403,12 +1419,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
-        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 "
+            "and attribute.artifact_uri ILIKE '%%'"
+        )
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and run.status = 'FAILED'"
+        )
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # all params and metrics match
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
@@ -1432,13 +1456,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test with mismatch param
         filter_string = (
-            "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+            "params.random_bad_name = 'p_val' and metrics.common = 1.0 and metrics.m_a > 1.0"
         )
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
         filter_string = (
-            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
+            "params.generic_param = 'p_val' and metrics.common = 1.0 and metrics.m_a > 100.0"
         )
         six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
@@ -1471,6 +1495,44 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         )
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert runs[: min(10, n)] == self._search(exp, max_results=n)
+
+    def test_get_order_by_clauses_for_runs(self):
+        with self.store.ManagedSessionMaker() as session:
+            # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
+            parsed = [str(x) for x in SearchRunsUtils.get_order_by_clauses_for_run([], session)[0]]
+            assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
+
+            # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
+            parsed = [
+                str(x)
+                for x in SearchRunsUtils.get_order_by_clauses_for_run(
+                    ["attribute.start_time ASC"], session
+                )[0]
+            ]
+            assert "SqlRun.start_time" in parsed
+            assert "SqlRun.start_time DESC" not in parsed
+
+            # test that an exception is raised when 'order_by' contains duplicates
+            match = "`order_by` contains duplicate fields"
+            with pytest.raises(MlflowException, match=match):
+                SearchRunsUtils.get_order_by_clauses_for_run(
+                    ["attribute.start_time", "start_time"], session
+                )
+
+            with pytest.raises(MlflowException, match=match):
+                SearchRunsUtils.get_order_by_clauses_for_run(["start_time", "start_time"], session)
+
+            with pytest.raises(MlflowException, match=match):
+                SearchRunsUtils.get_order_by_clauses_for_run(["param.p", "param.p"], session)
+
+            with pytest.raises(MlflowException, match=match):
+                SearchRunsUtils.get_order_by_clauses_for_run(["metric.m", "metric.m"], session)
+
+            with pytest.raises(MlflowException, match=match):
+                SearchRunsUtils.get_order_by_clauses_for_run(["tag.t", "tag.t"], session)
+
+            # test that an exception is NOT raised when key types are different
+            SearchRunsUtils.get_order_by_clauses_for_run(["param.a", "metric.a", "tag.a"], session)
 
     def test_search_runs_pagination(self):
         exp = self._experiment_factory("test_search_runs_pagination")
@@ -1976,33 +2038,3 @@ def test_get_attribute_name():
     # and not referred to in this test
     # searchable attibutes are also orderable
     assert len(entities.RunInfo.get_orderable_attributes()) == 4
-
-
-def test_get_orderby_clauses():
-    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
-    with store.ManagedSessionMaker() as session:
-        # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
-        parsed = [str(x) for x in _get_orderby_clauses([], session)[0]]
-        assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
-
-        # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
-        parsed = [str(x) for x in _get_orderby_clauses(["attribute.start_time ASC"], session)[0]]
-        assert "SqlRun.start_time" in parsed
-        assert "SqlRun.start_time DESC" not in parsed
-
-        # test that an exception is raised when 'order_by' contains duplicates
-        match = "`order_by` contains duplicate fields"
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["attribute.start_time", "attribute.start_time"], session)
-
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["param.p", "param.p"], session)
-
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["metric.m", "metric.m"], session)
-
-        with pytest.raises(MlflowException, match=match):
-            _get_orderby_clauses(["tag.t", "tag.t"], session)
-
-        # test that an exception is NOT raised when key types are different
-        _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)

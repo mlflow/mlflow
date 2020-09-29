@@ -4,13 +4,13 @@ import uuid
 
 import math
 import sqlalchemy
-import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
+from mlflow.utils.search_runs_utils import SearchRunsUtils
 from mlflow.store.tracking.dbmodels.models import (
     SqlExperiment,
     SqlRun,
@@ -703,11 +703,14 @@ class SqlAlchemyStore(AbstractStore):
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
-            parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
+            parsed_filters = SearchRunsUtils.parse_filter_for_run(filter_string)
+            parsed_orderby, sorting_joins = SearchRunsUtils.get_order_by_clauses_for_run(
+                order_by, session
+            )
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
 
             query = session.query(SqlRun)
-            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session):
+            for j in SearchRunsUtils.get_sqlalchemy_filter_clause_for_run(parsed_filters, session):
                 query = query.join(j)
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
@@ -715,14 +718,13 @@ class SqlAlchemyStore(AbstractStore):
             for j in sorting_joins:
                 query = query.outerjoin(j)
 
-            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             queried_runs = (
                 query.distinct()
                 .options(*self._get_eager_run_query_options())
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)
+                    *SearchRunsUtils.get_attributes_filtering_clauses_for_run(parsed_filters)
                 )
                 .order_by(*parsed_orderby)
                 .offset(offset)
@@ -772,136 +774,3 @@ class SqlAlchemyStore(AbstractStore):
                 value = json.dumps([model_dict])
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
-
-
-def _get_attributes_filtering_clauses(parsed):
-    clauses = []
-    for sql_statement in parsed:
-        key_type = sql_statement.get("type")
-        key_name = sql_statement.get("key")
-        value = sql_statement.get("value")
-        comparator = sql_statement.get("comparator").upper()
-        if SearchUtils.is_attribute(key_type, comparator):
-            # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
-            # by the call to parse_search_filter
-            attribute = getattr(SqlRun, SqlRun.get_attribute_name(key_name))
-            if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-                op = SearchUtils.get_sql_filter_ops(attribute, comparator)
-                clauses.append(op(value))
-            elif comparator in SearchUtils.filter_ops:
-                op = SearchUtils.filter_ops.get(comparator)
-                clauses.append(op(attribute, value))
-    return clauses
-
-
-def _to_sqlalchemy_filtering_statement(sql_statement, session):
-    key_type = sql_statement.get("type")
-    key_name = sql_statement.get("key")
-    value = sql_statement.get("value")
-    comparator = sql_statement.get("comparator").upper()
-
-    if SearchUtils.is_metric(key_type, comparator):
-        entity = SqlLatestMetric
-        value = float(value)
-    elif SearchUtils.is_param(key_type, comparator):
-        entity = SqlParam
-    elif SearchUtils.is_tag(key_type, comparator):
-        entity = SqlTag
-    elif SearchUtils.is_attribute(key_type, comparator):
-        return None
-    else:
-        raise MlflowException(
-            "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
-        )
-
-    if comparator in SearchUtils.CASE_INSENSITIVE_STRING_COMPARISON_OPERATORS:
-        op = SearchUtils.get_sql_filter_ops(entity.value, comparator)
-        return session.query(entity).filter(entity.key == key_name, op(value)).subquery()
-    elif comparator in SearchUtils.filter_ops:
-        op = SearchUtils.filter_ops.get(comparator)
-        return (
-            session.query(entity).filter(entity.key == key_name, op(entity.value, value)).subquery()
-        )
-    else:
-        return None
-
-
-def _get_sqlalchemy_filter_clauses(parsed, session):
-    """creates SqlAlchemy subqueries
-    that will be inner-joined to SQLRun to act as multi-clause filters."""
-    filters = []
-    for sql_statement in parsed:
-        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session)
-        if filter_query is not None:
-            filters.append(filter_query)
-    return filters
-
-
-def _get_orderby_clauses(order_by_list, session):
-    """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
-    Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
-    """
-
-    clauses = []
-    ordering_joins = []
-    clause_id = 0
-    observed_order_by_clauses = set()
-    # contrary to filters, it is not easily feasible to separately handle sorting
-    # on attributes and on joined tables as we must keep all clauses in the same order
-    if order_by_list:
-        for order_by_clause in order_by_list:
-            clause_id += 1
-            (key_type, key, ascending) = SearchUtils.parse_order_by_for_search_runs(order_by_clause)
-            if SearchUtils.is_attribute(key_type, "="):
-                order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
-            else:
-                if SearchUtils.is_metric(key_type, "="):  # any valid comparator
-                    entity = SqlLatestMetric
-                elif SearchUtils.is_tag(key_type, "="):
-                    entity = SqlTag
-                elif SearchUtils.is_param(key_type, "="):
-                    entity = SqlParam
-                else:
-                    raise MlflowException(
-                        "Invalid identifier type '%s'" % key_type,
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                # build a subquery first because we will join it in the main request so that the
-                # metric we want to sort on is available when we apply the sorting clause
-                subquery = session.query(entity).filter(entity.key == key).subquery()
-
-                ordering_joins.append(subquery)
-                order_value = subquery.c.value
-
-            # sqlite does not support NULLS LAST expression, so we sort first by
-            # presence of the field (and is_nan for metrics), then by actual value
-            # As the subqueries are created independently and used later in the
-            # same main query, the CASE WHEN columns need to have unique names to
-            # avoid ambiguity
-            if SearchUtils.is_metric(key_type, "="):
-                clauses.append(
-                    sql.case(
-                        [(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)], else_=0
-                    ).label("clause_%s" % clause_id)
-                )
-            else:  # other entities do not have an 'is_nan' field
-                clauses.append(
-                    sql.case([(order_value.is_(None), 1)], else_=0).label("clause_%s" % clause_id)
-                )
-
-            if (key_type, key) in observed_order_by_clauses:
-                raise MlflowException(
-                    "`order_by` contains duplicate fields: {}".format(order_by_list)
-                )
-            observed_order_by_clauses.add((key_type, key))
-
-            if ascending:
-                clauses.append(order_value)
-            else:
-                clauses.append(order_value.desc())
-
-    if (SearchUtils._ATTRIBUTE_IDENTIFIER, SqlRun.start_time.key) not in observed_order_by_clauses:
-        clauses.append(SqlRun.start_time.desc())
-    clauses.append(SqlRun.run_uuid)
-    return clauses, ordering_joins
