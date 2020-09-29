@@ -588,17 +588,36 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         value_token = stripped_comparison[2]
-        if not isinstance(value_token, Parenthesis) and value_token.ttype not in cls.STRING_VALUE_TYPES:
+        if (
+            not isinstance(value_token, Parenthesis)
+            and value_token.ttype not in cls.STRING_VALUE_TYPES
+        ):
             raise MlflowException(
                 "Expected a quoted string value for attributes. "
-                "Got value {value} with type {type}".format(value=value_token.value, type=type(value_token)),
+                "Got value {value} with type {type}".format(
+                    value=value_token.value, type=type(value_token)
+                ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif isinstance(value_token, Parenthesis):
             if len(value_token._groupable_tokens) == 0:
-                raise MlflowException("While parsing a list in the query, expected a non-empty list of string values, but got empty list", error_code=INVALID_PARAMETER_VALUE)
-            elif not all(map(lambda token: token.ttype in cls.STRING_VALUE_TYPES.union(cls.DELIMITER_VALUE_TYPES), value_token._groupable_tokens[0].tokens)):
-                raise MlflowException("While parsing a list in the query, expected string value or punctuation, but got different type in list: {value_token}".format(value_token=value_token), error_code=INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    "While parsing a list in the query, expected a non-empty list of string values, but got empty list",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            elif not all(
+                map(
+                    lambda token: token.ttype
+                    in cls.STRING_VALUE_TYPES.union(cls.DELIMITER_VALUE_TYPES),
+                    value_token._groupable_tokens[0].tokens,
+                )
+            ):
+                raise MlflowException(
+                    "While parsing a list in the query, expected string value or punctuation, but got different type in list: {value_token}".format(
+                        value_token=value_token
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             value = ast.literal_eval(value_token.value)
         else:
             value = cls._strip_quotes(value_token.value, expect_quoted_value=True)
@@ -634,7 +653,9 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         statement = parsed[0]
-        invalids = list(filter(cls._invalid_statement_token_search_model_registry, statement.tokens))
+        invalids = list(
+            filter(cls._invalid_statement_token_search_model_registry, statement.tokens)
+        )
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
@@ -656,8 +677,12 @@ class SearchUtils(object):
                         "Search filter '%s' contains multiple expressions. "
                         "%s " % (filter_string, expected),
                         error_code=INVALID_PARAMETER_VALUE,
-                        )
-                if isinstance(statement.tokens[idx], Identifier) or statement.tokens[idx].match(ttype=TokenType.Keyword, values=["IN"]) or isinstance(statement.tokens[idx], Parenthesis):
+                    )
+                if (
+                    isinstance(statement.tokens[idx], Identifier)
+                    or statement.tokens[idx].match(ttype=TokenType.Keyword, values=["IN"])
+                    or isinstance(statement.tokens[idx], Parenthesis)
+                ):
                     comparison_subtokens.append(statement.tokens[idx])
                 else:
                     break
