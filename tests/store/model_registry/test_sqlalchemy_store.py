@@ -719,6 +719,27 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # search using run_id_2 should return versions 2 and 3
         self.assertEqual(set(search_versions("run_id='%s'" % run_id_2)), set([2, 3]))
 
+        # search using the IN operator should return all versions
+        self.assertEqual(set(search_versions("run_id IN ('{run_id_1}','{run_id_2}')".format(run_id_1=run_id_1, run_id_2=run_id_2))), set([1,2,3]))
+
+        # search using the IN operator with bad lists should return exceptions
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (1,2,3)")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert 'expected string value or punctuation' in exception_context.exception.message
+
+        # search using the IN operator with empty lists should return exceptions
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN ()")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert 'expected a non-empty list of string values' in exception_context.exception.message
+
+        # search using the IN operator is not allowed with other additional filters
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("name='{name}]' AND run_id IN ('{run_id_1}','{run_id_2}')".format(name=name, run_id_1=run_id_1, run_id_2=run_id_2))
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert 'contains multiple expressions' in exception_context.exception.message
+
         # search using source_path "A/D" should return version 3 and 4
         self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3, 4]))
 
