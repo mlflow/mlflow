@@ -602,7 +602,8 @@ class SearchUtils(object):
         elif isinstance(value_token, Parenthesis):
             if len(value_token._groupable_tokens) == 0:
                 raise MlflowException(
-                    "While parsing a list in the query, expected a non-empty list of string values, but got empty list",
+                    "While parsing a list in the query,"
+                    " expected a non-empty list of string values, but got empty list",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             elif not all(
@@ -613,7 +614,8 @@ class SearchUtils(object):
                 )
             ):
                 raise MlflowException(
-                    "While parsing a list in the query, expected string value or punctuation, but got different type in list: {value_token}".format(
+                    "While parsing a list in the query, expected string value "
+                    "or punctuation, but got different type in list: {value_token}".format(
                         value_token=value_token
                     ),
                     error_code=INVALID_PARAMETER_VALUE,

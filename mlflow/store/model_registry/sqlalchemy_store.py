@@ -747,8 +747,8 @@ class SqlAlchemyStore(AbstractStore):
             if filter_dict["comparator"] not in SearchUtils.VALID_MODEL_VERSIONS_SEARCH_COMPARATORS:
                 raise MlflowException(
                     "Model Registry search filter only supports the equality(=) "
-                    "comparator and the IN operator for the run_id parameter. Input filter string: %s"
-                    % filter_string,
+                    "comparator and the IN operator "
+                    "for the run_id parameter. Input filter string: %s" % filter_string,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if filter_dict["key"] == "name":
@@ -768,7 +768,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(
                 "Model Registry expects filter to be one of "
                 "\"name = '<model_name>'\" or "
-                '"source_path = \'<source_path>\'" or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
+                "\"source_path = '<source_path>'\" "
+                'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
                 "Input filter string: %s. " % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )
