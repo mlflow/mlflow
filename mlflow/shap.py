@@ -1,3 +1,7 @@
+from mlflow.utils.annotations import experimental
+
+
+@experimental
 def log_explanation(predict_func, features, explanation_path=None):
     """
     Generate a SHAP explanation and log it.
