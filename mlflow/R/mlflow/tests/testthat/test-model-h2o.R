@@ -11,7 +11,7 @@ version <- remove_patch_version(
   as.character(utils::packageVersion("h2o"))
 )
 
-h2o::h2o.init(paste0(mlflow_h2o_pyfunc_", version))
+h2o::h2o.init(paste0("mlflow_h2o_pyfunc_", version))
 
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
