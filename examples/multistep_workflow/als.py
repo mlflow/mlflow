@@ -25,7 +25,6 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
     seed = 42
 
     spark = pyspark.sql.SparkSession.builder.getOrCreate()
-    
 
     ratings_df = spark.read.parquet(ratings_data)
     (training_df, test_df) = ratings_df.randomSplit([split_prop, 1 - split_prop], seed=seed)
