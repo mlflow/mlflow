@@ -3,6 +3,8 @@ import functools
 import gorilla
 import warnings
 
+from wrapt import register_post_import_hook
+
 import mlflow
 
 
@@ -187,3 +189,23 @@ def resolve_input_example_and_signature(
         logger.warning(model_signature_user_msg)
 
     return input_example if log_input_example else None, model_signature
+
+def universal_autolog(log_input_example=False, log_model_signature=True):
+    autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
+    
+    arg_info = inspect.getargvalues(inspect.currentframe())
+    arg_values = { k:v for k,v in arg_info.locals.items() if k in arg_info.args }
+
+    def setup_autologging(flavor):
+        flavor_obj = getattr(mlflow, flavor.__name__)
+        autolog_fn = getattr(flavor_obj, "autolog")
+        needed_params = list(inspect.signature(autolog_fn).parameters.keys())
+        filtered = {k:v for k,v in arg_values.items() if k in needed_params}
+
+        autolog_fn(**filtered)
+
+    # for each autolog library, register a post-import hook.
+    # this way, we do not send any errors to the user until we know they are using the library.
+    # the post-import hook also retroactively activates for previously-imported libraries.
+    for flavor in autolog_flavors:
+        register_post_import_hook(setup_autologging, flavor)
