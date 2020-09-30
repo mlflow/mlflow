@@ -631,7 +631,7 @@ def create_experiment(name, artifact_location=None):
 
         import mlflow
 
-        # Create an experiment name, which must be unique and case sensitve
+        # Create an experiment name, which must be unique and case sensitive
         experiment_id = mlflow.create_experiment("Social NLP Experiments")
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
