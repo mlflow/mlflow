@@ -7,7 +7,11 @@ predictors <- setdiff(colnames(iris), prediction)
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
 
-h2o::h2o.init()
+version <- remove_patch_version(
+  as.character(utils::packageVersion("h2o"))
+)
+
+h2o::h2o.init(paste0(mlflow_h2o_pyfunc_", version))
 
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
