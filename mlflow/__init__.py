@@ -34,6 +34,7 @@ from collections import OrderedDict
 
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.utils.autologging_utils import universal_autolog
 import mlflow.tracking._model_registry.fluent
 import mlflow.tracking.fluent
 
@@ -66,8 +67,6 @@ import mlflow.spark as spark  # noqa: E402
 import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
 import mlflow.shap as shap  # noqa: E402
-
-from wrapt import register_post_import_hook
 
 
 _logger = logging.getLogger(__name__)
@@ -165,22 +164,4 @@ __all__ = [
     "shap",
 ]
 
-def autolog(log_input_example=False, log_model_signature=True):
-    autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
-    signature = inspect.signature(autolog)
-    all_params = list(signature.parameters.keys())
-    all_param_values = signature.bind_partial(*all_params).arguments
-
-    def setup_autologging(flavor):
-        flavor_obj = getattr(mlflow, flavor.__name__)
-        autolog_fn = getattr(flavor_obj, "autolog")
-        needed_params = list(inspect.signature(autolog).parameters.keys())
-        filtered = OrderedDict(filter(lambda entry: entry[0] in needed_params, all_param_values.items()))
-
-        autolog_fn(**filtered)
-
-    # for each autolog library, register a post-import hook.
-    # this way, we do not send any errors to the user until we know they are using the library.
-    # the post-import hook also retroactively activates for previously-imported libraries.
-    for flavor in autolog_flavors:
-        register_post_import_hook(setup_autologging, flavor)
+autolog = universal_autolog
