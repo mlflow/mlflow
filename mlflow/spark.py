@@ -55,7 +55,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
-DFS_TMP = "tmp/mlflow"
+DFS_TMP = "/tmp/mlflow"
 _SPARK_MODEL_PATH_SUB = "sparkml"
 
 _logger = logging.getLogger(__name__)
@@ -511,7 +511,8 @@ def save_model(
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
     # If spark DFS is DBFS and we're running on a Databricks cluster, copy to local FS
     # via the FUSE mount
-    if is_valid_dbfs_uri(tmp_path) and databricks_utils.is_in_cluster():
+    is_saving_to_dbfs = is_valid_dbfs_uri(tmp_path) or posixpath.abspath(tmp_path) == tmp_path
+    if is_saving_to_dbfs and databricks_utils.is_in_cluster():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
