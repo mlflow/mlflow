@@ -202,25 +202,28 @@ class LightningMNISTClassifier(pl.LightningModule):
         return [self.optimizer], [self.scheduler]
 
     def optimizer_step(
-        self,
-        epoch,
-        batch_idx,
-        optimizer,
-        optimizer_idx,
-        second_order_closure=None,
-        on_tpu=False,
-        using_lbfgs=False,
-        using_native_amp=False,
+            self,
+            epoch,
+            batch_idx,
+            optimizer,
+            optimizer_idx,
+            second_order_closure=None,
+            on_tpu=False,
+            using_lbfgs=False,
+            using_native_amp=False,
     ):
         self.optimizer.step()
         self.optimizer.zero_grad()
 
 
 if __name__ == "__main__":
-    mlflow.set_tracking_uri("http://localhost:5000/")
-    parser = ArgumentParser(description="PyTorch Lightning Mnist Example")
+    parser = ArgumentParser(description="PyTorch Autolog Mnist Example")
 
     # Add trainer specific arguments
+
+    parser.add_argument(
+        "--tracking_uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
+    )
     parser.add_argument(
         "--max_epochs", type=int, default=20, help="number of epochs to run (default: 20)"
     )
@@ -239,6 +242,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
+    mlflow.set_tracking_uri(dict_args['tracking_uri'])
+
     model = LightningMNISTClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
