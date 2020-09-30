@@ -170,8 +170,6 @@ def autolog(log_input_example=False, log_model_signature=True):
     all_param_values = signature.bind_partial(*all_params).arguments
 
     def setup_autologging(flavor):
-        _logger.info("activating import hook for flavor " + flavor.__name__)
-        # invoke the mlflow.library.autolog() function
         flavor_obj = getattr(mlflow, flavor.__name__)
         autolog_fn = getattr(flavor_obj, "autolog")
         needed_params = list(inspect.signature(autolog).parameters.keys())
