@@ -464,7 +464,7 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
 @pytest.mark.large
 @pytest.mark.parametrize("log_input_example", [True, False])
 @pytest.mark.parametrize("log_model_signature", [True, False])
-def test_lgb_autolog_configuration_options(bst_params, log_input_example, log_model_signature):
+def test_xgb_autolog_configuration_options(bst_params, log_input_example, log_model_signature):
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
