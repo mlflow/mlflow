@@ -29,6 +29,8 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 import sys
 import logging
+import inspect
+from collections import OrderedDict
 
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
@@ -64,7 +66,7 @@ import mlflow.spark as spark  # noqa: E402
 import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
 
-from wrapt import when_imported
+from wrapt import register_post_import_hook
 
 
 _logger = logging.getLogger(__name__)
@@ -161,30 +163,24 @@ __all__ = [
     "xgboost",
 ]
 
-def autolog():
-    autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "fastai", "sklearn"]
+def autolog(log_input_example=False, log_model_signature=True):
+    autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
+    signature = inspect.signature(autolog)
+    all_params = list(signature.parameters.keys())
+    all_param_values = signature.bind_partial(*all_params).arguments
 
-    # for each autolog library, try to initialize autolog immediately.
-    # if it fails due to missing dependency, set up an import hook on it so that autolog is initialized when it is imported.
+    def setup_autologging(flavor):
+        _logger.info("activating import hook for flavor " + flavor.__name__)
+        # invoke the mlflow.library.autolog() function
+        flavor_obj = getattr(mlflow, flavor.__name__)
+        autolog_fn = getattr(flavor_obj, "autolog")
+        needed_params = list(inspect.signature(autolog).parameters.keys())
+        filtered = OrderedDict(filter(lambda entry: entry[0] in needed_params, all_param_values.items()))
+
+        autolog_fn(**filtered)
+
+    # for each autolog library, register a post-import hook.
+    # this way, we do not send any errors to the user until we know they are using the library.
+    # the post-import hook also retroactively activates for previously-imported libraries.
     for flavor in autolog_flavors:
-        flavor_obj = getattr(mlflow, flavor)
-
-        try:
-            autolog_fn = getattr(flavor_obj, "autolog")
-            autolog_fn()
-            _logger.info("successfully set up autologging for flavor " + flavor)
-        except Exception as e:
-            @when_imported(flavor)
-            def setup_autologging(module):
-                # invoke the mlflow.library.autolog() function
-                getattr(flavor_obj, "autolog")()
-
-
-    # mlflow.tensorflow.autolog()
-    # mlflow.keras.autolog()
-    # mlflow.gluon.autolog()
-    # mlflow.xgboost.autolog()
-    # mlflow.lightgbm.autolog()
-    # mlflow.spark.autolog()
-    # mlflow.fastai.autolog()
-    # mlflow.sklearn.autolog()
+        register_post_import_hook(setup_autologging, flavor)
