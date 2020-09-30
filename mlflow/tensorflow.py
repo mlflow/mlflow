@@ -365,7 +365,7 @@ def load_model(model_uri, tf_sess=None):
         if tf_sess:
             warnings.warn(
                 "A TensorFlow session was passed into load_model, but the "
-                + "currently used version is TF 2.0 where sessions are deprecated. "
+                + "currently used version is TF >= 2.0 where sessions are deprecated. "
                 + "The tf_sess argument will be ignored.",
                 FutureWarning,
             )
