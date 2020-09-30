@@ -33,7 +33,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
     wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
-    handle_input_example_and_signature,
+    resolve_input_example_and_signature,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -682,9 +682,11 @@ def autolog(log_input_example=False, log_model_signature=True):
         pprint(artifacts)
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
 
-    :param log_input_example: whether to log a sample of the training data as an example for future
-                              reference.
-    :param log_model_signature: whether to log the signature of the inputs and outputs to the model.
+    :param log_input_example: if True, logs a sample of the training data as part of the model
+                              as an example for future reference. If False, no sample is logged.
+    :param log_model_signature: if True, records the type signature of the inputs and outputs as
+                                part of the model. If False, the signature is not recorded to the
+                                model.
     """
     import pandas as pd
     import sklearn
@@ -816,7 +818,7 @@ def autolog(log_input_example=False, log_model_signature=True):
         def infer_model_signature(input_example):
             return infer_signature(input_example, estimator.predict(input_example))
 
-        input_example, signature = handle_input_example_and_signature(
+        input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
             log_input_example,

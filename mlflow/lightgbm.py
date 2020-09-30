@@ -43,8 +43,9 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
-    handle_input_example_and_signature,
+    resolve_input_example_and_signature,
     _InputExampleInfo,
+    ENSURE_AUTOLOGGING_ENABLED_TEXT,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -294,9 +295,11 @@ def autolog(log_input_example=False, log_model_signature=True):
 
     Note that the `scikit-learn API`_ is not supported.
 
-    :param log_input_example: whether to log a sample of the training data as an example for future
-                              reference.
-    :param log_model_signature: whether to log the signature of the inputs and outputs to the model.
+    :param log_input_example: if True, logs a sample of the training data as part of the model
+                              as an example for future reference. If False, no sample is logged.
+    :param log_model_signature: if True, records the type signature of the inputs and outputs as
+                                part of the model. If False, the signature is not recorded to the
+                                model.
     """
     import lightgbm
     import numpy as np
@@ -422,20 +425,6 @@ def autolog(log_input_example=False, log_model_signature=True):
         else:
             kwargs["callbacks"] = [callback]
 
-        # We set free_raw_data to false on the Dataset object
-        # so that we can access the original data later.
-        train_data = args[1] if len(args) > 1 else kwargs.get("train_data")
-
-        input_example = None
-        try:
-            if isinstance(train_data.data, str):
-                raise Exception("The input data was of type string.")
-
-            input_example = deepcopy(train_data.data[:INPUT_EXAMPLE_SAMPLE_ROWS])
-        except Exception as e:  # pylint: disable=broad-except
-            msg = "Failed to gather an input example: " + str(e)
-            _logger.warning(msg)
-
         # training model
         model = original(*args, **kwargs)
 
@@ -490,9 +479,7 @@ def autolog(log_input_example=False, log_model_signature=True):
 
         def get_input_example():
             if input_example_info is None:
-                raise Exception(
-                    "please ensure that autologging is enabled before constructing the dataset."
-                )
+                raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
             if input_example_info.error_msg is not None:
                 raise Exception(input_example_info.error_msg)
             return input_example_info.input_example
@@ -502,7 +489,7 @@ def autolog(log_input_example=False, log_model_signature=True):
             model_signature = infer_signature(input_example, model_output)
             return model_signature
 
-        input_example, signature = handle_input_example_and_signature(
+        input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
             log_input_example,

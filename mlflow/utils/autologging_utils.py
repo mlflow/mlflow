@@ -7,8 +7,6 @@ import mlflow
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
-FAILED_INPUT_EXAMPLE_PREFIX_TEXT = "Failed to gather input example: "
-FAILED_MODEL_SIGNATURE_PREFIX_TEXT = "Failed to infer model signature: "
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
@@ -121,12 +119,21 @@ def wrap_patch(destination, name, patch, settings=None):
 
 
 class _InputExampleInfo:
+    """
+    Stores info about the input example collection before it is needed.
+
+    For example, in xgboost and lightgbm, an InputExampleInfo object is attached to the dataset,
+    where its value is read later by the train method.
+
+    Exactly one of input_example or error_msg should be populated.
+    """
+
     def __init__(self, input_example=None, error_msg=None):
         self.input_example = input_example
         self.error_msg = error_msg
 
 
-def handle_input_example_and_signature(
+def resolve_input_example_and_signature(
     get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
 ):
     """
@@ -160,7 +167,7 @@ def handle_input_example_and_signature(
             input_example = get_input_example()
         except Exception as e:  # pylint: disable=broad-except
             input_example_failure_msg = str(e)
-            input_example_user_msg = FAILED_INPUT_EXAMPLE_PREFIX_TEXT + str(e)
+            input_example_user_msg = "Failed to gather input example: " + str(e)
 
     model_signature = None
     model_signature_user_msg = None
@@ -172,7 +179,7 @@ def handle_input_example_and_signature(
                 )
             model_signature = infer_model_signature(input_example)
         except Exception as e:  # pylint: disable=broad-except
-            model_signature_user_msg = FAILED_MODEL_SIGNATURE_PREFIX_TEXT + str(e)
+            model_signature_user_msg = "Failed to infer model signature: " + str(e)
 
     if log_input_example and input_example_user_msg is not None:
         logger.warning(input_example_user_msg)
