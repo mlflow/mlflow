@@ -272,3 +272,6 @@ def get_databricks_host_creds(server_uri=None):
     elif config.token:
         return MlflowHostCreds(config.host, token=config.token, ignore_tls_verification=insecure)
     _fail_malformed_databricks_auth(profile)
+
+def is_default_databricks_profile(profile):
+    return profile == "databricks"

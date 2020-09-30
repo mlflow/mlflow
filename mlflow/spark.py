@@ -36,8 +36,10 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.utils.databricks_utils import is_default_databricks_profile
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import is_local_uri, append_to_uri_path
+from mlflow.utils.uri import is_local_uri, append_to_uri_path,\
+    get_databricks_profile_uri_from_artifact_uri, remove_databricks_profile_info_from_artifact_uri
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -567,6 +569,11 @@ def load_model(model_uri, dfs_tmpdir=None):
     elif ModelsArtifactRepository.is_models_uri(model_uri):
         runs_uri = model_uri
         model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+        # If Databricks profile from model artifact URI is the default profile, indicating that
+        # the underlying DBFS URI is in the current workspace, strip the profile from the artifact
+        # URI so that Spark can work directly with the URL
+        if is_default_databricks_profile(get_databricks_profile_uri_from_artifact_uri(model_uri)):
+            model_uri = remove_databricks_profile_info_from_artifact_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
