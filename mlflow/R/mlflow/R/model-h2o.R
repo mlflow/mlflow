@@ -37,7 +37,7 @@ mlflow_save_model.H2OModel <- function(model,
   )
 
   conda_env <- create_default_conda_env_if_absent(
-    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o>=", as.character(utils::packageVersion("h2o"))))
+    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o==", as.character(utils::packageVersion("h2o"))))
   )
 
   h2o_conf <- list(
