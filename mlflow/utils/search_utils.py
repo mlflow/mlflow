@@ -711,10 +711,14 @@ class SearchUtils(object):
                     comparison_subtokens.append(token)
                 elif not token.is_whitespace:
                     break
+            # if we have fewer than 3, that means we have an incomplete statement.
             if len(comparison_subtokens) == 3:
                 token_list = [Comparison(TokenList(comparison_subtokens))]
             else:
-                token_list = statement_tokens
+                raise MlflowException(
+                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         return token_list
 
     @classmethod
