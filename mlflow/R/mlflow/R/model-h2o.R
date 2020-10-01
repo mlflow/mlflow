@@ -32,12 +32,12 @@ mlflow_save_model.H2OModel <- function(model,
   yaml::write_yaml(settings, file.path(model_data_path, "h2o.yaml"))
 
   # needed because R and python packages may not have the same patch number
-  version <- remove_patch_version(
-    as.character(utils::packageVersion("h2o"))
-  )
+  # version <- remove_patch_version(
+  #   as.character(utils::packageVersion("h2o"))
+  # )
 
   conda_env <- create_default_conda_env_if_absent(
-    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o==", version))
+    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o==", as.character(utils::packageVersion("h2o"))))
   )
 
   h2o_conf <- list(
