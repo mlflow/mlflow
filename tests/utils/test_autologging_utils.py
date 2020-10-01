@@ -3,7 +3,7 @@ import inspect
 import pytest
 import importlib
 import sys
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, create_autospec
 
 import mlflow
 from mlflow.utils.autologging_utils import (
@@ -13,7 +13,8 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     FAILED_INPUT_EXAMPLE_PREFIX_TEXT,
     FAILED_MODEL_SIGNATURE_PREFIX_TEXT,
-    universal_autolog
+    universal_autolog,
+    AUTOLOG_INTEGRATIONS,
 )
 
 # Example function signature we are testing on
@@ -271,23 +272,35 @@ def test_avoids_inferring_signature_if_not_needed(logger):
 
 
 def test_universal_autolog_calls_specific_autologs_correctly():
-    autolog_integrations = ["tensorflow", "keras", "mxnet.gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
+    integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
-    for integration_name in autolog_integrations:
-        setattr(getattr(mlflow, integration_name.split(".")[-1]), "autolog", Mock())
-        autolog_fn = getattr(getattr(mlflow, integration_name.split(".")[-1]), "autolog")
+    for integration_name in AUTOLOG_INTEGRATIONS.keys():
+        args = (
+            {"log_input_example": bool, "log_model_signature": bool}
+            if integration_name in integrations_with_config
+            else {}
+        )
+        params = [
+            inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
+            for param, type_ in args.items()
+        ]
+        mock = create_autospec(
+            getattr(getattr(mlflow, AUTOLOG_INTEGRATIONS[integration_name]), "autolog")
+        )
+        mock.__signature__ = inspect.Signature(params)
+
+        setattr(getattr(mlflow, AUTOLOG_INTEGRATIONS[integration_name]), "autolog", mock)
+        autolog_fn = getattr(getattr(mlflow, AUTOLOG_INTEGRATIONS[integration_name]), "autolog")
         autolog_fn.assert_not_called()
 
-    universal_autolog(True, True)
+    universal_autolog(log_input_example=True, log_model_signature=True)
 
-    for integration_name in autolog_integrations:
-        autolog_fn = getattr(getattr(mlflow, integration_name.split(".")[-1]), "autolog")
-
-        autolog_fn.assert_not_called()
+    for integration_name in AUTOLOG_INTEGRATIONS.keys():
+        autolog_fn = getattr(getattr(mlflow, AUTOLOG_INTEGRATIONS[integration_name]), "autolog")
 
         importlib.__import__(integration_name)
 
-        if integration_name in ["xgboost", "lightgbm", "sklearn"]:
-            autolog_fn.assert_called_once_with(True, True)
+        if integration_name in integrations_with_config:
+            autolog_fn.assert_called_once_with(log_input_example=True, log_model_signature=True)
         else:
             autolog_fn.assert_called_once_with()
