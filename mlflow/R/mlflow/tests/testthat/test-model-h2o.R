@@ -7,6 +7,7 @@ predictors <- setdiff(colnames(iris), prediction)
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
 
+h2o::h2o.shutdown()
 h2o::h2o.init()
 
 model <- h2o::h2o.randomForest(
