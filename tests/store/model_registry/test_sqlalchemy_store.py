@@ -749,6 +749,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         assert "Invalid clause" in exception_context.exception.message
 
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (,)")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "ill-formed list" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN ('runid1',,'runid2')")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "ill-formed list" in exception_context.exception.message
+
         # search using the IN operator is not allowed with other additional filters
         with self.assertRaises(MlflowException) as exception_context:
             search_versions(
