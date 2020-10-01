@@ -663,6 +663,32 @@ class MlflowClient(object):
 
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            with open("features.txt", 'w') as f:
+                f.write(features)
+
+            client = MlflowClient()
+            run = client.create_run("0")
+
+            # log and fetch the list of artifacts
+            client.log_artifact(run.info.run_id, "features.txt")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: features.txt
+            is_dir: False
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
@@ -672,6 +698,39 @@ class MlflowClient(object):
 
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+        .. code-block:: python
+            :caption: Example
+
+            import os
+            import json
+
+            # Create some artifacts data to preserve
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            data = {"state": "TX", "Available": 25, "Type": "Detached"}
+
+            # Create couple of artifact files under the local directory "data"
+            os.makedirs("data", exist_ok=True)
+            with open("data/data.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+            with open("data/features.txt", 'w') as f:
+                f.write(features)
+
+            # Create a run, and log all files in "data" to root artifact_uri/states
+            client = MlflowClient()
+            run = client.create_run("0")
+            client.log_artifacts(run.info.run_id, "data", artifact_path="states")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: states
+            is_dir: True
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
@@ -692,6 +751,43 @@ class MlflowClient(object):
         :param path: The run's relative artifact path to list from. By default it is set to None
                      or the root artifact path.
         :return: List of :py:class:`mlflow.entities.FileInfo`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_artifact_info(artifact):
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+                print("size: {}".format(artifact.file_size))
+
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            labels = "price"
+            client = MlflowClient()
+            run = client.create_run("0")
+
+            # Create some artifacts to preserve
+            for file in ["features", "labels"]:
+                with open("{}.txt".format(file), 'w') as f:
+                    f.write(features) if file == "features" else f.write(labels)
+                client.log_artifact(run.info.run_id, "{}.txt".format(file))
+
+            # Fetch the logged artifacts
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print_artifact_info(artifact)
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: features.txt
+            is_dir: False
+            size: 53
+            artifact: labels.txt
+            is_dir: False
+            size: 5
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
