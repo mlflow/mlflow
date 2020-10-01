@@ -799,8 +799,8 @@ class MlflowClient(object):
             del_run = client.get_run(run_id)
             print("run_id: {}; lifecycle_stage: {}".format(run_id, del_run.info.lifecycle_stage))
             client.restore_run(run_id)
-            restore_run = client.get_run(run_id)
-            print("run_id: {}; lifecycle_stage: {}".format(run_id, restore_run.info.lifecycle_stage))
+            rest_run = client.get_run(run_id)
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, res_run.info.lifecycle_stage))
 
         .. code-block:: text
             :caption: Output
