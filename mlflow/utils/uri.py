@@ -119,13 +119,13 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
-    if scheme == "dbfs" or scheme == "runs" or scheme == "models":
-        if databricks_profile_uri == "databricks":
-            netloc = "databricks"
-        else:
-            (profile, key_prefix) = get_db_info_from_uri(databricks_profile_uri)
-            prefix = ":" + key_prefix if key_prefix else ""
-            netloc = profile + prefix + "@databricks"
+    # Note: a databricks profile URI of 'databricks' indicates the current workspace, so in that
+    # case we simply return the underlying DBFS, runs, or models URI as the default treatment
+    # for such DBFS, runs, models URIs is to assume they reference the current workspace
+    if (scheme == "dbfs" or scheme == "runs" or scheme == "models") and databricks_profile_uri != "databricks":
+        (profile, key_prefix) = get_db_info_from_uri(databricks_profile_uri)
+        prefix = ":" + key_prefix if key_prefix else ""
+        netloc = profile + prefix + "@databricks"
         new_parsed = artifact_uri_parsed._replace(netloc=netloc)
         return urllib.parse.urlunparse(new_parsed)
     else:

@@ -452,8 +452,8 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
     "artifact_uri, profile_uri, result",
     [
         # test various profile URIs
-        ("dbfs:/path/a/b", "databricks", "dbfs://databricks/path/a/b"),
-        ("dbfs:/path/a/b/", "databricks", "dbfs://databricks/path/a/b/"),
+        ("dbfs:/path/a/b", "databricks", "dbfs:/path/a/b"),
+        ("dbfs:/path/a/b/", "databricks", "dbfs:/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://", "dbfs://@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://Profile", "dbfs://Profile@databricks/path/a/b/"),
         ("dbfs:/path/a/b/", "databricks://profile/", "dbfs://profile@databricks/path/a/b/"),
