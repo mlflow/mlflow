@@ -191,16 +191,19 @@ def resolve_input_example_and_signature(
     return input_example if log_input_example else None, model_signature
 
 def universal_autolog(log_input_example=False, log_model_signature=True):
-    autolog_flavors = ["tensorflow", "keras", "gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
+    autolog_flavors = ["tensorflow", "keras", "mxnet.gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
     
     arg_info = inspect.getargvalues(inspect.currentframe())
     arg_values = { k:v for k,v in arg_info.locals.items() if k in arg_info.args }
 
     def setup_autologging(flavor):
-        flavor_obj = getattr(mlflow, flavor.__name__)
+        flavor_obj = getattr(mlflow, flavor.__name__.split(".")[-1])
         autolog_fn = getattr(flavor_obj, "autolog")
         needed_params = list(inspect.signature(autolog_fn).parameters.keys())
         filtered = {k:v for k,v in arg_values.items() if k in needed_params}
+
+        print(flavor.__name__)
+        print(filtered)
 
         autolog_fn(**filtered)
 
