@@ -922,6 +922,9 @@ def list_run_infos(
     .. code-block:: python
         :caption: Example
 
+        import mlflow
+        from mlflow.entities import ViewType
+
         # Create two runs
         with mlflow.start_run() as run1:
             mlflow.log_param("p", 0)

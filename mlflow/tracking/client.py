@@ -202,6 +202,45 @@ class MlflowClient(object):
     def list_experiments(self, view_type=None):
         """
         :return: List of :py:class:`mlflow.entities.Experiment`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import ViewType
+
+            def print_experiment_info(experiments):
+                for e in experiments:
+                    print("- experiment_id: {}, name: {}, lifecycle_stage: {}"
+                          .format(e.experiment_id, e.name, e.lifecycle_stage))
+
+            client = MlflowClient()
+            for name in ["Experiment 1", "Experiment 2"]:
+                exp_id = client.create_experiment(name)
+
+            # Delete the last experiment
+            client.delete_experiment(exp_id)
+
+            # Fetch experiments by view type
+            print("Active experiments:")
+            print_experiment_info(client.list_experiments(view_type=ViewType.ACTIVE_ONLY))
+            print("Deleted experiments:")
+            print_experiment_info(client.list_experiments(view_type=ViewType.DELETED_ONLY))
+            print("All experiments:")
+            print_experiment_info(client.list_experiments(view_type=ViewType.ALL))
+
+        .. code-block:: text
+            :caption: Output
+
+            Active experiments:
+            - experiment_id: 0, name: Default, lifecycle_stage: active
+            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
+            Deleted experiments:
+            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
+            All experiments:
+            - experiment_id: 0, name: Default, lifecycle_stage: active
+            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
+            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
         return self._tracking_client.list_experiments(view_type)
 
