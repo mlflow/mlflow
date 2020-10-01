@@ -31,7 +31,7 @@ mlflow_save_model.H2OModel <- function(model,
   )
   yaml::write_yaml(settings, file.path(model_data_path, "h2o.yaml"))
 
-  needed because R and python packages may not have the same patch number
+  # needed because R and python packages may not have the same patch number
   version <- remove_patch_version(
     as.character(utils::packageVersion("h2o"))
   )
