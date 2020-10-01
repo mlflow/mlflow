@@ -7,6 +7,7 @@ predictors <- setdiff(colnames(iris), prediction)
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
 
+# Installing most recent h2o package, see https://docs.h2o.ai/h2o/latest-stable/h2o-docs/downloading.html#install-in-r
 if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
 if ("h2o" %in% rownames(installed.packages())) { remove.packages("h2o") }
 pkgs <- c("RCurl","jsonlite")
