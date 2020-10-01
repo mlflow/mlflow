@@ -816,6 +816,9 @@ def autolog(log_input_example=False, log_model_signature=True):
             return input_example
 
         def infer_model_signature(input_example):
+            if not hasattr(estimator, "predict"):
+                raise Exception("the model used has no predict function")
+
             return infer_signature(input_example, estimator.predict(input_example))
 
         input_example, signature = resolve_input_example_and_signature(
