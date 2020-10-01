@@ -6,7 +6,7 @@ def log_explanation(predict_func, features, explanation_path=None):
     """
     Generate a SHAP explanation and log it.
 
-    :param predict_func: A function to compute the output of the model you'd like to explain
+    :param predict_func: A function to compute the output of a model
                          (e.g. ``predict`` method of scikit-learn regressors).
     :type predict_func: function
     :param features: A matrix of features on which to explain the model's output.
