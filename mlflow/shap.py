@@ -6,22 +6,17 @@ def log_explanation(predict_func, features, explanation_path=None):
     """
     Generate a SHAP explanation and log it.
 
-    Parameters
-    ----------
-    predict_func : function
-        A function to compute the output of the model you'd like to explain
-        (e.g. ``predict`` method of scikit-learn regressors).
-    features : np.ndarray or pd.dataframe
-        A matrix of features on which to explain the model's output.
-    explanation_path : str
-        Run-relative artifact path the explanation is saved to. If unspecified,
-        defaults to ``"shap"``.
+    :param predict_func: A function to compute the output of the model you'd like to explain
+                         (e.g. ``predict`` method of scikit-learn regressors).
+    :type predict_func: function
+    :param features: A matrix of features on which to explain the model's output.
+    :type features: np.ndarray or pd.dataframe
+    :param explanation_path: Run-relative artifact path the explanation is saved to.
+                             If unspecified, defaults to ``"shap"``.
+    :type explanation_path: str
 
-    Returns
-    -------
-    explation_uri : str
-        URI of the logged SHAP explanation
-
+    :return: URI of the logged SHAP explanation
+    :rtype: str
 
     .. code-block:: python
         :caption: Example
@@ -43,5 +38,8 @@ def log_explanation(predict_func, features, explanation_path=None):
 
         # log a SHAP explanation
         mlflow.shap.log_explanation(model.predict, X)
+
+    .. image:: ../_static/images/shap-ui-screenshot.png
+        :width: 900
     """
     raise NotImplementedError("Not implemented yet")
