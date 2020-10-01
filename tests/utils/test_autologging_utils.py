@@ -1,6 +1,8 @@
 import gorilla
 import inspect
 import pytest
+import importlib
+import sys
 from unittest.mock import Mock, call
 
 import mlflow
@@ -11,6 +13,7 @@ from mlflow.utils.autologging_utils import (
     handle_input_example_and_signature,
     FAILED_INPUT_EXAMPLE_PREFIX_TEXT,
     FAILED_MODEL_SIGNATURE_PREFIX_TEXT,
+    universal_autolog
 )
 
 # Example function signature we are testing on
@@ -250,3 +253,26 @@ def test_avoids_inferring_signature_if_not_needed(logger):
 
     assert x["data"] == 0
     logger.warning.assert_not_called()
+
+
+# def test_universal_autolog_calls_specific_autologs_correctly():
+#     autolog_integrations = ["tensorflow", "keras", "mxnet.gluon", "xgboost", "lightgbm", "spark", "sklearn", "fastai"]
+
+#     for integration_name in autolog_integrations:
+#         setattr(getattr(mlflow, integration_name.split(".")[-1]), "autolog", Mock())
+#         autolog_fn = getattr(getattr(mlflow, integration_name.split(".")[-1]), "autolog")
+#         autolog_fn.assert_not_called()
+
+#     universal_autolog(True, True)
+
+#     for integration_name in autolog_integrations:
+#         autolog_fn = getattr(getattr(mlflow, integration_name.split(".")[-1]), "autolog")
+
+#         autolog_fn.assert_not_called()
+
+#         importlib.__import__(integration_name)
+
+#         if integration_name in ["xgboost", "lightgbm", "sklearn"]:
+#             autolog_fn.assert_called_once_with(True, True)
+#         else:
+#             autolog_fn.assert_called_once_with()
