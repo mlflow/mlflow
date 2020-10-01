@@ -403,7 +403,7 @@ class MlflowClient(object):
                 print("metrics: {}".format(r.data.metrics))
                 print("status: {}".format(r.info.status))
 
-            # Create a run without any tags. Since these are low-level CRUD operations,
+            # Create a run without any metrics. Since these are low-level CRUD operations,
             # this method will create a run. To end the run, you'll have to
             # explicitly end it.
             client = MlflowClient()
@@ -458,7 +458,7 @@ class MlflowClient(object):
                 print("params: {}".format(r.data.params))
                 print("status: {}".format(r.info.status))
 
-            # Create a run without any tags. Since these are low-level CRUD operations,
+            # Create a run without any parameters. Since these are low-level CRUD operations,
             # this method will create a run. To end the run, you'll have to
             # explicitly end it.
             client = MlflowClient()
@@ -612,6 +612,48 @@ class MlflowClient(object):
 
         Raises an MlflowException if any errors occur.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import time
+
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import Metric, Param, RunTag
+
+            def print_run_info(r):
+                print("run_id: {}".format(r.info.run_id))
+                print("params: {}".format(r.data.params))
+                print("metrics: {}".format(r.data.metrics))
+                print("tags: {}".format(r.data.tags))
+                print("status: {}".format(r.info.status))
+
+            # Create MLflow entities and a run.
+            timestamp = int(time.time() * 1000)
+            metrics = [Metric('m', 1.5, timestamp, 1)]
+            params = [Param("p", 'p')]
+            tags = [RunTag("t", "t")]
+            client = MlflowClient()
+            run = client.create_run("0")
+
+            # Log entities, terminate the run, and fetch run status
+            try:
+                client.log_batch(run.info.run_id, metrics=metrics, params=params, tags=tags)
+            except MlflowException as ex:
+                print(ex.message)
+            finally:
+                client.set_terminated(run.info.run_id)
+                run = client.get_run(run.info.run_id)
+                print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: ef0247fa3205410595acc0f30f620871
+            params: {'p': 'p'}
+            metrics: {'m': 1.5}
+            tags: {'t': 't'}
+            status: FINISHED
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
 
@@ -674,7 +716,42 @@ class MlflowClient(object):
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
-        :param end_time: If not provided, defaults to the current time."""
+        :param end_time: If not provided, defaults to the current time.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_run_info(r):
+                print("run_id: {}".format(r.info.run_id))
+                print("status: {}".format(r.info.status))
+
+            # Create a run, and since this is low-level CRUD operations,
+            # this method will create a run. To end the run, you'll have to
+            # explicitly terminate it.
+            client = MlflowClient()
+            run = client.create_run("0")
+            print_run_info(run)
+            print("--")
+
+            # Terminate the run and fetch updated status. By default,
+            # the status is set to "FINISHED." Other values you can
+            # set are "KILLED", "FAILED", "RUNNING", or "SCHEDULED".
+            client.set_terminated(run.info.run_id, status="KILLED")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+            print("--")
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 575fb62af83f469e84806aee24945973
+            status: RUNNING
+            --
+            run_id: 575fb62af83f469e84806aee24945973
+            status: KILLED
+        """
         self._tracking_client.set_terminated(run_id, status, end_time)
 
     def delete_run(self, run_id):
