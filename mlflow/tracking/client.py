@@ -250,6 +250,29 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         :return: :py:class:`mlflow.entities.Experiment`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            exp_id = client.create_experiment("Experiment")
+            experiment = client.get_experiment(exp_id)
+
+            # Show experiment info
+            print("Name: {}".format(experiment.name))
+            print("Experiment ID: {}".format(experiment.experiment_id))
+            print("Artifact Location: {}".format(experiment.artifact_location))
+            print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Experiment
+            Experiment ID: 1
+            Artifact Location: file:///Users/.../mlruns/1
+            Lifecycle_stage: active
         """
         return self._tracking_client.get_experiment(experiment_id)
 
@@ -259,6 +282,29 @@ class MlflowClient(object):
 
         :param name: The experiment name.
         :return: :py:class:`mlflow.entities.Experiment`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Case-sensitive name
+            client = MlflowClient()
+            experiment = client.get_experiment_by_name("Default")
+
+            # Show experiment info
+            print("Name: {}".format(experiment.name))
+            print("Experiment ID: {}".format(experiment.experiment_id))
+            print("Artifact Location: {}".format(experiment.artifact_location))
+            print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Default
+            Experiment ID: 0
+            Artifact Location: file:///.../mlruns/0
+            Lifecycle_stage: active
         """
         return self._tracking_client.get_experiment_by_name(name)
 
