@@ -664,31 +664,38 @@ class SearchUtils(object):
                 "Invalid clause(s) in filter string: %s. " "%s" % (invalid_clauses, expected),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        # process non-Comparison tokens
-        if len(statement.tokens) == 1 and isinstance(statement.tokens[0], Comparison):
-            token_list = statement.tokens
+        # process statement tokens based on the kinds of operators observed.
+        token_list = []
+        if len(statement.tokens) == 0:
+            raise MlflowException(
+                "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if len(statement.tokens) == 1:
+            if isinstance(statement.tokens[0], Comparison):
+                token_list = statement.tokens
+            else:
+                raise MlflowException(
+                    "Invalid filter '%s'. Could not be parsed. %s" % (filter_string, expected),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
         elif len(statement.tokens) > 1:
-            idx = 0
             comparison_subtokens = []
-            while idx < len(statement.tokens):
-                if statement.tokens[idx].is_whitespace:
-                    idx += 1
-                    continue
-                elif isinstance(statement.tokens[idx], Comparison):
+            for token in statement.tokens:
+                if isinstance(token, Comparison):
                     raise MlflowException(
                         "Search filter '%s' contains multiple expressions. "
                         "%s " % (filter_string, expected),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                if (
-                    isinstance(statement.tokens[idx], Identifier)
-                    or statement.tokens[idx].match(ttype=TokenType.Keyword, values=["IN"])
-                    or isinstance(statement.tokens[idx], Parenthesis)
+                elif (
+                    isinstance(token, Identifier)
+                    or token.match(ttype=TokenType.Keyword, values=["IN"])
+                    or isinstance(token, Parenthesis)
                 ):
-                    comparison_subtokens.append(statement.tokens[idx])
-                else:
+                    comparison_subtokens.append(token)
+                elif not token.is_whitespace:
                     break
-                idx += 1
             if len(comparison_subtokens) == 3:
                 token_list = [Comparison(TokenList(comparison_subtokens))]
             else:

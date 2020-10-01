@@ -743,6 +743,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         assert "expected a non-empty list of string values" in exception_context.exception.message
 
+        # search using an ill-formed IN operator correctly throws exception
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid clause" in exception_context.exception.message
+
         # search using the IN operator is not allowed with other additional filters
         with self.assertRaises(MlflowException) as exception_context:
             search_versions(
