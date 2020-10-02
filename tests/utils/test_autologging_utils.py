@@ -255,6 +255,7 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     logger.warning.assert_not_called()
 
 
+@pytest.mark.large
 def test_universal_autolog_calls_specific_autologs_correctly():
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
