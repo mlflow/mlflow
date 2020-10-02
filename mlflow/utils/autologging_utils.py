@@ -7,6 +7,9 @@ import mlflow
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
+ENSURE_AUTOLOGGING_ENABLED_TEXT = (
+    "please ensure that autologging is enabled before constructing the dataset."
+)
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -113,3 +116,74 @@ def wrap_patch(destination, name, patch, settings=None):
     wrapped = functools.wraps(original)(patch)
     patch = gorilla.Patch(destination, name, wrapped, settings=settings)
     gorilla.apply(patch)
+
+
+class _InputExampleInfo:
+    """
+    Stores info about the input example collection before it is needed.
+
+    For example, in xgboost and lightgbm, an InputExampleInfo object is attached to the dataset,
+    where its value is read later by the train method.
+
+    Exactly one of input_example or error_msg should be populated.
+    """
+
+    def __init__(self, input_example=None, error_msg=None):
+        self.input_example = input_example
+        self.error_msg = error_msg
+
+
+def resolve_input_example_and_signature(
+    get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
+):
+    """
+    Handles the logic of calling functions to gather the input example and infer the model
+    signature.
+
+    :param get_input_example: function which returns an input example, usually sliced from a
+                              dataset. This function can raise an exception, its message will be
+                              shown to the user in a warning in the logs.
+    :param infer_model_signature: function which takes an input example and returns the signature
+                                  of the inputs and outputs of the model. This function can raise
+                                  an exception, its message will be shown to the user in a warning
+                                  in the logs.
+    :param log_input_example: whether to log errors while collecting the input example, and if it
+                              succeeds, whether to return the input example to the user. We collect
+                              it even if this parameter is False because it is needed for inferring
+                              the model signature.
+    :param log_model_signature: whether to infer and return the model signature.
+    :param logger: the logger instance used to log warnings to the user during input example
+                   collection and model signature inference.
+
+    :return: A tuple of input_example and signature. Either or both could be None based on the
+             values of log_input_example and log_model_signature.
+    """
+
+    input_example = None
+    input_example_user_msg = None
+    input_example_failure_msg = None
+    if log_input_example or log_model_signature:
+        try:
+            input_example = get_input_example()
+        except Exception as e:  # pylint: disable=broad-except
+            input_example_failure_msg = str(e)
+            input_example_user_msg = "Failed to gather input example: " + str(e)
+
+    model_signature = None
+    model_signature_user_msg = None
+    if log_model_signature:
+        try:
+            if input_example is None:
+                raise Exception(
+                    "could not sample data to infer model signature: " + input_example_failure_msg
+                )
+            model_signature = infer_model_signature(input_example)
+        except Exception as e:  # pylint: disable=broad-except
+            model_signature_user_msg = "Failed to infer model signature: " + str(e)
+
+    if log_input_example and input_example_user_msg is not None:
+        logger.warning(input_example_user_msg)
+    if log_model_signature and model_signature_user_msg is not None:
+        logger.warning(model_signature_user_msg)
+
+    return input_example if log_input_example else None, model_signature
