@@ -585,7 +585,7 @@ class SearchUtils(object):
     VALID_SEARCH_KEYS_FOR_REGISTERED_MODELS = set(["name"])
 
     @classmethod
-    def _is_valid_identifier_list(cls, value_token):
+    def _check_valid_identifier_list(cls, value_token):
         if len(value_token._groupable_tokens) == 0:
             raise MlflowException(
                 "While parsing a list in the query,"
@@ -612,19 +612,17 @@ class SearchUtils(object):
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return value_token
 
     @classmethod
     def _parse_list_from_sql_token(cls, token):
         try:
-            value = ast.literal_eval(token.value)
+            return ast.literal_eval(token.value)
         except SyntaxError:
             raise MlflowException(
                 "While parsing a list in the query,"
                 " expected a non-empty list of string values, but got ill-formed list.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return value
 
     @classmethod
     def _get_comparison_for_model_registry(cls, comparison, valid_search_keys):
@@ -650,7 +648,7 @@ class SearchUtils(object):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         elif isinstance(value_token, Parenthesis):
-            cls._is_valid_identifier_list(value_token)
+            cls._check_valid_identifier_list(value_token)
             value = cls._parse_list_from_sql_token(value_token)
         else:
             value = cls._strip_quotes(value_token.value, expect_quoted_value=True)
