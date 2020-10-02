@@ -260,6 +260,7 @@ def test_universal_autolog_calls_specific_autologs_correctly():
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
     for integration_name in AUTOLOG_INTEGRATIONS.keys():
+        # modify the __signature__ of the mock to contain the needed parameters
         args = (
             {"log_input_example": bool, "log_model_signature": bool}
             if integration_name in integrations_with_config
@@ -269,6 +270,8 @@ def test_universal_autolog_calls_specific_autologs_correctly():
             inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
             for param, type_ in args.items()
         ]
+
+        # create the mock
         mock = create_autospec(
             getattr(getattr(mlflow, AUTOLOG_INTEGRATIONS[integration_name]), "autolog")
         )
