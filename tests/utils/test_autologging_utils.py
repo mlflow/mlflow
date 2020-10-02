@@ -2,7 +2,6 @@ import gorilla
 import inspect
 import pytest
 import importlib
-import sys
 from unittest.mock import Mock, call, create_autospec
 
 import mlflow
