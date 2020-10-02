@@ -825,7 +825,7 @@ def autolog(log_input_example=False, log_model_signature=True):
             get_input_example,
             infer_model_signature,
             log_input_example,
-            log_model_signature and hasattr(estimator, "predict"),
+            log_model_signature,
             _logger,
         )
 
