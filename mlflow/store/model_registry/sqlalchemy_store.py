@@ -744,10 +744,11 @@ class SqlAlchemyStore(AbstractStore):
             conditions = []
         elif len(parsed_filter) == 1:
             filter_dict = parsed_filter[0]
-            if filter_dict["comparator"] != "=":
+            if filter_dict["comparator"] not in SearchUtils.VALID_MODEL_VERSIONS_SEARCH_COMPARATORS:
                 raise MlflowException(
-                    "Model Registry search filter only supports equality(=) "
-                    "comparator. Input filter string: %s" % filter_string,
+                    "Model Registry search filter only supports the equality(=) "
+                    "comparator and the IN operator "
+                    "for the run_id parameter. Input filter string: %s" % filter_string,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if filter_dict["key"] == "name":
@@ -755,7 +756,10 @@ class SqlAlchemyStore(AbstractStore):
             elif filter_dict["key"] == "source_path":
                 conditions = [SqlModelVersion.source == filter_dict["value"]]
             elif filter_dict["key"] == "run_id":
-                conditions = [SqlModelVersion.run_id == filter_dict["value"]]
+                if filter_dict["comparator"] == "IN":
+                    conditions = [SqlModelVersion.run_id.in_(filter_dict["value"])]
+                else:
+                    conditions = [SqlModelVersion.run_id == filter_dict["value"]]
             else:
                 raise MlflowException(
                     "Invalid filter string: %s" % filter_string, error_code=INVALID_PARAMETER_VALUE
@@ -764,7 +768,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(
                 "Model Registry expects filter to be one of "
                 "\"name = '<model_name>'\" or "
-                "\"source_path = '<source_path>'\" or \"run_id = '<run_id>'."
+                "\"source_path = '<source_path>'\" "
+                'or "run_id = \'<run_id>\' or "run_id IN (<run_ids>)".'
                 "Input filter string: %s. " % filter_string,
                 error_code=INVALID_PARAMETER_VALUE,
             )
