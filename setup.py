@@ -73,6 +73,7 @@ setup(
             # Required by the mlflow.projects module, when running projects against
             # a remote Kubernetes cluster
             "kubernetes",
+            "azure-identity>=1.4.0",
         ],
         "sqlserver": ["mlflow-dbstore",],
         "aliyun-oss": ["aliyunstoreplugin",],

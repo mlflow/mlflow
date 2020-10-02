@@ -14,8 +14,13 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     This repository is used with URIs of the form
     ``wasbs://<container-name>@<ystorage-account-name>.blob.core.windows.net/<path>``,
-    following the same URI scheme as Hadoop on Azure blob storage. It requires that your Azure
-    storage access key be available in the environment variable ``AZURE_STORAGE_ACCESS_KEY``.
+    following the same URI scheme as Hadoop on Azure blob storage. There are two ways of
+    authenticating. You can give the Azure Storage access key as a environment variable
+    ``AZURE_STORAGE_ACCESS_KEY`` or the whole connecting string as
+    ``AZURE_STORAGE_CONNECTION_STRING``. Alternatively, if the Azure blob storage has Azure
+    Activate Directory enabled you can authenticate either with a service principal by supplying
+    ``AZURE_TENANT_ID``, ``AZURE_CLIENT_ID`` and ``AZURE_CLIENT_SECRET`` or by login in to the
+    Azure CLI.
     """
 
     def __init__(self, artifact_uri, client=None):
@@ -38,10 +43,27 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             self.client = BlobServiceClient(
                 account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
+        elif {"AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"}.issubset(os.environ):
+            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+
+            from azure.identity import EnvironmentCredential
+
+            credentials = EnvironmentCredential()
+            self.client = BlobServiceClient(account_url=account_url, credential=credentials)
+        elif "AZURE_STORAGE_CLI_LOGIN" in os.environ:
+            account_url = "https://{account}.blob.core.windows.net".format(account=account)
+
+            from azure.identity import AzureCliCredential
+
+            credentials = AzureCliCredential()
+            self.client = BlobServiceClient(account_url=account_url, credential=credentials)
         else:
             raise Exception(
                 "You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
-                "AZURE_STORAGE_ACCESS_KEY to access Azure storage."
+                "AZURE_STORAGE_ACCESS_KEY to access Azure storage. Alternatively if you want to use"
+                "Azure Active Directory (AAD) you can either set AZURE_TENANT_ID, AZURE_CLIENT_ID"
+                "and AZURE_CLIENT_SECRET if you are using a service principal or you can set "
+                "AZURE_STORAGE_CLI_LOGIN and login to the Azure CLI."
             )
 
     @staticmethod

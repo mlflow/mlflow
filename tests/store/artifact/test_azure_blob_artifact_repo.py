@@ -9,7 +9,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 
-
 TEST_ROOT_PATH = "some/path"
 TEST_BLOB_CONTAINER_ROOT = "wasbs://container@account.blob.core.windows.net/"
 TEST_URI = os.path.join(TEST_BLOB_CONTAINER_ROOT, TEST_ROOT_PATH)
@@ -33,6 +32,18 @@ def mock_client():
     old_conn_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
     if old_conn_string is not None:
         del os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+    old_conn_tenant = os.environ.get("AZURE_TENANT_ID")
+    if old_conn_tenant is not None:
+        del os.environ["AZURE_TENANT_ID"]
+    old_conn_id = os.environ.get("AZURE_CLIENT_ID")
+    if old_conn_id is not None:
+        del os.environ["AZURE_CLIENT_ID"]
+    old_conn_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    if old_conn_secret is not None:
+        del os.environ["AZURE_CLIENT_SECRET"]
+    old_conn_cli = os.environ.get("AZURE_STORAGE_CLI_LOGIN")
+    if old_conn_cli is not None:
+        del os.environ["AZURE_STORAGE_CLI_LOGIN"]
 
     yield mock.MagicMock(autospec=BlobServiceClient)
 
@@ -40,6 +51,14 @@ def mock_client():
         os.environ["AZURE_STORAGE_ACCESS_KEY"] = old_access_key
     if old_conn_string is not None:
         os.environ["AZURE_STORAGE_CONNECTION_STRING"] = old_conn_string
+    if old_conn_tenant is not None:
+        os.environ["AZURE_TENANT_ID"] = old_conn_tenant
+    if old_conn_id is not None:
+        os.environ["AZURE_CLIENT_ID"] = old_conn_id
+    if old_conn_secret is not None:
+        os.environ["AZURE_CLIENT_SECRET"] = old_conn_secret
+    if old_conn_cli is not None:
+        os.environ["AZURE_STORAGE_CLI_LOGIN"] = old_conn_cli
 
 
 def test_artifact_uri_factory(mock_client):
