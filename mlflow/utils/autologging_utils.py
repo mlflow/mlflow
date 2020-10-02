@@ -203,8 +203,12 @@ def resolve_input_example_and_signature(
     return input_example if log_input_example else None, model_signature
 
 
-def universal_autolog(log_input_example=False, log_model_signature=True):
-    arg_info = inspect.getargvalues(inspect.currentframe())
+def universal_autolog(
+    log_input_example=False, log_model_signature=True
+):  # pylint: disable=unused-argument
+    # getargvalues isnt actually deprecated
+    # https://docs.python.org/3/library/inspect.html#inspect.getargvalues
+    arg_info = inspect.getargvalues(inspect.currentframe())  # pylint: disable=deprecated-method
     arg_values = {k: v for k, v in arg_info.locals.items() if k in arg_info.args}
 
     def setup_autologging(module):
