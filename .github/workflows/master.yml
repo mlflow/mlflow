@@ -57,6 +57,9 @@ jobs:
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
       shell: Rscript {0}
+    - run: |
+        print(packageVersion("h2o"))
+      shell: Rscript {0}
     - name: Run tests
       run: |
         source ./dev/install-common-deps.sh
