@@ -818,7 +818,8 @@ def autolog(log_input_example=False, log_model_signature=True):
         def infer_model_signature(input_example):
             if not hasattr(estimator, "predict"):
                 raise Exception(
-                    "the trained model does not specify a `predict` function, which is required in order to infer the signature"
+                    "the trained model does not specify a `predict` function, "
+                    + "which is required in order to infer the signature"
                 )
 
             return infer_signature(input_example, estimator.predict(input_example))
