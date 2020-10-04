@@ -1015,10 +1015,11 @@ def test_autolog_does_not_capture_runs_for_preprocessing_estimators():
     run_id = client.create_run(experiment_id=0).info.run_id
 
     from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
+
     with mlflow.start_run(run_id=run_id):
-        Normalizer().fit_transform(np.random.random((5,5)))
+        Normalizer().fit_transform(np.random.random((5, 5)))
         LabelEncoder().fit([1, 2, 2, 6])
-        MinMaxScaler().fit_transform(50 * np.random.random((10,10)))
+        MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0

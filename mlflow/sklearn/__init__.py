@@ -921,8 +921,10 @@ def autolog(log_input_example=False, log_model_signature=True):
     # for these preprocessing routines, unless they are captured as part of an ML pipeline
     # (via `sklearn.pipeline.Pipeline`)
     import sklearn.preprocessing
+
     estimators_to_patch = [
-        estimator for estimator in estimators_to_patch
+        estimator
+        for estimator in estimators_to_patch
         if not estimator.__module__.startswith(sklearn.preprocessing.__name__)
     ]
 
