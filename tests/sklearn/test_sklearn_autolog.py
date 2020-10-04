@@ -1011,6 +1011,11 @@ def test_autolog_does_not_capture_runs_for_preprocessing_estimators():
     (e.g., normalization, label encoding) rather than ML models, do not produce
     runs when their fit_* operations are invoked independently of an ML pipeline
     """
+    mlflow.sklearn.autolog()
+
+    # Create a run using the MLflow client, which will be resumed via the fluent API,
+    # in order to avoid setting fluent-level tags (e.g., source and user). Suppressing these
+    # tags simplifies test validation logic
     client = mlflow.tracking.MlflowClient()
     run_id = client.create_run(experiment_id=0).info.run_id
 
