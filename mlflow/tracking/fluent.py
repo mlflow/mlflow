@@ -7,9 +7,12 @@ import os
 import atexit
 import time
 import logging
+import inspect
 import numpy as np
 import pandas as pd
+from wrapt import register_post_import_hook
 
+import mlflow
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -30,6 +33,19 @@ _active_experiment_id = None
 
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
+
+# Mapping of library module name to mlflow module name
+# eg: mxnet.gluon is the actual library, mlflow.gluon is our integration code for it
+AUTOLOG_INTEGRATIONS = {
+    "tensorflow": "tensorflow",
+    "keras": "keras",
+    "mxnet.gluon": "gluon",
+    "xgboost": "xgboost",
+    "lightgbm": "lightgbm",
+    "pyspark": "spark",
+    "sklearn": "sklearn",
+    "fastai": "fastai",
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -1020,3 +1036,26 @@ def _get_experiment_id():
         or _get_experiment_id_from_env()
         or (is_in_databricks_notebook() and get_notebook_id())
     ) or deprecated_default_exp_id
+
+
+def universal_autolog(
+    log_input_example=False, log_model_signature=True
+):  # pylint: disable=unused-argument
+    # getargvalues isnt actually deprecated
+    # https://docs.python.org/3/library/inspect.html#inspect.getargvalues
+    arg_info = inspect.getargvalues(inspect.currentframe())  # pylint: disable=deprecated-method
+    arg_values = {k: v for k, v in arg_info.locals.items() if k in arg_info.args}
+
+    def setup_autologging(module):
+        integration_module_obj = getattr(mlflow, AUTOLOG_INTEGRATIONS[module.__name__])
+        autolog_fn = getattr(integration_module_obj, "autolog")
+        needed_params = list(inspect.signature(autolog_fn).parameters.keys())
+        filtered = {k: v for k, v in arg_values.items() if k in needed_params}
+
+        autolog_fn(**filtered)
+
+    # for each autolog library, register a post-import hook.
+    # this way, we do not send any errors to the user until we know they are using the library.
+    # the post-import hook also retroactively activates for previously-imported libraries.
+    for module in AUTOLOG_INTEGRATIONS.keys():
+        register_post_import_hook(setup_autologging, module)
