@@ -915,17 +915,25 @@ def autolog(log_input_example=False, log_model_signature=True):
     estimators_to_patch = set(estimators_to_patch).union(
         set(_get_meta_estimators_for_autologging())
     )
-    # Exclude preprocessing estimators from patching. These estimators represent
+    # Exclude preprocessing and imputation estimators from patching. These estimators represent
     # data manipulation routines (e.g., normalization, label encoding) rather than ML
     # algorithms. Accordingly, we should not create MLflow runs and log parameters / metrics
-    # for these preprocessing routines, unless they are captured as part of an ML pipeline
+    # for these routines, unless they are captured as part of an ML pipeline
     # (via `sklearn.pipeline.Pipeline`)
     import sklearn.preprocessing
+    excluded_modules = [sklearn.preprocessing]
+    # The `sklearn.impute` module was introduced in scikit-learn 0.20.0; in an attempt
+    # to preserve compatibility with version 0.19.x, we conditionally import this module
+    try:
+        import sklearn.impute
+        excluded_modules.append(sklearn.impute)
+    except ImportError:
+        pass
 
     estimators_to_patch = [
         estimator
         for estimator in estimators_to_patch
-        if not estimator.__module__.startswith(sklearn.preprocessing.__name__)
+        if not any([estimator.__module__.startswith(excluded_module.__name__) for excluded_module in excluded_modules])
     ]
 
     for class_def in estimators_to_patch:
