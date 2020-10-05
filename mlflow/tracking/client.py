@@ -725,7 +725,8 @@ class MlflowClient(object):
                 failed = True
                 print(ex.message)
             finally:
-                client.set_terminated(run.info.run_id) if not failed else client.set_terminated(run.info.run_id, status="FAILED")
+                client.set_terminated(run.info.run_id) if not failed else
+                    client.set_terminated(run.info.run_id, status="FAILED")
                 run = client.get_run(run.info.run_id)
                 print_run_info(run)
 
