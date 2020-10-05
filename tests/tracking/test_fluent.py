@@ -3,6 +3,7 @@ import os
 import random
 import uuid
 import inspect
+import importlib
 
 import numpy as np
 import pandas as pd
@@ -681,3 +682,43 @@ def test_delete_tag():
     with pytest.raises(MlflowException):
         mlflow.delete_tag("b")
     mlflow.end_run()
+
+
+@pytest.mark.large
+def test_universal_autolog_calls_specific_autologs_correctly():
+    autolog_integrations = mlflow.tracking.fluent.AUTOLOG_INTEGRATIONS
+    integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
+
+    for integration_name in autolog_integrations.keys():
+        # modify the __signature__ of the mock to contain the needed parameters
+        args = (
+            {"log_input_example": bool, "log_model_signature": bool}
+            if integration_name in integrations_with_config
+            else {}
+        )
+        params = [
+            inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
+            for param, type_ in args.items()
+        ]
+
+        # create the mock
+        autolog_fn_mock = mock.create_autospec(
+            getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+        )
+        autolog_fn_mock.__signature__ = inspect.Signature(params)
+
+        setattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog", autolog_fn_mock)
+        autolog_fn = getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+        autolog_fn.assert_not_called()
+
+    mlflow.autolog(log_input_example=True, log_model_signature=True)
+
+    for integration_name in autolog_integrations.keys():
+        autolog_fn = getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+
+        importlib.__import__(integration_name)
+
+        if integration_name in integrations_with_config:
+            autolog_fn.assert_called_once_with(log_input_example=True, log_model_signature=True)
+        else:
+            autolog_fn.assert_called_once_with()
