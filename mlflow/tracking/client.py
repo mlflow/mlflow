@@ -713,17 +713,19 @@ class MlflowClient(object):
             metrics = [Metric('m', 1.5, timestamp, 1)]
             params = [Param("p", 'p')]
             tags = [RunTag("t", "t")]
+            failed = False
             experiment_id = "0"
             client = MlflowClient()
             run = client.create_run(experiment_id)
 
-            # Log a batch of entities, terminate the run, and fetch updated run status
+            # Log entities, terminate the run, and fetch updated run status
             try:
                 client.log_batch(run.info.run_id, metrics=metrics, params=params, tags=tags)
             except MlflowException as ex:
+                failed = True
                 print(ex.message)
             finally:
-                client.set_terminated(run.info.run_id)
+                client.set_terminated(run.info.run_id) if not failed else client.set_terminated(run.info.run_id, status="FAILED")
                 run = client.get_run(run.info.run_id)
                 print_run_info(run)
 
@@ -842,17 +844,20 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
-            def print_artifact_info(artifact):
+             def print_artifact_info(artifact):
                 print("artifact: {}".format(artifact.path))
                 print("is_dir: {}".format(artifact.is_dir))
                 print("size: {}".format(artifact.file_size))
 
-            features = "rooms, zipcode, median_price, school_rating, transport"
+            features = "rooms zipcode, median_price, school_rating, transport"
             labels = "price"
-            client = MlflowClient()
-            run = client.create_run("0")
 
-            # Create some artifacts to preserve
+            # Create a run under the default experiment id "0".
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+
+            # Create some artifacts and log under the above run
             for file in ["features", "labels"]:
                 with open("{}.txt".format(file), 'w') as f:
                     f.write(features) if file == "features" else f.write(labels)
