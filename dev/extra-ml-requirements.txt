@@ -1,0 +1,23 @@
+keras==2.3.1
+scikit-learn==0.23.2
+mxnet==1.5.0
+fastai==1.0.60
+scikit-learn==0.23.2
+scipy==1.2.1
+spacy==2.2.3
+tensorflow==1.15.2
+tf2onnx==1.5.4;
+torch==1.4.0
+torchvision==0.5.0
+xgboost>=0.82
+lightgbm==2.3.0
+# Install typing to fix torch on Python 2.7 (see https://github.com/pytorch/pytorch/issues/16775)
+typing==3.6.6
+h2o==3.22.1.4
+onnx==1.4.1;
+onnxmltools==1.4.0;
+onnxruntime==0.3.0;
+mleap==0.16.0
+mxnet==1.5.0
+pyarrow==0.17.0
+pyspark==2.4.0
