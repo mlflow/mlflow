@@ -164,9 +164,12 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
+            # Create a run with tag under an experiment ID "0", which is
+            # the "Default" name of the experiment
             tags = {"engineering": "ML Platform"}
             client = MlflowClient()
-            run = client.create_run("0", tags=tags)
+            expirement_id = "0"
+            run = client.create_run(expirement_id, tags=tags)
 
             # Show newly created run metadata info
             print("Run tags: {}".format(run.data.tags))
@@ -362,7 +365,7 @@ class MlflowClient(object):
             client.delete_experiment(experiment_id)
 
             # Examine the deleted experiment details. Deleted experiments
-            # are moved to a .thrash folder under the artifact URI location top
+            # are moved to a .trash folder under the artifact URI location top
             # level directory.
             experiment = client.get_experiment(experiment_id)
             print("Name: {}".format(experiment.name))
@@ -400,7 +403,7 @@ class MlflowClient(object):
             client.delete_experiment(experiment_id)
 
             # Examine the deleted experiment details. Deleted experiments
-            # are moved to a .thrash folder under the artifact URI location top
+            # are moved to a .trash folder under the artifact URI location top
             # level directory.
             experiment = client.get_experiment(experiment_id)
             print_experiment_info(experiment)
@@ -490,17 +493,18 @@ class MlflowClient(object):
                 print("metrics: {}".format(r.data.metrics))
                 print("status: {}".format(r.info.status))
 
-            # Create a run without any tags. Since these are low-level CRUD operations,
-            # this method will create a run. To end the run, you'll have to
-            # explicitly end it.
+            # Create a run under the default experiment id "0". Since these are low-level
+            # CRUD operations, this method will create a run. To end the run, you'll have
+            # to explicitly end it.
             client = MlflowClient()
-            run = client.create_run("0")
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             print_run_info(run)
             print("--")
 
             # Log the metric. Unlike mlflow.log_metric this method
-            # does not start a run if one does not exists. It will log
-            # the metric for the run id in the backend store
+            # does not start a run if one does not exist. It will log
+            # the metric for the run id in the backend store.
             client.log_metric(run.info.run_id, "m", 1.5)
             client.set_terminated(run.info.run_id)
             run = client.get_run(run.info.run_id)
@@ -536,16 +540,17 @@ class MlflowClient(object):
                 print("params: {}".format(r.data.params))
                 print("status: {}".format(r.info.status))
 
-            # Create a run without any tags. Since these are low-level CRUD operations,
-            # this method will create a run. To end the run, you'll have to
-            # explicitly end it.
+            # Create a run under the default experiment id "0". Since these are low-level
+            # CRUD operations, this method will create a run. To end the run, you'll have
+            # to explicitly end it.
             client = MlflowClient()
-            run = client.create_run("0")
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             print_run_info(run)
             print("--")
 
             # Log the parameter. Unlike mlflow.log_param this method
-            # does not start a run if one does not exists. It will log
+            # does not start a run if one does not exist. It will log
             # the parameter in the backend store
             client.log_param(run.info.run_id, "p", 1)
             client.set_terminated(run.info.run_id)
@@ -613,13 +618,14 @@ class MlflowClient(object):
                 print("run_id: {}".format(run.info.run_id))
                 print("Tags: {}".format(run.data.tags))
 
-            # Create a run under the default experiment 0
+            # Create a run under the default experiment ID "0"
             client = MlflowClient()
-            run = client.create_run("0")
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             print_run_info(run)
             print("--")
 
-            # Set a tag and fetch new info
+            # Set a tag and fetch update run info
             client.set_tag(run.info.run_id, "nlp.framework", "Spark NLP")
             run = client.get_run(run.info.run_id)
             print_run_info(run)
@@ -651,25 +657,26 @@ class MlflowClient(object):
                 print("run_id: {}".format(run.info.run_id))
                 print("Tags: {}".format(run.data.tags))
 
-            # Create a run with some tags under the default experiment 0
+            # Create a run with some tags under the default experiment id "0"
             client = MlflowClient()
-            tags = {"t": 1, "t2": 2}
-            run = client.create_run("0", tags=tags)
+            tags = {"t1": 1, "t2": 2}
+            experimnent_id = "0"
+            run = client.create_run(experimnent_id, tags=tags)
             print_run_info(run)
             print("--")
 
             # Delete tag and fetch updated info
-            client.delete_tag(run.info.run_id, "t")
+            client.delete_tag(run.info.run_id, "t1")
             run = client.get_run(run.info.run_id)
             print_run_info(run)
 
         .. code-block:: text
             :caption: Output
 
-            run_id: 2e7ffb9674bf48bea3bd0265dfdbbdac
-            Tags: {'t2': '2', 't': '1'}
+            run_id: b7077267a59a45d78cd9be0de4bc41f5
+            Tags: {'t2': '2', 't1': '1'}
             --
-            run_id: 2e7ffb9674bf48bea3bd0265dfdbbdac
+            run_id: b7077267a59a45d78cd9be0de4bc41f5
             Tags: {'t2': '2'}
         """
         self._tracking_client.delete_tag(run_id, key)
@@ -701,15 +708,16 @@ class MlflowClient(object):
                 print("tags: {}".format(r.data.tags))
                 print("status: {}".format(r.info.status))
 
-            # Create MLflow entities and a run.
+            # Create MLflow entities and a run under the default experiment ID "0"
             timestamp = int(time.time() * 1000)
             metrics = [Metric('m', 1.5, timestamp, 1)]
             params = [Param("p", 'p')]
             tags = [RunTag("t", "t")]
+            experiment_id = "0"
             client = MlflowClient()
-            run = client.create_run("0")
+            run = client.create_run(experiment_id)
 
-            # Log entities, terminate the run, and fetch run status
+            # Log a batch of entities, terminate the run, and fetch updated run status
             try:
                 client.log_batch(run.info.run_id, metrics=metrics, params=params, tags=tags)
             except MlflowException as ex:
@@ -746,8 +754,10 @@ class MlflowClient(object):
             with open("features.txt", 'w') as f:
                 f.write(features)
 
+            # Create a run under the default experiment id "0"
             client = MlflowClient()
-            run = client.create_run("0")
+            expermient_id = "0"
+            run = client.create_run(expermient_id)
 
             # log and fetch the list of artifacts
             client.log_artifact(run.info.run_id, "features.txt")
@@ -789,9 +799,11 @@ class MlflowClient(object):
             with open("data/features.txt", 'w') as f:
                 f.write(features)
 
-            # Create a run, and log all files in "data" to root artifact_uri/states
+            # Create a run under the default experiment id "0", and log
+            # all files in "data" to root artifact_uri/states
             client = MlflowClient()
-            run = client.create_run("0")
+            expermient_id = "0"
+            run = client.create_run(expermient_id)
             client.log_artifacts(run.info.run_id, "data", artifact_path="states")
             artifacts = client.list_artifacts(run.info.run_id)
             for artifact in artifacts:
@@ -896,21 +908,21 @@ class MlflowClient(object):
                 print("run_id: {}".format(r.info.run_id))
                 print("status: {}".format(r.info.status))
 
-            # Create a run, and since this is low-level CRUD operations,
-            # this method will create a run. To end the run, you'll have to
-            # explicitly terminate it.
+            # Create a run under the default experiment id "0".
+            # Since this is low-level CRUD operation, this method will create a run.
+            # To end the run, you'll have to explicitly terminate it.
             client = MlflowClient()
-            run = client.create_run("0")
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             print_run_info(run)
             print("--")
 
             # Terminate the run and fetch updated status. By default,
-            # the status is set to "FINISHED." Other values you can
+            # the status is set to "FINISHED". Other values you can
             # set are "KILLED", "FAILED", "RUNNING", or "SCHEDULED".
             client.set_terminated(run.info.run_id, status="KILLED")
             run = client.get_run(run.info.run_id)
             print_run_info(run)
-            print("--")
 
         .. code-block:: text
             :caption: Output
@@ -933,10 +945,14 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
+            # Create a run under an experiment ID "0", which is
+            # the "Default" name of the experiment
             client = MlflowClient()
-            run = client.create_run("0")
+            expirement_id = "0"
+            run = client.create_run(expirement_id)
             run_id = run.info.run_id
             print("run_id: {}; lifecycle_stage: {}".format(run_id, run.info.lifecycle_stage))
+            print("--")
             client.delete_run(run_id)
             del_run = client.get_run(run_id)
             print("run_id: {}; lifecycle_stage: {}".format(run_id, del_run.info.lifecycle_stage))
@@ -960,8 +976,10 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
+            # Create a run under the default experiment id "0"
             client = MlflowClient()
-            run = client.create_run("0")
+            expermient_id = "0"
+            run = client.create_run(expermient_id)
             run_id = run.info.run_id
             print("run_id: {}; lifecycle_stage: {}".format(run_id, run.info.lifecycle_stage))
             client.delete_run(run_id)

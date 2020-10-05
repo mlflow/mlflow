@@ -667,7 +667,7 @@ def delete_experiment(experiment_id):
         mlflow.delete_experiment(experiment_id)
 
         # Examine the deleted experiment details. Deleted experiments
-        # are moved to a .thrash folder under the artifact location top
+        # are moved to a .trash folder under the artifact location top
         # level directory.
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
