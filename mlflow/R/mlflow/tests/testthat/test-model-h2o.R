@@ -1,9 +1,12 @@
 context("Model h2o")
 
+setup({
+  h2o::h2o.init(port = httpuv::randomPort())
+})
+
 idx <- withr::with_seed(3809, sample(nrow(iris)))
 prediction <- "Species"
 predictors <- setdiff(colnames(iris), prediction)
-
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
 
@@ -21,16 +24,20 @@ h2o::h2o.init()
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
 )
+testthat_model_dir <- tempfile("model_")
+
+teardown({
+  h2o::h2o.shutdown(prompt = FALSE)
+  mlflow_clear_test_dir(testthat_model_dir)
+})
 
 test_that("mlflow can save model", {
-  mlflow_clear_test_dir("model")
-
-  mlflow_save_model(model, "model")
-  expect_true(dir.exists("model"))
+  mlflow_save_model(model, testthat_model_dir)
+  expect_true(dir.exists(testthat_model_dir))
 })
 
 test_that("can load model and predict with rfunc backend", {
-  saved_model <- mlflow_load_model("model")
+  saved_model <- mlflow_load_model(testthat_model_dir)
   prediction <- mlflow_predict(saved_model, test)
   expect_equal(
     prediction,
@@ -39,13 +46,13 @@ test_that("can load model and predict with rfunc backend", {
 })
 
 test_that("can print model correctly after it is loaded", {
-  saved_model <- mlflow_load_model("model")
+  saved_model <- mlflow_load_model(testthat_model_dir)
   expect_equal(capture_output(print(model)), capture_output(print(saved_model)))
 })
 
 test_that("can load and predict with python pyfunct and h2o backend", {
   pyfunc <- import("mlflow.pyfunc")
-  py_model <- pyfunc$load_model("model")
+  py_model <- pyfunc$load_model(testthat_model_dir)
 
   expected <- as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(test)))
   expected$predict <- as.character(expected$predict)
@@ -55,7 +62,7 @@ test_that("can load and predict with python pyfunct and h2o backend", {
   )
 
   mlflow.h2o <- import("mlflow.h2o")
-  h2o_native_model <- mlflow.h2o$load_model("model")
+  h2o_native_model <- mlflow.h2o$load_model(testthat_model_dir)
   h2o <- import("h2o")
 
   expect_equivalent(
@@ -88,7 +95,7 @@ test_that("Can predict with cli backend", {
 
   write.csv(test[, predictors], temp_in_csv, row.names = FALSE)
   mlflow_cli(
-    "models", "predict", "-m", "model", "-i", temp_in_csv,
+    "models", "predict", "-m", testthat_model_dir, "-i", temp_in_csv,
     "-o", temp_out, "-t", "csv"
   )
   check_output()
@@ -96,7 +103,7 @@ test_that("Can predict with cli backend", {
   # json records
   jsonlite::write_json(test[, predictors], temp_in_json)
   mlflow_cli(
-    "models", "predict", "-m", "model", "-i", temp_in_json, "-o", temp_out,
+    "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json, "-o", temp_out,
     "-t", "json",
     "--json-format", "records"
   )
@@ -108,7 +115,7 @@ test_that("Can predict with cli backend", {
   )
   jsonlite::write_json(mtcars_split, temp_in_json_split)
   mlflow_cli(
-    "models", "predict", "-m", "model", "-i", temp_in_json_split,
+    "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json_split,
     "-o", temp_out, "-t",
     "json", "--json-format", "split"
   )
