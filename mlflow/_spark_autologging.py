@@ -3,6 +3,7 @@ import logging
 import sys
 import threading
 import uuid
+import gorilla
 
 from py4j.java_gateway import CallbackServerParameters
 
@@ -114,7 +115,7 @@ def _listen_for_spark_activity(spark_context):
         _spark_table_info_listener = PythonSubscriber()
         _spark_table_info_listener.register()
     except Exception as e:
-        raise MlflowException(
+        _logger.warn(
             "Exception while attempting to initialize JVM-side state for "
             "Spark datasource autologging. Please create a new Spark session "
             "and ensure you have the mlflow-spark JAR attached to your Spark "
@@ -136,6 +137,7 @@ def autolog():
         active_session = _get_active_spark_session()
         if active_session is None:
             def getOrCreate(*args, **kwargs):
+                original = gorilla.get_original_attribute(SparkContext, "getOrCreate")
                 sc = original(*args, **kwargs)
 
                 _listen_for_spark_activity(sc)
