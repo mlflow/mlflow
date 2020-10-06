@@ -2,14 +2,20 @@ context("Model")
 
 library("carrier")
 
+testthat_model_name <- basename(tempfile("model_"))
+
+teardown({
+  mlflow_clear_test_dir(testthat_model_name)
+})
+
 test_that("mlflow can save model function", {
-  mlflow_clear_test_dir("model")
+  mlflow_clear_test_dir(testthat_model_name)
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
-  mlflow_save_model(fn, "model")
-  expect_true(dir.exists("model"))
+  mlflow_save_model(fn, testthat_model_name)
+  expect_true(dir.exists(testthat_model_name))
   # Test that we can load the model back and score it.
-  loaded_back_model <- mlflow_load_model("model")
+  loaded_back_model <- mlflow_load_model(testthat_model_name)
   prediction <- mlflow_predict(loaded_back_model, iris)
   expect_equal(
     prediction,
@@ -21,7 +27,7 @@ test_that("mlflow can save model function", {
   temp_in_json_split <- tempfile(fileext = ".json")
   temp_out <- tempfile(fileext = ".json")
   write.csv(iris, temp_in_csv, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", "model", "-i", temp_in_csv, "-o", temp_out, "-t", "csv")
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_csv, "-o", temp_out, "-t", "csv")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -30,7 +36,7 @@ test_that("mlflow can save model function", {
   )
   # json records
   jsonlite::write_json(iris, temp_in_json, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", "model", "-i", temp_in_json, "-o", temp_out, "-t", "json",
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json, "-o", temp_out, "-t", "json",
              "--json-format", "records")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
@@ -42,7 +48,7 @@ test_that("mlflow can save model function", {
   iris_split <- list(columns = names(iris)[1:4], index = row.names(iris),
                      data = as.matrix(iris[, 1:4]))
   jsonlite::write_json(iris_split, temp_in_json_split, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", "model", "-i", temp_in_json_split, "-o", temp_out, "-t",
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json_split, "-o", temp_out, "-t",
              "json", "--json-format", "split")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
@@ -61,12 +67,12 @@ test_that("mlflow can log model and load it back with a uri", {
     predictor <- crate(~ mean(as.matrix(.x)), model)
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
-    mlflow_log_model(predictor, "model")
+    mlflow_log_model(predictor, testthat_model_name)
   })
-  runs_uri <- paste("runs:", run$run_uuid, "model", sep = "/")
+  runs_uri <- paste("runs:", run$run_uuid, testthat_model_name, sep = "/")
   loaded_model <- mlflow_load_model(runs_uri)
   expect_true(5 == mlflow_predict(loaded_model, 0:10))
-  actual_uri <- paste(run$artifact_uri, "model", sep = "/")
+  actual_uri <- paste(run$artifact_uri, testthat_model_name, sep = "/")
   loaded_model_2 <- mlflow_load_model(actual_uri)
   expect_true(5 == mlflow_predict(loaded_model_2, 0:10))
   temp_in  <- tempfile(fileext = ".json")
@@ -92,12 +98,12 @@ test_that("mlflow log model records correct metadata with the tracking server", 
     predictor <- crate(~ mean(as.matrix(.x)), model)
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
-    mlflow_log_model(predictor, "model")
+    mlflow_log_model(predictor, testthat_model_name)
     model_spec_expected <- mlflow_save_model(predictor, "test")
     tags <- mlflow_get_run()$tags[[1]]
     models <- tags$value[which(tags$key == "mlflow.log-model.history")]
     model_spec_actual <- fromJSON(models, simplifyDataFrame = FALSE)[[1]]
-    expect_equal("model", model_spec_actual$artifact_path)
+    expect_equal(testthat_model_name, model_spec_actual$artifact_path)
     expect_equal(run$run_uuid[1], model_spec_actual$run_id)
     expect_equal(model_spec_expected$flavors, model_spec_actual$flavors)
   })
