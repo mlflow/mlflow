@@ -13,6 +13,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils.autologging_utils import wrap_patch
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
@@ -89,58 +90,63 @@ def _set_run_tag(run_id, path, version, data_format):
     client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
 
 
+def _listen_for_spark_activity(spark_context):
+    if _get_spark_major_version(spark_context) < 3:
+        raise MlflowException("Spark autologging unsupported for Spark versions < 3")
+    gw = spark_context._gateway
+    params = gw.callback_server_parameters
+    callback_server_params = CallbackServerParameters(
+        address=params.address,
+        port=params.port,
+        daemonize=True,
+        daemonize_connections=True,
+        eager_load=params.eager_load,
+        ssl_context=params.ssl_context,
+        accept_timeout=params.accept_timeout,
+        read_timeout=params.read_timeout,
+        auth_token=params.auth_token,
+    )
+    gw.start_callback_server(callback_server_params)
+
+    event_publisher = _get_jvm_event_publisher()
+    try:
+        event_publisher.init(1)
+        _spark_table_info_listener = PythonSubscriber()
+        _spark_table_info_listener.register()
+    except Exception as e:
+        raise MlflowException(
+            "Exception while attempting to initialize JVM-side state for "
+            "Spark datasource autologging. Please create a new Spark session "
+            "and ensure you have the mlflow-spark JAR attached to your Spark "
+            "session as described in "
+            "http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental. "
+            "Exception:\n%s" % e
+        )
+
+    # Register context provider for Spark autologging
+    from mlflow.tracking.context.registry import _run_context_provider_registry
+
+    _run_context_provider_registry.register(SparkAutologgingContext)
+
+
 def autolog():
     """Implementation of Spark datasource autologging"""
     global _spark_table_info_listener
     if _get_current_listener() is None:
         active_session = _get_active_spark_session()
         if active_session is None:
-            raise MlflowException(
-                "No active SparkContext found, refusing to enable Spark datasource "
-                "autologging. Please create a SparkSession e.g. via "
-                "SparkSession.builder.getOrCreate() (see API docs at "
-                "https://spark.apache.org/docs/latest/api/python/"
-                "pyspark.sql.html#pyspark.sql.SparkSession) "
-                "before attempting to enable autologging"
-            )
-        # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
-        if _get_spark_major_version(sc) < 3:
-            raise MlflowException("Spark autologging unsupported for Spark versions < 3")
-        gw = active_session.sparkContext._gateway
-        params = gw.callback_server_parameters
-        callback_server_params = CallbackServerParameters(
-            address=params.address,
-            port=params.port,
-            daemonize=True,
-            daemonize_connections=True,
-            eager_load=params.eager_load,
-            ssl_context=params.ssl_context,
-            accept_timeout=params.accept_timeout,
-            read_timeout=params.read_timeout,
-            auth_token=params.auth_token,
-        )
-        gw.start_callback_server(callback_server_params)
+            def getOrCreate(*args, **kwargs):
+                sc = original(*args, **kwargs)
 
-        event_publisher = _get_jvm_event_publisher()
-        try:
-            event_publisher.init(1)
-            _spark_table_info_listener = PythonSubscriber()
-            _spark_table_info_listener.register()
-        except Exception as e:
-            raise MlflowException(
-                "Exception while attempting to initialize JVM-side state for "
-                "Spark datasource autologging. Please ensure you have the "
-                "mlflow-spark JAR attached to your Spark session as described "
-                "in http://mlflow.org/docs/latest/tracking.html#"
-                "automatic-logging-from-spark-experimental. Exception:\n%s" % e
-            )
+                _listen_for_spark_activity(sc)
 
-        # Register context provider for Spark autologging
-        from mlflow.tracking.context.registry import _run_context_provider_registry
+            wrap_patch(SparkContext, "getOrCreate", getOrCreate)
 
-        _run_context_provider_registry.register(SparkAutologgingContext)
+        else:
+            # We know SparkContext exists here already, so get it
+            sc = SparkContext.getOrCreate()
 
+            _listen_for_spark_activity(sc)
 
 def _get_repl_id():
     """
