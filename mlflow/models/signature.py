@@ -12,15 +12,14 @@ import numpy as np
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
-# try:
-#     
+try:
+    import pyspark.sql.datafame
 
-#     MlflowInferableDataset = Union[
-#         pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
-#     ]
-# except ImportError:
-#     
-MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+    MlflowInferableDataset = Union[
+        pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
+    ]
+except ImportError:
+    MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
 
 class ModelSignature(object):
