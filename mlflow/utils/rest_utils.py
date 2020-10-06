@@ -21,7 +21,13 @@ _DEFAULT_HEADERS = {"User-Agent": "mlflow-python-client/%s" % __version__}
 
 
 def http_request(
-    host_creds, endpoint, retries=3, retry_interval=3, max_rate_limit_interval=60, **kwargs
+    host_creds,
+    endpoint,
+    retries=3,
+    retry_interval=3,
+    max_rate_limit_interval=60,
+    host_creds_refresh_func=None,
+    **kwargs
 ):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Ratelimit
@@ -78,6 +84,16 @@ def http_request(
         response = request_with_ratelimit_retries(
             max_rate_limit_interval, url=url, headers=headers, verify=verify, **kwargs
         )
+        if (
+            response.status_code == 401
+            and host_creds.token is not None
+            and host_creds_refresh_func is not None
+        ):
+            host_creds = host_creds_refresh_func(force_refresh_token=True)
+            headers["Authorization"] = "Bearer %s" % host_creds.token
+            response = request_with_ratelimit_retries(
+                max_rate_limit_interval, url=url, headers=headers, verify=verify, **kwargs
+            )
         if response.status_code >= 200 and response.status_code < 500:
             return response
         else:
@@ -151,17 +167,27 @@ def extract_api_info_for_service(service, path_prefix):
     return res
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
+def call_endpoint(
+    host_creds, endpoint, method, json_body, response_proto, host_creds_refresh_func=None
+):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
     if method == "GET":
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            params=json_body,
+            host_creds_refresh_func=host_creds_refresh_func,
         )
     else:
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            json=json_body,
+            host_creds_refresh_func=host_creds_refresh_func,
         )
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)

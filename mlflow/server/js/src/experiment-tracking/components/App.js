@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import logo from '../../common/static/home-logo.png';
-import { HashRouter as Router, Route, Link, NavLink } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Link, NavLink } from 'react-router-dom';
 import { RunPage } from './RunPage';
 import Routes from '../routes';
 import { MetricPage } from './MetricPage';
@@ -22,6 +22,7 @@ import { ModelVersionPage } from '../../model-registry/components/ModelVersionPa
 import ModelListPage from '../../model-registry/components/ModelListPage';
 import { ModelPage } from '../../model-registry/components/ModelPage';
 import CompareModelVersionsPage from '../../model-registry/components/CompareModelVersionsPage';
+import { AuthComponent } from '../../common/utils/AuthComponent';
 
 const classNames = {
   activeNavLink: { borderBottom: '4px solid #43C9ED' },
@@ -85,6 +86,7 @@ class App extends Component {
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
               <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
+              <Route exact path={Routes.authRoute} component={AuthComponent} />
               {/* TODO(Zangr) see if route component can be injected here */}
               <Route exact path={modelListPageRoute} component={ModelListPage} />
               <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />

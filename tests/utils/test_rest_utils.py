@@ -119,6 +119,24 @@ def test_http_request_with_token(request):
 
 
 @mock.patch("requests.request")
+def test_http_request_with_token_refresh(request):
+    host_only = MlflowHostCreds("http://my-host", token="my-token")
+
+    def refresh_token(force_refresh_token=False):  # pylint: disable=unused-argument
+        return MlflowHostCreds("http://my-host", token="my-token-2")
+
+    response = mock.MagicMock()
+    response.status_code = 401
+    request.return_value = response
+    http_request(host_only, "/my/endpoint", host_creds_refresh_func=refresh_token)
+    headers = dict(_DEFAULT_HEADERS)
+    headers["Authorization"] = "Bearer my-token-2"
+    request.assert_called_with(
+        url="http://my-host/my/endpoint", verify=True, headers=headers,
+    )
+
+
+@mock.patch("requests.request")
 def test_http_request_with_insecure(request):
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()

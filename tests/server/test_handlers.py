@@ -6,7 +6,7 @@ from unittest import mock
 
 import os
 import mlflow
-from mlflow.entities import ViewType
+from mlflow.entities import ViewType, Columns
 from mlflow.entities.model_registry import (
     RegisteredModel,
     ModelVersion,
@@ -41,10 +41,16 @@ from mlflow.server.handlers import (
     _delete_registered_model_tag,
     _set_model_version_tag,
     _delete_model_version_tag,
+    _list_all_columns,
 )
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflow.protos.service_pb2 import (
+    CreateExperiment,
+    SearchRuns,
+    ListAllColumns,
+    ColumnsToWhitelist,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
@@ -178,15 +184,65 @@ def test_can_parse_json_string():
     assert msg.name == "hello2"
 
 
+def test_list_all_columns(mock_get_request_message, mock_tracking_store):
+    """
+    List all columns
+    """
+    mock_get_request_message.return_value = ListAllColumns(experiment_id="0")
+    mock_tracking_store.list_all_columns.return_value = Columns(
+        tags=["tag1", "tag2"], metrics=["metric1", "metric2"], params=["param1", "param2"],
+    )
+    resp = _list_all_columns()
+    json_response = json.loads(resp.get_data())
+    assert set(json_response["tags"]) == {"tag1", "tag2"}
+    assert set(json_response["params"]) == {"param1", "param2"}
+    assert set(json_response["metrics"]) == {"metric1", "metric2"}
+
+
 def test_search_runs_default_view_type(mock_get_request_message, mock_tracking_store):
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
-    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
+    mock_get_request_message.return_value = SearchRuns(
+        experiment_ids=["0"], columns_to_whitelist=None
+    )
     mock_tracking_store.search_runs.return_value = PagedList([], None)
     _search_runs()
     args, _ = mock_tracking_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
+    assert args[6] is None  # No columns filtering
+
+
+def test_search_run_columns_filtering(mock_get_request_message, mock_tracking_store):
+    """
+    Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
+    """
+    columns = ["params.p_a", "metrics.m_a"]
+    ctw = ColumnsToWhitelist(columns=columns)
+    mock_get_request_message.return_value = SearchRuns(
+        experiment_ids=["0"], columns_to_whitelist=ctw
+    )
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+    _search_runs()
+    args, _ = mock_tracking_store.search_runs.call_args
+    assert args[2] == ViewType.ACTIVE_ONLY
+    assert args[6] == columns
+
+
+def test_search_run_no_columns(mock_get_request_message, mock_tracking_store):
+    """
+    Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
+    """
+    columns = []
+    ctw = ColumnsToWhitelist(columns=columns)
+    mock_get_request_message.return_value = SearchRuns(
+        experiment_ids=["0"], columns_to_whitelist=ctw
+    )
+    mock_tracking_store.search_runs.return_value = PagedList([], None)
+    _search_runs()
+    args, _ = mock_tracking_store.search_runs.call_args
+    assert args[2] == ViewType.ACTIVE_ONLY
+    assert args[6] == columns
 
 
 def test_log_batch_api_req(mock_get_request_json):

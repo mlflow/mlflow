@@ -33,6 +33,7 @@ export class RunViewImpl extends Component {
     getMetricPagePath: PropTypes.func.isRequired,
     runDisplayName: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
+    artifactsAreLoading: PropTypes.bool.isRequired,
     handleSetRunTag: PropTypes.func.isRequired,
     setTagApi: PropTypes.func.isRequired,
     deleteTagApi: PropTypes.func.isRequired,
@@ -285,7 +286,7 @@ export class RunViewImpl extends Component {
             />
           </CollapsibleSection>
           <CollapsibleSection title='Artifacts'>
-            <ArtifactPage runUuid={runUuid} />
+            <ArtifactPage runUuid={runUuid} artifactsAreLoading={this.props.artifactsAreLoading} />
           </CollapsibleSection>
         </div>
       </div>
@@ -303,7 +304,7 @@ export class RunViewImpl extends Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { runUuid, experimentId } = ownProps;
+  const { runUuid, experimentId, artifactsAreLoading } = ownProps;
   const run = getRunInfo(runUuid, state);
   const experiment = getExperiment(experimentId, state);
   const params = getParams(runUuid, state);
@@ -311,7 +312,16 @@ const mapStateToProps = (state, ownProps) => {
   const latestMetrics = getLatestMetrics(runUuid, state);
   const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
   const runName = Utils.getRunName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName };
+  return {
+    run,
+    experiment,
+    params,
+    tags,
+    latestMetrics,
+    runDisplayName,
+    runName,
+    artifactsAreLoading,
+  };
 };
 const mapDispatchToProps = { setTagApi, deleteTagApi };
 
