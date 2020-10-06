@@ -745,7 +745,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
 def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
@@ -890,7 +890,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
 def test_autolog_logs_signature_and_input_example(data_type):
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
 
     X, y = get_iris()
     X = data_type(X)
@@ -940,10 +940,10 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     assert "saved_input_example_info" not in model_conf.to_dict()
 
 
-def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_predict():
+def test_autolog_logs_signature_only_when_estimator_defines_predict():
     from sklearn.cluster import AgglomerativeClustering
 
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_model_signature=True)
 
     X, y = get_iris()
     model = AgglomerativeClustering()
@@ -954,7 +954,6 @@ def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_pr
 
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
-    assert "saved_input_example_info" not in model_conf.to_dict()
 
 
 def test_autolog_does_not_throw_when_predict_fails():
@@ -964,14 +963,13 @@ def test_autolog_does_not_throw_when_predict_fails():
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog()
+        mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_with("Failed to infer an input example and model signature: Failed")
+    mock_warning.assert_called_with("Failed to infer model signature: Failed")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
-    assert "saved_input_example_info" not in model_conf.to_dict()
 
 
 def test_autolog_does_not_throw_when_infer_signature_fails():
@@ -980,13 +978,27 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     with mlflow.start_run() as run, mock.patch(
         "mlflow.models.infer_signature", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog()
+        mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_once_with(
-        "Failed to infer an input example and model signature: Failed"
-    )
+    mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
-    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_input_example", [True, False])
+@pytest.mark.parametrize("log_model_signature", [True, False])
+def test_autolog_configuration_options(log_input_example, log_model_signature):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(
+            log_input_example=log_input_example, log_model_signature=log_model_signature
+        )
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
+    assert ("signature" in model_conf.to_dict()) == log_model_signature

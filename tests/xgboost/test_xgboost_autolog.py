@@ -21,6 +21,11 @@ def get_latest_run():
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
+def get_model_conf(artifact_uri, model_subpath="model"):
+    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
+    return Model.load(model_conf_path)
+
+
 @pytest.fixture(scope="session")
 def bst_params():
     return {
@@ -260,7 +265,7 @@ def test_xgb_autolog_logs_feature_importance(bst_params, dtrain):
 @pytest.mark.large
 def test_xgb_autolog_logs_specified_feature_importance(bst_params, dtrain):
     importance_types = ["weight", "total_gain"]
-    mlflow.xgboost.autolog(importance_types)
+    mlflow.xgboost.autolog(importance_types=importance_types)
     model = xgb.train(bst_params, dtrain)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -318,7 +323,7 @@ def test_xgb_autolog_does_not_throw_if_importance_values_not_supported(dtrain):
 
 @pytest.mark.large
 def test_xgb_autolog_gets_input_example(bst_params):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(log_input_example=True)
 
     # we cannot use dtrain fixture, as the dataset must be constructed
     #   after the call to autolog() in order to get the input example
@@ -345,7 +350,7 @@ def test_xgb_autolog_gets_input_example(bst_params):
 
 @pytest.mark.large
 def test_xgb_autolog_infers_model_signature_correctly(bst_params):
-    mlflow.xgboost.autolog()
+    mlflow.xgboost.autolog(log_model_signature=True)
 
     # we cannot use dtrain fixture, as the dataset must be constructed
     #   after the call to autolog() in order to get the input example
@@ -413,7 +418,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     tmp_csv.write("0,2.4,5.2\n")
     tmp_csv.write("1,0.3,-1.2\n")
 
-    mlflow.xgboost.autolog(importance_types=[])
+    mlflow.xgboost.autolog(importance_types=[], log_model_signature=True)
 
     # signature and input example inference should fail here since the dataset is given
     #   as a file path
@@ -454,3 +459,22 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
 
     dataset.save_binary(tmpdir.join("dataset_serialization_test"))  # serialization should not throw
     xgb.DMatrix(tmpdir.join("dataset_serialization_test"))  # deserialization also should not throw
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_input_example", [True, False])
+@pytest.mark.parametrize("log_model_signature", [True, False])
+def test_xgb_autolog_configuration_options(bst_params, log_input_example, log_model_signature):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(
+            log_input_example=log_input_example, log_model_signature=log_model_signature
+        )
+        dataset = xgb.DMatrix(X, y)
+        xgb.train(bst_params, dataset)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
+    assert ("signature" in model_conf.to_dict()) == log_model_signature
