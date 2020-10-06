@@ -715,7 +715,6 @@ def test_universal_autolog_calls_specific_autologs_correctly():
 
     for integration_name in autolog_integrations.keys():
         autolog_fn = getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
-        autolog_fn.assert_not_called()
 
         importlib.__import__(integration_name)
 
