@@ -20,7 +20,8 @@ def main():
     args = parse_args()
 
     # enable auto logging
-    # mlflow.spark.autolog()
+    # mlflow.autolog()
+    mlflow.spark.autolog()
 
     # prepare train and test data
     spark = (SparkSession.builder

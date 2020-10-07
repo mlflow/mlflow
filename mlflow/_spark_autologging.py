@@ -137,12 +137,17 @@ def autolog():
         active_session = _get_active_spark_session()
         if active_session is None:
             def getOrCreate(*args, **kwargs):
+                print("CCCCCC")
                 original = gorilla.get_original_attribute(SparkContext, "getOrCreate")
                 sc = original(*args, **kwargs)
 
                 _listen_for_spark_activity(sc)
+                print("DDDDDD")
+                return sc
 
+            print("AAAAAA")
             wrap_patch(SparkContext, "getOrCreate", getOrCreate)
+            print("BBBBBB")
 
         else:
             # We know SparkContext exists here already, so get it
