@@ -1,4 +1,5 @@
 # Small test reqs
+azure-storage-blob==12.3.0
 botocore==1.12.84  # pinned for moto
 moto==1.3.7
 mxnet==1.5.0
