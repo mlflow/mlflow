@@ -1,9 +1,10 @@
 ## MNIST example with MLFlow
 
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop - we add a autolog callback class in the trainer `callbacks=[__MLflowPLCallback()]` which logs the params, metrics, model summary and the model. 
-This example logs metrics only after n epoch iterations. The iteration limit can be set in the trainer module using `log_every_n_iter=NUMBER-OF-ITERATIONS`.
-To log the data after n steps `aggregation_step=NUMBER-OF-STEPS` can be added into the trainer module as given in the example - `mnist_autolog_example2.py`.
+The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+is responsible for logging the params, metrics, model summary and the model.
+This example logs metrics only after n epoch iterations. The iteration limit can be set in the autolog method using the parameter `log_every_n_iter=NUMBER-OF-ITERATIONS`.
+For ex: `autolog(log_every_n_iter=5)`
 
 ### Code related to MLflow:
 * [`mlflow.pytorch.pytorch_autolog`]
@@ -32,6 +33,29 @@ If you have the required modules for the file and would like to skip the creatio
 ```
 mlflow run . --no-conda
 ```
+
+### Example with custom input
+
+Following are the parameters which can be overridden by passing values in command line argument.
+
+1. Number of epochs - max_epochs
+2. Number of gpus - gpus
+3. Backend in case of gpus environment - distributed_backend
+4. Batch size to process - batch-size
+5. Number of workers to process input - num-workers
+6. Learning rate - lr
+7. URL to log - tracking-uri
+
+For example:
+
+`python mnist_autolog_example2.py \
+    --max_epochs 5 \
+    --gpus 1 \
+    --distributed_backend "ddp" \
+    --batch-size 64 \
+    --num-workers 2 \
+    --lr 0.01 \
+    --tracking_uri "http://localhost:5000"`
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 

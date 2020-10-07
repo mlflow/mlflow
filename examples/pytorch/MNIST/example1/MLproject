@@ -11,6 +11,7 @@ entry_points:
       batch_size: {type: int, default: 64}
       num_workers: {type: int, default: 1}
       learning_rate: {type: float, default: 1e-3}
+      tracking_uri: {type: str, default: 'http://localhost:5000'}
 
     command: |
           python mnist_autolog_example1.py \
@@ -19,4 +20,5 @@ entry_points:
             --distributed_backend {distributed_backend} \
             --batch-size {batch_size} \
             --num-workers {num_workers} \
-            --lr {learning_rate}
+            --lr {learning_rate} \
+            --tracking_uri {tracking_uri}

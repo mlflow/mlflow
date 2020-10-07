@@ -7,13 +7,13 @@
 #
 import pytorch_lightning as pl
 import os
+import mlflow
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
+from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateLogger
-from pytorch_lightning.loggers import MLFlowLogger
 from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
@@ -202,26 +202,30 @@ class LightningMNISTClassifier(pl.LightningModule):
         return [self.optimizer], [self.scheduler]
 
     def optimizer_step(
-        self,
-        epoch,
-        batch_idx,
-        optimizer,
-        optimizer_idx,
-        second_order_closure=None,
-        on_tpu=False,
-        using_lbfgs=False,
-        using_native_amp=False,
+            self,
+            epoch,
+            batch_idx,
+            optimizer,
+            optimizer_idx,
+            second_order_closure=None,
+            on_tpu=False,
+            using_lbfgs=False,
+            using_native_amp=False,
     ):
         self.optimizer.step()
         self.optimizer.zero_grad()
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="PyTorch Lightning Mnist Example")
+    parser = ArgumentParser(description="PyTorch Autolog Mnist Example")
 
     # Add trainer specific arguments
+
     parser.add_argument(
-        "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
+        "--tracking_uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
+    )
+    parser.add_argument(
+        "--max_epochs", type=int, default=20, help="number of epochs to run (default: 20)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
@@ -234,12 +238,13 @@ if __name__ == "__main__":
     )
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
+    autolog()
+
     args = parser.parse_args()
     dict_args = vars(args)
+    mlflow.set_tracking_uri(dict_args['tracking_uri'])
+
     model = LightningMNISTClassifier(**dict_args)
-    mlflow_logger = MLFlowLogger(
-        experiment_name="Default", tracking_uri="http://localhost:5000/"
-    )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
@@ -254,8 +259,7 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        logger=mlflow_logger,
-        callbacks=[__MLflowPLCallback(), lr_logger],
+        callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
         train_percent_check=0.1,

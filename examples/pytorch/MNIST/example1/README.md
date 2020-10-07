@@ -1,7 +1,8 @@
 ## MNIST example with MLFlow
 
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop - we add a autolog callback class in the trainer `callbacks=[__MLflowPLCallback()]` which logs the params, metrics, model summary and the model. 
+The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+is responsible for logging the params, metrics, model summary and the model.
 Early stopping condition and Model Checkpoint are added in this example.
 
 ### Code related to MLflow:
@@ -32,6 +33,38 @@ If you have the required modules for the file and would like to skip the creatio
 mlflow run . --no-conda
 ```
 
+### Example with custom input
+
+Following are the parameters which can be overridden by passing values in command line argument.
+
+1. Number of epochs - max_epochs
+2. Number of gpus - gpus
+3. Backend in case of gpus environment - distributed_backend
+4. Batch size to process - batch-size
+5. Number of workers to process input - num-workers
+6. Learning rate - lr
+7. URL to log - tracking-uri
+
+For example:
+
+`python mnist_autolog_example1.py \
+    --max_epochs 5 \
+    --gpus 1 \
+    --distributed_backend "ddp" \
+    --batch-size 64 \
+    --num-workers 2 \
+    --lr 0.01 \
+    --tracking_uri "http://localhost:5000"`
+
+Apart from model specific arguments, this example demonstrates early stopping behaviour.
+Following are the early stopping parameter set in the script - `mnist_autolog_example`
+
+1. monitor is set to `val_loss`
+2. mode is set to `min`
+3. patience is set to default value `3`
+4. verbose is set to `True`
+
+
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 
 ```
@@ -41,5 +74,3 @@ mlflow ui
 and navigating to [http://localhost:5000](http://localhost:5000).
 
 For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
-
-

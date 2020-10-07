@@ -4,17 +4,17 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
+import mlflow
 import torch
 import torch.nn.functional as F
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, LearningRateLogger
-from pytorch_lightning.loggers import MLFlowLogger
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer
 
-from mlflow.pytorch.pytorch_autolog import __MLflowPLCallback
+from mlflow.pytorch.pytorch_autolog import autolog
 
 
 class GPReviewDataset(Dataset):
@@ -52,7 +52,6 @@ class GPReviewDataset(Dataset):
 class BertSentinmentClassifier(pl.LightningModule):
     def __init__(self, **kwargs):
         super(BertSentinmentClassifier, self).__init__()
-        #self.PRE_TRAINED_MODEL_NAME = "bert_base_cased"
         self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         self.drop = nn.Dropout(p=0.3)
@@ -220,8 +219,6 @@ class BertSentinmentClassifier(pl.LightningModule):
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         return {"avg_test_acc": avg_test_acc}
 
-
-
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
@@ -255,11 +252,13 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.optimizer.zero_grad()
 
 
-
 if __name__ == "__main__":
     parser = ArgumentParser(description="Bert-Sentiment Classifier Example")
 
     # Add trainer specific arguments
+    parser.add_argument(
+        "--tracking_uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
+    )
     parser.add_argument(
         "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
     )
@@ -274,12 +273,12 @@ if __name__ == "__main__":
     )
     parser = BertSentinmentClassifier.add_model_specific_args(parent_parser=parser)
 
+    autolog()
+
     args = parser.parse_args()
     dict_args = vars(args)
+    mlflow.set_tracking_uri(dict_args['tracking_uri'])
     model = BertSentinmentClassifier(**dict_args)
-    mlflow_logger = MLFlowLogger(
-        experiment_name="Default", tracking_uri="http://localhost:5000/"
-    )
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
@@ -294,12 +293,10 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        logger=mlflow_logger,
-        callbacks=[__MLflowPLCallback(), lr_logger],
+        callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
         train_percent_check=0.1,
     )
     trainer.fit(model)
     trainer.test()
-
