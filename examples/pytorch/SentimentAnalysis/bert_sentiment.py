@@ -53,7 +53,7 @@ class GPReviewDataset(Dataset):
             "review_text": review,
             "input_ids": encoding["input_ids"].flatten(),
             "attention_mask": encoding["attention_mask"].flatten(),
-            "targets": torch.tensor(target, dtype=torch.long)
+            "targets": torch.tensor(target, dtype=torch.long),
         }
 
 
@@ -88,9 +88,7 @@ class BertSentinmentClassifier(pl.LightningModule):
 
         :return: output - sentiment for the input text
         """
-        _, pooled_output = self.bert_model(
-            input_ids=input_ids, attention_mask=attention_mask
-        )
+        _, pooled_output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         output = self.drop(pooled_output)
         F.softmax(output, dim=1)
         return self.out(output)
@@ -113,11 +111,7 @@ class BertSentinmentClassifier(pl.LightningModule):
             help="number of workers (default: 0)",
         )
         parser.add_argument(
-            "--lr",
-            type=float,
-            default=1e-3,
-            metavar="LR",
-            help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
         )
         return parser
 
@@ -139,9 +133,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         print("preparing the data")
 
         # reading  the input
-        df = pd.read_csv(
-            "https://drive.google.com/uc?id=1zdmewp7ayS4js4VtrJEHzAheSW-5NBZv"
-        )
+        df = pd.read_csv("https://drive.google.com/uc?id=1zdmewp7ayS4js4VtrJEHzAheSW-5NBZv")
         print("data_shape {}".format(df.shape))
 
         # setting sentiment
@@ -173,9 +165,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         np.random.seed(RANDOM_SEED)
         torch.manual_seed(RANDOM_SEED)
 
-        self.df_train, df_test = train_test_split(
-            df, test_size=0.1, random_state=RANDOM_SEED
-        )
+        self.df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
         self.df_val, self.df_test = train_test_split(
             df_test, test_size=0.5, random_state=RANDOM_SEED
         )
@@ -307,12 +297,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode="min",
-                factor=0.2,
-                patience=2,
-                min_lr=1e-6,
-                verbose=True,
+                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
             )
         }
         return [self.optimizer], [self.scheduler]
@@ -374,17 +359,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
-    mlflow.set_tracking_uri(dict_args['tracking_uri'])
+    mlflow.set_tracking_uri(dict_args["tracking_uri"])
     model = BertSentinmentClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(),
-        save_top_k=1,
-        verbose=True,
-        monitor="val_loss",
-        mode="min",
-        prefix="",
+        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
     lr_logger = LearningRateLogger()
 

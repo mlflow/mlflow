@@ -257,7 +257,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
-    mlflow.set_tracking_uri(dict_args['tracking_uri'])
+    mlflow.set_tracking_uri(dict_args["tracking_uri"])
     model = LightningMNISTClassifier(**dict_args)
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model)
