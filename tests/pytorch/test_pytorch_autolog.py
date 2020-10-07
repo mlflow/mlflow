@@ -9,7 +9,7 @@ from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-NUM_EPOCHS = 100
+NUM_EPOCHS = 20
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ def pytorch_model_with_callback(patience):
     )
 
     trainer = pl.Trainer(
-        max_epochs=NUM_EPOCHS,
+        max_epochs=NUM_EPOCHS * 2,
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
     )

@@ -233,10 +233,12 @@ class LightningMNISTClassifier(pl.LightningModule):
 
 
 if __name__ == "__main__":
-    mlflow.set_tracking_uri("http://localhost:5000/")
-    parser = ArgumentParser(description="PyTorch Lightning Mnist Example")
+    parser = ArgumentParser(description="PyTorch autolog Mnist Example")
 
     # Add trainer specific arguments
+    parser.add_argument(
+        "--tracking_uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
+    )
     parser.add_argument(
         "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
     )
@@ -255,6 +257,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
+    mlflow.set_tracking_uri(dict_args['tracking_uri'])
     model = LightningMNISTClassifier(**dict_args)
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model)

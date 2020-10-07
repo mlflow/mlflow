@@ -11,6 +11,14 @@ from mlflow.utils.autologging_utils import try_mlflow_log
 logging.basicConfig(level=logging.ERROR)
 
 every_n_iter = 1
+# autolog module uses `try_mlflow_log` - mlflow utility to log param/metrics/artifacts into mlflow
+# Eventhough the same can be achieved using MlflowLogger(Pytorch Lightning's inbuild class), following are the
+# downsides in using MlflowLogger.
+# 1. MlflowLogger doesn't provide a mechanism to dump an entire model into mlflow. Only model checkpoint is saved.
+# 2. For dumping the model into mlflow `mlflow.pytorch` library is used
+# and the library expects `mlflow` object to be instantiated.
+# In case of MlflowLogger, Run management is completely controlled by the class and hence, mlflow object needs to be
+# reinstantiated by setting tracking uri, experiment_id and run_id which may lead to a race condition.
 
 
 def autolog(log_every_n_iter=1):
