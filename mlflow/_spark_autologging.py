@@ -115,7 +115,8 @@ def _listen_for_spark_activity(spark_context):
         _spark_table_info_listener = PythonSubscriber()
         _spark_table_info_listener.register()
     except Exception as e:
-        _logger.warn(
+        gw.shutdown_callback_server()
+        _logger.warning(
             "Exception while attempting to initialize JVM-side state for "
             "Spark datasource autologging. Please create a new Spark session "
             "and ensure you have the mlflow-spark JAR attached to your Spark "
@@ -124,6 +125,16 @@ def _listen_for_spark_activity(spark_context):
             "Exception:\n%s" % e
         )
 
+        def getOrCreate(*args, **kwargs):
+            original = gorilla.get_original_attribute(SparkContext, "getOrCreate")
+            sc = original(*args, **kwargs)
+
+            _listen_for_spark_activity(sc)
+            return sc
+
+        wrap_patch(SparkContext, "getOrCreate", getOrCreate)
+
+        return
     # Register context provider for Spark autologging
     from mlflow.tracking.context.registry import _run_context_provider_registry
 
