@@ -10,7 +10,7 @@ import uuid
 
 from distutils.version import StrictVersion
 
-from mlflow import get_tracking_uri
+from mlflow import get_tracking_uri, get_registry_uri
 from mlflow import pyfunc
 from mlflow import register_model as mlflow_register_model
 from mlflow.exceptions import MlflowException
@@ -383,15 +383,16 @@ def deploy(
         )
 
         registered_model = None
-        m_id = None
+        azure_model_id = None
 
         if model_uri.startswith("models:/"):
             m_name = model_uri.split("/")[-2]
             m_version = int(model_uri.split("/")[-1])
-            m_id = "{}:{}".format(m_name, m_version)
-        elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml"):
+            azure_model_id = "{}:{}".format(m_name, m_version)
+        elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml") and \
+                get_registry_uri().startswith("azureml"):
             m = mlflow_register_model(model_uri, model_name)
-            m_id = "{}:{}".format(m.name, m.version)
+            azure_model_id = "{}:{}".format(m.name, m.version)
 
             _logger.info(
                 "Registered an Azure Model with name: `%s` and version: `%s`",
@@ -399,15 +400,15 @@ def deploy(
                 registered_model.version,
             )
 
-        if m_id:
+        if azure_model_id:
             try:
-                registered_model = AzureModel(workspace, id=m_id)
-                _logger.info("Found registered model in AzureML with ID '%s'", m_id)
+                registered_model = AzureModel(workspace, id=azure_model_id)
+                _logger.info("Found registered model in AzureML with ID '%s'", azure_model_id)
             except Exception as e:  # pylint: disable=broad-except
                 _logger.info(
                     "Unable to find model in AzureML with ID '%s', will register the model.\n"
                     "Exception was: %s",
-                    m_id,
+                    azure_model_id,
                     e,
                 )
 
