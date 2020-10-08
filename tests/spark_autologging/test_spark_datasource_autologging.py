@@ -5,6 +5,12 @@ from unittest import mock
 
 import mlflow
 import mlflow.spark
+import tempfile
+import os
+import shutil
+
+from pyspark.sql import SparkSession, Row
+from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.tracking.test_rest_tracking import BACKEND_URIS
@@ -15,6 +21,8 @@ from tests.spark_autologging.utils import spark_session  # pylint: disable=unuse
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
 from tests.spark_autologging.utils import data_format  # pylint: disable=unused-import
 from tests.spark_autologging.utils import file_path  # pylint: disable=unused-import
+from tests.spark_autologging.utils import _get_or_create_spark_session  # pylint: disable=unused-import
+from tests.spark_autologging.utils import _get_mlflow_spark_jar_path
 
 
 def pytest_generate_tests(metafunc):
@@ -41,6 +49,9 @@ def _get_expected_table_info_row(path, data_format, version=None):
         path=expected_path, version=version, format=data_format
     )
 
+
+# Note that the following tests run one-after-the-other and operate on the SAME spark_session
+#   (it is not reset between tests)
 
 @pytest.mark.large
 def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):
@@ -224,3 +235,48 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
     mlflow.spark.autolog()
+
+
+@pytest.fixture()
+def spark_test_scoped_session():
+    jar_path = _get_mlflow_spark_jar_path()
+    session = SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()
+    print("session exists")
+    yield session
+    session.stop()
+
+
+# using a NEW SparkSession in this test (the previous one was stopped in the previous test)
+@pytest.mark.large
+def test_enabling_autologging_before_spark_session_works(spark_test_scoped_session):
+    print("enabling autolog")
+    mlflow.spark.autolog()
+
+    rows = [Row(100)]
+    schema = StructType(
+        [
+            StructField("number2", IntegerType()),
+        ]
+    )
+    rdd = spark_test_scoped_session.sparkContext.parallelize(rows)
+    df = spark_test_scoped_session.createDataFrame(rdd, schema)
+    tempdir = tempfile.mkdtemp()
+    filepath = os.path.join(tempdir, "test-data")
+    df.write.option("header", "true").format("csv").save(filepath)
+
+    read_df = (
+        spark_test_scoped_session.read.format("csv")
+        .option("header", "true")
+        .option("inferSchema", "true")
+        .load(filepath)
+    )
+    
+    with mlflow.start_run():
+        run_id = mlflow.active_run().info.run_id
+        read_df.collect()
+        time.sleep(1)
+
+    run = mlflow.get_run(run_id)
+    _assert_spark_data_logged(run=run, path=filepath, data_format="csv")
+
+    shutil.rmtree(tempdir)
