@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 The ``python_function`` model flavor serves as a default model interface for MLflow Python models.
 Any MLflow Python model is expected to be loadable as a ``python_function`` model.
