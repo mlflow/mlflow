@@ -389,8 +389,11 @@ def deploy(
             m_name = model_uri.split("/")[-2]
             m_version = int(model_uri.split("/")[-1])
             azure_model_id = "{}:{}".format(m_name, m_version)
-        elif model_uri.startswith("runs:/") and get_tracking_uri().startswith("azureml") and \
-                get_registry_uri().startswith("azureml"):
+        elif (
+            model_uri.startswith("runs:/")
+            and get_tracking_uri().startswith("azureml")
+            and get_registry_uri().startswith("azureml")
+        ):
             m = mlflow_register_model(model_uri, model_name)
             azure_model_id = "{}:{}".format(m.name, m.version)
 
