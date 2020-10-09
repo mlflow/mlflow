@@ -394,7 +394,7 @@ class MlflowClient(object):
                 print("Experiment Id: {}".format(experiment.experiment_id))
                 print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
 
-            # Create and and delete an experiment
+            # Create and delete an experiment
             client = MlflowClient()
             experiment_id = client.create_experiment("New Experiment")
             client.delete_experiment(experiment_id)
