@@ -917,7 +917,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
         def __getitem__(self, key):
             if isinstance(key, slice):
                 raise IndexError("DO NOT SLICE ME")
-            return super(ArrayThatThrowsWhenSliced, self).__getitem__(key)
+            return super().__getitem__(key)
 
     X, y = get_iris()
     throwing_X = ArrayThatThrowsWhenSliced(X)

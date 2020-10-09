@@ -18,7 +18,7 @@ class UnsupportedModelRegistryStoreURIException(MlflowException):
             " how to run an MLflow server against one of the supported backend storage"
             " locations."
         ).format(unsupported_uri, supported_uri_schemes)
-        super(UnsupportedModelRegistryStoreURIException, self).__init__(
+        super().__init__(
             message, error_code=INVALID_PARAMETER_VALUE
         )
         self.supported_uri_schemes = supported_uri_schemes

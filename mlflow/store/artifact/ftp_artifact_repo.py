@@ -29,7 +29,7 @@ class FTPArtifactRepository(ArtifactRepository):
         if self.config["host"] is None:
             self.config["host"] = "localhost"
 
-        super(FTPArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     @contextmanager
     def get_ftp_client(self):

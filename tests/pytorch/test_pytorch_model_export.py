@@ -102,7 +102,7 @@ def get_subclassed_model_definition():
     # pylint: disable=W0223
     class SubclassedModel(torch.nn.Module):
         def __init__(self):
-            super(SubclassedModel, self).__init__()
+            super().__init__()
             self.linear = torch.nn.Linear(4, 1)
 
         def forward(self, x):

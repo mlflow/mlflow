@@ -82,7 +82,7 @@ STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
     def __init__(self):
-        super(TrackingStoreRegistryWrapper, self).__init__()
+        super().__init__()
         self.register("", self._get_file_store)
         self.register("file", self._get_file_store)
         for scheme in DATABASE_ENGINES:
@@ -104,7 +104,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
-        super(ModelRegistryStoreRegistryWrapper, self).__init__()
+        super().__init__()
         # NB: Model Registry does not support file based stores
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
