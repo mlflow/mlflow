@@ -1,6 +1,5 @@
 import os
 import shutil
-import six
 import tempfile
 import unittest
 import warnings
@@ -151,11 +150,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         self._experiment_factory("aNothEr")
         all_experiments = [e.name for e in self.store.list_experiments()]
-        six.assertCountEqual(self, set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         self.store.delete_experiment(0)
 
-        six.assertCountEqual(self, ["aNothEr"], [e.name for e in self.store.list_experiments()])
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
         another = self.store.get_experiment(1)
         self.assertEqual("aNothEr", another.name)
 
@@ -172,9 +171,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        six.assertCountEqual(self, ["aNothEr"], [e.name for e in self.store.list_experiments()])
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
         all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
-        six.assertCountEqual(self, set(["aNothEr", "Default"]), set(all_experiments))
+        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
         another = self.store.get_experiment(1)
@@ -815,8 +814,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         actual = self.store.get_metric_history(run.info.run_id, key)
 
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [(m.key, m.value, m.timestamp) for m in expected],
             [(m.key, m.value, m.timestamp) for m in actual],
         )
@@ -829,14 +827,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         def _runs(experiment_id, view_type):
             return [r.run_id for r in self.store.list_run_infos(experiment_id, view_type)]
 
-        six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ALL))
-        six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
         self.assertEqual(0, len(_runs(experiment_id, ViewType.DELETED_ONLY)))
 
         self.store.delete_run(r1)
-        six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ALL))
-        six.assertCountEqual(self, [r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [r1], _runs(experiment_id, ViewType.DELETED_ONLY))
+        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertCountEqual([r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([r1], _runs(experiment_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
         new_name = "new name"
@@ -1069,21 +1067,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         exp = self._experiment_factory("search_vanilla")
         runs = [self._run_factory(self._get_run_configs(exp)).info.run_id for r in range(3)]
 
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
         first = runs[0]
 
         self.store.delete_run(first)
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
-        six.assertCountEqual(self, runs[1:], self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [first], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
+        self.assertCountEqual(runs[1:], self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([first], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
         self.store.restore_run(first)
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
     def test_search_params(self):
         experiment_id = self._experiment_factory("search_params")
@@ -1101,48 +1099,48 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # test search returns both runs
         filter_string = "params.generic_param = 'p_val'"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         # test search returns appropriate run (same key different values per run)
         filter_string = "params.generic_2 = 'some value'"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
         filter_string = "params.generic_2 = 'another value'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_param = 'wrong_val'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_param != 'p_val'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_param != 'wrong_val'"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
         filter_string = "params.generic_2 != 'wrong_val'"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.p_a = 'abc'"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "params.p_b = 'ABC'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE '%other%'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE 'other%'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE '%other'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE 'other'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE '%Other%'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 ILIKE '%Other%'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
     def test_search_tags(self):
         experiment_id = self._experiment_factory("search_tags")
@@ -1159,68 +1157,63 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.set_tag(r2, entities.RunTag("p_b", "ABC"))
 
         # test search returns both runs
-        six.assertCountEqual(
-            self, [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
         )
         # test search returns appropriate run (same key different values per run)
-        six.assertCountEqual(
-            self, [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
+        self.assertCountEqual(
+            [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r2],
             self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
         )
-        six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
         )
-        six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r1, r2],
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r1, r2],
             self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
-        six.assertCountEqual(
-            self, [r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'")
+        self.assertCountEqual(
+            [r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'")
+        self.assertCountEqual(
+            [r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'")
+        self.assertCountEqual(
+            [r2], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'")
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'")
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'")
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'")
         )
-        six.assertCountEqual(
-            self, [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'")
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'")
+        self.assertCountEqual(
+            [r2], self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'")
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r2],
             self._search(
                 experiment_id,
                 filter_string="tags.generic_2 ILIKE '%Other%' " "and tags.generic_tag = 'p_val'",
             ),
         )
-        six.assertCountEqual(
-            self,
+        self.assertCountEqual(
             [r2],
             self._search(
                 experiment_id,
@@ -1247,65 +1240,65 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
         filter_string = "metrics.common = 1.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common > 0.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common >= 0.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common < 4.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common <= 4.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common != 1.0"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common >= 3.0"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common <= 0.75"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # tests for same metric name across runs with different values and timestamps
         filter_string = "metrics.measure_a > 0.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a < 50.0"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a < 1000.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a != -12.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a > 50.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a = 1.0"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a = 400.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         # test search with unique metric keys
         filter_string = "metrics.m_a > 1.0"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.m_b > 1.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         # there is a recorded metric this threshold but not last timestamp
         filter_string = "metrics.m_b > 5.0"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # metrics matches last reported timestamp for 'm_b'
         filter_string = "metrics.m_b = 4.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
     def test_search_attrs(self):
         e1 = self._experiment_factory("search_attributes_1")
@@ -1315,64 +1308,64 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         r2 = self._run_factory(self._get_run_configs(experiment_id=e2)).info.run_id
 
         filter_string = ""
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status != 'blah'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         # change status for one of the runs
         self.store.update_run_info(r2, RunStatus.FAILED, 300)
 
         filter_string = "attribute.status = 'RUNNING'"
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'FAILED'"
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status != 'SCHEDULED'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'SCHEDULED'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'KILLED'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri = 'random_artifact_path'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         for (k, v) in {
             "experiment_id": e1,
@@ -1404,43 +1397,43 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
         filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         # all params and metrics match
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
         )
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 "
             "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'"
         )
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 "
             "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'"
         )
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 "
             "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'"
         )
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         # test with mismatch param
         filter_string = (
             "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
         )
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
         filter_string = (
             "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
         )
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
     def test_search_with_max_results(self):
         exp = self._experiment_factory("search_with_max_results")
