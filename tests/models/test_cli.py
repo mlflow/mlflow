@@ -63,6 +63,7 @@ def sk_model(iris_data):
     knn_model.fit(x, y)
     return knn_model
 
+
 @pytest.mark.large
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
     if no_conda:
