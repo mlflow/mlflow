@@ -1002,3 +1002,34 @@ def test_autolog_configuration_options(log_input_example, log_model_signature):
     model_conf = get_model_conf(run.info.artifact_uri)
     assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
     assert ("signature" in model_conf.to_dict()) == log_model_signature
+
+
+@pytest.mark.large
+def test_autolog_does_not_capture_runs_for_preprocessing_or_imputation_estimators():
+    """
+    Verifies that preprocessing and imputation estimators, which represent data manipulation steps
+    (e.g., normalization, label encoding) rather than ML models, do not produce runs when their
+    fit_* operations are invoked independently of an ML pipeline
+    """
+    mlflow.sklearn.autolog()
+
+    # Create a run using the MLflow client, which will be resumed via the fluent API,
+    # in order to avoid setting fluent-level tags (e.g., source and user). Suppressing these
+    # tags simplifies test validation logic
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.create_run(experiment_id=0).info.run_id
+
+    from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
+    from sklearn.impute import SimpleImputer
+
+    with mlflow.start_run(run_id=run_id):
+        Normalizer().fit_transform(np.random.random((5, 5)))
+        LabelEncoder().fit([1, 2, 2, 6])
+        MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
+        SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
+
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert len(params) == 0
+    assert len(metrics) == 0
+    assert len(tags) == 0
+    assert len(artifacts) == 0
