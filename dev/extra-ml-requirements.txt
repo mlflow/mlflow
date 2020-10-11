@@ -1,23 +1,35 @@
+## This file describes extra ML library dependencies that you, as an end user,
+## must install in order to use various MLflow Python modules.
+##
+# Required by mlflow.pyfunc
+cloudpickle==0.8.0
+# Required by mlflow.keras
 keras==2.3.1
+# Required by mlflow.sklearn
 scikit-learn==0.23.2
+# Required by mlflow.gluon
 mxnet==1.5.0
+# Required by mlflow.fastai
 fastai==1.0.60
-scikit-learn==0.23.2
-scipy==1.2.1
+# Required by mlflow.spacy
 spacy==2.2.3
+# Required by mlflow.tensorflow
 tensorflow==1.15.2
-tf2onnx==1.5.4;
+# Required by mlflow.pytorch
 torch==1.4.0
 torchvision==0.5.0
+# Required by mlflow.xgboost
 xgboost>=0.82
+# Required by mlflow.lightgbm
 lightgbm==2.3.0
-# Install typing to fix torch on Python 2.7 (see https://github.com/pytorch/pytorch/issues/16775)
-typing==3.6.6
+# Required by mlflow.h2o
 h2o==3.22.1.4
+# Required by mlflow.onnx
 onnx==1.4.1;
 onnxmltools==1.4.0;
 onnxruntime==0.3.0;
+# Required by mlflow.mleap, and in order to save SparkML models in
+# mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
 mleap==0.16.0
-mxnet==1.5.0
-pyarrow==0.17.0
+# Required by mlflow.spark
 pyspark==2.4.0
