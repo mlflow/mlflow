@@ -1,14 +1,15 @@
 import gorilla
 import inspect
 import pytest
+from unittest.mock import Mock, call
 
 import mlflow
 from mlflow.utils.autologging_utils import (
     get_unspecified_default_args,
     log_fn_args_as_params,
     wrap_patch,
+    resolve_input_example_and_signature,
 )
-
 
 # Example function signature we are testing on
 # def fn(arg1, default1=1, default2=2):
@@ -171,3 +172,94 @@ def test_wrap_patch_with_module():
 
     assert after == before
     assert mlflow.log_param("foo", "bar") == ("foo", "bar")
+
+
+@pytest.fixture()
+def logger():
+    return Mock()
+
+
+def get_input_example():
+    return "data"
+
+
+def infer_model_signature(_):
+    return "signature"
+
+
+def test_if_getting_input_example_fails(logger):
+    error_msg = "NoneType has no whatever"
+
+    def throws():
+        raise Exception(error_msg)
+
+    input_example, signature = resolve_input_example_and_signature(
+        throws, infer_model_signature, True, True, logger
+    )
+
+    assert input_example is None
+    assert signature is None
+    calls = [
+        call("Failed to gather input example: " + error_msg),
+        call(
+            "Failed to infer model signature: "
+            + "could not sample data to infer model signature: "
+            + error_msg
+        ),
+    ]
+    assert logger.warning.has_calls(calls)
+
+
+def test_if_model_signature_inference_fails(logger):
+    error_msg = "stack overflow"
+
+    def throws(_):
+        raise Exception(error_msg)
+
+    input_example, signature = resolve_input_example_and_signature(
+        get_input_example, throws, True, True, logger
+    )
+
+    assert input_example == "data"
+    assert signature is None
+    logger.warning.assert_called_with("Failed to infer model signature: " + error_msg)
+
+
+def test_happy_path_works(logger):
+    input_example, signature = resolve_input_example_and_signature(
+        get_input_example, infer_model_signature, True, True, logger
+    )
+
+    assert input_example == "data"
+    assert signature == "signature"
+    logger.warning.assert_not_called()
+
+
+def test_avoids_collecting_input_example_if_not_needed(logger):
+    # We create a get_input_example that modifies the value of x
+    # If get_input_example was not invoked, x should not have been modified.
+
+    x = {"data": 0}
+
+    def modifies():
+        x["data"] = 1
+
+    resolve_input_example_and_signature(modifies, infer_model_signature, False, False, logger)
+
+    assert x["data"] == 0
+    logger.warning.assert_not_called()
+
+
+def test_avoids_inferring_signature_if_not_needed(logger):
+    # We create an infer_model_signature that modifies the value of x
+    # If infer_model_signature was not invoked, x should not have been modified.
+
+    x = {"data": 0}
+
+    def modifies(_):
+        x["data"] = 1
+
+    resolve_input_example_and_signature(get_input_example, modifies, True, False, logger)
+
+    assert x["data"] == 0
+    logger.warning.assert_not_called()

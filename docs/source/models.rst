@@ -292,7 +292,8 @@ R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The ``crate`` model flavor defines a generic model format for representing an arbitrary R prediction
-function as an MLflow model. The prediction function is expected to take a dataframe as input and
+function as an MLflow model using the ``crate`` function from the
+`carrier <https://github.com/r-lib/carrier>`_ package. The prediction function is expected to take a dataframe as input and
 produce a dataframe, a vector or a list with the predictions as output.
 
 This flavor requires R to be installed in order to be used.
