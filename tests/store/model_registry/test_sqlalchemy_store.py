@@ -752,7 +752,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context:
             search_versions("run_id IN")
         assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        assert "Invalid filter" in exception_context.exception.message
+        assert "Invalid clause(s) in filter string" in exception_context.exception.message
 
         with self.assertRaises(MlflowException) as exception_context:
             search_versions("run_id IN (,)")
