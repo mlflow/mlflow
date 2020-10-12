@@ -105,8 +105,8 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
         os.path.join(artifact_path_expected, "summary_bar_plot.png"),
     }
 
-    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
 
     explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, 100))
     shap_values_expected = explainer.shap_values(X)
@@ -135,8 +135,8 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
         os.path.join(artifact_path_expected, "summary_bar_plot.png"),
     }
 
-    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
 
     explainer = shap.KernelExplainer(model.predict_proba, shap.kmeans(X, 100))
     shap_values_expected = explainer.shap_values(X)
