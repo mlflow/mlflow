@@ -50,7 +50,8 @@ def log_explanation(predict_function, features, artifact_path=None):
 
     :param predict_function: A function to compute the output of a model.
     :param features: A matrix of features to compute SHAP values with.
-    :param artifact_path: A run-relative artifact path the explanation is saved to.
+    :param artifact_path: A run-relative artifact path the explanation is saved to. If unspecified,
+                          defaults to "shap".
 
     :return: A URI of the logged explanation.
 
@@ -100,13 +101,7 @@ def log_explanation(predict_function, features, artifact_path=None):
     _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
     plt.close(fig)
 
-    if isinstance(shap_values, list):
-        base_values = np.array(explainer.expected_value)
-        shap_values = np.array(shap_values)
-    else:
-        base_values = np.array([explainer.expected_value])
-
-    _log_numpy(base_values, _BASE_VALUES_FILE_NAME, artifact_path)
+    _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
     _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
