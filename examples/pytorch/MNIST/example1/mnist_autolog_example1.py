@@ -118,7 +118,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         Computes average validation accuracy
         """
         avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
-        return {"val_loss": avg_loss}
+        self.log("val_loss", avg_loss)
 
     def test_step(self, test_batch, batch_idx):
         """
@@ -197,7 +197,8 @@ class LightningMNISTClassifier(pl.LightningModule):
                 patience=2,
                 min_lr=1e-6,
                 verbose=True,
-            )
+            ),
+            "monitor": "val_loss"
         }
         return [self.optimizer], [self.scheduler]
 
@@ -262,7 +263,7 @@ if __name__ == "__main__":
         callbacks=[lr_logger],
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
-        train_percent_check=0.1,
+        limit_train_batches=0.1,
     )
     trainer.fit(model)
     trainer.test()
