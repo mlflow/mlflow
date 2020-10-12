@@ -63,7 +63,6 @@ def log_explanation(predict_function, features, artifact_path=None):
         from sklearn.linear_model import LinearRegression
 
         import mlflow
-        import mlflow.shap
 
         # prepare training data
         dataset = load_boston()

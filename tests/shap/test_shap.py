@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import pandas as pd
 import pytest
 
-import mlflow.shap
+import mlflow
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "X"])
