@@ -36,9 +36,9 @@ def autolog(log_every_n_iter=1):
             """
             Log loss and other metrics values after each epoch
             """
-            if (pl_module.current_epoch - 1) % every_n_iter == 0:
+            if (pl_module.current_epoch + 1) % every_n_iter == 0:
                 for key, value in trainer.callback_metrics.items():
-                    try_mlflow_log(mlflow.log_metric, key, float(value), step=pl_module.current_epoch)
+                    try_mlflow_log(mlflow.log_metric, key, float(value + 1), step=pl_module.current_epoch)
 
             if trainer.early_stop_callback:
                 self._early_stop_check(trainer.early_stop_callback)
@@ -48,6 +48,7 @@ def autolog(log_every_n_iter=1):
             Logs Optimizer related metrics when the train begins
             """
             mlflow.set_tag(key="Mode", value="training")
+            try_mlflow_log(mlflow.log_param, "epochs", trainer.max_epochs)
             if trainer.early_stop_callback:
                 self._log_early_stop_params(trainer.early_stop_callback)
 
