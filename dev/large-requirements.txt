@@ -5,7 +5,7 @@ h2o
 onnx
 onnxmltools
 onnxruntime
-mleap
+mleap==0.16.0
 mxnet
 pyarrow
 pyspark
@@ -13,7 +13,7 @@ pytest
 pytest-cov
 scipy
 spacy
-tensorflow
+tensorflow==1.15.2
 tf2onnx
 torch
 torchvision
