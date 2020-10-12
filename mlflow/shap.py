@@ -2,9 +2,7 @@ from contextlib import contextmanager
 import os
 import tempfile
 
-import matplotlib.pyplot as plt
 import numpy as np
-import shap
 
 import mlflow
 
@@ -88,6 +86,9 @@ def log_explanation(predict_function, features, artifact_path=None):
         ['shap/base_values.npy', 'shap/shap_values.npy', 'shap/summary_bar_plot.png']
 
     """
+    import matplotlib.pyplot as plt
+    import shap
+
     artifact_path = "shap" if artifact_path is None else artifact_path
     explainer = shap.KernelExplainer(predict_function, shap.kmeans(features, 100))
     shap_values = explainer.shap_values(features)
