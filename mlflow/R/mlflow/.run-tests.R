@@ -9,6 +9,7 @@ use_condaenv(mlflow:::mlflow_conda_env_name())
 keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(), tensorflow="1.15.2")
 reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
+# Pin h2o to prevent version-mismatch between python and R
 reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 
 # TODO(harupy): Add `error_on = "note"` once the issue below has been fixed:
