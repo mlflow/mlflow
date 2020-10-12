@@ -85,6 +85,7 @@ def pytest_ignore_collect(path, config):
             "tests/spacy",
             "tests/spark_autologging",
             "tests/fastai",
+            "tests/shap",
         ]
 
         relpath = os.path.relpath(str(path))
