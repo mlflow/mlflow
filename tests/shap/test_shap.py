@@ -1,14 +1,16 @@
-import os
 from collections import namedtuple
+import os
 
-import pandas as pd
-import pytest
+
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.datasets import load_boston, load_iris
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+import pandas as pd
+import pytest
+
 import mlflow.shap
 
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.datasets import load_boston, load_iris
 
 ModelWithData = namedtuple("ModelWithData", ["model", "X"])
 
