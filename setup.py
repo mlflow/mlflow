@@ -32,7 +32,7 @@ setup(
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
         "alembic<=1.4.1",
-        "azure-storage-blob>=12.0",
+        "azure-storage-blob==12.3.0",
         "click>=7.0",
         "cloudpickle",
         "databricks-cli>=0.8.7",
