@@ -63,7 +63,7 @@ setup(
         "docker>=4.0.0",
         "entrypoints",
         # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-        "sqlparse>=0.3.1",
+        "sqlparse==0.3.1",
         "sqlalchemy<=1.3.13",
         "gorilla",
         "prometheus-flask-exporter",
