@@ -1,11 +1,11 @@
 # Small test reqs
-botocore==1.12.84  # pinned for moto
-moto==1.3.7
-mxnet==1.5.0
-matplotlib==3.2.1
-scipy==1.2.1
-pyarrow==0.17.0
-pysftp==0.2.9
+botocore
+moto
+mxnet
+matplotlib
+scipy
+pyarrow
+pysftp
 attrdict==2.0.0
 pytest==3.2.1
 pytest-cov==2.6.0
