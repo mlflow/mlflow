@@ -42,22 +42,22 @@ public class HostCredsProviderChainTest {
     // If we have valid credentials, we should be used.
     providedHostCreds = new BasicMlflowHostCreds("new-host");
     Assert.assertEquals(chain.getHostCreds().getHost(), "new-host");
-    Assert.assertNull(chain.getHostCreds().getToken());
+    Assert.assertNull(chain.getHostCreds().getToken(false));
 
     // If our credentials are invalid, we should be skipped.
     providedHostCreds = new BasicMlflowHostCreds(null);
     Assert.assertEquals(chain.getHostCreds().getHost(), "hosty");
-    Assert.assertEquals(chain.getHostCreds().getToken(), "tokeny");
+    Assert.assertEquals(chain.getHostCreds().getToken(false), "tokeny");
 
     // If we return null, we should be skipped.
     providedHostCreds = null;
     Assert.assertEquals(chain.getHostCreds().getHost(), "hosty");
-    Assert.assertEquals(chain.getHostCreds().getToken(), "tokeny");
+    Assert.assertEquals(chain.getHostCreds().getToken(false), "tokeny");
 
     // If we return an exception, we should be skipped.
     throwException = true;
     Assert.assertEquals(chain.getHostCreds().getHost(), "hosty");
-    Assert.assertEquals(chain.getHostCreds().getToken(), "tokeny");
+    Assert.assertEquals(chain.getHostCreds().getToken(false), "tokeny");
   }
 
   @Test

@@ -52,7 +52,7 @@ public class BasicMlflowHostCreds implements MlflowHostCreds, MlflowHostCredsPro
   }
 
   @Override
-  public String getToken() {
+  public String getToken(boolean forceRefreshToken) {
     return token;
   }
 

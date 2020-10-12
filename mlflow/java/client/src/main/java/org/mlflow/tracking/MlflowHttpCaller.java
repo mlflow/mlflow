@@ -66,6 +66,12 @@ class MlflowHttpCaller {
     int timeLeft = maxRateLimitIntervalMillis;
     int sleepFor = rateLimitRetrySleepInitMillis;
     HttpResponse response = httpClient.execute(request);
+    if (response.getStatusLine().getStatusCode() == 401) {
+      MlflowHostCreds hostCreds = hostCredsProvider.getHostCreds();
+      String token = hostCreds.getToken(true);
+      request.addHeader("Authorization", "Bearer " + token);
+      response = httpClient.execute(request);
+    }
     while (response.getStatusLine().getStatusCode() == 429 && timeLeft > 0) {
       logger.warn("Request returned with status code 429 (Rate limit exceeded). Retrying after "
                   + sleepFor
@@ -162,7 +168,7 @@ class MlflowHttpCaller {
     request.setURI(URI.create(uri));
     String username = hostCreds.getUsername();
     String password = hostCreds.getPassword();
-    String token = hostCreds.getToken();
+    String token = hostCreds.getToken(false);
     if (username != null && password != null) {
       String authHeader = Base64.getEncoder()
         .encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
