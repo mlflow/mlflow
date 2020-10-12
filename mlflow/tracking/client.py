@@ -117,7 +117,7 @@ class MlflowClient(object):
             with mlflow.start_run() as run:
                 mlflow.log_param("p", 0)
 
-            # The run has finished since we have existed the with block
+            # The run has finished since we have exited the with block
             # Fetch the run
             client = MlflowClient()
             run = client.get_run(run.info.run_id)
@@ -164,11 +164,11 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
-            # Create a run with a tag under an experiment whose default id is '0'.
+            # Create a run with a tag under the default experiment (whose id is '0').
             tags = {"engineering": "ML Platform"}
             client = MlflowClient()
-            expirement_id = "0"
-            run = client.create_run(expirement_id, tags=tags)
+            experiment_id = "0"
+            run = client.create_run(experiment_id, tags=tags)
 
             # Show newly created run metadata info
             print("Run tags: {}".format(run.data.tags))
@@ -488,7 +488,7 @@ class MlflowClient(object):
                 print("metrics: {}".format(r.data.metrics))
                 print("status: {}".format(r.info.status))
 
-            # Create a run under an experiment whose default id is'0'.
+            # Create a run under the default experiment (whose id is '0').
             # Since these are low-level CRUD operations, this method will create a run.
             # To end the run, you'll have to explicitly end it.
             client = MlflowClient()
@@ -535,7 +535,7 @@ class MlflowClient(object):
                 print("params: {}".format(r.data.params))
                 print("status: {}".format(r.info.status))
 
-            # Create a run under an experiment whose default id is'0'.
+            # Create a run under the default experiment (whose id is '0').
             # Since these are low-level CRUD operations, this method will create a run.
             # To end the run, you'll have to explicitly end it.
             client = MlflowClient()
@@ -613,7 +613,7 @@ class MlflowClient(object):
                 print("run_id: {}".format(run.info.run_id))
                 print("Tags: {}".format(run.data.tags))
 
-            # Create a run under an experiment whose default id is '0'.
+            # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
             experiment_id = "0"
             run = client.create_run(experiment_id)
@@ -652,11 +652,11 @@ class MlflowClient(object):
                 print("run_id: {}".format(run.info.run_id))
                 print("Tags: {}".format(run.data.tags))
 
-            # Create a run under an experiment whose default id is'0'.
+            # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
             tags = {"t1": 1, "t2": 2}
-            experimnent_id = "0"
-            run = client.create_run(experimnent_id, tags=tags)
+            experiment_id = "0"
+            run = client.create_run(experiment_id, tags=tags)
             print_run_info(run)
             print("--")
 
@@ -703,7 +703,7 @@ class MlflowClient(object):
                 print("tags: {}".format(r.data.tags))
                 print("status: {}".format(r.info.status))
 
-            # Create MLflow entities and a run under an experiment whose default id is '0'.
+            # Create MLflow entities and a run under the default experiment (whose id is '0').
             timestamp = int(time.time() * 1000)
             metrics = [Metric('m', 1.5, timestamp, 1)]
             params = [Param("p", 'p')]
@@ -745,10 +745,10 @@ class MlflowClient(object):
             with open("features.txt", 'w') as f:
                 f.write(features)
 
-            # Create a run under an experiment whose default id is '0'.
+            # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
-            expermient_id = "0"
-            run = client.create_run(expermient_id)
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
 
             # log and fetch the artifact
             client.log_artifact(run.info.run_id, "features.txt")
@@ -790,11 +790,11 @@ class MlflowClient(object):
             with open("data/features.txt", 'w') as f:
                 f.write(features)
 
-            # Create a run under an experiment whose default id is '0', and log
+            # Create a run under the default experiment (whose id is '0'), and log
             # all files in "data" to root artifact_uri/states
             client = MlflowClient()
-            expermient_id = "0"
-            run = client.create_run(expermient_id)
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             client.log_artifacts(run.info.run_id, "data", artifact_path="states")
             artifacts = client.list_artifacts(run.info.run_id)
             for artifact in artifacts:
@@ -841,7 +841,7 @@ class MlflowClient(object):
             features = "rooms zipcode, median_price, school_rating, transport"
             labels = "price"
 
-            # Create a run under an experiment whose default id is'0'.
+            # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
             experiment_id = "0"
             run = client.create_run(experiment_id)
@@ -902,7 +902,7 @@ class MlflowClient(object):
                 print("run_id: {}".format(r.info.run_id))
                 print("status: {}".format(r.info.status))
 
-            # Create a run under an experiment whose default id is '0'.
+            # Create a run under the default experiment (whose id is '0').
             # Since this is low-level CRUD operation, this method will create a run.
             # To end the run, you'll have to explicitly terminate it.
             client = MlflowClient()
@@ -939,10 +939,10 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
-            # Create a run under an experiment whose default id is '0'.
+            # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
-            expirement_id = "0"
-            run = client.create_run(expirement_id)
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             run_id = run.info.run_id
             print("run_id: {}; lifecycle_stage: {}".format(run_id, run.info.lifecycle_stage))
             print("--")
@@ -969,10 +969,10 @@ class MlflowClient(object):
 
             from mlflow.tracking import MlflowClient
 
-            # Create a run under an experiment whose default id is '0'.
+            # Create a run under the default experiment (whose id is '0').
             client = MlflowClient()
-            expermient_id = "0"
-            run = client.create_run(expermient_id)
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
             run_id = run.info.run_id
             print("run_id: {}; lifecycle_stage: {}".format(run_id, run.info.lifecycle_stage))
             client.delete_run(run_id)
