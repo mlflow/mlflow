@@ -87,7 +87,7 @@ def test_log_matplotlib_figure():
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_regression_model(regressor, artifact_path):
+def test_log_explanation_with_regressor(regressor, artifact_path):
     model = regressor.model
     X = regressor.X
 
@@ -116,7 +116,7 @@ def test_log_explanation_regression_model(regressor, artifact_path):
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_classification_model(classifier, artifact_path):
+def test_log_explanation_with_classifier(classifier, artifact_path):
     model = classifier.model
     X = classifier.X
 
