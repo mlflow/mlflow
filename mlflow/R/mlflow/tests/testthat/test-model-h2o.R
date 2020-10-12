@@ -17,7 +17,7 @@ pkgs <- c("RCurl","jsonlite")
 for (pkg in pkgs) {
   if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
 }
-install.packages("h2o")
+install.packages("https://cran.r-project.org/src/contrib/h2o_3.30.1.3.tar.gz", repos=NULL, type="source")
 
 h2o::h2o.init()
 

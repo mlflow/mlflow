@@ -9,8 +9,8 @@ use_condaenv(mlflow:::mlflow_conda_env_name())
 keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(), tensorflow="1.15.2")
 reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
-reticulate::conda_install("h2o", envname = mlflow:::mlflow_conda_env_name())
-reticulate::conda_install("h2o-py", envname = mlflow:::mlflow_conda_env_name())
+reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
+# reticulate::conda_install("h2o-py", envname = mlflow:::mlflow_conda_env_name())
 
 # TODO(harupy): Add `error_on = "note"` once the issue below has been fixed:
 # https://stackoverflow.com/questions/63613301/r-cmd-check-note-unable-to-verify-current-time/63616156#63616156
