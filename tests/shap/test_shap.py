@@ -93,9 +93,8 @@ def test_log_explanation_regression_model(regressor, artifact_path):
     with mlflow.start_run() as run:
         explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
 
+    artifact_path_expected = "shap" if artifact_path is None else artifact_path
     artifacts = set(yield_artifacts(run.info.run_id))
-
-    artifact_path_expected = artifact_path if artifact_path is not None else "shap"
 
     assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
     assert artifacts == {
@@ -104,15 +103,8 @@ def test_log_explanation_regression_model(regressor, artifact_path):
         os.path.join(artifact_path_expected, "summary_bar_plot.png"),
     }
 
-    base_values_path = os.path.join(
-        run.info.artifact_uri, artifact_path_expected, "base_values.npy"
-    )
-    shap_values_path = os.path.join(
-        run.info.artifact_uri, artifact_path_expected, "shap_values.npy"
-    )
-
-    base_values = np.load(base_values_path)
-    shap_values = np.load(shap_values_path)
+    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
 
     assert base_values.shape == (1,)
     assert shap_values.shape == X.shape
@@ -126,9 +118,8 @@ def test_log_explanation_classification_model(classifier, artifact_path):
     with mlflow.start_run() as run:
         explanation_path = mlflow.shap.log_explanation(model.predict_proba, X, artifact_path)
 
+    artifact_path_expected = "shap" if artifact_path is None else artifact_path
     artifacts = set(yield_artifacts(run.info.run_id))
-
-    artifact_path_expected = artifact_path if artifact_path is not None else "shap"
 
     assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
     assert artifacts == {
@@ -137,15 +128,8 @@ def test_log_explanation_classification_model(classifier, artifact_path):
         os.path.join(artifact_path_expected, "summary_bar_plot.png"),
     }
 
-    base_values_path = os.path.join(
-        run.info.artifact_uri, artifact_path_expected, "base_values.npy"
-    )
-    shap_values_path = os.path.join(
-        run.info.artifact_uri, artifact_path_expected, "shap_values.npy"
-    )
-
-    base_values = np.load(base_values_path)
-    shap_values = np.load(shap_values_path)
+    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
 
     assert base_values.shape == (model.n_classes_,)
     assert shap_values.shape == (model.n_classes_, *X.shape)
