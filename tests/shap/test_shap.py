@@ -86,6 +86,7 @@ def test_log_matplotlib_figure():
     assert artifacts == {"test.png", "dir/test.png"}
 
 
+@pytest.mark.large
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
 def test_log_explanation_with_regressor(regressor, artifact_path):
     model = regressor.model
@@ -115,6 +116,7 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
     np.testing.assert_array_equal(base_values, base_values_expected)
 
 
+@pytest.mark.large
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
 def test_log_explanation_with_classifier(classifier, artifact_path):
     model = classifier.model
