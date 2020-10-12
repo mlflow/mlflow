@@ -91,12 +91,13 @@ def test_log_explanation_regression_model(regressor, artifact_path):
     X = regressor.X
 
     with mlflow.start_run() as run:
-        mlflow.shap.log_explanation(model.predict, X, artifact_path)
+        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
 
     artifacts = set(yield_artifacts(run.info.run_id))
 
     artifact_path_expected = artifact_path if artifact_path is not None else "shap"
 
+    assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
     assert artifacts == {
         os.path.join(artifact_path_expected, "base_values.npy"),
         os.path.join(artifact_path_expected, "shap_values.npy"),
@@ -123,12 +124,13 @@ def test_log_explanation_classification_model(classifier, artifact_path):
     X = classifier.X
 
     with mlflow.start_run() as run:
-        mlflow.shap.log_explanation(model.predict_proba, X, artifact_path)
+        explanation_path = mlflow.shap.log_explanation(model.predict_proba, X, artifact_path)
 
     artifacts = set(yield_artifacts(run.info.run_id))
 
     artifact_path_expected = artifact_path if artifact_path is not None else "shap"
 
+    assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
     assert artifacts == {
         os.path.join(artifact_path_expected, "base_values.npy"),
         os.path.join(artifact_path_expected, "shap_values.npy"),

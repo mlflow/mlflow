@@ -5,6 +5,8 @@ import tempfile
 import numpy as np
 
 import mlflow
+from mlflow.utils.uri import append_to_uri_path
+
 
 _SUMMARY_BAR_PLOT_FILE_NAME = "summary_bar_plot.png"
 _BASE_VALUES_FILE_NAME = "base_values.npy"
@@ -106,3 +108,5 @@ def log_explanation(predict_function, features, artifact_path=None):
 
     _log_numpy(base_values, _BASE_VALUES_FILE_NAME, artifact_path)
     _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
+
+    return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
