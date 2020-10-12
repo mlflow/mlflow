@@ -13,7 +13,7 @@ pytest
 pytest-cov
 scipy
 spacy
-tensorflow==1.15.2
+tensorflow
 tf2onnx
 torch
 torchvision
