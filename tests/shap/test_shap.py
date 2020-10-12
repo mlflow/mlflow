@@ -4,6 +4,7 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
+import shap
 from sklearn.datasets import load_boston, load_iris
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import pandas as pd
@@ -106,8 +107,12 @@ def test_log_explanation_regression_model(regressor, artifact_path):
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
 
-    assert base_values.shape == (1,)
-    assert shap_values.shape == X.shape
+    explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, 100))
+    shap_values_expected = explainer.shap_values(X)
+    base_values_expected = np.array(explainer.expected_value)
+
+    np.testing.assert_array_equal(shap_values, shap_values_expected)
+    np.testing.assert_array_equal(base_values, base_values_expected)
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
@@ -131,5 +136,9 @@ def test_log_explanation_classification_model(classifier, artifact_path):
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
 
-    assert base_values.shape == (model.n_classes_,)
-    assert shap_values.shape == (model.n_classes_, *X.shape)
+    explainer = shap.KernelExplainer(model.predict_proba, shap.kmeans(X, 100))
+    shap_values_expected = explainer.shap_values(X)
+    base_values_expected = np.array(explainer.expected_value)
+
+    np.testing.assert_array_equal(shap_values, shap_values_expected)
+    np.testing.assert_array_equal(base_values, base_values_expected)
