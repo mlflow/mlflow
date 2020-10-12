@@ -92,16 +92,16 @@ def log_explanation(predict_function, features, artifact_path=None):
     explainer = shap.KernelExplainer(predict_function, shap.kmeans(features, 100))
     shap_values = explainer.shap_values(features)
 
-    if isinstance(explainer.expected_value, list):
-        base_values = np.array(explainer.expected_value)
-        shap_values = np.array(shap_values)
-    else:
-        base_values = np.float(explainer.expected_value)
-
-    _log_numpy(base_values, _BASE_VALUES_FILE_NAME, artifact_path)
-    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
-
     shap.summary_plot(shap_values, features, plot_type="bar", show=False)
     fig = plt.gcf()
     _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
     plt.close(fig)
+
+    if isinstance(shap_values, list):
+        base_values = np.array(explainer.expected_value)
+        shap_values = np.array(shap_values)
+    else:
+        base_values = np.array([explainer.expected_value])
+
+    _log_numpy(base_values, _BASE_VALUES_FILE_NAME, artifact_path)
+    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)

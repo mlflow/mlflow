@@ -38,13 +38,13 @@ def get_iris():
 def get_boston():
     data = load_boston()
     return (
-        pd.DataFrame(data.data[:, :4], columns=data.feature_names[:4]),
-        pd.Series(data.target, name="target"),
+        pd.DataFrame(data.data[:100, :4], columns=data.feature_names[:4]),
+        pd.Series(data.target[:100], name="target"),
     )
 
 
 @pytest.fixture(scope="module")
-def regression_model():
+def regressor():
     X, y = get_boston()
     model = RandomForestRegressor()
     model.fit(X, y)
@@ -52,7 +52,7 @@ def regression_model():
 
 
 @pytest.fixture(scope="module")
-def classification_model():
+def classifier():
     X, y = get_iris()
     model = RandomForestClassifier()
     model.fit(X, y)
@@ -86,48 +86,64 @@ def test_log_matplotlib_figure():
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_regression_model(regression_model, artifact_path):
-    model = regression_model.model
-    X = regression_model.X
+def test_log_explanation_regression_model(regressor, artifact_path):
+    model = regressor.model
+    X = regressor.X
 
     with mlflow.start_run() as run:
         mlflow.shap.log_explanation(model.predict, X, artifact_path)
 
     artifacts = set(yield_artifacts(run.info.run_id))
 
-    if artifact_path is None:
-        assert artifacts == {
-            "shap/base_values.npy",
-            "shap/shap_values.npy",
-            "shap/summary_bar_plot.png",
-        }
-    else:
-        assert artifacts == {
-            os.path.join(artifact_path, "base_values.npy"),
-            os.path.join(artifact_path, "shap_values.npy"),
-            os.path.join(artifact_path, "summary_bar_plot.png"),
-        }
+    artifact_path_expected = artifact_path if artifact_path is not None else "shap"
+
+    assert artifacts == {
+        os.path.join(artifact_path_expected, "base_values.npy"),
+        os.path.join(artifact_path_expected, "shap_values.npy"),
+        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+    }
+
+    base_values_path = os.path.join(
+        run.info.artifact_uri, artifact_path_expected, "base_values.npy"
+    )
+    shap_values_path = os.path.join(
+        run.info.artifact_uri, artifact_path_expected, "shap_values.npy"
+    )
+
+    base_values = np.load(base_values_path)
+    shap_values = np.load(shap_values_path)
+
+    assert base_values.shape == (1,)
+    assert shap_values.shape == X.shape
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_classification_model(classification_model, artifact_path):
-    model = classification_model.model
-    X = classification_model.X
+def test_log_explanation_classification_model(classifier, artifact_path):
+    model = classifier.model
+    X = classifier.X
 
     with mlflow.start_run() as run:
-        mlflow.shap.log_explanation(model.predict, X, artifact_path)
+        mlflow.shap.log_explanation(model.predict_proba, X, artifact_path)
 
     artifacts = set(yield_artifacts(run.info.run_id))
 
-    if artifact_path is None:
-        assert artifacts == {
-            "shap/base_values.npy",
-            "shap/shap_values.npy",
-            "shap/summary_bar_plot.png",
-        }
-    else:
-        assert artifacts == {
-            os.path.join(artifact_path, "base_values.npy"),
-            os.path.join(artifact_path, "shap_values.npy"),
-            os.path.join(artifact_path, "summary_bar_plot.png"),
-        }
+    artifact_path_expected = artifact_path if artifact_path is not None else "shap"
+
+    assert artifacts == {
+        os.path.join(artifact_path_expected, "base_values.npy"),
+        os.path.join(artifact_path_expected, "shap_values.npy"),
+        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+    }
+
+    base_values_path = os.path.join(
+        run.info.artifact_uri, artifact_path_expected, "base_values.npy"
+    )
+    shap_values_path = os.path.join(
+        run.info.artifact_uri, artifact_path_expected, "shap_values.npy"
+    )
+
+    base_values = np.load(base_values_path)
+    shap_values = np.load(shap_values_path)
+
+    assert base_values.shape == (model.n_classes_,)
+    assert shap_values.shape == (model.n_classes_, *X.shape)
