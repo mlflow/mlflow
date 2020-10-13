@@ -5,8 +5,7 @@ import pathlib
 import posixpath
 import shutil
 import tempfile
-
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
