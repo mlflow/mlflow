@@ -127,7 +127,7 @@ def _listen_for_spark_activity(spark_context):
             "http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental. "
             "Exception:\n%s" % e
         )
-    
+
     # Register context provider for Spark autologging
     from mlflow.tracking.context.registry import _run_context_provider_registry
 
@@ -140,9 +140,10 @@ def autolog():
     if _get_current_listener() is None:
         active_session = _get_active_spark_session()
         if active_session is None:
+
             def __init__(self, *args, **kwargs):
                 original = gorilla.get_original_attribute(SparkSession, "__init__")
-                original(self,*args, **kwargs)
+                original(self, *args, **kwargs)
 
                 _listen_for_spark_activity(self._sc)
 
@@ -153,6 +154,7 @@ def autolog():
             sc = SparkContext.getOrCreate()
 
             _listen_for_spark_activity(sc)
+
 
 def _get_repl_id():
     """

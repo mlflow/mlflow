@@ -24,20 +24,20 @@ def main():
     mlflow.spark.autolog()
 
     # prepare train and test data
-    spark = (SparkSession.builder
-                .config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
-                .master("local[4]")
-                .getOrCreate())
-    df = spark.createDataFrame([
-            (4, "spark i j k"),
-            (5, "l m n"),
-            (6, "spark hadoop spark"),
-            (7, "apache hadoop")], ["id", "text"])
+    spark = (
+        SparkSession.builder.config("spark.jars.packages", "org.mlflow:mlflow-spark:1.11.0")
+        .master("local[4]")
+        .getOrCreate()
+    )
+    df = spark.createDataFrame(
+        [(4, "spark i j k"), (5, "l m n"), (6, "spark hadoop spark"), (7, "apache hadoop")],
+        ["id", "text"],
+    )
     import tempfile
+
     tempdir = tempfile.mkdtemp()
     df.write.csv(os.path.join(tempdir, "my-data-path"), header=True)
-    loaded_df = spark.read.csv(os.path.join(tempdir, "my-data-path"),
-                    header=True, inferSchema=True)
+    loaded_df = spark.read.csv(os.path.join(tempdir, "my-data-path"), header=True, inferSchema=True)
     # Call toPandas() to trigger a read of the Spark datasource. Datasource info
     # (path and format) is logged to the current active run, or the
     # next-created MLflow run if no run is currently active

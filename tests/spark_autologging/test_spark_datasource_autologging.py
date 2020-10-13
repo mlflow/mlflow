@@ -21,7 +21,9 @@ from tests.spark_autologging.utils import spark_session  # pylint: disable=unuse
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
 from tests.spark_autologging.utils import data_format  # pylint: disable=unused-import
 from tests.spark_autologging.utils import file_path  # pylint: disable=unused-import
-from tests.spark_autologging.utils import _get_or_create_spark_session  # pylint: disable=unused-import
+from tests.spark_autologging.utils import (
+    _get_or_create_spark_session,
+)  # pylint: disable=unused-import
 from tests.spark_autologging.utils import _get_mlflow_spark_jar_path
 
 
@@ -52,6 +54,7 @@ def _get_expected_table_info_row(path, data_format, version=None):
 
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
 #   (it is not reset between tests)
+
 
 @pytest.mark.large
 def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):

@@ -22,11 +22,7 @@ def test_enabling_autologging_before_spark_session_works():
     spark_session = _get_or_create_spark_session()
 
     rows = [Row(100)]
-    schema = StructType(
-        [
-            StructField("number2", IntegerType()),
-        ]
-    )
+    schema = StructType([StructField("number2", IntegerType()),])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
     tempdir = tempfile.mkdtemp()
@@ -39,7 +35,7 @@ def test_enabling_autologging_before_spark_session_works():
         .option("inferSchema", "true")
         .load(filepath)
     )
-    
+
     with mlflow.start_run():
         run_id = mlflow.active_run().info.run_id
         read_df.collect()
