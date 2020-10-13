@@ -38,8 +38,15 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
 @pytest.fixture(scope="session")
 def sklearn_knn_model():
+    _logger.warning(os.listdir("/home/runner/work/mlflow/mlflow/mlruns"))
+    _logger.warning(os.listdir("/home/runner/work/mlflow/mlflow/mlruns/0"))
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
