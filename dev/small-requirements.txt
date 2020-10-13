@@ -8,7 +8,7 @@ pyarrow
 pysftp
 attrdict
 pytest==3.2.1
-pytest-cov
+pytest-cov==2.6.0
 pytest-localserver
 kubernetes
 # test plugin
