@@ -94,8 +94,7 @@ def _set_run_tag(run_id, path, version, data_format):
 
 def _listen_for_spark_activity(spark_context):
     if _get_spark_major_version(spark_context) < 3:
-        _logger.warning("Spark autologging unsupported for Spark versions < 3")
-        return
+        raise MlflowException("Spark autologging unsupported for Spark versions < 3")
 
     gw = spark_context._gateway
     params = gw.callback_server_parameters
