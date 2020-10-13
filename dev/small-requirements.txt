@@ -7,7 +7,7 @@ scipy
 pyarrow
 pysftp
 attrdict
-pyteste
+pytest
 pytest-localserver
 kubernetes
 # test plugin
