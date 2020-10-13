@@ -22,7 +22,6 @@ CONDA_DIR=/usr/share/miniconda
 export PATH="$CONDA_DIR/bin:$PATH"
 hash -r
 conda config --set always_yes yes --set changeps1 no
-
 # Useful for debugging any issues with conda
 conda info -a
 conda create -q -n test-environment python=3.6
@@ -40,6 +39,7 @@ if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   retry-with-backoff pip install --quiet -r ./dev/large-requirements.txt
+  retry-with-backoff pip install --quiet -r ./dev/extra-ml-requirements.txt
   # Hack: make sure all spark-* scripts are executable.
   # Conda installs 2 version spark-* scripts and makes the ones spark
   # uses not executable. This is a temporary fix to unblock the tests.
