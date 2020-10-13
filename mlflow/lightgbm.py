@@ -43,9 +43,11 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
+    resolve_input_example_and_signature,
+    _InputExampleInfo,
+    ENSURE_AUTOLOGGING_ENABLED_TEXT,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
 
 FLAVOR_NAME = "lightgbm"
 
@@ -279,7 +281,7 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog():
+def autolog(log_input_example=False, log_model_signature=True):
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
@@ -292,9 +294,41 @@ def autolog():
         - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is not supported.
+
+    :param log_input_example: if True, logs a sample of the training data as part of the model
+                              as an example for future reference. If False, no sample is logged.
+    :param log_model_signature: if True, records the type signature of the inputs and outputs as
+                                part of the model. If False, the signature is not recorded to the
+                                model.
     """
     import lightgbm
     import numpy as np
+
+    # Patching this function so we can get a copy of the data given to Dataset.__init__
+    #   to use as an input example and for inferring the model signature.
+    #   (there is no way to get the data back from a Dataset object once it is consumed by train)
+    # We store it on the Dataset object so the train function is able to read it.
+    def __init__(self, *args, **kwargs):
+        data = args[0] if len(args) > 0 else kwargs.get("data")
+
+        if data is not None:
+            original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
+
+            try:
+                if isinstance(data, str):
+                    raise Exception(
+                        "cannot gather example input when dataset is loaded from a file."
+                    )
+
+                input_example_info = _InputExampleInfo(
+                    input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
+                )
+            except Exception as e:  # pylint: disable=broad-except
+                input_example_info = _InputExampleInfo(error_msg=str(e))
+
+            setattr(self, "input_example_info", input_example_info)
+
+        original(self, *args, **kwargs)
 
     def train(*args, **kwargs):
         def record_eval_results(eval_results):
@@ -391,20 +425,6 @@ def autolog():
         else:
             kwargs["callbacks"] = [callback]
 
-        # We set free_raw_data to false on the Dataset object
-        # so that we can access the original data later.
-        train_data = args[1] if len(args) > 1 else kwargs.get("train_data")
-
-        input_example = None
-        try:
-            if isinstance(train_data.data, str):
-                raise Exception("The input data was of type string.")
-
-            input_example = deepcopy(train_data.data[:INPUT_EXAMPLE_SAMPLE_ROWS])
-        except Exception as e:  # pylint: disable=broad-except
-            msg = "Failed to gather an input example: " + str(e)
-            _logger.warning(msg)
-
         # training model
         model = original(*args, **kwargs)
 
@@ -450,17 +470,32 @@ def autolog():
             finally:
                 shutil.rmtree(tmpdir)
 
-        signature = None
-        try:
-            if input_example is None:
-                raise Exception("failed to gather example input.")
+        # train_set must exist as the original train function already ran successfully
+        train_set = args[1] if len(args) > 1 else kwargs.get("train_set")
 
+        # it is possible that the dataset was constructed before the patched
+        #   constructor was applied, so we cannot assume the input_example_info exists
+        input_example_info = getattr(train_set, "input_example_info", None)
+
+        def get_input_example():
+            if input_example_info is None:
+                raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
+            if input_example_info.error_msg is not None:
+                raise Exception(input_example_info.error_msg)
+            return input_example_info.input_example
+
+        def infer_model_signature(input_example):
             model_output = model.predict(input_example)
-            signature = infer_signature(input_example, model_output)
-        except Exception as e:  # pylint: disable=broad-except
-            input_example = None
-            msg = "Failed to infer the model signature: " + str(e)
-            _logger.warning(msg)
+            model_signature = infer_signature(input_example, model_output)
+            return model_signature
+
+        input_example, signature = resolve_input_example_and_signature(
+            get_input_example,
+            infer_model_signature,
+            log_input_example,
+            log_model_signature,
+            _logger,
+        )
 
         try_mlflow_log(
             log_model,
@@ -475,3 +510,4 @@ def autolog():
         return model
 
     wrap_patch(lightgbm, "train", train)
+    wrap_patch(lightgbm.Dataset, "__init__", __init__)

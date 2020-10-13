@@ -125,4 +125,25 @@ describe('ShowArtifactTextView', () => {
     expect(instance.fetchArtifacts).toBeCalled();
     expect(instance.props.getArtifact).toBeCalled();
   });
+
+  test('should render prettified valid json', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('{"key1": "val1", "key2": "val2"}');
+    });
+    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact };
+    wrapper = mount(<ShowArtifactTextView {...props} />);
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('code').length).toBe(1);
+      expect(wrapper.find('code').text()).toContain('\n');
+      expect(wrapper.find('code').text()).toContain('key1');
+      done();
+    });
+  });
+
+  test('should leave invalid json untouched', () => {
+    const outputText = ShowArtifactTextView.prettifyText('json', '{"hello');
+    expect(outputText).toBe('{"hello');
+  });
 });
