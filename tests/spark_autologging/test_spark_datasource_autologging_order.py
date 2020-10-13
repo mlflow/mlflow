@@ -5,15 +5,21 @@ import mlflow.spark
 import tempfile
 import os
 import shutil
+import time
 
 from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 
+from tests.spark_autologging.utils import _get_or_create_spark_session
+from tests.spark_autologging.utils import _assert_spark_data_logged
+
+
 @pytest.mark.large
-def test_enabling_autologging_before_spark_session_works(spark_test_scoped_session):
-    print(spark_test_scoped_session)
-    print("enabling autolog")
+def test_enabling_autologging_before_spark_session_works():
     mlflow.spark.autolog()
+
+    # creating spark session AFTER autolog was enabled
+    spark_session = _get_or_create_spark_session()
 
     rows = [Row(100)]
     schema = StructType(
@@ -21,14 +27,14 @@ def test_enabling_autologging_before_spark_session_works(spark_test_scoped_sessi
             StructField("number2", IntegerType()),
         ]
     )
-    rdd = spark_test_scoped_session.sparkContext.parallelize(rows)
-    df = spark_test_scoped_session.createDataFrame(rdd, schema)
+    rdd = spark_session.sparkContext.parallelize(rows)
+    df = spark_session.createDataFrame(rdd, schema)
     tempdir = tempfile.mkdtemp()
     filepath = os.path.join(tempdir, "test-data")
     df.write.option("header", "true").format("csv").save(filepath)
 
     read_df = (
-        spark_test_scoped_session.read.format("csv")
+        spark_session.read.format("csv")
         .option("header", "true")
         .option("inferSchema", "true")
         .load(filepath)
@@ -43,3 +49,4 @@ def test_enabling_autologging_before_spark_session_works(spark_test_scoped_sessi
     _assert_spark_data_logged(run=run, path=filepath, data_format="csv")
 
     shutil.rmtree(tempdir)
+    spark_session.stop()
