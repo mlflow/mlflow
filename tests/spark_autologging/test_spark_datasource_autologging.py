@@ -190,8 +190,6 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
 def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     import mlflow.utils.rest_utils
 
-    print(spark_session)
-
     orig = mlflow.utils.rest_utils.http_request
 
     def _slow_api_req_mock(*args, **kwargs):
@@ -235,6 +233,5 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 
 @pytest.mark.large
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
-    print(spark_session)
     spark_session.stop()
     mlflow.spark.autolog()
