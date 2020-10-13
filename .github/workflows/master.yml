@@ -90,7 +90,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
@@ -106,6 +106,7 @@ jobs:
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
     - name: Run tests
