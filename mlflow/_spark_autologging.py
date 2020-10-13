@@ -8,6 +8,7 @@ import gorilla
 from py4j.java_gateway import CallbackServerParameters
 
 from pyspark import SparkContext
+from pyspark.sql import SparkSession
 from mlflow.utils._spark_utils import _get_active_spark_session
 
 import mlflow
@@ -144,12 +145,12 @@ def autolog():
         if active_session is None:
             print("no active session")
             def __init__(self, *args, **kwargs):
-                original = gorilla.get_original_attribute(SparkContext, "__init__")
+                original = gorilla.get_original_attribute(SparkSession, "__init__")
                 original(self,*args, **kwargs)
 
-                _listen_for_spark_activity(self)
+                _listen_for_spark_activity(self._sc)
 
-            wrap_patch(SparkContext, "__init__", __init__)
+            wrap_patch(SparkSession, "__init__", __init__)
 
         else:
             print("there was active session")

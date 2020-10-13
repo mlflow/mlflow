@@ -13,7 +13,7 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 try:
-    import pyspark.sql.datafame
+    import pyspark.sql.dataframe
 
     MlflowInferableDataset = Union[
         pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
