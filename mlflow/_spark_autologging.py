@@ -93,7 +93,6 @@ def _set_run_tag(run_id, path, version, data_format):
 
 
 def _listen_for_spark_activity(spark_context):
-    print("AAAA")
     if _get_spark_major_version(spark_context) < 3:
         _logger.warning("Spark autologging unsupported for Spark versions < 3")
     gw = spark_context._gateway
@@ -110,7 +109,6 @@ def _listen_for_spark_activity(spark_context):
         auth_token=params.auth_token,
     )
     gw.start_callback_server(callback_server_params)
-    print("BBBB")
 
     event_publisher = _get_jvm_event_publisher()
     try:
@@ -118,7 +116,6 @@ def _listen_for_spark_activity(spark_context):
         _spark_table_info_listener = PythonSubscriber()
         _spark_table_info_listener.register()
     except Exception as e:
-        print("CCCC")
         gw.shutdown_callback_server()
         raise Exception(
             "Exception while attempting to initialize JVM-side state for "
@@ -134,8 +131,6 @@ def _listen_for_spark_activity(spark_context):
 
     _run_context_provider_registry.register(SparkAutologgingContext)
 
-    print("DDDD")
-
 
 def autolog():
     """Implementation of Spark datasource autologging"""
@@ -143,7 +138,6 @@ def autolog():
     if _get_current_listener() is None:
         active_session = _get_active_spark_session()
         if active_session is None:
-            print("no active session")
             def __init__(self, *args, **kwargs):
                 original = gorilla.get_original_attribute(SparkSession, "__init__")
                 original(self,*args, **kwargs)
@@ -153,7 +147,6 @@ def autolog():
             wrap_patch(SparkSession, "__init__", __init__)
 
         else:
-            print("there was active session")
             # We know SparkContext exists here already, so get it
             sc = SparkContext.getOrCreate()
 
