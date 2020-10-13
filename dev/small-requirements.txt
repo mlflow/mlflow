@@ -7,9 +7,9 @@ scipy
 pyarrow
 pysftp
 attrdict
-pytest
-pytest-cov
-pytest-localserver
+pytest==3.2.1
+pytest-cov==2.6.0
+pytest-localserver==0.5.0
 kubernetes
 # test plugin
 tests/resources/mlflow-test-plugin/

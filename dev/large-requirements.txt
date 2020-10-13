@@ -9,8 +9,8 @@ mleap
 mxnet
 pyarrow
 pyspark
-pytest
-pytest-cov
+pytest==3.2.1
+pytest-cov==2.6.0
 scipy
 spacy
 tensorflow
@@ -25,7 +25,7 @@ pysftp
 keras==2.3.1
 attrdict
 azureml-sdk==1.2.0; python_version >= "3.0"
-pytest-localserver
+pytest-localserver==0.5.0
 kubernetes
 fastai
 matplotlib
