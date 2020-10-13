@@ -685,7 +685,7 @@ def test_delete_tag():
 
 
 @pytest.mark.large
-def test_universal_autolog_calls_specific_autologs_correctly():
+def test_universal_autolog_calls_specific_autologs_correctly(mocker):
     autolog_integrations = mlflow.tracking.fluent.AUTOLOG_INTEGRATIONS
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
@@ -701,13 +701,10 @@ def test_universal_autolog_calls_specific_autologs_correctly():
             for param, type_ in args.items()
         ]
 
-        # create the mock
-        autolog_fn_mock = mock.create_autospec(
-            getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
-        )
-        autolog_fn_mock.__signature__ = inspect.Signature(params)
+        autolog_fn_spy = mocker.spy(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+        autolog_fn_spy.__signature__ = inspect.Signature(params)
 
-        setattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog", autolog_fn_mock)
+        setattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog", autolog_fn_spy)
         autolog_fn = getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
         autolog_fn.assert_not_called()
 

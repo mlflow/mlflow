@@ -45,12 +45,15 @@ def test_subscriber_methods():
 
 @pytest.mark.large
 def test_enabling_autologging_throws_for_wrong_spark_version(
-    spark_session, mock_get_current_listener, capfd
+    spark_session, mock_get_current_listener
 ):
     # pylint: disable=unused-argument
     with mock.patch("mlflow._spark_autologging._get_spark_major_version") as get_version_mock:
         get_version_mock.return_value = 2
-        mlflow.spark.autolog()
-        out, _ = capfd.readouterr()
 
-        assert "Spark autologging unsupported for Spark versions < 3" in out
+        try:
+            with pytest.raises(MlflowException) as exc:
+                mlflow.spark.autolog()
+            assert "Spark autologging unsupported for Spark versions < 3" in exc.value.message
+        finally:
+            spark_session.stop()
