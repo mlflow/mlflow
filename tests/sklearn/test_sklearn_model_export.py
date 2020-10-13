@@ -40,6 +40,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 @pytest.fixture(scope="session")
 def sklearn_knn_model():
+    print("sklearn_knn_model called")
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
