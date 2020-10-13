@@ -95,6 +95,8 @@ def _set_run_tag(run_id, path, version, data_format):
 def _listen_for_spark_activity(spark_context):
     if _get_spark_major_version(spark_context) < 3:
         _logger.warning("Spark autologging unsupported for Spark versions < 3")
+        return
+
     gw = spark_context._gateway
     params = gw.callback_server_parameters
     callback_server_params = CallbackServerParameters(
@@ -117,7 +119,7 @@ def _listen_for_spark_activity(spark_context):
         _spark_table_info_listener.register()
     except Exception as e:
         gw.shutdown_callback_server()
-        raise Exception(
+        raise MlflowException(
             "Exception while attempting to initialize JVM-side state for "
             "Spark datasource autologging. Please create a new Spark session "
             "and ensure you have the mlflow-spark JAR attached to your Spark "
