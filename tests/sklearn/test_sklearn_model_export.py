@@ -45,8 +45,8 @@ _logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope="session")
 def sklearn_knn_model():
-    _logger.info(os.listdir("/home/runner/work/mlflow/mlflow/mlruns"))
-    _logger.info(os.listdir("/home/runner/work/mlflow/mlflow/mlruns/0"))
+    print(os.listdir("/home/runner/work/mlflow/mlflow/mlruns"))
+    print(os.listdir("/home/runner/work/mlflow/mlflow/mlruns/0"))
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
