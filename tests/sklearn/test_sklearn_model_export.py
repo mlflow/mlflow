@@ -40,7 +40,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 @pytest.fixture(scope="module")
 def sklearn_knn_model():
-    print("sklearn_knn_model called")
+    print("id of knn.KNeighborsClassifier", id(knn.KNeighborsClassifier))
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target

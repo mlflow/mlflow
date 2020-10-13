@@ -108,6 +108,7 @@ def fit_func_name(request):
 
 @pytest.fixture(autouse=True, scope="function")
 def force_try_mlflow_log_to_fail(request):
+    print("id of knn.KNeighborsClassifier", id(knn.KNeighborsClassifier))
     # autolog contains multiple `try_mlflow_log`. They unexpectedly allow tests that
     # should fail to pass (without us noticing). To prevent that, temporarily turns
     # warnings emitted by `try_mlflow_log` into errors.
