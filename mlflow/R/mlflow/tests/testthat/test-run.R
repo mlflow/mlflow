@@ -1,5 +1,9 @@
 context("Run")
 
+teardown({
+  mlflow_clear_test_dir("mlruns")
+})
+
 test_that("mlflow can run and save model", {
   mlflow_clear_test_dir("mlruns")
 

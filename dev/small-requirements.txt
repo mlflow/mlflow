@@ -1,21 +1,26 @@
-# Small test reqs
+## Small test reqs
+# Required
 azure-storage-blob==12.3.0
+# Required to log artifacts and models to GCS artifact locations
 google-cloud-storage==1.14.0
+# Required to log artifacts and models to AWS S3 artifact locations
 botocore==1.12.84  # pinned for moto
 boto3==1.9.84      # pinned for moto
-moto==1.3.7
-mxnet==1.5.0
-scikit-learn==0.23.2
-matplotlib==3.2.1
-scipy==1.2.1
+# Required to log artifacts and models to HDFS artifact locations
 pyarrow==0.17.0
+# Required to log artifacts to SFTP artifact locations
 pysftp==0.2.9
+# Required to run the MLflow server against SQL-backed storage
+sqlalchemy==1.3.0
+# Required by the mlflow.projects module, when running projects against
+# a remote Kubernetes cluster
+kubernetes==9.0.0
+## Test-only dependencies
 attrdict==2.0.0
-cloudpickle==1.6.0
 pytest==3.2.1
 pytest-cov==2.6.0
 pytest-localserver==0.5.0
-sqlalchemy==1.3.0
-kubernetes==9.0.0
-# test plugin
+scipy==1.2.1
+moto==1.3.7
+# Test plugin, used to verify correctness of MLflow plugin APIs
 tests/resources/mlflow-test-plugin/

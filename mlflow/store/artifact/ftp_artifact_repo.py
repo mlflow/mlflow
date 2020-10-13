@@ -4,7 +4,7 @@ from ftplib import FTP
 from contextlib import contextmanager
 
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -80,10 +80,11 @@ class FTPArtifactRepository(ArtifactRepository):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)
-                upload_path = relative_path_to_artifact_path(rel_path)
+                rel_upload_path = relative_path_to_artifact_path(rel_path)
+                upload_path = posixpath.join(dest_path, rel_upload_path)
             if not filenames:
                 with self.get_ftp_client() as ftp:
-                    self._mkdir(ftp, posixpath.join(self.path, upload_path))
+                    self._mkdir(ftp, upload_path)
             for f in filenames:
                 if os.path.isfile(os.path.join(root, f)):
                     self.log_artifact(os.path.join(root, f), upload_path)

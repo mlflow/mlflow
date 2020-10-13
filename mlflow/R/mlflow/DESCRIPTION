@@ -45,7 +45,7 @@ Suggests:
   carrier,
   keras,
   lintr,
-  testthat,
+  testthat (>= 2.0.0),
   stringi (< 1.4.4),
   xgboost,
   h2o

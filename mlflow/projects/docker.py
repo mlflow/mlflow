@@ -2,8 +2,9 @@ import logging
 import os
 import posixpath
 import shutil
-from six.moves import urllib
 import tempfile
+import urllib.parse
+import urllib.request
 
 import docker
 
