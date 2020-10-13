@@ -7,7 +7,7 @@ scipy
 pyarrow
 pysftp
 attrdict
-pytest
+pytest==3.2.1
 pytest-cov
 pytest-localserver
 kubernetes
