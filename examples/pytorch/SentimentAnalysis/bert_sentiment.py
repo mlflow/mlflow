@@ -36,9 +36,10 @@ class GPReviewDataset(Dataset):
             add_special_tokens=True,
             max_length=self.max_length,
             return_token_type_ids=False,
-            pad_to_max_length=True,
+            padding="max_length",
             return_attention_mask=True,
             return_tensors="pt",
+            truncation=True
         )
 
         return {
@@ -49,25 +50,76 @@ class GPReviewDataset(Dataset):
         }
 
 
-class BertSentinmentClassifier(pl.LightningModule):
-    def __init__(self, **kwargs):
-        super(BertSentinmentClassifier, self).__init__()
-        self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
-        self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-        self.drop = nn.Dropout(p=0.3)
-        # assigning labels
-        self.class_names = ["negative", "neutral", "positive"]
-        n_classes = len(self.class_names)
-        self.out = nn.Linear(self.bert_model.config.hidden_size, n_classes)
-        self.args = kwargs
 
-    def forward(self, input_ids, attention_mask):
-        _, pooled_output = self.bert_model(
-            input_ids=input_ids, attention_mask=attention_mask
+class BertDataModule(pl.LightningDataModule):
+    def __init__(self, **kwargs):
+        super(BertDataModule, self).__init__()
+        self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
+        self.args = kwargs
+        #self._has_setup_test = True
+
+    @staticmethod
+    def to_sentiment(rating):
+        rating = int(rating)
+        if rating < 2:
+            return 0
+        if rating == 3:
+            return 1
+        else:
+            return 2
+
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage):
+        # reading  the input
+        df = pd.read_csv("https://drive.google.com/uc?id=1zdmewp7ayS4js4VtrJEHzAheSW-5NBZv")
+        print("data_shape {}".format(df.shape))
+
+        # setting sentiment
+        df["sentiment"] = df.score.apply(self.to_sentiment)
+
+        self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
+        sample_txt = "when was i last outside? i am stuck at home for 2 weeks."
+
+        self.encoding = self.tokenizer.encode_plus(
+            sample_txt,
+            max_length=32,
+            add_special_tokens=True,
+            return_token_type_ids=False,
+            pad_to_max_length=True,
+            return_attention_mask=True,
+            return_tensors="pt",
+            truncation=True
         )
-        output = self.drop(pooled_output)
-        F.softmax(output, dim=1)
-        return self.out(output)
+
+        token_lens = []
+
+        for txt in df.content:
+            tokens = self.tokenizer.encode(txt, max_length=512, truncation=True)
+            token_lens.append(len(tokens))
+
+        self.MAX_LEN = 160
+
+
+
+        self.BATCH_SIZE = 16
+        RANDOM_SEED = 42
+        np.random.seed(RANDOM_SEED)
+        torch.manual_seed(RANDOM_SEED)
+
+        df_train, df_test = train_test_split(
+            df, test_size=0.1, random_state=RANDOM_SEED
+        )
+        df_val, df_test = train_test_split(
+            df_test, test_size=0.5, random_state=RANDOM_SEED
+        )
+
+        self.df_train = df_train
+        self.df_test = df_test
+        self.df_val = df_val
+
+
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -86,69 +138,8 @@ class BertSentinmentClassifier(pl.LightningModule):
             metavar="N",
             help="number of workers (default: 0)",
         )
-        parser.add_argument(
-            "--lr",
-            type=float,
-            default=1e-3,
-            metavar="LR",
-            help="learning rate (default: 1e-3)",
-        )
         return parser
 
-    @staticmethod
-    def to_sentiment(rating):
-        rating = int(rating)
-        if rating < 2:
-            return 0
-        if rating == 3:
-            return 1
-        else:
-            return 2
-
-    def prepare_data(self):
-        print("preparing the data")
-
-        # reading  the input
-        df = pd.read_csv("https://drive.google.com/uc?id=1zdmewp7ayS4js4VtrJEHzAheSW-5NBZv")
-        print("data_shape {}".format(df.shape))
-
-        # setting sentiment
-        df["sentiment"] = df.score.apply(self.to_sentiment)
-
-        self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-        sample_txt = "when was i last outside? i am stuck at home for 2 weeks."
-
-        self.encoding = self.tokenizer.encode_plus(
-            sample_txt,
-            max_length=32,
-            add_special_tokens=True,  # Add '[CLS]' and '[SEP]'
-            return_token_type_ids=False,
-            pad_to_max_length=True,
-            return_attention_mask=True,
-            return_tensors="pt",  # Return PyTorch tensors
-            truncation=True,
-        )
-
-        token_lens = []
-
-        for txt in df.content:
-            tokens = self.tokenizer.encode(txt, max_length=512, truncation=True)
-            token_lens.append(len(tokens))
-
-        self.MAX_LEN = 160
-
-        RANDOM_SEED = 42
-        np.random.seed(RANDOM_SEED)
-        torch.manual_seed(RANDOM_SEED)
-
-        self.df_train, df_test = train_test_split(
-            df, test_size=0.1, random_state=RANDOM_SEED
-        )
-        self.df_val, self.df_test = train_test_split(
-            df_test, test_size=0.5, random_state=RANDOM_SEED
-        )
-
-        self.BATCH_SIZE = 16
 
     def create_data_loader(self, df, tokenizer, max_len, batch_size):
         ds = GPReviewDataset(
@@ -180,6 +171,41 @@ class BertSentinmentClassifier(pl.LightningModule):
             self.df_test, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.test_data_loader
+
+
+
+class BertSentinmentClassifier(pl.LightningModule):
+    def __init__(self, **kwargs):
+        super(BertSentinmentClassifier, self).__init__()
+        self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
+        self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
+        self.drop = nn.Dropout(p=0.3)
+        # assigning labels
+        self.class_names = ["negative", "neutral", "positive"]
+        n_classes = len(self.class_names)
+        self.out = nn.Linear(self.bert_model.config.hidden_size, n_classes)
+        self.args = kwargs
+
+    def forward(self, input_ids, attention_mask):
+        _, pooled_output = self.bert_model(
+            input_ids=input_ids, attention_mask=attention_mask
+        )
+        output = self.drop(pooled_output)
+        F.softmax(output, dim=1)
+        return self.out(output)
+
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        parser.add_argument(
+            "--lr",
+            type=float,
+            default=1e-3,
+            metavar="LR",
+            help="learning rate (default: 1e-3)",
+        )
+        return parser
+
 
     def training_step(self, train_batch, batch_idx):
         """training the data as batches and returns training loss on each batch"""
@@ -273,11 +299,18 @@ if __name__ == "__main__":
     )
     parser = BertSentinmentClassifier.add_model_specific_args(parent_parser=parser)
 
+    parser = BertDataModule.add_model_specific_args(parent_parser=parser)
+
     autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
     mlflow.set_tracking_uri(dict_args['tracking_uri'])
+
+    dm = BertDataModule(**dict_args)
+    dm.prepare_data()
+    dm.setup(stage="fit")
+
     model = BertSentinmentClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
@@ -297,6 +330,7 @@ if __name__ == "__main__":
         early_stop_callback=early_stopping,
         checkpoint_callback=checkpoint_callback,
         train_percent_check=0.1,
+
     )
-    trainer.fit(model)
+    trainer.fit(model, dm)
     trainer.test()
