@@ -108,7 +108,7 @@ def fit_func_name(request):
 
 @pytest.fixture(autouse=True, scope="function")
 def force_try_mlflow_log_to_fail(request):
-    from sklearn import knn
+    import sklearn.neighbors as knn
 
     print("id of knn.KNeighborsClassifier", id(knn.KNeighborsClassifier))
     # autolog contains multiple `try_mlflow_log`. They unexpectedly allow tests that
