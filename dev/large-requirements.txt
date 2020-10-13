@@ -10,7 +10,6 @@ mxnet
 pyarrow
 pyspark
 pytest
-pytest-cov
 scipy
 spacy
 tensorflow
