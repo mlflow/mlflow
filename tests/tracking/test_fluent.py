@@ -701,7 +701,9 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker):
             for param, type_ in args.items()
         ]
 
-        autolog_fn_spy = mocker.spy(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+        autolog_fn_spy = mocker.spy(
+            getattr(mlflow, autolog_integrations[integration_name]), "autolog"
+        )
         autolog_fn_spy.__signature__ = inspect.Signature(params)
 
         setattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog", autolog_fn_spy)
