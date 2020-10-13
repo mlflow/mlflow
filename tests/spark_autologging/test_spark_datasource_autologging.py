@@ -190,6 +190,8 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
 def test_autologging_slow_api_requests(spark_session, format_to_file_path):
     import mlflow.utils.rest_utils
 
+    print(spark_session)
+
     orig = mlflow.utils.rest_utils.http_request
 
     def _slow_api_req_mock(*args, **kwargs):
@@ -233,50 +235,6 @@ def test_autologging_slow_api_requests(spark_session, format_to_file_path):
 
 @pytest.mark.large
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
+    print(spark_session)
     spark_session.stop()
     mlflow.spark.autolog()
-
-
-@pytest.fixture()
-def spark_test_scoped_session():
-    jar_path = _get_mlflow_spark_jar_path()
-    session = SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()
-    print("session exists")
-    yield session
-    session.stop()
-
-
-# using a NEW SparkSession in this test (the previous one was stopped in the previous test)
-@pytest.mark.large
-def test_enabling_autologging_before_spark_session_works(spark_test_scoped_session):
-    print("enabling autolog")
-    mlflow.spark.autolog()
-
-    rows = [Row(100)]
-    schema = StructType(
-        [
-            StructField("number2", IntegerType()),
-        ]
-    )
-    rdd = spark_test_scoped_session.sparkContext.parallelize(rows)
-    df = spark_test_scoped_session.createDataFrame(rdd, schema)
-    tempdir = tempfile.mkdtemp()
-    filepath = os.path.join(tempdir, "test-data")
-    df.write.option("header", "true").format("csv").save(filepath)
-
-    read_df = (
-        spark_test_scoped_session.read.format("csv")
-        .option("header", "true")
-        .option("inferSchema", "true")
-        .load(filepath)
-    )
-    
-    with mlflow.start_run():
-        run_id = mlflow.active_run().info.run_id
-        read_df.collect()
-        time.sleep(1)
-
-    run = mlflow.get_run(run_id)
-    _assert_spark_data_logged(run=run, path=filepath, data_format="csv")
-
-    shutil.rmtree(tempdir)
