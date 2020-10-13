@@ -173,7 +173,7 @@ To fetch a specific model version, just supply that version number as part of th
     model_version = 1
 
     model = mlflow.pyfunc.load_model(
-        model_uri=f"models:/{model_name}/{model_version}
+        model_uri=f"models:/{model_name}/{model_version}"
     )
 
     model.predict(data)
@@ -190,7 +190,7 @@ To fetch a model version by stage, simply provide the model stage as part of the
     stage = 'Staging'
 
     model = mlflow.pyfunc.load_model(
-        model_uri=f"models:/{model_name}/{stage}
+        model_uri=f"models:/{model_name}/{stage}"
     )
 
     model.predict(data)
