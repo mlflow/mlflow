@@ -686,10 +686,20 @@ def test_delete_tag():
 
 @pytest.mark.large
 def test_universal_autolog_calls_specific_autologs_correctly(mocker):
-    autolog_integrations = mlflow.tracking.fluent.AUTOLOG_INTEGRATIONS
+    LIBRARY_TO_MLFLOW_MODULE = {
+        "sklearn": "sklearn",
+        "tensorflow": "tensorflow",
+        "keras": "keras",
+        "mxnet.gluon": "gluon",
+        "xgboost": "xgboost",
+        "lightgbm": "lightgbm",
+        "fastai": "fastai",
+        "pyspark": "spark",
+    }
+
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
-    for integration_name in autolog_integrations.keys():
+    for integration_name in LIBRARY_TO_MLFLOW_MODULE.keys():
         # modify the __signature__ of the mock to contain the needed parameters
         args = (
             {"log_input_example": bool, "log_model_signature": bool}
@@ -702,18 +712,22 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker):
         ]
 
         autolog_fn_spy = mocker.spy(
-            getattr(mlflow, autolog_integrations[integration_name]), "autolog"
+            getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog"
         )
         autolog_fn_spy.__signature__ = inspect.Signature(params)
 
-        setattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog", autolog_fn_spy)
-        autolog_fn = getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+        setattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog", autolog_fn_spy)
+        autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog")
         autolog_fn.assert_not_called()
 
     mlflow.autolog(log_input_example=True, log_model_signature=True)
 
-    for integration_name in autolog_integrations.keys():
-        autolog_fn = getattr(getattr(mlflow, autolog_integrations[integration_name]), "autolog")
+    autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE["pyspark"]), "autolog")
+    autolog_fn.assert_called_once_with()
+
+    for integration_name in [x for x in LIBRARY_TO_MLFLOW_MODULE.keys() if x != "pyspark"]:
+        autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog")
+        autolog_fn.assert_not_called()
 
         importlib.__import__(integration_name)
 
