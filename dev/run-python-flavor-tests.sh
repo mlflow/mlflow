@@ -8,7 +8,7 @@ export MLFLOW_HOME=$(pwd)
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-test_dirs=(
+paths=(
   tests/pytorch
   tests/h2o
   tests/onnx
@@ -25,9 +25,14 @@ test_dirs=(
   tests/utils/test_model_utils.py
 )
 
-for dir in "${test_dirs[@]}"; do
-  find $dir -name 'test*.py' | xargs -L 1 pytest --verbose --large
-  echo $?
+pytest_options="--verbose --large"
+
+for path in "${paths[@]}"; do
+  if [ -f "$path" ]; then
+    pytest $path $pytest_options
+  else
+    find $path -name 'test*.py' | xargs -L 1 pytest $pytest_options
+  fi
 done
 
 test $err = 0
