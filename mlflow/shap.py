@@ -86,7 +86,8 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         # print out logged items
         client = mlflow.tracking.MlflowClient()
-        artifacts = [x.path for x in client.list_artifacts(run.info.run_id, "shap")]
+        artifact_path = "model_explanations_shap"
+        artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
         print(artifacts)
 
     .. code-block:: text
