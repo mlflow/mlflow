@@ -47,6 +47,7 @@ setup(
         "protobuf>=3.6.0",
         "gitpython>=2.1.0",
         "pyyaml",
+        "pyarrow",
         "querystring_parser",
         "docker>=4.0.0",
         "entrypoints",
