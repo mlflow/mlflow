@@ -106,6 +106,30 @@ class MlflowClient(object):
 
         :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                  raises an exception.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            with mlflow.start_run() as run:
+                mlflow.log_param("p", 0)
+
+            # The run has finished since we have exited the with block
+            # Fetch the run
+            client = MlflowClient()
+            run = client.get_run(run.info.run_id)
+            print("run_id: {}".format(run.info.run_id))
+            print("params: {}".format(run.data.params))
+            print("status: {}".format(run.info.status))
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: e36b42c587a1413ead7c3b6764120618
+            params: {'p': '0'}
+            status: FINISHED
         """
         return self._tracking_client.get_run(run_id)
 
@@ -128,11 +152,38 @@ class MlflowClient(object):
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param experiment_id: The ID of then experiment to create a run in.
+        :param experiment_id: The string ID of the experiment to create a run in.
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
         :return: :py:class:`mlflow.entities.Run` that was created.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Create a run with a tag under the default experiment (whose id is '0').
+            tags = {"engineering": "ML Platform"}
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id, tags=tags)
+
+            # Show newly created run metadata info
+            print("Run tags: {}".format(run.data.tags))
+            print("Experiment id: {}".format(run.info.experiment_id))
+            print("Run id: {}".format(run.info.run_id))
+            print("lifecycle_stage: {}".format(run.info.lifecycle_stage))
+            print("status: {}".format(run.info.status))
+
+        .. code-block:: text
+            :caption: Output
+
+            Run tags: {'engineering': 'ML Platform'}
+            Experiment id: 0
+            Run id: 65fb9e2198764354bab398105f2e70c1
+            lifecycle_stage: active
+            status: RUNNING
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags)
 
@@ -152,6 +203,45 @@ class MlflowClient(object):
     def list_experiments(self, view_type=None):
         """
         :return: List of :py:class:`mlflow.entities.Experiment`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import ViewType
+
+            def print_experiment_info(experiments):
+                for e in experiments:
+                    print("- experiment_id: {}, name: {}, lifecycle_stage: {}"
+                          .format(e.experiment_id, e.name, e.lifecycle_stage))
+
+            client = MlflowClient()
+            for name in ["Experiment 1", "Experiment 2"]:
+                exp_id = client.create_experiment(name)
+
+            # Delete the last experiment
+            client.delete_experiment(exp_id)
+
+            # Fetch experiments by view type
+            print("Active experiments:")
+            print_experiment_info(client.list_experiments(view_type=ViewType.ACTIVE_ONLY))
+            print("Deleted experiments:")
+            print_experiment_info(client.list_experiments(view_type=ViewType.DELETED_ONLY))
+            print("All experiments:")
+            print_experiment_info(client.list_experiments(view_type=ViewType.ALL))
+
+        .. code-block:: text
+            :caption: Output
+
+            Active experiments:
+            - experiment_id: 0, name: Default, lifecycle_stage: active
+            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
+            Deleted experiments:
+            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
+            All experiments:
+            - experiment_id: 0, name: Default, lifecycle_stage: active
+            - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
+            - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
         return self._tracking_client.list_experiments(view_type)
 
@@ -161,6 +251,29 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         :return: :py:class:`mlflow.entities.Experiment`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            exp_id = client.create_experiment("Experiment")
+            experiment = client.get_experiment(exp_id)
+
+            # Show experiment info
+            print("Name: {}".format(experiment.name))
+            print("Experiment ID: {}".format(experiment.experiment_id))
+            print("Artifact Location: {}".format(experiment.artifact_location))
+            print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Experiment
+            Experiment ID: 1
+            Artifact Location: file:///.../mlruns/1
+            Lifecycle_stage: active
         """
         return self._tracking_client.get_experiment(experiment_id)
 
@@ -168,8 +281,31 @@ class MlflowClient(object):
         """
         Retrieve an experiment by experiment name from the backend store
 
-        :param name: The experiment name.
+        :param name: The experiment name, which is case sensitive.
         :return: :py:class:`mlflow.entities.Experiment`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Case-sensitive name
+            client = MlflowClient()
+            experiment = client.get_experiment_by_name("Default")
+
+            # Show experiment info
+            print("Name: {}".format(experiment.name))
+            print("Experiment ID: {}".format(experiment.experiment_id))
+            print("Artifact Location: {}".format(experiment.artifact_location))
+            print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Default
+            Experiment ID: 0
+            Artifact Location: file:///.../mlruns/0
+            Lifecycle_stage: active
         """
         return self._tracking_client.get_experiment_by_name(name)
 
@@ -179,7 +315,34 @@ class MlflowClient(object):
         :param name: The experiment name. Must be unique.
         :param artifact_location: The location to store run artifacts.
                                   If not provided, the server picks an appropriate default.
-        :return: Integer ID of the created experiment.
+        :return: String as an integer ID of the created experiment.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Create an experiment with a name that is unique and case sensitive.
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+
+            # Fetch experiment metadata information
+            experiment = client.get_experiment(experiment_id)
+            print("Name: {}".format(experiment.name))
+            print("Experiment_id: {}".format(experiment.experiment_id))
+            print("Artifact Location: {}".format(experiment.artifact_location))
+            print("Tags: {}".format(experiment.tags))
+            print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Social NLP Experiments
+            Experiment_id: 1
+            Artifact Location: file:///.../mlruns/1
+            Tags: {'nlp.framework': 'Spark NLP'}
+            Lifecycle_stage: active
         """
         return self._tracking_client.create_experiment(name, artifact_location)
 
@@ -188,6 +351,29 @@ class MlflowClient(object):
         Delete an experiment from the backend store.
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Create an experiment with a name that is unique and case sensitive
+            client = MlflowClient()
+            experiment_id = client.create_experiment("New Experiment")
+            client.delete_experiment(experiment_id)
+
+            # Examine the deleted experiment details.
+            experiment = client.get_experiment(experiment_id)
+            print("Name: {}".format(experiment.name))
+            print("Artifact Location: {}".format(experiment.artifact_location))
+            print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: New Experiment
+            Artifact Location: file:///.../mlruns/1
+            Lifecycle_stage: deleted
         """
         self._tracking_client.delete_experiment(experiment_id)
 
@@ -196,6 +382,42 @@ class MlflowClient(object):
         Restore a deleted experiment unless permanently deleted.
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_experiment_info(experiment):
+                print("Name: {}".format(experiment.name))
+                print("Experiment Id: {}".format(experiment.experiment_id))
+                print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+            # Create and delete an experiment
+            client = MlflowClient()
+            experiment_id = client.create_experiment("New Experiment")
+            client.delete_experiment(experiment_id)
+
+            # Examine the deleted experiment details.
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
+            print("--")
+
+            # Restore the experiment and fetch its info
+            client.restore_experiment(experiment_id)
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: New Experiment
+            Experiment Id: 1
+            Lifecycle_stage: deleted
+            --
+            Name: New Experiment
+            Experiment Id: 1
+            Lifecycle_stage: active
         """
         self._tracking_client.restore_experiment(experiment_id)
 
@@ -204,6 +426,41 @@ class MlflowClient(object):
         Update an experiment's name. The new name must be unique.
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_experiment_info(experiment):
+                print("Name: {}".format(experiment.name))
+                print("Experiment_id: {}".format(experiment.experiment_id))
+                print("Lifecycle_stage: {}".format(experiment.lifecycle_stage))
+
+            # Create an experiment with a name that is unique and case sensitive
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social NLP Experiments")
+
+            # Fetch experiment metadata information
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
+            print("--")
+
+            # Rename and fetch experiment metadata information
+            client.rename_experiment(experiment_id, "Social Media NLP Experiments")
+            experiment = client.get_experiment(experiment_id)
+            print_experiment_info(experiment)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Social NLP Experiments
+            Experiment_id: 1
+            Lifecycle_stage: active
+            --
+            Name: Social Media NLP Experiments
+            Experiment_id: 1
+            Lifecycle_stage: active
         """
         self._tracking_client.rename_experiment(experiment_id, new_name)
 
@@ -219,12 +476,91 @@ class MlflowClient(object):
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Integer training step (iteration) at which was the metric calculated.
                      Defaults to 0.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_run_info(r):
+                print("run_id: {}".format(r.info.run_id))
+                print("metrics: {}".format(r.data.metrics))
+                print("status: {}".format(r.info.status))
+
+            # Create a run under the default experiment (whose id is '0').
+            # Since these are low-level CRUD operations, this method will create a run.
+            # To end the run, you'll have to explicitly end it.
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Log the metric. Unlike mlflow.log_metric this method
+            # does not start a run if one does not exist. It will log
+            # the metric for the run id in the backend store.
+            client.log_metric(run.info.run_id, "m", 1.5)
+            client.set_terminated(run.info.run_id)
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 95e79843cb2c463187043d9065185e24
+            metrics: {}
+            status: RUNNING
+            --
+            run_id: 95e79843cb2c463187043d9065185e24
+            metrics: {'m': 1.5}
+            status: FINISHED
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
     def log_param(self, run_id, key, value):
         """
-        Log a parameter against the run ID. Value is converted to a string.
+        Log a parameter against the run ID.
+
+        :param run_id: The run id to which the param should be logged.
+        :param value: Value is converted to a string.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_run_info(r):
+                print("run_id: {}".format(r.info.run_id))
+                print("params: {}".format(r.data.params))
+                print("status: {}".format(r.info.status))
+
+            # Create a run under the default experiment (whose id is '0').
+            # Since these are low-level CRUD operations, this method will create a run.
+            # To end the run, you'll have to explicitly end it.
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Log the parameter. Unlike mlflow.log_param this method
+            # does not start a run if one does not exist. It will log
+            # the parameter in the backend store
+            client.log_param(run.info.run_id, "p", 1)
+            client.set_terminated(run.info.run_id)
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: e649e49c7b504be48ee3ae33c0e76c93
+            params: {}
+            status: RUNNING
+            --
+            run_id: e649e49c7b504be48ee3ae33c0e76c93
+            params: {'p': '1'}
+            status: FINISHED
         """
         self._tracking_client.log_param(run_id, key, value)
 
@@ -235,6 +571,27 @@ class MlflowClient(object):
         :param experiment_id: String ID of the experiment.
         :param key: Name of the tag.
         :param value: Tag value (converted to a string).
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Create an experiment and set its tag
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social Media NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+
+            # Fetch experiment metadata information
+            experiment = client.get_experiment(experiment_id)
+            print("Name: {}".format(experiment.name))
+            print("Tags: {}".format(experiment.tags))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Social Media NLP Experiments
+            Tags: {'nlp.framework': 'Spark NLP'}
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
@@ -245,6 +602,36 @@ class MlflowClient(object):
         :param run_id: String ID of the run.
         :param key: Name of the tag.
         :param value: Tag value (converted to a string)
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_run_info(run):
+                print("run_id: {}".format(run.info.run_id))
+                print("Tags: {}".format(run.data.tags))
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Set a tag and fetch updated run info
+            client.set_tag(run.info.run_id, "nlp.framework", "Spark NLP")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 4f226eb5758145e9b28f78514b59a03b
+            Tags: {}
+            --
+            run_id: 4f226eb5758145e9b28f78514b59a03b
+            Tags: {'nlp.framework': 'Spark NLP'}
         """
         self._tracking_client.set_tag(run_id, key, value)
 
@@ -254,6 +641,37 @@ class MlflowClient(object):
 
         :param run_id: String ID of the run
         :param key: Name of the tag
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_run_info(run):
+                print("run_id: {}".format(run.info.run_id))
+                print("Tags: {}".format(run.data.tags))
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            tags = {"t1": 1, "t2": 2}
+            experiment_id = "0"
+            run = client.create_run(experiment_id, tags=tags)
+            print_run_info(run)
+            print("--")
+
+            # Delete tag and fetch updated info
+            client.delete_tag(run.info.run_id, "t1")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: b7077267a59a45d78cd9be0de4bc41f5
+            Tags: {'t2': '2', 't1': '1'}
+            --
+            run_id: b7077267a59a45d78cd9be0de4bc41f5
+            Tags: {'t2': '2'}
         """
         self._tracking_client.delete_tag(run_id, key)
 
@@ -268,6 +686,45 @@ class MlflowClient(object):
 
         Raises an MlflowException if any errors occur.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import time
+
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import Metric, Param, RunTag
+
+            def print_run_info(r):
+                print("run_id: {}".format(r.info.run_id))
+                print("params: {}".format(r.data.params))
+                print("metrics: {}".format(r.data.metrics))
+                print("tags: {}".format(r.data.tags))
+                print("status: {}".format(r.info.status))
+
+            # Create MLflow entities and a run under the default experiment (whose id is '0').
+            timestamp = int(time.time() * 1000)
+            metrics = [Metric('m', 1.5, timestamp, 1)]
+            params = [Param("p", 'p')]
+            tags = [RunTag("t", "t")]
+            experiment_id = "0"
+            client = MlflowClient()
+            run = client.create_run(experiment_id)
+
+            # Log entities, terminate the run, and fetch run status
+            client.log_batch(run.info.run_id, metrics=metrics, params=params, tags=tags)
+            client.set_terminated(run.info.run_id)
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: ef0247fa3205410595acc0f30f620871
+            params: {'p': 'p'}
+            metrics: {'m': 1.5}
+            tags: {'t': 't'}
+            status: FINISHED
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
 
@@ -286,6 +743,34 @@ class MlflowClient(object):
 
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            with open("features.txt", 'w') as f:
+                f.write(features)
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+
+            # log and fetch the artifact
+            client.log_artifact(run.info.run_id, "features.txt")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: features.txt
+            is_dir: False
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
@@ -295,6 +780,41 @@ class MlflowClient(object):
 
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+        .. code-block:: python
+            :caption: Example
+
+            import os
+            import json
+
+            # Create some artifacts data to preserve
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            data = {"state": "TX", "Available": 25, "Type": "Detached"}
+
+            # Create couple of artifact files under the local directory "data"
+            os.makedirs("data", exist_ok=True)
+            with open("data/data.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+            with open("data/features.txt", 'w') as f:
+                f.write(features)
+
+            # Create a run under the default experiment (whose id is '0'), and log
+            # all files in "data" to root artifact_uri/states
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            client.log_artifacts(run.info.run_id, "data", artifact_path="states")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: states
+            is_dir: True
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
@@ -315,6 +835,46 @@ class MlflowClient(object):
         :param path: The run's relative artifact path to list from. By default it is set to None
                      or the root artifact path.
         :return: List of :py:class:`mlflow.entities.FileInfo`
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+             def print_artifact_info(artifact):
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+                print("size: {}".format(artifact.file_size))
+
+            features = "rooms zipcode, median_price, school_rating, transport"
+            labels = "price"
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+
+            # Create some artifacts and log under the above run
+            for file, content in [("features", features), ("labels", labels)]:
+                with open("{}.txt".format(file), 'w') as f:
+                    f.write(content)
+                client.log_artifact(run.info.run_id, "{}.txt".format(file))
+
+            # Fetch the logged artifacts
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print_artifact_info(artifact)
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: features.txt
+            is_dir: False
+            size: 53
+            artifact: labels.txt
+            is_dir: False
+            size: 5
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
@@ -339,18 +899,103 @@ class MlflowClient(object):
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
-        :param end_time: If not provided, defaults to the current time."""
+        :param end_time: If not provided, defaults to the current time.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_run_info(r):
+                print("run_id: {}".format(r.info.run_id))
+                print("status: {}".format(r.info.status))
+
+            # Create a run under the default experiment (whose id is '0').
+            # Since this is low-level CRUD operation, this method will create a run.
+            # To end the run, you'll have to explicitly terminate it.
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print_run_info(run)
+            print("--")
+
+            # Terminate the run and fetch updated status. By default,
+            # the status is set to "FINISHED". Other values you can
+            # set are "KILLED", "FAILED", "RUNNING", or "SCHEDULED".
+            client.set_terminated(run.info.run_id, status="KILLED")
+            run = client.get_run(run.info.run_id)
+            print_run_info(run)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 575fb62af83f469e84806aee24945973
+            status: RUNNING
+            --
+            run_id: 575fb62af83f469e84806aee24945973
+            status: KILLED
+        """
         self._tracking_client.set_terminated(run_id, status, end_time)
 
     def delete_run(self, run_id):
-        """
-        Deletes a run with the given ID.
+        """Deletes a run with the given ID.
+
+        :param run_id: The unique run id to delete.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            run_id = run.info.run_id
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, run.info.lifecycle_stage))
+            print("--")
+            client.delete_run(run_id)
+            del_run = client.get_run(run_id)
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, del_run.info.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: a61c7a1851324f7094e8d5014c58c8c8; lifecycle_stage: active
+            run_id: a61c7a1851324f7094e8d5014c58c8c8; lifecycle_stage: deleted
         """
         self._tracking_client.delete_run(run_id)
 
     def restore_run(self, run_id):
         """
         Restores a deleted run with the given ID.
+
+        :param run_id: The unique run id to restore.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            # Create a run under the default experiment (whose id is '0').
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            run_id = run.info.run_id
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, run.info.lifecycle_stage))
+            client.delete_run(run_id)
+            del_run = client.get_run(run_id)
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, del_run.info.lifecycle_stage))
+            client.restore_run(run_id)
+            rest_run = client.get_run(run_id)
+            print("run_id: {}; lifecycle_stage: {}".format(run_id, res_run.info.lifecycle_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: active
+            run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: deleted
+            run_id: 7bc59754d7e74534a7917d62f2873ac0; lifecycle_stage: active
         """
         self._tracking_client.restore_run(run_id)
 
@@ -497,8 +1142,9 @@ class MlflowClient(object):
             :caption: Example
 
             import mlflow
+            from mlflow.tracking import MlflowClient
 
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
 
             # Get search results filtered by the registered model name
             model_name="CordobaWeatherForecastModel"
@@ -757,8 +1403,9 @@ class MlflowClient(object):
             :caption: Example
 
             import mlflow
+            from mlflow.tracking import MlflowClient
 
-            client = mlflow.tracking.MlflowClient()
+            client = MlflowClient()
 
             # Get all versions of the model filtered by name
             model_name = "CordobaWeatherForecastModel"
