@@ -97,12 +97,12 @@ def log_explanation(predict_function, features, artifact_path=None):
     explainer = shap.KernelExplainer(predict_function, shap.kmeans(features, 100))
     shap_values = explainer.shap_values(features)
 
+    _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
+    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
+
     shap.summary_plot(shap_values, features, plot_type="bar", show=False)
     fig = plt.gcf()
     _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
     plt.close(fig)
-
-    _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
-    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
