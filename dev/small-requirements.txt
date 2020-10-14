@@ -1,7 +1,4 @@
 ## Small test reqs
-# Required to log artifacts and models to AWS S3 artifact locations
-botocore==1.12.84  # pinned for moto
-boto3==1.9.84      # pinned for moto
 # Required to log artifacts and models to HDFS artifact locations
 pyarrow==0.17.0
 # Required to log artifacts to SFTP artifact locations
