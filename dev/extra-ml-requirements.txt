@@ -4,7 +4,7 @@
 # Required by mlflow.azureml
 azureml-sdk==1.2.0; python_version >= "3.0"
 # Required by mlflow.pyfunc
-cloudpickle==0.8.0
+cloudpickle==1.6.0
 # Required by mlflow.keras
 keras==2.3.1
 # Required by mlflow.sklearn
@@ -18,7 +18,7 @@ spacy==2.2.3
 # Required by mlflow.tensorflow
 tensorflow==1.15.2
 # Required by mlflow.pytorch
-torch==1.4.0
+torch==1.6.0
 torchvision==0.5.0
 # Required by mlflow.xgboost
 xgboost>=0.82
