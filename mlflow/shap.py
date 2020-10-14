@@ -52,7 +52,8 @@ def log_explanation(predict_function, features, artifact_path=None):
         - summary bar plot (shows the average impact of each feature on model output)
 
     :param predict_function: A function to compute the output of a model.
-    :param features: A matrix of features to compute SHAP values with.
+    :param features: A matrix of features to compute SHAP values with. The provided features should have shape  
+     (nsamples, nfeatures), and can be either a numpy array, pandas DataFrame, or list of lists.
     :param artifact_path: The run-relative artifact path to which the explanation is saved. If unspecified,
                           defaults to "shap".
 
