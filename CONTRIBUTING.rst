@@ -28,7 +28,7 @@ Details about each issue type and the issue lifecycle are discussed in the `MLfl
 <https://github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md>`_.
 
 MLflow committers actively `triage <ISSUE_TRIAGE.rst>`_ and respond to GitHub issues. In general, we
-recommend waiting for feebdack from an MLflow committer or community member before proceeding to 
+recommend waiting for feedback from an MLflow committer or community member before proceeding to 
 implement a feature or patch. This is particularly important for
 `significant changes <https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst#write-designs-for-significant-changes>`_,
 and will typically be labeled during triage with ``needs design``.
@@ -55,14 +55,13 @@ Write designs for significant changes
 
 For significant changes to MLflow, we recommend outlining a design for the feature or patch and discussing it with
 an MLflow committer before investing heavily in implementation. During issue triage, we try to proactively
-identify issues require design by labeling them with ``needs design``. This is particularly important if your 
+identify issues that require design by labeling them with ``needs design``. This is particularly important if your 
 proposed implementation:
 
 - Introduces changes or additions to the `MLflow REST API <https://mlflow.org/docs/latest/rest-api.html>`_
 
   - The MLflow REST API is implemented by a variety of open source and proprietary platforms. Changes to the REST
-    API impact all of these platforms. Accordingly, we encourage developers to thoroughly explore alternatives
-    before attempting to introduce REST API changes.
+    API impact all of these platforms. Accordingly, we encourage developers to thoroughly explore alternatives before attempting to introduce REST API changes.
 
 - Introduces new user-facing MLflow APIs
 
@@ -72,20 +71,20 @@ proposed implementation:
 
 - Adds new library dependencies to MLflow
 
-- Makes changes to critical internal abstractions. Examples include: the Tracking Artifact Repository,
+- Makes changes to critical internal abstractions. Examples include the Tracking Artifact Repository,
   the Tracking Abstract Store, and the Model Registry Abstract Store.
 
-Make changes backwards compatible
+Make changes backward compatible
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-MLflow's users rely on specific platform and API behaviors in their daily workflows. As new versions
+MLflow's users rely on specific platforms and API behaviors in their daily workflows. As new versions
 of MLflow are developed and released, it is important to ensure that users' workflows continue to
-operate as expected. Accordingly, please take care to consider backwards compatibility when introducing
-changes to the MLflow code base. If you are unsure of the backwards compatibility implications of
+operate as expected. Accordingly, please take care to consider backward compatibility when introducing
+changes to the MLflow code base. If you are unsure of the backward compatibility implications of
 a particular change, feel free to ask an MLflow committer or community member for input.
 
 Consider introducing new features as MLflow Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-`MLflow Plugins <https://mlflow.org/docs/latest/plugins.html>`_ enable integration of third-party modules with many of
+`MLflow Plugins <https://mlflow.org/docs/latest/plugins.html>`_ enable the integration of third-party modules with many of
 MLflow’s components, allowing you to maintain and iterate on certain features independently of the MLflow Repository.
 Before implementing changes to the MLflow code base, consider whether your feature might be better structured as an
 MLflow Plugin. MLflow Plugins are a great choice for the following types of changes:
@@ -132,7 +131,7 @@ Enable it by running:
 
     git config core.hooksPath hooks
 
-Then, install the Python MLflow package from source - this is required for developing & testing
+Then, install the Python MLflow package from the source - this is required for developing & testing
 changes across all languages and APIs. We recommend installing MLflow in its own conda environment
 by running the following from your checkout of MLflow:
 
@@ -212,7 +211,7 @@ verifying the version of your installation via ``pandoc --version``. If using Ma
 the homebrew installation of pandoc may be out of date - you can find newer pandoc versions at
 https://github.com/jgm/pandoc/releases.
 
-The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking and Models
+The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking, and Model
 components. These wrappers depend on the Python package, so first install
 the Python package in a conda environment:
 
@@ -220,7 +219,7 @@ the Python package in a conda environment:
 
   # Note that we don't pass the -e flag to pip, as the R tests attempt to run the MLflow UI
   # via the CLI, which will not work if we run against the development tracking server
-  pip install .
+  pip install.
 
 `Install R <https://cloud.r-project.org/>`_, then run the following to install dependencies for
 building MLflow locally:
@@ -235,7 +234,7 @@ Build the R client via:
 
 .. code-block:: bash
 
-  R CMD build .
+  R CMD build.
 
 Run tests:
 
@@ -275,7 +274,7 @@ Certain MLflow modules are implemented in Java, under the ``mlflow/java/`` direc
 These are the Java Tracking API client (``mlflow/java/client``) and the Model Scoring Server
 for Java-based models like MLeap (``mlflow/java/scoring``).
 
-Other Java functionality (like artifact storage) depends on the Python package, so first install
+Other Java functionality (like artifact storage) depends on the Python package, so first, install
 the Python package in a conda environment as described in `Common prerequisites and dependencies`_.
 `Install <https://www.oracle.com/technetwork/java/javase/downloads/index.html>`_
 the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
@@ -296,15 +295,15 @@ including installing ``pytest``, as you will need it for the sections described 
 
 Writing Python Tests
 ++++++++++++++++++++
-If your PR includes code that isn't currently covered by our tests (e.g. adding a new flavor, adding
+If your PR includes code that isn't currently covered by our tests (e.g. adding a new flavor, adding the
 autolog support to a flavor, etc.), you should write tests that cover your new code. Your tests should be added to the relevant file under ``tests``, or
 if there is no appropriate file, in a new file prefixed with ``test_`` so that ``pytest`` includes that
 file for testing.
 
-If your tests require usage of a tracking URI, the
+If your tests require the usage of a tracking URI, the
 `pytest fixture <https://docs.pytest.org/en/3.2.1/fixture.html>`_
 `tracking_uri_mock <https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74>`_ is automatically set up
-for every tests. It sets up a mock tracking URI that will set itself up before your test runs and tear itself down after.
+for every test. It sets up a mock tracking URI that will set itself up before your test runs and tear itself down after.
 
 By default, runs are logged under a local temporary directory that's unique to each test and torn down immediately after
 test execution. To disable this behavior, decorate your test function with ``@pytest.mark.notrackingurimock``
@@ -364,7 +363,9 @@ For the client, if you are adding new model flavors, follow the instructions bel
 Python Model Flavors
 --------------------
 
-If you are adding new framework flavor support, you'll need to modify ``pytest`` and Github action configurations so tests for your code can run properly. Generally, the files you'll have to edit are:
+If you are adding new framework flavor support, you'll need to modify ``pytest`` and 
+Github action configurations so tests for your code can run properly. Generally, the 
+files you'll have to edit are:
 
 1. ``dev/run-small-python-tests.sh``: add your tests to the list of ignored framework tests
 2. ``dev/run-large-python-tests.sh``:
@@ -405,7 +406,7 @@ Verify that .proto files and autogenerated code are in sync by running ``./test-
 
 Database Schema Changes
 -----------------------
-MLflow's Tracking component supports storing experiment and run data in a SQL backend. To
+MLflow's Tracking component supports storing experiment and runs data in a SQL backend. To
 make changes to the tracking database schema, run the following from your
 checkout of MLflow:
 
@@ -425,11 +426,11 @@ that you should then edit to add migration logic.
 
 Writing MLflow Examples
 ~~~~~~~~~~~~~~~~~~~~~~~
-The ``mlflow/examples`` directory has a collection of quickstart tutorials and various simple examples that depict MLflow tracking,
-project, model flavors, model registry, and serving use cases. These examples provide developers sample code, as a quick way to
-learn MLflow Python APIs.
+The ``mlflow/examples`` directory has a collection of quickstart tutorials and various simple 
+examples that depict MLflow tracking, project, model flavors, model registry, and serving use cases. 
+These examples provide developers with sample code, as a quick way to learn MLflow Python APIs.
 
-To facilitate review, strive for brief examples that reflect real user workflows, document how to run your example,
+To facilitate a review(s), strive for brief examples that reflect real user workflows, document how to run your example,
 and follow the recommended steps below.
 
 If you are contributing a new model flavor, follow these steps:
@@ -446,7 +447,7 @@ If you are contributing to the quickstart directory, we welcome changes to the `
 
 If you'd like to provide an example of functionality that doesn't fit into the above categories, follow these steps:
 
-1. Create a directory with meaningful name in ``mlflow/examples/new-program-name`` and implement your Python code
+1. Create a directory with a meaningful name in ``mlflow/examples/new-program-name`` and implement your Python code
 2. Create ``mlflow/examples/new-program-name/README.md`` with instructions how to use it
 3. Read instructions in the ``mlflow/test/examples/README.md``, and add a ``pytest`` entry in the ``test/examples/test_examples.py``
 4. Add a short description in the ``mlflow/examples/README.md`` file
@@ -476,7 +477,7 @@ Writing Docs
 ~~~~~~~~~~~~
 First, install dependencies for building docs as described in `Common prerequisites and dependencies`_.
 
-To generate a live preview of Python & other rst documentation, run the following snippet. Note
+To generate a live preview of Python & other rst related documentation, run the following snippet. Note
 that R & Java API docs must be regenerated separately after each change and are not live-updated;
 see subsequent sections for instructions on generating R and Java docs.
 
@@ -516,14 +517,13 @@ usages of the modified APIs in guides and examples.
 
 If adding a new public Python module, create a corresponding doc file for the module under
 ``docs/source/python_api`` - `see here <https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking>`_
-for an example.
+for example.
 
 
 Sign your work
 ~~~~~~~~~~~~~~
 
-In order to commit your work, you need to sign that you wrote the patch or otherwise have the right 
-to pass it on as an open-source patch. If you can certify the below (from developercertificate.org)::
+In order to commit your work, you need to sign that you wrote the patch or otherwise have the right to pass it on as an open-source patch. If you can certify the below (from developercertificate.org)::
 
   Developer Certificate of Origin
   Version 1.1
@@ -541,21 +541,19 @@ to pass it on as an open-source patch. If you can certify the below (from develo
 
   By making a contribution to this project, I certify that:
 
-  (a) The contribution was created in whole or in part by me and I
-      have the right to submit it under the open source license
+  (a) The contribution was created in whole or in part by me, and I
+      have the right to submit it under the open-source license
       indicated in the file; or
 
   (b) The contribution is based upon previous work that, to the best
       of my knowledge, is covered under an appropriate open source
       license and I have the right under that license to submit that
       work with modifications, whether created in whole or in part
-      by me, under the same open source license (unless I am
+      by me, under the same open-source license (unless I am
       permitted to submit under a different license), as indicated
       in the file; or
 
-  (c) The contribution was provided directly to me by some other
-      person who certified (a), (b) or (c) and I have not modified
-      it.
+  (c) The contribution was provided directly to me by some other person who certified (a), (b), or (c) and I have not modified it.
 
   (d) I understand and agree that this project and the contribution
       are public and that a record of the contribution (including all
