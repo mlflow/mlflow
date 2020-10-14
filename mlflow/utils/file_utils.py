@@ -8,9 +8,10 @@ import sys
 import tarfile
 import tempfile
 
-from six.moves.urllib.request import pathname2url
-from six.moves.urllib.parse import unquote
-from six.moves import urllib
+import urllib.parse
+import urllib.request
+from urllib.parse import unquote
+from urllib.request import pathname2url
 
 import yaml
 

@@ -631,7 +631,7 @@ def create_experiment(name, artifact_location=None):
 
         import mlflow
 
-        # Create an experiment name, which must be unique and case sensitve
+        # Create an experiment name, which must be unique and case sensitive
         experiment_id = mlflow.create_experiment("Social NLP Experiments")
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
@@ -666,9 +666,7 @@ def delete_experiment(experiment_id):
         experiment_id = mlflow.create_experiment("New Experiment")
         mlflow.delete_experiment(experiment_id)
 
-        # Examine the deleted experiment details. Deleted experiments
-        # are moved to a .thrash folder under the artifact location top
-        # level directory.
+        # Examine the deleted experiment details.
         experiment = mlflow.get_experiment(experiment_id)
         print("Name: {}".format(experiment.name))
         print("Artifact Location: {}".format(experiment.artifact_location))
@@ -921,6 +919,9 @@ def list_run_infos(
 
     .. code-block:: python
         :caption: Example
+
+        import mlflow
+        from mlflow.entities import ViewType
 
         # Create two runs
         with mlflow.start_run() as run1:

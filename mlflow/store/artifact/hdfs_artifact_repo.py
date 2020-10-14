@@ -2,8 +2,7 @@ import os
 import posixpath
 import tempfile
 from contextlib import contextmanager
-
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException

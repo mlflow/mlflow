@@ -10,8 +10,8 @@ import textwrap
 import time
 import subprocess
 
-from six.moves.urllib.request import url2pathname
-from six.moves.urllib.parse import urlparse, unquote
+from urllib.request import url2pathname
+from urllib.parse import urlparse, unquote
 
 from mlflow.cli import run, server, ui
 from mlflow.server import handlers
