@@ -95,6 +95,9 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
     with mlflow.start_run() as run:
         explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
 
+    # Assert no figure is open
+    assert len(plt.get_fignums()) == 0
+
     artifact_path_expected = "shap" if artifact_path is None else artifact_path
     artifacts = set(yield_artifacts(run.info.run_id))
 
@@ -124,6 +127,9 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
 
     with mlflow.start_run() as run:
         explanation_path = mlflow.shap.log_explanation(model.predict_proba, X, artifact_path)
+
+    # Assert no figure is open
+    assert len(plt.get_fignums()) == 0
 
     artifact_path_expected = "shap" if artifact_path is None else artifact_path
     artifacts = set(yield_artifacts(run.info.run_id))
