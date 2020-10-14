@@ -716,7 +716,9 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker):
         )
         autolog_fn_spy.__signature__ = inspect.Signature(params)
 
-        setattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog", autolog_fn_spy)
+        setattr(
+            getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog", autolog_fn_spy
+        )
         autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog")
         autolog_fn.assert_not_called()
 
