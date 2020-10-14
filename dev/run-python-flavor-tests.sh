@@ -9,19 +9,19 @@ export MLFLOW_HOME=$(pwd)
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
 paths=(
-  tests/pytorch
-  tests/h2o
-  tests/onnx
-  tests/pyfunc
+  # tests/pytorch
+  # tests/h2o
+  # tests/onnx
+  # tests/pyfunc
   tests/sklearn
-  tests/azureml
-  tests/models
-  tests/xgboost
-  tests/lightgbm
-  tests/gluon
-  tests/gluon_autolog
-  tests/spacy
-  tests/fastai
+  # tests/azureml
+  # tests/models
+  # tests/xgboost
+  # tests/lightgbm
+  # tests/gluon
+  # tests/gluon_autolog
+  # tests/spacy
+  # tests/fastai
   tests/utils/test_model_utils.py
 )
 
@@ -30,8 +30,12 @@ pytest_options="--verbose --large"
 for path in "${paths[@]}"; do
   if [ -f "$path" ]; then
     pytest $path $pytest_options
+    echo $?
   else
-    find $path -name 'test*.py' | xargs -L 1 pytest $pytest_options
+    for path in $(find $path -name 'test*.py'); do
+      pytest $path $pytest_options
+      echo $?
+    done
   fi
 done
 
