@@ -796,7 +796,7 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     assert bad_pickle_module_name in str(exc_info)
 
 
-@pytest.mark.release
+@pytest.mark.skip(reason="not used at Criteo, skipped to avoid timout")
 def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_env(
     model, model_path, data, sequential_predicted
 ):

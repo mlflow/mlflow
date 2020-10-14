@@ -480,7 +480,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         )
 
 
-@pytest.mark.release
+@pytest.mark.skip(reason="not used at Criteo, skipped to avoid timout")
 def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
     reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)

@@ -397,7 +397,7 @@ def test_set_terminated_status(mlflow_client):
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
-def test_artifacts(mlflow_client):
+def test_artifacts(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
     assert experiment_info.artifact_location.startswith(
@@ -428,6 +428,15 @@ def test_artifacts(mlflow_client):
 
     dir_artifacts = mlflow_client.download_artifacts(run_id, "dir")
     assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
+
+    if "sqlite" in backend_store_uri:
+        mlflow_client.update_artifacts_location(run_id, "new_location")
+        assert "new_location/{}".format(run_id) == mlflow_client.get_run(run_id).info.artifact_uri
+    elif "file_store_root" in backend_store_uri:
+        with pytest.raises(MlflowException):
+            mlflow_client.update_artifacts_location(run_id, "new_location")
+    else:
+        pytest.xfail("backend %s not tested for update_artifacts_location" % backend_store_uri)
 
 
 def test_search_pagination(mlflow_client, backend_store_uri):

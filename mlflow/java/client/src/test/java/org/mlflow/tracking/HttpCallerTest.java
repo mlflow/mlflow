@@ -24,16 +24,20 @@ public class HttpCallerTest {
 
   static CloseableHttpResponse response429 = mock(CloseableHttpResponse.class);
   static CloseableHttpResponse response200 = mock(CloseableHttpResponse.class);
+  static CloseableHttpResponse response401 = mock(CloseableHttpResponse.class);
   static StatusLine statusLine200 = mock(StatusLine.class);
   static HttpEntity entity200 = mock(HttpEntity.class);
   static HttpEntity entity429 = mock(HttpEntity.class);
+  static HttpEntity entity401 = mock(HttpEntity.class);
   static String expectedResponseText = "expected response text.";
   static StatusLine statusLine429 = mock(StatusLine.class);
+  static StatusLine statusLine401 = mock(StatusLine.class);
+  static MlflowHostCreds mlflowHostCreds = mock(BasicMlflowHostCreds.class);
 
   MlflowHttpCaller caller = new MlflowHttpCaller(new MlflowHostCredsProvider() {
     @Override
     public MlflowHostCreds getHostCreds() {
-      return new BasicMlflowHostCreds("http://some/host");
+      return mlflowHostCreds;
     }
 
     @Override
@@ -46,6 +50,7 @@ public class HttpCallerTest {
   public void beforeAll() throws IOException {
     when(statusLine200.getStatusCode()).thenReturn(200);
     when(statusLine429.getStatusCode()).thenReturn(429);
+    when(statusLine401.getStatusCode()).thenReturn(401);
     when(response200.getStatusLine()).thenReturn(statusLine200);
     when(entity200.getContent())
             .thenReturn(
@@ -58,6 +63,9 @@ public class HttpCallerTest {
     when(response200.getEntity()).thenReturn(entity200);
     when(response429.getStatusLine()).thenReturn(statusLine429);
     when(response429.getEntity()).thenReturn(entity429);
+    when(response401.getStatusLine()).thenReturn(statusLine401);
+    when(response401.getEntity()).thenReturn(entity401);
+    when(mlflowHostCreds.getToken(true)).thenReturn("token");
   }
 
   @Test
@@ -97,5 +105,14 @@ public class HttpCallerTest {
     ex = Assert.expectThrows(MlflowHttpException.class,
             () -> caller.post("some/path", "{\"attr\":\"val\"}"));
     Assert.assertEquals(429, ex.getStatusCode());
+  }
+
+  @Test
+  public void testRefreshTokenOn401() throws IOException {
+    when(client.execute(any(HttpUriRequest.class)))
+            .thenReturn(response401) // sleep for 1 ms
+            .thenReturn(response200);
+    caller.get("some/path");
+    verify(mlflowHostCreds, times(1)).getToken(true);
   }
 }

@@ -253,8 +253,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     if (hostCreds.getPassword() != null) {
       environment.put("MLFLOW_TRACKING_PASSWORD", hostCreds.getPassword());
     }
-    if (hostCreds.getToken() != null) {
-      environment.put("MLFLOW_TRACKING_TOKEN", hostCreds.getToken());
+    if (hostCreds.getToken(false) != null) {
+      environment.put("MLFLOW_TRACKING_TOKEN", hostCreds.getToken(false));
     }
     if (hostCreds.shouldIgnoreTlsVerification()) {
       environment.put("MLFLOW_TRACKING_INSECURE_TLS", "true");
@@ -272,8 +272,8 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     if (hostCreds.getPassword() != null) {
       environment.put("DATABRICKS_PASSWORD", hostCreds.getPassword());
     }
-    if (hostCreds.getToken() != null) {
-      environment.put("DATABRICKS_TOKEN", hostCreds.getToken());
+    if (hostCreds.getToken(false) != null) {
+      environment.put("DATABRICKS_TOKEN", hostCreds.getToken(false));
     }
     if (hostCreds.shouldIgnoreTlsVerification()) {
       environment.put("DATABRICKS_INSECURE", "true");

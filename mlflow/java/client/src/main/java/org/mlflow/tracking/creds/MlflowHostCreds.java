@@ -23,7 +23,7 @@ public interface MlflowHostCreds {
    * Token to use with Bearer authentication when talking to server.
    * If provided, user/password authentication will be ignored.
    */
-  String getToken();
+  String getToken(boolean forceRefreshToken);
 
   /**
    * If true, we will not verify the server's hostname or TLS certificate.

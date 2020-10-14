@@ -206,6 +206,18 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def list_all_columns(self, experiment_id, run_view_type):
+        """
+        Return the list of all metrics, params and tags from an experiment id
+
+        :param experiment_id: string of the experiment id
+        :param run_view_type: type of runs to select (activated, deactivated or all)
+
+        :return: A Columns object that returns the list of tags, metrics and params
+        """
+        pass
+
     def search_runs(
         self,
         experiment_ids,
@@ -214,6 +226,7 @@ class AbstractStore:
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
+        columns_to_whitelist=None,
     ):
         """
         Return runs that match the given list of search expressions within the experiments.
@@ -225,6 +238,8 @@ class AbstractStore:
         :param order_by: List of order_by clauses.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
+        :param columns_to_whitelist: select columns (tags, params, metrics) to read.
+            None means all columns
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. The pagination token for the next page can be obtained via the ``token``
@@ -232,13 +247,26 @@ class AbstractStore:
             and thus the returned token would not be meaningful in such cases.
         """
         runs, token = self._search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
+            columns_to_whitelist,
         )
         return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        columns_to_whitelist,
     ):
         """
         Return runs that match the given list of search expressions within the experiments, as
@@ -312,5 +340,17 @@ class AbstractStore:
         no-op.
 
         :return: None.
+        """
+        pass
+
+    @abstractmethod
+    def update_artifacts_location(self, run_id, new_artifacts_location):
+        """
+        Update the location of artifacts for the specified run
+
+        :param run_id: String id for the run
+        :param new_artifact_location: String new artifact location
+
+        :return: None
         """
         pass

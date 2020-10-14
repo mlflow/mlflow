@@ -24,15 +24,15 @@ public class DatabricksDynamicHostCredsProviderTest {
       MyDynamicProvider.class.getName());
     Assert.assertNotNull(provider);
     Assert.assertEquals(provider.getHostCreds().getHost(), "hello");
-    Assert.assertNull(provider.getHostCreds().getToken());
+    Assert.assertNull(provider.getHostCreds().getToken(false));
 
     baseMap.put("token", "toke");
     Assert.assertEquals(provider.getHostCreds().getHost(), "hello");
-    Assert.assertEquals(provider.getHostCreds().getToken(), "toke");
+    Assert.assertEquals(provider.getHostCreds().getToken(false), "toke");
 
     baseMap.put("token", "toke2");
     Assert.assertEquals(provider.getHostCreds().getHost(), "hello");
-    Assert.assertEquals(provider.getHostCreds().getToken(), "toke2");
+    Assert.assertEquals(provider.getHostCreds().getToken(false), "toke2");
   }
 
   @Test
