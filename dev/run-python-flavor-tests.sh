@@ -29,6 +29,4 @@ for dir in "${test_dirs[@]}"; do
   find $dir -name 'test*.py' | xargs -L 1 pytest --verbose --large
 done
 
-
-
 test $err = 0
