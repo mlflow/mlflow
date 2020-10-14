@@ -1,5 +1,5 @@
 ## Large test reqs
 ## Test-only dependencies
-matplotlib==3.2.1
-tf2onnx==1.5.4
-pyarrow==0.17.0
+matplotlib
+tf2onnx
+pyarrow

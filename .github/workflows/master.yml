@@ -247,7 +247,7 @@ jobs:
         run: |
           pip install -r dev-requirements.txt
           pip install -r dev/small-requirements.txt
-          pip install -e .
+          pip install -e .[extras]
       - name: Run tests
         run: |
           pytest --verbose --ignore-flavors --ignore=tests/projects tests
