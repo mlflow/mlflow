@@ -1,6 +1,4 @@
 ## Small test reqs
-# Required
-azure-storage-blob==12.3.0
 # Required to log artifacts and models to AWS S3 artifact locations
 botocore==1.12.84  # pinned for moto
 boto3==1.9.84      # pinned for moto
