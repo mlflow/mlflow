@@ -153,18 +153,17 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_with_numpy_array(regressor, artifact_path):
+def test_log_explanation_with_numpy_array(regressor):
     model = regressor.model
     X = regressor.X.values
 
     with mlflow.start_run() as run:
-        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
+        explanation_path = mlflow.shap.log_explanation(model.predict, X)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "shap" if artifact_path is None else artifact_path
+    artifact_path_expected = "shap"
     artifacts = set(yield_artifacts(run.info.run_id))
 
     assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
