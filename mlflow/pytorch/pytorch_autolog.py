@@ -11,14 +11,19 @@ from mlflow.utils.autologging_utils import try_mlflow_log
 logging.basicConfig(level=logging.ERROR)
 
 every_n_iter = 1
+
+
 # autolog module uses `try_mlflow_log` - mlflow utility to log param/metrics/artifacts into mlflow
-# Eventhough the same can be achieved using MlflowLogger(Pytorch Lightning's inbuild class), following are the
-# downsides in using MlflowLogger.
-# 1. MlflowLogger doesn't provide a mechanism to dump an entire model into mlflow. Only model checkpoint is saved.
+# Eventhough the same can be achieved using
+# MlflowLogger(Pytorch Lightning's inbuild class),
+# following are the downsides in using MlflowLogger.
+# 1. MlflowLogger doesn't provide a mechanism to dump an entire model into mlflow.
+#    Only model checkpoint is saved.
 # 2. For dumping the model into mlflow `mlflow.pytorch` library is used
 # and the library expects `mlflow` object to be instantiated.
-# In case of MlflowLogger, Run management is completely controlled by the class and hence, mlflow object needs to be
-# reinstantiated by setting tracking uri, experiment_id and run_id which may lead to a race condition.
+# In case of MlflowLogger, Run management is completely controlled by the class and
+# hence mlflow object needs to be reinstantiated by setting
+# tracking uri, experiment_id and run_id which may lead to a race condition.
 
 
 def autolog(log_every_n_iter=1):
@@ -40,10 +45,10 @@ def autolog(log_every_n_iter=1):
             :param trainer: pytorch lightning model instance
             :param pl_module: pytorch lightning base module
             """
-            if (pl_module.current_epoch - 1) % every_n_iter == 0:
+            if (pl_module.current_epoch + 1) % every_n_iter == 0:
                 for key, value in trainer.callback_metrics.items():
                     try_mlflow_log(
-                        mlflow.log_metric, key, float(value), step=pl_module.current_epoch
+                        mlflow.log_metric, key, float(value + 1), step=pl_module.current_epoch
                     )
 
             if trainer.early_stop_callback:
@@ -57,6 +62,7 @@ def autolog(log_every_n_iter=1):
             :param pl_module: pytorch lightning base module
             """
             mlflow.set_tag(key="Mode", value="training")
+            try_mlflow_log(mlflow.log_param, "epochs", trainer.max_epochs)
             if trainer.early_stop_callback:
                 self._log_early_stop_params(trainer.early_stop_callback)
 
