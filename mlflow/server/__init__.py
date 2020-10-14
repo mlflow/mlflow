@@ -12,6 +12,7 @@ from mlflow.server.handlers import (
     _add_static_prefix,
     get_model_version_artifact_handler,
 )
+from mlflow.server.traefik_middleware import TraefikMiddleware
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
@@ -23,6 +24,7 @@ PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
+app.wsgi_app = TraefikMiddleware(app)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
 
