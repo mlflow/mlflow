@@ -6,31 +6,31 @@ azureml-sdk==1.2.0; python_version >= "3.0"
 # Required by mlflow.keras
 keras==2.3.1
 # Required by mlflow.sklearn
-scikit-learn
+scikit-learn==0.23.2
 # Required by mlflow.gluon
-mxnet
+mxnet==1.5.0
 # Required by mlflow.fastai
-fastai
+fastai==1.0.60
 # Required by mlflow.spacy
-spacy
+spacy==2.2.3
 # Required by mlflow.tensorflow
-tensorflow
+tensorflow==1.15.2
 # Required by mlflow.pytorch
-torch
-torchvision
+torch==1.4.0
+torchvision==0.5.0
 # Required by mlflow.xgboost
-xgboost
+xgboost>=0.82
 # Required by mlflow.lightgbm
-lightgbm
+lightgbm==2.3.0
 # Required by mlflow.h2o
-h2o
+h2o==3.22.1.4
 # Required by mlflow.onnx
-onnx
-onnxmltools
-onnxruntime
+onnx==1.4.1;
+onnxmltools==1.4.0;
+onnxruntime==0.3.0;
 # Required by mlflow.mleap, and in order to save SparkML models in
 # mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
-mleap
+mleap==0.16.0
 # Required by mlflow.spark
-pyspark
+pyspark==2.4.0
 
