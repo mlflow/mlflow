@@ -108,7 +108,7 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "shap" if artifact_path is None else artifact_path
+    artifact_path_expected = "model_explanations_shap" if artifact_path is None else artifact_path
     artifacts = set(yield_artifacts(run.info.run_id))
 
     assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
@@ -136,7 +136,7 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "shap" if artifact_path is None else artifact_path
+    artifact_path_expected = "model_explanations_shap" if artifact_path is None else artifact_path
     artifacts = set(yield_artifacts(run.info.run_id))
 
     assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
@@ -163,7 +163,7 @@ def test_log_explanation_with_numpy_array(regressor):
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "shap"
+    artifact_path_expected = "model_explanations_shap"
     artifacts = set(yield_artifacts(run.info.run_id))
 
     assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
