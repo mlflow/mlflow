@@ -3,17 +3,16 @@ MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
-into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs that can be
-used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
-currently run ML code (e.g. in notebooks, standalone applications or the cloud). MLflow's current components are:
+into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs to be
+used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc.), wherever you
+currently run ML code (e.g., in notebooks, standalone applications, or the cloud). MLflow's current components are:
 
 * `MLflow Tracking <https://mlflow.org/docs/latest/tracking.html>`_: An API to log parameters, code, and
   results in machine learning experiments and compare them using an interactive UI.
 * `MLflow Projects <https://mlflow.org/docs/latest/projects.html>`_: A code packaging format for reproducible
-  runs using Conda and Docker, so you can share your ML code with others.
-* `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
-  you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
-  Docker, Apache Spark, Azure ML and AWS SageMaker.
+  runs using Conda and Docker to enable ML code sharing with others.
+* `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that enable easier model deployment (from any ML library) to batch and real-time scoring on platforms such as
+  Docker, Apache Spark, Azure ML, and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
 |docs| |labeling| |examples| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack|
@@ -51,21 +50,21 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 .. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-g6qwro5u-odM7pRnZxNX_w56mcsHp8g
 
-Installing
+Installation
 ----------
 Install MLflow from PyPI via ``pip install mlflow``
 
-MLflow requires ``conda`` to be on the ``PATH`` for the projects feature.
+MLflow requires ``conda`` to be on the ``PATH`` for the project's feature.
 
 Nightly snapshots of MLflow master are also available `here <https://mlflow-snapshots.s3-us-west-2.amazonaws.com/>`_.
 
 Documentation
 -------------
-Official documentation for MLflow can be found at https://mlflow.org/docs/latest/index.html.
+The official documentation of MLFlow is at https://mlflow.org/docs/latest/index.html.
 
 Community
 ---------
-For help or questions about MLflow usage (e.g. "how do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
+For help or questions about MLflow usage (e.g., "how do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
 or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 
 To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
@@ -80,7 +79,7 @@ The programs in ``examples`` use the MLflow Tracking API. For instance, run::
     python examples/quickstart/mlflow_tracking.py
 
 This program will use `MLflow Tracking API <https://mlflow.org/docs/latest/tracking.html>`_,
-which logs tracking data in ``./mlruns``. This can then be viewed with the Tracking UI.
+which logs tracking data in ``./mlruns``. And, can then be viewed with the Tracking UI.
 
 
 Launching the Tracking UI
@@ -91,7 +90,7 @@ Start it with::
     mlflow ui
 
 **Note:** Running ``mlflow ui`` from within a clone of MLflow is not recommended - doing so will
-run the dev UI from source. We recommend running the UI from a different working directory,
+run the dev UI from the source. We recommend running the UI from a different working directory,
 specifying a backend store via the ``--backend-store-uri`` option. Alternatively, see
 instructions for running the dev UI in the `contributor guide <CONTRIBUTING.rst>`_.
 
@@ -110,7 +109,7 @@ See ``examples/sklearn_elasticnet_wine`` for a sample project with an MLproject 
 
 Saving and Serving Models
 -------------------------
-To illustrate managing models, the ``mlflow.sklearn`` package can log scikit-learn models as
+For illustrating model management, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
 ``examples/sklearn_logistic_regression/train.py`` that you can run as follows::
 
