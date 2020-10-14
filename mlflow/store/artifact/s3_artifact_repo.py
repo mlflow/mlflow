@@ -2,7 +2,6 @@ import os
 from mimetypes import guess_type
 
 import posixpath
-import urllib.parse
 
 from mlflow import data
 from mlflow.entities import FileInfo
