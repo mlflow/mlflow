@@ -3,11 +3,7 @@ import posixpath
 import pytest
 from unittest import mock
 
-try:
-    from azure.storage.blob import BlobPrefix, BlobProperties
-except ImportError:
-    from azure.storage.blob._models import BlobPrefix, BlobProperties
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob import BlobServiceClient, BlobPrefix, BlobProperties
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository

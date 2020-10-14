@@ -1,11 +1,4 @@
 ## Small test reqs
-# Required to log artifacts to SFTP artifact locations
-pysftp
-# Required to run the MLflow server against SQL-backed storage
-sqlalchemy
-# Required by the mlflow.projects module, when running projects against
-# a remote Kubernetes cluster
-kubernetes
 ## Test-only dependencies
 attrdict
 pytest==3.2.1

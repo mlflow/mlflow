@@ -32,6 +32,7 @@ setup(
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
         "alembic<=1.4.1",
+        # Required
         "azure-storage-blob",
         "click>=7.0",
         "cloudpickle",
@@ -47,12 +48,12 @@ setup(
         "protobuf>=3.6.0",
         "gitpython>=2.1.0",
         "pyyaml",
-        "pyarrow",
         "querystring_parser",
         "docker>=4.0.0",
         "entrypoints",
         # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
         "sqlparse>=0.3.1",
+        # Required to run the MLflow server against SQL-backed storage
         "sqlalchemy<=1.3.13",
         "gorilla",
         "prometheus-flask-exporter",
@@ -61,10 +62,19 @@ setup(
         "extras": [
             "scikit-learn; python_version >= '3.5'",
             "scikit-learn==0.20; python_version < '3.5'",
+            # Required to log artifacts and models to HDFS artifact locations
+            "pyarrow",
+            # Required to log artifacts and models to AWS S3 artifact locations
             "boto3",
             "mleap",
+            # Required to log artifacts and models to GCS artifact locations
             "google-cloud-storage",
             "azureml-core>=1.2.0",
+            # Required to log artifacts to SFTP artifact locations
+            "pysftp",
+            # Required by the mlflow.projects module, when running projects against
+            # a remote Kubernetes cluster
+            "kubernetes",
         ],
         "sqlserver": ["mlflow-dbstore",],
         "aliyun-oss": ["aliyunstoreplugin",],
