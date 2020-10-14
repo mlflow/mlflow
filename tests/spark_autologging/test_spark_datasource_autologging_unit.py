@@ -1,6 +1,5 @@
 import pytest
 from unittest import mock
-import logging
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -51,9 +50,6 @@ def test_enabling_autologging_throws_for_wrong_spark_version(
     with mock.patch("mlflow._spark_autologging._get_spark_major_version") as get_version_mock:
         get_version_mock.return_value = 2
 
-        try:
-            with pytest.raises(MlflowException) as exc:
-                mlflow.spark.autolog()
-            assert "Spark autologging unsupported for Spark versions < 3" in exc.value.message
-        finally:
-            spark_session.stop()
+        with pytest.raises(MlflowException) as exc:
+            mlflow.spark.autolog()
+        assert "Spark autologging unsupported for Spark versions < 3" in exc.value.message

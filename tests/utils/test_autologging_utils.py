@@ -1,8 +1,7 @@
 import gorilla
 import inspect
 import pytest
-import importlib
-from unittest.mock import Mock, call, create_autospec
+from unittest.mock import Mock, call
 
 import mlflow
 from mlflow.utils.autologging_utils import (
@@ -10,10 +9,6 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     resolve_input_example_and_signature,
-    FAILED_INPUT_EXAMPLE_PREFIX_TEXT,
-    FAILED_MODEL_SIGNATURE_PREFIX_TEXT,
-    universal_autolog,
-    AUTOLOG_INTEGRATIONS,
 )
 
 # Example function signature we are testing on

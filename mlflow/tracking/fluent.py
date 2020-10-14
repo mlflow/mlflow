@@ -25,6 +25,8 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_noteboo
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
+from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai
+
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
@@ -34,17 +36,17 @@ _active_experiment_id = None
 SEARCH_MAX_RESULTS_PANDAS = 100000
 NUM_RUNS_PER_PAGE_PANDAS = 10000
 
-# Mapping of library module name to mlflow module name
-# eg: mxnet.gluon is the actual library, mlflow.gluon is our integration code for it
+# Mapping of library module name to specific autolog function
+# eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
 AUTOLOG_INTEGRATIONS = {
-    "tensorflow": "tensorflow",
-    "keras": "keras",
-    "mxnet.gluon": "gluon",
-    "xgboost": "xgboost",
-    "lightgbm": "lightgbm",
-    "pyspark": "spark",
-    "sklearn": "sklearn",
-    "fastai": "fastai",
+    "tensorflow": tensorflow.autolog,
+    "keras": keras.autolog,
+    "mxnet.gluon": gluon.autolog,
+    "xgboost": xgboost.autolog,
+    "lightgbm": lightgbm.autolog,
+    "pyspark": spark.autolog,
+    "sklearn": sklearn.autolog,
+    "fastai": fastai.autolog,
 }
 
 _logger = logging.getLogger(__name__)
@@ -1039,7 +1041,7 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
-def universal_autolog(
+def autolog(
     log_input_example=False, log_model_signature=True
 ):  # pylint: disable=unused-argument
     # getargvalues isnt actually deprecated
@@ -1048,12 +1050,14 @@ def universal_autolog(
     arg_values = {k: v for k, v in arg_info.locals.items() if k in arg_info.args}
 
     def setup_autologging(module):
-        integration_module_obj = getattr(mlflow, AUTOLOG_INTEGRATIONS[module.__name__])
-        autolog_fn = getattr(integration_module_obj, "autolog")
+        autolog_fn = AUTOLOG_INTEGRATIONS[module.__name__]
         needed_params = list(inspect.signature(autolog_fn).parameters.keys())
         filtered = {k: v for k, v in arg_values.items() if k in needed_params}
 
-        autolog_fn(**filtered)
+        try:
+            autolog_fn(**filtered)
+        except Exception as e:
+            _logger.warning("Exception raised while enabling autologging for " + module.__name__ + ": " + str(e))
 
     # for each autolog library, register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.

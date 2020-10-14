@@ -66,8 +66,6 @@ import mlflow.xgboost as xgboost  # noqa: E402
 import mlflow.shap as shap  # noqa: E402
 
 
-_logger = logging.getLogger(__name__)
-
 _configure_mlflow_loggers(root_module_name=__name__)
 
 if sys.version_info.major == 2:
@@ -109,7 +107,7 @@ set_tags = mlflow.tracking.fluent.set_tags
 delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
-autolog = mlflow.tracking.fluent.universal_autolog
+autolog = mlflow.tracking.fluent.autolog
 
 
 run = projects.run
