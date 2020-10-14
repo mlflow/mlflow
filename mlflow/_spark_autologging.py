@@ -96,7 +96,7 @@ def _listen_for_spark_activity(spark_context):
     global _spark_table_info_listener
     if _get_current_listener() is None:
         return
-    
+
     if _get_spark_major_version(spark_context) < 3:
         raise MlflowException("Spark autologging unsupported for Spark versions < 3")
 
@@ -127,7 +127,8 @@ def _listen_for_spark_activity(spark_context):
             "Spark datasource autologging. Please create a new Spark session "
             "and ensure you have the mlflow-spark JAR attached to your Spark "
             "session as described in "
-            "http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental. "
+            "http://mlflow.org/docs/latest/tracking.html#"
+            "automatic-logging-from-spark-experimental. "
             "Exception:\n%s" % e
         )
 
@@ -139,6 +140,7 @@ def _listen_for_spark_activity(spark_context):
 
 def autolog():
     """Implementation of Spark datasource autologging"""
+
     def __init__(self, *args, **kwargs):
         original = gorilla.get_original_attribute(SparkSession, "__init__")
         original(self, *args, **kwargs)

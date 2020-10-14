@@ -1028,9 +1028,7 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
-def autolog(
-    log_input_example=False, log_model_signature=True
-):  # pylint: disable=unused-argument
+def autolog(log_input_example=False, log_model_signature=True):  # pylint: disable=unused-argument
     locals_copy = locals().items()
 
     # Mapping of library module name to specific autolog function
@@ -1056,7 +1054,9 @@ def autolog(
         try:
             autolog_fn(**filtered)
         except Exception as e:
-            _logger.warning("Exception raised while enabling autologging for " + module.__name__ + ": " + str(e))
+            _logger.warning(
+                "Exception raised while enabling autologging for " + module.__name__ + ": " + str(e)
+            )
 
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
@@ -1070,4 +1070,6 @@ def autolog(
     try:
         spark.autolog()
     except Exception as e:
-        _logger.warning("Exception raised while enabling autologging for " + module.__name__ + ": " + str(e))
+        _logger.warning(
+            "Exception raised while enabling autologging for " + module.__name__ + ": " + str(e)
+        )
