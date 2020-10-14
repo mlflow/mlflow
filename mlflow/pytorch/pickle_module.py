@@ -27,6 +27,7 @@ from cloudpickle import *
 # but this import renaming is necessary until either the requested change has been incorporated
 # into a CloudPickle release or the ``torch.save`` API has been updated to be compatible with
 # the existing CloudPickle API.
+# pylint: disable=unused-import
 from cloudpickle import CloudPickler as Pickler
 
 # CloudPickle does not include `Unpickler` in its namespace, which is required by PyTorch for
