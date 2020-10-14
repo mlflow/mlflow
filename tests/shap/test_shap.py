@@ -150,3 +150,31 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, classifier.shap_values)
     np.testing.assert_array_equal(base_values, classifier.base_values)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("artifact_path", [None, "dir"])
+def test_log_explanation_with_numpy_array(regressor, artifact_path):
+    model = regressor.model
+    X = regressor.X.values
+
+    with mlflow.start_run() as run:
+        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
+
+    # Assert no figure is open
+    assert len(plt.get_fignums()) == 0
+
+    artifact_path_expected = "shap" if artifact_path is None else artifact_path
+    artifacts = set(yield_artifacts(run.info.run_id))
+
+    assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
+    assert artifacts == {
+        os.path.join(artifact_path_expected, "base_values.npy"),
+        os.path.join(artifact_path_expected, "shap_values.npy"),
+        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+    }
+
+    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    np.testing.assert_array_equal(shap_values, regressor.shap_values)
+    np.testing.assert_array_equal(base_values, regressor.base_values)
