@@ -1,4 +1,4 @@
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.store.tracking.file_store import FileStore
 

@@ -4,7 +4,7 @@ from ftplib import FTP
 from contextlib import contextmanager
 
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository

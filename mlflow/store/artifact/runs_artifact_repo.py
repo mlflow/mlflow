@@ -1,4 +1,4 @@
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository

@@ -260,6 +260,10 @@ class SearchUtils(object):
             return False
         elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
             return False
+        elif token.match(ttype=TokenType.Operator.Comparison, values=["IN"]):
+            # `IN` is a comparison token in sqlparse >= 0.4.0:
+            # https://github.com/andialbrecht/sqlparse/pull/567
+            return False
         else:
             return True
 

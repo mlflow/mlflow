@@ -737,7 +737,8 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         pickle_module=pickle,
     )
 
-    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.load
+    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.Unpickler
+
     pickle_call_results = {
         "mlflow_torch_pickle_load_called": False,
     }
@@ -752,7 +753,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         log_messages.append(message_text % args % kwargs)
 
     with mock.patch(
-        "mlflow.pytorch.pickle_module.load"
+        "mlflow.pytorch.pickle_module.Unpickler"
     ) as mlflow_torch_pickle_load_mock, mock.patch("mlflow.pytorch._logger.warning") as warn_mock:
         mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
         warn_mock.side_effect = custom_warn
