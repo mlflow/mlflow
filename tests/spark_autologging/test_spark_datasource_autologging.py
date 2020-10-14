@@ -5,12 +5,6 @@ from unittest import mock
 
 import mlflow
 import mlflow.spark
-import tempfile
-import os
-import shutil
-
-from pyspark.sql import SparkSession, Row
-from pyspark.sql.types import StructType, IntegerType, StringType, StructField
 from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 from tests.tracking.test_rest_tracking import BACKEND_URIS
@@ -21,10 +15,6 @@ from tests.spark_autologging.utils import spark_session  # pylint: disable=unuse
 from tests.spark_autologging.utils import format_to_file_path  # pylint: disable=unused-import
 from tests.spark_autologging.utils import data_format  # pylint: disable=unused-import
 from tests.spark_autologging.utils import file_path  # pylint: disable=unused-import
-from tests.spark_autologging.utils import (
-    _get_or_create_spark_session,
-)  # pylint: disable=unused-import
-from tests.spark_autologging.utils import _get_mlflow_spark_jar_path
 
 
 def pytest_generate_tests(metafunc):

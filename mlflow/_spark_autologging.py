@@ -137,18 +137,16 @@ def autolog():
     """Implementation of Spark datasource autologging"""
     global _spark_table_info_listener
     if _get_current_listener() is None:
+        def __init__(self, *args, **kwargs):
+            original = gorilla.get_original_attribute(SparkSession, "__init__")
+            original(self, *args, **kwargs)
+
+            _listen_for_spark_activity(self._sc)
+
+        wrap_patch(SparkSession, "__init__", __init__)
+
         active_session = _get_active_spark_session()
-        if active_session is None:
-
-            def __init__(self, *args, **kwargs):
-                original = gorilla.get_original_attribute(SparkSession, "__init__")
-                original(self, *args, **kwargs)
-
-                _listen_for_spark_activity(self._sc)
-
-            wrap_patch(SparkSession, "__init__", __init__)
-
-        else:
+        if active_session is not None:
             # We know SparkContext exists here already, so get it
             sc = SparkContext.getOrCreate()
 
