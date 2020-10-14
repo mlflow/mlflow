@@ -66,6 +66,7 @@ def classifier():
 
     explainer = shap.KernelExplainer(model.predict_proba, shap.kmeans(X, 100))
     shap_values = explainer.shap_values(X)
+
     return ModelWithExplanation(model, X, shap_values, explainer.expected_value)
 
 
@@ -119,7 +120,6 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
 
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
-
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
@@ -148,6 +148,5 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
 
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
-
     np.testing.assert_array_equal(shap_values, classifier.shap_values)
     np.testing.assert_array_equal(base_values, classifier.base_values)
