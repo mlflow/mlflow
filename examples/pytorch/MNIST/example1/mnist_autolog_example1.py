@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks import LearningRateLogger
+from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
@@ -270,12 +270,11 @@ if __name__ == "__main__":
     checkpoint_callback = ModelCheckpoint(
         filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
-    lr_logger = LearningRateLogger()
+    lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        callbacks=[lr_logger],
-        early_stop_callback=early_stopping,
+        callbacks=[lr_logger, early_stopping],
         checkpoint_callback=checkpoint_callback,
         limit_train_batches=0.1,
     )

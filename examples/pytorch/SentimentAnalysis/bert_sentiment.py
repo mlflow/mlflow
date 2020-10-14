@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from pytorch_lightning.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
-    LearningRateLogger,
+    LearningRateMonitor,
 )
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
@@ -367,12 +367,11 @@ if __name__ == "__main__":
     checkpoint_callback = ModelCheckpoint(
         filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
-    lr_logger = LearningRateLogger()
+    lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        callbacks=[lr_logger],
-        early_stop_callback=early_stopping,
+        callbacks=[lr_logger, early_stopping],
         checkpoint_callback=checkpoint_callback,
         limit_train_batches=0.1,
     )
