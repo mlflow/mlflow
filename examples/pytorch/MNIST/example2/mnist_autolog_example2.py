@@ -5,6 +5,8 @@
 # pytorch-lightning (using pip install pytorch-lightning)
 #       and mlflow (using pip install mlflow).
 #
+# pylint: disable=W0221
+# pylint: disable=W0613
 import mlflow
 import pytorch_lightning as pl
 import torch
@@ -24,6 +26,8 @@ class LightningMNISTClassifier(pl.LightningModule):
         super(LightningMNISTClassifier, self).__init__()
 
         # mnist images are (1, 28, 28) (channels, width, height)
+        self.optimizer = None
+        self.scheduler = None
         self.layer_1 = torch.nn.Linear(28 * 28, 128)
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
@@ -52,19 +56,17 @@ class LightningMNISTClassifier(pl.LightningModule):
             help="number of workers (default: 0)",
         )
         parser.add_argument(
-            "--lr",
-            type=float,
-            default=1e-3,
-            metavar="LR",
-            help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
         )
         return parser
 
     def forward(self, x):
         """
-        Forward Function
+        :param x: Input data
+
+        :return: output - mnist digit label for the input image
         """
-        batch_size, channels, width, height = x.size()
+        batch_size = x.size()[0]
 
         # (b, 1, 28, 28) -> (b, 1*28*28)
         x = x.view(batch_size, -1)
@@ -87,13 +89,20 @@ class LightningMNISTClassifier(pl.LightningModule):
 
     def cross_entropy_loss(self, logits, labels):
         """
-        Loss Fn to compute loss
+        Initializes the loss function
+
+        :return: output - Initialized cross entropy loss function
         """
         return F.nll_loss(logits, labels)
 
     def training_step(self, train_batch, batch_idx):
         """
-        training the data as batches and returns training loss on each batch
+        Training the data as batches and returns training loss on each batch
+
+        :param train_batch: Batch data
+        :param batch_idx: Batch indices
+
+        :return: output - Training loss
         """
         x, y = train_batch
         logits = self.forward(x)
@@ -103,6 +112,11 @@ class LightningMNISTClassifier(pl.LightningModule):
     def validation_step(self, val_batch, batch_idx):
         """
         Performs validation of data in batches
+
+        :param val_batch: Batch data
+        :param batch_idx: Batch indices
+
+        :return: output - valid step loss
         """
         x, y = val_batch
         logits = self.forward(x)
@@ -112,6 +126,10 @@ class LightningMNISTClassifier(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         """
         Computes average validation accuracy
+
+        :param outputs: outputs after every epoch end
+
+        :return: output - average valid loss
         """
         avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
         tensorboard_logs = {"val_loss": avg_loss}
@@ -119,81 +137,75 @@ class LightningMNISTClassifier(pl.LightningModule):
 
     def test_step(self, test_batch, batch_idx):
         """
-        Performs test and computes test accuracy
+        Performs test and computes the accuracy of the model
+
+        :param test_batch: Batch data
+        :param batch_idx: Batch indices
+
+        :return: output - Testing accuracy
         """
         x, y = test_batch
         output = self.forward(x)
-        a, y_hat = torch.max(output, dim=1)
+        _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy(y_hat.cpu(), y.cpu())
-        return {"test_acc": torch.tensor(test_acc)}
+        return {"test_acc": test_acc}
 
     def test_epoch_end(self, outputs):
         """
         Computes average test accuracy score
+
+        :param outputs: outputs after every epoch end
+
+        :return: output - average test loss
         """
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         return {"avg_test_acc": avg_test_acc}
 
     def prepare_data(self):
         """
-        Preprocess the input data.
+        Prepares the data for training and prediction
         """
         return {}
 
     def train_dataloader(self):
         """
-        Loading training data as batches
+        :return: output - Train data loader for the given input
         """
-        mnist_train = datasets.MNIST(
-            "dataset", download=True, train=True, transform=self.transform
-        )
+        mnist_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
         return DataLoader(
-            mnist_train,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            mnist_train, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def val_dataloader(self):
         """
-        Loading validation data as batches
+        :return: output - Validation data loader for the given input
         """
-        mnist_train = datasets.MNIST(
-            "dataset", download=True, train=True, transform=self.transform
-        )
+        mnist_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
         mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
 
         return DataLoader(
-            mnist_val,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            mnist_val, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def test_dataloader(self):
         """
-        Loading test data as batches
+        :return: output - Test data loader for the given input
         """
-        mnist_test = datasets.MNIST(
-            "dataset", download=True, train=False, transform=self.transform
-        )
+        mnist_test = datasets.MNIST("dataset", download=True, train=False, transform=self.transform)
         return DataLoader(
-            mnist_test,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            mnist_test, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def configure_optimizers(self):
         """
-        Creates and returns Optimizer
+        Initializes the optimizer and learning rate scheduler
+
+        :return: output - Initialized optimizer and scheduler
         """
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode="min",
-                factor=0.2,
-                patience=2,
-                min_lr=1e-6,
-                verbose=True,
+                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
             )
         }
         return [self.optimizer], [self.scheduler]
@@ -209,6 +221,13 @@ class LightningMNISTClassifier(pl.LightningModule):
         using_lbfgs=False,
         using_native_amp=False,
     ):
+        """
+        Training step function which runs for the given number of epochs
+
+        :param epoch: Number of epochs to train
+        :param batch_idx: batch indices
+        :param optimizer: Optimizer to be used in training step
+        """
         self.optimizer.step()
         self.optimizer.zero_grad()
 
@@ -238,7 +257,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
-    mlflow.set_tracking_uri(dict_args['tracking_uri'])
+    mlflow.set_tracking_uri(dict_args["tracking_uri"])
     model = LightningMNISTClassifier(**dict_args)
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model)

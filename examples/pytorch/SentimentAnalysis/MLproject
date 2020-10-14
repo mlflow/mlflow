@@ -15,10 +15,10 @@ entry_points:
 
     command: |
           python bert_sentiment.py \
-            --max_epochs {epochs} \
+            --max-epochs {epochs} \
             --gpus {gpus} \
-            --distributed_backend {distributed_backend} \
+            --distributed-backend {distributed_backend} \
             --batch-size {batch_size} \
             --num-workers {num_workers} \
             --lr {learning_rate} \
-            --tracking_uri {tracking_uri}
+            --tracking-uri {tracking_uri}

@@ -53,13 +53,13 @@ Following are the parameters which can be overridden by passing values in comman
 For example:
 
 `python bert_sentiment.py \
-    --max_epochs 5 \
+    --max-epochs 5 \
     --gpus 1 \
-    --distributed_backend "ddp" \
+    --distributed-backend "ddp" \
     --batch-size 64 \
     --num-workers 2 \
     --lr 0.01 \
-    --tracking_uri "http://localhost:5000"`
+    --tracking-uri "http://localhost:5000"`
 
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
@@ -71,5 +71,4 @@ mlflow ui
 and navigating to [http://localhost:5000](http://localhost:5000).
 
 For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
-
 
