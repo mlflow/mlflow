@@ -56,7 +56,7 @@ def log_explanation(predict_function, features, artifact_path=None):
     :param artifact_path: The run-relative artifact path to which the explanation is saved. If unspecified,
                           defaults to "shap".
 
-    :return: A URI of the logged explanation.
+    :return: Artifact URI of the logged explanation
 
     .. code-block:: python
         :caption: Example
