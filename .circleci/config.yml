@@ -30,7 +30,7 @@ jobs:
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
           command: |
-            make rsthtml SPHINXOPTS="-W --keep-going"
+            make rsthtml
             make javadocs
       - store_artifacts:
           path: docs/build/html
