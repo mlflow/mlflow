@@ -53,7 +53,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
     :param predict_function: A function to compute the output of a model.
     :param features: A matrix of features to compute SHAP values with.
-    :param artifact_path: A run-relative artifact path the explanation is saved to. If unspecified,
+    :param artifact_path: The run-relative artifact path to which the explanation is saved. If unspecified,
                           defaults to "shap".
 
     :return: A URI of the logged explanation.
