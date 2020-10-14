@@ -2,4 +2,3 @@
 ## Test-only dependencies
 matplotlib
 tf2onnx
-pyarrow

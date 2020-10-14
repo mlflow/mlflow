@@ -1,6 +1,4 @@
 ## Small test reqs
-# Required to log artifacts and models to HDFS artifact locations
-pyarrow==0.17.0
 # Required to log artifacts to SFTP artifact locations
 pysftp==0.2.9
 # Required to run the MLflow server against SQL-backed storage
