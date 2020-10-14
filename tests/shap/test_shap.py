@@ -13,7 +13,9 @@ import pytest
 import mlflow
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "X"])
+ModelWithExplanation = namedtuple(
+    "ModelWithExplanation", ["model", "X", "shap_values", "base_values"]
+)
 
 
 def yield_artifacts(run_id, path=None):
@@ -49,7 +51,11 @@ def regressor():
     X, y = get_boston()
     model = RandomForestRegressor()
     model.fit(X, y)
-    return ModelWithData(model, X)
+
+    explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, 100))
+    shap_values = explainer.shap_values(X)
+
+    return ModelWithExplanation(model, X, shap_values, explainer.expected_value)
 
 
 @pytest.fixture(scope="module")
@@ -57,7 +63,10 @@ def classifier():
     X, y = get_iris()
     model = RandomForestClassifier()
     model.fit(X, y)
-    return ModelWithData(model, X)
+
+    explainer = shap.KernelExplainer(model.predict_proba, shap.kmeans(X, 100))
+    shap_values = explainer.shap_values(X)
+    return ModelWithExplanation(model, X, shap_values, explainer.expected_value)
 
 
 @pytest.mark.large
@@ -111,12 +120,8 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
 
-    explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, 100))
-    shap_values_expected = explainer.shap_values(X)
-    base_values_expected = np.array(explainer.expected_value)
-
-    np.testing.assert_array_equal(shap_values, shap_values_expected)
-    np.testing.assert_array_equal(base_values, base_values_expected)
+    np.testing.assert_array_equal(shap_values, regressor.shap_values)
+    np.testing.assert_array_equal(base_values, regressor.base_values)
 
 
 @pytest.mark.large
@@ -144,9 +149,5 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
     base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
 
-    explainer = shap.KernelExplainer(model.predict_proba, shap.kmeans(X, 100))
-    shap_values_expected = explainer.shap_values(X)
-    base_values_expected = np.array(explainer.expected_value)
-
-    np.testing.assert_array_equal(shap_values, shap_values_expected)
-    np.testing.assert_array_equal(base_values, base_values_expected)
+    np.testing.assert_array_equal(shap_values, classifier.shap_values)
+    np.testing.assert_array_equal(base_values, classifier.base_values)
