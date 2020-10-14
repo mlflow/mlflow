@@ -49,7 +49,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         - base values
         - shap values
-        - summary bar plot
+        - summary bar plot (shows the average impact of each feature on model output)
 
     :param predict_function: A function to compute the output of a model.
     :param features: A matrix of features to compute SHAP values with.
