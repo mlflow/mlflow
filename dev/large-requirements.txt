@@ -1,4 +1,3 @@
 ## Large test reqs
-## Test-only dependencies
 matplotlib
 tf2onnx
