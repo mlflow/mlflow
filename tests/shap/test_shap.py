@@ -153,6 +153,36 @@ def test_log_explanation_with_classifier(classifier, artifact_path):
 
 
 @pytest.mark.large
+def test_log_explanation_without_active_run(regressor):
+    model = regressor.model
+    X = regressor.X.values
+
+    try:
+        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+    finally:
+        run = mlflow.active_run()
+        mlflow.end_run()
+
+        # Assert no figure is open
+        assert len(plt.get_fignums()) == 0
+
+        artifact_path_expected = "model_explanations_shap"
+        artifacts = set(yield_artifacts(run.info.run_id))
+
+        assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
+        assert artifacts == {
+            os.path.join(artifact_path_expected, "base_values.npy"),
+            os.path.join(artifact_path_expected, "shap_values.npy"),
+            os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+        }
+
+        shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
+        base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+        np.testing.assert_array_equal(shap_values, regressor.shap_values)
+        np.testing.assert_array_equal(base_values, regressor.base_values)
+
+
+@pytest.mark.large
 def test_log_explanation_with_numpy_array(regressor):
     model = regressor.model
     X = regressor.X.values
