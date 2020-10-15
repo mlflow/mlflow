@@ -4,7 +4,6 @@ import os
 import posixpath
 import random
 import shutil
-import six
 import tempfile
 import time
 import unittest
@@ -589,50 +588,42 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.set_tag(r2, RunTag("p_b", "ABC"))
 
         # test search returns both runs
-        six.assertCountEqual(
-            self, [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
+        self.assertCountEqual(
+            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'p_val'")
         )
         # test search returns appropriate run (same key different values per run)
-        six.assertCountEqual(
-            self, [r1], self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
+        self.assertCountEqual(
+            [r1], self._search(fs, experiment_id, filter_str="tags.generic_2 = 'some value'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
+        self.assertCountEqual(
+            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2='another value'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_tag = 'wrong_val'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
         )
-        six.assertCountEqual(
-            self,
-            [r1, r2],
-            self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
+        self.assertCountEqual(
+            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
-        six.assertCountEqual(
-            self,
-            [r1, r2],
-            self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
+        self.assertCountEqual(
+            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
-        six.assertCountEqual(
-            self, [r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'")
-        )
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'")
-        )
+        self.assertCountEqual([r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'"))
+        self.assertCountEqual([r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'"))
 
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
+        self.assertCountEqual(
+            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE 'other%'")
         )
-        six.assertCountEqual(
-            self, [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
+        self.assertCountEqual(
+            [], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other'")
         )
-        six.assertCountEqual(
-            self, [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
+        self.assertCountEqual(
+            [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 ILIKE '%OTHER%'")
         )
 
     def test_search_with_max_results(self):
