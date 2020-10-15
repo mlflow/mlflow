@@ -1041,9 +1041,11 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
         "lightgbm": lightgbm.autolog,
         "sklearn": sklearn.autolog,
         "fastai": fastai.autolog,
+        "pyspark": spark.autolog,
     }
 
     def setup_autologging(module):
+        print("acbde")
         autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1062,7 +1064,7 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
-    for module in LIBRARY_TO_AUTOLOG_FN.keys():
+    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark"])):
         register_post_import_hook(setup_autologging, module)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
@@ -1071,5 +1073,11 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     try:
         spark.autolog()
         _logger.info("Autologging successfully enabled for spark.")
+    except ImportError as ie:
+        # if pyspark isn't installed, a user could potentially install it in the middle
+        #   of their session so we want to enable autologging once they do
+        if 'pyspark' in str(ie):
+            register_post_import_hook(setup_autologging, "pyspark")
+            print("HERE")
     except Exception as e:
         _logger.warning("Exception raised while enabling autologging for spark: " + str(e))
