@@ -698,11 +698,25 @@ def library_to_mlflow_module():
         "mxnet.gluon": "gluon",
     }
 
+def clear_imports_and_import_hooks():
+    import wrapt
+    for integration_name in library_to_mlflow_module.keys():
+        try:
+            del sys.modules[integration_name]
+        except Exception:
+            pass
+        try:
+            del wrapt.importer._post_import_hooks[integration_name]
+        except Exception:
+            pass
+
 
 @pytest.mark.large
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws(
     mocker, library_to_mlflow_module,
 ):
+    clear_imports_and_import_hooks()
+
     for integration_name in library_to_mlflow_module.keys():
         with mock.patch(
             "mlflow." + library_to_mlflow_module[integration_name] + ".autolog"
@@ -711,17 +725,13 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(
             mlflow.autolog()
             importlib.__import__(integration_name)
 
-    # cleanup global state
-    import wrapt
-
-    for integration_name in library_to_mlflow_module.keys():
-        del sys.modules[integration_name]
-        if integration_name != "pyspark":
-            del wrapt.importer._post_import_hooks[integration_name]
+    clear_imports_and_import_hooks()
 
 
 @pytest.mark.large
 def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_mlflow_module):
+    clear_imports_and_import_hooks()
+
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
     for integration_name in library_to_mlflow_module.keys():
@@ -765,9 +775,4 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_
         else:
             autolog_fn.assert_called_once_with()
 
-    # cleanup global state
-    import wrapt
-
-    for integration_name in [x for x in library_to_mlflow_module.keys() if x != "pyspark"]:
-        del sys.modules[integration_name]
-        del wrapt.importer._post_import_hooks[integration_name]
+    clear_imports_and_import_hooks()
