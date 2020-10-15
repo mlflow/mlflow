@@ -101,7 +101,7 @@ class KubernetesSubmittedRun(SubmittedRun):
     POLL_STATUS_INTERVAL = 5
 
     def __init__(self, mlflow_run_id, job_name, job_namespace):
-        super(KubernetesSubmittedRun, self).__init__()
+        super().__init__()
         self._mlflow_run_id = mlflow_run_id
         self._job_name = job_name
         self._job_namespace = job_namespace
