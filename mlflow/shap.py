@@ -133,13 +133,13 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         # load back the logged explanation
         dst_path = client.download_artifacts(run.info.run_id, artifact_path)
-        shap_values = np.load(os.path.join("shap_values.npy"))
         base_values = np.load(os.path.join("base_values.npy"))
+        shap_values = np.load(os.path.join("shap_values.npy"))
 
-        print("\n#shap_values")
-        print(shap_values[:3])
         print("\n#base_values")
         print(base_values)
+        print("\n#shap_values")
+        print(shap_values[:3])
 
     .. code-block:: text
         :caption: Output
@@ -149,13 +149,13 @@ def log_explanation(predict_function, features, artifact_path=None):
          'model_explanations_shap/shap_values.npy',
          'model_explanations_shap/summary_bar_plot.png']
 
+        # base_values:
+        20.502000000000002
+
         # shap_values:
         [[ 2.09975523  0.4746513   7.63759026  0.        ]
          [ 2.00883109 -0.18816665 -0.14419184  0.        ]
          [ 2.00891772 -0.18816665 -0.14419184  0.        ]]
-
-        # base_values:
-        20.502000000000002
     """
     import matplotlib.pyplot as plt
     import shap
@@ -170,6 +170,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
     shap.summary_plot(shap_values, features, plot_type="bar", show=False)
     fig = plt.gcf()
+    fig.tight_layout()
     _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
     plt.close(fig)
 
