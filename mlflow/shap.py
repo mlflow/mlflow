@@ -91,6 +91,8 @@ def log_explanation(predict_function, features, artifact_path=None):
     .. code-block:: python
         :caption: Example
 
+        import os
+        import numpy as np
         import pandas as pd
         from sklearn.datasets import load_boston
         from sklearn.linear_model import LinearRegression
@@ -99,8 +101,8 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         # prepare training data
         dataset = load_boston()
-        X = pd.DataFrame(dataset.data[:, :4], columns=dataset.feature_names[:4])
-        y = dataset.target
+        X = pd.DataFrame(dataset.data[:50, :4], columns=dataset.feature_names[:4])
+        y = dataset.target[:50]
 
         # train a model
         model = LinearRegression()
@@ -114,13 +116,34 @@ def log_explanation(predict_function, features, artifact_path=None):
         client = mlflow.tracking.MlflowClient()
         artifact_path = "model_explanations_shap"
         artifacts = [x.path for x in client.list_artifacts(run.info.run_id, artifact_path)]
+        print("# Logged artifacts:")
         print(artifacts)
+
+        # load back the logged explanation
+        dst_path = client.download_artifacts(run.info.run_id, artifact_path)
+        shap_values = np.load(os.path.join("shap_values.npy"))
+        base_values = np.load(os.path.join("base_values.npy"))
+
+        print("\n# shap_values:")
+        print(shap_values[:3])
+        print("\n# base_values:")
+        print(base_values)
 
     .. code-block:: text
         :caption: Output
 
-        ['shap/base_values.npy', 'shap/shap_values.npy', 'shap/summary_bar_plot.png']
+        # artifacts:
+        ['model_explanations_shap/base_values.npy',
+         'model_explanations_shap/shap_values.npy',
+         'model_explanations_shap/summary_bar_plot.png']
 
+        # shap_values:
+        [[ 2.09975523  0.4746513   7.63759026  0.        ]
+         [ 2.00883109 -0.18816665 -0.14419184  0.        ]
+         [ 2.00891772 -0.18816665 -0.14419184  0.        ]]
+
+        # base_values:
+        20.502000000000002
     """
     import matplotlib.pyplot as plt
     import shap
