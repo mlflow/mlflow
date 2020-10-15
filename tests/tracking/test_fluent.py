@@ -699,8 +699,21 @@ def library_to_mlflow_module():
     }
 
 
-def clear_imports_and_import_hooks():
+@pytest.fixture
+def reset_global_states(library_to_mlflow_module):
     import wrapt
+
+    for integration_name in library_to_mlflow_module.keys():
+        try:
+            del sys.modules[integration_name]
+        except Exception:
+            pass
+        try:
+            del wrapt.importer._post_import_hooks[integration_name]
+        except Exception:
+            pass
+
+    yield
 
     for integration_name in library_to_mlflow_module.keys():
         try:
@@ -715,10 +728,8 @@ def clear_imports_and_import_hooks():
 
 @pytest.mark.large
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws(
-    mocker, library_to_mlflow_module,
+    mocker, library_to_mlflow_module, reset_global_states
 ):
-    clear_imports_and_import_hooks()
-
     for integration_name in library_to_mlflow_module.keys():
         with mock.patch(
             "mlflow." + library_to_mlflow_module[integration_name] + ".autolog"
@@ -727,13 +738,11 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(
             mlflow.autolog()
             importlib.__import__(integration_name)
 
-    clear_imports_and_import_hooks()
-
 
 @pytest.mark.large
-def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_mlflow_module):
-    clear_imports_and_import_hooks()
-
+def test_universal_autolog_calls_specific_autologs_correctly(
+    mocker, library_to_mlflow_module, reset_global_states
+):
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
     for integration_name in library_to_mlflow_module.keys():
@@ -776,5 +785,3 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_
             autolog_fn.assert_called_once_with(log_input_example=True, log_model_signature=True)
         else:
             autolog_fn.assert_called_once_with()
-
-    clear_imports_and_import_hooks()
