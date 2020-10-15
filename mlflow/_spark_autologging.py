@@ -94,9 +94,6 @@ def _set_run_tag(run_id, path, version, data_format):
 
 def _listen_for_spark_activity(spark_context):
     global _spark_table_info_listener
-    if _get_current_listener() is None:
-        return
-
     if _get_spark_major_version(spark_context) < 3:
         raise MlflowException("Spark autologging unsupported for Spark versions < 3")
 
@@ -122,6 +119,7 @@ def _listen_for_spark_activity(spark_context):
         _spark_table_info_listener.register()
     except Exception as e:
         gw.shutdown_callback_server()
+        _spark_table_info_listener = None
         raise MlflowException(
             "Exception while attempting to initialize JVM-side state for "
             "Spark datasource autologging. Please create a new Spark session "
@@ -139,22 +137,23 @@ def _listen_for_spark_activity(spark_context):
 
 
 def autolog():
-    """Implementation of Spark datasource autologging"""
+    global _spark_table_info_listener
+    if _get_current_listener() is None:
+        """Implementation of Spark datasource autologging"""
+        def __init__(self, *args, **kwargs):
+            original = gorilla.get_original_attribute(SparkSession, "__init__")
+            original(self, *args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(SparkSession, "__init__")
-        original(self, *args, **kwargs)
+            _listen_for_spark_activity(self._sc)
 
-        _listen_for_spark_activity(self._sc)
+        wrap_patch(SparkSession, "__init__", __init__)
 
-    wrap_patch(SparkSession, "__init__", __init__)
+        active_session = _get_active_spark_session()
+        if active_session is not None:
+            # We know SparkContext exists here already, so get it
+            sc = SparkContext.getOrCreate()
 
-    active_session = _get_active_spark_session()
-    if active_session is not None:
-        # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
-
-        _listen_for_spark_activity(sc)
+            _listen_for_spark_activity(sc)
 
 
 def _get_repl_id():
