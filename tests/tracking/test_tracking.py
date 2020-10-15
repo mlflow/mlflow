@@ -532,7 +532,7 @@ def test_start_deleted_run():
     with mlflow.start_run() as active_run:
         run_id = active_run.info.run_id
     tracking.MlflowClient().delete_run(run_id)
-    with pytest.raises(MlflowException, matches="because it is in the deleted state."):
+    with pytest.raises(MlflowException, match="because it is in the deleted state."):
         with mlflow.start_run(run_id=run_id):
             pass
     assert mlflow.active_run() is None
