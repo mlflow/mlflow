@@ -158,8 +158,9 @@ def log_explanation(predict_function, features, artifact_path=None):
          [ 2.00883109 -0.18816665 -0.14419184  0.        ]
          [ 2.00891772 -0.18816665 -0.14419184  0.        ]]
 
-    .. image:: ../_static/images/shap-ui-screenshot.png
-        :width: 900
+    .. figure:: ../_static/images/shap-ui-screenshot.png
+
+        Logged artifacts
     """
     import matplotlib.pyplot as plt
     import shap
