@@ -1066,7 +1066,7 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
-    #   interact with it, which should be autologged.
+    #   interact with it, and this activity should be logged.
     try:
         spark.autolog()
     except Exception as e:

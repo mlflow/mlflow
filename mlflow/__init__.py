@@ -28,7 +28,6 @@ implement mutual exclusion manually.
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 import sys
-import logging
 
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
