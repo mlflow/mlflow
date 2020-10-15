@@ -210,7 +210,7 @@ def test_log_explanation_with_numpy_array(regressor):
 
 
 @pytest.mark.large
-def test_log_explanation_with_small_dataset():
+def test_log_explanation_with_small_features():
     """
     Verifies that `log_explanation` does not fail even when `features` has less records than
     `_MAXIMUM_BACKGROUND_DATA_SIZE`.
