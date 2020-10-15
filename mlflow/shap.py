@@ -113,7 +113,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
         # prepare training data
         dataset = load_boston()
-        X = pd.DataFrame(dataset.data[:50, :4], columns=dataset.feature_names[:4])
+        X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
         y = dataset.target[:50]
 
         # train a model
