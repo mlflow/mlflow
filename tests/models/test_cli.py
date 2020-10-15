@@ -22,7 +22,7 @@ import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
-from tests.models import test_pyfunc
+from tests.models import dummy_pyfunc
 from tests.helper_functions import (
     pyfunc_build_image,
     pyfunc_serve_from_docker_image,
@@ -81,12 +81,12 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         # create env with old mlflow!
         _mlflow_conda_env(
             path=test_model_conda_path,
-            additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)],
+            additional_pip_deps=["mlflow=={}".format(dummy_pyfunc.MLFLOW_VERSION)],
         )
         pyfunc.save_model(
             path=test_model_path,
-            loader_module=test_pyfunc.__name__.split(".")[-1],
-            code_path=[test_pyfunc.__file__],
+            loader_module=dummy_pyfunc.__name__.split(".")[-1],
+            code_path=[dummy_pyfunc.__file__],
             conda_env=test_model_conda_path,
         )
         # explicit json format with orient records
@@ -111,7 +111,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
-        expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
+        expected = dummy_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
         assert all(expected == actual)
 
 
