@@ -4,7 +4,6 @@ mlruns
 ^mlflow-model$
 packrat
 ^\.run-tests\.R$
-^\.create-test-env\.R
 ^README.Rmd$
 ^docs$
 ^model$
