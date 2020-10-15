@@ -1053,6 +1053,7 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
 
         try:
             autolog_fn(**filtered)
+            _logger.info("Autologging successfully enabled for " + module.__name__ + ".")
         except Exception as e:
             _logger.warning(
                 "Exception raised while enabling autologging for " + module.__name__ + ": " + str(e)
@@ -1069,5 +1070,6 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     #   interact with it, and this activity should be logged.
     try:
         spark.autolog()
+        _logger.info("Autologging successfully enabled for spark.")
     except Exception as e:
         _logger.warning("Exception raised while enabling autologging for spark: " + str(e))
