@@ -180,14 +180,36 @@ def test_log_explanation_with_numpy_array(regressor):
 
 
 @pytest.mark.large
-def test_log_explanation_with_small_dataset(regressor):
+def test_log_explanation_with_small_dataset():
     """
     Verifies that `log_explanation` does not fail even when `features` has less records than
     `_MAXIMUM_BACKGROUND_DATA_SIZE`.
     """
-    model = regressor.model
-    X = regressor.X
+    num_rows = 50
+    assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
-    with mlflow.start_run():
-        num_rows = mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE - 1
-        mlflow.shap.log_explanation(model.predict, X.iloc[:num_rows])
+    X, y = get_boston()
+    X, y = X.iloc[:num_rows], y[:num_rows]
+    model = RandomForestRegressor()
+    model.fit(X, y)
+
+    with mlflow.start_run() as run:
+        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+
+    artifact_path_expected = "model_explanations_shap"
+    artifacts = set(yield_artifacts(run.info.run_id))
+
+    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
+    assert artifacts == {
+        os.path.join(artifact_path_expected, "base_values.npy"),
+        os.path.join(artifact_path_expected, "shap_values.npy"),
+        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+    }
+
+    explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, num_rows))
+    shap_values_expected = explainer.shap_values(X)
+
+    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
+    np.testing.assert_array_equal(base_values, explainer.expected_value)
+    np.testing.assert_array_equal(shap_values, shap_values_expected)
