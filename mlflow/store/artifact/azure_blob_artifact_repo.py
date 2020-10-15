@@ -19,7 +19,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, client=None):
-        super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
         # Allow override for testing
         if client:

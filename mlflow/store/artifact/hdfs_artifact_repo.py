@@ -20,7 +20,7 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri):
         self.scheme, self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
-        super(HdfsArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         """

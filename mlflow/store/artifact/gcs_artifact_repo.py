@@ -24,7 +24,7 @@ class GCSArtifactRepository(ArtifactRepository):
             from google.cloud import storage as gcs_storage
 
             self.gcs = gcs_storage
-        super(GCSArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     @staticmethod
     def parse_gcs_uri(uri):

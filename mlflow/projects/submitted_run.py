@@ -64,7 +64,7 @@ class LocalSubmittedRun(SubmittedRun):
     """
 
     def __init__(self, run_id, command_proc):
-        super(LocalSubmittedRun, self).__init__()
+        super().__init__()
         self._run_id = run_id
         self.command_proc = command_proc
 

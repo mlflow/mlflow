@@ -16,7 +16,7 @@ class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 
     def __init__(self, *args, **kwargs):
-        super(LocalArtifactRepository, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._artifact_dir = local_file_uri_to_path(self.artifact_uri)
 
     @property
@@ -71,7 +71,7 @@ class LocalArtifactRepository(ArtifactRepository):
         :return: Absolute path of the local filesystem location containing the desired artifacts.
         """
         if dst_path:
-            return super(LocalArtifactRepository, self).download_artifacts(artifact_path, dst_path)
+            return super().download_artifacts(artifact_path, dst_path)
         # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
