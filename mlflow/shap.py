@@ -9,7 +9,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 
 
-_BACKGROUND_DATA_SIZE = 100
+_MAXIMUM_BACKGROUND_DATA_SIZE = 100
 _DEFAULT_ARTIFACT_PATH = "model_explanations_shap"
 _SUMMARY_BAR_PLOT_FILE_NAME = "summary_bar_plot.png"
 _BASE_VALUES_FILE_NAME = "base_values.npy"
@@ -126,7 +126,7 @@ def log_explanation(predict_function, features, artifact_path=None):
     import shap
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
-    background_data = shap.kmeans(features, min(_BACKGROUND_DATA_SIZE, len(features)))
+    background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
     explainer = shap.KernelExplainer(predict_function, background_data)
     shap_values = explainer.shap_values(features)
 
