@@ -19,7 +19,7 @@ jobs:
             git fetch origin master:master
           fi
 
-          REGEXP="tests/examples\|examples\|Dockerfile\$"
+          REGEXP="tests/examples\|examples\|Dockerfile\|\.dockerignore\$"
           CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
           EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
           DOCKER_CHANGED=$([[ ("$CHANGED_FILES" == *"Dockerfile"*) || ("$CHANGED_FILES" == *".dockerignore"*) ]] && echo "true" || echo "false")
