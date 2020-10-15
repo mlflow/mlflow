@@ -60,8 +60,7 @@ setup(
     ],
     extras_require={
         "extras": [
-            "scikit-learn; python_version >= '3.5'",
-            "scikit-learn==0.20; python_version < '3.5'",
+            "scikit-learn",
             # Required to log artifacts and models to HDFS artifact locations
             "pyarrow",
             # Required to log artifacts and models to AWS S3 artifact locations
