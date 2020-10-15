@@ -84,6 +84,7 @@ jobs:
       with:
         name: 00check.log
         path: /tmp/00check.log
+
   python-small:
     runs-on: ubuntu-latest
     steps:
@@ -247,7 +248,7 @@ jobs:
         run: |
           pip install -r dev-requirements.txt
           pip install -r dev/small-requirements.txt
-          pip install -e .
+          pip install -e .[extras]
       - name: Run tests
         run: |
           pytest --verbose --ignore-flavors --ignore=tests/projects tests
