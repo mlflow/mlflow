@@ -67,7 +67,7 @@ def data():
     return x, y
 
 
-def model(data):
+def make_model(data):
     x, y = data
     model = Sequential()
     model.add(Dense(3, input_dim=4))
@@ -79,7 +79,12 @@ def model(data):
     return model
 
 
-def tf_keras_model(data):
+@pytest.fixture(scope="module")
+def model(data):
+    return make_model(data)
+
+
+def make_tf_keras_model(data):
     x, y = data
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
@@ -87,6 +92,11 @@ def tf_keras_model(data):
     model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
     model.fit(x, y)
     return model
+
+
+@pytest.fixture(scope="module")
+def tf_keras_model(data):
+    return make_tf_keras_model(data)
 
 
 @pytest.fixture(scope="module")
@@ -208,7 +218,7 @@ def test_that_keras_module_arg_works(model_path):
             assert x == b
 
 
-@pytest.mark.parametrize("build_model", [model, tf_keras_model])
+@pytest.mark.parametrize("build_model", [make_model, make_tf_keras_model])
 @pytest.mark.large
 def test_model_save_load(build_model, model_path, data):
     x, _ = data
