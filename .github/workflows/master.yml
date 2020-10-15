@@ -67,7 +67,7 @@ jobs:
     - name: Run tests
       run: |
         export LINTR_COMMENT_BOT=false
-        cd tests
+        cd mlflow/R/mlflow/tests
         Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
