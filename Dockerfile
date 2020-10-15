@@ -22,3 +22,4 @@ RUN apt-get update && \
     cd mlflow/server/js && \
     npm install && \
     npm run build
+
