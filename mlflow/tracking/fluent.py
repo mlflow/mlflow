@@ -1071,5 +1071,5 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
         spark.autolog()
     except Exception as e:
         _logger.warning(
-            "Exception raised while enabling autologging for " + module.__name__ + ": " + str(e)
+            "Exception raised while enabling autologging for spark: " + str(e)
         )
