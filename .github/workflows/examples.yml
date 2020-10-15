@@ -22,7 +22,7 @@ jobs:
         REGEXP="tests/examples\|examples\|Dockerfile\$"
         CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
         EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
-        DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
+        DOCKER_CHANGED=$([[ ("$CHANGED_FILES" == *"Dockerfile"*) || ("$CHANGED_FILES" == *".dockeignore"*) ]] && echo "true" || echo "false")
 
         echo "CHANGED_FILES:"
         echo "$CHANGED_FILES"
