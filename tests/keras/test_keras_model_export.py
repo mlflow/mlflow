@@ -67,7 +67,6 @@ def data():
     return x, y
 
 
-@pytest.fixture(scope="module")
 def model(data):
     x, y = data
     model = Sequential()
@@ -80,7 +79,6 @@ def model(data):
     return model
 
 
-@pytest.fixture(scope="module")
 def tf_keras_model(data):
     x, y = data
     model = TfSequential()
