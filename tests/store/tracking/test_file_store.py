@@ -605,19 +605,13 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             [], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2],
-            self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
+            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2],
-            self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
+            [r1, r2], self._search(fs, experiment_id, filter_str="tags.generic_2 != 'wrong_val'"),
         )
-        self.assertCountEqual(
-            [r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'")
-        )
-        self.assertCountEqual(
-            [r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'")
-        )
+        self.assertCountEqual([r1], self._search(fs, experiment_id, filter_str="tags.p_a = 'abc'"))
+        self.assertCountEqual([r2], self._search(fs, experiment_id, filter_str="tags.p_b = 'ABC'"))
 
         self.assertCountEqual(
             [r2], self._search(fs, experiment_id, filter_str="tags.generic_2 LIKE '%other%'")

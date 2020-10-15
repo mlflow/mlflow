@@ -1165,8 +1165,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
         )
         self.assertCountEqual(
-            [r2],
-            self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
+            [r2], self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
         )
         self.assertCountEqual(
             [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
@@ -1175,19 +1174,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
         )
         self.assertCountEqual(
-            [r1, r2],
-            self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
         self.assertCountEqual(
-            [r1, r2],
-            self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
-        self.assertCountEqual(
-            [r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'")
-        )
-        self.assertCountEqual(
-            [r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'")
-        )
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'"))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'"))
         self.assertCountEqual(
             [r2], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'")
         )
