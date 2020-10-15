@@ -698,8 +698,10 @@ def library_to_mlflow_module():
         "mxnet.gluon": "gluon",
     }
 
+
 def clear_imports_and_import_hooks():
     import wrapt
+
     for integration_name in library_to_mlflow_module.keys():
         try:
             del sys.modules[integration_name]
