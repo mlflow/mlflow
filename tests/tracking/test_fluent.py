@@ -4,6 +4,7 @@ import random
 import uuid
 import inspect
 import importlib
+import sys
 
 import numpy as np
 import pandas as pd
@@ -683,23 +684,36 @@ def test_delete_tag():
         mlflow.delete_tag("b")
     mlflow.end_run()
 
-
-@pytest.mark.large
-def test_universal_autolog_calls_specific_autologs_correctly(mocker):
-    LIBRARY_TO_MLFLOW_MODULE = {
-        "sklearn": "sklearn",
+@pytest.fixture
+def library_to_mlflow_module():
+    return {
         "tensorflow": "tensorflow",
         "keras": "keras",
-        "mxnet.gluon": "gluon",
-        "xgboost": "xgboost",
-        "lightgbm": "lightgbm",
         "fastai": "fastai",
         "pyspark": "spark",
+        "sklearn": "sklearn",
+        "xgboost": "xgboost",
+        "lightgbm": "lightgbm",
+        "mxnet.gluon": "gluon",
     }
 
+
+# @pytest.mark.large
+# @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
+# def test_universal_autolog_does_not_throw_if_specific_autolog_throws(mocker, library_to_mlflow_module, ):
+#     for integration_name in library_to_mlflow_module.keys():
+#         with mock.patch("mlflow." + library_to_mlflow_module[integration_name] + ".autolog") as autolog_mock:
+#             autolog_mock.side_effect = Exception("asdf")
+#             mlflow.autolog()
+#             importlib.__import__(integration_name)
+#             del sys.modules[integration_name]
+    
+
+@pytest.mark.large
+def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_mlflow_module):
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
-    for integration_name in LIBRARY_TO_MLFLOW_MODULE.keys():
+    for integration_name in library_to_mlflow_module.keys():
         # modify the __signature__ of the mock to contain the needed parameters
         args = (
             {"log_input_example": bool, "log_model_signature": bool}
@@ -712,23 +726,25 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker):
         ]
 
         autolog_fn_spy = mocker.spy(
-            getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog"
+            getattr(mlflow, library_to_mlflow_module[integration_name]), "autolog"
         )
         autolog_fn_spy.__signature__ = inspect.Signature(params)
 
         setattr(
-            getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog", autolog_fn_spy
+            getattr(mlflow, library_to_mlflow_module[integration_name]), "autolog", autolog_fn_spy
         )
-        autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog")
+        autolog_fn = getattr(getattr(mlflow, library_to_mlflow_module[integration_name]), "autolog")
         autolog_fn.assert_not_called()
 
     mlflow.autolog(log_input_example=True, log_model_signature=True)
 
-    autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE["pyspark"]), "autolog")
+    # pyspark autolog should NOT wait for pyspark to be imported
+    # it should instead initialize autologging immediately
+    autolog_fn = getattr(getattr(mlflow, library_to_mlflow_module["pyspark"]), "autolog")
     autolog_fn.assert_called_once_with()
 
-    for integration_name in [x for x in LIBRARY_TO_MLFLOW_MODULE.keys() if x != "pyspark"]:
-        autolog_fn = getattr(getattr(mlflow, LIBRARY_TO_MLFLOW_MODULE[integration_name]), "autolog")
+    for integration_name in [x for x in library_to_mlflow_module.keys() if x != "pyspark"]:
+        autolog_fn = getattr(getattr(mlflow, library_to_mlflow_module[integration_name]), "autolog")
         autolog_fn.assert_not_called()
 
         importlib.__import__(integration_name)
@@ -737,3 +753,5 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker):
             autolog_fn.assert_called_once_with(log_input_example=True, log_model_signature=True)
         else:
             autolog_fn.assert_called_once_with()
+
+        del sys.modules[integration_name]
