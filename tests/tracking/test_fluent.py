@@ -698,16 +698,21 @@ def library_to_mlflow_module():
     }
 
 
-# @pytest.mark.large
-# @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
-# def test_universal_autolog_does_not_throw_if_specific_autolog_throws(mocker, library_to_mlflow_module, ):
-#     for integration_name in library_to_mlflow_module.keys():
-#         with mock.patch("mlflow." + library_to_mlflow_module[integration_name] + ".autolog") as autolog_mock:
-#             autolog_mock.side_effect = Exception("asdf")
-#             mlflow.autolog()
-#             importlib.__import__(integration_name)
-#             del sys.modules[integration_name]
+@pytest.mark.large
+def test_universal_autolog_does_not_throw_if_specific_autolog_throws(mocker, library_to_mlflow_module, ):
+    for integration_name in library_to_mlflow_module.keys():
+        with mock.patch("mlflow." + library_to_mlflow_module[integration_name] + ".autolog") as autolog_mock:
+            autolog_mock.side_effect = Exception("asdf")
+            mlflow.autolog()
+            importlib.__import__(integration_name)
     
+    # cleanup global state
+    import wrapt
+    for integration_name in library_to_mlflow_module.keys():
+        del sys.modules[integration_name]
+        if integration_name != "pyspark":
+            del wrapt.importer._post_import_hooks[integration_name]
+
 
 @pytest.mark.large
 def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_mlflow_module):
@@ -754,4 +759,8 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_to_
         else:
             autolog_fn.assert_called_once_with()
 
-        del sys.modules[integration_name]
+    # cleanup global state
+    import wrapt
+    for integration_name in [x for x in library_to_mlflow_module.keys() if x != "pyspark"]:
+            del sys.modules[integration_name]
+            del wrapt.importer._post_import_hooks[integration_name]
