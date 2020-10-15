@@ -54,7 +54,8 @@ def log_explanation(predict_function, features, artifact_path=None):
         - SHAP values (computed using `shap.KernelExplainer`_)
         - Summary bar plot (shows the average impact of each feature on model output)
 
-    .. _shap.KernelExplainer: https://github.com/slundberg/shap#kernelexplainer
+    .. _shap.KernelExplainer: https://shap.readthedocs.io/en/latest/generated
+            /shap.KernelExplainer.html#shap.KernelExplainer
 
     :param predict_function:
         A function to compute the output of a model (e.g. ``predict`` method of
