@@ -177,3 +177,17 @@ def test_log_explanation_with_numpy_array(regressor):
     base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
+
+
+@pytest.mark.large
+def test_log_explanation_with_small_dataset(regressor):
+    """
+    Verifies that `log_explanation` does not fail even when `features` has less records than
+    `_MAXIMUM_BACKGROUND_DATA_SIZE`.
+    """
+    model = regressor.model
+    X = regressor.X
+
+    with mlflow.start_run():
+        num_rows = mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE - 1
+        mlflow.shap.log_explanation(model.predict, X.iloc[:num_rows])
