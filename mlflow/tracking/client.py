@@ -142,6 +142,58 @@ class MlflowClient(object):
         :param key: Metric name within the run
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_metric_info(m):
+                print("name: {}".format(m.key))
+                print("value: {}".format(m.value))
+                print("timestamp: {}".format(m.timestamp))
+
+            # Create a run under the default experiment (whose id is "0"). Since this is low-level
+            # CRUD operation, the method will create a run. To end the run, you'll have
+            # to explicitly end it.
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print("run_id: {}".format(run.info.run_id))
+            print("--")
+
+            # Log couple of metrics, update their initial value, and fetch each
+            # logged metrics' history.
+            for k, v in [("m1", 1.5), ("m2", 2.5)]:
+                client.log_metric(run.info.run_id, k, v)
+                client.log_metric(run.info.run_id, k, v+1)
+                history = client.get_metric_history(run.info.run_id, k)
+                for m in history:
+                    print_metric_info(m)
+                    print("--")
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 53413cdc8eeb44f7bb2cf8ff447196f1
+            --
+            name: m1
+            value: 1.5
+            timestamp: 1602870941360
+            --
+            name: m1
+            value: 2.5
+            timestamp: 1602870941364
+            --
+            name: m2
+            value: 2.5
+            timestamp: 1602870941366
+            --
+            name: m2
+            value: 3.5
+            timestamp: 1602870941366
+            --
         """
         return self._tracking_client.get_metric_history(run_id, key)
 
@@ -1017,6 +1069,64 @@ class MlflowClient(object):
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. If the underlying tracking store supports pagination, the token for
             the next page may be obtained via the ``token`` attribute of the returned object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import ViewType
+
+            def print_run_info(runs):
+                for r in runs:
+                    print("run_id: {}".format(r.info.run_id))
+                    print("lifecycle_stage: {}".format(r.info.lifecycle_stage))
+                    print("metrics: {}".format(r.data.metrics))
+
+                    # Exclude mlflow tags
+                    tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+                    print("tags: {}".format(tags))
+
+            # Create an experiment and log two runs with metrics and tags under the experiment
+            experiment_id = mlflow.create_experiment("Social NLP Experiments")
+            with mlflow.start_run(experiment_id=experiment_id) as run:
+                mlflow.log_metric("m", 1.55)
+                mlflow.set_tag("s.release", "1.1.0-RC")
+            with mlflow.start_run(experiment_id=experiment_id):
+                mlflow.log_metric("m", 2.50)
+                mlflow.set_tag("s.release", "1.2.0-GA")
+
+            # Search all runs under experiment id and order them by descending value of the metric 'm'
+            client = MlflowClient()
+            runs = client.search_runs(experiment_id, order_by=["metrics.m DESC"])
+            print_run_info(runs)
+            print("--")
+
+            # Delete the first run
+            client.delete_run(run_id=run.info.run_id)
+
+            # Search only deleted runs under the experiment id and use a case insensitive pattern
+            # in the filter_string for the tag.
+            filter_string = "tags.s.release ILIKE '%rc%'"
+            runs = client.search_runs(experiment_id, run_view_type=ViewType.DELETED_ONLY, filter_string=filter_string)
+            print_run_info(runs)
+
+        .. code-block:: Example
+            :caption: Output
+
+            run_id: 0efb2a68833d4ee7860a964fad31cb3f
+            lifecycle_stage: active
+            metrics: {'m': 2.5}
+            tags: {'s.release': '1.2.0-GA'}
+            run_id: 7ab027fd72ee4527a5ec5eafebb923b8
+            lifecycle_stage: active
+            metrics: {'m': 1.55}
+            tags: {'s.release': '1.1.0-RC'}
+            --
+            run_id: 7ab027fd72ee4527a5ec5eafebb923b8
+            lifecycle_stage: deleted
+            metrics: {'m': 1.55}
+            tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
             experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
