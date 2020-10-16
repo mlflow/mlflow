@@ -264,18 +264,17 @@ def _handle_py4j_error(reraised_error_type, reraised_error_text):
     Logs information about an exception that is currently being handled
     and reraises it with the specified error text as a message.
     """
-    def reraise(tp, value, tb=None):
-        try:
-            if value.__traceback__ is not tb:
-                raise value.with_traceback(tb)
-            raise value
-        finally:
-            value = None
-            tb = None
-
     traceback.print_exc()
     tb = sys.exc_info()[2]
-    reraise(reraised_error_type, reraised_error_type(reraised_error_text), tb)
+    exception = reraised_error_type(reraised_error_text)
+
+    try:
+        if exception.__traceback__ is not tb:
+            raise exception.with_traceback(tb)
+        raise exception
+    finally:
+        exception = None
+        tb = None
 
 
 class MLeapSerializationException(MlflowException):

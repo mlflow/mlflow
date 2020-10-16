@@ -142,15 +142,6 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
                        the codes listed in the `mlflow.protos.databricks_pb2` proto.
     :param include_traceback: Whether to include the current traceback in the returned error.
     """
-    def reraise(tp, value, tb=None):
-        try:
-            if value.__traceback__ is not tb:
-                raise value.with_traceback(tb)
-            raise value
-        finally:
-            value = None
-            tb = None
-
     if include_traceback:
         traceback_buf = StringIO()
         traceback.print_exc(file=traceback_buf)
@@ -158,7 +149,14 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
         e = MlflowException(message=error_message, error_code=error_code, stack_trace=traceback_str)
     else:
         e = MlflowException(message=error_message, error_code=error_code)
-    reraise(MlflowException, e)
+
+    try:
+        if e.__traceback__ is not None:
+            raise e.with_traceback(None)
+        raise e
+    finally:
+        e = None
+        tb = None
 
 
 def init(model: PyFuncModel):
