@@ -262,9 +262,7 @@ if __name__ == "__main__":
         "--es-monitor", type=str, default="val_loss", help="Early stopping monitor parameter"
     )
 
-    parser.add_argument(
-        "--es-mode", type=str, default="min", help="Early stopping mode parameter"
-    )
+    parser.add_argument("--es-mode", type=str, default="min", help="Early stopping mode parameter")
 
     parser.add_argument(
         "--es-verbose", type=bool, default=True, help="Early stopping verbose parameter"
@@ -283,8 +281,12 @@ if __name__ == "__main__":
     mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     model = LightningMNISTClassifier(**dict_args)
-    early_stopping = EarlyStopping(monitor=dict_args["es_monitor"], mode=dict_args["es_mode"],
-                                   verbose=dict_args["es_verbose"], patience=dict_args["es_patience"])
+    early_stopping = EarlyStopping(
+        monitor=dict_args["es_monitor"],
+        mode=dict_args["es_mode"],
+        verbose=dict_args["es_verbose"],
+        patience=dict_args["es_patience"],
+    )
 
     checkpoint_callback = ModelCheckpoint(
         filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
