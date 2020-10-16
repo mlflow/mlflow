@@ -266,8 +266,6 @@ def _handle_py4j_error(reraised_error_type, reraised_error_text):
     """
     def reraise(tp, value, tb=None):
         try:
-            if value is None:
-                value = tp()
             if value.__traceback__ is not tb:
                 raise value.with_traceback(tb)
             raise value
