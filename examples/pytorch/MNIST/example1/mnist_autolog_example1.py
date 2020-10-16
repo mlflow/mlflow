@@ -55,9 +55,9 @@ class LightningMNISTClassifier(pl.LightningModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=1,
+            default=3,
             metavar="N",
-            help="number of workers (default: 0)",
+            help="number of workers (default: 3)",
         )
         parser.add_argument(
             "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
@@ -162,7 +162,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         :return: output - average test loss
         """
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
-        return {"avg_test_acc": avg_test_acc}
+        self.log("avg_test_acc", avg_test_acc)
 
     def prepare_data(self):
         """
@@ -251,17 +251,19 @@ if __name__ == "__main__":
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--distributed_backend",
+        "--accelerator",
         type=str,
         default=None,
-        help="Distributed Backend - (default: None)",
+        help="Accelerator - (default: None)",
     )
+
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
     autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
+
     mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     model = LightningMNISTClassifier(**dict_args)

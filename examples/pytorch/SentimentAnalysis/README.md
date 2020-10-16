@@ -44,7 +44,7 @@ Following are the parameters which can be overridden by passing values in comman
 
 1. Number of epochs - max_epochs
 2. Number of gpus - gpus
-3. Backend in case of gpus environment - distributed_backend
+3. Backend in case of gpus environment - accelerator
 4. Batch size to process - batch-size
 5. Number of workers to process input - num-workers
 6. Learning rate - lr
@@ -55,7 +55,7 @@ For example:
 `python bert_sentiment.py \
     --max_epochs 5 \
     --gpus 1 \
-    --distributed_backend "ddp" \
+    --accelerator "ddp" \
     --batch-size 64 \
     --num-workers 2 \
     --lr 0.01 \
