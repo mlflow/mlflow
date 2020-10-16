@@ -13,7 +13,7 @@ The metrics are logged during training of the model.
 
 ## Setup
 
-Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `bert_sentiment.py`
+Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `bert_classification.py`
 Change the variables according to the environment setup.
 
 ### Running the code
@@ -23,7 +23,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/Sentimen
 mlflow run .
 ```
 
-This will run `bert_sentiment..py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `bert_classification..py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -53,7 +53,7 @@ Following are the parameters which can be overridden by passing values in comman
 
 For example:
 
-`python bert_sentiment.py \
+`python bert_classification.py \
     --max-epochs 5 \
     --gpus 1 \
     --distributed-backend "ddp" \
