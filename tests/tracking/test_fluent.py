@@ -752,25 +752,25 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_nam
         inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
         for param, type_ in args.items()
     ]
-    autolog_fn_spy = mocker.spy(getattr(mlflow, mlflow_module), "autolog")
+    with mock.patch(
+        "mlflow." + mlflow_module + ".autolog", wraps=getattr(mlflow, mlflow_module).autolog
+    ) as autolog_mock:
+        autolog_mock.__signature__ = inspect.Signature(params)
 
-    autolog_fn_spy.__signature__ = inspect.Signature(params)
-    setattr(getattr(mlflow, mlflow_module), "autolog", autolog_fn_spy)
+        autolog_mock.assert_not_called()
 
-    autolog_fn = getattr(getattr(mlflow, mlflow_module), "autolog")
-    autolog_fn.assert_not_called()
+        # this should attach import hooks to each library
+        mlflow.autolog(log_input_example=True, log_model_signature=True)
 
-    mlflow.autolog(log_input_example=True, log_model_signature=True)
+        autolog_mock.assert_not_called()
 
-    autolog_fn = getattr(getattr(mlflow, mlflow_module), "autolog")
-    autolog_fn.assert_not_called()
+        importlib.__import__(library_name)
 
-    importlib.__import__(library_name)
-
-    if library_name in integrations_with_config:
-        autolog_fn.assert_called_once_with(log_input_example=True, log_model_signature=True)
-    else:
-        autolog_fn.assert_called_once_with()
+        # after each library is imported, its corresponding autolog function should have been called
+        if library_name in integrations_with_config:
+            autolog_mock.assert_called_once_with(log_input_example=True, log_model_signature=True)
+        else:
+            autolog_mock.assert_called_once_with()
 
 
 @pytest.mark.large
@@ -778,37 +778,40 @@ def test_universal_autolog_calls_pyspark_immediately(mocker):
     library_name = "pyspark"
     mlflow_module = "spark"
 
-    autolog_fn_spy = mocker.spy(getattr(mlflow, mlflow_module), "autolog")
+    with mock.patch(
+        "mlflow." + mlflow_module + ".autolog", wraps=getattr(mlflow, mlflow_module).autolog
+    ) as autolog_mock:
+        autolog_mock.assert_not_called()
 
-    setattr(getattr(mlflow, mlflow_module), "autolog", autolog_fn_spy)
-    autolog_fn = getattr(getattr(mlflow, mlflow_module), "autolog")
-    autolog_fn.assert_not_called()
+        mlflow.autolog()
 
-    mlflow.autolog()
+        # pyspark autolog should NOT wait for pyspark to be imported
+        # it should instead initialize autologging immediately
+        autolog_mock.assert_called_once_with()
 
-    # pyspark autolog should NOT wait for pyspark to be imported
-    # it should instead initialize autologging immediately
-    autolog_fn.assert_called_once_with()
-
-    # there should also be no import hook on pyspark
-    importlib.__import__(library_name)
-    autolog_fn.assert_called_once_with()
+        # there should also be no import hook on pyspark
+        importlib.__import__(library_name)
+        autolog_mock.assert_called_once_with()
 
 
 @pytest.mark.large
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(mocker):
-    autolog_fn_spy = mocker.spy(getattr(mlflow, "spark"), "autolog")
-    setattr(getattr(mlflow, "spark"), "autolog", autolog_fn_spy)
-    # simulate pyspark not being installed
-    autolog_fn_spy.side_effect = ImportError("no module named pyspark blahblah")
+    library_name = "pyspark"
+    mlflow_module = "spark"
 
-    mlflow.autolog()
-    autolog_fn_spy.assert_called_once()  # it was called once and failed
+    with mock.patch(
+        "mlflow." + mlflow_module + ".autolog", wraps=getattr(mlflow, mlflow_module).autolog
+    ) as autolog_mock:
+        # simulate pyspark not being installed
+        autolog_mock.side_effect = ImportError("no module named pyspark blahblah")
 
-    # now the user installs pyspark
-    autolog_fn_spy.side_effect = None
+        mlflow.autolog()
+        autolog_mock.assert_called_once()  # it was called once and failed
 
-    importlib.__import__("pyspark")
+        # now the user installs pyspark
+        autolog_mock.side_effect = None
 
-    # assert autolog is called again once pyspark is imported
-    assert autolog_fn_spy.call_count == 2
+        importlib.__import__("pyspark")
+
+        # assert autolog is called again once pyspark is imported
+        assert autolog_mock.call_count == 2
