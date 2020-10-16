@@ -1,6 +1,7 @@
 ## Bert Sentiment Analysis example with MLFlow
 
-In this example, we have used a pretrained Bert model to predict the sentiment of the play store review.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
+In this example, we have used a pretrained Bert model to classify the news reports into any one of the 4 different categories("world", "Sports", "Business", "Sci/Tech").
+The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics.
 The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
 is responsible for logging the params, metrics, model summary and the model.
  
