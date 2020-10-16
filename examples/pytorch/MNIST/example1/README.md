@@ -39,23 +39,24 @@ Following are the parameters which can be overridden by passing values in comman
 
 1. Number of epochs - max_epochs
 2. Number of gpus - gpus
-3. Backend in case of gpus environment - distributed_backend
+3. Backend in case of gpus environment - accelerator
 4. Batch size to process - batch-size
 5. Number of workers to process input - num-workers
 6. Learning rate - lr
 7. URL to log - tracking-uri
 
 For example:
-
-`python mnist_autolog_example1.py \
+```
+python mnist_autolog_example1.py \
     --max-epochs 5 \
     --gpus 1 \
-    --distributed-backend "ddp" \
+    --accelerator "ddp" \
     --batch-size 64 \
-    --num-workers 2 \
+    --num-workers 3 \
     --lr 0.01 \
     --tracking-uri "http://localhost:5000" \
-    --es-patience 5`
+    --es-patience 5
+```
 
 Apart from model specific arguments, this example demonstrates early stopping behaviour.
 Following are the early stopping parameter which can be set using command line argument

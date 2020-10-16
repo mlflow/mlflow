@@ -36,7 +36,7 @@ def autolog(log_every_n_iter=1):
         """
 
         def __init__(self):
-            pass
+            self.early_stopping = False
 
         def on_epoch_end(self, trainer, pl_module):
             """
@@ -51,8 +51,9 @@ def autolog(log_every_n_iter=1):
                         mlflow.log_metric, key, float(value + 1), step=pl_module.current_epoch
                     )
 
-            if trainer.early_stop_callback:
-                self._early_stop_check(trainer.early_stop_callback)
+            for callback in trainer.callbacks:
+                if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
+                    self._early_stop_check(callback)
 
         def on_train_start(self, trainer, pl_module):
             """
@@ -63,8 +64,11 @@ def autolog(log_every_n_iter=1):
             """
             mlflow.set_tag(key="Mode", value="training")
             try_mlflow_log(mlflow.log_param, "epochs", trainer.max_epochs)
-            if trainer.early_stop_callback:
-                self._log_early_stop_params(trainer.early_stop_callback)
+
+            for callback in trainer.callbacks:
+                if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
+                    self.early_stopping = True
+                    self._log_early_stop_params(callback)
 
             if hasattr(trainer, "optimizers"):
                 for optimizer in trainer.optimizers:
@@ -99,7 +103,7 @@ def autolog(log_every_n_iter=1):
 
             mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="models")
 
-            if trainer.early_stop_callback and trainer.checkpoint_callback.best_model_path:
+            if self.early_stopping and trainer.checkpoint_callback.best_model_path:
                 try_mlflow_log(
                     mlflow.log_artifact,
                     local_path=trainer.checkpoint_callback.best_model_path,

@@ -51,9 +51,9 @@ class LightningMNISTClassifier(pl.LightningModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=1,
+            default=3,
             metavar="N",
-            help="number of workers (default: 0)",
+            help="number of workers (default: 3)",
         )
         parser.add_argument(
             "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
@@ -132,8 +132,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         :return: output - average valid loss
         """
         avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        tensorboard_logs = {"val_loss": avg_loss}
-        return {"avg_val_loss": avg_loss, "log": tensorboard_logs}
+        self.log("val_loss", avg_loss)
 
     def test_step(self, test_batch, batch_idx):
         """
@@ -159,7 +158,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         :return: output - average test loss
         """
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
-        return {"avg_test_acc": avg_test_acc}
+        self.log("avg_test_acc", avg_test_acc)
 
     def prepare_data(self):
         """
@@ -206,7 +205,8 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
-            )
+            ),
+            "monitor": "val_loss",
         }
         return [self.optimizer], [self.scheduler]
 
@@ -246,10 +246,7 @@ if __name__ == "__main__":
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--distributed-backend",
-        type=str,
-        default=None,
-        help="Distributed Backend - (default: None)",
+        "--accelerator", type=str, default=None, help="Accelerator - (default: None)",
     )
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 

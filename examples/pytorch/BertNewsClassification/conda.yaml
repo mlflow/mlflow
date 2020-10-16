@@ -5,13 +5,13 @@ channels:
 dependencies:
 - python=3.8.2
 - pytorch=1.6.0
-- pytorch-lightning==0.9.0
+- pytorch-lightning==1.0.2
 - torchvision=0.7.0
 - pip
 - pip:
   - mlflow
   - sklearn
-  - cloudpickle==1.2.2
+  - cloudpickle==1.6.0
   - boto3
   - transformers
   - torchtext

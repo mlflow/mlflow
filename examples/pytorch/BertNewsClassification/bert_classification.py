@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from pytorch_lightning.callbacks import (
     EarlyStopping,
     ModelCheckpoint,
-    LearningRateLogger,
+    LearningRateMonitor,
 )
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
@@ -243,19 +243,20 @@ class BertSentinmentClassifier(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         """ Computes average validation accuracy"""
         avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
-        return {"val_loss": avg_loss}
+        self.log("val_loss", avg_loss)
 
     def test_epoch_end(self, outputs):
         """Computes average test accuracy score"""
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
-        return {"avg_test_acc": avg_test_acc}
+        self.log("avg_test_acc", avg_test_acc)
 
     def configure_optimizers(self):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
-            )
+            ),
+            "monitor": "val_loss",
         }
         return [self.optimizer], [self.scheduler]
 
@@ -291,10 +292,7 @@ if __name__ == "__main__":
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--distributed-backend",
-        type=str,
-        default=None,
-        help="Distributed Backend - (default: None)",
+        "--accelerator", type=str, default=None, help="Distributed Backend - (default: None)",
     )
     parser = BertSentinmentClassifier.add_model_specific_args(parent_parser=parser)
 
@@ -316,14 +314,13 @@ if __name__ == "__main__":
     checkpoint_callback = ModelCheckpoint(
         filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
-    lr_logger = LearningRateLogger()
+    lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
         args,
-        callbacks=[lr_logger],
-        early_stop_callback=early_stopping,
+        callbacks=[lr_logger, early_stopping],
         checkpoint_callback=checkpoint_callback,
-        train_percent_check=0.1,
+        limit_train_batches=0.1,
     )
     trainer.fit(model, dm)
     trainer.test()
