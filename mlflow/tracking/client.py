@@ -1147,6 +1147,37 @@ class MlflowClient(object):
         :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(rm):
+                print("--")
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the mood-happy, sad, angry."
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_registered_model(name, tags, desc)
+            models = client.list_registered_models()
+            for rm in models:
+                print_model_info(rm)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         return self._get_registry_client().create_registered_model(name, tags, description)
 
@@ -1202,6 +1233,44 @@ class MlflowClient(object):
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                  that can satisfy the search expressions. The pagination token for the next page
                  can be obtained via the ``token`` attribute of the object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(rm):
+                print("--")
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Create a couple of registered models with respective
+            # names, tags, and descriptions
+            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
+                                     ("name2", {"t2": "t2"}, 'description2')]:
+                client.create_registered_model(name, tags, desc)
+
+            # Fetch all registered models
+            models = client.list_registered_models()
+            for rm in models:
+                print_model_info(rm)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            description: description1
+            --
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
         """
         return self._get_registry_client().list_registered_models(max_results, page_token)
 
