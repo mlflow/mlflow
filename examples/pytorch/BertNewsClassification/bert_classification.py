@@ -86,20 +86,18 @@ class BertDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # reading  the input
-        dataset_tar = download_from_url(URLS['AG_NEWS'], root='.data')
+        dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
         extracted_files = extract_archive(dataset_tar)
 
         train_csv_path = None
         for fname in extracted_files:
-            if fname.endswith('train.csv'):
+            if fname.endswith("train.csv"):
                 train_csv_path = fname
 
-        df = pd.read_csv(
-            train_csv_path
-        )
+        df = pd.read_csv(train_csv_path)
 
-        df.columns = ['sentiment', 'title', 'description']
-        df.sample(frac= 1)
+        df.columns = ["sentiment", "title", "description"]
+        df.sample(frac=1)
         df = df.iloc[:15000]
 
         # setting sentiment
@@ -113,7 +111,7 @@ class BertDataModule(pl.LightningDataModule):
             max_length=32,
             add_special_tokens=True,
             return_token_type_ids=False,
-            padding='max_length',
+            padding="max_length",
             return_attention_mask=True,
             return_tensors="pt",
             truncation=True,
