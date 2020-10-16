@@ -16,7 +16,6 @@ import json
 import logging
 import numpy as np
 import pandas as pd
-from six import reraise
 import sys
 import traceback
 
@@ -143,6 +142,17 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
                        the codes listed in the `mlflow.protos.databricks_pb2` proto.
     :param include_traceback: Whether to include the current traceback in the returned error.
     """
+    def reraise(tp, value, tb=None):
+        try:
+            if value is None:
+                value = tp()
+            if value.__traceback__ is not tb:
+                raise value.with_traceback(tb)
+            raise value
+        finally:
+            value = None
+            tb = None
+
     if include_traceback:
         traceback_buf = StringIO()
         traceback.print_exc(file=traceback_buf)

@@ -12,7 +12,6 @@ import logging
 import os
 import sys
 import traceback
-from six import reraise
 
 import mlflow
 from mlflow.models import Model
@@ -265,6 +264,17 @@ def _handle_py4j_error(reraised_error_type, reraised_error_text):
     Logs information about an exception that is currently being handled
     and reraises it with the specified error text as a message.
     """
+    def reraise(tp, value, tb=None):
+        try:
+            if value is None:
+                value = tp()
+            if value.__traceback__ is not tb:
+                raise value.with_traceback(tb)
+            raise value
+        finally:
+            value = None
+            tb = None
+
     traceback.print_exc()
     tb = sys.exc_info()[2]
     reraise(reraised_error_type, reraised_error_type(reraised_error_text), tb)
