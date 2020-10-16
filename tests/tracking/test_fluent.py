@@ -695,7 +695,8 @@ library_to_mlflow_module_without_pyspark = {
     "mxnet.gluon": "gluon",
 }
 
-library_to_mlflow_module = { **library_to_mlflow_module_without_pyspark, "pyspark": "spark" }
+library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, "pyspark": "spark"}
+
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
@@ -726,12 +727,8 @@ def reset_global_states():
 
 @pytest.mark.large
 @pytest.mark.parametrize("library_name,mlflow_module", library_to_mlflow_module.items())
-def test_universal_autolog_does_not_throw_if_specific_autolog_throws(
-    library_name, mlflow_module
-):
-    with mock.patch(
-        "mlflow." + mlflow_module + ".autolog"
-    ) as autolog_mock:
+def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library_name, mlflow_module):
+    with mock.patch("mlflow." + mlflow_module + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
         importlib.__import__(library_name)
@@ -739,11 +736,10 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("library_name,mlflow_module", library_to_mlflow_module_without_pyspark.items())
-def test_universal_autolog_calls_specific_autologs_correctly(
-    mocker, library_name, mlflow_module
-):
-
+@pytest.mark.parametrize(
+    "library_name,mlflow_module", library_to_mlflow_module_without_pyspark.items()
+)
+def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_name, mlflow_module):
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
     # modify the __signature__ of the mock to contain the needed parameters
@@ -756,23 +752,13 @@ def test_universal_autolog_calls_specific_autologs_correctly(
         inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
         for param, type_ in args.items()
     ]
-    autolog_fn_spy = mocker.spy(
-        getattr(mlflow, mlflow_module), "autolog"
-    )
-    import sys
-    if library_name == "tensorflow":
-        print("TENSORFLOW EXISTS?")
-        print('tensorflow' in sys.modules)
+    autolog_fn_spy = mocker.spy(getattr(mlflow, mlflow_module), "autolog")
 
     autolog_fn_spy.__signature__ = inspect.Signature(params)
-    setattr(
-        getattr(mlflow, mlflow_module), "autolog", autolog_fn_spy
-    )
+    setattr(getattr(mlflow, mlflow_module), "autolog", autolog_fn_spy)
 
     autolog_fn = getattr(getattr(mlflow, mlflow_module), "autolog")
     autolog_fn.assert_not_called()
-
-
 
     mlflow.autolog(log_input_example=True, log_model_signature=True)
 
@@ -788,19 +774,13 @@ def test_universal_autolog_calls_specific_autologs_correctly(
 
 
 @pytest.mark.large
-def test_universal_autolog_calls_pyspark_immediately(
-    mocker
-):
+def test_universal_autolog_calls_pyspark_immediately(mocker):
     library_name = "pyspark"
     mlflow_module = "spark"
 
-    autolog_fn_spy = mocker.spy(
-        getattr(mlflow, mlflow_module), "autolog"
-    )
+    autolog_fn_spy = mocker.spy(getattr(mlflow, mlflow_module), "autolog")
 
-    setattr(
-        getattr(mlflow, mlflow_module), "autolog", autolog_fn_spy
-    )
+    setattr(getattr(mlflow, mlflow_module), "autolog", autolog_fn_spy)
     autolog_fn = getattr(getattr(mlflow, mlflow_module), "autolog")
     autolog_fn.assert_not_called()
 
@@ -817,38 +797,18 @@ def test_universal_autolog_calls_pyspark_immediately(
 
 @pytest.mark.large
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(mocker):
-    import wrapt
-
-
-    autolog_fn_spy = mock.MagicMock()
-    # mocker.spy(
-    #     getattr(mlflow, "spark"), "autolog"
-    # )
-    print(autolog_fn_spy)
+    autolog_fn_spy = mocker.spy(getattr(mlflow, "spark"), "autolog")
     setattr(getattr(mlflow, "spark"), "autolog", autolog_fn_spy)
     # simulate pyspark not being installed
-    print("ASDF1")
-    autolog_fn_spy.side_effect = ImportError("no module named pyspark blahblah") 
-
+    autolog_fn_spy.side_effect = ImportError("no module named pyspark blahblah")
 
     mlflow.autolog()
-    print("ASDF2")
-    autolog_fn_spy.assert_called_once() # it was called once and failed
-
-
+    autolog_fn_spy.assert_called_once()  # it was called once and failed
 
     # now the user installs pyspark
     autolog_fn_spy.side_effect = None
-    import sys
-    print('pyspark' in sys.modules)
-    print('tensorflow' in sys.modules)
-    importlib.__import__("pyspark")
-    print('pyspark' in sys.modules)
-    print('tensorflow' in sys.modules)
 
-    print(wrapt.importer._post_import_hooks)
-    print('tensorflow' in sys.modules)
-    print("END OF FN")
+    importlib.__import__("pyspark")
+
     # assert autolog is called again once pyspark is imported
-    # assert autolog_fn_spy.call_count == 2
-    assert 0
+    assert autolog_fn_spy.call_count == 2
