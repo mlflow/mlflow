@@ -1045,10 +1045,6 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     }
 
     def setup_autologging(module):
-        print("setting up autologging for " + module.__name__)
-        print(module)
-        if module.__name__ == "pyspark":
-            print("ZXCVZXCVZXCVZXCV")
         autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1079,9 +1075,7 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle
         #   of their session so we want to enable autologging once they do
-        if 'pyspark' in str(ie):
+        if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark")
-            print("HERE")
     except Exception as e:
         _logger.warning("Exception raised while enabling autologging for spark: " + str(e))
-        print("ERRRRRRRRR" + str(e))
