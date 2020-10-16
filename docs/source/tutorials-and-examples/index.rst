@@ -5,7 +5,7 @@ Tutorials and Examples
 
 Below, you can find a number of tutorials and examples for various MLflow use cases.
 
-* :doc:`Train, Serve, and Score an Image-Classification Model <tutorial>`
+* :doc:`Train, Serve, and Score a Linear Regression Model <tutorial>`
 * `Hyperparameter Tuning <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
 * `Orchestrating Multistep Workflows <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_
 * `Using the MLflow REST API Directly <https://github.com/mlflow/mlflow/tree/master/examples/rest_api>`_
@@ -35,6 +35,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `SpaCy <https://github.com/mlflow/mlflow/tree/master/examples/spacy>`_
 
+  - `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_
+
   - scikit-learn
 
     + `Diabetes example <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_diabetes>`_
@@ -49,3 +51,6 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
     + `TensorFlow 2.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf2>`_
 
+  - RAPIDS
+
+    + `Random Forest Classifier <https://github.com/mlflow/mlflow/tree/master/examples/rapids>`_

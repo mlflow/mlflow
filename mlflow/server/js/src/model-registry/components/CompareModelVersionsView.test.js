@@ -26,6 +26,10 @@ describe('unconnected tests', () => {
       paramLists: [],
       runNames: [],
       runDisplayNames: [],
+      inputsListByName: [],
+      inputsListByIndex: [],
+      outputsListByName: [],
+      outputsListByIndex: [],
     };
 
     commonProps = {
@@ -48,6 +52,34 @@ describe('unconnected tests', () => {
       runInfosValid: [true, false],
       metricLists: [[{ key: 'test_metric', value: 0.0 }]],
       paramLists: [[{ key: 'test_param', value: '0.0' }]],
+      inputsListByName: [
+        [
+          { key: 'column1', value: 'long' },
+          { key: 'column2', value: 'string' },
+        ],
+        [],
+      ],
+      inputsListByIndex: [
+        [
+          { key: '0', value: 'column1: long' },
+          { key: '1', value: 'column2: string' },
+        ],
+        [],
+      ],
+      outputsListByName: [
+        [
+          { key: 'score1', value: 'long' },
+          { key: 'score2', value: 'string' },
+        ],
+        [],
+      ],
+      outputsListByIndex: [
+        [
+          { key: '0', value: 'score1: long' },
+          { key: '1', value: 'score2: string' },
+        ],
+        [],
+      ],
     };
   });
 
@@ -91,6 +123,7 @@ describe('connected tests', () => {
         },
         paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
         tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
+        mlModelArtifactByModelVersion: { '123': 'dummy' },
       },
       apis: {},
     });
@@ -114,6 +147,15 @@ describe('connected tests', () => {
         },
         paramsByRunUuid: { '123': [{ key: 'test_param', value: '0.0' }] },
         tagsByRunUuid: { '123': [{ key: 'test_tag', value: 'test.user' }] },
+        mlModelArtifactByModelVersion: {
+          '123': {
+            signature: {
+              inputs:
+                "[{'name': 'column1', 'type': 'long'}, {'name': 'column2', 'type': 'string'}]",
+              outputs: "[{'name': 'score1', 'type': 'long'}, {'name': 'score2', 'type': 'long'}]",
+            },
+          },
+        },
       },
       apis: {},
     });

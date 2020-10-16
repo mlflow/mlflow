@@ -1,8 +1,10 @@
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
-from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel, \
-    RegisteredModelTag as ProtoRegisteredModelTag
+from mlflow.protos.model_registry_pb2 import (
+    RegisteredModel as ProtoRegisteredModel,
+    RegisteredModelTag as ProtoRegisteredModelTag,
+)
 
 
 class RegisteredModel(_ModelRegistryEntity):
@@ -13,10 +15,17 @@ class RegisteredModel(_ModelRegistryEntity):
     MLflow entity for Registered Model.
     """
 
-    def __init__(self, name, creation_timestamp=None, last_updated_timestamp=None, description=None,
-                 latest_versions=None, tags=None):
+    def __init__(
+        self,
+        name,
+        creation_timestamp=None,
+        last_updated_timestamp=None,
+        description=None,
+        latest_versions=None,
+        tags=None,
+    ):
         # Constructor is called only from within the system by various backend stores.
-        super(RegisteredModel, self).__init__()
+        super().__init__()
         self._name = name
         self._creation_time = creation_timestamp
         self._last_updated_timestamp = last_updated_timestamp
@@ -69,11 +78,13 @@ class RegisteredModel(_ModelRegistryEntity):
     def from_proto(cls, proto):
         # input: mlflow.protos.model_registry_pb2.RegisteredModel
         # returns RegisteredModel entity
-        registered_model = cls(proto.name,
-                               proto.creation_timestamp,
-                               proto.last_updated_timestamp,
-                               proto.description,
-                               [ModelVersion.from_proto(mvd) for mvd in proto.latest_versions])
+        registered_model = cls(
+            proto.name,
+            proto.creation_timestamp,
+            proto.last_updated_timestamp,
+            proto.description,
+            [ModelVersion.from_proto(mvd) for mvd in proto.latest_versions],
+        )
         for tag in proto.tags:
             registered_model._add_tag(RegisteredModelTag.from_proto(tag))
         return registered_model
@@ -89,8 +100,10 @@ class RegisteredModel(_ModelRegistryEntity):
         if self.description:
             rmd.description = self.description
         if self.latest_versions is not None:
-            rmd.latest_versions.extend([model_version.to_proto()
-                                        for model_version in self.latest_versions])
-        rmd.tags.extend([ProtoRegisteredModelTag(key=key, value=value)
-                        for key, value in self._tags.items()])
+            rmd.latest_versions.extend(
+                [model_version.to_proto() for model_version in self.latest_versions]
+            )
+        rmd.tags.extend(
+            [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]
+        )
         return rmd

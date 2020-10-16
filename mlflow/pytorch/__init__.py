@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "pytorch"
 
@@ -57,14 +58,22 @@ def get_default_conda_env():
             # and `log_model()`: `mlflow.pytorch.pickle_module`.
             "cloudpickle=={}".format(cloudpickle.__version__)
         ],
-        additional_conda_channels=[
-            "pytorch",
-        ])
+        additional_conda_channels=["pytorch"],
+    )
 
 
-def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=None, registered_model_name=None,
-              signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
+def log_model(
+    pytorch_model,
+    artifact_path,
+    conda_env=None,
+    code_paths=None,
+    pickle_module=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    **kwargs
+):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
@@ -124,7 +133,9 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
-
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -141,7 +152,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
         # https://github.com/hunkim/PyTorchZeroToAll
         class Model(torch.nn.Module):
             def __init__(self):
-               super(Model, self).__init__()
+               super().__init__()
                self.linear = torch.nn.Linear(1, 1)  # One in and one out
             def forward(self, x):
                 y_pred = self.linear(x)
@@ -173,16 +184,32 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
             mlflow.pytorch.log_model(model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
-    Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
-              conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module,
-              registered_model_name=registered_model_name,
-              signature=signature, input_example=input_example, **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.pytorch,
+        pytorch_model=pytorch_model,
+        conda_env=conda_env,
+        code_paths=code_paths,
+        pickle_module=pickle_module,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
+        **kwargs
+    )
 
 
-def save_model(pytorch_model, path, conda_env=None, mlflow_model=None, code_paths=None,
-               pickle_module=None,
-               signature: ModelSignature=None, input_example: ModelInputExample=None,
-               **kwargs):
+def save_model(
+    pytorch_model,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    code_paths=None,
+    pickle_module=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    **kwargs
+):
     """
     Save a PyTorch model to a path on the local file system.
 
@@ -262,13 +289,14 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=None, code_path
             mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
     """
     import torch
+
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
     if code_paths is not None:
         if not isinstance(code_paths, list):
-            raise TypeError('Argument code_paths should be a list, not {}'.format(type(code_paths)))
+            raise TypeError("Argument code_paths should be a list, not {}".format(type(code_paths)))
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise RuntimeError("Path '{}' already exists".format(path))
@@ -316,10 +344,16 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=None, code_path
         code_dir_subpath = None
 
     mlflow_model.add_flavor(
-        FLAVOR_NAME, model_data=model_data_subpath, pytorch_version=torch.__version__)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.pytorch", data=model_data_subpath,
-                        pickle_module_name=pickle_module.__name__, code=code_dir_subpath,
-                        env=conda_env_subpath)
+        FLAVOR_NAME, model_data=model_data_subpath, pytorch_version=torch.__version__
+    )
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.pytorch",
+        data=model_data_subpath,
+        pickle_module_name=pickle_module.__name__,
+        code=code_dir_subpath,
+        env=conda_env_subpath,
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
@@ -342,17 +376,21 @@ def _load_model(path, **kwargs):
                 "Attempting to load the PyTorch model with a pickle module, '%s', that does not"
                 " match the pickle module that was used to save the model: '%s'.",
                 kwargs["pickle_module"].__name__,
-                pickle_module_name)
+                pickle_module_name,
+            )
         else:
             try:
                 kwargs["pickle_module"] = importlib.import_module(pickle_module_name)
-            except ImportError:
+            except ImportError as exc:
                 raise MlflowException(
                     message=(
                         "Failed to import the pickle module that was used to save the PyTorch"
                         " model. Pickle module name: `{pickle_module_name}`".format(
-                            pickle_module_name=pickle_module_name)),
-                    error_code=RESOURCE_DOES_NOT_EXIST)
+                            pickle_module_name=pickle_module_name
+                        )
+                    ),
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                ) from exc
 
     else:
         model_path = path
@@ -397,20 +435,24 @@ def load_model(model_uri, **kwargs):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     try:
         pyfunc_conf = _get_flavor_configuration(
-            model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME)
+            model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME
+        )
     except MlflowException:
         pyfunc_conf = {}
     code_subpath = pyfunc_conf.get(pyfunc.CODE)
     if code_subpath is not None:
         pyfunc_utils._add_code_to_system_path(
-            code_path=os.path.join(local_model_path, code_subpath))
+            code_path=os.path.join(local_model_path, code_subpath)
+        )
 
     pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     if torch.__version__ != pytorch_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",
-            pytorch_conf["pytorch_version"], torch.__version__)
-    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf['model_data'])
+            pytorch_conf["pytorch_version"],
+            torch.__version__,
+        )
+    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
@@ -428,10 +470,11 @@ class _PyTorchWrapper(object):
     Wrapper class that creates a predict function such that
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
+
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
 
-    def predict(self, data, device='cpu'):
+    def predict(self, data, device="cpu"):
         import torch
 
         if not isinstance(data, pd.DataFrame):
@@ -442,8 +485,10 @@ class _PyTorchWrapper(object):
             input_tensor = torch.from_numpy(data.values.astype(np.float32)).to(device)
             preds = self.pytorch_model(input_tensor)
             if not isinstance(preds, torch.Tensor):
-                raise TypeError("Expected PyTorch model to output a single output tensor, "
-                                "but got output of type '{}'".format(type(preds)))
+                raise TypeError(
+                    "Expected PyTorch model to output a single output tensor, "
+                    "but got output of type '{}'".format(type(preds))
+                )
             predicted = pd.DataFrame(preds.numpy())
             predicted.index = data.index
             return predicted

@@ -24,10 +24,11 @@ import tempfile
 import inspect
 import logging
 import gorilla
+from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, ModelInputExample
+from mlflow.models import Model, ModelInputExample, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
@@ -36,7 +37,16 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+    resolve_input_example_and_signature,
+    _InputExampleInfo,
+    ENSURE_AUTOLOGGING_ENABLED_TEXT,
+)
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
 
@@ -53,14 +63,19 @@ def get_default_conda_env():
     return _mlflow_conda_env(
         additional_conda_deps=None,
         # XGBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=[
-            "xgboost=={}".format(xgb.__version__),
-        ],
-        additional_conda_channels=None)
+        additional_pip_deps=["xgboost=={}".format(xgb.__version__)],
+        additional_conda_channels=None,
+    )
 
 
-def save_model(xgb_model, path, conda_env=None, mlflow_model=None,
-               signature: ModelSignature=None, input_example: ModelInputExample=None):
+def save_model(
+    xgb_model,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+):
     """
     Save an XGBoost model to a path on the local file system.
 
@@ -135,15 +150,23 @@ def save_model(xgb_model, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.xgboost",
-                        data=model_data_subpath, env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
+    )
     mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature=None, input_example: ModelInputExample=None,
-              **kwargs):
+def log_model(
+    xgb_model,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    **kwargs
+):
     """
     Log an XGBoost model as an MLflow artifact for the current run.
 
@@ -190,17 +213,27 @@ def log_model(xgb_model, artifact_path, conda_env=None, registered_model_name=No
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     :param kwargs: kwargs to pass to `xgboost.Booster.save_model`_ method.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.xgboost,
-              registered_model_name=registered_model_name,
-              xgb_model=xgb_model, conda_env=conda_env,
-              signature=signature, input_example=input_example, **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.xgboost,
+        registered_model_name=registered_model_name,
+        xgb_model=xgb_model,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
+        **kwargs
+    )
 
 
 def _load_model(path):
     import xgboost as xgb
+
     model = xgb.Booster()
     model.load_model(os.path.abspath(path))
     return model
@@ -244,11 +277,14 @@ class _XGBModelWrapper:
 
     def predict(self, dataframe):
         import xgboost as xgb
+
         return self.xgb_model.predict(xgb.DMatrix(dataframe))
 
 
 @experimental
-def autolog(importance_types=['weight']):  # pylint: disable=W0102
+def autolog(
+    importance_types=["weight"], log_input_example=False, log_model_signature=True
+):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
@@ -256,25 +292,57 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
     - metrics on each iteration (if ``evals`` specified).
     - metrics at the best iteration (if ``early_stopping_rounds`` specified).
     - feature importance as JSON files and plots.
-    - trained model.
+    - trained model, including:
+        - an example of valid input.
+        - inferred signature of the inputs and outputs of the model.
 
     Note that the `scikit-learn API`_ is not supported.
 
     :param importance_types: importance types to log.
-
+    :param log_input_example: if True, logs a sample of the training data as part of the model
+                              as an example for future reference. If False, no sample is logged.
+    :param log_model_signature: if True, records the type signature of the inputs and outputs as
+                                part of the model. If False, the signature is not recorded to the
+                                model.
     """
     import xgboost
     import numpy as np
 
-    @gorilla.patch(xgboost)
-    def train(*args, **kwargs):
+    # Patching this function so we can get a copy of the data given to DMatrix.__init__
+    #   to use as an input example and for inferring the model signature.
+    #   (there is no way to get the data back from a DMatrix object)
+    # We store it on the DMatrix object so the train function is able to read it.
+    def __init__(self, *args, **kwargs):
+        data = args[0] if len(args) > 0 else kwargs.get("data")
 
+        if data is not None:
+            original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
+
+            try:
+                if isinstance(data, str):
+                    raise Exception(
+                        "cannot gather example input when dataset is loaded from a file."
+                    )
+
+                input_example_info = _InputExampleInfo(
+                    input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
+                )
+            except Exception as e:  # pylint: disable=broad-except
+                input_example_info = _InputExampleInfo(error_msg=str(e))
+
+            setattr(self, "input_example_info", input_example_info)
+
+        original(self, *args, **kwargs)
+
+    def train(*args, **kwargs):
         def record_eval_results(eval_results):
             """
             Create a callback function that records evaluation results.
             """
+
             def callback(env):
                 eval_results.append(dict(env.evaluation_result_list))
+
             return callback
 
         if not mlflow.active_run():
@@ -303,32 +371,41 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
             fig, ax = plt.subplots(figsize=(w, h))
 
             yloc = np.arange(num_features)
-            ax.barh(yloc, importance, align='center', height=0.5)
+            ax.barh(yloc, importance, align="center", height=0.5)
             ax.set_yticks(yloc)
             ax.set_yticklabels(features)
-            ax.set_xlabel('Importance')
-            ax.set_title('Feature Importance ({})'.format(importance_type))
+            ax.set_xlabel("Importance")
+            ax.set_title("Feature Importance ({})".format(importance_type))
             fig.tight_layout()
 
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, 'feature_importance_{}.png'.format(imp_type))
+                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
-        original = gorilla.get_original_attribute(xgboost, 'train')
+        original = gorilla.get_original_attribute(xgboost, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
-        params = args[0] if len(args) > 0 else kwargs['params']
+        params = args[0] if len(args) > 0 else kwargs["params"]
         try_mlflow_log(mlflow.log_params, params)
 
-        unlogged_params = ['params', 'dtrain', 'evals', 'obj', 'feval', 'evals_result',
-                           'xgb_model', 'callbacks', 'learning_rates']
+        unlogged_params = [
+            "params",
+            "dtrain",
+            "evals",
+            "obj",
+            "feval",
+            "evals_result",
+            "xgb_model",
+            "callbacks",
+            "learning_rates",
+        ]
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
         all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
@@ -336,16 +413,16 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
 
         # adding a callback that records evaluation results.
         eval_results = []
-        callbacks_index = all_arg_names.index('callbacks')
+        callbacks_index = all_arg_names.index("callbacks")
         callback = record_eval_results(eval_results)
         if num_pos_args >= callbacks_index + 1:
             tmp_list = list(args)
             tmp_list[callbacks_index] += [callback]
             args = tuple(tmp_list)
-        elif 'callbacks' in kwargs and kwargs['callbacks'] is not None:
-            kwargs['callbacks'] += [callback]
+        elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
+            kwargs["callbacks"] += [callback]
         else:
-            kwargs['callbacks'] = [callback]
+            kwargs["callbacks"] = [callback]
 
         # training model
         model = original(*args, **kwargs)
@@ -356,40 +433,77 @@ def autolog(importance_types=['weight']):  # pylint: disable=W0102
 
         # If early_stopping_rounds is present, logging metrics at the best iteration
         # as extra metrics with the max step + 1.
-        early_stopping_index = all_arg_names.index('early_stopping_rounds')
-        early_stopping = (num_pos_args >= early_stopping_index + 1 or
-                          'early_stopping_rounds' in kwargs)
+        early_stopping_index = all_arg_names.index("early_stopping_rounds")
+        early_stopping = (
+            num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+        )
         if early_stopping:
             extra_step = len(eval_results)
-            try_mlflow_log(mlflow.log_metric, 'stopped_iteration', len(eval_results) - 1)
-            try_mlflow_log(mlflow.log_metric, 'best_iteration', model.best_iteration)
-            try_mlflow_log(mlflow.log_metrics, eval_results[model.best_iteration],
-                           step=extra_step)
+            try_mlflow_log(mlflow.log_metric, "stopped_iteration", len(eval_results) - 1)
+            try_mlflow_log(mlflow.log_metric, "best_iteration", model.best_iteration)
+            try_mlflow_log(mlflow.log_metrics, eval_results[model.best_iteration], step=extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
-            imp = model.get_score(importance_type=imp_type)
-            features, importance = zip(*imp.items())
+            imp = None
             try:
+                imp = model.get_score(importance_type=imp_type)
+                features, importance = zip(*imp.items())
                 log_feature_importance_plot(features, importance, imp_type)
             except Exception:  # pylint: disable=broad-except
-                _logger.exception('Failed to log feature importance plot. LightGBM autologging '
-                                  'will ignore the failure and continue. Exception: ')
+                _logger.exception(
+                    "Failed to log feature importance plot. XGBoost autologging "
+                    "will ignore the failure and continue. Exception: "
+                )
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                filepath = os.path.join(tmpdir, 'feature_importance_{}.json'.format(imp_type))
-                with open(filepath, 'w') as f:
-                    json.dump(imp, f)
-                try_mlflow_log(mlflow.log_artifact, filepath)
-            finally:
-                shutil.rmtree(tmpdir)
+            if imp is not None:
+                tmpdir = tempfile.mkdtemp()
+                try:
+                    filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                    with open(filepath, "w") as f:
+                        json.dump(imp, f)
+                    try_mlflow_log(mlflow.log_artifact, filepath)
+                finally:
+                    shutil.rmtree(tmpdir)
 
-        try_mlflow_log(log_model, model, artifact_path='model')
+        # dtrain must exist as the original train function already ran successfully
+        dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
+
+        # it is possible that the dataset was constructed before the patched
+        #   constructor was applied, so we cannot assume the input_example_info exists
+        input_example_info = getattr(dtrain, "input_example_info", None)
+
+        def get_input_example():
+            if input_example_info is None:
+                raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
+            if input_example_info.error_msg is not None:
+                raise Exception(input_example_info.error_msg)
+            return input_example_info.input_example
+
+        def infer_model_signature(input_example):
+            model_output = model.predict(xgboost.DMatrix(input_example))
+            model_signature = infer_signature(input_example, model_output)
+            return model_signature
+
+        input_example, signature = resolve_input_example_and_signature(
+            get_input_example,
+            infer_model_signature,
+            log_input_example,
+            log_model_signature,
+            _logger,
+        )
+
+        try_mlflow_log(
+            log_model,
+            model,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
         return model
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(xgboost, 'train', train, settings=settings))
+    wrap_patch(xgboost, "train", train)
+    wrap_patch(xgboost.DMatrix, "__init__", __init__)

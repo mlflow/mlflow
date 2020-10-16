@@ -1,8 +1,7 @@
 import os
 import posixpath
 import re
-
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -20,7 +19,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, client=None):
-        super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
         # Allow override for testing
         if client:
@@ -28,18 +27,22 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             return
 
         from azure.storage.blob import BlobServiceClient
+
         (_, account, _) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
-                conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"))
+                conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+            )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = "https://{account}.blob.core.windows.net".format(account=account)
             self.client = BlobServiceClient(
-                account_url=account_url,
-                credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"))
+                account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
+            )
         else:
-            raise Exception("You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
-                            "AZURE_STORAGE_ACCESS_KEY to access Azure storage.")
+            raise Exception(
+                "You need to set one of AZURE_STORAGE_CONNECTION_STRING or "
+                "AZURE_STORAGE_ACCESS_KEY to access Azure storage."
+            )
 
     @staticmethod
     def parse_wasbs_uri(uri):
@@ -49,12 +52,13 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             raise Exception("Not a WASBS URI: %s" % uri)
         match = re.match("([^@]+)@([^.]+)\\.blob\\.core\\.windows\\.net", parsed.netloc)
         if match is None:
-            raise Exception("WASBS URI must be of the form "
-                            "<container>@<account>.blob.core.windows.net")
+            raise Exception(
+                "WASBS URI must be of the form " "<container>@<account>.blob.core.windows.net"
+            )
         container = match.group(1)
         storage_account = match.group(2)
         path = parsed.path
-        if path.startswith('/'):
+        if path.startswith("/"):
             path = path[1:]
         return container, storage_account, path
 
@@ -63,8 +67,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         container_client = self.client.get_container_client(container)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-                dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         with open(local_file, "rb") as file:
             container_client.upload_blob(dest_path, file)
 
@@ -86,22 +89,31 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                     container_client.upload_blob(remote_file_path, file)
 
     def list_artifacts(self, path=None):
-        from azure.storage.blob._models import BlobPrefix
+        # Newer versions of `azure-storage-blob` (>= 12.4.0) provide a public
+        # `azure.storage.blob.BlobPrefix` object to signify that a blob is a directory,
+        # while older versions only expose this API internally as
+        # `azure.storage.blob._models.BlobPrefix`
+        try:
+            from azure.storage.blob import BlobPrefix
+        except ImportError:
+            from azure.storage.blob._models import BlobPrefix
+
         (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
-        prefix = dest_path + "/"
+        prefix = dest_path if dest_path.endswith("/") else dest_path + "/"
         results = container_client.walk_blobs(name_starts_with=prefix)
         for r in results:
             if not r.name.startswith(artifact_path):
                 raise MlflowException(
                     "The name of the listed Azure blob does not begin with the specified"
                     " artifact path. Artifact path: {artifact_path}. Blob name:"
-                    " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
-            if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
+                    " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name)
+                )
+            if isinstance(r, BlobPrefix):  # This is a prefix for items in a subdirectory
                 subdir = posixpath.relpath(path=r.name, start=artifact_path)
                 if subdir.endswith("/"):
                     subdir = subdir[:-1]
@@ -111,7 +123,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                 infos.append(FileInfo(file_name, False, r.size))
         # The list_artifacts API expects us to return an empty list if the
         # the path references a single file.
-        rel_path = dest_path[len(artifact_path)+1:]
+        rel_path = dest_path[len(artifact_path) + 1 :]
         if (len(infos) == 1) and not infos[0].is_dir and (infos[0].path == rel_path):
             return []
         return sorted(infos, key=lambda f: f.path)
@@ -124,4 +136,4 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             container_client.download_blob(remote_full_path).readinto(file)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")

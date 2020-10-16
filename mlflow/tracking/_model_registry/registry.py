@@ -17,7 +17,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
     """
 
     def __init__(self):
-        super(ModelRegistryStoreRegistry, self).__init__("mlflow.model_registry_store")
+        super().__init__("mlflow.model_registry_store")
 
     def get_store(self, store_uri=None):
         """Get a store from the registry based on the scheme of store_uri
@@ -30,6 +30,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
                  store URI requirements.
         """
         from mlflow.tracking._model_registry import utils
+
         store_uri = utils._resolve_registry_uri(store_uri)
         builder = self.get_store_builder(store_uri)
         return builder(store_uri=store_uri)

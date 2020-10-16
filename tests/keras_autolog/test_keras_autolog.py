@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+
 np.random.seed(1337)
 
 import keras  # noqa
@@ -34,18 +35,20 @@ def manual_run(request):
 def create_model():
     model = keras.Sequential()
 
-    model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
-    model.add(layers.Dense(64, activation='relu'))
-    model.add(layers.Dense(10, activation='softmax'))
+    model.add(layers.Dense(64, activation="relu", input_shape=(32,)))
+    model.add(layers.Dense(64, activation="relu"))
+    model.add(layers.Dense(10, activation="softmax"))
 
-    model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(
+        optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
+        loss="categorical_crossentropy",
+        metrics=["accuracy"],
+    )
     return model
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
     mlflow.keras.autolog()
 
@@ -54,10 +57,12 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
 
     model = create_model()
 
-    if fit_variant == 'fit_generator':
+    if fit_variant == "fit_generator":
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10)
@@ -66,9 +71,10 @@ def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_l
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_keras_autolog_persists_manually_created_run(random_train_data,
-                                                     random_one_hot_labels, fit_variant):
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+def test_keras_autolog_persists_manually_created_run(
+    random_train_data, random_one_hot_labels, fit_variant
+):
     mlflow.keras.autolog()
 
     with mlflow.start_run() as run:
@@ -77,10 +83,12 @@ def test_keras_autolog_persists_manually_created_run(random_train_data,
 
         model = create_model()
 
-        if fit_variant == 'fit_generator':
+        if fit_variant == "fit_generator":
+
             def generator():
                 while True:
                     yield data, labels
+
             model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
         else:
             model.fit(data, labels, epochs=10)
@@ -91,7 +99,7 @@ def test_keras_autolog_persists_manually_created_run(random_train_data,
 
 @pytest.fixture
 def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run):
-
+    # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
     data = random_train_data
@@ -99,202 +107,217 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
 
     model = create_model()
 
-    if fit_variant == 'fit_generator':
+    if fit_variant == "fit_generator":
+
         def generator():
             while True:
                 yield data, labels
+
         model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
     else:
         model.fit(data, labels, epochs=10, steps_per_epoch=1)
 
     client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_keras_autolog_logs_expected_data(keras_random_data_run):
     data = keras_random_data_run.data
-    assert 'accuracy' in data.metrics
-    assert 'loss' in data.metrics
+    assert "accuracy" in data.metrics
+    assert "loss" in data.metrics
     # Testing explicitly passed parameters are logged correctly
-    assert 'epochs' in data.params
-    assert data.params['epochs'] == '10'
-    assert 'steps_per_epoch' in data.params
-    assert data.params['steps_per_epoch'] == '1'
+    assert "epochs" in data.params
+    assert data.params["epochs"] == "10"
+    assert "steps_per_epoch" in data.params
+    assert data.params["steps_per_epoch"] == "1"
     # Testing unwanted parameters are not logged
-    assert 'callbacks' not in data.params
-    assert 'validation_data' not in data.params
+    assert "callbacks" not in data.params
+    assert "validation_data" not in data.params
     # Testing optimizer parameters are logged
-    assert 'optimizer_name' in data.params
-    assert data.params['optimizer_name'] == 'Adam'
-    assert 'epsilon' in data.params
-    assert data.params['epsilon'] == '1e-07'
+    assert "optimizer_name" in data.params
+    assert data.params["optimizer_name"] == "Adam"
+    assert "epsilon" in data.params
+    assert data.params["epsilon"] == "1e-07"
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
-    assert 'model_summary.txt' in artifacts
+    assert "model_summary.txt" in artifacts
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit'])
+@pytest.mark.parametrize("fit_variant", ["fit"])
 def test_keras_autolog_logs_default_params(keras_random_data_run):
     # Logging default parameters does not work with keras.Model.fit_generator
     data = keras_random_data_run.data
-    assert 'initial_epoch' in data.params
-    assert data.params['initial_epoch'] == '0'
+    assert "initial_epoch" in data.params
+    assert data.params["initial_epoch"] == "0"
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
     run_id = keras_random_data_run.info.run_id
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
-    assert 'model' in artifacts
+    assert "model" in artifacts
     model = mlflow.keras.load_model("runs:/" + run_id + "/model")
     model.predict(random_train_data)
 
 
 @pytest.fixture
-def keras_random_data_run_with_callback(random_train_data, fit_variant,
-                                        random_one_hot_labels, manual_run,
-                                        callback, restore_weights, patience):
+def keras_random_data_run_with_callback(
+    random_train_data,
+    fit_variant,
+    random_one_hot_labels,
+    manual_run,
+    callback,
+    restore_weights,
+    patience,
+):
+    # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
 
     model = create_model()
-    if callback == 'early':
+    if callback == "early":
         # min_delta is set as such to guarantee early stopping
-        callback = keras.callbacks.callbacks.EarlyStopping(monitor='loss', patience=patience,
-                                                           min_delta=99999999,
-                                                           restore_best_weights=restore_weights)
+        callback = keras.callbacks.callbacks.EarlyStopping(
+            monitor="loss",
+            patience=patience,
+            min_delta=99999999,
+            restore_best_weights=restore_weights,
+        )
     else:
-        if fit_variant == 'fit_generator':
-            count_mode = 'steps'
+        if fit_variant == "fit_generator":
+            count_mode = "steps"
         else:
-            count_mode = 'samples'
+            count_mode = "samples"
         callback = keras.callbacks.callbacks.ProgbarLogger(count_mode=count_mode)
 
-    if fit_variant == 'fit_generator':
+    if fit_variant == "fit_generator":
+
         def generator():
             while True:
                 yield data, labels
-        history = model.fit_generator(generator(), epochs=10, callbacks=[callback],
-                                      steps_per_epoch=1, shuffle=False)
+
+        history = model.fit_generator(
+            generator(), epochs=10, callbacks=[callback], steps_per_epoch=1, shuffle=False
+        )
     else:
         history = model.fit(data, labels, epochs=10, callbacks=[callback])
 
     client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id), history, callback
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [True])
-@pytest.mark.parametrize('callback', ['early'])
-@pytest.mark.parametrize('patience', [0, 1, 5])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("restore_weights", [True])
+@pytest.mark.parametrize("callback", ["early"])
+@pytest.mark.parametrize("patience", [0, 1, 5])
 def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' in params
-    assert params['patience'] == str(callback.patience)
-    assert 'monitor' in params
-    assert params['monitor'] == 'loss'
-    assert 'verbose' not in params
-    assert 'mode' not in params
-    assert 'stopped_epoch' in metrics
-    assert 'restored_epoch' in metrics
-    restored_epoch = int(metrics['restored_epoch'])
-    assert int(metrics['stopped_epoch']) - max(1, callback.patience) == restored_epoch
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    assert "patience" in params
+    assert params["patience"] == str(callback.patience)
+    assert "monitor" in params
+    assert params["monitor"] == "loss"
+    assert "verbose" not in params
+    assert "mode" not in params
+    assert "stopped_epoch" in metrics
+    assert "restored_epoch" in metrics
+    restored_epoch = int(metrics["restored_epoch"])
+    assert int(metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert "loss" in history.history
+    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == max(1, callback.patience) + 1
     # Check that MLflow has logged the metrics of the "best" model
     assert len(metric_history) == num_of_epochs + 1
     # Check that MLflow has logged the correct data
-    assert history.history['loss'][restored_epoch] == metric_history[-1].value
+    assert history.history["loss"][restored_epoch] == metric_history[-1].value
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [True])
-@pytest.mark.parametrize('callback', ['early'])
-@pytest.mark.parametrize('patience', [11])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("restore_weights", [True])
+@pytest.mark.parametrize("callback", ["early"])
+@pytest.mark.parametrize("patience", [11])
 def test_keras_autolog_early_stop_no_stop_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' in params
-    assert params['patience'] == str(callback.patience)
-    assert 'monitor' in params
-    assert params['monitor'] == 'loss'
-    assert 'verbose' not in params
-    assert 'mode' not in params
-    assert 'stopped_epoch' in metrics
-    assert metrics['stopped_epoch'] == 0
-    assert 'restored_epoch' not in metrics
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    assert "patience" in params
+    assert params["patience"] == str(callback.patience)
+    assert "monitor" in params
+    assert params["monitor"] == "loss"
+    assert "verbose" not in params
+    assert "mode" not in params
+    assert "stopped_epoch" in metrics
+    assert metrics["stopped_epoch"] == 0
+    assert "restored_epoch" not in metrics
+    assert "loss" in history.history
+    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
     assert len(metric_history) == num_of_epochs
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [False])
-@pytest.mark.parametrize('callback', ['early'])
-@pytest.mark.parametrize('patience', [5])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("restore_weights", [False])
+@pytest.mark.parametrize("callback", ["early"])
+@pytest.mark.parametrize("patience", [5])
 def test_keras_autolog_early_stop_no_restore_does_not_log(keras_random_data_run_with_callback):
     run, history, callback = keras_random_data_run_with_callback
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' in params
-    assert params['patience'] == str(callback.patience)
-    assert 'monitor' in params
-    assert params['monitor'] == 'loss'
-    assert 'verbose' not in params
-    assert 'mode' not in params
-    assert 'stopped_epoch' in metrics
-    assert 'restored_epoch' not in metrics
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    assert "patience" in params
+    assert params["patience"] == str(callback.patience)
+    assert "monitor" in params
+    assert params["monitor"] == "loss"
+    assert "verbose" not in params
+    assert "mode" not in params
+    assert "stopped_epoch" in metrics
+    assert "restored_epoch" not in metrics
+    assert "loss" in history.history
+    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == callback.patience + 1
     assert len(metric_history) == num_of_epochs
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-@pytest.mark.parametrize('restore_weights', [False])
-@pytest.mark.parametrize('callback', ['not-early'])
-@pytest.mark.parametrize('patience', [5])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("restore_weights", [False])
+@pytest.mark.parametrize("callback", ["not-early"])
+@pytest.mark.parametrize("patience", [5])
 def test_keras_autolog_non_early_stop_callback_does_not_log(keras_random_data_run_with_callback):
-    run, history, callback = keras_random_data_run_with_callback
+    run, history = keras_random_data_run_with_callback[:-1]
     metrics = run.data.metrics
     params = run.data.params
-    assert 'patience' not in params
-    assert 'monitor' not in params
-    assert 'verbose' not in params
-    assert 'mode' not in params
-    assert 'stopped_epoch' not in metrics
-    assert 'restored_epoch' not in metrics
-    assert 'loss' in history.history
-    num_of_epochs = len(history.history['loss'])
+    assert "patience" not in params
+    assert "monitor" not in params
+    assert "verbose" not in params
+    assert "mode" not in params
+    assert "stopped_epoch" not in metrics
+    assert "restored_epoch" not in metrics
+    assert "loss" in history.history
+    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, 'loss')
+    metric_history = client.get_metric_history(run.info.run_id, "loss")
     # Check the test epoch numbers are correct
     assert num_of_epochs == 10
     assert len(metric_history) == num_of_epochs

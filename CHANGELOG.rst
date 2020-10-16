@@ -1,5 +1,69 @@
 Changelog
 =========
+1.11.0 (2020-08-31)
+-------------------
+MLflow 1.11.0 includes several major features and improvements:
+
+Features:
+
+- New ``mlflow.sklearn.autolog()`` API for automatic logging of metrics, params, and models from scikit-learn model training (#3287, @harupy; #3323, #3358 @dbczumar)
+- Registered model & model version creation APIs now support specifying an initial ``description`` (#3271, @sueann)
+- The R ``mlflow_log_model`` and ``mlflow_load_model`` APIs now support XGBoost models (#3085, @lorenzwalthert)
+- New ``mlflow.list_run_infos`` fluent API for listing run metadata (#3183, @trangevi)
+- Added section for visualizing and comparing model schemas to model version and model-version-comparison UIs (#3209, @zhidongqu-db)
+- Enhanced support for using the model registry across Databricks workspaces: support for registering models to a Databricks workspace from outside the workspace (#3119, @sueann), tracking run-lineage of these models (#3128, #3164, @ankitmathur-db; #3187, @harupy), and calling ``mlflow.<flavor>.load_model`` against remote Databricks model registries (#3330, @sueann)
+- UI support for setting/deleting registered model and model version tags (#3187, @harupy)
+- UI support for archiving existing staging/production versions of a model when transitioning a new model version to staging/production (#3134, @harupy)
+
+Bug fixes and documentation updates:
+
+- Fixed parsing of MLflow project parameter values containing'=' (#3347, @dbczumar)
+- Fixed a bug preventing listing of WASBS artifacts on the latest version of Azure Blob Storage (12.4.0) (#3348, @dbczumar)
+- Fixed a bug where artifact locations become malformed when using an SFTP file store in Windows (#3168, @harupy)
+- Fixed bug where ``list_artifacts`` returned incorrect results on GCS, preventing e.g. loading SparkML models from GCS (#3242, @santosh1994)
+- Writing and reading artifacts via ``MlflowClient`` to a DBFS location in a Databricks tracking server specified through the ``tracking_uri`` parameter during the initialization of ``MlflowClient`` now works properly (#3220, @sueann)
+- Fixed bug where ``FTPArtifactRepository`` returned artifact locations as absolute paths, rather than paths relative to the artifact repository root (#3210, @shaneing), and bug where calling `log_artifacts` against an FTP artifact location copied the logged directory itself into the FTP location, rather than the contents of the directory.
+- Fixed bug where Databricks project execution failed due to passing of GET request params as part of the request body rather than as query parameters (#2947, @cdemonchy-pro)
+- Fix bug where artifact viewer did not correctly render PDFs in MLflow 1.10 (#3172, @ankitmathur-db)
+- Fixed parsing of ``order_by`` arguments to MLflow search APIs when ordering by fields whose names contain spaces (#3118, @jdlesage)
+- Fixed bug where MLflow model schema enforcement raised exceptions when validating string columns using pandas >= 1.0 (#3130, @harupy)
+- Fixed bug where ``mlflow.spark.log_model`` did not save model signature and input examples (#3151, @harupy)
+- Fixed bug in runs UI where tags table did not reflect deletion of tags. (#3135, @ParseDark)
+- Added example illustrating the use of RAPIDS with MLFlow (#3028, @drobison00)
+
+Small bug fixes and doc updates (#3326, #3344, #3314, #3289, #3225, #3288, #3279, #3265, #3263, #3260, #3255, #3267, #3266, #3264, #3256, #3253, #3231, #3245, #3191, #3238, #3192, #3188, #3189, #3180, #3178, #3166, #3181, #3142, #3165, #2960, #3129, #3244, #3359 @harupy; #3236, #3141, @AveshCSingh; #3295, #3163, @arjundc-db; #3241, #3200, @zhidongqu-db; #3338, #3275, @sueann; #3020, @magnus-m; #3322, #3219, @dmatrix; #3341, #3179, #3355, #3360, #3363 @smurching; #3124, @jdlesage; #3232, #3146, @ankitmathur-db; #3140, @andreakress; #3174, #3133, @mlflow-automation; #3062, @cafeal; #3193, @tomasatdatabricks; 3115, @fhoering; #3328, @apurva-koti; #3046, @OlivierBondu; #3194, #3158, @dmatrix; #3250, @shivp950; #3259, @simonhessner; #3357 @dbczumar)
+
+1.10.0 (2020-07-20)
+-------------------
+MLflow 1.10.0 includes several major features and improvements, in particular the release of
+several new model registry Python client APIs.
+
+Features:
+
+- ``MlflowClient.transition_model_version_stage`` now supports an
+  ``archive_existing_versions`` argument for archiving existing staging or production model
+  versions when transitioning a new model version to staging or production (#3095, @harupy)
+- Added ``set_registry_uri``, ``get_registry_uri`` APIs. Setting the model registry URI causes
+  fluent APIs like ``mlflow.register_model`` to communicate with the model registry at the specified
+  URI (#3072, @sueann)
+- Added paginated ``MlflowClient.search_registered_models`` API (#2939, #3023, #3027 @ankitmathur-db; #2966, @mparkhe)
+- Added syntax highlighting when viewing text files (YAML etc) in the MLflow runs UI (#3041, @harupy)
+- Added REST API and Python client support for setting and deleting tags on model versions and registered models,
+  via the ``MlflowClient.create_registered_model``,  ``MlflowClient.create_model_version``,
+  ``MlflowClient.set_registered_model_tag``, ``MlflowClient.set_model_version_tag``,
+  ``MlflowClient.delete_registered_model_tag``, and ``MlflowClient.delete_model_version_tag`` APIs (#3094, @zhidongqu-db)
+
+Bug fixes and documentation updates:
+
+- Removed usage of deprecated ``aws ecr get-login`` command in ``mlflow.sagemaker`` (#3036, @mrugeles)
+- Fixed bug where artifacts could not be viewed and downloaded from the artifact UI when using
+  Azure Blob Storage (#3014, @Trollgeir)
+- Databricks credentials are now propagated to the project subprocess when running MLflow projects
+  within a notebook (#3035, @smurching)
+- Added docs explaining how to fetching an MLflow model from the model registry (#3000, @andychow-db)
+
+Small bug fixes and doc updates (#3112, #3102, #3089, #3103, #3096, #3090, #3049, #3080, #3070, #3078, #3083, #3051, #3050, #2875, #2982, #2949, #3121 @harupy; #3082, @ankitmathur-db; #3084, #3019, @smurching)
+
 1.9.1 (2020-06-25)
 ------------------
 MLflow 1.9.1 is a patch release containing a number of bug-fixes and improvements:

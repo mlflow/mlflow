@@ -1,7 +1,0 @@
-prospector[with_pyroma]==0.12.7
-pep8==1.7.1
-pyarrow==0.17.0
-pylint==1.8.2
-rstcheck==3.2
-# Pin isort version to prevent pylint from raising an error
-isort<5.0.0

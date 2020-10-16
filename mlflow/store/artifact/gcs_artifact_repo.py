@@ -1,7 +1,7 @@
 import os
 
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -22,8 +22,9 @@ class GCSArtifactRepository(ArtifactRepository):
             self.gcs = client
         else:
             from google.cloud import storage as gcs_storage
+
             self.gcs = gcs_storage
-        super(GCSArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     @staticmethod
     def parse_gcs_uri(uri):
@@ -32,12 +33,13 @@ class GCSArtifactRepository(ArtifactRepository):
         if parsed.scheme != "gs":
             raise Exception("Not a GCS URI: %s" % uri)
         path = parsed.path
-        if path.startswith('/'):
+        if path.startswith("/"):
             path = path[1:]
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):
         from google.auth.exceptions import DefaultCredentialsError
+
         try:
             storage_client = self.gcs.Client()
         except DefaultCredentialsError:
@@ -48,8 +50,7 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        dest_path = posixpath.join(
-            dest_path, os.path.basename(local_file))
+        dest_path = posixpath.join(dest_path, os.path.basename(local_file))
 
         gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
@@ -77,7 +78,7 @@ class GCSArtifactRepository(ArtifactRepository):
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
-        prefix = dest_path + "/"
+        prefix = dest_path if dest_path.endswith("/") else dest_path + "/"
 
         bkt = self._get_bucket(bucket)
 
@@ -85,7 +86,11 @@ class GCSArtifactRepository(ArtifactRepository):
 
         results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
-            blob_path = result.name[len(artifact_path) + 1:]
+            # skip blobs matching current directory path as list_blobs api
+            # returns subdirectories as well
+            if result.name == prefix:
+                continue
+            blob_path = result.name[len(artifact_path) + 1 :]
             infos.append(FileInfo(blob_path, False, result.size))
 
         return sorted(infos, key=lambda f: f.path)
@@ -96,7 +101,7 @@ class GCSArtifactRepository(ArtifactRepository):
         for page in results.pages:
             dir_paths.update(page.prefixes)
 
-        return [FileInfo(path[len(artifact_path) + 1:-1], True, None) for path in dir_paths]
+        return [FileInfo(path[len(artifact_path) + 1 : -1], True, None) for path in dir_paths]
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -105,4 +110,4 @@ class GCSArtifactRepository(ArtifactRepository):
         gcs_bucket.blob(remote_full_path).download_to_filename(local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException('Not implemented yet')
+        raise MlflowException("Not implemented yet")

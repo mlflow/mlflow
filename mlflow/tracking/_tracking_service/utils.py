@@ -52,6 +52,20 @@ def set_tracking_uri(uri):
                   Databricks CLI
                   `profile <https://github.com/databricks/databricks-cli#installation>`_,
                   "databricks://<profileName>".
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        mlflow.set_tracking_uri("file:///tmp/my_tracking")
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri: {}".format(tracking_uri))
+
+    .. code-block:: text
+        :caption: Output
+
+        Current tracking uri: file:///tmp/my_tracking
     """
     global _tracking_uri
     _tracking_uri = uri
@@ -67,6 +81,20 @@ def get_tracking_uri():
     the currently active run, since the tracking URI can be updated via ``set_tracking_uri``.
 
     :return: The tracking URI.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Get the current tracking uri
+        tracking_uri = mlflow.get_tracking_uri()
+        print("Current tracking uri: {}".format(tracking_uri))
+
+    .. code-block:: text
+        :caption: Output
+
+        Current tracking uri: file:///.../mlruns
     """
     global _tracking_uri
     if _tracking_uri is not None:
@@ -83,6 +111,7 @@ def _get_file_store(store_uri, **_):
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
     if artifact_uri is None:
         artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
     return SqlAlchemyStore(store_uri, artifact_uri)
@@ -94,7 +123,7 @@ def _get_default_host_creds(store_uri):
         username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
         password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
-        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
+        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
         client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
         server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
     )
@@ -109,11 +138,11 @@ def _get_databricks_rest_store(store_uri, **_):
 
 
 _tracking_store_registry = TrackingStoreRegistry()
-_tracking_store_registry.register('', _get_file_store)
-_tracking_store_registry.register('file', _get_file_store)
-_tracking_store_registry.register('databricks', _get_databricks_rest_store)
+_tracking_store_registry.register("", _get_file_store)
+_tracking_store_registry.register("file", _get_file_store)
+_tracking_store_registry.register("databricks", _get_databricks_rest_store)
 
-for scheme in ['http', 'https']:
+for scheme in ["http", "https"]:
     _tracking_store_registry.register(scheme, _get_rest_store)
 
 for scheme in DATABASE_ENGINES:
@@ -135,14 +164,17 @@ def _get_git_url_if_present(uri):
     :return: The git_uri#sub_directory if the uri is part of a Git repo,
              otherwise return the original uri
     """
-    if '#' in uri:
+    if "#" in uri:
         # Already a URI in git repo format
         return uri
     try:
         from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
     except ImportError as e:
-        print("Notice: failed to import Git (the git executable is probably not on your PATH),"
-              " so Git SHA is not available. Error: %s" % e, file=sys.stderr)
+        print(
+            "Notice: failed to import Git (the git executable is probably not on your PATH),"
+            " so Git SHA is not available. Error: %s" % e,
+            file=sys.stderr,
+        )
         return uri
     try:
         # Check whether this is part of a git repo
@@ -152,13 +184,13 @@ def _get_git_url_if_present(uri):
         repo_url = "file://%s" % repo.working_tree_dir
 
         # Sub directory
-        rlpath = uri.replace(repo.working_tree_dir, '')
-        if (rlpath == ''):
+        rlpath = uri.replace(repo.working_tree_dir, "")
+        if rlpath == "":
             git_path = repo_url
-        elif (rlpath[0] == '/'):
-            git_path = repo_url + '#' + rlpath[1:]
+        elif rlpath[0] == "/":
+            git_path = repo_url + "#" + rlpath[1:]
         else:
-            git_path = repo_url + '#' + rlpath
+            git_path = repo_url + "#" + rlpath
         return git_path
     except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
         return uri

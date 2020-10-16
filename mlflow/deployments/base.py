@@ -11,7 +11,7 @@ In particular, a valid deployment plugin module must implement:
 
 import abc
 
-from mlflow.utils import experimental
+from mlflow.utils.annotations import experimental
 
 
 @experimental
@@ -36,9 +36,11 @@ def run_local(target, name, model_uri, flavor=None, config=None):  # pylint: dis
     :param config: (optional) Dict containing updated target-specific config for the deployment
     :return: None
     """
-    raise NotImplementedError("This function should be implemented in the deployment plugin. It is"
-                              "kept here only for documentation purpose and shouldn't be used in"
-                              "your application")
+    raise NotImplementedError(
+        "This function should be implemented in the deployment plugin. It is"
+        "kept here only for documentation purpose and shouldn't be used in"
+        "your application"
+    )
 
 
 @experimental
@@ -62,9 +64,11 @@ def target_help():
     * Any other target-specific details.
 
     """
-    raise NotImplementedError("This function should be implemented in the deployment plugin. It is"
-                              "kept here only for documentation purpose and shouldn't be used in"
-                              "your application")
+    raise NotImplementedError(
+        "This function should be implemented in the deployment plugin. It is"
+        "kept here only for documentation purpose and shouldn't be used in"
+        "your application"
+    )
 
 
 class BaseDeploymentClient(abc.ABC):

@@ -7,6 +7,8 @@ import { getUUID } from '../../common/utils/ActionUtils';
 import Utils from '../../common/utils/Utils';
 import { AntdTableSortOrder, REGISTERED_MODELS_SEARCH_NAME_FIELD } from '../constants';
 import { searchRegisteredModelsApi } from '../actions';
+import { Spinner } from '../../common/components/Spinner';
+import { ErrorView } from '../../common/components/ErrorView';
 
 class ModelListPage extends React.Component {
   static propTypes = {
@@ -33,7 +35,10 @@ class ModelListPage extends React.Component {
   // Loads the initial set of models.
   loadModels(isInitialLoading = false) {
     const { orderByKey, orderByAsc, searchInput } = this.state;
-    this.loadPage(1, searchInput, orderByKey, orderByAsc, undefined, undefined, isInitialLoading);
+    const throwError = (e) => {
+      throw e;
+    };
+    this.loadPage(1, searchInput, orderByKey, orderByAsc, undefined, throwError, isInitialLoading);
   }
 
   resetHistoryState() {
@@ -126,7 +131,7 @@ class ModelListPage extends React.Component {
         Utils.logErrorAndNotifyUser(e);
         this.setState({ currentPage: 1 });
         this.resetHistoryState();
-        errorCallback && errorCallback();
+        errorCallback && errorCallback(e);
       });
   }
 
@@ -136,18 +141,28 @@ class ModelListPage extends React.Component {
     return (
       <div className='App-content'>
         <RequestStateWrapper requestIds={[this.criticalInitialRequestIds]}>
-          <ModelListView
-            models={models}
-            searchInput={searchInput}
-            orderByKey={orderByKey}
-            orderByAsc={orderByAsc}
-            currentPage={currentPage}
-            nextPageToken={pageTokens[currentPage + 1]}
-            onSearch={this.handleSearch}
-            onClickNext={this.handleClickNext}
-            onClickPrev={this.handleClickPrev}
-            onClickSortableColumn={this.handleClickSortableColumn}
-          />
+          {(loading, hasError, requests) => {
+            if (hasError) {
+              return <ErrorView statusCode={requests[0].error.xhr.status} />;
+            } else if (loading) {
+              return <Spinner />;
+            } else {
+              return (
+                <ModelListView
+                  models={models}
+                  searchInput={searchInput}
+                  orderByKey={orderByKey}
+                  orderByAsc={orderByAsc}
+                  currentPage={currentPage}
+                  nextPageToken={pageTokens[currentPage + 1]}
+                  onSearch={this.handleSearch}
+                  onClickNext={this.handleClickNext}
+                  onClickPrev={this.handleClickPrev}
+                  onClickSortableColumn={this.handleClickSortableColumn}
+                />
+              );
+            }
+          }}
         </RequestStateWrapper>
       </div>
     );

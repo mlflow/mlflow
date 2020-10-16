@@ -292,7 +292,8 @@ R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
 The ``crate`` model flavor defines a generic model format for representing an arbitrary R prediction
-function as an MLflow model. The prediction function is expected to take a dataframe as input and
+function as an MLflow model using the ``crate`` function from the
+`carrier <https://github.com/r-lib/carrier>`_ package. The prediction function is expected to take a dataframe as input and
 produce a dataframe, a vector or a list with the predictions as output.
 
 This flavor requires R to be installed in order to be used.
@@ -303,7 +304,10 @@ H\ :sub:`2`\ O (``h2o``)
 The ``h2o`` model flavor enables logging and loading H2O models.
 
 The :py:mod:`mlflow.h2o` module defines :py:func:`save_model() <mlflow.h2o.save_model>` and
-:py:func:`log_model() <mlflow.h2o.log_model>` methods for saving H2O models in MLflow Model format.
+:py:func:`log_model() <mlflow.h2o.log_model>` methods in python, and
+`mlflow_save_model <R-api.html#mlflow-save-model-h2o>`__ and
+`mlflow_log_model <R-api.html#mlflow-log-model>`__ in R for saving H2O models in MLflow Model
+format.
 These methods produce MLflow Models with the ``python_function`` flavor, allowing you to load them
 as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. When you load
 MLflow Models with the ``h2o`` flavor using :py:func:`mlflow.pyfunc.load_model()`,
@@ -456,7 +460,7 @@ XGBoost (``xgboost``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``xgboost`` model flavor enables logging of `XGBoost models
 <https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.Booster>`_
-in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods.
+in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods in python and `mlflow_save_model <R-api.html#mlflow-save-model-crate>`__ and `mlflow_log_model <R-api.html#mlflow-log-model>`__ in R respectively.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
 :py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.xgboost.load_model()`
@@ -485,6 +489,28 @@ not models that implement the `scikit-learn API
 <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`_.
 
 For more information, see :py:mod:`mlflow.lightgbm`.
+
+Spacy(``spaCy``)
+^^^^^^^^^^^^^^^^^^^^
+The ``spaCy`` model flavor enables logging of `spaCy models <https://spacy.io/models>`_ in MLflow format via
+the :py:func:`mlflow.spacy.save_model()` and :py:func:`mlflow.spacy.log_model()` methods. Additionally, these
+methods add the ``python_function`` flavor to the MLflow Models that they produce, allowing the models to be
+interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. You can
+also use the :py:func:`mlflow.spacy.load_model()` method to load MLflow Models with the ``spacy`` model flavor
+in native spaCy format.
+
+For more information, see :py:mod:`mlflow.spacy`.
+
+Fastai(``fastai``)
+^^^^^^^^^^^^^^^^^^^^^^
+The ``fastai`` model flavor enables logging of `fastai Learner models <https://docs.fast.ai/training.html>`_ in MLflow format via
+the :py:func:`mlflow.fastai.save_model()` and :py:func:`mlflow.fastai.log_model()` methods. Additionally, these
+methods add the ``python_function`` flavor to the MLflow Models that they produce, allowing the models to be
+interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. You can
+also use the :py:func:`mlflow.fastai.load_model()` method to load MLflow Models with the ``fastai`` model flavor
+in native fastai format.
+
+For more information, see :py:mod:`mlflow.fastai`.
 
 Model Customization
 -------------------
@@ -748,14 +774,13 @@ For more info, see:
 Deploy a ``python_function`` model on Microsoft Azure ML
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images.
-These images can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
+The :py:mod:`mlflow.azureml` module can package ``python_function`` models into Azure ML container images and deploy them as a webservice. Models can be deployed to Azure Kubernetes Service (AKS) and the Azure Container Instances (ACI)
 platform for real-time serving. The resulting Azure ML ContainerImage contains a web server that
 accepts the following data formats as input:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example, ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type`` request header value of ``application/json``.
 
-* :py:func:`build_image <mlflow.azureml.build_image>` registers an MLflow Model with an existing Azure ML workspace and builds an Azure ML container image for deployment to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
+* :py:func:`mlflow.azureml.deploy` registers an MLflow Model with an existing Azure ML workspace, builds an Azure ML container image and deploys the model to AKS and ACI. The `Azure ML SDK`_ is required in order to use this function. *The Azure ML SDK requires Python 3. It cannot be installed with earlier versions of Python.*
 
 .. _Azure ML SDK: https://docs.microsoft.com/python/api/overview/azure/ml/intro?view=azure-ml-py
 
@@ -781,22 +806,17 @@ accepts the following data formats as input:
                                        location=location,
                                        create_resource_group=True,
                                        exist_okay=True)
+    # Create a deployment config
+    aci_config = AciWebservice.deploy_configuration(cpu_cores=1, memory_gb=1)
 
-    # Build an Azure ML container image for deployment
-    azure_image, azure_model = mlflow.azureml.build_image(model_uri="<path-to-model>",
-                                                          workspace=azure_workspace,
-                                                          description="Wine regression model 1",
-                                                          synchronous=True)
-    # If your image build failed, you can access build logs at the following URI:
-    print("Access the following URI for build logs: {}".format(azure_image.image_build_log_uri))
+    # Register and deploy model to Azure Container Instance (ACI)
+    (webservice, model) = mlflow.azureml.deploy(model_uri='<your-model-uri>',
+                                                workspace=azure_workspace,
+                                                model_name='mymodelname',
+                                                service_name='myservice',
+                                                deployment_config=aci_config)
 
-    # Deploy the container image to ACI
-    webservice_deployment_config = AciWebservice.deploy_configuration()
-    webservice = Webservice.deploy_from_image(
-                        image=azure_image, workspace=azure_workspace, name="<deployment-name>")
-    webservice.wait_for_deployment()
-
-    # After the image deployment completes, requests can be posted via HTTP to the new ACI
+    # After the model deployment completes, requests can be posted via HTTP to the new ACI
     # webservice's scoring URI. The following example posts a sample input from the wine dataset
     # used in the MLflow ElasticNet example:
     # https://github.com/mlflow/mlflow/tree/master/examples/sklearn_elasticnet_wine
@@ -804,7 +824,6 @@ accepts the following data formats as input:
 
     import requests
     import json
-
     # `sample_input` is a JSON-serialized pandas DataFrame with the `split` orientation
     sample_input = {
         "columns": [
@@ -834,6 +853,7 @@ accepts the following data formats as input:
 
 .. code-block:: bash
 
+    # note mlflow azureml build-image is being deprecated, it will be replaced with a new command for model deployment soon
     mlflow azureml build-image -w <workspace-name> -m <model-path> -d "Wine regression model 1"
 
     az ml service create aci -n <deployment-name> --image-id <image-name>:<image-version>

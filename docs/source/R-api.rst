@@ -898,6 +898,30 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+``mlflow_maybe_create_conda_env``
+=================================
+
+Create conda env used by MLflow if it doesn’t already exist
+
+Create conda env used by MLflow if it doesn’t already exist
+
+.. code:: r
+
+   mlflow_maybe_create_conda_env(python_version)
+
+.. _arguments-22:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``python_version``            | Python version to use within conda   |
+|                               | environment created for installing   |
+|                               | the MLflow CLI.                      |
++-------------------------------+--------------------------------------+
+
 ``mlflow_param``
 ================
 
@@ -912,7 +936,7 @@ multiple invocations of the same script with different parameters.
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-22:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -966,7 +990,7 @@ to be used by package authors to extend the supported MLflow models.
 
    mlflow_predict(model, data, ...)
 
-.. _arguments-23:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -994,7 +1018,7 @@ Renames an experiment.
 
    mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 
-.. _arguments-24:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -1034,7 +1058,7 @@ restored.
 
    mlflow_restore_experiment(experiment_id, client = NULL)
 
-.. _arguments-25:
+.. _arguments-26:
 
 Arguments
 ---------
@@ -1075,7 +1099,7 @@ Restores the run with the specified ID.
 
    mlflow_restore_run(run_id, client = NULL)
 
-.. _arguments-26:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -1120,7 +1144,7 @@ endpoint will be removed in a future version of mlflow.
      ...
    )
 
-.. _arguments-27:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -1214,7 +1238,7 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
      storage_dir = NULL
    )
 
-.. _arguments-28:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1302,10 +1326,12 @@ model types.
 .. code:: r
 
    list(list("mlflow_save_model"), list("crate"))(model, path, model_spec = list(), ...)
+   list(list("mlflow_save_model"), list("H2OModel"))(model, path, model_spec = list(), conda_env = NULL, ...)
    list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
+   list(list("mlflow_save_model"), list("xgb.Booster"))(model, path, model_spec = list(), conda_env = NULL, ...)
    mlflow_save_model(model, path, model_spec = list(), ...)
 
-.. _arguments-29:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1346,7 +1372,7 @@ Metric and Param keys.
      client = NULL
    )
 
-.. _arguments-30:
+.. _arguments-31:
 
 Arguments
 ---------
@@ -1401,7 +1427,7 @@ Wrapper for ``mlflow server``.
      static_prefix = NULL
    )
 
-.. _arguments-31:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1440,7 +1466,7 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
-.. _arguments-32:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1490,7 +1516,7 @@ provided name. Returns the ID of the active experiment.
      artifact_location = NULL
    )
 
-.. _arguments-33:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1520,7 +1546,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-34:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1560,7 +1586,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-35:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1583,7 +1609,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-36:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1615,7 +1641,7 @@ can be provided.
      client = NULL
    )
 
-.. _arguments-37:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1678,7 +1704,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-38:
+.. _arguments-39:
 
 Arguments
 ---------

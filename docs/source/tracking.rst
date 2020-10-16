@@ -72,8 +72,8 @@ There are different kinds of remote tracking URIs:
 - Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. MLflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLflow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
-  `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
-  logging to Databricks-hosted MLflow, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
+  Refer to Access the MLflow tracking server from outside Databricks `[AWS] <http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html>`_
+  `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
 
@@ -228,6 +228,58 @@ log statements, and is currently supported for:
   :local:
   :depth: 1
 
+
+Scikit-learn (experimental)
+---------------------------
+
+Call :py:func:`mlflow.sklearn.autolog` before your training code to enable automatic logging of sklearn metrics, params, and models.
+See example usage `here <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_autolog>`_.
+
+Autologging for estimators (e.g. `LinearRegression`_) and meta estimators (e.g. `Pipeline`_) creates a single run and logs:
+
++-------------------------+--------------------------+------------------------------+------------------+
+| Metrics                 | Parameters               | Tags                         | Artifacts        |
++-------------------------+--------------------------+------------------------------+------------------+
+| Training score obtained | Parameters obtained by   | - Class name                 | Fitted estimator |
+| by ``estimator.score``  | ``estimator.get_params`` | - Fully qualified class name |                  |
++-------------------------+--------------------------+------------------------------+------------------+
+
+
+.. _LinearRegression:
+    https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
+
+.. _Pipeline:
+    https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html
+
+
+Autologging for parameter search estimators (e.g. `GridSearchCV`_) creates a single parent run and nested child runs
+
+.. code-block::
+
+  - Parent run
+    - Child run 1
+    - Child run 2
+    - ...
+
+containing the following data:
+
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Run type         | Metrics                    | Parameters                                | Tags                         | Artifacts                           |
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Parent           | Training score             | - Parameter search estimator's parameters | - Class name                 | - Fitted parameter search estimator |
+|                  |                            | - Best parameter combination              | - Fully qualified class name | - Fitted best estimator             |
+|                  |                            |                                           |                              | - Search results csv file           |
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+| Child            | CV test score for          | Each parameter combination                | - Class name                 | --                                  |
+|                  | each parameter combination |                                           | - Fully qualified class name |                                     |
++------------------+----------------------------+-------------------------------------------+------------------------------+-------------------------------------+
+
+.. _GridSearchCV:
+    https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html
+
+.. note::
+  This feature is experimental - the API and format of the logged data are subject to change.  
+
 TensorFlow and Keras (experimental)
 -----------------------------------
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
@@ -292,11 +344,11 @@ Call :py:func:`mlflow.xgboost.autolog` before your training code to enable autom
 
 Autologging captures the following information:
 
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                           |
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
-| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) on training end; feature importance |
-+-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------+
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                  | Tags          | Artifacts                                                                                               |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
+| XGBoost   | user-specified metrics | `xgboost.train`_ parameters | --            | `MLflow Model`_ (XGBoost model) with model signature on training end; feature importance; input example |
++-----------+------------------------+-----------------------------+---------------+---------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
@@ -314,11 +366,11 @@ Call :py:func:`mlflow.lightgbm.autolog` before your training code to enable auto
 
 Autologging captures the following information:
 
-+-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
-| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                            |
-+-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
-| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) on training end; feature importance |
-+-----------+------------------------+------------------------------+---------------+----------------------------------------------------------------------+
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                   | Tags          | Artifacts                                                                                                 |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
+| LightGBM  | user-specified metrics | `lightgbm.train`_ parameters | --            | `MLflow Model`_ (LightGBM model) with model signature on training end; feature importance; input example  |
++-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
@@ -345,11 +397,29 @@ Autologging captures the following information:
 | Spark            | --      | --         | Single tag containing source path, version, format. The tag contains one line per datasource | --        |
 +------------------+---------+------------+----------------------------------------------------------------------------------------------+-----------+
 
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
-Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely)
-to see race conditions when launching short-lived MLflow runs that result in datasource information
-not being logged.
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - Moreover, Spark datasource autologging occurs asynchronously - as such, it's possible (though unlikely) to see race conditions when launching short-lived MLflow runs that result in datasource information not being logged.
 
+Fastai (experimental)
+---------------------
+
+Call :py:func:`mlflow.fastai.autolog` before your training code to enable automatic logging of metrics and parameters.
+See an example usage with `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_.
+
+Autologging captures the following information:
+
+.. _EarlyStoppingCallback: https://docs.fast.ai/callbacks.html#EarlyStoppingCallback
+.. _OneCycleScheduler: https://docs.fast.ai/callbacks.html#OneCycleScheduler
+
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework | Metrics                | Parameters                                               | Tags          | Artifacts                                                                                                                                                             |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| fastai    | user-specified metrics | Logs optimizer data as parameters. For example,          |  --           | Model checkpoints are logged to a ‘models’ directory; `MLflow Model`_ (fastai Learner model) on training end; Model summary text is logged                            |
+|           |                        | ``epochs``, ``lr``, ``opt_func``, etc;                   |               |                                                                                                                                                                       |
+|           |                        | Logs the parameters of the `EarlyStoppingCallback`_ and  |               |                                                                                                                                                                       |
+|           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
++-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. _organizing_runs_in_experiments:
 
@@ -497,14 +567,24 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
+.. _artifact-stores:
+
 Artifact Stores
-~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+
+.. contents:: In this section:
+  :local:
+  :depth: 1
+
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
 default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
+
+In addition to local file paths, MLflow supports the following storage systems as artifact
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
 location to server's artifact store. This will be used as artifact location for newly-created
@@ -524,62 +604,12 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
-File store performance
-~~~~~~~~~~~~~~~~~~~~~~
-
-MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.
-However if you notice any performance issues when using *file store* backend, it could mean LibYAML is not installed on your system.
-On Linux or Mac you can easily install it using your system package manager:
-
-.. code-block:: sh
-
-    # On Ubuntu/Debian
-    apt-get install libyaml-cpp-dev libyaml-dev
-
-    # On macOS using Homebrew
-    brew install yaml-cpp libyaml
-
-After installing LibYAML, you need to reinstall PyYAML:
-
-.. code-block:: sh
-
-    # Reinstall PyYAML
-    pip --no-cache-dir install --force-reinstall -I pyyaml
-
-
-Deletion Behavior
-~~~~~~~~~~~~~~~~~
-In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
-from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
-for permanently removing Run metadata and artifacts for deleted runs.
-
-SQLAlchemy Options
-~~~~~~~~~~~~~~~~~~
-
-You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
-
-+-----------------------------------------+-----------------------------+
-| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
-+-----------------------------------------+-----------------------------+
-| ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
-+-----------------------------------------+-----------------------------+
-| ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
-+-----------------------------------------+-----------------------------+
-
-Artifact Stores
-~~~~~~~~~~~~~~~~
-
-.. contents:: In this section:
-  :local:
-  :depth: 1
-
-In addition to local file paths, MLflow supports the following storage systems as artifact
-stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as `MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
+To store artifacts in S3 (whether on Amazon S3 or on an S3-compatible alternative, such as 
+`MinIO <https://min.io/>`_), specify a URI of the form ``s3://<bucket>/<path>``. MLflow obtains
 credentials to access S3 from your machine's IAM role, a profile in ``~/.aws/credentials``, or
 the environment variables ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` depending on which of
 these are available. For more information on how to set credentials, see
@@ -601,11 +631,20 @@ For example, if you have a MinIO server at 1.2.3.4 on port 9000:
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
+If the MinIO server is configured with using SSL self-signed or signed using some internal-only CA certificate, you could set ``MLFLOW_S3_IGNORE_TLS`` or ``AWS_CA_BUNDLE`` variables (not both at the same time!) to disable certificate signature check, or add a custom CA bundle to perform this check, respectively:
+
+.. code-block:: bash
+
+  export MLFLOW_S3_IGNORE_TLS=true
+  #or
+  export AWS_CA_BUNDLE=/some/ca/bundle.pem
+
 Additionally, if MinIO server is configured with non-default region, you should set ``AWS_DEFAULT_REGION`` variable:
 
 .. code-block:: bash
 
   export AWS_DEFAULT_REGION=my_region
+
 
 Complete list of configurable values for an S3 client is available in `boto3 documentation <https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#configuration>`_.
 
@@ -675,6 +714,48 @@ driver using the ``CLASSPATH`` environment variable.
 The used HDFS driver is ``libhdfs``.
 
 
+File store performance
+~~~~~~~~~~~~~~~~~~~~~~
+
+MLflow will automatically try to use `LibYAML <https://pyyaml.org/wiki/LibYAML>`_ bindings if they are already installed.
+However if you notice any performance issues when using *file store* backend, it could mean LibYAML is not installed on your system.
+On Linux or Mac you can easily install it using your system package manager:
+
+.. code-block:: sh
+
+    # On Ubuntu/Debian
+    apt-get install libyaml-cpp-dev libyaml-dev
+
+    # On macOS using Homebrew
+    brew install yaml-cpp libyaml
+
+After installing LibYAML, you need to reinstall PyYAML:
+
+.. code-block:: sh
+
+    # Reinstall PyYAML
+    pip --no-cache-dir install --force-reinstall -I pyyaml
+
+
+Deletion Behavior
+~~~~~~~~~~~~~~~~~
+In order to allow MLflow Runs to be restored, Run metadata and artifacts are not automatically removed
+from the backend store or artifact store when a Run is deleted. The :ref:`mlflow gc <cli>` CLI is provided
+for permanently removing Run metadata and artifacts for deleted runs.
+
+SQLAlchemy Options
+~~~~~~~~~~~~~~~~~~
+
+You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
+
++-----------------------------------------+-----------------------------+
+| MLflow Environment Variable             | SQLAlchemy QueuePool Option |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_POOL_SIZE``    | ``pool_size``               |
++-----------------------------------------+-----------------------------+
+| ``MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW`` | ``max_overflow``            |
++-----------------------------------------+-----------------------------+
+
 Networking
 ----------
 
@@ -743,6 +824,14 @@ allow passing HTTP authentication to the tracking server:
   of the ``requests.request`` function
   (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
   This can be used to use a (self-signed) client certificate.
+
+
+.. note::
+    The client directly pushes artifacts to the artifact store. It does not proxy these through the tracking server.
+
+    For this reason, the client needs direct access to the artifact store. For instructions on setting up these credentials,
+    see :ref:`Artifact Stores <artifact-stores>`.
+
 
 .. _system_tags:
 

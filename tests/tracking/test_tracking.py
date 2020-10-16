@@ -5,8 +5,8 @@ import tempfile
 import time
 
 import attrdict
-import mock
 import pytest
+from unittest import mock
 
 import mlflow
 from mlflow import tracking
@@ -17,8 +17,12 @@ from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run
 from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
-    MLFLOW_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_USER,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+)
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 
@@ -32,8 +36,7 @@ def test_create_experiment():
     with pytest.raises(Exception):
         mlflow.create_experiment("")
 
-    exp_id = mlflow.create_experiment(
-        "Some random experiment name %d" % random.randint(1, 1e6))
+    exp_id = mlflow.create_experiment("Some random experiment name %d" % random.randint(1, 1e6))
     assert exp_id is not None
 
 
@@ -106,27 +109,35 @@ def test_set_experiment_with_deleted_experiment_name():
 
 def test_list_experiments():
     def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
-        result = set([(exp.experiment_id, exp.lifecycle_stage)
-                      for exp in client.list_experiments(view_type=view_type_arg)])
+        result = set(
+            [
+                (exp.experiment_id, exp.lifecycle_stage)
+                for exp in client.list_experiments(view_type=view_type_arg)
+            ]
+        )
         assert result == set([(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()])
+
     experiment_id = mlflow.create_experiment("exp_1")
-    assert experiment_id == '1'
+    assert experiment_id == "1"
     client = tracking.MlflowClient()
-    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
-    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.ACTIVE}, ViewType.ALL)
+    _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
+    _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.ACTIVE}, ViewType.ALL)
     _assert_exps({}, ViewType.DELETED_ONLY)
     client.delete_experiment(experiment_id)
-    _assert_exps({'0': LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
-    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.DELETED}, ViewType.ALL)
-    _assert_exps({'1': LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
+    _assert_exps({"0": LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
+    _assert_exps({"0": LifecycleStage.ACTIVE, "1": LifecycleStage.DELETED}, ViewType.ALL)
+    _assert_exps({"1": LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_zero_id(reset_mock):
-    reset_mock(MlflowClient, "get_experiment_by_name",
-               mock.Mock(return_value=attrdict.AttrDict(
-                   experiment_id=0,
-                   lifecycle_stage=LifecycleStage.ACTIVE)))
+    reset_mock(
+        MlflowClient,
+        "get_experiment_by_name",
+        mock.Mock(
+            return_value=attrdict.AttrDict(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
+        ),
+    )
     reset_mock(MlflowClient, "create_experiment", mock.Mock())
 
     mlflow.set_experiment("my_exp")
@@ -176,10 +187,13 @@ def test_metric_timestamp():
     history = client.get_metric_history(run_id, "name_1")
     finished_run = client.get_run(run_id)
     assert len(history) == 2
-    assert all([
-        m.timestamp >= finished_run.info.start_time and m.timestamp <= finished_run.info.end_time
-        for m in history
-    ])
+    assert all(
+        [
+            m.timestamp >= finished_run.info.start_time
+            and m.timestamp <= finished_run.info.end_time
+            for m in history
+        ]
+    )
 
 
 @pytest.mark.usefixtures("tmpdir")
@@ -191,15 +205,18 @@ def test_log_batch():
 
     t = int(time.time())
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
-    metrics = [Metric(key=key, value=value, timestamp=t, step=i)
-               for i, (key, value) in enumerate(sorted_expected_metrics)]
+    metrics = [
+        Metric(key=key, value=value, timestamp=t, step=i)
+        for i, (key, value) in enumerate(sorted_expected_metrics)
+    ]
     params = [Param(key=key, value=value) for key, value in expected_params.items()]
     tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
 
     with start_run() as active_run:
         run_id = active_run.info.run_id
-        mlflow.tracking.MlflowClient().log_batch(run_id=run_id, metrics=metrics, params=params,
-                                                 tags=tags)
+        mlflow.tracking.MlflowClient().log_batch(
+            run_id=run_id, metrics=metrics, params=params, tags=tags
+        )
     client = tracking.MlflowClient()
     finished_run = client.get_run(run_id)
     # Validate metrics
@@ -207,13 +224,9 @@ def test_log_batch():
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
     metric_history0 = client.get_metric_history(run_id, "metric-key0")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([
-        (1.0, t, 0),
-    ])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([(1.0, t, 0)])
     metric_history1 = client.get_metric_history(run_id, "metric-key1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([
-        (4.0, t, 1),
-    ])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([(4.0, t, 1)])
 
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
@@ -253,43 +266,30 @@ def test_log_metric():
         assert expected_pairs[key] == value
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
-        (25, 123 * 1000, 0),
-        (30, 123 * 1000, 5),
-        (40, 123 * 1000, -2),
-    ])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set(
+        [(25, 123 * 1000, 0), (30, 123 * 1000, 5), (40, 123 * 1000, -2)]
+    )
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set([
-        (-3, 123 * 1000, 0),
-    ])
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set(
+        [(-3, 123 * 1000, 0)]
+    )
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_fluent():
     with start_run() as active_run, mock.patch("time.time") as time_mock:
         time_mock.side_effect = lambda: 123
-        mlflow.log_metrics({
-            "name_1": 25,
-            "name_2": -3,
-        })
-        mlflow.log_metrics({
-            "name_1": 30,
-        })
-        mlflow.log_metrics({
-            "name_1": 40,
-        })
+        mlflow.log_metrics({"name_1": 25, "name_2": -3})
+        mlflow.log_metrics({"name_1": 30})
+        mlflow.log_metrics({"name_1": 40})
         run_id = active_run.info.run_id
 
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
-        (25, 123 * 1000),
-        (30, 123 * 1000),
-        (40, 123 * 1000),
-    ])
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set(
+        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000)]
+    )
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
-        (-3, 123 * 1000),
-    ])
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000)])
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_client():
@@ -304,15 +304,11 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client():
         mlflow_client.log_metric(run_id=run_id, key="name_1", value=40)
 
     metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
-    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
-        (25, 123 * 1000),
-        (30, 123 * 1000),
-        (40, 123 * 1000),
-    ])
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set(
+        [(25, 123 * 1000), (30, 123 * 1000), (40, 123 * 1000)]
+    )
     metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
-    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
-        (-3, 123 * 1000),
-    ])
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([(-3, 123 * 1000)])
 
 
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])
@@ -401,7 +397,10 @@ def test_log_batch_validates_entity_names_and_values():
         for kwarg, bad_values in bad_kwargs.items():
             for bad_kwarg_value in bad_values:
                 final_kwargs = {
-                    "run_id":  active_run.info.run_id, "metrics": [], "params": [], "tags": [],
+                    "run_id": active_run.info.run_id,
+                    "metrics": [],
+                    "params": [],
+                    "tags": [],
                 }
                 final_kwargs[kwarg] = bad_kwarg_value
                 with pytest.raises(MlflowException) as e:
@@ -423,8 +422,7 @@ def test_log_artifact_with_dirs(tmpdir):
         mlflow.log_artifact(str(art_dir))
         base = os.path.basename(str(art_dir))
         assert os.listdir(run_artifact_dir) == [base]
-        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == \
-            {'child', 'file0', 'file1'}
+        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == {"child", "file0", "file1"}
         with open(os.path.join(run_artifact_dir, base, "file0")) as f:
             assert f.read() == "something"
     # Test log artifact with directory and specified parent folder
@@ -434,19 +432,20 @@ def test_log_artifact_with_dirs(tmpdir):
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         mlflow.log_artifact(str(art_dir), "some_parent")
         assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
-        assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
-            [os.path.basename(str(art_dir))]
+        assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == [
+            os.path.basename(str(art_dir))
+        ]
     sub_dir = art_dir.mkdir("another_dir")
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         mlflow.log_artifact(str(art_dir), "parent/and_child")
-        assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == \
-            [os.path.basename(str(art_dir))]
-        assert os.listdir(os.path.join(run_artifact_dir,
-                                       "parent", "and_child",
-                                       os.path.basename(str(art_dir)))) == \
-            [os.path.basename(str(sub_dir))]
+        assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == [
+            os.path.basename(str(art_dir))
+        ]
+        assert os.listdir(
+            os.path.join(run_artifact_dir, "parent", "and_child", os.path.basename(str(art_dir)))
+        ) == [os.path.basename(str(sub_dir))]
 
 
 def test_log_artifact():
@@ -465,8 +464,11 @@ def test_log_artifact():
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
             mlflow.log_artifact(path0, parent_dir)
-        expected_dir = os.path.join(run_artifact_dir, parent_dir) \
-            if parent_dir is not None else run_artifact_dir
+        expected_dir = (
+            os.path.join(run_artifact_dir, parent_dir)
+            if parent_dir is not None
+            else run_artifact_dir
+        )
         assert os.listdir(expected_dir) == [os.path.basename(path0)]
         logged_artifact_path = os.path.join(expected_dir, path0)
         assert filecmp.cmp(logged_artifact_path, path0, shallow=False)
@@ -478,8 +480,11 @@ def test_log_artifact():
 
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
-        expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
-            if parent_dir is not None else run_artifact_dir
+        expected_artifact_output_dir = (
+            os.path.join(run_artifact_dir, parent_dir)
+            if parent_dir is not None
+            else run_artifact_dir
+        )
         dir_comparison = filecmp.dircmp(artifact_src_dir, expected_artifact_output_dir)
         assert len(dir_comparison.left_only) == 0
         assert len(dir_comparison.right_only) == 0
@@ -506,7 +511,7 @@ def test_parent_create_run():
     os.environ[_RUN_ID_ENV_VAR] = parent_run_id
     with mlflow.start_run() as parent_run:
         assert parent_run.info.run_id == parent_run_id
-        with pytest.raises(Exception, match='To start a nested run'):
+        with pytest.raises(Exception, match="To start a nested run"):
             mlflow.start_run()
         with mlflow.start_run(nested=True) as child_run:
             assert child_run.info.run_id != parent_run_id
@@ -527,7 +532,7 @@ def test_start_deleted_run():
     with mlflow.start_run() as active_run:
         run_id = active_run.info.run_id
     tracking.MlflowClient().delete_run(run_id)
-    with pytest.raises(MlflowException, matches='because it is in the deleted state.'):
+    with pytest.raises(MlflowException, matches="because it is in the deleted state."):
         with mlflow.start_run(run_id=run_id):
             pass
     assert mlflow.active_run() is None
@@ -554,31 +559,31 @@ def test_get_artifact_uri_with_artifact_path_unspecified_returns_artifact_root_d
 def test_get_artifact_uri_uses_currently_active_run_id():
     artifact_path = "artifact"
     with mlflow.start_run() as active_run:
-        assert mlflow.get_artifact_uri(artifact_path=artifact_path) == \
-            tracking.artifact_utils.get_artifact_uri(
-            run_id=active_run.info.run_id, artifact_path=artifact_path)
+        assert mlflow.get_artifact_uri(
+            artifact_path=artifact_path
+        ) == tracking.artifact_utils.get_artifact_uri(
+            run_id=active_run.info.run_id, artifact_path=artifact_path
+        )
 
 
-@pytest.mark.parametrize("artifact_location, expected_uri_format", [
-    (
-        "mysql://user:password@host:port/dbname?driver=mydriver",
-        "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
-    ),
-    (
-        "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
-        "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",
-    ),
-    (
-        "s3://bucketname/rootpath",
-        "s3://bucketname/rootpath/{run_id}/artifacts/{path}",
-    ),
-    (
-        "/dirname/rootpa#th?",
-        "/dirname/rootpa#th?/{run_id}/artifacts/{path}",
-    ),
-])
+@pytest.mark.parametrize(
+    "artifact_location, expected_uri_format",
+    [
+        (
+            "mysql://user:password@host:port/dbname?driver=mydriver",
+            "mysql://user:password@host:port/dbname/{run_id}/artifacts/{path}?driver=mydriver",
+        ),
+        (
+            "mysql+driver://user:password@host:port/dbname/subpath/#fragment",
+            "mysql+driver://user:password@host:port/dbname/subpath/{run_id}/artifacts/{path}#fragment",  # noqa
+        ),
+        ("s3://bucketname/rootpath", "s3://bucketname/rootpath/{run_id}/artifacts/{path}",),
+        ("/dirname/rootpa#th?", "/dirname/rootpa#th?/{run_id}/artifacts/{path}",),
+    ],
+)
 def test_get_artifact_uri_appends_to_uri_path_component_correctly(
-        artifact_location, expected_uri_format):
+    artifact_location, expected_uri_format
+):
     client = MlflowClient()
     client.create_experiment("get-artifact-uri-test", artifact_location=artifact_location)
     mlflow.set_experiment("get-artifact-uri-test")
@@ -588,7 +593,8 @@ def test_get_artifact_uri_appends_to_uri_path_component_correctly(
             artifact_uri = mlflow.get_artifact_uri(artifact_path)
             assert artifact_uri == tracking.artifact_utils.get_artifact_uri(run_id, artifact_path)
             assert artifact_uri == expected_uri_format.format(
-                run_id=run_id, path=artifact_path.lstrip("/"))
+                run_id=run_id, path=artifact_path.lstrip("/")
+            )
 
 
 @pytest.mark.usefixtures("reset_active_experiment")

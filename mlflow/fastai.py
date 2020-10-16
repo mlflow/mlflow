@@ -30,10 +30,8 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
-
-from fastai.tabular import TabularList
-from fastai.basic_data import DatasetType
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 FLAVOR_NAME = "fastai"
@@ -45,21 +43,28 @@ def get_default_conda_env(include_cloudpickle=False):
              :func:`save_model()` and :func:`log_model()`.
     """
     import fastai
+
     pip_deps = None
     if include_cloudpickle:
         import cloudpickle
+
         pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
     return _mlflow_conda_env(
-        additional_conda_deps=[
-            "fastai={}".format(fastai.__version__),
-        ],
+        additional_conda_deps=["fastai={}".format(fastai.__version__)],
         additional_pip_deps=pip_deps,
-        additional_conda_channels=None
+        additional_conda_channels=None,
     )
 
 
-def save_model(fastai_learner, path, conda_env=None, mlflow_model=None,
-               signature: ModelSignature = None, input_example: ModelInputExample = None, **kwargs):
+def save_model(
+    fastai_learner,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    **kwargs
+):
     """
     Save a fastai Learner to a path on the local file system.
 
@@ -135,15 +140,23 @@ def save_model(fastai_learner, path, conda_env=None, mlflow_model=None,
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.fastai",
-                        data=model_data_subpath, env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.fastai", data=model_data_subpath, env=conda_env_subpath
+    )
     mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_name=None,
-              signature: ModelSignature = None, input_example: ModelInputExample = None,
-              **kwargs):
+def log_model(
+    fastai_learner,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    **kwargs
+):
     """
     Log a fastai model as an MLflow artifact for the current run.
 
@@ -190,17 +203,26 @@ def log_model(fastai_learner, artifact_path, conda_env=None, registered_model_na
                           base64-encoded.
 
     :param kwargs: kwargs to pass to `fastai.Learner.export`_ method.
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     """
-    Model.log(artifact_path=artifact_path, flavor=mlflow.fastai,
-              registered_model_name=registered_model_name,
-              fastai_learner=fastai_learner, conda_env=conda_env,
-              signature=signature,
-              input_example=input_example,
-              **kwargs)
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.fastai,
+        registered_model_name=registered_model_name,
+        fastai_learner=fastai_learner,
+        conda_env=conda_env,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
+        **kwargs
+    )
 
 
 def _load_model(path):
     from fastai.basic_train import load_learner
+
     abspath = os.path.abspath(path)
     path, file = os.path.split(abspath)
     return load_learner(path, file)
@@ -211,12 +233,15 @@ class _FastaiModelWrapper:
         self.learner = learner
 
     def predict(self, dataframe):
+        from fastai.tabular import TabularList
+        from fastai.basic_data import DatasetType
+
         test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
         self.learner.data.add_test(test_data)
         preds, target = self.learner.get_preds(DatasetType.Test)
-        preds = pd.Series(map(np.array, preds.numpy()), name='predictions')
-        target = pd.Series(target.numpy(), name='target')
-        return pd.concat([preds, target], axis='columns')
+        preds = pd.Series(map(np.array, preds.numpy()), name="predictions")
+        target = pd.Series(target.numpy(), name="target")
+        return pd.concat([preds, target], axis="columns")
 
 
 def _load_pyfunc(path):
@@ -259,7 +284,9 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    MLflow will also log the parameters of the EarlyStopping and OneCycleScheduler callbacks
+    MLflow will also log the parameters of the
+    `EarlyStoppingCallback <https://docs.fast.ai/callbacks.html#EarlyStoppingCallback>`_
+    and `OneCycleScheduler <https://docs.fast.ai/callbacks.html#OneCycleScheduler>`_ callbacks
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info
@@ -270,53 +297,57 @@ def autolog():
         Callback for auto-logging metrics and parameters.
         Records model structural information as params when training begins
         """
-        def __init__(self, learner, ):
+
+        def __init__(
+            self, learner,
+        ):
             super().__init__(learner)
             self.learner = learner
             self.opt = self.learn.opt
-            self.metrics_names = ['train_loss', 'valid_loss'] + \
-                                 [o.__name__ for o in learner.metrics]
+            self.metrics_names = ["train_loss", "valid_loss"] + [
+                o.__name__ for o in learner.metrics
+            ]
 
         def on_epoch_end(self, **kwargs):
             """
             Log loss and other metrics values after each epoch
             """
-            if kwargs['smooth_loss'] is None or kwargs["last_metrics"] is None:
+            if kwargs["smooth_loss"] is None or kwargs["last_metrics"] is None:
                 return
-            epoch = kwargs['epoch']
-            metrics = [kwargs['smooth_loss']] + kwargs["last_metrics"]
+            epoch = kwargs["epoch"]
+            metrics = [kwargs["smooth_loss"]] + kwargs["last_metrics"]
             metrics = map(float, metrics)
             metrics = dict(zip(self.metrics_names, metrics))
             try_mlflow_log(mlflow.log_metrics, metrics, step=epoch)
 
         def on_train_begin(self, **kwargs):
             info = layers_info(self.learner)
-            try_mlflow_log(mlflow.log_param, 'num_layers', len(info))
-            try_mlflow_log(mlflow.log_param, 'opt_func', self.opt_func.func.__name__)
+            try_mlflow_log(mlflow.log_param, "num_layers", len(info))
+            try_mlflow_log(mlflow.log_param, "opt_func", self.opt_func.func.__name__)
 
-            if hasattr(self.opt, 'true_wd'):
-                try_mlflow_log(mlflow.log_param, 'true_wd', self.opt.true_wd)
+            if hasattr(self.opt, "true_wd"):
+                try_mlflow_log(mlflow.log_param, "true_wd", self.opt.true_wd)
 
-            if hasattr(self.opt, 'bn_wd'):
-                try_mlflow_log(mlflow.log_param, 'bn_wd', self.opt.bn_wd)
+            if hasattr(self.opt, "bn_wd"):
+                try_mlflow_log(mlflow.log_param, "bn_wd", self.opt.bn_wd)
 
-            if hasattr(self.opt, 'train_bn'):
-                try_mlflow_log(mlflow.log_param, 'train_bn', self.train_bn)
+            if hasattr(self.opt, "train_bn"):
+                try_mlflow_log(mlflow.log_param, "train_bn", self.train_bn)
 
             summary = model_summary(self.learner)
-            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+            try_mlflow_log(mlflow.set_tag, "model_summary", summary)
 
             tempdir = tempfile.mkdtemp()
             try:
                 summary_file = os.path.join(tempdir, "model_summary.txt")
-                with open(summary_file, 'w') as f:
+                with open(summary_file, "w") as f:
                     f.write(summary)
                 try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
             finally:
                 shutil.rmtree(tempdir)
 
         def on_train_end(self, **kwargs):
-            try_mlflow_log(log_model, self.learner, artifact_path='model')
+            try_mlflow_log(log_model, self.learner, artifact_path="model")
 
     def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
@@ -327,10 +358,12 @@ def autolog():
     def _log_early_stop_callback_params(callback):
         if callback:
             try:
-                earlystopping_params = {'early_stop_monitor': callback.monitor,
-                                        'early_stop_min_delta': callback.min_delta,
-                                        'early_stop_patience': callback.patience,
-                                        'early_stop_mode': callback.mode}
+                earlystopping_params = {
+                    "early_stop_monitor": callback.monitor,
+                    "early_stop_min_delta": callback.min_delta,
+                    "early_stop_patience": callback.patience,
+                    "early_stop_mode": callback.mode,
+                }
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
@@ -339,13 +372,13 @@ def autolog():
         if callback:
             try:
                 params = {
-                    'lr_max': callback.lr_max,
-                    'div_factor': callback.div_factor,
-                    'pct_start': callback.pct_start,
-                    'final_div': callback.final_div,
-                    'tot_epochs': callback.tot_epochs,
-                    'start_epoch': callback.start_epoch,
-                    'moms': callback.moms,
+                    "lr_max": callback.lr_max,
+                    "div_factor": callback.div_factor,
+                    "pct_start": callback.pct_start,
+                    "final_div": callback.final_div,
+                    "tot_epochs": callback.tot_epochs,
+                    "start_epoch": callback.start_epoch,
+                    "moms": callback.moms,
                 }
                 try_mlflow_log(mlflow.log_params, params)
             except Exception:  # pylint: disable=W0703
@@ -368,11 +401,11 @@ def autolog():
             callbacks += list(args[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
             args = tuple(tmp_list)
-        elif 'callbacks' in kwargs:
-            callbacks += list(kwargs['callbacks'])
-            kwargs['callbacks'] += [__MLflowFastaiCallback(self)]
+        elif "callbacks" in kwargs:
+            callbacks += list(kwargs["callbacks"])
+            kwargs["callbacks"] += [__MLflowFastaiCallback(self)]
         else:
-            kwargs['callbacks'] = [__MLflowFastaiCallback(self)]
+            kwargs["callbacks"] = [__MLflowFastaiCallback(self)]
 
         early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
         one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)
@@ -387,11 +420,9 @@ def autolog():
 
         return result
 
-    @gorilla.patch(Learner)
     def fit(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(Learner, 'fit')
-        unlogged_params = ['self', 'callbacks', 'learner']
+        original = gorilla.get_original_attribute(Learner, "fit")
+        unlogged_params = ["self", "callbacks", "learner"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 3)
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(Learner, 'fit', fit, settings=settings))
+    wrap_patch(Learner, "fit", fit)

@@ -176,7 +176,7 @@ export const deleteTagApi = (runUuid, tagName, id = getUUID()) => {
       run_id: runUuid,
       key: tagName,
     }),
-    meta: { id: id, run_id: runUuid, key: tagName },
+    meta: { id: id, runUuid: runUuid, key: tagName },
   };
 };
 

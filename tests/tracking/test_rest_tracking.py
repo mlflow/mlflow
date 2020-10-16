@@ -3,15 +3,15 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 import json
-import mock
 import os
 import sys
 import posixpath
 import pytest
-from six.moves import urllib
 import shutil
 import time
 import tempfile
+from unittest import mock
+import urllib.parse
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
@@ -21,8 +21,15 @@ from mlflow.models import Model
 import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_USER,
+    MLFLOW_RUN_NAME,
+    MLFLOW_PARENT_RUN_ID,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_GIT_COMMIT,
+)
 from mlflow.utils.file_utils import path_to_local_file_uri
 
 from tests.integration.utils import invoke_cli_runner
@@ -38,7 +45,7 @@ SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DI
 
 def _get_sqlite_uri():
     path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
-    path = path[len("file://"):]
+    path = path[len("file://") :]
 
     # NB: It looks like windows and posix have different requirements on number of slashes for
     # whatever reason. Windows needs uri like 'sqlite:///C:/path/to/my/file' whereas posix expects
@@ -56,8 +63,7 @@ BACKEND_URIS = [
 # Map of backend URI to tuple (server URL, Process). We populate this map by constructing
 # a server per backend URI
 BACKEND_URI_TO_SERVER_URL_AND_PROC = {
-    uri: _init_server(backend_uri=uri,
-                      root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
+    uri: _init_server(backend_uri=uri, root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
     for uri in BACKEND_URIS
 }
 
@@ -67,8 +73,8 @@ def pytest_generate_tests(metafunc):
     Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
     list of backend store URIs.
     """
-    if 'backend_store_uri' in metafunc.fixturenames:
-        metafunc.parametrize('backend_store_uri', BACKEND_URIS)
+    if "backend_store_uri" in metafunc.fixturenames:
+        metafunc.parametrize("backend_store_uri", BACKEND_URIS)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -111,66 +117,76 @@ def cli_env(tracking_server_uri):
 
 
 def test_create_get_list_experiment(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('My Experiment',
-                                                    artifact_location='my_location')
+    experiment_id = mlflow_client.create_experiment(
+        "My Experiment", artifact_location="my_location"
+    )
     exp = mlflow_client.get_experiment(experiment_id)
-    assert exp.name == 'My Experiment'
-    assert exp.artifact_location == 'my_location'
+    assert exp.name == "My Experiment"
+    assert exp.artifact_location == "my_location"
 
     experiments = mlflow_client.list_experiments()
-    assert set([e.name for e in experiments]) == {'My Experiment', 'Default'}
+    assert set([e.name for e in experiments]) == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
-    assert set([e.name for e in mlflow_client.list_experiments()]) == {'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments()]) == {"Default"}
     assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) == {
-        'Default'}
+        "Default"
+    }
     assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) == {
-        'My Experiment'}
+        "My Experiment"
+    }
     assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == {
-        'My Experiment', 'Default'}
+        "My Experiment",
+        "Default",
+    }
 
 
 def test_delete_restore_experiment(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('Deleterious')
-    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
+    experiment_id = mlflow_client.create_experiment("Deleterious")
+    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "active"
     mlflow_client.delete_experiment(experiment_id)
-    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'deleted'
+    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "deleted"
     mlflow_client.restore_experiment(experiment_id)
-    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
+    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "active"
 
 
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
     experiment_name = "DeleteriousCLI"
-    invoke_cli_runner(mlflow.experiments.commands,
-                      ['create', '--experiment-name', experiment_name], env=cli_env)
+    invoke_cli_runner(
+        mlflow.experiments.commands, ["create", "--experiment-name", experiment_name], env=cli_env
+    )
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
-    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
-    invoke_cli_runner(mlflow.experiments.commands, ['delete', '-x', str(experiment_id)],
-                      env=cli_env)
-    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'deleted'
-    invoke_cli_runner(mlflow.experiments.commands, ['restore', '-x', str(experiment_id)],
-                      env=cli_env)
-    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
+    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "active"
+    invoke_cli_runner(
+        mlflow.experiments.commands, ["delete", "-x", str(experiment_id)], env=cli_env
+    )
+    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "deleted"
+    invoke_cli_runner(
+        mlflow.experiments.commands, ["restore", "-x", str(experiment_id)], env=cli_env
+    )
+    assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "active"
 
 
 def test_rename_experiment(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('BadName')
-    assert mlflow_client.get_experiment(experiment_id).name == 'BadName'
-    mlflow_client.rename_experiment(experiment_id, 'GoodName')
-    assert mlflow_client.get_experiment(experiment_id).name == 'GoodName'
+    experiment_id = mlflow_client.create_experiment("BadName")
+    assert mlflow_client.get_experiment(experiment_id).name == "BadName"
+    mlflow_client.rename_experiment(experiment_id, "GoodName")
+    assert mlflow_client.get_experiment(experiment_id).name == "GoodName"
 
 
 def test_rename_experiment_cli(mlflow_client, cli_env):
     bad_experiment_name = "CLIBadName"
     good_experiment_name = "CLIGoodName"
 
-    invoke_cli_runner(mlflow.experiments.commands, ['create', '-n', bad_experiment_name],
-                      env=cli_env)
+    invoke_cli_runner(
+        mlflow.experiments.commands, ["create", "-n", bad_experiment_name], env=cli_env
+    )
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
         mlflow.experiments.commands,
-        ['rename', '--experiment-id', str(experiment_id), '--new-name', good_experiment_name],
-        env=cli_env)
+        ["rename", "--experiment-id", str(experiment_id), "--new-name", good_experiment_name],
+        env=cli_env,
+    )
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
@@ -192,10 +208,11 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             MLFLOW_RUN_NAME: "my name",
             "my": "tag",
             "other": "tag",
-        }
+        },
     }
-    experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
-                                                    % (parent_run_id_kwarg))
+    experiment_id = mlflow_client.create_experiment(
+        "Run A Lot (parent_run_id=%s)" % (parent_run_id_kwarg)
+    )
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
     print("Run id=%s" % run_id)
@@ -215,7 +232,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
 
 
 def test_create_run_defaults(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('Run A Little')
+    experiment_id = mlflow_client.create_experiment("Run A Little")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
     run = mlflow_client.get_run(run_id)
@@ -225,25 +242,26 @@ def test_create_run_defaults(mlflow_client):
 
 
 def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
-    experiment_id = mlflow_client.create_experiment('Oh My')
+    experiment_id = mlflow_client.create_experiment("Oh My")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
-    mlflow_client.log_metric(run_id, key='nan_metric', value=float("nan"))
-    mlflow_client.log_metric(run_id, key='inf_metric', value=float("inf"))
-    mlflow_client.log_metric(run_id, key='-inf_metric', value=-float("inf"))
-    mlflow_client.log_metric(run_id, key='stepless-metric', value=987.654, timestamp=321)
-    mlflow_client.log_param(run_id, 'param', 'value')
-    mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
+    mlflow_client.log_metric(run_id, key="metric", value=123.456, timestamp=789, step=2)
+    mlflow_client.log_metric(run_id, key="nan_metric", value=float("nan"))
+    mlflow_client.log_metric(run_id, key="inf_metric", value=float("inf"))
+    mlflow_client.log_metric(run_id, key="-inf_metric", value=-float("inf"))
+    mlflow_client.log_metric(run_id, key="stepless-metric", value=987.654, timestamp=321)
+    mlflow_client.log_param(run_id, "param", "value")
+    mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
-    assert run.data.metrics.get('metric') == 123.456
+    assert run.data.metrics.get("metric") == 123.456
     import math
-    assert math.isnan(run.data.metrics.get('nan_metric'))
-    assert run.data.metrics.get('inf_metric') >= 1.7976931348623157e308
-    assert run.data.metrics.get('-inf_metric') <= -1.7976931348623157e308
-    assert run.data.metrics.get('stepless-metric') == 987.654
-    assert run.data.params.get('param') == 'value'
-    assert run.data.tags.get('taggity') == 'do-dah'
+
+    assert math.isnan(run.data.metrics.get("nan_metric"))
+    assert run.data.metrics.get("inf_metric") >= 1.7976931348623157e308
+    assert run.data.metrics.get("-inf_metric") <= -1.7976931348623157e308
+    assert run.data.metrics.get("stepless-metric") == 987.654
+    assert run.data.params.get("param") == "value"
+    assert run.data.tags.get("taggity") == "do-dah"
     metric_history0 = mlflow_client.get_metric_history(run_id, "metric")
     assert len(metric_history0) == 1
     metric0 = metric_history0[0]
@@ -261,7 +279,7 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
 
 
 def test_set_experiment_tag(mlflow_client, backend_store_uri):
-    experiment_id = mlflow_client.create_experiment('SetExperimentTagTest')
+    experiment_id = mlflow_client.create_experiment("SetExperimentTagTest")
     mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
     experiment = mlflow_client.get_experiment(experiment_id)
     assert "dataset" in experiment.tags and experiment.tags["dataset"] == "imagenet1K"
@@ -282,44 +300,48 @@ def test_set_experiment_tag(mlflow_client, backend_store_uri):
     # test can set multi-line tags
     mlflow_client.set_experiment_tag(experiment_id, "multiline tag", "value2\nvalue2\nvalue2")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "multiline tag" in experiment.tags \
-           and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
+    assert (
+        "multiline tag" in experiment.tags
+        and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
+    )
 
 
 def test_delete_tag(mlflow_client, backend_store_uri):
-    experiment_id = mlflow_client.create_experiment('DeleteTagExperiment')
+    experiment_id = mlflow_client.create_experiment("DeleteTagExperiment")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
-    mlflow_client.log_metric(run_id, key='stepless-metric', value=987.654, timestamp=321)
-    mlflow_client.log_param(run_id, 'param', 'value')
-    mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
+    mlflow_client.log_metric(run_id, key="metric", value=123.456, timestamp=789, step=2)
+    mlflow_client.log_metric(run_id, key="stepless-metric", value=987.654, timestamp=321)
+    mlflow_client.log_param(run_id, "param", "value")
+    mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
-    assert 'taggity' in run.data.tags and run.data.tags['taggity'] == 'do-dah'
-    mlflow_client.delete_tag(run_id, 'taggity')
+    assert "taggity" in run.data.tags and run.data.tags["taggity"] == "do-dah"
+    mlflow_client.delete_tag(run_id, "taggity")
     run = mlflow_client.get_run(run_id)
-    assert 'taggity' not in run.data.tags
+    assert "taggity" not in run.data.tags
     with pytest.raises(MlflowException):
-        mlflow_client.delete_tag('fake_run_id', 'taggity')
+        mlflow_client.delete_tag("fake_run_id", "taggity")
     with pytest.raises(MlflowException):
-        mlflow_client.delete_tag(run_id, 'fakeTag')
+        mlflow_client.delete_tag(run_id, "fakeTag")
     mlflow_client.delete_run(run_id)
     with pytest.raises(MlflowException):
-        mlflow_client.delete_tag(run_id, 'taggity')
+        mlflow_client.delete_tag(run_id, "taggity")
 
 
 def test_log_batch(mlflow_client, backend_store_uri):
-    experiment_id = mlflow_client.create_experiment('Batch em up')
+    experiment_id = mlflow_client.create_experiment("Batch em up")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
     mlflow_client.log_batch(
         run_id=run_id,
-        metrics=[Metric("metric", 123.456, 789, 3)], params=[Param("param", "value")],
-        tags=[RunTag("taggity", "do-dah")])
+        metrics=[Metric("metric", 123.456, 789, 3)],
+        params=[Param("param", "value")],
+        tags=[RunTag("taggity", "do-dah")],
+    )
     run = mlflow_client.get_run(run_id)
-    assert run.data.metrics.get('metric') == 123.456
-    assert run.data.params.get('param') == 'value'
-    assert run.data.tags.get('taggity') == 'do-dah'
+    assert run.data.metrics.get("metric") == 123.456
+    assert run.data.params.get("param") == "value"
+    assert run.data.tags.get("taggity") == "do-dah"
     metric_history = mlflow_client.get_metric_history(run_id, "metric")
     assert len(metric_history) == 1
     metric = metric_history[0]
@@ -330,17 +352,18 @@ def test_log_batch(mlflow_client, backend_store_uri):
 
 
 def test_log_model(mlflow_client, backend_store_uri):
-    experiment_id = mlflow_client.create_experiment('Log models')
+    experiment_id = mlflow_client.create_experiment("Log models")
     with TempDir(chdr=True):
         mlflow.set_experiment("Log models")
         model_paths = ["model/path/{}".format(i) for i in range(3)]
         with mlflow.start_run(experiment_id=experiment_id) as run:
             for i, m in enumerate(model_paths):
                 mlflow.pyfunc.log_model(m, loader_module="mlflow.pyfunc")
-                mlflow.pyfunc.save_model(m,
-                                         mlflow_model=Model(artifact_path=m,
-                                                            run_id=run.info.run_id),
-                                         loader_module="mlflow.pyfunc")
+                mlflow.pyfunc.save_model(
+                    m,
+                    mlflow_model=Model(artifact_path=m, run_id=run.info.run_id),
+                    loader_module="mlflow.pyfunc",
+                )
                 model = Model.load(os.path.join(m, "MLmodel"))
                 run = mlflow.get_run(run.info.run_id)
                 tag = run.data.tags["mlflow.log-model.history"]
@@ -353,61 +376,62 @@ def test_log_model(mlflow_client, backend_store_uri):
 
 
 def test_set_terminated_defaults(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('Terminator 1')
+    experiment_id = mlflow_client.create_experiment("Terminator 1")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    assert mlflow_client.get_run(run_id).info.status == 'RUNNING'
+    assert mlflow_client.get_run(run_id).info.status == "RUNNING"
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
-    assert mlflow_client.get_run(run_id).info.status == 'FINISHED'
+    assert mlflow_client.get_run(run_id).info.status == "FINISHED"
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
 def test_set_terminated_status(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('Terminator 2')
+    experiment_id = mlflow_client.create_experiment("Terminator 2")
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    assert mlflow_client.get_run(run_id).info.status == 'RUNNING'
+    assert mlflow_client.get_run(run_id).info.status == "RUNNING"
     assert mlflow_client.get_run(run_id).info.end_time is None
-    mlflow_client.set_terminated(run_id, 'FAILED')
-    assert mlflow_client.get_run(run_id).info.status == 'FAILED'
+    mlflow_client.set_terminated(run_id, "FAILED")
+    assert mlflow_client.get_run(run_id).info.status == "FAILED"
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
 def test_artifacts(mlflow_client):
-    experiment_id = mlflow_client.create_experiment('Art In Fact')
+    experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
     assert experiment_info.artifact_location.startswith(
-        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
+        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR)
+    )
     artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
     assert posixpath.split(artifact_path)[-1] == experiment_id
 
     created_run = mlflow_client.create_run(experiment_id)
     assert created_run.info.artifact_uri.startswith(experiment_info.artifact_location)
     run_id = created_run.info.run_id
-    src_dir = tempfile.mkdtemp('test_artifacts_src')
-    src_file = os.path.join(src_dir, 'my.file')
-    with open(src_file, 'w') as f:
-        f.write('Hello, World!')
+    src_dir = tempfile.mkdtemp("test_artifacts_src")
+    src_file = os.path.join(src_dir, "my.file")
+    with open(src_file, "w") as f:
+        f.write("Hello, World!")
     mlflow_client.log_artifact(run_id, src_file, None)
-    mlflow_client.log_artifacts(run_id, src_dir, 'dir')
+    mlflow_client.log_artifacts(run_id, src_dir, "dir")
 
     root_artifacts_list = mlflow_client.list_artifacts(run_id)
-    assert set([a.path for a in root_artifacts_list]) == {'my.file', 'dir'}
+    assert set([a.path for a in root_artifacts_list]) == {"my.file", "dir"}
 
-    dir_artifacts_list = mlflow_client.list_artifacts(run_id, 'dir')
-    assert set([a.path for a in dir_artifacts_list]) == {'dir/my.file'}
+    dir_artifacts_list = mlflow_client.list_artifacts(run_id, "dir")
+    assert set([a.path for a in dir_artifacts_list]) == {"dir/my.file"}
 
-    all_artifacts = mlflow_client.download_artifacts(run_id, '.')
-    assert open('%s/my.file' % all_artifacts, 'r').read() == 'Hello, World!'
-    assert open('%s/dir/my.file' % all_artifacts, 'r').read() == 'Hello, World!'
+    all_artifacts = mlflow_client.download_artifacts(run_id, ".")
+    assert open("%s/my.file" % all_artifacts, "r").read() == "Hello, World!"
+    assert open("%s/dir/my.file" % all_artifacts, "r").read() == "Hello, World!"
 
-    dir_artifacts = mlflow_client.download_artifacts(run_id, 'dir')
-    assert open('%s/my.file' % dir_artifacts, 'r').read() == 'Hello, World!'
+    dir_artifacts = mlflow_client.download_artifacts(run_id, "dir")
+    assert open("%s/my.file" % dir_artifacts, "r").read() == "Hello, World!"
 
 
 def test_search_pagination(mlflow_client, backend_store_uri):
-    experiment_id = mlflow_client.create_experiment('search_pagination')
+    experiment_id = mlflow_client.create_experiment("search_pagination")
     runs = [mlflow_client.create_run(experiment_id, start_time=1).info.run_id for _ in range(0, 10)]
     runs = sorted(runs)
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=None)
@@ -422,7 +446,7 @@ def test_search_pagination(mlflow_client, backend_store_uri):
 
 
 def test_get_experiment_by_name(mlflow_client, backend_store_uri):
-    name = 'test_get_experiment_by_name'
+    name = "test_get_experiment_by_name"
     experiment_id = mlflow_client.create_experiment(name)
     res = mlflow_client.get_experiment_by_name(name)
     assert res.experiment_id == experiment_id
@@ -432,7 +456,7 @@ def test_get_experiment_by_name(mlflow_client, backend_store_uri):
 
 
 def test_get_experiment(mlflow_client, backend_store_uri):
-    name = 'test_get_experiment'
+    name = "test_get_experiment"
     experiment_id = mlflow_client.create_experiment(name)
     res = mlflow_client.get_experiment(experiment_id)
     assert res.experiment_id == experiment_id

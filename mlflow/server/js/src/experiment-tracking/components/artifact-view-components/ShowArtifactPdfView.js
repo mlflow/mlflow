@@ -2,10 +2,14 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import './ShowArtifactImageView.css';
 import { getSrc } from './ShowArtifactPage';
-import { Document, Page } from 'react-pdf';
+import { Document, Page, pdfjs } from 'react-pdf';
 import { Pagination, Spin } from 'antd';
-import { getArtifactBytesContent } from './ShowArtifactUtils';
+import { getArtifactBytesContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactPdfView.css';
+
+// See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
+// workerSrc is supposed to be specified.
+pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.PUBLIC_URL}/pdf.worker.js`;
 
 class ShowArtifactPdfView extends Component {
   state = {

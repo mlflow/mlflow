@@ -1,0 +1,36 @@
+## This file describes extra ML library dependencies that you, as an end user,
+## must install in order to use various MLflow Python modules.
+##
+# Required by mlflow.azureml
+azureml-sdk==1.2.0; python_version >= "3.0"
+# Required by mlflow.keras
+keras==2.3.1
+# Required by mlflow.sklearn
+scikit-learn==0.23.2
+# Required by mlflow.gluon
+mxnet==1.5.0
+# Required by mlflow.fastai
+fastai==1.0.60
+# Required by mlflow.spacy
+spacy==2.2.3
+# Required by mlflow.tensorflow
+tensorflow==1.15.2
+# Required by mlflow.pytorch
+torch==1.6.0
+torchvision==0.5.0
+# Required by mlflow.xgboost
+xgboost>=0.82
+# Required by mlflow.lightgbm
+lightgbm==2.3.0
+# Required by mlflow.h2o
+h2o==3.22.1.4
+# Required by mlflow.onnx
+onnx==1.4.1;
+onnxmltools==1.4.0;
+onnxruntime==0.3.0;
+# Required by mlflow.mleap, and in order to save SparkML models in
+# mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
+mleap==0.16.0
+# Required by mlflow.spark
+pyspark==2.4.0
+

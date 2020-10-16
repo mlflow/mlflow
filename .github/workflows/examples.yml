@@ -1,0 +1,52 @@
+name: Examples
+
+on:
+  pull_request:
+    branches: [ master ]
+  schedule:
+    # Run this action daily at 7:00 UTC
+    - cron: "0 7 * * *"
+
+jobs:
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Check diff
+      id: check-diff
+      run: |
+        if [ ! "$(git branch --show-current)" == "master" ]; then
+          git fetch origin master:master
+        fi
+
+        REGEXP="tests/examples\|examples\|Dockerfile\|\.dockerignore\$"
+        CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+        EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
+        DOCKER_CHANGED=$([[ ("$CHANGED_FILES" == *"Dockerfile"*) || ("$CHANGED_FILES" == *".dockerignore"*) ]] && echo "true" || echo "false")
+
+        echo "CHANGED_FILES:"
+        echo "$CHANGED_FILES"
+        echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
+        echo "DOCKER_CHANGED: $DOCKER_CHANGED"
+
+        echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
+        echo "::set-output name=docker_changed::$DOCKER_CHANGED"
+
+    - name: Run example tests
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+      env:
+        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_LARGE_PYTHON_DEPS: true
+      run: |
+        source ./dev/install-common-deps.sh
+        source activate test-environment
+        pytest --verbose tests/examples --durations=0 --large
+
+    - name: Remove conda environments
+      run: |
+        ./dev/remove-conda-envs.sh
+
+    - name: Run docker tests
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
+      run: |
+        docker build -t mlflow_test_build . && docker images | grep mlflow_test_build

@@ -5,11 +5,9 @@ import subprocess
 import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
-from mlflow.pyfunc import ENV
-from mlflow.pyfunc import scoring_server
+from mlflow.pyfunc import ENV, scoring_server
 
-from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable, \
-                            _get_conda_command
+from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.version import VERSION
@@ -23,7 +21,7 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
-        super(PyFuncBackend, self).__init__(config=config, **kwargs)
+        super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
@@ -36,7 +34,9 @@ class PyFuncBackend(FlavorBackend):
         command = 'python -c ""'
         return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
 
-    def predict(self, model_uri, input_path, output_path, content_type, json_format, ):
+    def predict(
+        self, model_uri, input_path, output_path, content_type, json_format,
+    ):
         """
         Generate predictions using generic python model saved with MLflow.
         Return the prediction results as a JSON.
@@ -47,22 +47,23 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
-            command = ('python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                       'model_uri={model_uri}, '
-                       'input_path={input_path}, '
-                       'output_path={output_path}, '
-                       'content_type={content_type}, '
-                       'json_format={json_format})"'
-                       ).format(
+            command = (
+                'python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
+                "model_uri={model_uri}, "
+                "input_path={input_path}, "
+                "output_path={output_path}, "
+                "content_type={content_type}, "
+                'json_format={json_format})"'
+            ).format(
                 model_uri=repr(local_uri),
                 input_path=repr(input_path),
                 output_path=repr(output_path),
                 content_type=repr(content_type),
-                json_format=repr(json_format))
+                json_format=repr(json_format),
+            )
             return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
         else:
-            scoring_server._predict(local_uri, input_path, output_path, content_type,
-                                    json_format)
+            scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
     def serve(self, model_uri, port, host):
         """
@@ -73,23 +74,23 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
         if os.name != "nt":
-            command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
-                       " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
-                host=host,
-                port=port,
-                nworkers=self._nworkers)
+            command = (
+                "gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
+                " -- mlflow.pyfunc.scoring_server.wsgi:app"
+            ).format(host=host, port=port, nworkers=self._nworkers)
         else:
-            command = ("waitress-serve --host={host} --port={port} "
-                       "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app").format(
-                host=host,
-                port=port)
+            command = (
+                "waitress-serve --host={host} --port={port} "
+                "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app"
+            ).format(host=host, port=port)
 
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
-            return _execute_in_conda_env(conda_env_path, command, self._install_mlflow,
-                                         command_env=command_env)
+            return _execute_in_conda_env(
+                conda_env_path, command, self._install_mlflow, command_env=command_env
+            )
         else:
             _logger.info("=== Running command '%s'", command)
             if os.name != "nt":
@@ -101,10 +102,11 @@ class PyFuncBackend(FlavorBackend):
         if self._no_conda:
             # noconda => already in python and dependencies are assumed to be installed.
             return True
-        conda_path = _get_conda_bin_executable("conda")
+        conda_path = get_conda_bin_executable("conda")
         try:
-            p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
+            p = subprocess.Popen(
+                [conda_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             _, _ = p.communicate()
             return p.wait() == 0
         except FileNotFoundError:
@@ -112,7 +114,6 @@ class PyFuncBackend(FlavorBackend):
             return False
 
     def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None):
-
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
@@ -126,7 +127,7 @@ class PyFuncBackend(FlavorBackend):
                 """.format(
                 disable_env=DISABLE_ENV_CREATION,
                 model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
-                install_mlflow=repr(install_mlflow)
+                install_mlflow=repr(install_mlflow),
             )
 
         # The pyfunc image runs the same server as the Sagemaker image
@@ -145,8 +146,8 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
     if command_env is None:
         command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
-    conda_env_name = _get_or_create_conda_env(conda_env_path, env_id=env_id)
-    activate_conda_env = _get_conda_command(conda_env_name)
+    conda_env_name = get_or_create_conda_env(conda_env_path, env_id=env_id)
+    activate_conda_env = get_conda_command(conda_env_name)
     if install_mlflow:
         if "MLFLOW_HOME" in os.environ:  # dev version
             install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
@@ -168,6 +169,6 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
         child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env)
     rc = child.wait()
     if rc != 0:
-        raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
-            command, rc
-        ))
+        raise Exception(
+            "Command '{0}' returned non zero return code. Return code = {1}".format(command, rc)
+        )

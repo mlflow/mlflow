@@ -2,11 +2,13 @@ import logging
 import os
 import re
 import tempfile
+import urllib.parse
 
 
 from distutils import dir_util
-from six.moves import urllib
 
+import mlflow.utils
+from mlflow.utils import databricks_utils
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
@@ -15,9 +17,16 @@ from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.tracking import fluent
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.utils.mlflow_tags import (
-    MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL,
-    MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME,
-    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID,
+    MLFLOW_USER,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+    MLFLOW_GIT_COMMIT,
+    MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_BRANCH,
+    LEGACY_MLFLOW_GIT_REPO_URL,
+    LEGACY_MLFLOW_GIT_BRANCH_NAME,
+    MLFLOW_PROJECT_ENTRY_POINT,
+    MLFLOW_PARENT_RUN_ID,
 )
 
 
@@ -25,7 +34,14 @@ from mlflow.utils.mlflow_tags import (
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
-_MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
+MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
+MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
+
+PROJECT_USE_CONDA = "USE_CONDA"
+PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
+PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
+PROJECT_STORAGE_DIR = "STORAGE_DIR"
+
 
 _logger = logging.getLogger(__name__)
 
@@ -33,12 +49,12 @@ _logger = logging.getLogger(__name__)
 def _parse_subdirectory(uri):
     # Parses a uri and returns the uri and subdirectory as separate values.
     # Uses '#' as a delimiter.
-    subdirectory = ''
+    subdirectory = ""
     parsed_uri = uri
-    if '#' in uri:
-        subdirectory = uri[uri.find('#') + 1:]
-        parsed_uri = uri[:uri.find('#')]
-    if subdirectory and '.' in subdirectory:
+    if "#" in uri:
+        subdirectory = uri[uri.find("#") + 1 :]
+        parsed_uri = uri[: uri.find("#")]
+    if subdirectory and "." in subdirectory:
         raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
 
@@ -52,6 +68,7 @@ def _get_storage_dir(storage_dir):
 def _get_git_repo_url(work_dir):
     from git import Repo
     from git.exc import GitCommandError, InvalidGitRepositoryError
+
     try:
         repo = Repo(work_dir, search_parent_directories=True)
         remote_urls = [remote.url for remote in repo.remotes]
@@ -93,9 +110,10 @@ def _is_valid_branch_name(work_dir, version):
     if version is not None:
         from git import Repo
         from git.exc import GitCommandError
+
         repo = Repo(work_dir, search_parent_directories=True)
         try:
-            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) != ''
+            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) != ""
         except GitCommandError:
             return False
     return False
@@ -126,9 +144,10 @@ def _fetch_project(uri, version=None):
         if _is_file_uri(parsed_uri):
             parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
             parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
-        _unzip_repo(zip_file=(
-            parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
-            dst_dir=dst_dir)
+        _unzip_repo(
+            zip_file=(parsed_uri if _is_local_uri(parsed_uri) else _fetch_zip_repo(parsed_uri)),
+            dst_dir=dst_dir,
+        )
     elif _is_local_uri(uri):
         if version is not None:
             raise ExecutionException("Setting a version is only supported for Git project URIs")
@@ -145,6 +164,7 @@ def _fetch_project(uri, version=None):
 
 def _unzip_repo(zip_file, dst_dir):
     import zipfile
+
     with zipfile.ZipFile(zip_file) as zip_in:
         zip_in.extractall(dst_dir)
 
@@ -159,6 +179,7 @@ def _fetch_git_repo(uri, version, dst_dir):
     # We defer importing git until the last moment, because the import requires that the git
     # executable is availble on the PATH, so we only want to fail if we actually need it.
     import git
+
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
     origin.fetch()
@@ -166,9 +187,11 @@ def _fetch_git_repo(uri, version, dst_dir):
         try:
             repo.git.checkout(version)
         except git.exc.GitCommandError as e:
-            raise ExecutionException("Unable to checkout version '%s' of git repo %s"
-                                     "- please ensure that the version exists in the repo. "
-                                     "Error: %s" % (version, uri, e))
+            raise ExecutionException(
+                "Unable to checkout version '%s' of git repo %s"
+                "- please ensure that the version exists in the repo. "
+                "Error: %s" % (version, uri, e)
+            )
     else:
         repo.create_head("master", origin.refs.master)
         repo.heads.master.checkout()
@@ -178,6 +201,7 @@ def _fetch_git_repo(uri, version, dst_dir):
 def _fetch_zip_repo(uri):
     import requests
     from io import BytesIO
+
     # TODO (dbczumar): Replace HTTP resolution via ``requests.get`` with an invocation of
     # ```mlflow.data.download_uri()`` when the API supports the same set of available stores as
     # the artifact repository (Azure, FTP, etc). See the following issue:
@@ -218,7 +242,7 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
         MLFLOW_USER: _get_user(),
         MLFLOW_SOURCE_NAME: source_name,
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PROJECT),
-        MLFLOW_PROJECT_ENTRY_POINT: entry_point
+        MLFLOW_PROJECT_ENTRY_POINT: entry_point,
     }
     if source_version is not None:
         tags[MLFLOW_GIT_COMMIT] = source_version
@@ -241,7 +265,64 @@ def _create_run(uri, experiment_id, work_dir, version, entry_point, parameters):
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
     entry_point_obj = project.get_entry_point(entry_point)
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
-    params_list = [Param(key, value) for key, value in
-                   list(final_params.items()) + list(extra_params.items())]
+    params_list = [
+        Param(key, value) for key, value in list(final_params.items()) + list(extra_params.items())
+    ]
     tracking.MlflowClient().log_batch(active_run.info.run_id, params=params_list)
     return active_run
+
+
+def get_entry_point_command(project, entry_point, parameters, storage_dir):
+    """
+    Returns the shell command to execute in order to run the specified entry point.
+    :param project: Project containing the target entry point
+    :param entry_point: Entry point to run
+    :param parameters: Parameters (dictionary) for the entry point command
+    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
+                        arguments of type 'path'. If None, a temporary base directory is used.
+    """
+    storage_dir_for_run = _get_storage_dir(storage_dir)
+    _logger.info(
+        "=== Created directory %s for downloading remote URIs passed to arguments of"
+        " type 'path' ===",
+        storage_dir_for_run,
+    )
+    commands = []
+    commands.append(
+        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run)
+    )
+    return commands
+
+
+def get_run_env_vars(run_id, experiment_id):
+    """
+    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
+    to run MLflow projects.
+    """
+    return {
+        tracking._RUN_ID_ENV_VAR: run_id,
+        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
+        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
+    }
+
+
+def get_databricks_env_vars(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
+        return {}
+
+    config = databricks_utils.get_databricks_host_creds(tracking_uri)
+    # We set these via environment variables so that only the current profile is exposed, rather
+    # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
+    # part of ~/.databrickscfg into the container
+    env_vars = {}
+    env_vars[tracking._TRACKING_URI_ENV_VAR] = "databricks"
+    env_vars["DATABRICKS_HOST"] = config.host
+    if config.username:
+        env_vars["DATABRICKS_USERNAME"] = config.username
+    if config.password:
+        env_vars["DATABRICKS_PASSWORD"] = config.password
+    if config.token:
+        env_vars["DATABRICKS_TOKEN"] = config.token
+    if config.ignore_tls_verification:
+        env_vars["DATABRICKS_INSECURE"] = str(config.ignore_tls_verification)
+    return env_vars

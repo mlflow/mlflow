@@ -1,6 +1,6 @@
 import os
 import random
-import mock
+from unittest import mock
 
 import requests
 import string
@@ -19,7 +19,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.utils.file_utils import read_yaml, write_yaml
 
-LOCALHOST = '127.0.0.1'
+LOCALHOST = "127.0.0.1"
 
 
 def get_safe_port():
@@ -36,7 +36,7 @@ def random_int(lo=1, hi=1e10):
 
 
 def random_str(size=10, chars=string.ascii_uppercase + string.digits):
-    return ''.join(random.choice(chars) for _ in range(size))
+    return "".join(random.choice(chars) for _ in range(size))
 
 
 def random_file(ext):
@@ -44,8 +44,12 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_uri, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=500):
+    model_uri,
+    data,
+    content_type,
+    flavor=mlflow.pyfunc.FLAVOR_NAME,
+    activity_polling_timeout_seconds=500,
+):
     """
     :param model_uri: URI to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
@@ -59,8 +63,9 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-        cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
-        env=env)
+        cmd=["mlflow", "sagemaker", "run-local", "-m", model_uri, "-p", "5000", "-f", flavor],
+        env=env,
+    )
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
@@ -74,7 +79,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = Popen(cmd, )
+    p = Popen(cmd,)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -86,32 +91,43 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, image_name]
+    scoring_cmd = ["docker", "run", "-p", "%s:8080" % host_port, image_name]
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
-def pyfunc_serve_from_docker_image_with_env_override(image_name,
-                                                     host_port,
-                                                     gunicorn_opts,
-                                                     extra_args=None):
+def pyfunc_serve_from_docker_image_with_env_override(
+    image_name, host_port, gunicorn_opts, extra_args=None
+):
     """
     Serves a model from a docker container, exposing it as an endpoint at the specified port
     on the host machine. Returns a handle (Popen object) to the server process.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['docker', 'run', "-e", "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
-                   "-p", "%s:8080" % host_port, image_name]
+    scoring_cmd = [
+        "docker",
+        "run",
+        "-e",
+        "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
+        "-p",
+        "%s:8080" % host_port,
+        image_name,
+    ]
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
 def pyfunc_serve_and_score_model(
-        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None,
-        stdout=sys.stdout):
+    model_uri,
+    data,
+    content_type,
+    activity_polling_timeout_seconds=500,
+    extra_args=None,
+    stdout=sys.stdout,
+):
     """
     :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
@@ -130,13 +146,20 @@ def pyfunc_serve_and_score_model(
     env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
     env.update(MLFLOW_HOME=_get_mlflow_home())
     port = get_safe_port()
-    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port),
-                   "--install-mlflow"]
+    scoring_cmd = [
+        "mlflow",
+        "models",
+        "serve",
+        "-m",
+        model_uri,
+        "-p",
+        str(port),
+        "--install-mlflow",
+    ]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
-    return _evaluate_scoring_proc(
-        proc, port, data, content_type, activity_polling_timeout_seconds)
+    return _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds)
 
 
 def _get_mlflow_home():
@@ -149,15 +172,17 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    proc = Popen(cmd,
-                 stdout=stdout,
-                 stderr=stderr,
-                 universal_newlines=True,
-                 env=env,
-                 # Assign the scoring process to a process group. All child processes of the
-                 # scoring process will be assigned to this group as well. This allows child
-                 # processes of the scoring process to be terminated successfully
-                 preexec_fn=os.setsid)
+    proc = Popen(
+        cmd,
+        stdout=stdout,
+        stderr=stderr,
+        universal_newlines=True,
+        env=env,
+        # Assign the scoring process to a process group. All child processes of the
+        # scoring process will be assigned to this group as well. This allows child
+        # processes of the scoring process to be terminated successfully
+        preexec_fn=os.setsid,
+    )
     return proc
 
 
@@ -173,12 +198,12 @@ class RestEndpoint:
             time.sleep(5)
             # noinspection PyBroadException
             try:
-                ping_status = requests.get(url='http://localhost:%d/ping' % self._port)
-                print('connection attempt', i, "server is up! ping status", ping_status)
+                ping_status = requests.get(url="http://localhost:%d/ping" % self._port)
+                print("connection attempt", i, "server is up! ping status", ping_status)
                 if ping_status.status_code == 200:
                     break
             except Exception:  # pylint: disable=broad-except
-                print('connection attempt', i, "failed, server is not up yet")
+                print("connection attempt", i, "failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         print("server up, ping status", ping_status)
@@ -195,17 +220,22 @@ class RestEndpoint:
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON \
-                    or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+            elif (
+                content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON
+                or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED
+            ):
                 data = data.to_json(orient="split")
             elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
                 data = data.to_csv(index=False)
             else:
                 raise Exception(
-                    "Unexpected content type for Pandas dataframe input %s" % content_type)
-        response = requests.post(url='http://localhost:%d/invocations' % self._port,
-                                 data=data,
-                                 headers={"Content-Type": content_type})
+                    "Unexpected content type for Pandas dataframe input %s" % content_type
+                )
+        response = requests.post(
+            url="http://localhost:%d/invocations" % self._port,
+            data=data,
+            headers={"Content-Type": content_type},
+        )
         return response
 
 
@@ -218,7 +248,7 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         return endpoint.invoke(data, content_type)
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope="module", autouse=True)
 def set_boto_credentials():
     os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"

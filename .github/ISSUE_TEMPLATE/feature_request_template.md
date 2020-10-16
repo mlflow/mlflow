@@ -31,11 +31,11 @@ Components
 - [ ] `area/build`: Build and test infrastructure for MLflow
 - [ ] `area/docs`: MLflow documentation pages
 - [ ] `area/examples`: Example code
-- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for
-Model Registry
+- [ ] `area/model-registry`: Model Registry service, APIs, and the fluent client calls for Model Registry
 - [ ] `area/models`: MLmodel format, model serialization/deserialization, flavors
 - [ ] `area/projects`: MLproject format, project running backends
 - [ ] `area/scoring`: Local serving, model deployment tools, spark UDFs
+- [ ] `area/server-infra`: MLflow server, JavaScript dev server
 - [ ] `area/tracking`: Tracking Service, tracking client APIs, autologging
 
 Interfaces
@@ -47,10 +47,12 @@ Interfaces
 Languages 
 - [ ] `language/r`: R APIs and clients
 - [ ] `language/java`: Java APIs and clients
+- [ ] `language/new`: Proposals for new client languages
 
 Integrations
 - [ ] `integrations/azure`: Azure and Azure ML integrations
 - [ ] `integrations/sagemaker`: SageMaker integrations
+- [ ] `integrations/databricks`: Databricks integrations
 
 ## Details
 

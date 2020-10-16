@@ -10,8 +10,13 @@ channels:
 """
 
 
-def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps=None,
-                      additional_conda_channels=None, install_mlflow=True):
+def _mlflow_conda_env(
+    path=None,
+    additional_conda_deps=None,
+    additional_pip_deps=None,
+    additional_conda_channels=None,
+    install_mlflow=True,
+):
     """
     Creates a Conda environment with the specified package channels and dependencies. If there are
     any pip dependencies, including from the install_mlflow parameter, then pip will be added to
@@ -29,9 +34,11 @@ def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps
              Conda environment.
     """
     pip_deps = (["mlflow"] if install_mlflow else []) + (
-        additional_pip_deps if additional_pip_deps else [])
+        additional_pip_deps if additional_pip_deps else []
+    )
     conda_deps = (additional_conda_deps if additional_conda_deps else []) + (
-        ["pip"] if pip_deps else [])
+        ["pip"] if pip_deps else []
+    )
 
     env = yaml.safe_load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]

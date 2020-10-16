@@ -1,12 +1,10 @@
 import os
 import shutil
-import six
 import tempfile
 import unittest
 import warnings
 
 import math
-import mock
 import pytest
 import sqlalchemy
 import time
@@ -14,20 +12,29 @@ import mlflow
 import uuid
 import json
 import pandas as pd
+from unittest import mock
 
 import mlflow.db
 import mlflow.store.db.base_sql_model
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
-    INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import (
+    ErrorCode,
+    RESOURCE_DOES_NOT_EXIST,
+    INVALID_PARAMETER_VALUE,
+    INTERNAL_ERROR,
+)
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.db.utils import _get_schema_version, _get_latest_schema_revision, \
-    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW, MLFLOW_SQLALCHEMYSTORE_POOL_SIZE
+from mlflow.store.db.utils import (
+    _get_schema_version,
+    _get_latest_schema_revision,
+    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
+    MLFLOW_SQLALCHEMYSTORE_POOL_SIZE,
+)
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -35,21 +42,34 @@ from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 
-DB_URI = 'sqlite:///'
-ARTIFACT_URI = 'artifact_folder'
+DB_URI = "sqlite:///"
+ARTIFACT_URI = "artifact_folder"
 
 
 class TestParseDbUri(unittest.TestCase):
-
     def test_correct_db_type_from_uri(self):
         # try each the main drivers per supported database type
         target_db_type_uris = {
-            'sqlite': ('pysqlite', 'pysqlcipher'),
-            'postgresql': ('psycopg2', 'pg8000', 'psycopg2cffi',
-                           'pypostgresql', 'pygresql', 'zxjdbc'),
-            'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
-                      'oursql', 'gaerdbms', 'pyodbc', 'zxjdbc'),
-            'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
+            "sqlite": ("pysqlite", "pysqlcipher"),
+            "postgresql": (
+                "psycopg2",
+                "pg8000",
+                "psycopg2cffi",
+                "pypostgresql",
+                "pygresql",
+                "zxjdbc",
+            ),
+            "mysql": (
+                "mysqldb",
+                "pymysql",
+                "mysqlconnector",
+                "cymysql",
+                "oursql",
+                "gaerdbms",
+                "pyodbc",
+                "zxjdbc",
+            ),
+            "mssql": ("pyodbc", "mxodbc", "pymssql", "zxjdbc", "adodbapi"),
         }
         for target_db_type, drivers in target_db_type_uris.items():
             # try the driver-less version, which will revert SQLAlchemy to the default driver
@@ -69,19 +89,25 @@ class TestParseDbUri(unittest.TestCase):
             self.assertIn(expected_message_part, e.exception.message)
 
     def test_fail_on_unsupported_db_type(self):
-        bad_db_uri_strings = ['oracle://...', 'oracle+cx_oracle://...',
-                              'snowflake://...', '://...', 'abcdefg']
+        bad_db_uri_strings = [
+            "oracle://...",
+            "oracle+cx_oracle://...",
+            "snowflake://...",
+            "://...",
+            "abcdefg",
+        ]
         self._db_uri_error(bad_db_uri_strings, "Supported database engines are ")
 
     def test_fail_on_multiple_drivers(self):
-        bad_db_uri_strings = ['mysql+pymsql+pyodbc://...']
-        self._db_uri_error(bad_db_uri_strings,
-                           "mlflow.org/docs/latest/tracking.html#storage for format specifications")
+        bad_db_uri_strings = ["mysql+pymsql+pyodbc://..."]
+        self._db_uri_error(
+            bad_db_uri_strings,
+            "mlflow.org/docs/latest/tracking.html#storage for format specifications",
+        )
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
-
-    def _get_store(self, db_uri=''):
+    def _get_store(self, db_uri=""):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
     def create_test_run(self):
@@ -122,15 +148,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-        self._experiment_factory('aNothEr')
+        self._experiment_factory("aNothEr")
         all_experiments = [e.name for e in self.store.list_experiments()]
-        six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
+        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         self.store.delete_experiment(0)
 
-        six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
         another = self.store.get_experiment(1)
-        self.assertEqual('aNothEr', another.name)
+        self.assertEqual("aNothEr", another.name)
 
         default_experiment = self.store.get_experiment(experiment_id=0)
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
@@ -145,24 +171,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
         self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
+        self.assertCountEqual(["aNothEr"], [e.name for e in self.store.list_experiments()])
         all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
-        six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
+        self.assertCountEqual(set(["aNothEr", "Default"]), set(all_experiments))
 
         # ensure that experiment ID dor active experiment is unchanged
         another = self.store.get_experiment(1)
-        self.assertEqual('aNothEr', another.name)
+        self.assertEqual("aNothEr", another.name)
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):
-            self._experiment_factory(['test', 'test'])
+            self._experiment_factory(["test", "test"])
 
     def test_raise_experiment_dont_exist(self):
         with self.assertRaises(Exception):
             self.store.get_experiment(experiment_id=100)
 
     def test_delete_experiment(self):
-        experiments = self._experiment_factory(['morty', 'rick', 'rick and morty'])
+        experiments = self._experiment_factory(["morty", "rick", "rick and morty"])
 
         all_experiments = self.store.list_experiments()
         self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
@@ -176,7 +202,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
 
     def test_get_experiment(self):
-        name = 'goku'
+        name = "goku"
         experiment_id = self._experiment_factory(name)
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.name, name)
@@ -188,7 +214,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(self.store.get_experiment_by_name("idontexist"), None)
 
     def test_list_experiments(self):
-        testnames = ['blue', 'red', 'green']
+        testnames = ["blue", "red", "green"]
 
         experiments = self._experiment_factory(testnames)
         actual = self.store.list_experiments()
@@ -197,8 +223,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         with self.store.ManagedSessionMaker() as session:
             for experiment_id in experiments:
-                res = session.query(models.SqlExperiment).filter_by(
-                    experiment_id=experiment_id).first()
+                res = (
+                    session.query(models.SqlExperiment)
+                    .filter_by(experiment_id=experiment_id)
+                    .first()
+                )
                 self.assertIn(res.name, testnames)
                 self.assertEqual(str(res.experiment_id), experiment_id)
 
@@ -207,19 +236,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 1)
 
-        experiment_id = self.store.create_experiment(name='test exp')
+        experiment_id = self.store.create_experiment(name="test exp")
         self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 2)
 
-            test_exp = session.query(models.SqlExperiment).filter_by(name='test exp').first()
+            test_exp = session.query(models.SqlExperiment).filter_by(name="test exp").first()
             self.assertEqual(str(test_exp.experiment_id), experiment_id)
-            self.assertEqual(test_exp.name, 'test exp')
+            self.assertEqual(test_exp.name, "test exp")
 
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
-        self.assertEqual(actual.name, 'test exp')
+        self.assertEqual(actual.name, "test exp")
 
     def test_create_experiment_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -261,11 +290,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 with TempDir() as tmp:
                     dbfile_path = tmp.path("db")
                     store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
+                    )
                     exp_id = store.create_experiment(name="exp")
                     exp = store.get_experiment(exp_id)
-                    self.assertEqual(exp.artifact_location,
-                                     expected_artifact_uri_format.format(e=exp_id))
+                    self.assertEqual(
+                        exp.artifact_location, expected_artifact_uri_format.format(e=exp_id)
+                    )
 
     def test_create_run_appends_to_artifact_uri_path_correctly(self):
         cases = [
@@ -276,7 +307,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
                 "file:path/to/local/folder?param=value",
-                "file:path/to/local/folder/{e}/{r}/artifacts?param=value"
+                "file:path/to/local/folder/{e}/{r}/artifacts?param=value",
             ),
             ("file:///path/to/local/folder", "file:///path/to/local/folder/{e}/{r}/artifacts"),
             (
@@ -312,13 +343,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 with TempDir() as tmp:
                     dbfile_path = tmp.path("db")
                     store = SqlAlchemyStore(
-                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri)
+                        db_uri="sqlite:///" + dbfile_path, default_artifact_root=artifact_root_uri
+                    )
                     exp_id = store.create_experiment(name="exp")
                     run = store.create_run(
-                        experiment_id=exp_id, user_id='user', start_time=0, tags=[])
+                        experiment_id=exp_id, user_id="user", start_time=0, tags=[]
+                    )
                     self.assertEqual(
                         run.info.artifact_uri,
-                        expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id))
+                        expected_artifact_uri_format.format(e=exp_id, r=run.info.run_id),
+                    )
 
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
@@ -327,12 +361,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
-            new_tag = models.SqlTag(run_uuid=run.info.run_id, key='test', value='val')
+            new_tag = models.SqlTag(run_uuid=run.info.run_id, key="test", value="val")
             session.add(new_tag)
             session.commit()
             added_tags = [
-                tag for tag in session.query(models.SqlTag).all()
-                if tag.key == new_tag.key
+                tag for tag in session.query(models.SqlTag).all() if tag.key == new_tag.key
             ]
             self.assertEqual(len(added_tags), 1)
             added_tag = added_tags[0].to_mlflow_entity()
@@ -345,7 +378,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
-            new_metric = models.SqlMetric(run_uuid=run.info.run_id, key='accuracy', value=0.89)
+            new_metric = models.SqlMetric(run_uuid=run.info.run_id, key="accuracy", value=0.89)
             session.add(new_metric)
             session.commit()
             metrics = session.query(models.SqlMetric).all()
@@ -363,7 +396,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
             new_param = models.SqlParam(
-                run_uuid=run.info.run_id, key='accuracy', value='test param')
+                run_uuid=run.info.run_id, key="accuracy", value="test param"
+            )
             session.add(new_param)
             session.commit()
             params = session.query(models.SqlParam).all()
@@ -387,10 +421,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
-            m1 = models.SqlMetric(key='accuracy', value=0.89)
-            m2 = models.SqlMetric(key='recal', value=0.89)
-            p1 = models.SqlParam(key='loss', value='test param')
-            p2 = models.SqlParam(key='blue', value='test param')
+            m1 = models.SqlMetric(key="accuracy", value=0.89)
+            m2 = models.SqlMetric(key="recal", value=0.89)
+            p1 = models.SqlParam(key="loss", value="test param")
+            p2 = models.SqlParam(key="blue", value="test param")
 
             session.add_all([m1, m2, p1, p2])
 
@@ -410,41 +444,41 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             self.assertEqual(len(actual.metrics), 2)
 
     def test_run_info(self):
-        experiment_id = self._experiment_factory('test exp')
+        experiment_id = self._experiment_factory("test exp")
         config = {
-            'experiment_id': experiment_id,
-            'name': 'test run',
-            'user_id': 'Anderson',
-            'run_uuid': 'test',
-            'status': RunStatus.to_string(RunStatus.SCHEDULED),
-            'source_type': SourceType.to_string(SourceType.LOCAL),
-            'source_name': 'Python application',
-            'entry_point_name': 'main.py',
-            'start_time': int(time.time()),
-            'end_time': int(time.time()),
-            'source_version': mlflow.__version__,
-            'lifecycle_stage': entities.LifecycleStage.ACTIVE,
-            'artifact_uri': '//'
+            "experiment_id": experiment_id,
+            "name": "test run",
+            "user_id": "Anderson",
+            "run_uuid": "test",
+            "status": RunStatus.to_string(RunStatus.SCHEDULED),
+            "source_type": SourceType.to_string(SourceType.LOCAL),
+            "source_name": "Python application",
+            "entry_point_name": "main.py",
+            "start_time": int(time.time()),
+            "end_time": int(time.time()),
+            "source_version": mlflow.__version__,
+            "lifecycle_stage": entities.LifecycleStage.ACTIVE,
+            "artifact_uri": "//",
         }
         run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
             # These keys were removed from RunInfo.
-            if k in ['source_name', 'source_type', 'source_version', 'name', 'entry_point_name']:
+            if k in ["source_name", "source_type", "source_version", "name", "entry_point_name"]:
                 continue
 
             v2 = getattr(run.info, k)
-            if k == 'source_type':
+            if k == "source_type":
                 self.assertEqual(v, SourceType.to_string(v2))
             else:
                 self.assertEqual(v, v2)
 
     def _get_run_configs(self, experiment_id=None, tags=(), start_time=None):
         return {
-            'experiment_id': experiment_id,
-            'user_id': 'Anderson',
-            'start_time': start_time if start_time is not None else int(time.time()),
-            'tags': tags
+            "experiment_id": experiment_id,
+            "user_id": "Anderson",
+            "start_time": start_time if start_time is not None else int(time.time()),
+            "tags": tags,
         }
 
     def _run_factory(self, config=None):
@@ -453,14 +487,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         experiment_id = config.get("experiment_id", None)
         if not experiment_id:
-            experiment_id = self._experiment_factory('test exp')
+            experiment_id = self._experiment_factory("test exp")
             config["experiment_id"] = experiment_id
 
         return self.store.create_run(**config)
 
     def test_create_run_with_tags(self):
-        experiment_id = self._experiment_factory('test_create_run')
-        tags = [RunTag('3', '4'), RunTag('1', '2')]
+        experiment_id = self._experiment_factory("test_create_run")
+        tags = [RunTag("3", "4"), RunTag("1", "2")]
         expected = self._get_run_configs(experiment_id=experiment_id, tags=tags)
 
         actual = self.store.create_run(**expected)
@@ -478,10 +512,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         created_run = self._run_factory()
         run_id = created_run.info.run_id
         self.store.log_metric(
-            run_id=run_id,
-            metric=entities.Metric(key='my-metric', value=3.4, timestamp=0, step=0))
-        self.store.log_param(run_id=run_id, param=Param(key='my-param', value='param-val'))
-        self.store.set_tag(run_id=run_id, tag=RunTag(key='my-tag', value='tag-val'))
+            run_id=run_id, metric=entities.Metric(key="my-metric", value=3.4, timestamp=0, step=0)
+        )
+        self.store.log_param(run_id=run_id, param=Param(key="my-param", value="param-val"))
+        self.store.set_tag(run_id=run_id, tag=RunTag(key="my-tag", value="tag-val"))
 
         # Verify that we can fetch the run & convert it to proto - Python protobuf bindings
         # will perform type-checking to ensure all values have the right types
@@ -514,11 +548,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def test_hard_delete_run(self):
         run = self._run_factory()
-        metric = entities.Metric('blahmetric', 100.0, int(1000 * time.time()), 0)
+        metric = entities.Metric("blahmetric", 100.0, int(1000 * time.time()), 0)
         self.store.log_metric(run.info.run_id, metric)
-        param = entities.Param('blahparam', '100.0')
+        param = entities.Param("blahparam", "100.0")
         self.store.log_param(run.info.run_id, param)
-        tag = entities.RunTag('test tag', 'a boogie')
+        tag = entities.RunTag("test tag", "a boogie")
         self.store.set_tag(run.info.run_id, tag)
 
         self.store._hard_delete_run(run.info.run_id)
@@ -526,11 +560,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         with self.store.ManagedSessionMaker() as session:
             actual_run = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(None, actual_run)
-            actual_metric = session.query(models.SqlMetric)\
-                .filter_by(run_uuid=run.info.run_id).first()
+            actual_metric = (
+                session.query(models.SqlMetric).filter_by(run_uuid=run.info.run_id).first()
+            )
             self.assertEqual(None, actual_metric)
-            actual_param = session.query(models.SqlParam)\
-                .filter_by(run_uuid=run.info.run_id).first()
+            actual_param = (
+                session.query(models.SqlParam).filter_by(run_uuid=run.info.run_id).first()
+            )
             self.assertEqual(None, actual_param)
             actual_tag = session.query(models.SqlTag).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(None, actual_tag)
@@ -547,7 +583,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_metric(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
+        tkey = "blahmetric"
         tval = 100.0
         metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
         metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
@@ -609,7 +645,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_null_metric(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
+        tkey = "blahmetric"
         tval = None
         metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
 
@@ -622,10 +658,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_param(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
-        tval = '100.0'
+        tkey = "blahmetric"
+        tval = "100.0"
         param = entities.Param(tkey, tval)
-        param2 = entities.Param('new param', 'new key')
+        param2 = entities.Param("new param", "new key")
         self.store.log_param(run.info.run_id, param)
         self.store.log_param(run.info.run_id, param2)
         self.store.log_param(run.info.run_id, param2)
@@ -637,10 +673,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_param_uniqueness(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
-        tval = '100.0'
+        tkey = "blahmetric"
+        tval = "100.0"
         param = entities.Param(tkey, tval)
-        param2 = entities.Param(tkey, 'newval')
+        param2 = entities.Param(tkey, "newval")
         self.store.log_param(run.info.run_id, param)
 
         with self.assertRaises(MlflowException) as e:
@@ -650,10 +686,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_empty_str(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
-        tval = ''
+        tkey = "blahmetric"
+        tval = ""
         param = entities.Param(tkey, tval)
-        param2 = entities.Param('new param', 'new key')
+        param2 = entities.Param("new param", "new key")
         self.store.log_param(run.info.run_id, param)
         self.store.log_param(run.info.run_id, param2)
 
@@ -664,7 +700,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_null_param(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
+        tkey = "blahmetric"
         tval = None
         param = entities.Param(tkey, tval)
 
@@ -673,7 +709,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_set_experiment_tag(self):
-        exp_id = self._experiment_factory('setExperimentTagExp')
+        exp_id = self._experiment_factory("setExperimentTagExp")
         tag = entities.ExperimentTag("tag0", "value0")
         new_tag = entities.RunTag("tag0", "value00000")
         self.store.set_experiment_tag(exp_id, tag)
@@ -684,7 +720,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         experiment = self.store.get_experiment(exp_id)
         self.assertTrue(experiment.tags["tag0"] == "value00000")
         # test that setting a tag on 1 experiment does not impact another experiment.
-        exp_id_2 = self._experiment_factory('setExperimentTagExp2')
+        exp_id_2 = self._experiment_factory("setExperimentTagExp2")
         experiment2 = self.store.get_experiment(exp_id_2)
         self.assertTrue(len(experiment2.tags) == 0)
         # setting a tag on different experiments maintains different values across experiments
@@ -714,8 +750,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_set_tag(self):
         run = self._run_factory()
 
-        tkey = 'test tag'
-        tval = 'a boogie'
+        tkey = "test tag"
+        tval = "a boogie"
         new_val = "new val"
         tag = entities.RunTag(tkey, tval)
         new_tag = entities.RunTag(tkey, new_val)
@@ -732,8 +768,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def test_delete_tag(self):
         run = self._run_factory()
-        k0, v0 = 'tag0', 'val0'
-        k1, v1 = 'tag1', 'val1'
+        k0, v0 = "tag0", "val0"
+        k1, v1 = "tag1", "val1"
         tag0 = entities.RunTag(k0, v0)
         tag1 = entities.RunTag(k1, v1)
         self.store.set_tag(run.info.run_id, tag0)
@@ -767,10 +803,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_get_metric_history(self):
         run = self._run_factory()
 
-        key = 'test'
+        key = "test"
         expected = [
             models.SqlMetric(key=key, value=0.6, timestamp=1, step=0).to_mlflow_entity(),
-            models.SqlMetric(key=key, value=0.7, timestamp=2, step=0).to_mlflow_entity()
+            models.SqlMetric(key=key, value=0.7, timestamp=2, step=0).to_mlflow_entity(),
         ]
 
         for metric in expected:
@@ -778,30 +814,31 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         actual = self.store.get_metric_history(run.info.run_id, key)
 
-        six.assertCountEqual(self,
-                             [(m.key, m.value, m.timestamp) for m in expected],
-                             [(m.key, m.value, m.timestamp) for m in actual])
+        self.assertCountEqual(
+            [(m.key, m.value, m.timestamp) for m in expected],
+            [(m.key, m.value, m.timestamp) for m in actual],
+        )
 
     def test_list_run_infos(self):
-        experiment_id = self._experiment_factory('test_exp')
+        experiment_id = self._experiment_factory("test_exp")
         r1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
         r2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
 
         def _runs(experiment_id, view_type):
             return [r.run_id for r in self.store.list_run_infos(experiment_id, view_type)]
 
-        six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ALL))
-        six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
         self.assertEqual(0, len(_runs(experiment_id, ViewType.DELETED_ONLY)))
 
         self.store.delete_run(r1)
-        six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ALL))
-        six.assertCountEqual(self, [r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [r1], _runs(experiment_id, ViewType.DELETED_ONLY))
+        self.assertCountEqual([r1, r2], _runs(experiment_id, ViewType.ALL))
+        self.assertCountEqual([r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([r1], _runs(experiment_id, ViewType.DELETED_ONLY))
 
     def test_rename_experiment(self):
-        new_name = 'new name'
-        experiment_id = self._experiment_factory('test name')
+        new_name = "new name"
+        experiment_id = self._experiment_factory("test name")
         self.store.rename_experiment(experiment_id, new_name)
 
         renamed_experiment = self.store.get_experiment(experiment_id)
@@ -809,17 +846,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(renamed_experiment.name, new_name)
 
     def test_update_run_info(self):
-        experiment_id = self._experiment_factory('test_update_run_info')
+        experiment_id = self._experiment_factory("test_update_run_info")
         for new_status_string in models.RunStatusTypes:
             run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
             endtime = int(time.time())
             actual = self.store.update_run_info(
-                run.info.run_id, RunStatus.from_string(new_status_string), endtime)
+                run.info.run_id, RunStatus.from_string(new_status_string), endtime
+            )
             self.assertEqual(actual.status, new_status_string)
             self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
-        experiment_id = self._experiment_factory('helloexp')
+        experiment_id = self._experiment_factory("helloexp")
         exp = self.store.get_experiment(experiment_id)
         self.assertEqual(exp.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
@@ -861,12 +899,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
     def test_error_logging_to_deleted_run(self):
-        exp = self._experiment_factory('error_logging')
+        exp = self._experiment_factory("error_logging")
         run_id = self._run_factory(self._get_run_configs(experiment_id=exp)).info.run_id
 
         self.store.delete_run(run_id)
-        self.assertEqual(self.store.get_run(run_id).info.lifecycle_stage,
-                         entities.LifecycleStage.DELETED)
+        self.assertEqual(
+            self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.DELETED
+        )
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
         self.assertIn("must be in the 'active' state", e.exception.message)
@@ -881,8 +920,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # restore this run and try again
         self.store.restore_run(run_id)
-        self.assertEqual(self.store.get_run(run_id).info.lifecycle_stage,
-                         entities.LifecycleStage.ACTIVE)
+        self.assertEqual(
+            self.store.get_run(run_id).info.lifecycle_stage, entities.LifecycleStage.ACTIVE
+        )
         self.store.log_param(run_id, entities.Param("p1345", "v22"))
         self.store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
         self.store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
@@ -900,22 +940,32 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
 
     # Tests for Search API
-    def _search(self, experiment_id, filter_string=None,
-                run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
+    def _search(
+        self,
+        experiment_id,
+        filter_string=None,
+        run_view_type=ViewType.ALL,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+    ):
         exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
-        return [r.info.run_id
-                for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
+        return [
+            r.info.run_id
+            for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)
+        ]
 
     def get_ordered_runs(self, order_clauses, experiment_id):
         return [
             r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=order_clauses)]
+            for r in self.store.search_runs(
+                experiment_ids=[experiment_id],
+                filter_string="",
+                run_view_type=ViewType.ALL,
+                order_by=order_clauses,
+            )
+        ]
 
     def test_order_by_metric_tag_param(self):
-        experiment_id = self.store.create_experiment('order_by_metric')
+        experiment_id = self.store.create_experiment("order_by_metric")
 
         def create_and_log_run(names):
             name = str(names[0]) + "/" + names[1]
@@ -923,8 +973,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 experiment_id,
                 user_id="MrDuck",
                 start_time=123,
-                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
-                      entities.RunTag("metric", names[1])]
+                tags=[
+                    entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
+                    entities.RunTag("metric", names[1]),
+                ],
             ).info.run_id
             if names[0] is not None:
                 self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
@@ -934,53 +986,56 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         # the expected order in ascending sort is :
         # inf > number > -inf > None > nan
-        for names in zip(["nan", None, "inf", "-inf", "-1000", "0", "0", "1000"],
-                         ["1", "2", "3", "4", "5", "6", "7", "8"]):
+        for names in zip(
+            ["nan", None, "inf", "-inf", "-1000", "0", "0", "1000"],
+            ["1", "2", "3", "4", "5", "6", "7", "8"],
+        ):
             create_and_log_run(names)
 
         # asc/asc
-        self.assertListEqual(["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3",
-                              "None/2", "nan/1"],
-                             self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
-                                                   experiment_id))
+        self.assertListEqual(
+            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "None/2", "nan/1"],
+            self.get_ordered_runs(["metrics.x asc", "metrics.y asc"], experiment_id),
+        )
 
-        self.assertListEqual(["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3",
-                              "None/2", "nan/1"],
-                             self.get_ordered_runs(["metrics.x asc", "tag.metric asc"],
-                                                   experiment_id))
+        self.assertListEqual(
+            ["-inf/4", "-1000/5", "0/6", "0/7", "1000/8", "inf/3", "None/2", "nan/1"],
+            self.get_ordered_runs(["metrics.x asc", "tag.metric asc"], experiment_id),
+        )
 
         # asc/desc
-        self.assertListEqual(["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3",
-                              "None/2", "nan/1"],
-                             self.get_ordered_runs(["metrics.x asc", "metrics.y desc"],
-                                                   experiment_id))
+        self.assertListEqual(
+            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "None/2", "nan/1"],
+            self.get_ordered_runs(["metrics.x asc", "metrics.y desc"], experiment_id),
+        )
 
-        self.assertListEqual(["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3",
-                              "None/2", "nan/1"],
-                             self.get_ordered_runs(["metrics.x asc", "tag.metric desc"],
-                                                   experiment_id))
+        self.assertListEqual(
+            ["-inf/4", "-1000/5", "0/7", "0/6", "1000/8", "inf/3", "None/2", "nan/1"],
+            self.get_ordered_runs(["metrics.x asc", "tag.metric desc"], experiment_id),
+        )
 
         # desc / asc
-        self.assertListEqual(["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4",
-                              "nan/1", "None/2"],
-                             self.get_ordered_runs(["metrics.x desc", "metrics.y asc"],
-                                                   experiment_id))
+        self.assertListEqual(
+            ["inf/3", "1000/8", "0/6", "0/7", "-1000/5", "-inf/4", "nan/1", "None/2"],
+            self.get_ordered_runs(["metrics.x desc", "metrics.y asc"], experiment_id),
+        )
 
         # desc / desc
-        self.assertListEqual(["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4",
-                              "nan/1", "None/2"],
-                             self.get_ordered_runs(["metrics.x desc", "param.metric desc"],
-                                                   experiment_id))
+        self.assertListEqual(
+            ["inf/3", "1000/8", "0/7", "0/6", "-1000/5", "-inf/4", "nan/1", "None/2"],
+            self.get_ordered_runs(["metrics.x desc", "param.metric desc"], experiment_id),
+        )
 
     def test_order_by_attributes(self):
-        experiment_id = self.store.create_experiment('order_by_attributes')
+        experiment_id = self.store.create_experiment("order_by_attributes")
 
         def create_run(start_time, end):
             return self.store.create_run(
                 experiment_id,
                 user_id="MrDuck",
                 start_time=start_time,
-                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)],
+            ).info.run_id
 
         start_time = 123
         for end in [234, None, 456, -123, 789, 123]:
@@ -989,168 +1044,179 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             start_time += 1
 
         # asc
-        self.assertListEqual(["-123", "123", "234", "456", "789", None],
-                             self.get_ordered_runs(["attribute.end_time asc"], experiment_id))
+        self.assertListEqual(
+            ["-123", "123", "234", "456", "789", None],
+            self.get_ordered_runs(["attribute.end_time asc"], experiment_id),
+        )
 
         # desc
-        self.assertListEqual(["789", "456", "234", "123", "-123", None],
-                             self.get_ordered_runs(["attribute.end_time desc"], experiment_id))
+        self.assertListEqual(
+            ["789", "456", "234", "123", "-123", None],
+            self.get_ordered_runs(["attribute.end_time desc"], experiment_id),
+        )
 
         # Sort priority correctly handled
-        self.assertListEqual(["234", None, "456", "-123", "789", "123"],
-                             self.get_ordered_runs(["attribute.start_time asc",
-                                                    "attribute.end_time desc"], experiment_id))
+        self.assertListEqual(
+            ["234", None, "456", "-123", "789", "123"],
+            self.get_ordered_runs(
+                ["attribute.start_time asc", "attribute.end_time desc"], experiment_id
+            ),
+        )
 
     def test_search_vanilla(self):
-        exp = self._experiment_factory('search_vanilla')
-        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id
-                for r in range(3)]
+        exp = self._experiment_factory("search_vanilla")
+        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id for r in range(3)]
 
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
         first = runs[0]
 
         self.store.delete_run(first)
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
-        six.assertCountEqual(self, runs[1:], self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [first], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
+        self.assertCountEqual(runs[1:], self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([first], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
         self.store.restore_run(first)
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
-        six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
-        six.assertCountEqual(self, [], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ALL))
+        self.assertCountEqual(runs, self._search(exp, run_view_type=ViewType.ACTIVE_ONLY))
+        self.assertCountEqual([], self._search(exp, run_view_type=ViewType.DELETED_ONLY))
 
     def test_search_params(self):
-        experiment_id = self._experiment_factory('search_params')
+        experiment_id = self._experiment_factory("search_params")
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
-        self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
-        self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
+        self.store.log_param(r1, entities.Param("generic_param", "p_val"))
+        self.store.log_param(r2, entities.Param("generic_param", "p_val"))
 
-        self.store.log_param(r1, entities.Param('generic_2', 'some value'))
-        self.store.log_param(r2, entities.Param('generic_2', 'another value'))
+        self.store.log_param(r1, entities.Param("generic_2", "some value"))
+        self.store.log_param(r2, entities.Param("generic_2", "another value"))
 
-        self.store.log_param(r1, entities.Param('p_a', 'abc'))
-        self.store.log_param(r2, entities.Param('p_b', 'ABC'))
+        self.store.log_param(r1, entities.Param("p_a", "abc"))
+        self.store.log_param(r2, entities.Param("p_b", "ABC"))
 
         # test search returns both runs
         filter_string = "params.generic_param = 'p_val'"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         # test search returns appropriate run (same key different values per run)
         filter_string = "params.generic_2 = 'some value'"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
         filter_string = "params.generic_2 = 'another value'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_param = 'wrong_val'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_param != 'p_val'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_param != 'wrong_val'"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
         filter_string = "params.generic_2 != 'wrong_val'"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.p_a = 'abc'"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "params.p_b = 'ABC'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE '%other%'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE 'other%'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE '%other'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE 'other'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 LIKE '%Other%'"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "params.generic_2 ILIKE '%Other%'"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
     def test_search_tags(self):
-        experiment_id = self._experiment_factory('search_tags')
+        experiment_id = self._experiment_factory("search_tags")
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
-        self.store.set_tag(r1, entities.RunTag('generic_tag', 'p_val'))
-        self.store.set_tag(r2, entities.RunTag('generic_tag', 'p_val'))
+        self.store.set_tag(r1, entities.RunTag("generic_tag", "p_val"))
+        self.store.set_tag(r2, entities.RunTag("generic_tag", "p_val"))
 
-        self.store.set_tag(r1, entities.RunTag('generic_2', 'some value'))
-        self.store.set_tag(r2, entities.RunTag('generic_2', 'another value'))
+        self.store.set_tag(r1, entities.RunTag("generic_2", "some value"))
+        self.store.set_tag(r2, entities.RunTag("generic_2", "another value"))
 
-        self.store.set_tag(r1, entities.RunTag('p_a', 'abc'))
-        self.store.set_tag(r2, entities.RunTag('p_b', 'ABC'))
+        self.store.set_tag(r1, entities.RunTag("p_a", "abc"))
+        self.store.set_tag(r2, entities.RunTag("p_b", "ABC"))
 
         # test search returns both runs
-        six.assertCountEqual(self, [r1, r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_tag = 'p_val'"))
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag = 'p_val'")
+        )
         # test search returns appropriate run (same key different values per run)
-        six.assertCountEqual(self, [r1],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 = 'some value'"))
-        six.assertCountEqual(self, [r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 = 'another value'"))
-        six.assertCountEqual(self, [],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_tag = 'wrong_val'"))
-        six.assertCountEqual(self, [],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_tag != 'p_val'"))
-        six.assertCountEqual(self, [r1, r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_tag != 'wrong_val'"))
-        six.assertCountEqual(self, [r1, r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 != 'wrong_val'"))
-        six.assertCountEqual(self, [r1], self._search(experiment_id,
-                                                      filter_string="tags.p_a = 'abc'"))
-        six.assertCountEqual(self, [r2], self._search(experiment_id,
-                                                      filter_string="tags.p_b = 'ABC'"))
-        six.assertCountEqual(self, [r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 LIKE '%other%'"))
-        six.assertCountEqual(self, [],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 LIKE '%Other%'"))
-        six.assertCountEqual(self, [],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 LIKE 'other%'"))
-        six.assertCountEqual(self, [],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 LIKE '%other'"))
-        six.assertCountEqual(self, [],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 LIKE 'other'"))
-        six.assertCountEqual(self, [r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 ILIKE '%Other%'"))
-        six.assertCountEqual(self, [r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 ILIKE '%Other%' "
-                                                        "and tags.generic_tag = 'p_val'"))
-        six.assertCountEqual(self, [r2],
-                             self._search(experiment_id,
-                                          filter_string="tags.generic_2 ILIKE '%Other%' and "
-                                                        "tags.generic_tag ILIKE 'p_val'"))
+        self.assertCountEqual(
+            [r1], self._search(experiment_id, filter_string="tags.generic_2 = 'some value'")
+        )
+        self.assertCountEqual(
+            [r2], self._search(experiment_id, filter_string="tags.generic_2 = 'another value'"),
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'")
+        )
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
+        )
+        self.assertCountEqual(
+            [r1, r2], self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
+        )
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string="tags.p_a = 'abc'"))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string="tags.p_b = 'ABC'"))
+        self.assertCountEqual(
+            [r2], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other%'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%Other%'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other%'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE '%other'")
+        )
+        self.assertCountEqual(
+            [], self._search(experiment_id, filter_string="tags.generic_2 LIKE 'other'")
+        )
+        self.assertCountEqual(
+            [r2], self._search(experiment_id, filter_string="tags.generic_2 ILIKE '%Other%'")
+        )
+        self.assertCountEqual(
+            [r2],
+            self._search(
+                experiment_id,
+                filter_string="tags.generic_2 ILIKE '%Other%' " "and tags.generic_tag = 'p_val'",
+            ),
+        )
+        self.assertCountEqual(
+            [r2],
+            self._search(
+                experiment_id,
+                filter_string="tags.generic_2 ILIKE '%Other%' and "
+                "tags.generic_tag ILIKE 'p_val'",
+            ),
+        )
 
     def test_search_metrics(self):
-        experiment_id = self._experiment_factory('search_metric')
+        experiment_id = self._experiment_factory("search_metric")
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
@@ -1167,151 +1233,153 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
         filter_string = "metrics.common = 1.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common > 0.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common >= 0.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common < 4.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common <= 4.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common != 1.0"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common >= 3.0"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.common <= 0.75"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # tests for same metric name across runs with different values and timestamps
         filter_string = "metrics.measure_a > 0.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a < 50.0"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a < 1000.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a != -12.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a > 50.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a = 1.0"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.measure_a = 400.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         # test search with unique metric keys
         filter_string = "metrics.m_a > 1.0"
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         filter_string = "metrics.m_b > 1.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
         # there is a recorded metric this threshold but not last timestamp
         filter_string = "metrics.m_b > 5.0"
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # metrics matches last reported timestamp for 'm_b'
         filter_string = "metrics.m_b = 4.0"
-        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r2], self._search(experiment_id, filter_string))
 
     def test_search_attrs(self):
-        e1 = self._experiment_factory('search_attributes_1')
+        e1 = self._experiment_factory("search_attributes_1")
         r1 = self._run_factory(self._get_run_configs(experiment_id=e1)).info.run_id
 
-        e2 = self._experiment_factory('search_attrs_2')
+        e2 = self._experiment_factory("search_attrs_2")
         r2 = self._run_factory(self._get_run_configs(experiment_id=e2)).info.run_id
 
         filter_string = ""
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status != 'blah'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         # change status for one of the runs
         self.store.update_run_info(r2, RunStatus.FAILED, 300)
 
         filter_string = "attribute.status = 'RUNNING'"
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'FAILED'"
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status != 'SCHEDULED'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'SCHEDULED'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = 'KILLED'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri = 'random_artifact_path'"
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:4])
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[:16])
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-4:])
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1[-16:])
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri LIKE '%{}%'".format(r1.upper())
-        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+        self.assertCountEqual([], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1.upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:4].upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[:16].upper())
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-4:].upper())
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        filter_string = "attribute.artifact_uri ILIKE '%{}%'".format(r1[-16:].upper())
+        self.assertCountEqual([r1], self._search([e1, e2], filter_string))
 
-        for (k, v) in {"experiment_id": e1,
-                       "lifecycle_stage": "ACTIVE",
-                       "run_id": r1,
-                       "run_uuid": r2}.items():
+        for (k, v) in {
+            "experiment_id": e1,
+            "lifecycle_stage": "ACTIVE",
+            "run_id": r1,
+            "run_uuid": r2,
+        }.items():
             with self.assertRaises(MlflowException) as e:
                 self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
             self.assertIn("Invalid attribute key", e.exception.message)
 
     def test_search_full(self):
-        experiment_id = self._experiment_factory('search_params')
+        experiment_id = self._experiment_factory("search_params")
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
-        self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
-        self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
+        self.store.log_param(r1, entities.Param("generic_param", "p_val"))
+        self.store.log_param(r2, entities.Param("generic_param", "p_val"))
 
-        self.store.log_param(r1, entities.Param('p_a', 'abc'))
-        self.store.log_param(r2, entities.Param('p_b', 'ABC'))
+        self.store.log_param(r1, entities.Param("p_a", "abc"))
+        self.store.log_param(r2, entities.Param("p_b", "ABC"))
 
         self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
         self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
@@ -1322,103 +1390,127 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
         filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        self.assertCountEqual([r1, r2], self._search(experiment_id, filter_string))
 
         # all params and metrics match
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
-                         "and metrics.m_a > 1.0")
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+        )
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
-                         "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'")
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 "
+            "and metrics.m_a > 1.0 and params.p_a LIKE 'a%'"
+        )
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
-                         "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'")
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 "
+            "and metrics.m_a > 1.0 and params.p_a LIKE 'A%'"
+        )
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
-                         "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'")
-        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 "
+            "and metrics.m_a > 1.0 and params.p_a ILIKE 'A%'"
+        )
+        self.assertCountEqual([r1], self._search(experiment_id, filter_string))
 
         # test with mismatch param
-        filter_string = ("params.random_bad_name = 'p_val' and metrics.common = 1.0 "
-                         "and metrics.m_a > 1.0")
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        filter_string = (
+            "params.random_bad_name = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 1.0"
+        )
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
-        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0 "
-                         "and metrics.m_a > 100.0")
-        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
+        filter_string = (
+            "params.generic_param = 'p_val' and metrics.common = 1.0 " "and metrics.m_a > 100.0"
+        )
+        self.assertCountEqual([], self._search(experiment_id, filter_string))
 
     def test_search_with_max_results(self):
-        exp = self._experiment_factory('search_with_max_results')
-        runs = [self._run_factory(self._get_run_configs(exp, start_time=r)).info.run_id
-                for r in range(1200)]
+        exp = self._experiment_factory("search_with_max_results")
+        runs = [
+            self._run_factory(self._get_run_configs(exp, start_time=r)).info.run_id
+            for r in range(1200)
+        ]
         # reverse the ordering, since we created in increasing order of start_time
         runs.reverse()
 
-        assert (runs[:1000] == self._search(exp))
+        assert runs[:1000] == self._search(exp)
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
-            assert (runs[:min(1200, n)] == self._search(exp, max_results=n))
+            assert runs[: min(1200, n)] == self._search(exp, max_results=n)
 
         with self.assertRaises(MlflowException) as e:
             self._search(exp, max_results=int(1e10))
         self.assertIn("Invalid value for request parameter max_results. It ", e.exception.message)
 
     def test_search_with_deterministic_max_results(self):
-        exp = self._experiment_factory('test_search_with_deterministic_max_results')
+        exp = self._experiment_factory("test_search_with_deterministic_max_results")
         # Create 10 runs with the same start_time.
         # Sort based on run_id
-        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
-                       for r in range(10)])
+        runs = sorted(
+            [
+                self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
+                for r in range(10)
+            ]
+        )
         for n in [0, 1, 2, 4, 8, 10, 20]:
-            assert (runs[:min(10, n)] == self._search(exp, max_results=n))
+            assert runs[: min(10, n)] == self._search(exp, max_results=n)
 
     def test_search_runs_pagination(self):
-        exp = self._experiment_factory('test_search_runs_pagination')
+        exp = self._experiment_factory("test_search_runs_pagination")
         # test returned token behavior
-        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
-                       for r in range(10)])
+        runs = sorted(
+            [
+                self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
+                for r in range(10)
+            ]
+        )
         result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4)
         assert [r.info.run_id for r in result] == runs[0:4]
         assert result.token is not None
-        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
-                                        page_token=result.token)
+        result = self.store.search_runs(
+            [exp], None, ViewType.ALL, max_results=4, page_token=result.token
+        )
         assert [r.info.run_id for r in result] == runs[4:8]
         assert result.token is not None
-        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
-                                        page_token=result.token)
+        result = self.store.search_runs(
+            [exp], None, ViewType.ALL, max_results=4, page_token=result.token
+        )
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
 
     def test_log_batch(self):
-        experiment_id = self._experiment_factory('log_batch')
+        experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 1)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         self.store.log_batch(
-            run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities)
+            run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities
+        )
         run = self.store.get_run(run_id)
         assert run.data.tags == {"t1": "t1val", "t2": "t2val"}
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
         metric_histories = sum(
-            [self.store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+            [self.store.get_metric_history(run_id, key) for key in run.data.metrics], []
+        )
         metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
         assert set(metrics) == set([("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)])
 
     def test_log_batch_limits(self):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
         # SQL limitations, etc)
-        experiment_id = self._experiment_factory('log_batch_limits')
+        experiment_id = self._experiment_factory("log_batch_limits")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_id)
         metric_histories = sum(
-            [self.store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+            [self.store.get_metric_history(run_id, key) for key in run.data.metrics], []
+        )
         metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
         assert set(metrics) == set(metric_tuples)
 
@@ -1426,16 +1518,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         # Test that attempting to overwrite a param via log_batch results in an exception and that
         # no partial data is logged
         run = self._run_factory()
-        tkey = 'my-param'
-        param = entities.Param(tkey, 'orig-val')
+        tkey = "my-param"
+        param = entities.Param(tkey, "orig-val")
         self.store.log_param(run.info.run_id, param)
 
-        overwrite_param = entities.Param(tkey, 'newval')
+        overwrite_param = entities.Param(tkey, "newval")
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch(run.info.run_id, metrics=[metric], params=[overwrite_param],
-                                 tags=[tag])
+            self.store.log_batch(
+                run.info.run_id, metrics=[metric], params=[overwrite_param], tags=[tag]
+            )
         self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param], tags=[])
@@ -1445,12 +1538,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         run = self._run_factory()
         pkey = "common-key"
         param0 = entities.Param(pkey, "orig-val")
-        param1 = entities.Param(pkey, 'newval')
+        param1 = entities.Param(pkey, "newval")
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch(run.info.run_id, metrics=[metric], params=[param0, param1],
-                                 tags=[tag])
+            self.store.log_batch(
+                run.info.run_id, metrics=[metric], params=[param0, param1], tags=[tag]
+            )
         self.assertIn("Changing param values is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         self._verify_logged(self.store, run.info.run_id, metrics=[], params=[param0], tags=[])
@@ -1469,14 +1563,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             raise Exception("Some internal error")
 
         package = "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore"
-        with mock.patch(package + ".log_metric") as metric_mock, \
-                mock.patch(package + ".log_param") as param_mock, \
-                mock.patch(package + ".set_tag") as tags_mock:
+        with mock.patch(package + ".log_metric") as metric_mock, mock.patch(
+            package + ".log_param"
+        ) as param_mock, mock.patch(package + ".set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
             tags_mock.side_effect = _raise_exception_fn
-            for kwargs in [{"metrics": [Metric("a", 3, 1, 0)]}, {"params": [Param("b", "c")]},
-                           {"tags": [RunTag("c", "d")]}]:
+            for kwargs in [
+                {"metrics": [Metric("a", 3, 1, 0)]},
+                {"params": [Param("b", "c")]},
+                {"tags": [RunTag("c", "d")]},
+            ]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
                 with self.assertRaises(MlflowException) as e:
@@ -1500,21 +1597,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
     def test_log_batch_tags_idempotency(self):
         run = self._run_factory()
         self.store.log_batch(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")]
+        )
         self.store.log_batch(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
-        self._verify_logged(self.store,
-                            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")]
+        )
+        self._verify_logged(
+            self.store, run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")]
+        )
 
     def test_log_batch_allows_tag_overwrite(self):
         run = self._run_factory()
+        self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "val")])
         self.store.log_batch(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "val")])
-        self.store.log_batch(
-            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
-        self._verify_logged(self.store,
-                            run.info.run_id, metrics=[], params=[],
-                            tags=[RunTag("t-key", "newval")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")]
+        )
+        self._verify_logged(
+            self.store, run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")]
+        )
 
     def test_log_batch_allows_tag_overwrite_single_req(self):
         run = self._run_factory()
@@ -1527,8 +1627,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
-        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0, metric1],
-                            tags=[])
+        self._verify_logged(
+            self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
+        )
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         run = self._run_factory()
@@ -1537,8 +1638,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric0], tags=[])
         self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
-        self._verify_logged(self.store, run.info.run_id, params=[], metrics=[metric0, metric1],
-                            tags=[])
+        self._verify_logged(
+            self.store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[]
+        )
 
     def test_upgrade_cli_idempotence(self):
         # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
@@ -1546,11 +1648,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         engine = sqlalchemy.create_engine(self.db_url)
         assert _get_schema_version(engine) == _get_latest_schema_revision()
         for _ in range(3):
-            invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
+            invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
             assert _get_schema_version(engine) == _get_latest_schema_revision()
 
     def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
-            self):
+        self,
+    ):
         """
         Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
         the MLflow Tracking SQLite database located at
@@ -1587,17 +1690,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         """
         current_dir = os.path.dirname(os.path.abspath(__file__))
         db_resources_path = os.path.normpath(
-            os.path.join(current_dir, os.pardir, os.pardir, "resources", "db"))
+            os.path.join(current_dir, os.pardir, os.pardir, "resources", "db")
+        )
         expected_metric_values_path = os.path.join(
-            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json")
+            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json"
+        )
         with TempDir() as tmp_db_dir:
             db_path = tmp_db_dir.path("tmp_db.sql")
             db_url = "sqlite:///" + db_path
             shutil.copyfile(
                 src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
-                dst=db_path)
+                dst=db_path,
+            )
 
-            invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+            invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
             store = self._get_store(db_uri=db_url)
             with open(expected_metric_values_path, "r") as f:
                 expected_metric_values = json.load(f)
@@ -1607,7 +1713,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 assert fetched_run.data.metrics == expected_metrics
 
     def _generate_large_data(self, nb_runs=1000):
-        experiment_id = self.store.create_experiment('test_experiment')
+        experiment_id = self.store.create_experiment("test_experiment")
 
         current_run = 0
 
@@ -1619,54 +1725,53 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
         for _ in range(nb_runs):
             run_id = self.store.create_run(
-                experiment_id=experiment_id,
-                start_time=current_run,
-                tags=(),
-                user_id='Anderson').info.run_uuid
+                experiment_id=experiment_id, start_time=current_run, tags=(), user_id="Anderson"
+            ).info.run_uuid
 
             run_ids.append(run_id)
 
             for i in range(100):
                 metric = {
-                    'key': 'mkey_%s' % i,
-                    'value': i,
-                    'timestamp': i * 2,
-                    'step': i * 3,
-                    'is_nan': 0,
-                    'run_uuid': run_id,
+                    "key": "mkey_%s" % i,
+                    "value": i,
+                    "timestamp": i * 2,
+                    "step": i * 3,
+                    "is_nan": 0,
+                    "run_uuid": run_id,
                 }
                 metrics_list.append(metric)
                 tag = {
-                    'key': "tkey_%s" % i,
-                    'value': "tval_%s" % (current_run % 10),
-                    'run_uuid': run_id,
+                    "key": "tkey_%s" % i,
+                    "value": "tval_%s" % (current_run % 10),
+                    "run_uuid": run_id,
                 }
                 tags_list.append(tag)
                 param = {
-                    'key': "pkey_%s" % i,
-                    'value': "pval_%s" % ((current_run + 1) % 11),
-                    'run_uuid': run_id,
+                    "key": "pkey_%s" % i,
+                    "value": "pval_%s" % ((current_run + 1) % 11),
+                    "run_uuid": run_id,
                 }
                 params_list.append(param)
             latest_metrics_list.append(
                 {
-                    'key': 'mkey_0',
-                    'value': current_run,
-                    'timestamp': 100 * 2,
-                    'step': 100 * 3,
-                    'is_nan': 0,
-                    'run_uuid': run_id,
+                    "key": "mkey_0",
+                    "value": current_run,
+                    "timestamp": 100 * 2,
+                    "step": 100 * 3,
+                    "is_nan": 0,
+                    "run_uuid": run_id,
                 }
             )
             current_run += 1
         metrics = pd.DataFrame(metrics_list)
-        metrics.to_sql('metrics', self.store.engine, if_exists='append', index=False)
+        metrics.to_sql("metrics", self.store.engine, if_exists="append", index=False)
         params = pd.DataFrame(params_list)
-        params.to_sql('params', self.store.engine, if_exists='append', index=False)
+        params.to_sql("params", self.store.engine, if_exists="append", index=False)
         tags = pd.DataFrame(tags_list)
-        tags.to_sql('tags', self.store.engine, if_exists='append', index=False)
+        tags.to_sql("tags", self.store.engine, if_exists="append", index=False)
         pd.DataFrame(latest_metrics_list).to_sql(
-            'latest_metrics', self.store.engine, if_exists='append', index=False)
+            "latest_metrics", self.store.engine, if_exists="append", index=False
+        )
         return experiment_id, run_ids
 
     def test_search_runs_returns_expected_results_with_large_experiment(self):
@@ -1680,58 +1785,62 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
         assert len(run_results) == 100
         # runs are sorted by desc start_time
-        self.assertListEqual([run.info.run_id for run in run_results],
-                             list(reversed(run_ids[900:])))
+        self.assertListEqual(
+            [run.info.run_id for run in run_results], list(reversed(run_ids[900:]))
+        )
 
     def test_search_runs_correctly_filters_large_data(self):
         experiment_id, _ = self._generate_large_data(1000)
 
-        run_results = self.store.search_runs([experiment_id],
-                                             "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
-                                             ViewType.ALL, max_results=50)
+        run_results = self.store.search_runs(
+            [experiment_id],
+            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
+            ViewType.ALL,
+            max_results=50,
+        )
         assert len(run_results) == 20
 
-        run_results = self.store.search_runs([experiment_id],
-                                             "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
-                                             "and tags.tkey_0 = 'tval_0' ",
-                                             ViewType.ALL, max_results=10)
+        run_results = self.store.search_runs(
+            [experiment_id],
+            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 " "and tags.tkey_0 = 'tval_0' ",
+            ViewType.ALL,
+            max_results=10,
+        )
         assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
 
-        run_results = self.store.search_runs([experiment_id],
-                                             "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
-                                             "and tags.tkey_0 = 'tval_0' "
-                                             "and params.pkey_0 = 'pval_0'",
-                                             ViewType.ALL, max_results=5)
+        run_results = self.store.search_runs(
+            [experiment_id],
+            "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
+            "and tags.tkey_0 = 'tval_0' "
+            "and params.pkey_0 = 'pval_0'",
+            ViewType.ALL,
+            max_results=5,
+        )
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
 
     def test_search_runs_keep_all_runs_when_sorting(self):
-        experiment_id = self.store.create_experiment('test_experiment1')
+        experiment_id = self.store.create_experiment("test_experiment1")
 
         r1 = self.store.create_run(
-            experiment_id=experiment_id,
-            start_time=0,
-            tags=(),
-            user_id='Me').info.run_uuid
+            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+        ).info.run_uuid
         r2 = self.store.create_run(
-            experiment_id=experiment_id,
-            start_time=0,
-            tags=(),
-            user_id='Me').info.run_uuid
+            experiment_id=experiment_id, start_time=0, tags=(), user_id="Me"
+        ).info.run_uuid
         self.store.set_tag(r1, RunTag(key="t1", value="1"))
         self.store.set_tag(r1, RunTag(key="t2", value="1"))
         self.store.set_tag(r2, RunTag(key="t2", value="1"))
 
-        run_results = self.store.search_runs([experiment_id],
-                                             None,
-                                             ViewType.ALL, max_results=1000, order_by=["tag.t1"])
+        run_results = self.store.search_runs(
+            [experiment_id], None, ViewType.ALL, max_results=1000, order_by=["tag.t1"]
+        )
         assert len(run_results) == 2
 
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
     experiment_id = store.create_experiment(name="exp1")
-    run = store.create_run(
-        experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
+    run = store.create_run(experiment_id=experiment_id, user_id="user", start_time=0, tags=[])
     run_id = run.info.run_id
     metric = entities.Metric("mymetric", 1, 0, 0)
     store.log_metric(run_id=run_id, metric=metric)
@@ -1756,7 +1865,7 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
         self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
-        invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
+        invoke_cli_runner(mlflow.db.commands, ["upgrade", self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
     def tearDown(self):
@@ -1768,6 +1877,7 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
     """
     Run tests against a MySQL database
     """
+
     DEFAULT_MYSQL_PORT = 3306
 
     def setUp(self):
@@ -1775,8 +1885,11 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
         os.environ[MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW] = "1"
         db_username = os.environ.get("MYSQL_TEST_USERNAME")
         db_password = os.environ.get("MYSQL_TEST_PASSWORD")
-        db_port = int(os.environ["MYSQL_TEST_PORT"]) if "MYSQL_TEST_PORT" in os.environ \
+        db_port = (
+            int(os.environ["MYSQL_TEST_PORT"])
+            if "MYSQL_TEST_PORT" in os.environ
             else TestSqlAlchemyStoreMysqlDb.DEFAULT_MYSQL_PORT
+        )
         if db_username is None or db_password is None:
             raise Exception(
                 "Username and password for database tests must be specified via the "
@@ -1784,7 +1897,8 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
                 "environment variable. In posix shells, you can rerun your test command "
                 "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
                 "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
-                "specify a database port via MYSQL_TEST_PORT (default is 3306).")
+                "specify a database port via MYSQL_TEST_PORT (default is 3306)."
+            )
         self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
         db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
         self._engine = sqlalchemy.create_engine(db_server_url)
@@ -1807,7 +1921,7 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
 
 
-@mock.patch('sqlalchemy.orm.session.Session', spec=True)
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
 class TestZeroValueInsertion(unittest.TestCase):
     def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
@@ -1824,25 +1938,57 @@ class TestZeroValueInsertion(unittest.TestCase):
     def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
-                                                                             mock_session)
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
+            mock_store, mock_session
+        )
         mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='';")
 
     def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
-                                                                             mock_session)
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
+            mock_store, mock_session
+        )
         mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
 
 
 def test_get_attribute_name():
-    assert (models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
-    assert (models.SqlRun.get_attribute_name("status") == "status")
-    assert (models.SqlRun.get_attribute_name("start_time") == "start_time")
-    assert (models.SqlRun.get_attribute_name("end_time") == "end_time")
+    assert models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri"
+    assert models.SqlRun.get_attribute_name("status") == "status"
+    assert models.SqlRun.get_attribute_name("start_time") == "start_time"
+    assert models.SqlRun.get_attribute_name("end_time") == "end_time"
 
     # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
     # searchable attibutes are also orderable
-    assert (len(entities.RunInfo.get_orderable_attributes()) == 4)
+    assert len(entities.RunInfo.get_orderable_attributes()) == 4
+
+
+def test_get_orderby_clauses():
+    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    with store.ManagedSessionMaker() as session:
+        # test that ['runs.start_time DESC', 'SqlRun.run_uuid'] is returned by default
+        parsed = [str(x) for x in _get_orderby_clauses([], session)[0]]
+        assert parsed == ["runs.start_time DESC", "SqlRun.run_uuid"]
+
+        # test that the given 'start_time' replaces the default one ('runs.start_time DESC')
+        parsed = [str(x) for x in _get_orderby_clauses(["attribute.start_time ASC"], session)[0]]
+        assert "SqlRun.start_time" in parsed
+        assert "SqlRun.start_time DESC" not in parsed
+
+        # test that an exception is raised when 'order_by' contains duplicates
+        match = "`order_by` contains duplicate fields"
+        with pytest.raises(MlflowException, match=match):
+            _get_orderby_clauses(["attribute.start_time", "attribute.start_time"], session)
+
+        with pytest.raises(MlflowException, match=match):
+            _get_orderby_clauses(["param.p", "param.p"], session)
+
+        with pytest.raises(MlflowException, match=match):
+            _get_orderby_clauses(["metric.m", "metric.m"], session)
+
+        with pytest.raises(MlflowException, match=match):
+            _get_orderby_clauses(["tag.t", "tag.t"], session)
+
+        # test that an exception is NOT raised when key types are different
+        _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)

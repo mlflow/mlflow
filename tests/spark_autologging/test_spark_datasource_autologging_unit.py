@@ -1,6 +1,5 @@
-import mock
-
 import pytest
+from unittest import mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -45,7 +44,8 @@ def test_subscriber_methods():
 
 @pytest.mark.large
 def test_enabling_autologging_throws_for_wrong_spark_version(
-        spark_session, mock_get_current_listener):
+    spark_session, mock_get_current_listener
+):
     # pylint: disable=unused-argument
     with mock.patch("mlflow._spark_autologging._get_spark_major_version") as get_version_mock:
         get_version_mock.return_value = 2
@@ -56,7 +56,8 @@ def test_enabling_autologging_throws_for_wrong_spark_version(
 
 @pytest.mark.large
 def test_enabling_autologging_throws_when_spark_hasnt_been_started(
-        spark_session, mock_get_current_listener):
+    spark_session, mock_get_current_listener
+):
     # pylint: disable=unused-argument
     spark_session.stop()
     with pytest.raises(MlflowException) as exc:

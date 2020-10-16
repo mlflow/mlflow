@@ -1,18 +1,29 @@
 import time
 
 from sqlalchemy import (
-    Column, String, ForeignKey, Integer, BigInteger, PrimaryKeyConstraint, ForeignKeyConstraint)
+    Column,
+    String,
+    ForeignKey,
+    Integer,
+    BigInteger,
+    PrimaryKeyConstraint,
+    ForeignKeyConstraint,
+)
 from sqlalchemy.orm import relationship, backref
 
 from mlflow.entities.model_registry import (
-    RegisteredModel, ModelVersion, RegisteredModelTag, ModelVersionTag)
+    RegisteredModel,
+    ModelVersion,
+    RegisteredModelTag,
+    ModelVersionTag,
+)
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.db.base_sql_model import Base
 
 
 class SqlRegisteredModel(Base):
-    __tablename__ = 'registered_models'
+    __tablename__ = "registered_models"
 
     name = Column(String(256), unique=True, nullable=False)
 
@@ -22,34 +33,36 @@ class SqlRegisteredModel(Base):
 
     description = Column(String(5000), nullable=True)
 
-    __table_args__ = (
-        PrimaryKeyConstraint('name', name='registered_model_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("name", name="registered_model_pk"),)
 
     def __repr__(self):
-        return '<SqlRegisteredModel ({}, {}, {}, {})>'.format(self.name, self.description,
-                                                              self.creation_time,
-                                                              self.last_updated_time)
+        return "<SqlRegisteredModel ({}, {}, {}, {})>".format(
+            self.name, self.description, self.creation_time, self.last_updated_time
+        )
 
     def to_mlflow_entity(self):
         # SqlRegisteredModel has backref to all "model_versions". Filter latest for each stage.
         latest_versions = {}
         for mv in self.model_versions:
             stage = mv.current_stage
-            if stage != STAGE_DELETED_INTERNAL and (stage not in latest_versions or
-                                                    latest_versions[stage].version < mv.version):
+            if stage != STAGE_DELETED_INTERNAL and (
+                stage not in latest_versions or latest_versions[stage].version < mv.version
+            ):
                 latest_versions[stage] = mv
-        return RegisteredModel(self.name, self.creation_time, self.last_updated_time,
-                               self.description,
-                               [mvd.to_mlflow_entity()
-                                for mvd in latest_versions.values()],
-                               [tag.to_mlflow_entity() for tag in self.registered_model_tags])
+        return RegisteredModel(
+            self.name,
+            self.creation_time,
+            self.last_updated_time,
+            self.description,
+            [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
+            [tag.to_mlflow_entity() for tag in self.registered_model_tags],
+        )
 
 
 class SqlModelVersion(Base):
-    __tablename__ = 'model_versions'
+    __tablename__ = "model_versions"
 
-    name = Column(String(256), ForeignKey('registered_models.name', onupdate='cascade'))
+    name = Column(String(256), ForeignKey("registered_models.name", onupdate="cascade"))
 
     version = Column(Integer, nullable=False)
 
@@ -67,49 +80,56 @@ class SqlModelVersion(Base):
 
     run_id = Column(String(32), nullable=False)
 
-    status = Column(String(20),
-                    default=ModelVersionStatus.to_string(ModelVersionStatus.READY))
+    run_link = Column(String(500), nullable=True, default=None)
+
+    status = Column(String(20), default=ModelVersionStatus.to_string(ModelVersionStatus.READY))
 
     status_message = Column(String(500), nullable=True, default=None)
 
     # linked entities
-    registered_model = relationship('SqlRegisteredModel',
-                                    backref=backref('model_versions',
-                                                    cascade='all'))
-
-    __table_args__ = (
-        PrimaryKeyConstraint('name', 'version', name='model_version_pk'),
+    registered_model = relationship(
+        "SqlRegisteredModel", backref=backref("model_versions", cascade="all")
     )
+
+    __table_args__ = (PrimaryKeyConstraint("name", "version", name="model_version_pk"),)
 
     # entity mappers
     def to_mlflow_entity(self):
-        return ModelVersion(self.name, self.version,
-                            self.creation_time, self.last_updated_time, self.description,
-                            self.user_id, self.current_stage, self.source, self.run_id,
-                            self.status, self.status_message,
-                            [tag.to_mlflow_entity() for tag in self.model_version_tags])
+        return ModelVersion(
+            self.name,
+            self.version,
+            self.creation_time,
+            self.last_updated_time,
+            self.description,
+            self.user_id,
+            self.current_stage,
+            self.source,
+            self.run_id,
+            self.status,
+            self.status_message,
+            [tag.to_mlflow_entity() for tag in self.model_version_tags],
+            self.run_link,
+        )
 
 
 class SqlRegisteredModelTag(Base):
-    __tablename__ = 'registered_model_tags'
+    __tablename__ = "registered_model_tags"
 
-    name = Column(String(256), ForeignKey('registered_models.name', onupdate='cascade'))
+    name = Column(String(256), ForeignKey("registered_models.name", onupdate="cascade"))
 
     key = Column(String(250), nullable=False)
 
     value = Column(String(5000), nullable=True)
 
     # linked entities
-    registered_model = relationship('SqlRegisteredModel',
-                                    backref=backref('registered_model_tags',
-                                                    cascade='all'))
-
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'name', name='registered_model_tag_pk'),
+    registered_model = relationship(
+        "SqlRegisteredModel", backref=backref("registered_model_tags", cascade="all")
     )
 
+    __table_args__ = (PrimaryKeyConstraint("key", "name", name="registered_model_tag_pk"),)
+
     def __repr__(self):
-        return '<SqlRegisteredModelTag ({}, {}, {})>'.format(self.name, self.key, self.value)
+        return "<SqlRegisteredModelTag ({}, {}, {})>".format(self.name, self.key, self.value)
 
     # entity mappers
     def to_mlflow_entity(self):
@@ -117,7 +137,7 @@ class SqlRegisteredModelTag(Base):
 
 
 class SqlModelVersionTag(Base):
-    __tablename__ = 'model_version_tags'
+    __tablename__ = "model_version_tags"
 
     name = Column(String(256))
 
@@ -128,21 +148,25 @@ class SqlModelVersionTag(Base):
     value = Column(String(5000), nullable=True)
 
     # linked entities
-    model_version = relationship('SqlModelVersion', foreign_keys=[name, version],
-                                 backref=backref('model_version_tags',
-                                                 cascade='all'))
+    model_version = relationship(
+        "SqlModelVersion",
+        foreign_keys=[name, version],
+        backref=backref("model_version_tags", cascade="all"),
+    )
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'name', 'version', name='model_version_tag_pk'),
+        PrimaryKeyConstraint("key", "name", "version", name="model_version_tag_pk"),
         ForeignKeyConstraint(
-            ('name', 'version'),
-            ('model_versions.name', 'model_versions.version'),
-            onupdate='cascade')
+            ("name", "version"),
+            ("model_versions.name", "model_versions.version"),
+            onupdate="cascade",
+        ),
     )
 
     def __repr__(self):
-        return '<SqlModelVersionTag ({}, {}, {}, {})>'.format(
-            self.name, self.version, self.key, self.value)
+        return "<SqlModelVersionTag ({}, {}, {}, {})>".format(
+            self.name, self.version, self.key, self.value
+        )
 
     # entity mappers
     def to_mlflow_entity(self):

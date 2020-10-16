@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
-import { getArtifactContent } from './ShowArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -11,7 +11,7 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 function onEachFeature(feature, layer) {
   if (feature.properties && feature.properties.popupContent) {
-    const popupContent = feature.properties.popupContent;
+    const { popupContent } = feature.properties;
     layer.bindPopup(popupContent);
   }
 }

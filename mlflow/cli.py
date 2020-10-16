@@ -22,7 +22,8 @@ from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
-from mlflow.utils import cli_args, experimental
+from mlflow.utils import cli_args
+from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils.uri import is_local_uri
@@ -40,53 +41,106 @@ def cli():
 
 @cli.command()
 @click.argument("uri")
-@click.option("--entry-point", "-e", metavar="NAME", default="main",
-              help="Entry point within project. [default: main]. If the entry point is not found, "
-                   "attempts to run the project file with the specified name as a script, "
-                   "using 'python' to run .py files and the default shell (specified by "
-                   "environment variable $SHELL) to run .sh files")
-@click.option("--version", "-v", metavar="VERSION",
-              help="Version of the project to run, as a Git commit reference for Git projects.")
-@click.option("--param-list", "-P", metavar="NAME=VALUE", multiple=True,
-              help="A parameter for the run, of the form -P name=value. Provided parameters that "
-                   "are not in the list of parameters for an entry point will be passed to the "
-                   "corresponding entry point as command-line arguments in the form `--name value`")
-@click.option("--docker-args", "-A", metavar="NAME=VALUE", multiple=True,
-              help="A `docker run` argument or flag, of the form -A name=value (e.g. -A gpus=all) "
-                   "or -A name (e.g. -A t). The argument will then be passed as "
-                   "`docker run --name value` or `docker run --name` respectively. ")
-@click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
-              help="Name of the experiment under which to launch the run. If not "
-                   "specified, 'experiment-id' option will be used to launch run.")
-@click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
-              help="ID of the experiment under which to launch the run.")
+@click.option(
+    "--entry-point",
+    "-e",
+    metavar="NAME",
+    default="main",
+    help="Entry point within project. [default: main]. If the entry point is not found, "
+    "attempts to run the project file with the specified name as a script, "
+    "using 'python' to run .py files and the default shell (specified by "
+    "environment variable $SHELL) to run .sh files",
+)
+@click.option(
+    "--version",
+    "-v",
+    metavar="VERSION",
+    help="Version of the project to run, as a Git commit reference for Git projects.",
+)
+@click.option(
+    "--param-list",
+    "-P",
+    metavar="NAME=VALUE",
+    multiple=True,
+    help="A parameter for the run, of the form -P name=value. Provided parameters that "
+    "are not in the list of parameters for an entry point will be passed to the "
+    "corresponding entry point as command-line arguments in the form `--name value`",
+)
+@click.option(
+    "--docker-args",
+    "-A",
+    metavar="NAME=VALUE",
+    multiple=True,
+    help="A `docker run` argument or flag, of the form -A name=value (e.g. -A gpus=all) "
+    "or -A name (e.g. -A t). The argument will then be passed as "
+    "`docker run --name value` or `docker run --name` respectively. ",
+)
+@click.option(
+    "--experiment-name",
+    envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
+    help="Name of the experiment under which to launch the run. If not "
+    "specified, 'experiment-id' option will be used to launch run.",
+)
+@click.option(
+    "--experiment-id",
+    envvar=tracking._EXPERIMENT_ID_ENV_VAR,
+    type=click.STRING,
+    help="ID of the experiment under which to launch the run.",
+)
 # TODO: Add tracking server argument once we have it working.
-@click.option("--backend", "-b", metavar="BACKEND", default="local",
-              help="Execution backend to use for run. Supported values: 'local', 'databricks', "
-                   "kubernetes (experimental). Defaults to 'local'. If running against "
-                   "Databricks, will run against a Databricks workspace determined as follows: "
-                   "if a Databricks tracking URI of the form 'databricks://profile' has been set "
-                   "(e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run "
-                   "against the workspace specified by <profile>. Otherwise, runs against the "
-                   "workspace specified by the default Databricks CLI profile. See "
-                   "https://github.com/databricks/databricks-cli for more info on configuring a "
-                   "Databricks CLI profile.")
-@click.option("--backend-config", "-c", metavar="FILE",
-              help="Path to JSON file (must end in '.json') or JSON string which will be passed "
-                   "as config to the backend. The exact content which should be "
-                   "provided is different for each execution backend and is documented "
-                   "at https://www.mlflow.org/docs/latest/projects.html.")
+@click.option(
+    "--backend",
+    "-b",
+    metavar="BACKEND",
+    default="local",
+    help="Execution backend to use for run. Supported values: 'local', 'databricks', "
+    "kubernetes (experimental). Defaults to 'local'. If running against "
+    "Databricks, will run against a Databricks workspace determined as follows: "
+    "if a Databricks tracking URI of the form 'databricks://profile' has been set "
+    "(e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run "
+    "against the workspace specified by <profile>. Otherwise, runs against the "
+    "workspace specified by the default Databricks CLI profile. See "
+    "https://github.com/databricks/databricks-cli for more info on configuring a "
+    "Databricks CLI profile.",
+)
+@click.option(
+    "--backend-config",
+    "-c",
+    metavar="FILE",
+    help="Path to JSON file (must end in '.json') or JSON string which will be passed "
+    "as config to the backend. The exact content which should be "
+    "provided is different for each execution backend and is documented "
+    "at https://www.mlflow.org/docs/latest/projects.html.",
+)
 @cli_args.NO_CONDA
-@click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
-              help="Only valid when ``backend`` is local. "
-                   "MLflow downloads artifacts from distributed URIs passed to parameters of "
-                   "type 'path' to subdirectories of storage_dir.")
-@click.option("--run-id", metavar="RUN_ID",
-              help="If specified, the given run ID will be used instead of creating a new run. "
-                   "Note: this argument is used internally by the MLflow project APIs "
-                   "and should not be specified.")
-def run(uri, entry_point, version, param_list, docker_args, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id):
+@click.option(
+    "--storage-dir",
+    envvar="MLFLOW_TMP_DIR",
+    help="Only valid when ``backend`` is local. "
+    "MLflow downloads artifacts from distributed URIs passed to parameters of "
+    "type 'path' to subdirectories of storage_dir.",
+)
+@click.option(
+    "--run-id",
+    metavar="RUN_ID",
+    help="If specified, the given run ID will be used instead of creating a new run. "
+    "Note: this argument is used internally by the MLflow project APIs "
+    "and should not be specified.",
+)
+def run(
+    uri,
+    entry_point,
+    version,
+    param_list,
+    docker_args,
+    experiment_name,
+    experiment_id,
+    backend,
+    backend_config,
+    no_conda,
+    storage_dir,
+    run_id,
+):
     """
     Run an MLflow project from the given URI.
 
@@ -104,7 +158,7 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
         sys.exit(1)
 
     param_dict = _user_args_to_dict(param_list)
-    args_dict = _user_args_to_dict(docker_args, argument_type='A')
+    args_dict = _user_args_to_dict(docker_args, argument_type="A")
 
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
@@ -130,27 +184,29 @@ def run(uri, entry_point, version, param_list, docker_args, experiment_name, exp
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             synchronous=backend in ("local", "kubernetes") or backend is None,
-            run_id=run_id
+            run_id=run_id,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
         sys.exit(1)
 
 
-def _user_args_to_dict(arguments, argument_type='P'):
+def _user_args_to_dict(arguments, argument_type="P"):
     user_dict = {}
     for arg in arguments:
-        split = arg.split('=')
+        split = arg.split("=", maxsplit=1)
         # Docker arguments such as `t` don't require a value -> set to True if specified
-        if len(split) == 1 and argument_type == 'A':
+        if len(split) == 1 and argument_type == "A":
             name = split[0]
             value = True
         elif len(split) == 2:
             name = split[0]
             value = split[1]
         else:
-            eprint("Invalid format for -%s parameter: '%s'. "
-                   "Use -%s name=value." % (argument_type, arg, argument_type))
+            eprint(
+                "Invalid format for -%s parameter: '%s'. "
+                "Use -%s name=value." % (argument_type, arg, argument_type)
+            )
             sys.exit(1)
         if name in user_dict:
             eprint("Repeated parameter: '%s'" % name)
@@ -164,26 +220,35 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
         if gunicorn_opts is not None or workers is not None:
             raise NotImplementedError(
                 "waitress replaces gunicorn on Windows, "
-                "cannot specify --gunicorn-opts or --workers")
+                "cannot specify --gunicorn-opts or --workers"
+            )
     else:
         if waitress_opts is not None:
             raise NotImplementedError(
                 "gunicorn replaces waitress on non-Windows platforms, "
-                "cannot specify --waitress-opts")
+                "cannot specify --waitress-opts"
+            )
 
 
 @cli.command()
-@click.option("--backend-store-uri", metavar="PATH",
-              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI to which to persist experiment and run data. Acceptable URIs are "
-                   "SQLAlchemy-compatible database connection strings "
-                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-                   "to the ./mlruns directory.")
-@click.option("--default-artifact-root", metavar="URI", default=None,
-              help="Path to local directory to store artifacts, for new experiments. "
-                   "Note that this flag does not impact already-created experiments. "
-                   "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+@click.option(
+    "--backend-store-uri",
+    metavar="PATH",
+    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    help="URI to which to persist experiment and run data. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings "
+    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+    "to the ./mlruns directory.",
+)
+@click.option(
+    "--default-artifact-root",
+    metavar="URI",
+    default=None,
+    help="Path to local directory to store artifacts, for new experiments. "
+    "Note that this flag does not impact already-created experiments. "
+    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+)
 @cli_args.PORT
 @cli_args.HOST
 def ui(backend_store_uri, default_artifact_root, port, host):
@@ -237,33 +302,60 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 
 
 @cli.command()
-@click.option("--backend-store-uri", metavar="PATH",
-              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI to which to persist experiment and run data. Acceptable URIs are "
-                   "SQLAlchemy-compatible database connection strings "
-                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-                   "to the ./mlruns directory.")
-@click.option("--default-artifact-root", metavar="URI", default=None,
-              help="Local or S3 URI to store artifacts, for new experiments. "
-                   "Note that this flag does not impact already-created experiments. "
-                   "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
-                   " used, then this option is required.")
+@click.option(
+    "--backend-store-uri",
+    metavar="PATH",
+    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    help="URI to which to persist experiment and run data. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings "
+    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+    "to the ./mlruns directory.",
+)
+@click.option(
+    "--default-artifact-root",
+    metavar="URI",
+    default=None,
+    help="Local or S3 URI to store artifacts, for new experiments. "
+    "Note that this flag does not impact already-created experiments. "
+    "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
+    " used, then this option is required.",
+)
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
-@click.option("--static-prefix", default=None, callback=_validate_static_prefix,
-              help="A prefix which will be prepended to the path of all static paths.")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
-@click.option("--waitress-opts", default=None,
-              help="Additional command line options for waitress-serve.")
-@click.option("--expose-prometheus", default=None,
-              help="Path to the directory where metrics will be stored. If the directory "
-                   "doesn't exist, it will be created. "
-                   "Activate prometheus exporter to expose metrics on /metrics endpoint.")
-def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts, waitress_opts, expose_prometheus):
+@click.option(
+    "--static-prefix",
+    default=None,
+    callback=_validate_static_prefix,
+    help="A prefix which will be prepended to the path of all static paths.",
+)
+@click.option(
+    "--gunicorn-opts",
+    default=None,
+    help="Additional command line options forwarded to gunicorn processes.",
+)
+@click.option(
+    "--waitress-opts", default=None, help="Additional command line options for waitress-serve."
+)
+@click.option(
+    "--expose-prometheus",
+    default=None,
+    help="Path to the directory where metrics will be stored. If the directory "
+    "doesn't exist, it will be created. "
+    "Activate prometheus exporter to expose metrics on /metrics endpoint.",
+)
+def server(
+    backend_store_uri,
+    default_artifact_root,
+    host,
+    port,
+    workers,
+    static_prefix,
+    gunicorn_opts,
+    waitress_opts,
+    expose_prometheus,
+):
     """
     Run the MLflow tracking server.
 
@@ -283,8 +375,10 @@ def server(backend_store_uri, default_artifact_root, host, port,
         if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
-            eprint("Option 'default-artifact-root' is required, when backend store is not "
-                   "local file based.")
+            eprint(
+                "Option 'default-artifact-root' is required, when backend store is not "
+                "local file based."
+            )
             sys.exit(1)
 
     try:
@@ -295,25 +389,40 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
     try:
-        _run_server(backend_store_uri, default_artifact_root, host, port,
-                    static_prefix, workers, gunicorn_opts, waitress_opts, expose_prometheus)
+        _run_server(
+            backend_store_uri,
+            default_artifact_root,
+            host,
+            port,
+            static_prefix,
+            workers,
+            gunicorn_opts,
+            waitress_opts,
+            expose_prometheus,
+        )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
 
 
 @cli.command(short_help="Permanently delete runs in the `deleted` lifecycle stage.")
-@click.option("--backend-store-uri", metavar="PATH",
-              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI of the backend store from which to delete runs. Acceptable URIs are "
-                   "SQLAlchemy-compatible database connection strings "
-                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
-                   "from the ./mlruns directory.")
-@click.option("--run-ids", default=None,
-              help="Optional comma separated list of runs to be permanently deleted. If run ids"
-                   " are not specified, data is removed for all runs in the `deleted`"
-                   " lifecycle stage.")
+@click.option(
+    "--backend-store-uri",
+    metavar="PATH",
+    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    help="URI of the backend store from which to delete runs. Acceptable URIs are "
+    "SQLAlchemy-compatible database connection strings "
+    "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be deleted "
+    "from the ./mlruns directory.",
+)
+@click.option(
+    "--run-ids",
+    default=None,
+    help="Optional comma separated list of runs to be permanently deleted. If run ids"
+    " are not specified, data is removed for all runs in the `deleted`"
+    " lifecycle stage.",
+)
 @experimental
 def gc(backend_store_uri, run_ids):
     """
@@ -321,19 +430,22 @@ def gc(backend_store_uri, run_ids):
     This command deletes all artifacts and metadata associated with the specified runs.
     """
     backend_store = _get_store(backend_store_uri, None)
-    if not hasattr(backend_store, '_hard_delete_run'):
+    if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
-            "This cli can only be used with a backend that allows hard-deleting runs")
+            "This cli can only be used with a backend that allows hard-deleting runs"
+        )
     if not run_ids:
         run_ids = backend_store._get_deleted_runs()
     else:
-        run_ids = run_ids.split(',')
+        run_ids = run_ids.split(",")
 
     for run_id in run_ids:
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException('Run {} is not in `deleted` lifecycle stage. Only runs in '
-                                  '`deleted` lifecycle stage can be deleted.'.format(run_id))
+            raise MlflowException(
+                "Run {} is not in `deleted` lifecycle stage. Only runs in "
+                "`deleted` lifecycle stage can be deleted.".format(run_id)
+            )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
         backend_store._hard_delete_run(run_id)
@@ -349,5 +461,5 @@ cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

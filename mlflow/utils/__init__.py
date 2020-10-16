@@ -1,10 +1,9 @@
 from sys import version_info
 
-from mlflow.utils.annotations import deprecated, experimental, keyword_only
 
-PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
-                                                  minor=version_info.minor,
-                                                  micro=version_info.micro)
+PYTHON_VERSION = "{major}.{minor}.{micro}".format(
+    major=version_info.major, minor=version_info.minor, micro=version_info.micro
+)
 
 
 def get_major_minor_py_version(py_version):
@@ -22,9 +21,11 @@ def get_unique_resource_id(max_length=None):
     """
     import uuid
     import base64
+
     if max_length is not None and max_length <= 0:
         raise ValueError(
-            "The specified maximum length for the unique resource id must be positive!")
+            "The specified maximum length for the unique resource id must be positive!"
+        )
 
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the
@@ -35,7 +36,7 @@ def get_unique_resource_id(max_length=None):
         # In Python3, `uuid_b64` is a `bytes` object. It needs to be
         # converted to a string
         uuid_b64 = uuid_b64.decode("ascii")
-    unique_id = uuid_b64.rstrip('=\n').replace("/", "-").replace("+", "AB").lower()
+    unique_id = uuid_b64.rstrip("=\n").replace("/", "-").replace("+", "AB").lower()
     if max_length is not None:
-        unique_id = unique_id[:int(max_length)]
+        unique_id = unique_id[: int(max_length)]
     return unique_id

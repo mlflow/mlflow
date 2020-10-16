@@ -4,22 +4,20 @@ Machine Learning.
 """
 import sys
 import os
-import shutil
 import subprocess
-import tempfile
 import logging
 import uuid
 
 from distutils.version import StrictVersion
 
-import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import PYTHON_VERSION, experimental, get_unique_resource_id
+from mlflow.utils import get_unique_resource_id
+from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
 from pathlib import Path
@@ -29,8 +27,16 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-def build_image(model_uri, workspace, image_name=None, model_name=None,
-                mlflow_home=None, description=None, tags=None, synchronous=True):
+def build_image(
+    model_uri,
+    workspace,
+    image_name=None,
+    model_name=None,
+    mlflow_home=None,
+    description=None,
+    tags=None,
+    synchronous=True,
+):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
     The resulting image can be deployed as a web service to Azure Container Instances (ACI) or
@@ -130,17 +136,22 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 
     model_pyfunc_conf, _ = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    if model_python_version is not None and\
-            StrictVersion(model_python_version) < StrictVersion("3.0.0"):
+    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
+        "3.0.0"
+    ):
         raise MlflowException(
-            message=("Azure ML can only deploy models trained in Python 3 and above. See"
-                     " the following MLflow GitHub issue for a thorough explanation of this"
-                     " limitation and a workaround to enable support for deploying models"
-                     " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
-            error_code=INVALID_PARAMETER_VALUE)
+            message=(
+                "Azure ML can only deploy models trained in Python 3 and above. See"
+                " the following MLflow GitHub issue for a thorough explanation of this"
+                " limitation and a workaround to enable support for deploying models"
+                " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
-    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
-                       user_tags=tags)
+    tags = _build_tags(
+        model_uri=model_uri, model_python_version=model_python_version, user_tags=tags
+    )
 
     if image_name is None:
         image_name = _get_mlflow_azure_resource_name()
@@ -151,13 +162,21 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
         model_directory_path = tmp.path("model")
         tmp_model_path = os.path.join(
             model_directory_path,
-            _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path))
+            _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path),
+        )
 
-        registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
-                                               model_name=model_name, tags=tags,
-                                               description=description)
-        _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
-                     registered_model.name, registered_model.version)
+        registered_model = AzureModel.register(
+            workspace=workspace,
+            model_path=tmp_model_path,
+            model_name=model_name,
+            tags=tags,
+            description=description,
+        )
+        _logger.info(
+            "Registered an Azure Model with name: `%s` and version: `%s`",
+            registered_model.name,
+            registered_model.version,
+        )
 
         # Create an execution script (entry point) for the image's model server. Azure ML requires
         # the container's execution script to be located in the current working directory during
@@ -178,9 +197,11 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
             _logger.info(
                 "Copying the specified mlflow_home directory: `%s` to a temporary location for"
                 " container creation",
-                mlflow_home)
-            mlflow_home = os.path.join(tmp.path(),
-                                       _copy_project(src_path=mlflow_home, dst_path=tmp.path()))
+                mlflow_home,
+            )
+            mlflow_home = os.path.join(
+                tmp.path(), _copy_project(src_path=mlflow_home, dst_path=tmp.path())
+            )
             image_file_dependencies = [mlflow_home]
         else:
             image_file_dependencies = None
@@ -200,20 +221,33 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
             description=description,
             tags=tags,
         )
-        image = ContainerImage.create(workspace=workspace,
-                                      name=image_name,
-                                      image_config=image_configuration,
-                                      models=[registered_model])
-        _logger.info("Building an Azure Container Image with name: `%s` and version: `%s`",
-                     image.name, image.version)
+        image = ContainerImage.create(
+            workspace=workspace,
+            name=image_name,
+            image_config=image_configuration,
+            models=[registered_model],
+        )
+        _logger.info(
+            "Building an Azure Container Image with name: `%s` and version: `%s`",
+            image.name,
+            image.version,
+        )
         if synchronous:
             image.wait_for_creation(show_output=True)
         return image, registered_model
 
 
 @experimental
-def deploy(model_uri, workspace, deployment_config=None, service_name=None, model_name=None,
-           tags=None, mlflow_home=None, synchronous=True):
+def deploy(
+    model_uri,
+    workspace,
+    deployment_config=None,
+    service_name=None,
+    model_name=None,
+    tags=None,
+    mlflow_home=None,
+    synchronous=True,
+):
     """
     Register an MLflow model with Azure ML and deploy a websevice to Azure Container Instances (ACI)
     or Azure Kubernetes Service (AKS).
@@ -314,17 +348,25 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
         run_id_tag = run_id
     except AttributeError:
         run_id = str(uuid.uuid4())
-    if model_python_version is not None and\
-            StrictVersion(model_python_version) < StrictVersion("3.0.0"):
+    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
+        "3.0.0"
+    ):
         raise MlflowException(
-            message=("Azure ML can only deploy models trained in Python 3 and above. See"
-                     " the following MLflow GitHub issue for a thorough explanation of this"
-                     " limitation and a workaround to enable support for deploying models"
-                     " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
-            error_code=INVALID_PARAMETER_VALUE)
+            message=(
+                "Azure ML can only deploy models trained in Python 3 and above. See"
+                " the following MLflow GitHub issue for a thorough explanation of this"
+                " limitation and a workaround to enable support for deploying models"
+                " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
-    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
-                       user_tags=tags, run_id=run_id_tag)
+    tags = _build_tags(
+        model_uri=model_uri,
+        model_python_version=model_python_version,
+        user_tags=tags,
+        run_id=run_id_tag,
+    )
 
     if service_name is None:
         service_name = _get_mlflow_azure_name(run_id)
@@ -335,13 +377,18 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
         model_directory_path = tmp.path("model")
         tmp_model_path = os.path.join(
             model_directory_path,
-            _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path))
+            _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path),
+        )
 
-        registered_model = AzureModel.register(workspace=workspace, model_path=tmp_model_path,
-                                               model_name=model_name, tags=tags)
+        registered_model = AzureModel.register(
+            workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags
+        )
 
-        _logger.info("Registered an Azure Model with name: `%s` and version: `%s`",
-                     registered_model.name, registered_model.version)
+        _logger.info(
+            "Registered an Azure Model with name: `%s` and version: `%s`",
+            registered_model.name,
+            registered_model.version,
+        )
 
         # Create an execution script (entry point) for the image's model server. Azure ML requires
         # the container's execution script to be located in the current working directory during
@@ -354,7 +401,8 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
         if pyfunc.ENV in model_pyfunc_conf:
             environment = AzureEnvironment.from_conda_specification(
                 _get_mlflow_azure_name(run_id),
-                os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]))
+                os.path.join(tmp_model_path, model_pyfunc_conf[pyfunc.ENV]),
+            )
         else:
             environment = AzureEnvironment(_get_mlflow_azure_name(run_id))
 
@@ -363,21 +411,23 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
             _logger.info("Bulding temporary MLFlow wheel in %s", path)
             wheel = _create_mlflow_wheel(mlflow_home, path)
             whl_url = AzureEnvironment.add_private_pip_wheel(
-                workspace=workspace,
-                file_path=wheel,
-                exist_ok=True)
+                workspace=workspace, file_path=wheel, exist_ok=True
+            )
             environment.python.conda_dependencies.add_pip_package(whl_url)
         else:
             environment.python.conda_dependencies.add_pip_package(
-                "mlflow=={}".format(mlflow_version))
+                "mlflow=={}".format(mlflow_version)
+            )
 
         # AzureML requires azureml-defaults to be installed to include
         # flask for the inference server.
         environment.python.conda_dependencies.add_pip_package(
-            "azureml-defaults=={}".format(AZUREML_VERSION))
+            "azureml-defaults=={}".format(AZUREML_VERSION)
+        )
 
-        inference_config = InferenceConfig(entry_script=execution_script_path,
-                                           environment=environment)
+        inference_config = InferenceConfig(
+            entry_script=execution_script_path, environment=environment
+        )
 
         if deployment_config is not None:
             if deployment_config.tags is not None:
@@ -392,10 +442,9 @@ def deploy(model_uri, workspace, deployment_config=None, service_name=None, mode
             name=service_name,
             models=[registered_model],
             inference_config=inference_config,
-            deployment_config=deployment_config
+            deployment_config=deployment_config,
         )
-        _logger.info("Deploying an Azure Webservice with name: `%s`",
-                     webservice.name)
+        _logger.info("Deploying an Azure Webservice with name: `%s`", webservice.name)
         if synchronous:
             webservice.wait_for_deployment(show_output=True)
         return webservice, registered_model
@@ -428,7 +477,8 @@ def _create_execution_script(output_path, azure_model):
     :return: A reference to the temporary file containing the execution script.
     """
     execution_script_text = SCORE_SRC.format(
-        model_name=azure_model.name, model_version=azure_model.version)
+        model_name=azure_model.name, model_version=azure_model.version
+    )
 
     with open(output_path, "w") as f:
         f.write(execution_script_text)
@@ -451,17 +501,21 @@ def _create_dockerfile(output_path, mlflow_path=None):
 
     if mlflow_path is not None:
         mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(
-            mlflow_path=_get_container_path(mlflow_path))
+            mlflow_path=_get_container_path(mlflow_path)
+        )
     elif not mlflow_version.endswith("dev"):
         mlflow_install_cmd = "RUN pip install mlflow=={mlflow_version}".format(
-            mlflow_version=mlflow_version)
+            mlflow_version=mlflow_version
+        )
     else:
         raise MlflowException(
             "You are running a 'dev' version of MLflow: `{mlflow_version}` that cannot be"
             " installed from pip. In order to build a container image, either specify the"
             " path to a local copy of the MLflow GitHub repository using the `mlflow_home`"
             " parameter or install a release version of MLflow from pip".format(
-                mlflow_version=mlflow_version))
+                mlflow_version=mlflow_version
+            )
+        )
     docker_cmds.append(mlflow_install_cmd)
 
     with open(output_path, "w") as f:
@@ -490,9 +544,12 @@ def _load_pyfunc_conf_with_model(model_path):
     model = Model.load(os.path.join(model_path, MLMODEL_FILE_NAME))
     if pyfunc.FLAVOR_NAME not in model.flavors:
         raise MlflowException(
-            message=("The specified model does not contain the `python_function` flavor. This "
-                     " flavor is required for model deployment required for model deployment."),
-            error_code=INVALID_PARAMETER_VALUE)
+            message=(
+                "The specified model does not contain the `python_function` flavor. This "
+                " flavor is required for model deployment required for model deployment."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     return model.flavors[pyfunc.FLAVOR_NAME], model
 
 
@@ -504,7 +561,8 @@ def _get_mlflow_azure_resource_name():
     azureml_max_resource_length = 32
     resource_prefix = "mlflow-"
     unique_id = get_unique_resource_id(
-        max_length=(azureml_max_resource_length - len(resource_prefix)))
+        max_length=(azureml_max_resource_length - len(resource_prefix))
+    )
     return resource_prefix + unique_id
 
 
@@ -531,16 +589,20 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
     unresolved = Path(out_dir)
     unresolved.mkdir(parents=True, exist_ok=True)
     out_path = unresolved.resolve()
-    subprocess.run([sys.executable, "setup.py", "bdist_wheel", "-d", out_path],
-                   cwd=mlflow_dir, check=True)
+    subprocess.run(
+        [sys.executable, "setup.py", "bdist_wheel", "-d", out_path], cwd=mlflow_dir, check=True
+    )
     files = list(out_path.glob("./*.whl"))
     if len(files) < 1:
-        raise MlflowException("Error creating MLFlow Wheel - couldn't"
-                              " find it in dir {} - found {}".format(out_path, files))
+        raise MlflowException(
+            "Error creating MLFlow Wheel - couldn't"
+            " find it in dir {} - found {}".format(out_path, files)
+        )
     if len(files) > 1:
         raise MlflowException(
             "Error creating MLFlow Wheel - couldn't"
-            " find it in dir {} - found several wheels {}".format(out_path, files))
+            " find it in dir {} - found several wheels {}".format(out_path, files)
+        )
     return files[0]
 
 
