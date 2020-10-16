@@ -97,25 +97,24 @@ def test_log_matplotlib_figure():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_with_regressor(regressor, artifact_path):
+def test_log_explanation_with_regressor(regressor):
     model = regressor.model
     X = regressor.X
 
     with mlflow.start_run() as run:
-        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
+        explanation_path = mlflow.shap.log_explanation(model.predict, X)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "model_explanations_shap" if artifact_path is None else artifact_path
+    artifact_path = "model_explanations_shap"
     artifacts = set(yield_artifacts(run.info.run_id))
 
-    assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path_expected)
+    assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path)
     assert artifacts == {
-        os.path.join(artifact_path_expected, "base_values.npy"),
-        os.path.join(artifact_path_expected, "shap_values.npy"),
-        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+        os.path.join(artifact_path, "base_values.npy"),
+        os.path.join(artifact_path, "shap_values.npy"),
+        os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
     shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
@@ -125,31 +124,57 @@ def test_log_explanation_with_regressor(regressor, artifact_path):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_explanation_with_classifier(classifier, artifact_path):
+def test_log_explanation_with_classifier(classifier):
     model = classifier.model
     X = classifier.X
 
     with mlflow.start_run() as run:
-        explanation_uri = mlflow.shap.log_explanation(model.predict_proba, X, artifact_path)
+        explanation_uri = mlflow.shap.log_explanation(model.predict_proba, X)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "model_explanations_shap" if artifact_path is None else artifact_path
+    artifact_path = "model_explanations_shap"
     artifacts = set(yield_artifacts(run.info.run_id))
 
-    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
+    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path)
     assert artifacts == {
-        os.path.join(artifact_path_expected, "base_values.npy"),
-        os.path.join(artifact_path_expected, "shap_values.npy"),
-        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+        os.path.join(artifact_path, "base_values.npy"),
+        os.path.join(artifact_path, "shap_values.npy"),
+        os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
     shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
     base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, classifier.shap_values)
     np.testing.assert_array_equal(base_values, classifier.base_values)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("artifact_path", ["dir", "dir1/dir2"])
+def test_log_explanation_with_artifact_path(regressor, artifact_path):
+    model = regressor.model
+    X = regressor.X
+
+    with mlflow.start_run() as run:
+        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
+
+    # Assert no figure is open
+    assert len(plt.get_fignums()) == 0
+
+    artifacts = set(yield_artifacts(run.info.run_id))
+
+    assert explanation_path == os.path.join(run.info.artifact_uri, artifact_path)
+    assert artifacts == {
+        os.path.join(artifact_path, "base_values.npy"),
+        os.path.join(artifact_path, "shap_values.npy"),
+        os.path.join(artifact_path, "summary_bar_plot.png"),
+    }
+
+    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    np.testing.assert_array_equal(shap_values, regressor.shap_values)
+    np.testing.assert_array_equal(base_values, regressor.base_values)
 
 
 @pytest.mark.large
@@ -166,14 +191,14 @@ def test_log_explanation_without_active_run(regressor):
         # Assert no figure is open
         assert len(plt.get_fignums()) == 0
 
-        artifact_path_expected = "model_explanations_shap"
+        artifact_path = "model_explanations_shap"
         artifacts = set(yield_artifacts(run.info.run_id))
 
-        assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
+        assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path)
         assert artifacts == {
-            os.path.join(artifact_path_expected, "base_values.npy"),
-            os.path.join(artifact_path_expected, "shap_values.npy"),
-            os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+            os.path.join(artifact_path, "base_values.npy"),
+            os.path.join(artifact_path, "shap_values.npy"),
+            os.path.join(artifact_path, "summary_bar_plot.png"),
         }
 
         shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
@@ -193,14 +218,14 @@ def test_log_explanation_with_numpy_array(regressor):
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
 
-    artifact_path_expected = "model_explanations_shap"
+    artifact_path = "model_explanations_shap"
     artifacts = set(yield_artifacts(run.info.run_id))
 
-    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
+    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path)
     assert artifacts == {
-        os.path.join(artifact_path_expected, "base_values.npy"),
-        os.path.join(artifact_path_expected, "shap_values.npy"),
-        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+        os.path.join(artifact_path, "base_values.npy"),
+        os.path.join(artifact_path, "shap_values.npy"),
+        os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
     shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
@@ -226,14 +251,14 @@ def test_log_explanation_with_small_features():
     with mlflow.start_run() as run:
         explanation_uri = mlflow.shap.log_explanation(model.predict, X)
 
-    artifact_path_expected = "model_explanations_shap"
+    artifact_path = "model_explanations_shap"
     artifacts = set(yield_artifacts(run.info.run_id))
 
-    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path_expected)
+    assert explanation_uri == os.path.join(run.info.artifact_uri, artifact_path)
     assert artifacts == {
-        os.path.join(artifact_path_expected, "base_values.npy"),
-        os.path.join(artifact_path_expected, "shap_values.npy"),
-        os.path.join(artifact_path_expected, "summary_bar_plot.png"),
+        os.path.join(artifact_path, "base_values.npy"),
+        os.path.join(artifact_path, "shap_values.npy"),
+        os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
     explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, num_rows))
