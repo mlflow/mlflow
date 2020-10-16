@@ -51,15 +51,16 @@ Following are the parameters which can be overridden by passing values in comman
 7. URL to log - tracking-uri
 
 For example:
-
-`python bert_sentiment.py \
+```
+python bert_sentiment.py \
     --max_epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
     --batch-size 64 \
     --num-workers 2 \
     --lr 0.01 \
-    --tracking_uri "http://localhost:5000"`
+    --tracking_uri "http://localhost:5000"
+```
 
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

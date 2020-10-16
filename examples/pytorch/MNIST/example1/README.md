@@ -46,8 +46,8 @@ Following are the parameters which can be overridden by passing values in comman
 7. URL to log - tracking-uri
 
 For example:
-
-`python mnist_autolog_example1.py \
+```
+python mnist_autolog_example1.py \
     --max_epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
@@ -55,6 +55,7 @@ For example:
     --num-workers 3 \
     --lr 0.01 \
     --tracking_uri "http://localhost:5000"`
+```
 
 Apart from model specific arguments, this example demonstrates early stopping behaviour.
 Following are the early stopping parameter set in the script - `mnist_autolog_example`

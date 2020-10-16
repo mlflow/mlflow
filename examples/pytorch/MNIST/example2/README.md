@@ -47,8 +47,8 @@ Following are the parameters which can be overridden by passing values in comman
 7. URL to log - tracking-uri
 
 For example:
-
-`python mnist_autolog_example2.py \
+```
+python mnist_autolog_example2.py \
     --max_epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
@@ -56,6 +56,7 @@ For example:
     --num-workers 3 \
     --lr 0.01 \
     --tracking_uri "http://localhost:5000"`
+```
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 
