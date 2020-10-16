@@ -17,7 +17,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/ex
 mlflow run .
 ```
 
-This will run `mnist_autolog_example1.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_autolog_example1.py` with the default set of parameters such as  `--max-epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -48,13 +48,13 @@ Following are the parameters which can be overridden by passing values in comman
 For example:
 
 `python mnist_autolog_example1.py \
-    --max_epochs 5 \
+    --max-epochs 5 \
     --gpus 1 \
-    --distributed_backend "ddp" \
+    --distributed-backend "ddp" \
     --batch-size 64 \
     --num-workers 2 \
     --lr 0.01 \
-    --tracking_uri "http://localhost:5000" \
+    --tracking-uri "http://localhost:5000" \
     --es-patience 5`
 
 Apart from model specific arguments, this example demonstrates early stopping behaviour.

@@ -282,7 +282,7 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri",
+        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
     )
     parser.add_argument(
         "--max-epochs", type=int, default=5, help="number of epochs to run (default: 5)"

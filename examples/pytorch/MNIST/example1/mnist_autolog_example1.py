@@ -241,16 +241,16 @@ if __name__ == "__main__":
     # Add trainer specific arguments
 
     parser.add_argument(
-        "--tracking_uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
+        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=20, help="number of epochs to run (default: 20)"
+        "--max-epochs", type=int, default=20, help="number of epochs to run (default: 20)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--distributed_backend",
+        "--distributed-backend",
         type=str,
         default=None,
         help="Distributed Backend - (default: None)",
