@@ -242,19 +242,32 @@ if __name__ == "__main__":
     # Add trainer specific arguments
 
     parser.add_argument(
-        "--tracking_uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
+        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=20, help="number of epochs to run (default: 20)"
+        "--max-epochs", type=int, default=20, help="number of epochs to run (default: 20)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--accelerator",
-        type=str,
-        default=None,
-        help="Accelerator - (default: None)",
+        "--accelerator", type=str, default=None, help="Accelerator - (default: None)",
+    )
+
+    # Early stopping parameters
+
+    parser.add_argument(
+        "--es-monitor", type=str, default="val_loss", help="Early stopping monitor parameter"
+    )
+
+    parser.add_argument("--es-mode", type=str, default="min", help="Early stopping mode parameter")
+
+    parser.add_argument(
+        "--es-verbose", type=bool, default=True, help="Early stopping verbose parameter"
+    )
+
+    parser.add_argument(
+        "--es-patience", type=int, default=3, help="Early stopping patience parameter"
     )
 
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
@@ -267,7 +280,12 @@ if __name__ == "__main__":
     mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     model = LightningMNISTClassifier(**dict_args)
-    early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
+    early_stopping = EarlyStopping(
+        monitor=dict_args["es_monitor"],
+        mode=dict_args["es_mode"],
+        verbose=dict_args["es_verbose"],
+        patience=dict_args["es_patience"],
+    )
 
     checkpoint_callback = ModelCheckpoint(
         filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",

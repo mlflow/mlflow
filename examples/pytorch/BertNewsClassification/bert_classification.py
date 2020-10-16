@@ -21,6 +21,8 @@ from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer
+from torchtext.utils import download_from_url, extract_archive
+from torchtext.datasets.text_classification import URLS
 
 from mlflow.pytorch.pytorch_autolog import autolog
 
@@ -77,35 +79,39 @@ class BertDataModule(pl.LightningDataModule):
     @staticmethod
     def to_sentiment(rating):
         rating = int(rating)
-        if rating < 2:
-            return 0
-        if rating == 3:
-            return 1
-        else:
-            return 2
+        return rating - 1
 
     def prepare_data(self):
         pass
 
     def setup(self, stage=None):
         # reading  the input
-        df = pd.read_csv(
-            "https://drive.google.com/uc?id=1zdmewp7ayS4js4VtrJEHzAheSW-5NBZv"
-        )
-        print("data_shape {}".format(df.shape))
+        dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
+        extracted_files = extract_archive(dataset_tar)
+
+        train_csv_path = None
+        for fname in extracted_files:
+            if fname.endswith("train.csv"):
+                train_csv_path = fname
+
+        df = pd.read_csv(train_csv_path)
+
+        df.columns = ["sentiment", "title", "description"]
+        df.sample(frac=1)
+        df = df.iloc[:15000]
 
         # setting sentiment
-        df["sentiment"] = df.score.apply(self.to_sentiment)
+        df["sentiment"] = df.sentiment.apply(self.to_sentiment)
 
         self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-        sample_txt = "when was i last outside? i am stuck at home for 2 weeks."
+        sample_txt = "wall street seems to be down this whole year due to financial crisis"
 
         self.encoding = self.tokenizer.encode_plus(
             sample_txt,
             max_length=32,
             add_special_tokens=True,
             return_token_type_ids=False,
-            padding='max_length',
+            padding="max_length",
             return_attention_mask=True,
             return_tensors="pt",
             truncation=True,
@@ -113,7 +119,7 @@ class BertDataModule(pl.LightningDataModule):
 
         token_lens = []
 
-        for txt in df.content:
+        for txt in df.description:
             tokens = self.tokenizer.encode(txt, max_length=512, truncation=True)
             token_lens.append(len(tokens))
 
@@ -121,12 +127,8 @@ class BertDataModule(pl.LightningDataModule):
         np.random.seed(RANDOM_SEED)
         torch.manual_seed(RANDOM_SEED)
 
-        df_train, df_test = train_test_split(
-            df, test_size=0.1, random_state=RANDOM_SEED
-        )
-        df_val, df_test = train_test_split(
-            df_test, test_size=0.5, random_state=RANDOM_SEED
-        )
+        df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
+        df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
 
         self.df_train = df_train
         self.df_test = df_test
@@ -145,7 +147,7 @@ class BertDataModule(pl.LightningDataModule):
         parser.add_argument(
             "--num-workers",
             type=int,
-            default=1,
+            default=3,
             metavar="N",
             help="number of workers (default: 0)",
         )
@@ -153,7 +155,7 @@ class BertDataModule(pl.LightningDataModule):
 
     def create_data_loader(self, df, tokenizer, max_len, batch_size):
         ds = GPReviewDataset(
-            reviews=df.content.to_numpy(),
+            reviews=df.description.to_numpy(),
             targets=df.sentiment.to_numpy(),
             tokenizer=tokenizer,
             max_length=max_len,
@@ -164,21 +166,18 @@ class BertDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        print("In Train Data Loader")
         self.train_data_loader = self.create_data_loader(
             self.df_train, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.train_data_loader
 
     def val_dataloader(self):
-        print("In Val Data Loader")
         self.val_data_loader = self.create_data_loader(
             self.df_val, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.val_data_loader
 
     def test_dataloader(self):
-        print("In Test Data Loader")
         self.test_data_loader = self.create_data_loader(
             self.df_test, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
@@ -192,7 +191,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         self.drop = nn.Dropout(p=0.3)
         # assigning labels
-        self.class_names = ["negative", "neutral", "positive"]
+        self.class_names = ["world", "Sports", "Business", "Sci/Tech"]
         n_classes = len(self.class_names)
         self.out = nn.Linear(self.bert_model.config.hidden_size, n_classes)
         self.scheduler = None
@@ -200,9 +199,7 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.args = kwargs
 
     def forward(self, input_ids, attention_mask):
-        _, pooled_output = self.bert_model(
-            input_ids=input_ids, attention_mask=attention_mask
-        )
+        _, pooled_output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         output = self.drop(pooled_output)
         F.softmax(output, dim=1)
         return self.out(output)
@@ -211,11 +208,7 @@ class BertSentinmentClassifier(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--lr",
-            type=float,
-            default=1e-3,
-            metavar="LR",
-            help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
         )
         return parser
 
@@ -261,19 +254,13 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode="min",
-                factor=0.2,
-                patience=2,
-                min_lr=1e-6,
-                verbose=True,
+                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
             ),
-            "monitor": "val_loss"
+            "monitor": "val_loss",
         }
         return [self.optimizer], [self.scheduler]
 
     def cross_entropy_loss(self):
-        print("In Loss Function")
         return nn.CrossEntropyLoss().to(self.device)
 
     def optimizer_step(
@@ -296,22 +283,16 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--tracking_uri",
-        type=str,
-        default="http://localhost:5000/",
-        help="mlflow tracking uri",
+        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
     )
     parser.add_argument(
-        "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
+        "--max-epochs", type=int, default=5, help="number of epochs to run (default: 5)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--accelerator",
-        type=str,
-        default=None,
-        help="Distributed Backend - (default: None)",
+        "--accelerator", type=str, default=None, help="Distributed Backend - (default: None)",
     )
     parser = BertSentinmentClassifier.add_model_specific_args(parent_parser=parser)
 
@@ -331,12 +312,7 @@ if __name__ == "__main__":
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(),
-        save_top_k=1,
-        verbose=True,
-        monitor="val_loss",
-        mode="min",
-        prefix="",
+        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
     )
     lr_logger = LearningRateMonitor()
 
