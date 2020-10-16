@@ -97,8 +97,7 @@ def log_explanation(predict_function, features, artifact_path=None):
     .. _shap.KernelExplainer: https://shap.readthedocs.io/en/latest/generated
         /shap.KernelExplainer.html#shap.KernelExplainer
 
-    .. _shap.kmeans: https://github.com/slundberg/shap/blob
-        /491d46a540d16fb5a9868de6be2913599c850167/shap/utils/_legacy.py#L9
+    .. _shap.kmeans: https://github.com/slundberg/shap/blob/v0.36.0/shap/utils/_legacy.py#L9
 
     .. code-block:: python
         :caption: Example
