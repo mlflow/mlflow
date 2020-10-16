@@ -3,7 +3,6 @@
 import collections
 import os
 import shutil
-import sys
 import pytest
 import yaml
 import json

@@ -1,4 +1,3 @@
-import sys
 from unittest import mock
 import os
 import pickle
