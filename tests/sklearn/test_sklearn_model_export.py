@@ -223,10 +223,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     # current test module, we expect pickle to fail when attempting to serialize it. In contrast,
     # we expect cloudpickle to successfully locate the transformer definition and serialize the
     # model successfully.
-    if sys.version_info >= (3, 0):
-        expect_exception_context = pytest.raises(AttributeError)
-    else:
-        expect_exception_context = pytest.raises(pickle.PicklingError)
+    expect_exception_context = pytest.raises(AttributeError)
     with expect_exception_context:
         pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
         mlflow.sklearn.save_model(

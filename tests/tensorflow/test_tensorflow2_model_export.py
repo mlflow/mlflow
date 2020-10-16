@@ -89,10 +89,7 @@ def saved_tf_iris_model(tmpdir):
     )
 
     # Building a dictionary of the predictions by the estimator.
-    if sys.version_info < (3, 0):
-        estimator_preds_dict = estimator_preds.next()
-    else:
-        estimator_preds_dict = next(estimator_preds)
+    estimator_preds_dict = next(estimator_preds)
     for row in estimator_preds:
         for key in row.keys():
             estimator_preds_dict[key] = np.vstack((estimator_preds_dict[key], row[key]))
