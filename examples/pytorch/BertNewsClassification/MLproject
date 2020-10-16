@@ -14,7 +14,7 @@ entry_points:
       tracking_uri: {type: str, default: 'http://localhost:5000'}
 
     command: |
-          python bert_sentiment.py \
+          python bert_classification.py \
             --max-epochs {epochs} \
             --gpus {gpus} \
             --distributed-backend {distributed_backend} \

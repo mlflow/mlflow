@@ -54,15 +54,16 @@ For example:
     --batch-size 64 \
     --num-workers 2 \
     --lr 0.01 \
-    --tracking-uri "http://localhost:5000"`
+    --tracking-uri "http://localhost:5000" \
+    --es-patience 5`
 
 Apart from model specific arguments, this example demonstrates early stopping behaviour.
-Following are the early stopping parameter set in the script - `mnist_autolog_example`
+Following are the early stopping parameter which can be set using command line argument
 
-1. monitor is set to `val_loss`
-2. mode is set to `min`
-3. patience is set to default value `3`
-4. verbose is set to `True`
+1. monitor is set to `val_loss` (--es-monitor)
+2. mode is set to `min` (--es-mode)
+3. patience is set to default value `3` (--es-patience)
+4. verbose is set to `True` (--es-verbose)
 
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

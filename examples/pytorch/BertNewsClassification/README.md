@@ -1,6 +1,7 @@
 ## Bert Sentiment Analysis example with MLFlow
 
-In this example, we have used a pretrained Bert model to predict the sentiment of the play store review.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
+In this example, we have used a pretrained Bert model to classify the news reports into any one of the 4 different categories("world", "Sports", "Business", "Sci/Tech").
+The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics.
 The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
 is responsible for logging the params, metrics, model summary and the model.
  
@@ -12,7 +13,7 @@ The metrics are logged during training of the model.
 
 ## Setup
 
-Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `bert_sentiment.py`
+Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `bert_classification.py`
 Change the variables according to the environment setup.
 
 ### Running the code
@@ -22,7 +23,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/Sentimen
 mlflow run .
 ```
 
-This will run `bert_sentiment..py` with the default set of parameters such as  `--max-epochs=5`. You can see the default value in the `MLproject` file.
+This will run `bert_classification..py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -52,7 +53,7 @@ Following are the parameters which can be overridden by passing values in comman
 
 For example:
 
-`python bert_sentiment.py \
+`python bert_classification.py \
     --max-epochs 5 \
     --gpus 1 \
     --distributed-backend "ddp" \
@@ -71,5 +72,4 @@ mlflow ui
 and navigating to [http://localhost:5000](http://localhost:5000).
 
 For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
-
 
