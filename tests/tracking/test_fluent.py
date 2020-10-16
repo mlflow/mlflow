@@ -739,7 +739,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library_nam
 @pytest.mark.parametrize(
     "library_name,mlflow_module", library_to_mlflow_module_without_pyspark.items()
 )
-def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_name, mlflow_module):
+def test_universal_autolog_calls_specific_autologs_correctly(library_name, mlflow_module):
     integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
 
     # modify the __signature__ of the mock to contain the needed parameters
@@ -774,7 +774,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(mocker, library_nam
 
 
 @pytest.mark.large
-def test_universal_autolog_calls_pyspark_immediately(mocker):
+def test_universal_autolog_calls_pyspark_immediately():
     library_name = "pyspark"
     mlflow_module = "spark"
 
@@ -795,7 +795,7 @@ def test_universal_autolog_calls_pyspark_immediately(mocker):
 
 
 @pytest.mark.large
-def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(mocker):
+def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed():
     library_name = "pyspark"
     mlflow_module = "spark"
 
