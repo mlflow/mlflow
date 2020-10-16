@@ -1045,7 +1045,10 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     }
 
     def setup_autologging(module):
-        print("acbde")
+        print("setting up autologging for " + module.__name__)
+        print(module)
+        if module.__name__ == "pyspark":
+            print("ZXCVZXCVZXCVZXCV")
         autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1081,3 +1084,4 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
             print("HERE")
     except Exception as e:
         _logger.warning("Exception raised while enabling autologging for spark: " + str(e))
+        print("ERRRRRRRRR" + str(e))

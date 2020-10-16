@@ -804,7 +804,7 @@ def test_universal_autolog_calls_pyspark_immediately(
     autolog_fn = getattr(getattr(mlflow, mlflow_module), "autolog")
     autolog_fn.assert_not_called()
 
-    mlflow.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.autolog()
 
     # pyspark autolog should NOT wait for pyspark to be imported
     # it should instead initialize autologging immediately
@@ -816,32 +816,39 @@ def test_universal_autolog_calls_pyspark_immediately(
 
 
 @pytest.mark.large
-def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed():
+def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(mocker):
     import wrapt
+
+
+    autolog_fn_spy = mock.MagicMock()
+    # mocker.spy(
+    #     getattr(mlflow, "spark"), "autolog"
+    # )
+    print(autolog_fn_spy)
+    setattr(getattr(mlflow, "spark"), "autolog", autolog_fn_spy)
+    # simulate pyspark not being installed
+    print("ASDF1")
+    autolog_fn_spy.side_effect = ImportError("no module named pyspark blahblah") 
+
+
+    mlflow.autolog()
+    print("ASDF2")
+    autolog_fn_spy.assert_called_once() # it was called once and failed
+
+
+
+    # now the user installs pyspark
+    autolog_fn_spy.side_effect = None
+    import sys
+    print('pyspark' in sys.modules)
+    print('tensorflow' in sys.modules)
+    importlib.__import__("pyspark")
+    print('pyspark' in sys.modules)
+    print('tensorflow' in sys.modules)
+
     print(wrapt.importer._post_import_hooks)
-    with mock.patch(
-        "mlflow.spark.autolog"
-    ) as autolog_mock:
-        # simulate pyspark not being installed
-        print("ASDF1")
-        autolog_mock.side_effect = ImportError("no module named pyspark blahblah") 
-
-
-        mlflow.autolog()
-        print("ASDF2")
-        autolog_mock.assert_called_once() # it was called once and failed
-
-        import wrapt
-        print(wrapt.importer._post_import_hooks)
-
-        # now the user installs pyspark
-        autolog_mock.side_effect = None
-        import sys
-        print('pyspark' in sys.modules)
-        importlib.__import__("pyspark")
-        print('pyspark' in sys.modules)
-
-        print(wrapt.importer._post_import_hooks)
-
-        # assert autolog is called again once pyspark is imported
-        assert autolog_mock.call_count == 2
+    print('tensorflow' in sys.modules)
+    print("END OF FN")
+    # assert autolog is called again once pyspark is imported
+    # assert autolog_fn_spy.call_count == 2
+    assert 0
