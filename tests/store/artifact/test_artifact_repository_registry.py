@@ -1,5 +1,5 @@
+from importlib import reload
 import pytest
-from six.moves import reload_module as reload
 from unittest import mock
 
 import mlflow
