@@ -5,7 +5,6 @@ import hashlib
 import os
 import shutil
 import pytest
-import six
 import tarfile
 
 from mlflow.utils import file_utils
@@ -18,7 +17,7 @@ from tests.helper_functions import random_int, random_file, safe_edit_yaml
 def test_yaml_read_and_write(tmpdir):
     temp_dir = str(tmpdir)
     yaml_file = random_file("yaml")
-    long_value = long(1) if six.PY2 else 1  # pylint: disable=undefined-variable
+    long_value = 1  # pylint: disable=undefined-variable
     data = {
         "a": random_int(),
         "B": random_int(),
