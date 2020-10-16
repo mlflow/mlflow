@@ -1,5 +1,9 @@
+#' @include tracking-observer.R
+NULL
+
 mlflow_set_active_run_id <- function(run_id) {
   .globals$active_run_id <- run_id
+  mlflow_register_tracking_event("active_run_id", list(run_id = run_id))
 }
 
 mlflow_get_active_run_id <- function() {
@@ -8,6 +12,9 @@ mlflow_get_active_run_id <- function() {
 
 mlflow_set_active_experiment_id <- function(experiment_id) {
   .globals$active_experiment_id <- experiment_id
+  mlflow_register_tracking_event(
+    "active_experiment_id", list(experiment_id = experiment_id)
+  )
 }
 
 mlflow_get_active_experiment_id <- function() {
@@ -24,6 +31,8 @@ mlflow_get_active_experiment_id <- function() {
 #' @export
 mlflow_set_tracking_uri <- function(uri) {
   .globals$tracking_uri <- uri
+  mlflow_register_tracking_event("tracking_uri", list(uri = uri))
+
   invisible(uri)
 }
 
