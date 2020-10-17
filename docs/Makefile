@@ -88,8 +88,8 @@ singlehtml:
 
 .PHONY: livehtml
 livehtml:
-	# Remove `--keep-going` option because `sphinx-autobuild` doesn't support it and raises an error:
-	# https://github.com/executablebooks/sphinx-autobuild/blob/master/src/sphinx_autobuild/build.py#L7
+	# Remove `--keep-going` option because `sphinx-autobuild` doesn't support it and raises an error.
+	# See: https://github.com/executablebooks/sphinx-autobuild/blob/master/src/sphinx_autobuild/build.py#L7
 	sphinx-autobuild -b html $(shell echo $(ALLSPHINXOPTS) | sed -e "s/--keep-going//g") $(BUILDDIR)/html
 		
 .PHONY: pickle
