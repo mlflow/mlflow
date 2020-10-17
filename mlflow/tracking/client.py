@@ -1217,6 +1217,51 @@ class MlflowClient(object):
         Backend raises exception if a registered model with given name does not exist.
 
         :param name: Name of the registered model to update.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_registered_models_info(r_models):
+                print("--")
+                for rm in r_models:
+                    print("name: {}".format(rm.name))
+                    print("tags: {}".format(rm.tags))
+                    print("description: {}".format(rm.description))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Register a couple of models with respective names, tags, and descriptions
+            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
+                        ("name2", {"t2": "t2"}, 'description2')]:
+                client.create_registered_model(name, tags, desc)
+
+            # Fetch all registered models
+            models = client.list_registered_models()
+            print_registered_models_info(models)
+
+            # Delete one registered model
+            client.delete_registered_model("name1")
+            models = client.list_registered_models()
+            print_registered_models_info(models)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            description: description1
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
+            --
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
         """
         self._get_registry_client().delete_registered_model(name)
 
@@ -1249,8 +1294,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             client = MlflowClient()
 
-            # Create a couple of registered models with respective
-            # names, tags, and descriptions
+            # Register a couple of models with respective names, tags, and descriptions
             for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
                                      ("name2", {"t2": "t2"}, 'description2')]:
                 client.create_registered_model(name, tags, desc)
