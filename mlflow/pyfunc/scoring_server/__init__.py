@@ -156,7 +156,6 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
         raise e
     finally:
         e = None
-        tb = None
 
 
 def init(model: PyFuncModel):
