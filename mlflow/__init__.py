@@ -62,6 +62,7 @@ import mlflow.spacy as spacy  # noqa: E402
 import mlflow.spark as spark  # noqa: E402
 import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
+import mlflow.shap as shap  # noqa: E402
 
 
 _configure_mlflow_loggers(root_module_name=__name__)
@@ -154,4 +155,5 @@ __all__ = [
     "spark",
     "tensorflow",
     "xgboost",
+    "shap",
 ]
