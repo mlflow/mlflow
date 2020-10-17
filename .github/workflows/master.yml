@@ -57,13 +57,17 @@ jobs:
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
       shell: Rscript {0}
-    - name: Run tests
+    - name: Create test environment
       run: |
         source ./dev/install-common-deps.sh
         cd mlflow/R/mlflow
         R CMD build .
-        export LINTR_COMMENT_BOT=false
         cd tests
+        Rscript ../.create-test-env.R
+    - name: Run tests
+      run: |
+        export LINTR_COMMENT_BOT=false
+        cd mlflow/R/mlflow/tests
         Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
