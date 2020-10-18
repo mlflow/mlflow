@@ -37,7 +37,7 @@ FLAVOR_NAME = "keras"
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 # File name to which keras model is saved
-_MODEL_SAVE_PATH = "model.h5"
+_MODEL_SAVE_PATH = "model"
 # Conda env subpath when saving/loading model
 _CONDA_ENV_SUBPATH = "conda.yaml"
 
@@ -390,6 +390,14 @@ def _load_model(model_path, keras_module, **kwargs):
             pickled_custom_objects = cloudpickle.load(in_f)
             pickled_custom_objects.update(custom_objects)
             custom_objects = pickled_custom_objects
+    
+    # TODO: consider removing this fallback when versions of mlflow which save models with h5 prefix are deprecated
+    # To ensure backwards compatibility, if the _MODEL_SAVE_PATH does not exist, we will look for a file with the
+    # "h5" file extension.
+    if not os.path.exists(model_path):
+        # TODO: log a warning?
+        model_path = f"{model_path}.h5"
+    
     from distutils.version import StrictVersion
 
     if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):

@@ -10,6 +10,7 @@ import random
 from packaging import version
 
 import tensorflow as tf
+import keras
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
@@ -153,6 +154,19 @@ def keras_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_conda_deps=["keras", "tensorflow", "pytest"])
     return conda_env
+
+
+@pytest.fixture
+def model_with_preprocessing(data):
+    x, y = data
+    model = Sequential()
+    model.add(Dense(3, input_dim=4))
+    model.add(Dense(1))
+    # Use a small learning rate to prevent exploding gradients which may produce
+    # infinite prediction values
+    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
+    model.fit(x, y)
+    return model
 
 
 def test_that_keras_module_arg_works(model_path):
@@ -508,3 +522,39 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     np.testing.assert_array_almost_equal(deployed_model_preds.values, predicted, decimal=4)
+
+
+def test_save_model_with_tf_save_format(model_path):
+    """Ensures that Keras models can be saved with SavedModel format.
+    
+    Using SavedModel format (save_format="tf") requires that the file extension
+    is _not_ "h5".
+    """
+    keras_model = mock.Mock(spec=tf.keras.Model)
+    mlflow.keras.save_model(keras_model=keras_model, path=model_path, save_format="tf")
+    _, args, kwargs = keras_model.save.mock_calls[0]
+    # Ensure that save_format propagated through
+    assert kwargs["save_format"] == "tf"
+    # Ensure that the saved model does not have h5 extension
+    assert not args[0].endswith(".h5")
+
+@pytest.mark.large
+def test_model_load_h5(
+    model, model_path, data, predicted
+):
+    """Test that models previously saved with h5 format can still be loaded, for backwards compatibility.
+    
+    Keras has standardized on the SavedModel format, but this requires a filepath without the "h5" file extension.
+    However, models which were saved in earlier versions of mlflow were always saved with h5 file extension.
+    """
+    mlflow.keras.save_model(keras_model=model, path=model_path, keras_module=tf.keras)
+    # Here we add the h5 file extension to test backwards compatibility
+    shutil.move(os.path.join(model_path, "data/model"), os.path.join(model_path, "data/model.h5"))
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
+    assert flavor_conf is not None
+    model_conf.save(model_conf_path)
+
+    model_loaded = mlflow.keras.load_model(model_path)
+    assert all(model_loaded.predict(data[0]) == predicted)
