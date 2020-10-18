@@ -1403,6 +1403,37 @@ class MlflowClient(object):
         """
         :param name: Name of the registered model to update.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(rm):
+                print("--")
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Create and fetch the registered model
+            client.create_registered_model(name, tags, desc)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         return self._get_registry_client().get_registered_model(name)
 
@@ -1428,6 +1459,42 @@ class MlflowClient(object):
         :param key: Tag key to log.
         :param value: Tag value log.
         :return: None
+
+        .. code-block:: Python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(rm):
+                print("--")
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework1": "Spark NLP"}
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Create registered model, set an additional tag, and fetch
+            # update model info
+            client.create_registered_model(name, tags, desc)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+            client.set_registered_model_tag(name, "nlp.framework2", "VADER")
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework1': 'Spark NLP'}
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
