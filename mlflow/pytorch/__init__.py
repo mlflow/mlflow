@@ -74,7 +74,8 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    artifacts=None,
+    requirements_file=None,
+    extra_files=None,
     **kwargs
 ):
     """
@@ -140,23 +141,26 @@ def log_model(
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      are resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` parameter
-                      in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
-                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
-                      For example, consider the following ``artifacts`` dictionary::
+    :param requirements_file: A string containing the path to requirements file. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``requirements_file`` string::
 
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
+                      requirements_file = "s3://my-bucket/path/to/my_file"
 
-                      In this case, the ``"my_file"`` artifact is downloaded from S3. The
-                      ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
-                      path via ``context.artifacts["my_file"]``.
+                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
 
-                      If ``None``, no artifacts are added to the model.
+                      If ``None``, no requirements file is added to the model.
+
+    :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``extra_files`` list::
+
+                      extra_files = ["s3://my-bucket/path/to/my_file1",
+                                    "s3://my-bucket/path/to/my_file2"]
+
+                      In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+                      If ``None``, no extra files are added to the model.
 
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -217,7 +221,8 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        artifacts=artifacts,
+        requirements_file=requirements_file,
+        extra_files=extra_files,
         **kwargs
     )
 
@@ -231,7 +236,8 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    artifacts=None,
+    requirements_file=None,
+    extra_files=None,
     **kwargs
 ):
     """
@@ -292,23 +298,26 @@ def save_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
-                      are resolved to absolute filesystem paths, producing a dictionary of
-                      ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` parameter
-                      in :func:`PythonModel.load_context() <mlflow.pyfunc.PythonModel.load_context>`
-                      and :func:`PythonModel.predict() <mlflow.pyfunc.PythonModel.predict>`.
-                      For example, consider the following ``artifacts`` dictionary::
+    :param requirements_file: A string containing the path to requirements file. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``requirements_file`` string::
 
-                        {
-                            "my_file": "s3://my-bucket/path/to/my/file"
-                        }
+                      requirements_file = "s3://my-bucket/path/to/my_file"
 
-                      In this case, the ``"my_file"`` artifact is downloaded from S3. The
-                      ``python_model`` can then refer to ``"my_file"`` as an absolute filesystem
-                      path via ``context.artifacts["my_file"]``.
+                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
 
-                      If ``None``, no artifacts are added to the model.
+                      If ``None``, no requirements file is added to the model.
+
+    :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``extra_files`` list::
+
+                      extra_files = ["s3://my-bucket/path/to/my_file1",
+                                    "s3://my-bucket/path/to/my_file2"]
+
+                      In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+                      If ``None``, no extra files are added to the model.
 
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -367,19 +376,34 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
-    if artifacts:
-        if not isinstance(artifacts, dict):
-            raise TypeError("Argument artifacts should be a dict")
 
-        with TempDir() as tmp_artifacts_dir:
-            saved_artifacts_dir_subpath = "artifacts"
-            for _, artifact_uri in artifacts.items():
+    if requirements_file:
+        if not isinstance(requirements_file, str):
+            raise TypeError("Path to requirements file should be a string")
+
+        with TempDir() as tmp_requirements_dir:
+            saved_requirements_dir_subpath = "requirements"
+            _download_artifact_from_uri(
+                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
+            )
+            shutil.move(
+                tmp_requirements_dir.path(), posixpath.join(path, saved_requirements_dir_subpath)
+            )
+
+    if extra_files and len(extra_files) > 0:
+        if not isinstance(extra_files, list):
+            raise TypeError("Extra files argument should be a list")
+
+        with TempDir() as tmp_extra_files_dir:
+            saved_extra_files_dir_subpath = "artifacts"
+            for extra_file in extra_files:
                 _download_artifact_from_uri(
-                    artifact_uri=artifact_uri, output_path=tmp_artifacts_dir.path()
+                    artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
             shutil.move(
-                tmp_artifacts_dir.path(), posixpath.join(path, saved_artifacts_dir_subpath),
+                tmp_extra_files_dir.path(), posixpath.join(path, saved_extra_files_dir_subpath)
             )
+
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     conda_env_subpath = "conda.yaml"
