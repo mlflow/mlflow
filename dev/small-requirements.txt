@@ -24,4 +24,4 @@ xgboost>=0.82
 # Required by mlflow.lightgbm
 lightgbm==2.3.0
 # Required by mlflow.spark
-pyspark==2.4.0
+pyspark==3.0.0
