@@ -4,7 +4,7 @@ import pandas as pd
 
 def to_pandas_Xy(dataset):
     """
-    Extracts (data, target) from a scikit-learn dataset and returns them as a pandas DataFrame
+    Extracts `data` and `target` from a scikit-learn dataset and returns them as a pandas DataFrame
     and Series.
     """
     X = pd.DataFrame(dataset.data, columns=dataset.feature_names)
