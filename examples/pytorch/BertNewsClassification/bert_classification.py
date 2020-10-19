@@ -29,15 +29,35 @@ from mlflow.pytorch.pytorch_autolog import autolog
 
 class GPReviewDataset(Dataset):
     def __init__(self, reviews, targets, tokenizer, max_length):
+        """
+        Performs initialization of tokenizer
+
+        :param reviews: AG news text
+        :param targets: labels
+        :param tokenizer: bert tokenizer
+        :param max_length: maximum length of the news text
+
+        """
         self.reviews = reviews
         self.targets = targets
         self.tokenizer = tokenizer
         self.max_length = max_length
 
     def __len__(self):
+        """
+        :return: returns the number of datapoints in the dataframe
+
+        """
         return len(self.reviews)
 
     def __getitem__(self, item):
+        """
+        Returns the review text and the targets of the specified item
+
+        :param item: Index of sample review
+
+        :return: Returns the dictionary of review text, input ids, attention mask, targets
+        """
         review = str(self.reviews[item])
         target = self.targets[item]
 
@@ -62,6 +82,9 @@ class GPReviewDataset(Dataset):
 
 class BertDataModule(pl.LightningDataModule):
     def __init__(self, **kwargs):
+        """
+        Initialization of inherited lightning data module
+        """
         super(BertDataModule, self).__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
         self.df_train = None
@@ -77,14 +100,25 @@ class BertDataModule(pl.LightningDataModule):
         self.args = kwargs
 
     @staticmethod
-    def to_sentiment(rating):
+    def to_label(rating):
+        """
+        Returns the rating minus one to make it for zero position start
+        """
         rating = int(rating)
         return rating - 1
 
     def prepare_data(self):
+        """
+        Implementation of abstract class
+        """
         pass
 
     def setup(self, stage=None):
+        """
+        Downloads the data, parse it and split the data into train, test, validation data
+
+        :param stage: Stage - training or testing
+        """
         # reading  the input
         dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
         extracted_files = extract_archive(dataset_tar)
@@ -96,12 +130,11 @@ class BertDataModule(pl.LightningDataModule):
 
         df = pd.read_csv(train_csv_path)
 
-        df.columns = ["sentiment", "title", "description"]
+        df.columns = ["label", "title", "description"]
         df.sample(frac=1)
         df = df.iloc[:15000]
 
-        # setting sentiment
-        df["sentiment"] = df.sentiment.apply(self.to_sentiment)
+        df["label"] = df.label.apply(self.to_label)
 
         self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         sample_txt = "wall street seems to be down this whole year due to financial crisis"
@@ -136,6 +169,13 @@ class BertDataModule(pl.LightningDataModule):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
+        """
+        Returns the review text and the targets of the specified item
+
+        :param parent_parser: Application specific parser
+
+        :return: Returns the augmented arugument parser
+        """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
             "--batch-size",
@@ -154,9 +194,19 @@ class BertDataModule(pl.LightningDataModule):
         return parser
 
     def create_data_loader(self, df, tokenizer, max_len, batch_size):
+        """
+        Generic data loader function
+
+        :param df: Input dataframe
+        :param tokenizer: bert tokenizer
+        :param max_len: Max length of the news datapoint
+        :param batch_size: Batch size for training
+
+        :return: Returns the constructed dataloader
+        """
         ds = GPReviewDataset(
             reviews=df.description.to_numpy(),
-            targets=df.sentiment.to_numpy(),
+            targets=df.label.to_numpy(),
             tokenizer=tokenizer,
             max_length=max_len,
         )
@@ -166,27 +216,39 @@ class BertDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
+        """
+        :return: output - Train data loader for the given input
+        """
         self.train_data_loader = self.create_data_loader(
             self.df_train, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.train_data_loader
 
     def val_dataloader(self):
+        """
+        :return: output - Validation data loader for the given input
+        """
         self.val_data_loader = self.create_data_loader(
             self.df_val, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.val_data_loader
 
     def test_dataloader(self):
+        """
+        :return: output - Test data loader for the given input
+        """
         self.test_data_loader = self.create_data_loader(
             self.df_test, self.tokenizer, self.MAX_LEN, self.args["batch_size"]
         )
         return self.test_data_loader
 
 
-class BertSentinmentClassifier(pl.LightningModule):
+class BertNewsClassifier(pl.LightningModule):
     def __init__(self, **kwargs):
-        super(BertSentinmentClassifier, self).__init__()
+        """
+        Initializes the network, optimizer and scheduler
+        """
+        super(BertNewsClassifier, self).__init__()
         self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         self.drop = nn.Dropout(p=0.3)
@@ -199,6 +261,12 @@ class BertSentinmentClassifier(pl.LightningModule):
         self.args = kwargs
 
     def forward(self, input_ids, attention_mask):
+        """
+        :param input_ids: Input data
+        :param attention_maks: Attention mask value
+
+        :return: output - Type of news for the given news snippet
+        """
         _, pooled_output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
         output = self.drop(pooled_output)
         F.softmax(output, dim=1)
@@ -206,6 +274,13 @@ class BertSentinmentClassifier(pl.LightningModule):
 
     @staticmethod
     def add_model_specific_args(parent_parser):
+        """
+        Returns the review text and the targets of the specified item
+
+        :param parent_parser: Application specific parser
+
+        :return: Returns the augmented arugument parser
+        """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
             "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
@@ -213,7 +288,14 @@ class BertSentinmentClassifier(pl.LightningModule):
         return parser
 
     def training_step(self, train_batch, batch_idx):
-        """training the data as batches and returns training loss on each batch"""
+        """
+        Training the data as batches and returns training loss on each batch
+
+        :param train_batch: Batch data
+        :param batch_idx: Batch indices
+
+        :return: output - Training loss
+        """
         input_ids = train_batch["input_ids"].to(self.device)
         attention_mask = train_batch["attention_mask"].to(self.device)
         targets = train_batch["targets"].to(self.device)
@@ -222,7 +304,14 @@ class BertSentinmentClassifier(pl.LightningModule):
         return {"loss": loss}
 
     def test_step(self, test_batch, batch_idx):
-        """Performs test and computes the accuracy of the model"""
+        """
+        Performs test and computes the accuracy of the model
+
+        :param test_batch: Batch data
+        :param batch_idx: Batch indices
+
+        :return: output - Testing accuracy
+        """
         input_ids = test_batch["input_ids"].to(self.device)
         attention_mask = test_batch["attention_mask"].to(self.device)
         targets = test_batch["targets"].to(self.device)
@@ -232,7 +321,15 @@ class BertSentinmentClassifier(pl.LightningModule):
         return {"test_acc": torch.tensor(test_acc)}
 
     def validation_step(self, val_batch, batch_idx):
-        """ Performs validation of data in batches"""
+        """
+        Performs validation of data in batches
+
+        :param val_batch: Batch data
+        :param batch_idx: Batch indices
+
+        :return: output - valid step loss
+        """
+
         input_ids = val_batch["input_ids"].to(self.device)
         attention_mask = val_batch["attention_mask"].to(self.device)
         targets = val_batch["targets"].to(self.device)
@@ -241,16 +338,33 @@ class BertSentinmentClassifier(pl.LightningModule):
         return {"val_step_loss": loss}
 
     def validation_epoch_end(self, outputs):
-        """ Computes average validation accuracy"""
+        """
+        Computes average validation accuracy
+
+        :param outputs: outputs after every epoch end
+
+        :return: output - average valid loss
+        """
         avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
         self.log("val_loss", avg_loss)
 
     def test_epoch_end(self, outputs):
-        """Computes average test accuracy score"""
+        """
+        Computes average test accuracy score
+
+        :param outputs: outputs after every epoch end
+
+        :return: output - average test loss
+        """
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         self.log("avg_test_acc", avg_test_acc)
 
     def configure_optimizers(self):
+        """
+        Initializes the optimizer and learning rate scheduler
+
+        :return: output - Initialized optimizer and scheduler
+        """
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -261,6 +375,11 @@ class BertSentinmentClassifier(pl.LightningModule):
         return [self.optimizer], [self.scheduler]
 
     def cross_entropy_loss(self):
+        """
+        Initializes the loss function
+
+        :return: output - Initialized cross entropy loss function
+        """
         return nn.CrossEntropyLoss().to(self.device)
 
     def optimizer_step(
@@ -274,12 +393,19 @@ class BertSentinmentClassifier(pl.LightningModule):
         using_lbfgs=False,
         using_native_amp=False,
     ):
+        """
+        Training step function which runs for the given number of epochs
+
+        :param epoch: Number of epochs to train
+        :param batch_idx: batch indices
+        :param optimizer: Optimizer to be used in training step
+        """
         self.optimizer.step()
         self.optimizer.zero_grad()
 
 
 if __name__ == "__main__":
-    parser = ArgumentParser(description="Bert-Sentiment Classifier Example")
+    parser = ArgumentParser(description="Bert-News Classifier Example")
 
     # Add trainer specific arguments
     parser.add_argument(
@@ -294,7 +420,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--accelerator", type=str, default=None, help="Distributed Backend - (default: None)",
     )
-    parser = BertSentinmentClassifier.add_model_specific_args(parent_parser=parser)
+    parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
 
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
 
@@ -308,7 +434,7 @@ if __name__ == "__main__":
     dm.prepare_data()
     dm.setup(stage="fit")
 
-    model = BertSentinmentClassifier(**dict_args)
+    model = BertNewsClassifier(**dict_args)
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", verbose=True)
 
     checkpoint_callback = ModelCheckpoint(
