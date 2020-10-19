@@ -16,8 +16,7 @@ def show_image(path):
     """
     Reads an image from a file and shows it.
     """
-    img = plt.imread(path)
-    plt.imshow(img)
+    plt.imshow(plt.imread(path))
     plt.axis("off")
     plt.tight_layout()
     plt.show()
