@@ -5,11 +5,11 @@ from sklearn.datasets import load_breast_cancer
 from sklearn.ensemble import RandomForestClassifier
 
 import mlflow
-from utils import to_dataframe, show_image
+from utils import to_pandas_Xy, show_image
 
 
 # prepare training data
-X, y = to_dataframe(load_breast_cancer())
+X, y = to_pandas_Xy(load_breast_cancer())
 X = X.iloc[:50, :8]
 y = y.iloc[:50]
 
