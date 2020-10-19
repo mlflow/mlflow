@@ -19,10 +19,10 @@ jobs:
           git fetch origin master:master
         fi
 
-        REGEXP="tests/examples\|examples\|Dockerfile\$"
+        REGEXP="tests/examples\|examples\|Dockerfile\|\.dockerignore\$"
         CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
         EXAMPLES_CHANGED=$([[ "$CHANGED_FILES" == *"examples"* ]] && echo "true" || echo "false")
-        DOCKER_CHANGED=$([[ "$CHANGED_FILES" == *"Dockerfile"* ]] && echo "true" || echo "false")
+        DOCKER_CHANGED=$([[ ("$CHANGED_FILES" == *"Dockerfile"*) || ("$CHANGED_FILES" == *".dockerignore"*) ]] && echo "true" || echo "false")
 
         echo "CHANGED_FILES:"
         echo "$CHANGED_FILES"
@@ -35,6 +35,7 @@ jobs:
     - name: Run example tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
+        INSTALL_SMALL_PYTHON_DEPS: true
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh

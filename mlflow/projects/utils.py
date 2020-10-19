@@ -2,10 +2,10 @@ import logging
 import os
 import re
 import tempfile
+import urllib.parse
 
 
 from distutils import dir_util
-from six.moves import urllib
 
 import mlflow.utils
 from mlflow.utils import databricks_utils

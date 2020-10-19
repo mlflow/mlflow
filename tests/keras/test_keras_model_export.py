@@ -101,7 +101,7 @@ def custom_layer():
     class MyDense(Layer):
         def __init__(self, output_dim, **kwargs):
             self.output_dim = output_dim
-            super(MyDense, self).__init__(**kwargs)
+            super().__init__(**kwargs)
 
         def build(self, input_shape):
             # pylint: disable=attribute-defined-outside-init
@@ -111,7 +111,7 @@ def custom_layer():
                 initializer="uniform",
                 trainable=True,
             )
-            super(MyDense, self).build(input_shape)
+            super().build(input_shape)
 
         def call(self, x):
             # pylint: disable=arguments-differ

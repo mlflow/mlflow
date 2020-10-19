@@ -64,6 +64,7 @@ def sk_model(iris_data):
     return knn_model
 
 
+@pytest.mark.large
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
     if no_conda:
         pytest.skip("This test needs conda.")
@@ -114,6 +115,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         assert all(expected == actual)
 
 
+@pytest.mark.large
 def test_mlflow_is_not_installed_unless_specified():
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -138,6 +140,7 @@ def test_mlflow_is_not_installed_unless_specified():
             assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
 
 
+@pytest.mark.large
 def test_model_with_no_deployable_flavors_fails_pollitely():
     from mlflow.models import Model
 
