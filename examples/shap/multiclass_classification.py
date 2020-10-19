@@ -18,7 +18,7 @@ model.fit(X, y)
 
 # log an explanation
 with mlflow.start_run() as run:
-    mlflow.shap.log_explanation(model.predict, X)
+    mlflow.shap.log_explanation(model.predict_proba, X)
 
 # list artifacts
 client = mlflow.tracking.MlflowClient()
