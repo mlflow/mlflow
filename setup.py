@@ -87,12 +87,8 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
         ],
-        "sqlserver": [
-            "mlflow-dbstore",
-        ],
-        "aliyun-oss": [
-            "aliyunstoreplugin",
-        ],
+        "sqlserver": ["mlflow-dbstore",],
+        "aliyun-oss": ["aliyunstoreplugin",],
     },
     entry_points="""
         [console_scripts]
@@ -103,10 +99,7 @@ setup(
     description="MLflow: An ML Workflow Tool",
     long_description=open("README.rst").read(),
     license="Apache License 2.0",
-    classifiers=[
-        "Intended Audience :: Developers",
-        "Programming Language :: Python :: 3.6",
-    ],
+    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6",],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
     python_requires=">=3.5",
