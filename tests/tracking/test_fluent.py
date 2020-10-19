@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from unittest import mock
+import wrapt
 
 import mlflow
 import mlflow.tracking.context.registry
@@ -42,8 +43,14 @@ from mlflow.tracking.fluent import (
 )
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
-
-# pylint: disable=unused-argument
+import tensorflow
+import keras
+import fastai
+import sklearn
+import xgboost
+import lightgbm
+import mxnet.gluon
+import pyspark
 
 
 class HelperEnv:
@@ -686,13 +693,13 @@ def test_delete_tag():
 
 
 library_to_mlflow_module_without_pyspark = {
-    "tensorflow": "tensorflow",
-    "keras": "keras",
-    "fastai": "fastai",
-    "sklearn": "sklearn",
-    "xgboost": "xgboost",
-    "lightgbm": "lightgbm",
-    "mxnet.gluon": "gluon",
+    tensorflow: "tensorflow",
+    keras: "keras",
+    fastai: "fastai",
+    sklearn: "sklearn",
+    xgboost: "xgboost",
+    lightgbm: "lightgbm",
+    mxnet.gluon: "gluon",
 }
 
 library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, "pyspark": "spark"}
@@ -704,12 +711,6 @@ def reset_global_states():
 
     for integration_name in library_to_mlflow_module.keys():
         try:
-            for module in sys.modules:
-                if module.startswith(integration_name):
-                    del sys.modules[integration_name]
-        except Exception:
-            pass
-        try:
             del wrapt.importer._post_import_hooks[integration_name]
         except Exception:
             pass
@@ -718,38 +719,47 @@ def reset_global_states():
 
     for integration_name in library_to_mlflow_module.keys():
         try:
-            for module in sys.modules:
-                if module.startswith(integration_name):
-                    del sys.modules[integration_name]
-        except Exception:
-            pass
-        try:
             del wrapt.importer._post_import_hooks[integration_name]
         except Exception:
             pass
 
 
+# We create a fake wrapt.register_post_import_hook, that only adds the hook to the map.
+# Otherwise, the default implementation would see that the respective module (e.g. xgboost)
+#   was already imported (at the top of this file) and thus fire immediately.
+# Basically, we are pretending the module is not already imported, and is only imported
+#   when we call wrapt.notify_module_loaded in the tests below.
+def only_register(callback_fn, module):
+    wrapt.importer._post_import_hooks[module] = [callback_fn]
+
+
+@pytest.fixture(autouse=True)
+def disable_new_import_hook_firing_if_module_already_exists():
+    import wrapt
+
+    with mock.patch("wrapt.register_post_import_hook", wraps=only_register):
+        yield
+
+
 @pytest.mark.large
-@pytest.mark.parametrize("library_name,mlflow_module", library_to_mlflow_module.items())
-def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library_name, mlflow_module):
+@pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
+def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, mlflow_module):
     with mock.patch("mlflow." + mlflow_module + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
-        importlib.__import__(library_name)
+        wrapt.notify_module_loaded(library)
         autolog_mock.assert_called_once()
 
 
 @pytest.mark.large
-@pytest.mark.parametrize(
-    "library_name,mlflow_module", library_to_mlflow_module_without_pyspark.items()
-)
-def test_universal_autolog_calls_specific_autologs_correctly(library_name, mlflow_module):
-    integrations_with_config = ["xgboost", "lightgbm", "sklearn"]
+@pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module_without_pyspark.items())
+def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
+    integrations_with_config = [xgboost, lightgbm, sklearn]
 
     # modify the __signature__ of the mock to contain the needed parameters
     args = (
         {"log_input_example": bool, "log_model_signature": bool}
-        if library_name in integrations_with_config
+        if library in integrations_with_config
         else {}
     )
     params = [
@@ -768,10 +778,10 @@ def test_universal_autolog_calls_specific_autologs_correctly(library_name, mlflo
 
         autolog_mock.assert_not_called()
 
-        importlib.__import__(library_name)
+        wrapt.notify_module_loaded(library)
 
         # after each library is imported, its corresponding autolog function should have been called
-        if library_name in integrations_with_config:
+        if library in integrations_with_config:
             autolog_mock.assert_called_once_with(log_input_example=True, log_model_signature=True)
         else:
             autolog_mock.assert_called_once_with()
@@ -779,7 +789,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library_name, mlflo
 
 @pytest.mark.large
 def test_universal_autolog_calls_pyspark_immediately():
-    library_name = "pyspark"
+    library = pyspark
     mlflow_module = "spark"
 
     with mock.patch(
@@ -794,13 +804,13 @@ def test_universal_autolog_calls_pyspark_immediately():
         autolog_mock.assert_called_once_with()
 
         # there should also be no import hook on pyspark
-        importlib.__import__(library_name)
+        wrapt.notify_module_loaded(library)
         autolog_mock.assert_called_once_with()
 
 
 @pytest.mark.large
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed():
-    library_name = "pyspark"
+    library = pyspark
     mlflow_module = "spark"
 
     with mock.patch(
@@ -815,7 +825,7 @@ def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installe
         # now the user installs pyspark
         autolog_mock.side_effect = None
 
-        importlib.__import__("pyspark")
+        wrapt.notify_module_loaded(library)
 
         # assert autolog is called again once pyspark is imported
         assert autolog_mock.call_count == 2
