@@ -129,7 +129,7 @@ class FileStore(AbstractStore):
         """
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
-        super(FileStore, self).__init__()
+        super().__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)

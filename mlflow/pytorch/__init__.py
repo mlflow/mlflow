@@ -152,7 +152,7 @@ def log_model(
         # https://github.com/hunkim/PyTorchZeroToAll
         class Model(torch.nn.Module):
             def __init__(self):
-               super(Model, self).__init__()
+               super().__init__()
                self.linear = torch.nn.Linear(1, 1)  # One in and one out
             def forward(self, x):
                 y_pred = self.linear(x)

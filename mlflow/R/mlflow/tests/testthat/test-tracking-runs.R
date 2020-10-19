@@ -2,6 +2,7 @@ context("Tracking")
 
 teardown({
   mlflow_clear_test_dir("mlruns")
+  options(MLflowObservers = NULL)
 })
 
 test_that("mlflow_start_run()/mlflow_get_run() work properly", {
@@ -576,4 +577,45 @@ test_that("mlflow_log_batch() throws for missing entries", {
     ),
     regexp = error_text_regexp
   )
+})
+
+test_that("mlflow observers receive tracking event callbacks", {
+  num_observers <- 3L
+  tracking_events <- rep(list(list()), num_observers)
+  lapply(
+    seq_along(tracking_events),
+    function(idx) {
+      observer <- structure(list(
+        register_tracking_event = function(event_name, data) {
+          tracking_events[[idx]][[event_name]] <<- append(
+            tracking_events[[idx]][[event_name]], list(data)
+          )
+        }
+      ))
+      mlflow_register_external_observer(observer)
+    }
+  )
+  client <- mlflow_client()
+  experiment_id <- "0"
+  run <- mlflow_start_run(client = client, experiment_id = experiment_id)
+  mlflow_set_experiment(experiment_id = experiment_id)
+  expect_equal(length(tracking_events), num_observers)
+  for (idx in seq(num_observers)) {
+    expect_equal(
+      tracking_events[[idx]]$create_run[[1]]$experiment_id,
+      experiment_id
+    )
+    expect_equal(
+      tracking_events[[idx]]$active_experiment_id[[1]]$experiment_id,
+      experiment_id
+    )
+  }
+
+  mlflow_end_run(client = client, run_id = run$run_uuid)
+  expect_equal(length(tracking_events), num_observers)
+  for (idx in seq(num_observers)) {
+    expect_equal(
+      tracking_events[[idx]]$set_terminated[[1]]$run_uuid, run$run_uuid
+    )
+  }
 })

@@ -505,7 +505,7 @@ class Endpoint(TimestampedResource):
         :param latest_operation: The most recent operation that was invoked on the endpoint,
                                  represented as an EndpointOperation object.
         """
-        super(Endpoint, self).__init__()
+        super().__init__()
         self.endpoint_name = endpoint_name
         self.config_name = config_name
         self.tags = tags
@@ -637,7 +637,7 @@ class EndpointConfig(TimestampedResource):
     """
 
     def __init__(self, config_name, production_variants, tags):
-        super(EndpointConfig, self).__init__()
+        super().__init__()
         self.config_name = config_name
         self.production_variants = production_variants
         self.tags = tags
@@ -696,7 +696,7 @@ class Model(TimestampedResource):
     """
 
     def __init__(self, model_name, primary_container, execution_role_arn, tags, vpc_config):
-        super(Model, self).__init__()
+        super().__init__()
         self.model_name = model_name
         self.primary_container = primary_container
         self.execution_role_arn = execution_role_arn

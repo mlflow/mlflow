@@ -3,8 +3,6 @@
 ##
 # Required by mlflow.azureml
 azureml-sdk==1.2.0; python_version >= "3.0"
-# Required by mlflow.pyfunc
-cloudpickle==1.6.0
 # Required by mlflow.keras
 keras==2.3.1
 # Required by mlflow.sklearn
@@ -35,4 +33,5 @@ onnxruntime==0.3.0;
 mleap==0.16.0
 # Required by mlflow.spark
 pyspark==2.4.0
-
+# Required by mlflow.shap
+shap
