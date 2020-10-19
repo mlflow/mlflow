@@ -704,7 +704,9 @@ def reset_global_states():
 
     for integration_name in library_to_mlflow_module.keys():
         try:
-            del sys.modules[integration_name]
+            for module in sys.modules:
+                if module.startswith(integration_name):
+                    del sys.modules[integration_name]
         except Exception:
             pass
         try:
@@ -716,7 +718,9 @@ def reset_global_states():
 
     for integration_name in library_to_mlflow_module.keys():
         try:
-            del sys.modules[integration_name]
+            for module in sys.modules:
+                if module.startswith(integration_name):
+                    del sys.modules[integration_name]
         except Exception:
             pass
         try:
