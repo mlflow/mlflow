@@ -136,9 +136,9 @@ def log_explanation(predict_function, features, artifact_path=None):
         base_values = np.load(os.path.join(dst_path, "base_values.npy"))
         shap_values = np.load(os.path.join(dst_path, "shap_values.npy"))
 
-        print("\n# base_values")
+        print("\n# base_values:")
         print(base_values)
-        print("\n# shap_values")
+        print("\n# shap_values:")
         print(shap_values[:3])
 
     .. code-block:: text
