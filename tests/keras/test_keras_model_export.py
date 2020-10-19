@@ -547,7 +547,8 @@ def test_model_load_h5(
     Keras has standardized on the SavedModel format, but this requires a filepath without the "h5" file extension.
     However, models which were saved in earlier versions of mlflow were always saved with h5 file extension.
     """
-    mlflow.keras.save_model(keras_model=model, path=model_path, keras_module=tf.keras)
+    kwargs = {} if StrictVersion(tf.__version__) < StrictVersion('2.3.1') else {'save_format': "h5"}
+    mlflow.keras.save_model(keras_model=model, path=model_path, keras_module=tf.keras, **kwargs)
     # Here we add the h5 file extension to test backwards compatibility
     shutil.move(os.path.join(model_path, "data/model"), os.path.join(model_path, "data/model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
