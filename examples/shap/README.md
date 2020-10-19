@@ -1,6 +1,6 @@
 # SHAP Examples
 
-Examples for the SHAP integration (`mlflow.shap`).
+Examples demonstrating use of the ``mlflow.shap`` APIs for model explainability
 
 | File                                                         | Task                      | Description                                                    |
 | :----------------------------------------------------------- | :------------------------ | :------------------------------------------------------------- |
