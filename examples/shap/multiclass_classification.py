@@ -3,9 +3,10 @@ import os
 import numpy as np
 from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
+import shap
 
 import mlflow
-from utils import to_pandas_Xy, show_image
+from utils import to_pandas_Xy
 
 
 # prepare training data
@@ -32,10 +33,5 @@ dst_path = client.download_artifacts(run.info.run_id, artifact_path)
 base_values = np.load(os.path.join(dst_path, "base_values.npy"))
 shap_values = np.load(os.path.join(dst_path, "shap_values.npy"))
 
-print("\n# base_values")
-print(base_values)
-print("\n# shap_values")
-print(shap_values[:3])
-
-# show the summary bar plot
-show_image(os.path.join(dst_path, "summary_bar_plot.png"))
+# show a force plot
+shap.force_plot(base_values[0], shap_values[0, 0, :], X.iloc[0, :], matplotlib=True)

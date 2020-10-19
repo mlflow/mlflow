@@ -10,13 +10,3 @@ def to_pandas_Xy(dataset):
     X = pd.DataFrame(dataset.data, columns=dataset.feature_names)
     y = pd.Series(dataset.target, name="target")
     return X, y
-
-
-def show_image(path):
-    """
-    Reads an image from a file and shows it.
-    """
-    plt.imshow(plt.imread(path))
-    plt.axis("off")
-    plt.tight_layout()
-    plt.show()
