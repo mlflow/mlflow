@@ -1,5 +1,6 @@
 # pylint: disable=W0221
 # pylint: disable=W0613
+# pylint: disable=W0223
 import pytorch_lightning as pl
 from pytorch_lightning.metrics.functional import accuracy
 from sklearn.datasets import load_iris
