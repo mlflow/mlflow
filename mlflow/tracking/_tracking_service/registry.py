@@ -17,7 +17,7 @@ class TrackingStoreRegistry(StoreRegistry):
     """
 
     def __init__(self):
-        super(TrackingStoreRegistry, self).__init__("mlflow.tracking_store")
+        super().__init__("mlflow.tracking_store")
 
     def get_store(self, store_uri=None, artifact_uri=None):
         """Get a store from the registry based on the scheme of store_uri

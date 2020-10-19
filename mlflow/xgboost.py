@@ -42,6 +42,9 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
+    resolve_input_example_and_signature,
+    _InputExampleInfo,
+    ENSURE_AUTOLOGGING_ENABLED_TEXT,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -279,7 +282,9 @@ class _XGBModelWrapper:
 
 
 @experimental
-def autolog(importance_types=["weight"]):  # pylint: disable=W0102
+def autolog(
+    importance_types=["weight"], log_input_example=False, log_model_signature=True
+):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
@@ -294,15 +299,14 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
     Note that the `scikit-learn API`_ is not supported.
 
     :param importance_types: importance types to log.
-
+    :param log_input_example: if True, logs a sample of the training data as part of the model
+                              as an example for future reference. If False, no sample is logged.
+    :param log_model_signature: if True, records the type signature of the inputs and outputs as
+                                part of the model. If False, the signature is not recorded to the
+                                model.
     """
     import xgboost
     import numpy as np
-
-    class _InputExampleInfo:
-        def __init__(self, input_example=None, error_msg=None):
-            self.input_example = input_example
-            self.error_msg = error_msg
 
     # Patching this function so we can get a copy of the data given to DMatrix.__init__
     #   to use as an input example and for inferring the model signature.
@@ -317,7 +321,7 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
             try:
                 if isinstance(data, str):
                     raise Exception(
-                        "cannot gather example input when " + "dataset is loaded from a file."
+                        "cannot gather example input when dataset is loaded from a file."
                     )
 
                 input_example_info = _InputExampleInfo(
@@ -465,30 +469,29 @@ def autolog(importance_types=["weight"]):  # pylint: disable=W0102
         # dtrain must exist as the original train function already ran successfully
         dtrain = args[1] if len(args) > 1 else kwargs.get("dtrain")
 
-        input_example = None
-        signature = None
-        try:
-            # it is possible that the dataset was constructed before the patched
-            #   constructor was applied, so we cannot assume the input_example_info exists
-            input_example_info = getattr(dtrain, "input_example_info", None)
+        # it is possible that the dataset was constructed before the patched
+        #   constructor was applied, so we cannot assume the input_example_info exists
+        input_example_info = getattr(dtrain, "input_example_info", None)
 
+        def get_input_example():
             if input_example_info is None:
-                raise Exception(
-                    "please ensure that autologging is "
-                    + "enabled before constructing the dataset."
-                )
-
-            input_example = input_example_info.input_example
-            if input_example is None:
-                # input example collection failed
+                raise Exception(ENSURE_AUTOLOGGING_ENABLED_TEXT)
+            if input_example_info.error_msg is not None:
                 raise Exception(input_example_info.error_msg)
+            return input_example_info.input_example
 
+        def infer_model_signature(input_example):
             model_output = model.predict(xgboost.DMatrix(input_example))
-            signature = infer_signature(input_example, model_output)
-        except Exception as e:  # pylint: disable=broad-except
-            input_example = None
-            msg = "Failed to gather example input and model signature: " + str(e)
-            _logger.warning(msg)
+            model_signature = infer_signature(input_example, model_output)
+            return model_signature
+
+        input_example, signature = resolve_input_example_and_signature(
+            get_input_example,
+            infer_model_signature,
+            log_input_example,
+            log_model_signature,
+            _logger,
+        )
 
         try_mlflow_log(
             log_model,

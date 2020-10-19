@@ -2,7 +2,7 @@ import os
 import sys
 
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -69,7 +69,7 @@ class SFTPArtifactRepository(ArtifactRepository):
 
             self.sftp = pysftp.Connection(**self.config)
 
-        super(SFTPArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path

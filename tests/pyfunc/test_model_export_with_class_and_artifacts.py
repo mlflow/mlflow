@@ -50,7 +50,7 @@ def get_model_class():
             self.predict_fn = predict_fn
 
         def load_context(self, context):
-            super(CustomSklearnModel, self).load_context(context)
+            super().load_context(context)
             # pylint: disable=attribute-defined-outside-init
             self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
 

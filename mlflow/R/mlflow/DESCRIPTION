@@ -45,7 +45,7 @@ Suggests:
   carrier,
   keras,
   lintr,
-  testthat,
+  testthat (>= 2.0.0),
   stringi (< 1.4.4),
   xgboost,
   h2o
@@ -73,6 +73,7 @@ Collate:
     'python.R'
     'tracking-client.R'
     'tracking-experiments.R'
+    'tracking-observer.R'
     'tracking-globals.R'
     'tracking-rest.R'
     'tracking-runs.R'
