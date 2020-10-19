@@ -725,11 +725,10 @@ def reset_global_states():
             pass
 
 
-# We create a fake wrapt.register_post_import_hook, that only adds the hook to the map.
-# Otherwise, the default implementation would see that the respective module (e.g. xgboost)
-#   was already imported (at the top of this file) and thus fire immediately.
-# Basically, we are pretending the module is not already imported, and is only imported
-#   when we call wrapt.notify_module_loaded in the tests below.
+# We are pretending the module is not already imported (in reality it is, at the top of this file),
+#   and is only imported when we call wrapt.notify_module_loaded in the tests below. Normally,
+#   notify_module_loaded would be called by register_post_import_hook if it sees that the module
+#   is already loaded.
 def only_register(callback_fn, module):
     wrapt.importer._post_import_hooks[module] = [callback_fn]
 
