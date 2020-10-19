@@ -56,10 +56,7 @@ def get_sagemaker_backend(region_name):
 
 
 def mock_sagemaker_aws_services(fn):
-    # Import `wraps` from `six` instead of `functools` to properly set the
-    # wrapped function's `__wrapped__` attribute to the required value
-    # in Python 2
-    from six import wraps
+    from functools import wraps
     from moto import mock_s3, mock_ecr, mock_sts, mock_iam
 
     @mock_ecr

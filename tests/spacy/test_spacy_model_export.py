@@ -4,7 +4,6 @@ from collections import namedtuple
 
 import pandas as pd
 import pytest
-import six
 import spacy
 import yaml
 from spacy.util import compounding, minibatch
@@ -297,7 +296,7 @@ def _get_train_test_dataset(cats_to_fetch, limit=100):
     X = newsgroups.data[:limit]
     y = newsgroups.target[:limit]
 
-    X = [six.text_type(x) for x in X]  # Ensure all strings to unicode for python 2.7 compatibility
+    X = [str(x) for x in X]  # Ensure all strings to unicode for python 2.7 compatibility
 
     # Category 0 comp-graphic, 1 rec.sport baseball. We can threat it as a binary class.
     cats = [{"comp.graphics": not bool(el), "rec.sport.baseball": bool(el)} for el in y]

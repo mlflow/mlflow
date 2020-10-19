@@ -13,7 +13,7 @@ from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.entities import RunStatus
 
 from shlex import split
-from six.moves import shlex_quote as quote
+from shlex import quote
 
 _logger = logging.getLogger(__name__)
 
