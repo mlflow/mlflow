@@ -87,7 +87,7 @@ def pytorch_model_with_callback(patience):
 
     trainer = pl.Trainer(
         max_epochs=NUM_EPOCHS * 2,
-        early_stop_callback=early_stopping,
+        callbacks=[early_stopping],
         checkpoint_callback=checkpoint_callback,
     )
     trainer.fit(model)

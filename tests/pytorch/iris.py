@@ -1,6 +1,6 @@
 # pylint: disable=W0221
 import pytorch_lightning as pl
-from sklearn.metrics import accuracy_score
+from pytorch_lightning.metrics.functional import accuracy
 from sklearn.datasets import load_iris
 import torch
 import torch.nn as nn
@@ -53,7 +53,7 @@ class IrisClassification(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=0.02)
 
-    def training_step(self, batch):
+    def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
@@ -61,7 +61,7 @@ class IrisClassification(pl.LightningModule):
         logs = {"loss": loss}
         return {"loss": loss, "log": logs}
 
-    def validation_step(self, batch):
+    def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y)
@@ -69,23 +69,20 @@ class IrisClassification(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        return {"val_loss": avg_loss}
+        self.log("val_loss", avg_loss)
 
-    def test_step(self, batch):
+    def test_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y)
         _, y_hat = torch.max(logits, dim=1)
-        test_acc = accuracy_score(y_hat.cpu(), y.cpu())
-        return {"test_loss": loss, "test_acc": torch.Tensor(test_acc)}
+        test_acc = accuracy(y_hat.cpu(), y.cpu())
+        self.log("test_loss", loss)
+        self.log("test_acc", test_acc)
+        return {"test_loss": loss, "test_acc": test_acc}
 
     def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
-        logs = {"test_loss": avg_loss, "test_acc": avg_test_acc}
-        return {
-            "avg_test_loss": avg_loss,
-            "avg_test_acc": avg_test_acc,
-            "log": logs,
-            "progress_bar": logs,
-        }
+        self.log("avg_test_loss", avg_loss)
+        self.log("avg_test_acc", avg_test_acc)
