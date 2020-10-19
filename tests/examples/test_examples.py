@@ -109,6 +109,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("sklearn_autolog", ["python", "pipeline.py"]),
         ("sklearn_autolog", ["python", "grid_search_cv.py"]),
         ("shap", ["python", "regression.py"]),
+        ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
     ],
 )
