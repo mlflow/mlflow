@@ -15,3 +15,17 @@ Run the following command to install required packages:
 ```
 pip install mlflow scikit-learn shap matplotlib
 ```
+
+## How to run the scripts
+
+```bash
+python <script_name>
+```
+
+## How to view the logged explanations:
+
+- Run `mlflow ui` to launch the MLflow UI.
+- Open http://127.0.0.1:5000 on your browser.
+- Click the latest run in the runs table.
+- Scroll down to the artifact viewer.
+- Open a folder named `model_explanations_shap`.
