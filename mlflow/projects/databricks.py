@@ -8,7 +8,7 @@ import time
 import logging
 import posixpath
 
-from six.moves import shlex_quote
+from shlex import quote as shlex_quote
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
