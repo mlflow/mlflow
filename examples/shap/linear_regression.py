@@ -1,16 +1,17 @@
 import os
 
 import numpy as np
-import pandas as pd
 from sklearn.datasets import load_boston
 from sklearn.linear_model import LinearRegression
 
 import mlflow
+from utils import to_dataframe, show_image
+
 
 # prepare training data
-dataset = load_boston()
-X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
-y = dataset.target[:50]
+X, y = to_dataframe(load_boston())
+X = X.iloc[:50, :8]
+y = y.iloc[:50]
 
 # train a model
 model = LinearRegression()
@@ -36,3 +37,6 @@ print("\n# base_values")
 print(base_values)
 print("\n# shap_values")
 print(shap_values[:3])
+
+# show the summary bar plot
+show_image(os.path.join(dst_path, "summary_bar_plot.png"))
