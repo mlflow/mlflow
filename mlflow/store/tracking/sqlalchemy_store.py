@@ -100,7 +100,7 @@ class SqlAlchemyStore(AbstractStore):
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
-        super(SqlAlchemyStore, self).__init__()
+        super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root

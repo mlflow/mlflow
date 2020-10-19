@@ -356,7 +356,7 @@ class DatabricksSubmittedRun(SubmittedRun):
     POLL_STATUS_INTERVAL = 30
 
     def __init__(self, databricks_run_id, mlflow_run_id, databricks_job_runner):
-        super(DatabricksSubmittedRun, self).__init__()
+        super().__init__()
         self._databricks_run_id = databricks_run_id
         self._mlflow_run_id = mlflow_run_id
         self._job_runner = databricks_job_runner

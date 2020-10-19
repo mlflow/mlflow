@@ -59,7 +59,7 @@ class MlflowException(Exception):
             self.error_code = ErrorCode.Name(INTERNAL_ERROR)
         self.message = message
         self.json_kwargs = kwargs
-        super(MlflowException, self).__init__(message)
+        super().__init__(message)
 
     def serialize_as_json(self):
         exception_dict = {"error_code": self.error_code, "message": self.message}
@@ -79,7 +79,7 @@ class RestException(MlflowException):
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
         )
-        super(RestException, self).__init__(message, error_code=ErrorCode.Value(error_code))
+        super().__init__(message, error_code=ErrorCode.Value(error_code))
         self.json = json
 
 

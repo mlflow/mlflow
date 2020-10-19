@@ -25,7 +25,7 @@ class RegisteredModel(_ModelRegistryEntity):
         tags=None,
     ):
         # Constructor is called only from within the system by various backend stores.
-        super(RegisteredModel, self).__init__()
+        super().__init__()
         self._name = name
         self._creation_time = creation_timestamp
         self._last_updated_timestamp = last_updated_timestamp

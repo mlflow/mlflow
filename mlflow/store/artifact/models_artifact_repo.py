@@ -21,7 +21,7 @@ class ModelsArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        super(ModelsArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
         uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
         #  we don't get a download URI here, or fail during the download itself.
