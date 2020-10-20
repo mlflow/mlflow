@@ -456,7 +456,7 @@ def _load_pyfunc(path):
         import keras
 
         keras_module = keras
-    
+
     # By default, we assume the save_format is h5 for backwards compatibility
     save_format = "h5"
     save_format_path = os.path.join(path, _KERAS_SAVE_FORMAT_PATH)
@@ -475,7 +475,9 @@ def _load_pyfunc(path):
             with graph.as_default():
                 with sess.as_default():  # pylint:disable=not-context-manager
                     K.set_learning_phase(0)
-                    m = _load_model(path, keras_module=keras_module, save_format=save_format, compile=False)
+                    m = _load_model(
+                        path, keras_module=keras_module, save_format=save_format, compile=False
+                    )
                     return _KerasModelWrapper(m, graph, sess)
         else:
             K.set_learning_phase(0)
