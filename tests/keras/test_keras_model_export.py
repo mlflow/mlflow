@@ -526,7 +526,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
 
 def test_save_model_with_tf_save_format(model_path):
     """Ensures that Keras models can be saved with SavedModel format.
-    
+
     Using SavedModel format (save_format="tf") requires that the file extension
     is _not_ "h5".
     """
@@ -538,17 +538,18 @@ def test_save_model_with_tf_save_format(model_path):
     # Ensure that the saved model does not have h5 extension
     assert not args[0].endswith(".h5")
 
+
 @pytest.mark.large
-def test_model_load_h5(
-    model, model_path, data, predicted
-):
-    """Test that models previously saved with h5 format can still be loaded, for backwards compatibility.
-    
-    Keras has standardized on the SavedModel format, but this requires a filepath without the "h5" file extension.
-    However, models which were saved in earlier versions of mlflow were always saved with h5 file extension.
+def test_model_load_h5(model, model_path, data, predicted):
+    """Test that models previously saved with h5 format can still be loaded.
+
+    Keras has standardized on the SavedModel format, but this requires a filepath
+    without the "h5" file extension. However, models which were saved in earlier
+    versions of mlflow were always saved with h5 file extension.
     """
     from distutils.version import StrictVersion
-    kwargs = {} if StrictVersion(tf.__version__) < StrictVersion('2.3.1') else {'save_format': "h5"}
+
+    kwargs = {} if StrictVersion(tf.__version__) < StrictVersion("2.3.1") else {"save_format": "h5"}
     mlflow.keras.save_model(keras_model=model, path=model_path, keras_module=tf.keras, **kwargs)
     # Here we add the h5 file extension to test backwards compatibility
     shutil.move(os.path.join(model_path, "data/model"), os.path.join(model_path, "data/model.h5"))

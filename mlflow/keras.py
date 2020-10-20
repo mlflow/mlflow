@@ -90,7 +90,7 @@ def save_model(
     keras_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    **kwargs
+    **kwargs,
 ):
     """
     Save a Keras model to a path on the local file system.
@@ -270,7 +270,7 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    **kwargs
+    **kwargs,
 ):
     """
     Log a Keras model as an MLflow artifact for the current run.
@@ -356,7 +356,7 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -394,14 +394,17 @@ def _load_model(model_path, keras_module, save_format: str, **kwargs):
             pickled_custom_objects = cloudpickle.load(in_f)
             pickled_custom_objects.update(custom_objects)
             custom_objects = pickled_custom_objects
-    
-    # TODO: remove this fallback after older versions of mlflow which save with h5 suffix are deprecated
+
+    # TODO: remove this fallback after older versions of mlflow which save with h5 suffix
+    # are deprecated
     if save_format == "h5" and not os.path.exists(model_path):
         # TODO: log warning?
         model_path = f"{model_path}.h5"
     from distutils.version import StrictVersion
 
-    if save_format == "h5" and StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
+    if save_format == "h5" and StrictVersion(
+        keras_module.__version__.split("-")[0]
+    ) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
@@ -506,7 +509,12 @@ def load_model(model_uri, **kwargs):
     )
     # For backwards compatibility, we assume h5 when the save_format is absent
     save_format = flavor_conf.get("save_format", "h5")
-    return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, save_format=save_format, **kwargs)
+    return _load_model(
+        model_path=keras_model_artifacts_path,
+        keras_module=keras_module,
+        save_format=save_format,
+        **kwargs,
+    )
 
 
 @experimental
