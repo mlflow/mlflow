@@ -10,6 +10,7 @@ import random
 from packaging import version
 
 import tensorflow as tf
+import keras
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
@@ -155,19 +156,6 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.fixture
-def model_with_preprocessing(data):
-    x, y = data
-    model = Sequential()
-    model.add(Dense(3, input_dim=4))
-    model.add(Dense(1))
-    # Use a small learning rate to prevent exploding gradients which may produce
-    # infinite prediction values
-    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
-    model.fit(x, y)
-    return model
-
-
 def test_that_keras_module_arg_works(model_path):
     class MyModel(object):
         def __init__(self, x):
@@ -184,6 +172,7 @@ def test_that_keras_module_arg_works(model_path):
     class FakeKerasModule(object):
         __name__ = "some.test.keras.module"
         __version__ = "42.42.42"
+        __package__ = ""
 
         @staticmethod
         def load_model(file, **kwargs):
@@ -539,24 +528,20 @@ def test_save_model_with_tf_save_format(model_path):
 
 
 @pytest.mark.large
-def test_model_load_h5(model, model_path, data, predicted):
-    """Test that models previously saved with h5 format can still be loaded.
-
-    Keras has standardized on the SavedModel format, but this requires a filepath
-    without the "h5" file extension. However, models which were saved in earlier
-    versions of mlflow were always saved with h5 file extension.
-    """
-    from distutils.version import StrictVersion
-
-    kwargs = {} if StrictVersion(tf.__version__) < StrictVersion("2.3.1") else {"save_format": "h5"}
-    mlflow.keras.save_model(keras_model=model, path=model_path, keras_module=tf.keras, **kwargs)
-    # Here we add the h5 file extension to test backwards compatibility
-    shutil.move(os.path.join(model_path, "data/model"), os.path.join(model_path, "data/model.h5"))
+def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, data, predicted):
+    """Ensures that keras models saved with save_format="tf" can be loaded."""
+    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
     assert flavor_conf is not None
-    model_conf.save(model_conf_path)
+    assert flavor_conf.get("save_format") == "tf"
+    assert not os.path.exists(
+        os.path.join(model_path, "data", "model.h5")
+    ), "TF model was saved with HDF5 format; expected SavedModel"
+    assert os.path.isdir(
+        os.path.join(model_path, "data", "model")
+    ), "Expected directory containing saved_model.pb"
 
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(data[0]) == predicted)
+    assert tf_keras_model.to_json() == model_loaded.to_json()

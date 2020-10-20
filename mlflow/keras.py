@@ -16,6 +16,7 @@ import shutil
 import pandas as pd
 
 from distutils.version import LooseVersion
+from distutils.version import StrictVersion
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -217,16 +218,20 @@ def save_model(
         f.write(keras_module.__name__)
 
     # By default, Keras uses the SavedModel format -- specified by "tf"
-    # Storing this in the flavor conf allows proper loading of the model later
-    save_format = kwargs.get("save_format", "tf")
+    # However, we choose to align with prior default of mlflow, HDF5
+    save_format = kwargs.get("save_format", "h5")
 
     # save keras save_format to path/data/save_format.txt
     with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
         f.write(save_format)
 
-    # save keras model to path/data/model.h5
+    # save keras model
+    # To maintain prior behavior, when the format is HDF5, we save
+    # with the h5 file extension. Otherwise, model_path is a directory
+    # where the saved_model.pb will be stored (for SavedModel format)
+    file_extension = ".h5" if save_format == "h5" else ""
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-    model_path = os.path.join(path, model_subpath)
+    model_path = os.path.join(path, model_subpath) + file_extension
     if path.startswith("/dbfs/"):
         # The Databricks Filesystem uses a FUSE implementation that does not support
         # random writes. It causes an error.
@@ -401,9 +406,9 @@ def _load_model(model_path, keras_module, save_format: str, **kwargs):
             pickled_custom_objects.update(custom_objects)
             custom_objects = pickled_custom_objects
 
-    # TODO: remove this fallback after older versions of mlflow which save with h5 suffix
-    # are deprecated
-    if save_format == "h5" and not os.path.exists(model_path):
+    # If the save_format is HDF5, then we save with h5 file
+    # extension to align with prior behavior of mlflow logging
+    if save_format == "h5":
         model_path = model_path + ".h5"
 
     from distutils.version import StrictVersion
