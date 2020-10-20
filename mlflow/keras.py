@@ -16,7 +16,6 @@ import shutil
 import pandas as pd
 
 from distutils.version import LooseVersion
-from distutils.version import StrictVersion
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME

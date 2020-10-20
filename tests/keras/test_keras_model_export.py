@@ -10,7 +10,6 @@ import random
 from packaging import version
 
 import tensorflow as tf
-import keras
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
@@ -528,7 +527,7 @@ def test_save_model_with_tf_save_format(model_path):
 
 
 @pytest.mark.large
-def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path, data, predicted):
+def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     """Ensures that keras models saved with save_format="tf" can be loaded."""
     mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
     model_conf_path = os.path.join(model_path, "MLmodel")
