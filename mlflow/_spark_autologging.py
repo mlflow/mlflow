@@ -125,7 +125,9 @@ def _listen_for_spark_activity(spark_context):
             try:
                 gw.shutdown_callback_server()
             except Exception as e:
-                logger.warning("Failed to shut down Spark callback server for autologging: {}".format(e))
+                logger.warning(
+                    "Failed to shut down Spark callback server for autologging: {}".format(e)
+                )
         _spark_table_info_listener = None
         raise MlflowException(
             "Exception while attempting to initialize JVM-side state for "
