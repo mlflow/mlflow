@@ -84,9 +84,11 @@ def train_model(model, data):
             optimizer.step()
 
 
-@pytest.fixture(scope="module")
-def sequential_model(data):
+@pytest.fixture
+def sequential_model(data, scripted_model):
     model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    if scripted_model:
+        model = torch.jit.script(model)
 
     train_model(model=model, data=data)
     return model
@@ -176,12 +178,13 @@ def _predict(model, data):
     return predictions
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def sequential_predicted(sequential_model, data):
     return _predict(sequential_model, data)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_signature_and_examples_are_saved_correctly(sequential_model, data):
     model = sequential_model
     signature_ = infer_signature(*data)
@@ -202,6 +205,7 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model(sequential_model, data, sequential_predicted):
     old_uri = tracking.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -263,6 +267,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
@@ -290,6 +295,7 @@ def test_raise_exception(sequential_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
     mlflow.pytorch.save_model(sequential_model, model_path)
 
@@ -305,6 +311,7 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_from_remote_uri_succeeds(
     sequential_model, model_path, mock_s3_bucket, data, sequential_predicted
 ):
@@ -321,6 +328,7 @@ def test_load_model_from_remote_uri_succeeds(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, model_path, pytorch_custom_env
 ):
@@ -341,6 +349,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -356,6 +365,7 @@ def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, pytorch_custom_env
 ):
@@ -385,6 +395,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model, model_path
 ):
@@ -399,6 +410,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model,
 ):
@@ -422,6 +434,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
     saver_pytorch_version = "1.0"

@@ -325,7 +325,11 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
-    torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+    if isinstance(pytorch_model, torch.jit.ScriptModule):
+        model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+        torch.jit.ScriptModule.save(pytorch_model, model_path)
+    else:
+        torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
