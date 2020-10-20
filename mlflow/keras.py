@@ -398,8 +398,8 @@ def _load_model(model_path, keras_module, save_format: str, **kwargs):
     # TODO: remove this fallback after older versions of mlflow which save with h5 suffix
     # are deprecated
     if save_format == "h5" and not os.path.exists(model_path):
-        # TODO: log warning?
-        model_path = f"{model_path}.h5"
+        model_path = model_path + ".h5"
+
     from distutils.version import StrictVersion
 
     if save_format == "h5" and StrictVersion(
