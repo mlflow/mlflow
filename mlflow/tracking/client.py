@@ -1579,6 +1579,46 @@ class MlflowClient(object):
                                     waits for five minutes. Specify 0 or None to skip waiting.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            desc = "A new version of the model"
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            print("Name: {}".format(mv.name))
+            print("Version: {}".format(mv.version))
+            print("Description: {}".format(mv.description))
+            print("Status: {}".format(mv.status))
+            print("Stage: {}".format(mv.current_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model
+            Status: READY
+            Stage: None
         """
         tracking_uri = self._tracking_client.tracking_uri
         if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
