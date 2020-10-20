@@ -7,7 +7,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import time
 import os
 import posixpath
-from six import iteritems
 
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -100,7 +99,7 @@ class TrackingServiceClient(object):
             experiment_id=experiment_id,
             user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
+            tags=[RunTag(key, value) for (key, value) in tags.items()],
         )
 
     def list_run_infos(

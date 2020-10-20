@@ -3,7 +3,6 @@ import unittest
 
 from unittest import mock
 import pytest
-import six
 
 import mlflow
 from mlflow.entities import (
@@ -63,7 +62,7 @@ class TestRestStore(object):
     def test_successful_http_request(self, request):
         def mock_request(**kwargs):
             # Filter out None arguments
-            kwargs = dict((k, v) for k, v in six.iteritems(kwargs) if v is not None)
+            kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
                 "method": "GET",
                 "params": {"view_type": "ACTIVE_ONLY"},
