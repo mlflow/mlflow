@@ -1798,8 +1798,53 @@ class MlflowClient(object):
     def get_model_version(self, name, version):
         """
         :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
+        :param version: Version number as an integer of the model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            # Create two runs Log MLflow entities
+            with mlflow.start_run() as run1:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params)
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            with mlflow.start_run() as run2:
+                params = {"n_estimators": 6, "random_state": 42}
+                rfr = RandomForestRegressor(**params)
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            name = "RandomForestRegression"
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a two versions of the rfr model under the registered model name
+            for run_id in [run1.info.run_id, run2.info.run_id]:
+                model_uri = "runs:/{}/sklearn-model".format(run_id)
+                mv = client.create_model_version(name, model_uri, run_id)
+                print("model version {} created".format(mv.version))
+            print("--")
+
+            # Fetch the last version; this will be version 2
+            mv = client.get_model_version(name, int(mv.version))
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            model version 1 created
+            model version 2 created
+            --
+            Name: RandomForestRegression
+            Version: 2
         """
         return self._get_registry_client().get_model_version(name, version)
 
@@ -1809,8 +1854,40 @@ class MlflowClient(object):
         Get the download location in Model Registry for this model version.
 
         :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
+        :param version: Version number as an integer of the model version.
         :return: A single URI location that allows reads for downloading.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="models/sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            artifact_uri = client.get_model_version_download_uri(name, int(mv.version))
+            print("Download URI: {}".format(artifact_uri))
+
+        .. code-block:: text
+            :caption: Output
+
+            Download URI: runs:/44e04097ac364cd895f2039eaccca9ac/models/sklearn-model
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
@@ -1863,6 +1940,39 @@ class MlflowClient(object):
     def get_model_version_stages(self, name, version):  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="models/sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            # fetch valid stages
+            model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            stages = client.get_model_version_stages(name, int(mv.version))
+            print("Model list of valid stages: {}".format(stages))
+
+        .. code-block:: text
+            :caption: Output
+
+            Model list of valid stages: ['None', 'Staging', 'Production', 'Archived']
         """
         return ALL_STAGES
 
@@ -1876,6 +1986,57 @@ class MlflowClient(object):
         :param key: Tag key to log.
         :param value: Tag value to log.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_versino_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Tags: {}".format(mv.tags))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            # and set a tag
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+            print("--")
+            client.set_model_version_tag(name, int(mv.version), "t", "1")
+            mv = client.get_model_version(name, int(mv.version))
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {}
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {'t': '1'}
         """
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
@@ -1888,5 +2049,53 @@ class MlflowClient(object):
         :param version: Registered model version.
         :param key: Tag key.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Tags: {}".format(mv.tags))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            # and delete a tag
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            tags = {'t': "t1"}
+            mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
+            print_model_version_info(mv)
+            print("--")
+            client.delete_model_version_tag(name, int(mv.version), "t")
+            mv = client.get_model_version(name, int(mv.version))
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {'t': 't1'}
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {}
         """
         self._get_registry_client().delete_model_version_tag(name, version, key)
