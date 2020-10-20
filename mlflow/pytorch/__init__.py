@@ -143,7 +143,7 @@ def log_model(
 
     :param requirements_file: A string containing the path to requirements file. Remote URIs
                       are resolved to absolute filesystem paths.
-                      For example, consider the following ``requirements_file`` string::
+                      For example, consider the following ``requirements_file`` string -
 
                       requirements_file = "s3://my-bucket/path/to/my_file"
 
@@ -153,7 +153,7 @@ def log_model(
 
     :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
                       are resolved to absolute filesystem paths.
-                      For example, consider the following ``extra_files`` list::
+                      For example, consider the following ``extra_files`` list -
 
                       extra_files = ["s3://my-bucket/path/to/my_file1",
                                     "s3://my-bucket/path/to/my_file2"]
@@ -300,7 +300,7 @@ def save_model(
 
     :param requirements_file: A string containing the path to requirements file. Remote URIs
                       are resolved to absolute filesystem paths.
-                      For example, consider the following ``requirements_file`` string::
+                      For example, consider the following ``requirements_file`` string -
 
                       requirements_file = "s3://my-bucket/path/to/my_file"
 
@@ -310,7 +310,7 @@ def save_model(
 
     :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
                       are resolved to absolute filesystem paths.
-                      For example, consider the following ``extra_files`` list::
+                      For example, consider the following ``extra_files`` list -
 
                       extra_files = ["s3://my-bucket/path/to/my_file1",
                                     "s3://my-bucket/path/to/my_file2"]
@@ -390,7 +390,7 @@ def save_model(
                 tmp_requirements_dir.path(), posixpath.join(path, saved_requirements_dir_subpath)
             )
 
-    if extra_files and len(extra_files) > 0:
+    if extra_files:
         if not isinstance(extra_files, list):
             raise TypeError("Extra files argument should be a list")
 
