@@ -228,11 +228,15 @@ def save_model(
     else:
         keras_model.save(model_path, **kwargs)
 
+    # By default, Keras uses the SavedModel format -- specified by "tf"
+    # Storing this in the flavor conf allows proper loading of the model later
+    save_format = kwargs.get("save_format", "tf")
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         keras_module=keras_module.__name__,
         keras_version=keras_module.__version__,
+        save_format=save_format,
         data=data_subpath,
     )
 
@@ -375,7 +379,7 @@ def _save_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
-def _load_model(model_path, keras_module, **kwargs):
+def _load_model(model_path, keras_module, save_format: str, **kwargs):
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
     custom_objects_path = None
@@ -391,16 +395,13 @@ def _load_model(model_path, keras_module, **kwargs):
             pickled_custom_objects.update(custom_objects)
             custom_objects = pickled_custom_objects
     
-    # TODO: consider removing this fallback when versions of mlflow which save models with h5 prefix are deprecated
-    # To ensure backwards compatibility, if the _MODEL_SAVE_PATH does not exist, we will look for a file with the
-    # "h5" file extension.
-    if not os.path.exists(model_path):
-        # TODO: log a warning?
+    # TODO: remove this fallback after older versions of mlflow which save with h5 suffix are deprecated
+    if save_format == "h5" and not os.path.exists(model_path):
+        # TODO: log warning?
         model_path = f"{model_path}.h5"
-    
     from distutils.version import StrictVersion
 
-    if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
+    if save_format == "h5" and StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
@@ -503,7 +504,9 @@ def load_model(model_uri, **kwargs):
     keras_model_artifacts_path = os.path.join(
         local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
     )
-    return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
+    # For backwards compatibility, we assume h5 when the save_format is absent
+    save_format = flavor_conf.get("save_format", "h5")
+    return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, save_format=save_format, **kwargs)
 
 
 @experimental
