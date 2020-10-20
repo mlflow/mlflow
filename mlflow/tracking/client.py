@@ -1111,7 +1111,7 @@ class MlflowClient(object):
             runs = client.search_runs(experiment_id, run_view_type=ViewType.DELETED_ONLY, filter_string=filter_string)
             print_run_info(runs)
 
-        .. code-block:: Example
+        .. code-block:: text
             :caption: Output
 
             run_id: 0efb2a68833d4ee7860a964fad31cb3f
@@ -1721,6 +1721,76 @@ class MlflowClient(object):
 
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_models_info(mv):
+                for m in mv:
+                    print("name: {}".format(m.name))
+                    print("latest version: {}".format(m.version))
+                    print("run_id: {}".format(m.run_id))
+                    print("current_stage: {}".format(m.current_stage))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+
+            # Create two runs and log MLflow entities
+            with mlflow.start_run() as run1:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params)
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            with mlflow.start_run() as run2:
+                params = {"n_estimators": 6, "random_state": 42}
+                rfr = RandomForestRegressor(**params)
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            name = "RandomForestRegression"
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a two versions of the rfr model under the registered model name
+            for run_id in [run1.info.run_id, run2.info.run_id]:
+                model_uri = "runs:/{}/sklearn-model".format(run_id)
+                mv = client.create_model_version(name, model_uri, run_id)
+                print("model version {} created".format(mv.version))
+
+            print("--")
+
+            # Fetch latest version; this will be version 2
+            models = client.get_latest_versions(name, stages=["None"])
+            print_models_info(models)
+            print("--")
+
+            # Delete the latest model version 2
+            print("Deleting model version {}".format(mv.version))
+            client.delete_model_version(name, int(mv.version))
+            models = client.get_latest_versions(name, stages=["None"])
+            print_models_info(models)
+
+        .. code-block:: text
+            :caption: Output
+
+            model version 1 created
+            model version 2 created
+            --
+            name: RandomForestRegression
+            latest version: 2
+            run_id: 9881172ef10f4cb08df3ed452c0c362b
+            current_stage: None
+            --
+            Deleting model version 2
+            name: RandomForestRegression
+            latest version: 1
+            run_id: 9165d4f8aa0a4d069550824bdc55caaf
+            current_stage: None
         """
         self._get_registry_client().delete_model_version(name, version)
 
