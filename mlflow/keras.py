@@ -36,6 +36,7 @@ FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
+_KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model"
 # Conda env subpath when saving/loading model
@@ -215,6 +216,14 @@ def save_model(
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
         f.write(keras_module.__name__)
 
+    # By default, Keras uses the SavedModel format -- specified by "tf"
+    # Storing this in the flavor conf allows proper loading of the model later
+    save_format = kwargs.get("save_format", "tf")
+
+    # save keras save_format to path/data/save_format.txt
+    with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
+        f.write(save_format)
+
     # save keras model to path/data/model.h5
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
     model_path = os.path.join(path, model_subpath)
@@ -228,9 +237,6 @@ def save_model(
     else:
         keras_model.save(model_path, **kwargs)
 
-    # By default, Keras uses the SavedModel format -- specified by "tf"
-    # Storing this in the flavor conf allows proper loading of the model later
-    save_format = kwargs.get("save_format", "tf")
     # update flavor info to mlflow_model
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -450,6 +456,13 @@ def _load_pyfunc(path):
         import keras
 
         keras_module = keras
+    
+    # By default, we assume the save_format is h5 for backwards compatibility
+    save_format = "h5"
+    save_format_path = os.path.join(path, _KERAS_SAVE_FORMAT_PATH)
+    if os.path.isfile(save_format_path):
+        with open(save_format_path, "r") as f:
+            save_format = f.read()
 
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == "tensorflow":
@@ -462,11 +475,11 @@ def _load_pyfunc(path):
             with graph.as_default():
                 with sess.as_default():  # pylint:disable=not-context-manager
                     K.set_learning_phase(0)
-                    m = _load_model(path, keras_module=keras_module, compile=False)
+                    m = _load_model(path, keras_module=keras_module, save_format=save_format, compile=False)
                     return _KerasModelWrapper(m, graph, sess)
         else:
             K.set_learning_phase(0)
-            m = _load_model(path, keras_module=keras_module, compile=False)
+            m = _load_model(path, keras_module=keras_module, save_format=save_format, compile=False)
             return _KerasModelWrapper(m, None, None)
 
     else:
