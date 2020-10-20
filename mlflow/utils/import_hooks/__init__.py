@@ -19,7 +19,7 @@ string_types = (str,)
 
 
 # from .decorators import synchronized
-# NOTE(databricks): Instead of using this import (from wrapt's decorator module, see
+# NOTE: Instead of using this import (from wrapt's decorator module, see
 # https://github.com/GrahamDumpleton/wrapt/blob/68316bea668fd905a4acb21f37f12596d8c30d80/src/wrapt/decorators.py#L430-L456),
 # we define a decorator with similar behavior that acquires a lock while calling the decorated
 # function
