@@ -48,8 +48,8 @@ export const deleteRegisteredModelApi = (model, id = getUUID(), localUpdateOnly)
   payload: localUpdateOnly
     ? Promise.resolve()
     : wrapDeferred(Services.deleteRegisteredModel, {
-        name: model,
-      }),
+      name: model,
+    }),
   meta: { id, model },
 });
 
@@ -83,7 +83,7 @@ export const createModelVersionApi = (name, source, runId, id = getUUID()) => ({
 
 export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
 export const getModelVersionArtifactApi = (modelName, version, id = getUUID()) => {
-  const baseUri = 'model-versions/get-artifact?path=MLmodel';
+  const baseUri = '/model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
   const uriEncodedModelVersion = `version=${encodeURIComponent(version)}`;
   const artifactLocation = `${baseUri}&${uriEncodedModelName}&${uriEncodedModelVersion}`;
@@ -160,9 +160,9 @@ export const deleteModelVersionApi = (modelName, version, id = getUUID(), localU
   payload: localUpdateOnly
     ? Promise.resolve()
     : wrapDeferred(Services.deleteModelVersion, {
-        name: modelName,
-        version: version,
-      }),
+      name: modelName,
+      version: version,
+    }),
   meta: { id, modelName, version },
 });
 
