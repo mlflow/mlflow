@@ -138,6 +138,8 @@ def _listen_for_spark_activity(spark_context):
 
     _run_context_provider_registry.register(SparkAutologgingContext)
 
+    _logger.info("Autologging successfully enabled for spark.")
+
 
 def autolog():
     def __init__(self, *args, **kwargs):
