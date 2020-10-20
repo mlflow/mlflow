@@ -106,6 +106,7 @@ set_tags = mlflow.tracking.fluent.set_tags
 delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
 register_model = mlflow.tracking._model_registry.fluent.register_model
+autolog = mlflow.tracking.fluent.autolog
 
 
 run = projects.run
@@ -140,6 +141,7 @@ __all__ = [
     "get_registry_uri",
     "set_registry_uri",
     "list_run_infos",
+    "autolog",
     # model flavors
     "fastai",
     "gluon",
