@@ -1071,7 +1071,6 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     #   interact with it, and this activity should be logged.
     try:
         spark.autolog()
-        _logger.info("Autologging successfully enabled for spark.")
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle
         #   of their session so we want to enable autologging once they do
