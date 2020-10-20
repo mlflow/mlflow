@@ -57,7 +57,6 @@ setup(
         "sqlalchemy<=1.3.13",
         "gorilla",
         "prometheus-flask-exporter",
-        "wrapt>=1.10.5",
     ],
     extras_require={
         "extras": [

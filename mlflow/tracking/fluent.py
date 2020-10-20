@@ -10,7 +10,6 @@ import logging
 import inspect
 import numpy as np
 import pandas as pd
-import wrapt
 
 import mlflow
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
@@ -22,6 +21,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
+from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
@@ -1064,7 +1064,7 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
     for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark"])):
-        wrapt.register_post_import_hook(setup_autologging, module)
+        register_post_import_hook(setup_autologging, module, overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
@@ -1075,6 +1075,6 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
         # if pyspark isn't installed, a user could potentially install it in the middle
         #   of their session so we want to enable autologging once they do
         if "pyspark" in str(ie):
-            wrapt.register_post_import_hook(setup_autologging, "pyspark")
+            register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
     except Exception as e:
         _logger.warning("Exception raised while enabling autologging for spark: " + str(e))
