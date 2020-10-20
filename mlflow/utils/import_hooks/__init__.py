@@ -14,7 +14,8 @@ import sys
 import threading
 
 import importlib
-string_types = str,
+
+string_types = (str,)
 
 
 # from .decorators import synchronized
@@ -61,8 +62,8 @@ _import_hook_finder_init = False
 
 def _create_import_hook_from_string(name):
     def import_hook(module):
-        module_name, function = name.split(':')
-        attrs = function.split('.')
+        module_name, function = name.split(":")
+        attrs = function.split(".")
         __import__(module_name)
         callback = sys.modules[module_name]
         for attr in attrs:
@@ -129,7 +130,8 @@ def register_generic_import_hook(hook, name, hook_dict, overwrite):
 
         if overwrite:
             hook_dict[name] = [
-                existing_hook for existing_hook in hook_dict[name]
+                existing_hook
+                for existing_hook in hook_dict[name]
                 if not hooks_equal(existing_hook, hook)
             ]
 
@@ -196,7 +198,7 @@ def discover_post_import_hooks(group):
 
 @synchronized(_post_import_hooks_lock)
 def notify_module_loaded(module):
-    name = getattr(module, '__name__', None)
+    name = getattr(module, "__name__", None)
     hooks = _post_import_hooks.get(name, None)
 
     if hooks:
@@ -276,6 +278,7 @@ class ImportHookFinder:
             # post import hooks.
             try:
                 import importlib.util
+
                 loader = importlib.util.find_spec(fullname).loader
             # If an ImportError (or AttributeError) is encountered while finding the module,
             # notify the hooks for import errors
