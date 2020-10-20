@@ -26,8 +26,6 @@ library_to_mlflow_module_without_pyspark = {
 
 library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, "pyspark": "spark"}
 
-pytestmark = pytest.mark.large
-
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
