@@ -5,7 +5,6 @@ import yaml
 import numpy as np
 import pandas as pd
 import pytest
-import six
 import sklearn.datasets
 import sklearn.linear_model
 import sklearn.neighbors
@@ -27,10 +26,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 def _load_pyfunc(path):
     with open(path, "rb") as f:
-        if six.PY2:
-            return pickle.load(f)
-        else:
-            return pickle.load(f, encoding="latin1")  # pylint: disable=unexpected-keyword-arg
+        return pickle.load(f, encoding="latin1")  # pylint: disable=unexpected-keyword-arg
 
 
 @pytest.fixture
