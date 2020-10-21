@@ -23,25 +23,28 @@ library_to_mlflow_module_without_pyspark = {
     mxnet.gluon: "gluon",
 }
 
-library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, "pyspark": "spark"}
+library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark: "spark"}
 
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
-    pass
-    # for integration_name in library_to_mlflow_module.keys():
-    #     try:
-    #         del mlflow.utils.import_hooks._post_import_hooks[integration_name]
-    #     except Exception:
-    #         pass
+    for integration_name in library_to_mlflow_module.keys():
+        try:
+            del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
+        except Exception:
+            pass
 
-    # yield
+    assert mlflow.utils.import_hooks._post_import_hooks == {}
 
-    # for integration_name in library_to_mlflow_module.keys():
-    #     try:
-    #         del mlflow.utils.import_hooks._post_import_hooks[integration_name]
-    #     except Exception:
-    #         pass
+    yield
+
+    for integration_name in library_to_mlflow_module.keys():
+        try:
+            del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
+        except Exception:
+            pass
+
+    assert mlflow.utils.import_hooks._post_import_hooks == {}
 
 
 # We are pretending the module is not already imported (in reality it is, at the top of this file),
@@ -55,7 +58,6 @@ def only_register(callback_fn, module, overwrite):
 @pytest.fixture(autouse=True)
 def disable_new_import_hook_firing_if_module_already_exists():
     with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
-        print("HIT MOCKED FN")
         yield
 
 
@@ -65,6 +67,8 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, ml
     with mock.patch("mlflow." + mlflow_module + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
+        if library != pyspark:
+            autolog_mock.assert_not_called()
         mlflow.utils.import_hooks.notify_module_loaded(library)
         autolog_mock.assert_called_once()
 
