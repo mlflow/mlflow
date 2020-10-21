@@ -55,4 +55,8 @@ xargs pylint --msg-template="$msg_template" --rcfile="$FWDIR/pylintrc"
 echo -e "\n========== rstcheck ==========\n"
 rstcheck README.rst
 
+if [[ "$err" != "0" ]]; then
+  echo -e "\nOne of the previous steps failed, check above"
+fi
+
 test $err = 0
