@@ -132,6 +132,7 @@ def test_universal_autolog_calls_pyspark_immediately():
 
 @pytest.mark.large
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed():
+    assert 0
     library = pyspark
     mlflow_module = "spark"
 
