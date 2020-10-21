@@ -38,7 +38,7 @@ exclude=$(join "," "${exclude_dirs[@]}")
 include=$(join " " "${include_dirs[@]}")
 pycodestyle --max-line-length=100 --ignore=E203,W503 --exclude=$exclude -- $include
 
-echo -e "\n========== pylint ==========\n" "pylint"
+echo -e "\n========== pylint ==========\n"
 # pylint's `--ignore` option filters files based on their base names, not paths.
 # see: http://pylint.pycqa.org/en/latest/user_guide/run.html#command-line-options
 # This behavior might cause us to unintentionally ignore some files.
