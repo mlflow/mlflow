@@ -2,15 +2,32 @@ import json
 import os
 from typing import Union
 
-import numpy as np
-import pandas as pd
-
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
+try:
+    import numpy as np
+    has_np = True
+except ImportError:
+    has_np = False
+
+try:
+    import pandas as pd
+    has_pd = True
+except ImportError:
+    has_pd = False
+
+
+if has_np and has_pd:
+    ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
+elif has_np:
+    ModelInputExample = Union[np.ndarray, dict, list]
+elif has_pd:
+    ModelInputExample = Union[pd.DataFrame, dict, list]
+else:
+    ModelInputExample = Union[dict, list]
 
 
 class _Example(object):

@@ -13,8 +13,6 @@ import yaml
 import tempfile
 import shutil
 
-import pandas as pd
-
 from distutils.version import LooseVersion
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -411,6 +409,7 @@ class _KerasModelWrapper:
         self._sess = sess
 
     def predict(self, dataframe):
+        import pandas as pd
         # In TensorFlow < 2.0, we use a graph and session to predict
         if self._graph is not None:
             with self._graph.as_default():

@@ -23,7 +23,6 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
-from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -56,7 +55,6 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     path_to_local_file_uri,
 )
-from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -720,6 +718,7 @@ class FileStore(AbstractStore):
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
+        from mlflow.utils.search_utils import SearchUtils
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
@@ -864,6 +863,7 @@ class FileStore(AbstractStore):
             raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
+        from mlflow.models import Model
         if not isinstance(mlflow_model, Model):
             raise TypeError(
                 "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(

@@ -199,9 +199,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import importlib
 
-import numpy as np
 import os
-import pandas
 import yaml
 from copy import deepcopy
 import logging
@@ -228,6 +226,18 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
+
+try:
+    import numpy as np
+    has_np = True
+except ImportError:
+    has_np = False
+
+try:
+    import pandas  # Keeping convention of the file, should I?
+    has_pd = True
+except ImportError:
+    has_pd = False
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -281,7 +291,7 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def _enforce_type(name, values: pandas.Series, t: DataType):
+def _enforce_type(name, values, t: DataType):
     """
     Enforce the input column type matches the declared in model input schema.
 
@@ -335,7 +345,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         )
 
 
-def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
+def _enforce_schema(pdf, input_schema: Schema):
     """
     Enforce column names and types match the input schema.
 
@@ -386,7 +396,14 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     return new_pdf
 
 
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
+if has_np and has_pd:
+    PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
+elif has_np:
+    PyFuncOutput = Union[np.ndarray, list]
+elif has_pd:
+    PyFuncOutput = Union[pandas.DataFrame, pandas.Series, list]
+else:
+    PyFuncOutput = Union[list]
 
 
 class PyFuncModel(object):
@@ -412,7 +429,7 @@ class PyFuncModel(object):
         self._model_meta = model_meta
         self._model_impl = model_impl
 
-    def predict(self, data: pandas.DataFrame) -> PyFuncOutput:
+    def predict(self, data) -> PyFuncOutput:
         """
         Generate model predictions.
         :param data: Model input as pandas.DataFrame.
