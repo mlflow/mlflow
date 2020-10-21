@@ -7,8 +7,8 @@ import os
 import shutil
 import time
 
-from pyspark.sql import SparkSession, Row
-from pyspark.sql.types import StructType, IntegerType, StringType, StructField
+from pyspark.sql import Row
+from pyspark.sql.types import StructType, IntegerType, StructField
 
 from tests.spark_autologging.utils import _get_or_create_spark_session
 from tests.spark_autologging.utils import _assert_spark_data_logged

@@ -124,9 +124,9 @@ def _listen_for_spark_activity(spark_context):
         if callback_server_started:
             try:
                 gw.shutdown_callback_server()
-            except Exception as e:
-                logger.warning(
-                    "Failed to shut down Spark callback server for autologging: {}".format(e)
+            except Exception as e:  # pylint: disable=broad-except
+                _logger.warning(
+                    "Failed to shut down Spark callback server for autologging: %s", str(e)
                 )
         _spark_table_info_listener = None
         raise MlflowException(

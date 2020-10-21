@@ -11,7 +11,6 @@ import inspect
 import numpy as np
 import pandas as pd
 
-import mlflow
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -1054,10 +1053,10 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
 
         try:
             autolog_fn(**filtered)
-            _logger.info("Autologging successfully enabled for " + module.__name__ + ".")
-        except Exception as e:
+            _logger.info("Autologging successfully enabled for %s.", module.__name__)
+        except Exception as e:  # pylint: disable=broad-except
             _logger.warning(
-                "Exception raised while enabling autologging for " + module.__name__ + ": " + str(e)
+                "Exception raised while enabling autologging for %s: %s", module.__name__, str(e)
             )
 
     # for each autolog library (except pyspark), register a post-import hook.
@@ -1076,5 +1075,5 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
         #   of their session so we want to enable autologging once they do
         if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-    except Exception as e:
-        _logger.warning("Exception raised while enabling autologging for spark: " + str(e))
+    except Exception as e:  # pylint: disable=broad-except
+        _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))

@@ -13,7 +13,7 @@ It also extends the functionality to support custom hooks for import errors (as 
 import sys
 import threading
 
-import importlib
+import importlib  # pylint: disable=unused-import
 
 string_types = (str,)
 
@@ -284,7 +284,7 @@ class ImportHookFinder:
             # notify the hooks for import errors
             except (ImportError, AttributeError):
                 notify_module_import_error(fullname)
-                loader = importlib.find_loader(fullname, path)
+                loader = importlib.find_loader(fullname, path)  # pylint: disable=deprecated-method
             if loader:
                 return _ImportHookChainedLoader(loader)
         finally:
