@@ -248,7 +248,51 @@ class MlflowClient(object):
         order_by=None,
         page_token=None,
     ):
-        """:return: List of :py:class:`mlflow.entities.RunInfo`"""
+        """:return: List of :py:class:`mlflow.entities.RunInfo`
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import ViewType
+
+            def print_run_infos(run_infos):
+                for r in run_infos:
+                    print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
+
+            # Create two runs
+            with mlflow.start_run() as run1:
+                mlflow.log_metric("click_rate", 1.55)
+
+            with mlflow.start_run() as run2:
+                mlflow.log_metric("click_rate", 2.50)
+
+            # Delete the last run
+            client = MlflowClient()
+            client.delete_run(run2.info.run_id)
+
+            # Get all runs under the default experiment (whose id is 0)
+            print("Active runs:")
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
+
+            print("Deleted runs:")
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
+
+            print("All runs:")
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL, order_by=["metric.click_rate DESC"]))
+
+        .. code-block:: text
+            :caption: Output
+
+            Active runs:
+            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
+            Deleted runs:
+            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
+            All runs:
+            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
+            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
+        """
         return self._tracking_client.list_run_infos(
             experiment_id, run_view_type, max_results, order_by, page_token
         )
@@ -935,6 +979,36 @@ class MlflowClient(object):
                          uniquely-named directory on the local filesystem or will be returned
                          directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
+
+        .. code-block:: python
+            :caption: Example
+
+            import os
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            with open("features.txt", 'w') as f:
+                f.write(features)
+
+            # Log artifacts
+            with mlflow.start_run() as run:
+                mlflow.log_artifact("features.txt", artifact_path="features")
+
+            # Download artifacts
+            client = MlflowClient()
+            local_dir = "/tmp/artifact_downloads"
+            if not os.path.exists(local_dir):
+                os.mkdir(local_dir)
+            local_path = client.download_artifacts(run.info.run_id, "features", local_dir)
+            print("Artifacts downloaded at : {}".format(local_path))
+            print("Artifacts: {}".format(os.listdir(local_path)))
+
+        .. code-block:: text
+            :caption: Output
+
+            Artifacts downloaded at : /tmp/artifact_downloads/features
+            Artifacts: ['features.txt']
         """
         return self._tracking_client.download_artifacts(run_id, path, dst_path)
 
@@ -1154,22 +1228,19 @@ class MlflowClient(object):
             import mlflow
             from mlflow.tracking import MlflowClient
 
-            def print_model_info(rm):
-                print("--")
+            def print_registered_model_info(rm):
                 print("name: {}".format(rm.name))
                 print("tags: {}".format(rm.tags))
                 print("description: {}".format(rm.description))
 
             name = "SocialMediaTextAnalyzer"
             tags = {"nlp.framework": "Spark NLP"}
-            desc = "This sentiment analysis model classifies the mood-happy, sad, angry."
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             client = MlflowClient()
             client.create_registered_model(name, tags, desc)
-            models = client.list_registered_models()
-            for rm in models:
-                print_model_info(rm)
+            print_registered_model_info(client.get_registered_model(name))
 
         .. code-block:: text
             :caption: Output
@@ -1190,6 +1261,44 @@ class MlflowClient(object):
         :param new_name: New proposed name for the registered model.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_registered_model_info(rm):
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            # create a new registered model name
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_registered_model(name, tags, desc)
+            print_registered_model_info(client.get_registered_model(name))
+            print("--")
+
+            # rename the model
+            new_name = "SocialMediaTextAnalyzer"
+            client.rename_registered_model(name, new_name)
+            print_registered_model_info(client.get_registered_model(new_name))
+
+        .. code-block:: python
+            :caption: Output
+
+            name: SocialTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         self._get_registry_client().rename_registered_model(name, new_name)
 
@@ -1202,6 +1311,40 @@ class MlflowClient(object):
         :param name: Name of the registered model to update.
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            def print_registered_model_info(rm):
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_registered_model(name, tags, desc)
+            print_registered_model_info(client.get_registered_model(name))
+            print("--")
+
+            # Update the model's description
+            desc = "This sentiment analysis model classifies tweets' tone: happy, sad, angry."
+            client.update_registered_model(name, desc)
+            print_registered_model_info(client.get_registered_model(name))
+
+        .. code-block:: text
+            :caption: Output
+
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
         if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
@@ -1688,6 +1831,50 @@ class MlflowClient(object):
         :param description: New description.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Description: {}".format(mv.description))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+            print("--")
+
+            # Update model version's description
+            desc = "A new version of the model using ensemble trees"
+            mv = client.update_model_version(name, int(mv.version), desc)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Description: None
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model using ensemble trees
         """
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
@@ -1709,6 +1896,57 @@ class MlflowClient(object):
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Description: {}".format(mv.description))
+                print("Stage: {}".format(mv.current_stage))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            desc = "A new version of the model using ensemble trees"
+            rfr = RandomForestRegressor(**params)
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+             # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+             # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            print_model_version_info(mv)
+            print("--")
+
+            # transition model version from None -> staging
+            mv = client.transition_model_version_stage(name, int(mv.version), "staging")
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model using ensemble trees
+            Stage: None
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model using ensemble trees
+            Stage: Staging
         """
         return self._get_registry_client().transition_model_version_stage(
             name, version, stage, archive_existing_versions
