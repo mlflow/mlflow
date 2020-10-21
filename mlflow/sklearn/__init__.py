@@ -792,7 +792,7 @@ def autolog(log_input_example=False, log_model_signature=True):
             try:
                 score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
                 training_score = estimator.score(*score_args)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 msg = (
                     estimator.score.__qualname__
                     + " failed. The 'training_score' metric will not be recorded. Scoring error: "
