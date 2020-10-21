@@ -143,7 +143,8 @@ def _build_mlflow_run_cmd(
     mlflow_run_arr = ["mlflow", "run", uri, "-e", entry_point, "--run-id", run_id]
     if docker_args is not None:
         for key, value in docker_args.items():
-            mlflow_run_arr.extend(["--docker-args", "%s=%s" % (key, value)])
+            args = key if isinstance(value, bool) else "%s=%s" % (key, value)
+            mlflow_run_arr.extend(["--docker-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     if not use_conda:
