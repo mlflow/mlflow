@@ -1,6 +1,5 @@
 import pytest
 from unittest import mock
-import wrapt
 import inspect
 
 import mlflow
@@ -29,34 +28,34 @@ library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, "pyspark
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
-    for integration_name in library_to_mlflow_module.keys():
-        try:
-            del wrapt.importer._post_import_hooks[integration_name]
-        except Exception:
-            pass
+    pass
+    # for integration_name in library_to_mlflow_module.keys():
+    #     try:
+    #         del mlflow.utils.import_hooks._post_import_hooks[integration_name]
+    #     except Exception:
+    #         pass
 
-    yield
+    # yield
 
-    for integration_name in library_to_mlflow_module.keys():
-        try:
-            del wrapt.importer._post_import_hooks[integration_name]
-        except Exception:
-            pass
+    # for integration_name in library_to_mlflow_module.keys():
+    #     try:
+    #         del mlflow.utils.import_hooks._post_import_hooks[integration_name]
+    #     except Exception:
+    #         pass
 
 
 # We are pretending the module is not already imported (in reality it is, at the top of this file),
 #   and is only imported when we call wrapt.notify_module_loaded in the tests below. Normally,
 #   notify_module_loaded would be called by register_post_import_hook if it sees that the module
 #   is already loaded.
-def only_register(callback_fn, module):
-    wrapt.importer._post_import_hooks[module] = [callback_fn]
+def only_register(callback_fn, module, overwrite):
+    mlflow.utils.import_hooks._post_import_hooks[module] = [callback_fn]
 
 
 @pytest.fixture(autouse=True)
 def disable_new_import_hook_firing_if_module_already_exists():
-    import wrapt
-
-    with mock.patch("wrapt.register_post_import_hook", wraps=only_register):
+    with mock.patch("mlflow.tracking.fluent.register_post_import_hook", wraps=only_register):
+        print("HIT MOCKED FN")
         yield
 
 
@@ -66,7 +65,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, ml
     with mock.patch("mlflow." + mlflow_module + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
-        wrapt.notify_module_loaded(library)
+        mlflow.utils.import_hooks.notify_module_loaded(library)
         autolog_mock.assert_called_once()
 
 
@@ -97,7 +96,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
         autolog_mock.assert_not_called()
 
-        wrapt.notify_module_loaded(library)
+        mlflow.utils.import_hooks.notify_module_loaded(library)
 
         # after each library is imported, its corresponding autolog function should have been called
         if library in integrations_with_config:
@@ -123,7 +122,7 @@ def test_universal_autolog_calls_pyspark_immediately():
         autolog_mock.assert_called_once_with()
 
         # there should also be no import hook on pyspark
-        wrapt.notify_module_loaded(library)
+        mlflow.utils.import_hooks.notify_module_loaded(library)
         autolog_mock.assert_called_once_with()
 
 
@@ -144,7 +143,7 @@ def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installe
         # now the user installs pyspark
         autolog_mock.side_effect = None
 
-        wrapt.notify_module_loaded(library)
+        mlflow.utils.import_hooks.notify_module_loaded(library)
 
         # assert autolog is called again once pyspark is imported
         assert autolog_mock.call_count == 2
