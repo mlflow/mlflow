@@ -648,7 +648,7 @@ def autolog():
                 restored_epoch = stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
                 restored_metrics = {
-                    key: history.history[key][restored_epoch] for key in history.history.keys()
+                    key: history.history[key][history.epoch.index(restored_epoch)] for key in history.history.keys()
                 }
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
