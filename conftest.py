@@ -88,7 +88,6 @@ def pytest_ignore_collect(path, config):
             "tests/models",
             "tests/shap",
             "tests/utils/test_model_utils.py",
-            "tests/tracking/fluent/test_fluent_autolog.py",
         ]
 
         relpath = os.path.relpath(str(path))
