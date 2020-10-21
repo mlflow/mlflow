@@ -22,7 +22,7 @@ def test_enabling_autologging_before_spark_session_works():
     spark_session = _get_or_create_spark_session()
 
     rows = [Row(100)]
-    schema = StructType([StructField("number2", IntegerType()),])
+    schema = StructType([StructField("number2", IntegerType()), ])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
     tempdir = tempfile.mkdtemp()

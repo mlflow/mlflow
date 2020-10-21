@@ -5,9 +5,10 @@ Some modifications, have been made in order to:
     - Avoid duplicate registration of import hooks
     - inline functions from dependent wrapt submodules rather than importing them.
 
-This module implements a post import hook mechanism styled after what is described in PEP-369. Note that
-it doesn't cope with modules being reloaded.
-It also extends the functionality to support custom hooks for import errors (as opposed to only successful imports).
+This module implements a post import hook mechanism styled after what is described in PEP-369. Note
+that it doesn't cope with modules being reloaded.
+It also extends the functionality to support custom hooks for import errors (as opposed to only
+successful imports).
 """
 
 import sys
