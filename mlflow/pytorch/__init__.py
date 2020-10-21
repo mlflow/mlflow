@@ -13,8 +13,6 @@ import os
 import yaml
 
 import cloudpickle
-import numpy as np
-import pandas as pd
 
 import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
@@ -476,6 +474,8 @@ class _PyTorchWrapper(object):
 
     def predict(self, data, device="cpu"):
         import torch
+        import numpy as np
+        import pandas as pd
 
         if not isinstance(data, pd.DataFrame):
             raise TypeError("Input data should be pandas.DataFrame")

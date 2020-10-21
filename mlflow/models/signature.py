@@ -6,20 +6,45 @@ for more details on Schema and data types.
 """
 from typing import Dict, Any, Union
 
-import pandas as pd
-import numpy as np
 
-from mlflow.types.schema import Schema
-from mlflow.types.utils import _infer_schema
+union_options = []
+try:
+    import numpy as np
+    has_np = True
+except ImportError:
+    pass  #TODO: Should we warn here?
+    has_np = False
+
+try:
+    import pandas as pd
+    has_pd = True
+except ImportError:
+    has_pd = False
+
 
 try:
     import pyspark.sql.dataframe
-
-    MlflowInferableDataset = Union[
-        pd.DataFrame, np.ndarray, Dict[str, np.ndarray], pyspark.sql.dataframe.DataFrame
-    ]
+    has_pyspark = True
 except ImportError:
+    has_pyspark = False
+
+# I wish Union had a constructor
+if has_pyspark and has_np and has_pd:
+    MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray],
+                                   pyspark.sql.dataframe.DataFrame]
+elif has_pyspark and has_np:
+    MlflowInferableDataset = Union[np.ndarray, Dict[str, np.ndarray],
+                                   pyspark.sql.dataframe.DataFrame]
+elif has_pyspark and has_pd:
+    MlflowInferableDataset = Union[pd.DataFrame, pyspark.sql.dataframe.DataFrame]
+elif not has_pyspark and has_np and has_pd:
     MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+elif not has_pyspark and not has_np and has_pd:
+    MlflowInferableDataset = Union[pd.DataFrame]
+elif not has_pyspark and has_np and not has_pd:
+    MlflowInferableDataset = Union[np.ndarray, Dict[str, np.ndarray]]
+else:
+    MlflowInferableDataset = Union[None]
 
 
 class ModelSignature(object):
@@ -31,7 +56,8 @@ class ModelSignature(object):
     :py:class:`Schema <mlflow.types.Schema>`.
     """
 
-    def __init__(self, inputs: Schema, outputs: Schema = None):
+    def __init__(self, inputs, outputs = None):
+        from mlflow.types.schema import Schema
         if not isinstance(inputs, Schema):
             raise TypeError(
                 "inputs must be mlflow.models.signature.Schema, got '{}'".format(type(inputs))
@@ -70,6 +96,7 @@ class ModelSignature(object):
 
         :return: ModelSignature populated with the data form the dictionary.
         """
+        from mlflow.types.schema import Schema
         inputs = Schema.from_json(signature_dict["inputs"])
         if "outputs" in signature_dict and signature_dict["outputs"] is not None:
             outputs = Schema.from_json(signature_dict["outputs"])
@@ -120,6 +147,7 @@ def infer_signature(
                          dataset.
     :return: ModelSignature
     """
+    from mlflow.types.utils import _infer_schema
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
     return ModelSignature(inputs, outputs)

@@ -1,8 +1,5 @@
 from typing import Any
 
-import numpy as np
-import pandas as pd
-
 from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
@@ -40,6 +37,8 @@ def _infer_schema(data: Any) -> Schema:
     :return: Schema
     """
 
+    import numpy as np
+    import pandas as pd
     if isinstance(data, dict):
         res = []
         for col in data.keys():
@@ -89,7 +88,8 @@ def _infer_schema(data: Any) -> Schema:
     )
 
 
-def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
+def _infer_numpy_dtype(dtype) -> DataType:
+    import numpy as np
     if not isinstance(dtype, np.dtype):
         raise TypeError("Expected numpy.dtype, got '{}'.".format(type(dtype)))
     if dtype.kind == "b":
@@ -117,7 +117,8 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
 
-def _infer_numpy_array(col: np.ndarray) -> DataType:
+def _infer_numpy_array(col) -> DataType:
+    import numpy as np
     if not isinstance(col, np.ndarray):
         raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(col)))
     if len(col.shape) > 1:

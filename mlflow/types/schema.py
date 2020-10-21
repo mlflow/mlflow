@@ -1,8 +1,19 @@
 import json
 from enum import Enum
+import warnings
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    has_np = True
+except ImportError as e:
+    warnings.warn("Schema options will not work as expected due to {}".format(e))
+    has_np = False
+
+try:
+    import pandas as pd
+except ImportError as e:
+    warnings.warn("Schema options will not work as expected due to {}".format(e))
+
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
@@ -32,20 +43,21 @@ class DataType(Enum):
     # integers and boolean values. We do not use them here for now as most downstream tools are
     # most likely to use / expect native numpy types and would not be compatible with the extension
     # types.
-    boolean = (1, np.dtype("bool"), "BooleanType")
-    """Logical data (True, False) ."""
-    integer = (2, np.dtype("int32"), "IntegerType")
-    """32b signed integer numbers."""
-    long = (3, np.dtype("int64"), "LongType")
-    """64b signed integer numbers. """
-    float = (4, np.dtype("float32"), "FloatType")
-    """32b floating point numbers. """
-    double = (5, np.dtype("float64"), "DoubleType")
-    """64b floating point numbers. """
-    string = (6, np.dtype("str"), "StringType", _pandas_string_type())
-    """Text data."""
-    binary = (7, np.dtype("bytes"), "BinaryType", np.object)
-    """Sequence of raw bytes."""
+    if has_np:
+        boolean = (1, np.dtype("bool"), "BooleanType")
+        """Logical data (True, False) ."""
+        integer = (2, np.dtype("int32"), "IntegerType")
+        """32b signed integer numbers."""
+        long = (3, np.dtype("int64"), "LongType")
+        """64b signed integer numbers. """
+        float = (4, np.dtype("float32"), "FloatType")
+        """32b floating point numbers. """
+        double = (5, np.dtype("float64"), "DoubleType")
+        """64b floating point numbers. """
+        string = (6, np.dtype("str"), "StringType", _pandas_string_type())
+        """Text data."""
+        binary = (7, np.dtype("bytes"), "BinaryType", np.object)
+        """Sequence of raw bytes."""
 
     def __repr__(self):
         return self.name
@@ -53,11 +65,11 @@ class DataType(Enum):
     def __str(self):
         return self.name
 
-    def to_numpy(self) -> np.dtype:
+    def to_numpy(self): # -> np.dtype, commented type info for lazy loading of numpy
         """Get equivalent numpy data type. """
         return self._numpy_type
 
-    def to_pandas(self) -> np.dtype:
+    def to_pandas(self): # -> np.dtype, commented type info for lazy loading of numpy
         """Get equivalent pandas data type. """
         return self._pandas_type
 
@@ -152,11 +164,11 @@ class Schema(object):
         """ Get column types of the columns in the dataset."""
         return [x.type for x in self._cols]
 
-    def numpy_types(self) -> List[np.dtype]:
+    def numpy_types(self):  # -> List[np.dtype], commented type info for lazy loading of numpy
         """ Convenience shortcut to get the datatypes as numpy types."""
         return [x.type.to_numpy() for x in self.columns]
 
-    def pandas_types(self) -> List[np.dtype]:
+    def pandas_types(self):  # -> List[np.dtype], commented type info for lazy loading of numpy 
         """ Convenience shortcut to get the datatypes as pandas types."""
         return [x.type.to_pandas() for x in self.columns]
 
