@@ -218,3 +218,32 @@ def test_get_s3_file_upload_extra_args_invalid_json():
 
     with pytest.raises(ValueError):
         S3ArtifactRepository.get_s3_file_upload_extra_args()
+
+
+def test_delete_artifacts(s3_artifact_root, tmpdir):
+    subdir_path = str(tmpdir.mkdir("subdir"))
+    nested_path = os.path.join(subdir_path, "nested")
+    os.makedirs(nested_path)
+    with open(os.path.join(subdir_path, "a.txt"), "w") as f:
+        f.write("A")
+    with open(os.path.join(nested_path, "b.txt"), "w") as f:
+        f.write("B")
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo.log_artifacts(subdir_path)
+
+    nested_artifacts_listing = [f.path for f in repo.list_artifacts("nested")]
+    assert nested_artifacts_listing == ["nested/b.txt"]
+
+    repo.delete_artifacts("nested")
+
+    nested_artifacts_listing = [f.path for f in repo.list_artifacts("nested")]
+    assert nested_artifacts_listing == []
+
+    all_artifacts_listing = [f.path for f in repo.list_artifacts()]
+    assert all_artifacts_listing == ["a.txt"]
+
+    repo.delete_artifacts()
+
+    all_artifacts_listing = [f.path for f in repo.list_artifacts()]
+    assert all_artifacts_listing == []

@@ -147,4 +147,12 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        (bucket, path) = data.parse_s3_uri(self.artifact_uri)
+
+        if artifact_path:
+            path = posixpath.join(path, artifact_path)
+
+        s3_client = self._get_s3_client()
+        result = s3_client.list_objects_v2(Bucket=bucket, Prefix=path)
+        for obj in result.get("Contents", []):
+            s3_client.delete_object(Bucket=bucket, Key=obj.get('Key'))
