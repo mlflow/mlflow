@@ -279,7 +279,8 @@ class MlflowClient(object):
             print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
 
             print("All runs:")
-            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL, order_by=["metric.click_rate DESC"]))
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL,
+                            order_by=["metric.click_rate DESC"]))
 
         .. code-block:: text
             :caption: Output
@@ -1169,7 +1170,8 @@ class MlflowClient(object):
                 mlflow.log_metric("m", 2.50)
                 mlflow.set_tag("s.release", "1.2.0-GA")
 
-            # Search all runs under experiment id and order them by descending value of the metric 'm'
+            # Search all runs under experiment id and order them by
+            # descending value of the metric 'm'
             client = MlflowClient()
             runs = client.search_runs(experiment_id, order_by=["metrics.m DESC"])
             print_run_info(runs)
@@ -1181,7 +1183,8 @@ class MlflowClient(object):
             # Search only deleted runs under the experiment id and use a case insensitive pattern
             # in the filter_string for the tag.
             filter_string = "tags.s.release ILIKE '%rc%'"
-            runs = client.search_runs(experiment_id, run_view_type=ViewType.DELETED_ONLY, filter_string=filter_string)
+            runs = client.search_runs(experiment_id, run_view_type=ViewType.DELETED_ONLY,
+                                        filter_string=filter_string)
             print_run_info(runs)
 
         .. code-block:: text
