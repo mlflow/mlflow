@@ -2,12 +2,13 @@
 NOTE: The contents of this file have been inlined from the wrapt package's source code
 https://github.com/GrahamDumpleton/wrapt/blob/1.12.1/src/wrapt/importer.py.
 Some modifications, have been made in order to:
-    - Avoid duplicate registration of import hooks
+    - avoid duplicate registration of import hooks.
     - inline functions from dependent wrapt submodules rather than importing them.
 
-This module implements a post import hook mechanism styled after what is described in PEP-369. Note that
-it doesn't cope with modules being reloaded.
-It also extends the functionality to support custom hooks for import errors (as opposed to only successful imports).
+This module implements a post import hook mechanism styled after what is described in PEP-369.
+Note that it doesn't cope with modules being reloaded.
+It also extends the functionality to support custom hooks for import errors
+(as opposed to only successful imports).
 """
 
 import sys
@@ -251,7 +252,7 @@ class ImportHookFinder:
         # import hooks for, we can return immediately. We will
         # take no further part in the importing of this module.
 
-        if not fullname in _post_import_hooks and not fullname in _import_error_hooks:
+        if fullname not in _post_import_hooks and fullname not in _import_error_hooks:
             return None
 
         # When we are interested in a specific module, we will call back
