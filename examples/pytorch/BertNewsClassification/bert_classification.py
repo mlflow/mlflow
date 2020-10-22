@@ -109,7 +109,6 @@ class BertDataModule(pl.LightningDataModule):
         """
         Implementation of abstract class
         """
-        pass
 
     def setup(self, stage=None):
         """
@@ -130,7 +129,7 @@ class BertDataModule(pl.LightningDataModule):
 
         df.columns = ["label", "title", "description"]
         df.sample(frac=1)
-        df = df.iloc[:self.args["num_samples"]]
+        df = df.iloc[: self.args["num_samples"]]
 
         df["label"] = df.label.apply(self.to_label)
 
@@ -140,8 +139,12 @@ class BertDataModule(pl.LightningDataModule):
         np.random.seed(RANDOM_SEED)
         torch.manual_seed(RANDOM_SEED)
 
-        df_train, df_test = train_test_split(df, test_size=0.3, random_state=RANDOM_SEED, stratify=df['label'])
-        df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED, stratify=df_test['label'])
+        df_train, df_test = train_test_split(
+            df, test_size=0.3, random_state=RANDOM_SEED, stratify=df["label"]
+        )
+        df_val, df_test = train_test_split(
+            df_test, test_size=0.5, random_state=RANDOM_SEED, stratify=df_test["label"]
+        )
 
         self.df_train = df_train
         self.df_test = df_test
@@ -332,8 +335,7 @@ class BertNewsClassifier(pl.LightningModule):
 
         :return: output - average valid loss
         """
-        avg_loss = torch.stack(
-            [x['val_step_loss'] for x in outputs]).mean()
+        avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
         self.log("val_loss", avg_loss)
 
     def test_epoch_end(self, outputs):
@@ -411,9 +413,7 @@ if __name__ == "__main__":
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args,
-        callbacks=[lr_logger, early_stopping],
-        checkpoint_callback=checkpoint_callback
+        args, callbacks=[lr_logger, early_stopping], checkpoint_callback=checkpoint_callback
     )
     trainer.fit(model, dm)
     trainer.test()
