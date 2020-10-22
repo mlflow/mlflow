@@ -1,4 +1,4 @@
-## MNIST example with MLFlow
+## MNIST example with MLflow
 
 This example demonstrates training of MNIST handwritten recognition model and logging it as torch scripted model. 
 `mlflow.pytorch.log_model()` is used to log the scripted model to MLflow and `mlflow.pytorch.load_model()` to load it from MLflow

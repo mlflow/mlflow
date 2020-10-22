@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
 # pylint: disable=W0223
 
 from __future__ import print_function
@@ -143,7 +141,7 @@ def main():
     )
 
     parser.add_argument(
-        "--tracking-uri", default="http://localhost:5000", help="Mlflow Tracking URI",
+        "--tracking-uri", default="http://localhost:5000", help="MLflow Tracking URI",
     )
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
@@ -177,9 +175,19 @@ def main():
         scheduler.step()
     test(scripted_model, device, test_loader)
     mlflow.tracking.set_tracking_uri(args.tracking_uri)
-    mlflow.pytorch.log_model(model, "model")  # logging scripted model
-    uri_path = mlflow.get_artifact_uri()
-    mlflow.pytorch.load_model(uri_path + "/model")  # loading scripted model
+    with mlflow.start_run() as run:
+        mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
+        model_path = mlflow.get_artifact_uri("model")
+        loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model
+        model.eval()
+        with torch.no_grad():
+            test_datapoint, test_target = next(iter(test_loader))
+            prediction = loaded_pytorch_model(test_datapoint[0].unsqueeze(0).to(device))
+            actual = test_target[0].item()
+            predicted = torch.argmax(prediction).item()
+            print(
+                "\nPREDICTION RESULT: ACTUAL: {}, PREDICTED: {}".format(str(actual), str(predicted))
+            )
 
 
 if __name__ == "__main__":
