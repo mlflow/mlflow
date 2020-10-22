@@ -167,31 +167,31 @@ class MlflowClient(object):
             # Log couple of metrics, update their initial value, and fetch each
             # logged metrics' history.
             for k, v in [("m1", 1.5), ("m2", 2.5)]:
-                client.log_metric(run.info.run_id, k, v)
-                client.log_metric(run.info.run_id, k, v + 1)
+                client.log_metric(run.info.run_id, k, v, step=0)
+                client.log_metric(run.info.run_id, k, v + 1, step=1)
                 print_metric_info(client.get_metric_history(run.info.run_id, k))
             client.set_terminated(run.info.run_id)
 
         .. code-block:: text
             :caption: Output
 
-            run_id: 53413cdc8eeb44f7bb2cf8ff447196f1
+            run_id: 47309213e1de44ff9f5b925159a1fc28
             --
             name: m1
             value: 1.5
-            timestamp: 1602870941360
+            timestamp: 1603382917037
             --
             name: m1
             value: 2.5
-            timestamp: 1602870941364
+            timestamp: 1603382917038
             --
             name: m2
             value: 2.5
-            timestamp: 1602870941366
+            timestamp: 1603382917039
             --
             name: m2
             value: 3.5
-            timestamp: 1602870941366
+            timestamp: 1603382917040
             --
         """
         return self._tracking_client.get_metric_history(run_id, key)
