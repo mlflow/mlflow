@@ -2,6 +2,11 @@
 mlruns/
 outputs/
 
+# Singularity
+*.sif
+*.simg
+*.img
+
 # Mac
 .DS_Store
 

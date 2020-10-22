@@ -75,6 +75,7 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
         ],
+        "singularity": ["spython",],
         "sqlserver": ["mlflow-dbstore",],
         "aliyun-oss": ["aliyunstoreplugin",],
     },

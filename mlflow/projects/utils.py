@@ -8,7 +8,7 @@ import urllib.parse
 from distutils import dir_util
 
 import mlflow.utils
-from mlflow.utils import databricks_utils
+from mlflow.utils import databricks_utils, file_utils
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
 from mlflow.projects import _project_spec
@@ -35,13 +35,14 @@ _GIT_URI_REGEX = re.compile(r"^[^/]*:")
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")
 MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG = "_mlflow_local_backend_run_id"
-MLFLOW_DOCKER_WORKDIR_PATH = "/mlflow/projects/code/"
+MLFLOW_CONTAINER_WORKDIR_PATH = "/mlflow/projects/code/"
+MLFLOW_CONTAINER_TRACKING_DIR_PATH = "/mlflow/tmp/mlruns"
 
 PROJECT_USE_CONDA = "USE_CONDA"
 PROJECT_SYNCHRONOUS = "SYNCHRONOUS"
 PROJECT_DOCKER_ARGS = "DOCKER_ARGS"
 PROJECT_STORAGE_DIR = "STORAGE_DIR"
-
+PROJECT_SINGULARITY_ARGS = "SINGULARITY_ARGS"
 
 _logger = logging.getLogger(__name__)
 
@@ -117,6 +118,21 @@ def _is_valid_branch_name(work_dir, version):
         except GitCommandError:
             return False
     return False
+
+
+def get_local_uri_or_none(uri):
+    if uri == "databricks":
+        return None, None
+    parsed_uri = urllib.parse.urlparse(uri)
+    if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
+        path = urllib.request.url2pathname(parsed_uri.path)
+        if parsed_uri.scheme == "sqlite":
+            uri = file_utils.path_to_local_sqlite_uri(MLFLOW_CONTAINER_TRACKING_DIR_PATH)
+        else:
+            uri = file_utils.path_to_local_file_uri(MLFLOW_CONTAINER_TRACKING_DIR_PATH)
+        return path, uri
+    else:
+        return None, None
 
 
 def fetch_and_validate_project(uri, version, entry_point, parameters):

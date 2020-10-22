@@ -19,6 +19,8 @@ MLFLOW_PROJECT_ENV = "mlflow.project.env"
 MLFLOW_PROJECT_ENTRY_POINT = "mlflow.project.entryPoint"
 MLFLOW_DOCKER_IMAGE_URI = "mlflow.docker.image.uri"
 MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
+MLFLOW_SINGULARITY_IMAGE_URI = "mlflow.singularity.image.uri"
+MLFLOW_SINGULARITY_IMAGE_ID = "mlflow.singularity.image.id"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"

@@ -34,43 +34,45 @@ def load_project(directory):
 
     project_name = yaml_obj.get("name")
 
-    # Validate config if docker_env parameter is present
+    # Validate config if docker/singularity_env parameter is present
     docker_env = yaml_obj.get("docker_env")
-    if docker_env:
-        if not docker_env.get("image"):
-            raise ExecutionException(
-                "Project configuration (MLproject file) was invalid: Docker "
-                "environment specified but no image attribute found."
-            )
-        if docker_env.get("volumes"):
-            if not (
-                isinstance(docker_env["volumes"], list)
-                and all([isinstance(i, str) for i in docker_env["volumes"]])
-            ):
+    singularity_env = yaml_obj.get("singularity_env")
+    for env_type, container_env in {"Docker": docker_env, "Singularity": singularity_env}.items():
+        if container_env:
+            if not container_env.get("image"):
                 raise ExecutionException(
-                    "Project configuration (MLproject file) was invalid: "
-                    "Docker volumes must be a list of strings, "
-                    """e.g.: '["/path1/:/path1", "/path2/:/path2"])"""
+                    "Project configuration (MLproject file) was invalid: %s "
+                    "environment specified but no image attribute found." % env_type
                 )
-        if docker_env.get("environment"):
-            if not (
-                isinstance(docker_env["environment"], list)
-                and all(
-                    [isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]]
-                )
-            ):
-                raise ExecutionException(
-                    "Project configuration (MLproject file) was invalid: "
-                    "environment must be a list containing either strings (to copy environment "
-                    "variables from host system) or lists of string pairs (to define new "
-                    "environment variables)."
-                    """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
-                )
+            if container_env.get("volumes"):
+                if not (
+                    isinstance(container_env["volumes"], list)
+                    and all([isinstance(i, str) for i in container_env["volumes"]])
+                ):
+                    raise ExecutionException(
+                        "Project configuration (MLproject file) was invalid: "
+                        "%s volumes must be a list of strings, "
+                        """e.g.: '["/path1/:/path1", "/path2/:/path2"])""" % env_type
+                    )
+            if container_env.get("environment"):
+                if not (
+                    isinstance(container_env["environment"], list)
+                    and all(
+                        [isinstance(i, list) or isinstance(i, str) for i in container_env["environment"]]
+                    )
+                ):
+                    raise ExecutionException(
+                        "Project configuration (MLproject file) was invalid: "
+                        "environment must be a list containing either strings (to copy environment "
+                        "variables from host system) or lists of string pairs (to define new "
+                        "environment variables)."
+                        """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
+                    )
 
     # Validate config if conda_env parameter is present
     conda_path = yaml_obj.get("conda_env")
-    if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
+    if conda_path and docker_env or conda_path and docker_env or docker_env and singularity_env:
+        raise ExecutionException("Project can only contain a single container or conda environment.")
 
     # Parse entry points
     entry_points = {}
@@ -90,6 +92,7 @@ def load_project(directory):
             conda_env_path=conda_env_path,
             entry_points=entry_points,
             docker_env=docker_env,
+            singularity_env=singularity_env,
             name=project_name,
         )
 
@@ -99,21 +102,23 @@ def load_project(directory):
             conda_env_path=default_conda_path,
             entry_points=entry_points,
             docker_env=docker_env,
+            singularity_env=singularity_env,
             name=project_name,
         )
 
     return Project(
-        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
+        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, singularity_env=singularity_env, name=project_name
     )
 
 
 class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, conda_env_path, entry_points, docker_env, name):
+    def __init__(self, conda_env_path, entry_points, docker_env, singularity_env, name):
         self.conda_env_path = conda_env_path
         self._entry_points = entry_points
         self.docker_env = docker_env
+        self.singularity_env = singularity_env
         self.name = name
 
     def get_entry_point(self, entry_point):

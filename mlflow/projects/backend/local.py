@@ -13,6 +13,14 @@ from mlflow.projects.docker import (
     build_docker_image,
     get_docker_tracking_cmd_and_envs,
 )
+from mlflow.projects.singularity import (
+    validate_singularity_env,
+    validate_singularity_installation,
+    build_singularity_image,
+    get_singularity_tracking_cmd_and_envs,
+    get_singularity_command
+)
+
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
@@ -23,9 +31,10 @@ from mlflow.projects.utils import (
     get_databricks_env_vars,
     get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
-    MLFLOW_DOCKER_WORKDIR_PATH,
+    MLFLOW_CONTAINER_WORKDIR_PATH,
     PROJECT_USE_CONDA,
     PROJECT_SYNCHRONOUS,
+    PROJECT_SINGULARITY_ARGS,
     PROJECT_DOCKER_ARGS,
     PROJECT_STORAGE_DIR,
 )
@@ -61,6 +70,7 @@ class LocalBackend(AbstractBackend):
         use_conda = backend_config[PROJECT_USE_CONDA]
         synchronous = backend_config[PROJECT_SYNCHRONOUS]
         docker_args = backend_config[PROJECT_DOCKER_ARGS]
+        singularity_args = backend_config[PROJECT_SINGULARITY_ARGS]
         storage_dir = backend_config[PROJECT_STORAGE_DIR]
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
@@ -80,6 +90,24 @@ class LocalBackend(AbstractBackend):
                 docker_args=docker_args,
                 volumes=project.docker_env.get("volumes"),
                 user_env_vars=project.docker_env.get("environment"),
+            )
+        # If a singularity_env attribute is defined in MLproject then it takes precedence over conda too
+        elif project.singularity_env:
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "singularity")
+            validate_singularity_env(project)
+            validate_singularity_installation()
+            image = build_singularity_image(
+                work_dir=work_dir,
+                repository_uri=project.name,
+                base_image=project.singularity_env.get("image"),
+                run_id=active_run.info.run_id,
+            )
+            command_args += get_singularity_command(
+                image=image,
+                active_run=active_run,
+                singularity_args=singularity_args,
+                volumes=project.singularity_env.get("volumes"),
+                user_env_vars=project.singularity_env.get("environment"),
             )
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
@@ -105,13 +133,14 @@ class LocalBackend(AbstractBackend):
             experiment_id=experiment_id,
             use_conda=use_conda,
             docker_args=docker_args,
+            singularity_args=singularity_args,
             storage_dir=storage_dir,
             run_id=active_run.info.run_id,
         )
 
 
 def _invoke_mlflow_run_subprocess(
-    work_dir, entry_point, parameters, experiment_id, use_conda, docker_args, storage_dir, run_id
+    work_dir, entry_point, parameters, experiment_id, use_conda, docker_args, singularity_args, storage_dir, run_id
 ):
     """
     Run an MLflow project asynchronously by invoking ``mlflow run`` in a subprocess, returning
@@ -122,6 +151,7 @@ def _invoke_mlflow_run_subprocess(
         uri=work_dir,
         entry_point=entry_point,
         docker_args=docker_args,
+        singularity_args=singularity_args,
         storage_dir=storage_dir,
         use_conda=use_conda,
         run_id=run_id,
@@ -134,7 +164,7 @@ def _invoke_mlflow_run_subprocess(
 
 
 def _build_mlflow_run_cmd(
-    uri, entry_point, docker_args, storage_dir, use_conda, run_id, parameters
+    uri, entry_point, docker_args, singularity_args, storage_dir, use_conda, run_id, parameters
 ):
     """
     Build and return an array containing an ``mlflow run`` command that can be invoked to locally
@@ -145,6 +175,10 @@ def _build_mlflow_run_cmd(
         for key, value in docker_args.items():
             args = key if isinstance(value, bool) else "%s=%s" % (key, value)
             mlflow_run_arr.extend(["--docker-args", args])
+    if singularity_args is not None:
+        for key, value in singularity_args.items():
+            args = key if isinstance(value, bool) else "%s=%s" % (key, value)
+            mlflow_run_arr.extend(["--singularity-args", args])
     if storage_dir is not None:
         mlflow_run_arr.extend(["--storage-dir", storage_dir])
     if not use_conda:
@@ -188,6 +222,9 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     env.update(get_run_env_vars(run_id, experiment_id))
     env.update(get_databricks_env_vars(tracking_uri=mlflow.get_tracking_uri()))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
+    print("RUNNING COMMANd")
+    import IPython
+    IPython.embed()
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
     if os.name != "nt":
@@ -202,6 +239,7 @@ def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
 
+    # TODO: this could be a shared function for containers
     if docker_args:
         for name, value in docker_args.items():
             # Passed just the name as boolean flag
@@ -260,7 +298,7 @@ def _get_local_artifact_cmd_and_envs(artifact_repo):
     artifact_dir = artifact_repo.artifact_dir
     container_path = artifact_dir
     if not os.path.isabs(container_path):
-        container_path = os.path.join(MLFLOW_DOCKER_WORKDIR_PATH, container_path)
+        container_path = os.path.join(MLFLOW_CONTAINER_WORKDIR_PATH, container_path)
         container_path = os.path.normpath(container_path)
     abs_artifact_dir = os.path.abspath(artifact_dir)
     return ["-v", "%s:%s" % (abs_artifact_dir, container_path)], {}
