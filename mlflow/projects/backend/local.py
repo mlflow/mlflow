@@ -222,9 +222,6 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     env.update(get_run_env_vars(run_id, experiment_id))
     env.update(get_databricks_env_vars(tracking_uri=mlflow.get_tracking_uri()))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
-    print("RUNNING COMMANd")
-    import IPython
-    IPython.embed()
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
     if os.name != "nt":

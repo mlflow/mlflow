@@ -84,7 +84,7 @@ def build_singularity_image(work_dir, repository_uri, base_image, run_id):
         _logger.info("Building Singularity container...")
         final_image = Client.build(build_folder=build_ctx_path, recipe=os.path.join(build_ctx_path, _GENERATED_RECIPE_NAME), image=final_image, force=True)
         try:
-            os.remove(build_ctx_path)
+            shutil.rmtree(build_ctx_path)
         except Exception:  # pylint: disable=broad-except
             _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(run_id, MLFLOW_SINGULARITY_IMAGE_URI, image_uri)
@@ -139,7 +139,7 @@ def get_singularity_tracking_cmd_and_envs(tracking_uri):
 
 def get_singularity_command(image, active_run, singularity_args=None, volumes=None, user_env_vars=None):
 
-    cmd = Client._init_command("run", singularity_args)
+    cmd = Client._init_command("exec", singularity_args)
     if volumes:
         cmd += Client._generate_bind_list(volumes)
 
