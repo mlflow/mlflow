@@ -168,7 +168,7 @@ class MlflowClient(object):
             # logged metrics' history.
             for k, v in [("m1", 1.5), ("m2", 2.5)]:
                 client.log_metric(run.info.run_id, k, v)
-                client.log_metric(run.info.run_id, k, v+1)
+                client.log_metric(run.info.run_id, k, v + 1)
                 print_metric_info(client.get_metric_history(run.info.run_id, k))
             client.set_terminated(run.info.run_id)
 
@@ -1157,7 +1157,7 @@ class MlflowClient(object):
                     print("lifecycle_stage: {}".format(r.info.lifecycle_stage))
                     print("metrics: {}".format(r.data.metrics))
 
-                    # Exclude mlflow tags
+                    # Exclude mlflow system tags
                     tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
                     print("tags: {}".format(tags))
 
@@ -1428,11 +1428,11 @@ class MlflowClient(object):
             from mlflow.tracking import MlflowClient
 
             def print_model_info(models):
-            for m in models:
-                print("--")
-                print("name: {}".format(m.name))
-                print("tags: {}".format(m.tags))
-                print("description: {}".format(m.description))
+                for m in models:
+                    print("--")
+                    print("name: {}".format(m.name))
+                    print("tags: {}".format(m.tags))
+                    print("description: {}".format(m.description))
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             client = MlflowClient()
@@ -1720,7 +1720,7 @@ class MlflowClient(object):
 
             # Register a couple of models with respective names and tags
             for name, tags in [("name1", {"t1": "t1"}),("name2", {"t2": "t2"})]:
-            client.create_registered_model(name, tags)
+                client.create_registered_model(name, tags)
 
             # Fetch all registered models
             print_registered_models_info(client.list_registered_models())
@@ -1905,6 +1905,10 @@ class MlflowClient(object):
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
             # Create a new version of the rfr model under the registered model name
             model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
             mv = client.create_model_version(name, model_uri, run.info.run_id)
@@ -1913,7 +1917,7 @@ class MlflowClient(object):
 
             # Update model version's description
             desc = "A new version of the model using ensemble trees"
-            mv = client.update_model_version(name, int(mv.version), desc)
+            mv = client.update_model_version(name, mv.version, desc)
             print_model_version_info(mv)
 
         .. code-block:: text
@@ -1983,7 +1987,7 @@ class MlflowClient(object):
             print("--")
 
             # transition model version from None -> staging
-            mv = client.transition_model_version_stage(name, int(mv.version), "staging")
+            mv = client.transition_model_version_stage(name, mv.version, "staging")
             print_model_version_info(mv)
 
         .. code-block:: text
@@ -2060,7 +2064,7 @@ class MlflowClient(object):
 
             # Delete the latest model version 2
             print("Deleting model version {}".format(mv.version))
-            client.delete_model_version(name, int(mv.version))
+            client.delete_model_version(name, mv.version)
             models = client.get_latest_versions(name, stages=["None"])
             print_models_info(models)
 
@@ -2123,7 +2127,7 @@ class MlflowClient(object):
             print("--")
 
             # Fetch the last version; this will be version 2
-            mv = client.get_model_version(name, int(mv.version))
+            mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
         .. code-block:: text
@@ -2170,7 +2174,7 @@ class MlflowClient(object):
             # Create a new version of the rfr model under the registered model name
             model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
             mv = client.create_model_version(name, model_uri, run.info.run_id)
-            artifact_uri = client.get_model_version_download_uri(name, int(mv.version))
+            artifact_uri = client.get_model_version_download_uri(name, mv.version)
             print("Download URI: {}".format(artifact_uri))
 
         .. code-block:: text
@@ -2255,7 +2259,7 @@ class MlflowClient(object):
             # fetch valid stages
             model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
             mv = client.create_model_version(name, model_uri, run.info.run_id)
-            stages = client.get_model_version_stages(name, int(mv.version))
+            stages = client.get_model_version_stages(name, mv.version)
             print("Model list of valid stages: {}".format(stages))
 
         .. code-block:: text
@@ -2283,7 +2287,7 @@ class MlflowClient(object):
             from mlflow.tracking import MlflowClient
             from sklearn.ensemble import RandomForestRegressor
 
-            def print_model_versino_info(mv):
+            def print_model_version_info(mv):
                 print("Name: {}".format(mv.name))
                 print("Version: {}".format(mv.version))
                 print("Tags: {}".format(mv.tags))
@@ -2308,8 +2312,8 @@ class MlflowClient(object):
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             print_model_version_info(mv)
             print("--")
-            client.set_model_version_tag(name, int(mv.version), "t", "1")
-            mv = client.get_model_version(name, int(mv.version))
+            client.set_model_version_tag(name, mv.version, "t", "1")
+            mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
         .. code-block:: text
@@ -2368,8 +2372,8 @@ class MlflowClient(object):
             mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
             print_model_version_info(mv)
             print("--")
-            client.delete_model_version_tag(name, int(mv.version), "t")
-            mv = client.get_model_version(name, int(mv.version))
+            client.delete_model_version_tag(name, mv.version, "t")
+            mv = client.get_model_version(name, mv.version)
             print_model_version_info(mv)
 
         .. code-block:: text
