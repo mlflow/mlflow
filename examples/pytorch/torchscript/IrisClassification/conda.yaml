@@ -11,5 +11,4 @@ dependencies:
   - sklearn
   - cloudpickle==1.6.0
   - boto3
-  - pandas
 name: mlflow-env
