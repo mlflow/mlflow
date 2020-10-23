@@ -46,7 +46,7 @@ setup(
         "pandas",
         "python-dateutil",
         "protobuf>=3.6.0",
-        "gitpython>=2.1.0",
+        "gitpython>=2.1.0,!=3.1.10",
         "pyyaml",
         "querystring_parser",
         "docker>=4.0.0",
