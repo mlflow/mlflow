@@ -15,6 +15,7 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
+from packaging.version import Version
 
 import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
@@ -367,11 +368,17 @@ def _load_model(path, **kwargs):
     :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch
+    pytorch_version = torch.__version__
 
     if os.path.isdir(path):
         # `path` is a directory containing a serialized PyTorch model and a text file containing
         # information about the pickle module that should be used by PyTorch to load it
         model_path = os.path.join(path, "model.pth")
+
+        local_path = os.path.dirname(path)
+        pytorch_conf = _get_flavor_configuration(model_path=local_path, flavor_name=FLAVOR_NAME)
+        pytorch_version = pytorch_conf["pytorch_version"]
+
         pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
         with open(pickle_module_path, "r") as f:
             pickle_module_name = f.read()
@@ -399,7 +406,16 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    return torch.load(model_path, **kwargs)
+    if Version(pytorch_version) >= Version('1.5.0'):
+        return torch.load(model_path, **kwargs)
+    else:
+        try:
+            # load the model as an eager model.
+            return torch.load(model_path, **kwargs)
+        except Exception: # pylint: disable=W0703
+            # If fails, assume the model as a scripted model
+            return torch.jit.load(model_path)
+
 
 
 def load_model(model_uri, **kwargs):
