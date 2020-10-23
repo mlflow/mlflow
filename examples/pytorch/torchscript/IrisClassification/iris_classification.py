@@ -2,7 +2,7 @@
 # pylint: disable=W0613
 # pylint: disable=W0223
 import argparse
-
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 import mlflow.pytorch
+from mlflow.pytorch import _PyTorchWrapper
 
 
 class IrisClassifier(nn.Module):
@@ -103,8 +104,10 @@ if __name__ == "__main__":
         loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model
         model.eval()
         with torch.no_grad():
-            test_datapoint = torch.Tensor([4.4000, 3.0000, 1.3000, 0.2000]).to(device)
-            prediction = loaded_pytorch_model(test_datapoint)
+            test_datapoint = pd.DataFrame([[4.4000, 3.0000, 1.3000, 0.2000]])
             actual = "setosa"
-            predicted = target_names[torch.argmax(prediction)]
+            pywrap = _PyTorchWrapper(loaded_pytorch_model)
+            pred = pywrap.predict(test_datapoint)
+            pred_tensor = torch.from_numpy(pred.to_numpy())
+            predicted = target_names[torch.argmax(pred_tensor)]
             print("\nPREDICTION RESULT: ACTUAL: {}, PREDICTED: {}".format(actual, predicted))
