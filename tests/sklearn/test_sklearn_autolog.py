@@ -1033,3 +1033,21 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_imputation_estimator
     assert len(metrics) == 0
     assert len(tags) == 0
     assert len(artifacts) == 0
+
+
+@pytest.mark.large
+def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
+    """
+    Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
+    """
+    mlflow.sklearn.autolog()
+
+    from sklearn.naive_bayes import CategoricalNB
+    model = CategoricalNB()
+    assert(hasattr(super(CategoricalNB, model), "fit"))
+
+    with mlflow.start_run() as run:
+        model.fit(*get_iris())
+
+    _, _, tags, _ = get_run_data(run.info.run_id)
+    assert {"estimator_name": "CategoricalNB"}.items() <= tags.items()
