@@ -152,6 +152,7 @@ class MlflowClient(object):
                 for m in history:
                     print("name: {}".format(m.key))
                     print("value: {}".format(m.value))
+                    print("step: {}".format(m.step))
                     print("timestamp: {}".format(m.timestamp))
                     print("--")
 
@@ -175,23 +176,27 @@ class MlflowClient(object):
         .. code-block:: text
             :caption: Output
 
-            run_id: 47309213e1de44ff9f5b925159a1fc28
+            run_id: c360d15714994c388b504fe09ea3c234
             --
             name: m1
             value: 1.5
-            timestamp: 1603382917037
+            step: 0
+            timestamp: 1603423788607
             --
             name: m1
             value: 2.5
-            timestamp: 1603382917038
+            step: 1
+            timestamp: 1603423788608
             --
             name: m2
             value: 2.5
-            timestamp: 1603382917039
+            step: 0
+            timestamp: 1603423788609
             --
             name: m2
             value: 3.5
-            timestamp: 1603382917040
+            step: 1
+            timestamp: 1603423788610
             --
         """
         return self._tracking_client.get_metric_history(run_id, key)
