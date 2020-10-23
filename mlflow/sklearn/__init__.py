@@ -724,16 +724,16 @@ def autolog(log_input_example=False, log_model_signature=True):
             stacklevel=2,
         )
 
-    def fit_mlflow(self, func_name, *args, **kwargs):
+    def fit_mlflow(self, clazz, func_name, *args, **kwargs):
         should_start_run = mlflow.active_run() is None
         if should_start_run:
             try_mlflow_log(mlflow.start_run)
 
         _log_pretraining_metadata(self, *args, **kwargs)
 
-        original_fit = gorilla.get_original_attribute(self, func_name)
+        original_fit = gorilla.get_original_attribute(clazz, func_name)
         try:
-            fit_output = original_fit(*args, **kwargs)
+            fit_output = original_fit(self, *args, **kwargs)
         except Exception as e:
             if should_start_run:
                 try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
@@ -891,21 +891,21 @@ def autolog(log_input_example=False, log_model_signature=True):
                     )
                     _logger.warning(msg)
 
-    def patched_fit(self, func_name, *args, **kwargs):
+    def patched_fit(self, clazz, func_name, *args, **kwargs):
         """
         To be applied to a sklearn model class that defines a `fit` method and
         inherits from `BaseEstimator` (thereby defining the `get_params()` method)
         """
-        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+        with _SklearnTrainingSession(clazz=clazz, allow_children=False) as t:
             if t.should_log():
-                return fit_mlflow(self, func_name, *args, **kwargs)
+                return fit_mlflow(self, clazz, func_name, *args, **kwargs)
             else:
-                original_fit = gorilla.get_original_attribute(self, func_name)
-                return original_fit(*args, **kwargs)
+                original_fit = gorilla.get_original_attribute(clazz, func_name)
+                return original_fit(self, *args, **kwargs)
 
-    def create_patch_func(func_name):
+    def create_patch_func(clazz, func_name):
         def f(self, *args, **kwargs):
-            return patched_fit(self, func_name, *args, **kwargs)
+            return patched_fit(self, clazz, func_name, *args, **kwargs)
 
         return f
 
@@ -965,5 +965,5 @@ def autolog(log_input_example=False, log_model_signature=True):
                 if isinstance(original, property):
                     continue
 
-                patch_func = create_patch_func(func_name)
+                patch_func = create_patch_func(class_def, func_name)
                 wrap_patch(class_def, func_name, patch_func)
