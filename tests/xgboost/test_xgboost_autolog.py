@@ -478,3 +478,13 @@ def test_xgb_autolog_configuration_options(bst_params, log_input_example, log_mo
     model_conf = get_model_conf(run.info.artifact_uri)
     assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
     assert ("signature" in model_conf.to_dict()) == log_model_signature
+
+
+def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
+    """
+    This test verifies that `xgboost.DMatrix(None)` doesn't fail after patching.
+    XGBoost internally calls `xgboost.DMatrix(None)` to create a blank `DMatrix` object.
+    Example: https://github.com/dmlc/xgboost/blob/v1.2.1/python-package/xgboost/core.py#L701
+    """
+    mlflow.xgboost.autolog()
+    xgb.DMatrix(None)
