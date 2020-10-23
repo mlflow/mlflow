@@ -1,5 +1,3 @@
-# pylint: disable=W0221
-# pylint: disable=W0613
 # pylint: disable=W0223
 import argparse
 import torch
