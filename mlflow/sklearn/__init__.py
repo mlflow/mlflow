@@ -725,6 +725,11 @@ def autolog(log_input_example=False, log_model_signature=True):
         )
 
     def fit_mlflow(self, clazz, func_name, *args, **kwargs):
+        """
+        Autologging function that performs model training by executing the training method
+        referred to be `func_name` on the instance of `clazz` referred to by `self` & records
+        MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
+        """
         should_start_run = mlflow.active_run() is None
         if should_start_run:
             try_mlflow_log(mlflow.start_run)
@@ -893,8 +898,14 @@ def autolog(log_input_example=False, log_model_signature=True):
 
     def patched_fit(self, clazz, func_name, *args, **kwargs):
         """
-        To be applied to a sklearn model class that defines a `fit` method and
-        inherits from `BaseEstimator` (thereby defining the `get_params()` method)
+        Autologging patch function to be applied to a sklearn model class that defines a `fit`
+        method and inherits from `BaseEstimator` (thereby defining the `get_params()` method)
+
+        :param clazz: The scikit-learn model class to which this patch function is being applied for
+                      autologging (e.g., `sklearn.linear_model.LogisticRegression`)
+        :param func_name: The function name on the specified `clazz` that this patch is overriding
+                          for autologging (e.g., specify "fit" in order to indicate that
+                          `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
         with _SklearnTrainingSession(clazz=clazz, allow_children=False) as t:
             if t.should_log():
