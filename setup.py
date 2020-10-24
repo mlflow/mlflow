@@ -84,7 +84,7 @@ setup(
     """,
     zip_safe=False,
     author="Databricks",
-    description="MLflow: An ML Workflow Tool",
+    description="MLflow: A Platform for ML Development and Productionization",
     long_description=open("README.rst").read(),
     license="Apache License 2.0",
     classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6",],
