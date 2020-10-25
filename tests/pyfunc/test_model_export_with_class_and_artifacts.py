@@ -832,7 +832,11 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
 
 @pytest.mark.large
 def test_repr_can_be_called_withtout_run_id_or_artifact_path():
-    model_meta = Model(flavors={"python_function": {"loader_module": "someFlavour"}})
+    model_meta = Model(
+        artifact_path=None,
+        run_id=None,
+        flavors={"python_function": {"loader_module": "someFlavour"}},
+    )
 
     class TestModel(object):
         def predict(self, model_input):
