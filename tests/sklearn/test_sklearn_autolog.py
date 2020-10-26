@@ -1046,7 +1046,7 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
     # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
     # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
     # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
-    # expected constant prediction value, guarding against regressions of 
+    # expected constant prediction value, guarding against regressions of
     # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
     # recurse or yield the incorrect prediction result set by ParentMod.fit()
 
