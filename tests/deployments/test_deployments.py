@@ -24,7 +24,7 @@ def test_create_success():
 
 def test_delete_success():
     client = deployments.get_deploy_client(f_target)
-    assert client.delete_deployment(f_deployment_id) is None
+    assert client.delete_deployment(f_deployment_id, config={}) is None
 
 
 def test_update_success():

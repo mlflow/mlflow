@@ -1,3 +1,4 @@
+import tempfile
 from click.testing import CliRunner
 from mlflow.deployments import cli
 
@@ -73,6 +74,18 @@ def test_get():
     res = runner.invoke(cli.get_deployment, ["--name", f_name, "--target", f_target])
     assert "key1: val1" in res.stdout
     assert "key2: val2" in res.stdout
+
+
+def test_predict():
+    temp_input_file = tempfile.NamedTemporaryFile('w+t')
+    temp_input_file.name = "input.json"
+    temp_input_file.write('{"data": [5000]}')
+    temp_input_file.seek(0)
+    runner = CliRunner()
+    res = runner.invoke(cli.predict,
+                        ['--target', f_target, '--name', f_name, '--input_path', temp_input_file, '--output_path', 'sample.json'])
+    assert "RESULT IS: {}".format(str(1)) in res.stdout
+    temp_input_file.close()
 
 
 def test_target_help():

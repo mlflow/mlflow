@@ -1,4 +1,6 @@
 import click
+import json
+import pandas as pd
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
 
@@ -9,14 +11,14 @@ def _user_args_to_dict(user_list):
     for s in user_list:
         try:
             name, value = s.split("=")
-        except ValueError:
+        except ValueError as exc:
             # not enough values to unpack
             raise click.BadOptionUsage(
                 "config",
                 "Config options must be a pair and should be"
                 "provided as ``-C key=value`` or "
                 "``--config key=value``",
-            )
+            ) from exc
         if name in user_dict:
             raise click.ClickException("Repeated parameter: '{}'".format(name))
         user_dict[name] = value
@@ -30,7 +32,7 @@ if len(installed_targets) > 0:
     )
 else:
     supported_targets_msg = (
-        "NOTE: you currently do not have support for installed for any " "deployment targets."
+        "NOTE: you currently do not have support installed for any deployment targets."
     )
 
 target_details = click.option(
@@ -61,6 +63,20 @@ parse_custom_arguments = click.option(
     "deployment, of the form -C name=value. See "
     "documentation/help for your deployment target for a "
     "list of supported config options.",
+)
+
+parse_input = click.option(
+    "--input_path",
+    "-I",
+    required=True,
+    help="Path to the input file either can be json / csv / text",
+)
+
+parse_output = click.option(
+    "--output_path",
+    "-O",
+    required=True,
+    help="Path to the output file. This is optional, if not given it will be printed in stdout",
 )
 
 
@@ -96,7 +112,6 @@ def commands():
     writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
     """
-    pass
 
 
 @commands.command("create")
@@ -156,14 +171,16 @@ def update_deployment(flavor, model_uri, target, name, config):
 
 
 @commands.command("delete")
+@parse_custom_arguments
 @deployment_name
 @target_details
-def delete_deployment(target, name):
+def delete_deployment(target, name, config):
     """
     Delete the deployment with name given at `--name` from the specified target.
     """
+    config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
-    client.delete_deployment(name)
+    client.delete_deployment(name, config_dict)
     click.echo("Deployment {} is deleted".format(name))
 
 
@@ -220,3 +237,24 @@ def run_local(flavor, model_uri, target, name, config):
     """
     config_dict = _user_args_to_dict(config)
     interface.run_local(target, name, model_uri, flavor, config_dict)
+
+
+@commands.command("predict")
+@parse_custom_arguments
+@deployment_name
+@target_details
+@parse_input
+@parse_output
+def predict(target, name, input_path, output_path, config):
+    """
+    Predict the results for the deployed model for the given input(s)
+    """
+    config_dict = _user_args_to_dict(config)
+    df = pd.read_json(input_path)
+    client = interface.get_deploy_client(target)
+    result = client.predict(name, df, config_dict)
+    click.echo("\n")
+    click.echo("RESULT IS: {}".format(result))
+    click.echo("\n")
+    with open(output_path, "w") as fp:
+        fp.write(str(json.loads(result)))

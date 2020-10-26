@@ -10,7 +10,7 @@ class PluginDeploymentClient(BaseDeploymentClient):
             raise RuntimeError("Error requested")
         return {"name": f_deployment_name, "flavor": flavor}
 
-    def delete_deployment(self, name):
+    def delete_deployment(self, name, config):
         return None
 
     def update_deployment(self, name, model_uri=None, flavor=None, config=None):
@@ -24,8 +24,8 @@ class PluginDeploymentClient(BaseDeploymentClient):
     def get_deployment(self, name):
         return {"key1": "val1", "key2": "val2"}
 
-    def predict(self, deployment_name, df):
-        return 1
+    def predict(self, deployment_name, df, config=None):
+        return '1'
 
 
 def run_local(name, model_uri, flavor=None, config=None):
