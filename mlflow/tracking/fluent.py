@@ -1033,7 +1033,8 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
 
     The parameters are passed to any autologging integrations that support them.
 
-    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging integrations.
+    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
+    integrations.
 
     :param log_input_example: if True, logs a sample of the training data as part of the model
                               as an example for future reference. If False, no sample is logged.
