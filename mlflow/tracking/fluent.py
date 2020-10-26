@@ -1031,11 +1031,15 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     """
     Enable autologging for all supported integrations.
 
-    Takes any parameters, and passes whichever parameters are relevant to the specific autolog functions.
+    The parameters are passed to any autologging integrations that support them.
 
-    For example, the parameter `importance_types=['weight']` will only be passed to xgboost autologging.
+    See the individual autolog function docs for more info.
 
-    All the other integrations where no given parameters apply will be enabled with the default parameters.
+    :param log_input_example: if True, logs a sample of the training data as part of the model
+                              as an example for future reference. If False, no sample is logged.
+    :param log_model_signature: if True, records the type signature of the inputs and outputs as
+                                part of the model. If False, the signature is not recorded to the
+                                model.
     """
     locals_copy = locals().items()
 
