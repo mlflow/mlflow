@@ -218,6 +218,8 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
   X-axis relative time - graphs the time relative to the first metric logged, for each run
 
 
+.. _automatic-logging:
+
 Automatic Logging
 =================
 
