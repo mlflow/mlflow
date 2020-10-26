@@ -61,6 +61,8 @@ _PATTERN = "_gorilla_%s"
 # Pattern for the name of the overidden attributes to be stored.
 _ORIGINAL_NAME = _PATTERN % ("original_%s",)
 
+_ACTIVE_PATCH = "_gorilla_active_patch"
+
 # Attribute for the decorator data.
 _DECORATOR_DATA = _PATTERN % ("decorator_data",)
 
@@ -307,8 +309,8 @@ def apply(patch):
 
         if settings.store_hit:
             original_name = _ORIGINAL_NAME % (patch.name,)
-            # The line below has been intentionally commented out. For certain MLflow Models use
-            # cases, such as scikit-learn autologging, we patch a method on a parent class
+            # For certain MLflow Models use cases, such as scikit-learn autologging, we patch
+            # a method on a parent class
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`) and
             # subsequently patch a corresponding overridden method on one of its children
             # (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`)
@@ -317,11 +319,12 @@ def apply(patch):
             # overriden method (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`),
             # rather than the parent method
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
-
-            # if not hasattr(patch.destination, original_name):
-            setattr(patch.destination, original_name, target)
+            prev_patch = getattr(patch.destination, _ACTIVE_PATCH, None)
+            if not hasattr(patch.destination, original_name) or (prev_patch and prev_patch.destination != patch.destination and issubclass(patch.destination, prev_patch.destination)):
+                setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
+    setattr(patch.destination, _ACTIVE_PATCH, patch)
 
 
 def patch(destination, name=None, settings=None):
