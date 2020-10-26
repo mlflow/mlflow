@@ -127,13 +127,6 @@ class Settings(object):
         If ``True`` and :attr:`allow_hit` is also set to ``True``, then any
         attribute at the destination that is hit is stored under a different
         name before being overwritten by the patch. Defaults to ``True``.
-    overwrite_hit: bool
-        This is an MLflow-specific option. If ``True`` and both :attr:`allow_hit` and
-        :attr:`store_hit` are also set to ``True``, then any preexisting patch is overwritten
-        along with the original attribute that was stored by the previous patch.
-        If ``False``, the original patch is preserved. This option is used in MLflow's scikit-learn
-        autologging integration to enable a child model class to overwrite the patched `fit()`
-        function defined on its parent's model class.
     """
 
     def __init__(self, **kwargs):
@@ -146,7 +139,6 @@ class Settings(object):
         """
         self.allow_hit = False
         self.store_hit = True
-        self.overwrite_hit = False
         self._update(**kwargs)
 
     def __repr__(self):
@@ -285,6 +277,13 @@ def apply(patch):
     RuntimeError
         Overwriting an existing attribute is not allowed when the setting
         :attr:`Settings.allow_hit` is set to ``True``.
+
+    Note
+    ----
+    If both the attributes :attr:`Settings.allow_hit` and
+    :attr:`Settings.store_hit` are ``True`` but that the target attribute seems
+    to have already been stored, then it won't be stored again to avoid losing
+    the original attribute that was stored the first time around.
     """
     settings = Settings() if patch.settings is None else patch.settings
 
@@ -306,14 +305,20 @@ def apply(patch):
                 "name so it can still be accessed." % (patch.name, patch.destination.__name__)
             )
 
-        original_name = _ORIGINAL_NAME % (patch.name,)
-        if hasattr(patch.destination, original_name) and not settings.overwrite_hit:
-            # A patch already exists and the settings for the new patch do not explicitly
-            # indicate that we should overwrite the old one. In this case, we should not
-            # modify the target object or the original patched value
-            return
-
         if settings.store_hit:
+            original_name = _ORIGINAL_NAME % (patch.name,)
+            # The line below has been intentionally commented out. For certain MLflow Models use
+            # cases, such as scikit-learn autologging, we patch a method on a parent class
+            # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`) and
+            # subsequently patch a corresponding overridden method on one of its children
+            # (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`)
+            # to provide a different implementation. In these cases, we wish to swap out the
+            # "original function" attribute stored on the child in order to refer to the child's
+            # overriden method (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`),
+            # rather than the parent method
+            # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
+
+            # if not hasattr(patch.destination, original_name):
             setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
@@ -723,7 +728,7 @@ def get_original_attribute(obj, name):
     --------
     :attr:`Settings.allow_hit`.
     """
-    return getattr(obj, _ORIGINAL_NAME % (name,), None)
+    return getattr(obj, _ORIGINAL_NAME % (name,))
 
 
 def get_decorator_data(obj, set_default=False):
