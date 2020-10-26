@@ -844,7 +844,7 @@ def test_repr_can_be_called_withtout_run_id_or_artifact_path():
 
     model_impl = TestModel()
 
-    assert "flavor: someFlavour" in str(mlflow.pyfunc.PyFuncModel(model_meta, model_impl))
+    assert "flavor: someFlavour" in mlflow.pyfunc.PyFuncModel(model_meta, model_impl).__repr__()
 
 
 @pytest.mark.large
