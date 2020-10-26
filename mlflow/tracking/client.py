@@ -1385,7 +1385,7 @@ class MlflowClient(object):
 
             # Register a couple of models with respective names, tags, and descriptions
             for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
-                        ("name2", {"t2": "t2"}, 'description2')]:
+                                     ("name2", {"t2": "t2"}, 'description2')]:
                 client.create_registered_model(name, tags, desc)
 
             # Fetch all registered models
