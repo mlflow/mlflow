@@ -227,7 +227,7 @@ Automatic logging allows you to log metrics, parameters, and models without the 
 
 There are two ways to use autologging:
 
-#. Call :py:func:`mlflow.autolog` before your training code. This will enable autologging for every supported library you have installed as soon as you import it.
+#. Call :py:func:`mlflow.autolog` before your training code. This will enable autologging for each supported library you have installed as soon as you import it.
 #. Use library-specific autolog calls for each library you use in your code. See below for examples.
 
 The following libraries support autologging:
