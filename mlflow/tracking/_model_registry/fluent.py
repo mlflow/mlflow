@@ -7,7 +7,6 @@ from mlflow.utils.logging_utils import eprint
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
-@experimental
 def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS):
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.

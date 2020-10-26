@@ -13,13 +13,14 @@ option (scalapb.options) = {
 };
 
 service ModelRegistryService {
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
-  //
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
   rpc createRegisteredModel (CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/registered-models/create"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/registered-models/create"
         since { major: 2, minor: 0 },
@@ -29,11 +30,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc renameRegisteredModel (RenameRegisteredModel) returns (RenameRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/registered-models/rename"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/registered-models/rename"
         since { major: 2, minor: 0 },
@@ -43,11 +46,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc updateRegisteredModel (UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/registered-models/update"
+        since { major: 2, minor: 0 },
+      }, {
         method: "PATCH",
         path: "/preview/mlflow/registered-models/update"
         since { major: 2, minor: 0 },
@@ -57,11 +62,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc deleteRegisteredModel (DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/registered-models/delete"
+        since { major: 2, minor: 0 },
+      }, {
         method: "DELETE",
         path: "/preview/mlflow/registered-models/delete"
         since { major: 2, minor: 0 },
@@ -71,11 +78,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc getRegisteredModel (GetRegisteredModel) returns (GetRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/registered-models/get"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/registered-models/get"
         since { major: 2, minor: 0 },
@@ -85,11 +94,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc searchRegisteredModels (SearchRegisteredModels) returns (SearchRegisteredModels.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/registered-models/search"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/registered-models/search"
         since { major: 2, minor: 0 },
@@ -99,11 +110,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc listRegisteredModels (ListRegisteredModels) returns (ListRegisteredModels.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/registered-models/list"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/registered-models/list"
         since { major: 2, minor: 0 },
@@ -113,11 +126,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc getLatestVersions (GetLatestVersions) returns (GetLatestVersions.Response) {
     option(rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/registered-models/get-latest-versions"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/registered-models/get-latest-versions"
         since { major: 2, minor: 0 },
@@ -127,11 +142,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc createModelVersion (CreateModelVersion) returns (CreateModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/model-versions/create"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/model-versions/create"
         since { major: 2, minor: 0 },
@@ -141,11 +158,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc updateModelVersion (UpdateModelVersion) returns (UpdateModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/model-versions/update"
+        since { major: 2, minor: 0 },
+      }, {
         method: "PATCH",
         path: "/preview/mlflow/model-versions/update"
         since { major: 2, minor: 0 },
@@ -155,11 +174,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc transitionModelVersionStage (TransitionModelVersionStage) returns (TransitionModelVersionStage.Response) {
     option (rpc) = {
     endpoints: [{
+        method: "POST",
+        path: "/mlflow/model-versions/transition-stage"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/model-versions/transition-stage"
         since { major: 2, minor: 0 },
@@ -169,11 +190,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc deleteModelVersion (DeleteModelVersion) returns (DeleteModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/model-versions/delete"
+        since { major: 2, minor: 0 },
+      }, {
         method: "DELETE",
         path: "/preview/mlflow/model-versions/delete"
         since { major: 2, minor: 0 },
@@ -183,11 +206,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc getModelVersion (GetModelVersion) returns (GetModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/model-versions/get"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/model-versions/get"
         since { major: 2, minor: 0 },
@@ -197,11 +222,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc searchModelVersions(SearchModelVersions)returns(SearchModelVersions.Response){
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/model-versions/search"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/model-versions/search"
         since { major: 2, minor: 0 },
@@ -211,11 +238,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc getModelVersionDownloadUri (GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/model-versions/get-download-uri"
+        since { major: 2, minor: 0},
+      }, {
         method: "GET",
         path: "/preview/mlflow/model-versions/get-download-uri"
         since { major: 2, minor: 0},
@@ -225,11 +254,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc setRegisteredModelTag (SetRegisteredModelTag) returns (SetRegisteredModelTag.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/registered-models/set-tag"
+        since { major: 2, minor: 0},
+      }, {
         method: "POST",
         path: "/preview/mlflow/registered-models/set-tag"
         since { major: 2, minor: 0},
@@ -239,11 +270,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc setModelVersionTag (SetModelVersionTag) returns (SetModelVersionTag.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/model-versions/set-tag"
+        since { major: 2, minor: 0},
+      }, {
         method: "POST",
         path: "/preview/mlflow/model-versions/set-tag"
         since { major: 2, minor: 0},
@@ -253,11 +286,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc deleteRegisteredModelTag (DeleteRegisteredModelTag) returns (DeleteRegisteredModelTag.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/registered-models/delete-tag"
+        since { major: 2, minor: 0},
+      }, {
         method: "DELETE",
         path: "/preview/mlflow/registered-models/delete-tag"
         since { major: 2, minor: 0},
@@ -267,11 +302,13 @@ service ModelRegistryService {
     };
   }
 
-  // .. note::
-  //     Experimental: This API may change or be removed in a future release without warning.
   rpc deleteModelVersionTag (DeleteModelVersionTag) returns (DeleteModelVersionTag.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/model-versions/delete-tag"
+        since { major: 2, minor: 0},
+      }, {
         method: "DELETE",
         path: "/preview/mlflow/model-versions/delete-tag"
         since { major: 2, minor: 0},
@@ -282,8 +319,6 @@ service ModelRegistryService {
   }
 }
 
-// .. note::
-//     Experimental: This entity may change or be removed in a future release without warning.
 message RegisteredModel {
   // Unique name for the model.
   optional string name = 1;
@@ -309,8 +344,6 @@ message RegisteredModel {
   repeated RegisteredModelTag tags = 7;
 }
 
-// .. note::
-//     Experimental: This entity may change or be removed in a future release without warning.
 enum ModelVersionStatus {
   // Request to register a new model version is pending as server performs background tasks.
   PENDING_REGISTRATION = 1;
@@ -322,8 +355,6 @@ enum ModelVersionStatus {
   READY = 3;
 }
 
-// .. note::
-//     Experimental: This entity may change or be removed in a future release without warning.
 message ModelVersion {
   // Unique name of the model
   optional string name = 1;
