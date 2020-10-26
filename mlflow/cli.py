@@ -345,6 +345,12 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "doesn't exist, it will be created. "
     "Activate prometheus exporter to expose metrics on /metrics endpoint.",
 )
+@click.option(
+    "--freeze-production-models",
+    default=False,
+    help="",
+    is_flag=True
+)
 def server(
     backend_store_uri,
     default_artifact_root,
@@ -355,6 +361,7 @@ def server(
     gunicorn_opts,
     waitress_opts,
     expose_prometheus,
+    freeze_production_models,
 ):
     """
     Run the MLflow tracking server.
@@ -399,6 +406,7 @@ def server(
             gunicorn_opts,
             waitress_opts,
             expose_prometheus,
+            freeze_production_models,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")

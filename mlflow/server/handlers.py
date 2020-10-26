@@ -12,6 +12,7 @@ from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
+from mlflow.entities.model_registry.model_version_stages import STAGE_PRODUCTION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -41,6 +42,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     GetExperimentByName,
     LogModel,
+    SafeToEditRun,
 )
 from mlflow.protos.model_registry_pb2 import (
     ModelRegistryService,
@@ -63,6 +65,7 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SafeToDeleteModel,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -443,6 +446,62 @@ def _get_run():
     response_message = GetRun.Response()
     run_id = request_message.run_id or request_message.run_uuid
     response_message.run.MergeFrom(_get_tracking_store().get_run(run_id).to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _safe_to_edit_run():
+    from mlflow.server import FREEZE_PRODUCTION_MODELS
+
+    request_message = _get_request_message(SafeToEditRun())
+    response_message = SafeToEditRun.Response()
+    run_id = request_message.run_id
+    safe_to_edit = True
+    try:
+        registry = _get_model_registry_store()
+    except UnsupportedModelRegistryStoreURIException as e:
+        safe_to_edit = True
+    else:
+        registered_versions = registry.search_model_versions(f"run_id='{run_id}'")
+        if os.getenv(FREEZE_PRODUCTION_MODELS) and any(
+                x.current_stage == STAGE_PRODUCTION for x in registered_versions
+        ):
+            safe_to_edit = False
+
+    response_message.value = safe_to_edit
+
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _safe_to_delete_model():
+    from mlflow.server import FREEZE_PRODUCTION_MODELS
+
+    request_message = _get_request_message(SafeToDeleteModel())
+    response_message = SafeToDeleteModel.Response()
+
+    model_name = request_message.model_name
+    model_version = request_message.model_version
+    registered_versions = _get_model_registry_store().search_model_versions(f"name='{model_name}'")
+
+    safe_to_delete = True
+    if os.getenv(FREEZE_PRODUCTION_MODELS):
+        if model_version:
+            if any(
+                x.current_stage == STAGE_PRODUCTION and x.version == int(model_version)
+                for x in registered_versions
+            ):
+                safe_to_delete = False
+        else:
+            if any(x.current_stage == STAGE_PRODUCTION for x in registered_versions):
+                safe_to_delete = False
+
+    response_message.value = safe_to_delete
+
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -853,6 +912,8 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
+    SafeToEditRun: _safe_to_edit_run,
+    SafeToDeleteModel: _safe_to_delete_model,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,

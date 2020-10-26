@@ -314,3 +314,6 @@ class AbstractStore:
         :return: None.
         """
         pass
+
+    def safe_to_edit_run(self, run_id):
+        return True

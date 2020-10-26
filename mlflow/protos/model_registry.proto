@@ -57,6 +57,18 @@ service ModelRegistryService {
     };
   }
 
+  rpc safeToDeleteModel (SafeToDeleteModel) returns (SafeToDeleteModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/config/safe_to_delete_model/get",
+        since {major: 2, minor: 0}
+      }]
+      visibility: PUBLIC,
+      rpc_doc_title: "Returns true iff it's ok to delete a model (version)"
+    };
+  }
+
   // .. note::
   //     Experimental: This API may change or be removed in a future release without warning.
   rpc deleteRegisteredModel (DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
@@ -279,6 +291,21 @@ service ModelRegistryService {
       visibility: PUBLIC,
       rpc_doc_title: "Delete Model Version Tag",
     };
+  }
+}
+
+message SafeToDeleteModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run to fetch. Must be provided.
+  optional string model_name = 2;
+
+  // Specific model version to remove (if any)
+  optional string model_version = 3;
+
+  message Response {
+    // Run metadata (name, start time, etc) and data (metrics, params, and tags).
+    optional bool value = 1;
   }
 }
 

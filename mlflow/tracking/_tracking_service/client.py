@@ -7,6 +7,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import time
 import os
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
@@ -138,7 +139,10 @@ class TrackingServiceClient(object):
         """
         _validate_experiment_name(name)
         _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(name=name, artifact_location=artifact_location,)
+        return self.store.create_experiment(
+            name=name,
+            artifact_location=artifact_location,
+        )
 
     def delete_experiment(self, experiment_id):
         """
@@ -176,19 +180,25 @@ class TrackingServiceClient(object):
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
-        step = step if step is not None else 0
-        _validate_metric(key, value, timestamp, step)
-        metric = Metric(key, value, timestamp, step)
-        self.store.log_metric(run_id, metric)
+        if self.store.safe_to_edit_run(run_id):
+            timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
+            step = step if step is not None else 0
+            _validate_metric(key, value, timestamp, step)
+            metric = Metric(key, value, timestamp, step)
+            self.store.log_metric(run_id, metric)
+        else:
+            raise MlflowException("DANGER")
 
     def log_param(self, run_id, key, value):
         """
         Log a parameter against the run ID. Value is converted to a string.
         """
-        _validate_param_name(key)
-        param = Param(key, str(value))
-        self.store.log_param(run_id, param)
+        if self.store.safe_to_edit_run(run_id):
+            _validate_param_name(key)
+            param = Param(key, str(value))
+            self.store.log_param(run_id, param)
+        else:
+            raise MlflowException("DANGER")
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
@@ -267,15 +277,18 @@ class TrackingServiceClient(object):
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        artifact_repo = self._get_artifact_repo(run_id)
-        if os.path.isdir(local_path):
-            dir_name = os.path.basename(os.path.normpath(local_path))
-            path_name = (
-                os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
-            )
-            artifact_repo.log_artifacts(local_path, path_name)
+        if self.store.safe_to_edit_run(run_id):
+            artifact_repo = self._get_artifact_repo(run_id)
+            if os.path.isdir(local_path):
+                dir_name = os.path.basename(os.path.normpath(local_path))
+                path_name = (
+                    os.path.join(artifact_path, dir_name) if artifact_path is not None else dir_name
+                )
+                artifact_repo.log_artifacts(local_path, path_name)
+            else:
+                artifact_repo.log_artifact(local_path, artifact_path)
         else:
-            artifact_repo.log_artifact(local_path, artifact_path)
+            raise MlflowException("DANGER")
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """
@@ -284,7 +297,10 @@ class TrackingServiceClient(object):
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        self._get_artifact_repo(run_id).log_artifacts(local_dir, artifact_path)
+        if self.store.safe_to_edit_run(run_id):
+            self._get_artifact_repo(run_id).log_artifacts(local_dir, artifact_path)
+        else:
+            raise MlflowException("DANGER")
 
     def list_artifacts(self, run_id, path=None):
         """
@@ -329,7 +345,10 @@ class TrackingServiceClient(object):
         """
         Deletes a run with the given ID.
         """
-        self.store.delete_run(run_id)
+        if self.store.safe_to_edit_run(run_id):
+            self.store.delete_run(run_id)
+        else:
+            raise MlflowException("DANGER")
 
     def restore_run(self, run_id):
         """

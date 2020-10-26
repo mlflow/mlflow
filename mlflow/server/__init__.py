@@ -17,6 +17,7 @@ from mlflow.utils.process import exec_cmd
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
+FREEZE_PRODUCTION_MODELS = "_MLFLOW_FREEZE_PRODUCTION_MODELS"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 
@@ -112,6 +113,7 @@ def _run_server(
     gunicorn_opts=None,
     waitress_opts=None,
     expose_prometheus=None,
+    freeze_production_models=False,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -120,6 +122,8 @@ def _run_server(
     :return: None
     """
     env_map = {}
+    if freeze_production_models:
+        env_map[FREEZE_PRODUCTION_MODELS] = str(freeze_production_models)
     if file_store_path:
         env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
     if default_artifact_root:
