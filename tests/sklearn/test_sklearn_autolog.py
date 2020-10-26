@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
+import sklearn.base
 import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
@@ -1042,12 +1043,36 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
     """
     mlflow.sklearn.autolog()
 
-    from sklearn.naive_bayes import CategoricalNB
-    model = CategoricalNB()
-    assert(hasattr(super(CategoricalNB, model), "fit"))
+    class ParentMod(sklearn.base.BaseEstimator):
+        def get_params(self, deep=False):
+            return {}
+
+        def fit(self, X, y):
+            self.prediction = 7
+
+        def predict(self, X):
+            return self.prediction
+
+    class ChildMod(ParentMod):
+        def fit(self, X, y):
+            super().fit(X, y)
+            self.prediction = self.prediction + 1
+
+    og_all_estimators = mlflow.sklearn.utils._all_estimators()
+    new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
+
+    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
+        mlflow.sklearn.autolog()
+
+    model = ChildMod()
+
+    # from sklearn.naive_bayes import CategoricalNB
+    # model = CategoricalNB()
+    # assert(hasattr(super(CategoricalNB, model), "fit"))
 
     with mlflow.start_run() as run:
         model.fit(*get_iris())
 
     _, _, tags, _ = get_run_data(run.info.run_id)
-    assert {"estimator_name": "CategoricalNB"}.items() <= tags.items()
+    assert {"estimator_name": "ChildMod"}.items() <= tags.items()
+    assert model.predict(1) == 8
