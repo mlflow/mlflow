@@ -1028,6 +1028,15 @@ def _get_experiment_id():
 
 
 def autolog(log_input_example=False, log_model_signature=True):  # pylint: disable=unused-argument
+    """
+    Enable autologging for all supported integrations.
+
+    Takes any parameters, and passes whichever parameters are relevant to the specific autolog functions.
+
+    For example, the parameter `importance_types=['weight']` will only be passed to xgboost autologging.
+
+    All the other integrations where no given parameters apply will be enabled with the default parameters.
+    """
     locals_copy = locals().items()
 
     # Mapping of library module name to specific autolog function
