@@ -1043,6 +1043,13 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
     """
     mlflow.sklearn.autolog()
 
+    # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
+    # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
+    # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
+    # expected constant prediction value, guarding against regressions of 
+    # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
+    # recurse or yield the incorrect prediction result set by ParentMod.fit()
+
     class ParentMod(sklearn.base.BaseEstimator):
         def get_params(self, deep=False):
             return {}
@@ -1065,11 +1072,6 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
         mlflow.sklearn.autolog()
 
     model = ChildMod()
-
-    # from sklearn.naive_bayes import CategoricalNB
-    # model = CategoricalNB()
-    # assert(hasattr(super(CategoricalNB, model), "fit"))
-
     with mlflow.start_run() as run:
         model.fit(*get_iris())
 
