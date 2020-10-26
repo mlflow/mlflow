@@ -320,7 +320,11 @@ def apply(patch):
             # rather than the parent method
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
             prev_patch = getattr(patch.destination, _ACTIVE_PATCH, None)
-            if not hasattr(patch.destination, original_name) or (prev_patch and prev_patch.destination != patch.destination and issubclass(patch.destination, prev_patch.destination)):
+            if not hasattr(patch.destination, original_name) or (
+                prev_patch
+                and prev_patch.destination != patch.destination
+                and issubclass(patch.destination, prev_patch.destination)
+            ):
                 setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
