@@ -957,7 +957,13 @@ def autolog(log_input_example=False, log_model_signature=True):
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(class_def, func_name):
-                original = getattr(class_def, func_name)
+                # To enable patching of `fit_*` functions on model classes whose parents
+                # have already patched `fit_*`, we overwrite preexisting patches. To do this
+                # safely, we must first check for the presence of an existing original function
+                # that was overwritten by a previous patch; this ensures that we don't attempt
+                # to call an already-patched function during training
+                original = gorilla.get_original_attribute(class_def, func_name) or getattr(class_def, func_name)
+                print(original)
 
                 # A couple of estimators use property methods to return fitting functions,
                 # rather than defining the fitting functions on the estimator class directly.
@@ -977,4 +983,7 @@ def autolog(log_input_example=False, log_model_signature=True):
                     continue
 
                 patch_func = create_patch_func(class_def, func_name)
-                wrap_patch(class_def, func_name, patch_func)
+                # Specify a custom `overwrite_hit` option to enable patching of `fit_*` functions
+                # on model classes whose parents have already patched `fit_*`
+                patch_settings = gorilla.Settings(allow_hit=True, store_hit=True, overwrite_hit=True)
+                wrap_patch(class_def, func_name, patch_func, patch_settings)
