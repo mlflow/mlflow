@@ -20,14 +20,14 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
-from transformers import BertModel, BertTokenizer
+from transformers import BertModel, BertTokenizer, AdamW
 from torchtext.utils import download_from_url, extract_archive
 from torchtext.datasets.text_classification import URLS
 
 from mlflow.pytorch.pytorch_autolog import autolog
 
 
-class GPReviewDataset(Dataset):
+class AGNewsDataset(Dataset):
     def __init__(self, reviews, targets, tokenizer, max_length):
         """
         Performs initialization of tokenizer
@@ -86,21 +86,19 @@ class BertDataModule(pl.LightningDataModule):
         Initialization of inherited lightning data module
         """
         super(BertDataModule, self).__init__()
-        self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
+        self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
         self.df_train = None
         self.df_val = None
         self.df_test = None
         self.train_data_loader = None
         self.val_data_loader = None
         self.test_data_loader = None
-        self.MAX_LEN = 160
-        self.BATCH_SIZE = 16
+        self.MAX_LEN = 100
         self.encoding = None
         self.tokenizer = None
         self.args = kwargs
 
-    @staticmethod
-    def to_label(rating):
+    def to_label(self, rating):
         """
         Returns the rating minus one to make it for zero position start
         """
@@ -111,7 +109,6 @@ class BertDataModule(pl.LightningDataModule):
         """
         Implementation of abstract class
         """
-        pass
 
     def setup(self, stage=None):
         """
@@ -132,36 +129,22 @@ class BertDataModule(pl.LightningDataModule):
 
         df.columns = ["label", "title", "description"]
         df.sample(frac=1)
-        df = df.iloc[:15000]
+        df = df.iloc[: self.args["num_samples"]]
 
         df["label"] = df.label.apply(self.to_label)
 
         self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-        sample_txt = "wall street seems to be down this whole year due to financial crisis"
-
-        self.encoding = self.tokenizer.encode_plus(
-            sample_txt,
-            max_length=32,
-            add_special_tokens=True,
-            return_token_type_ids=False,
-            padding="max_length",
-            return_attention_mask=True,
-            return_tensors="pt",
-            truncation=True,
-        )
-
-        token_lens = []
-
-        for txt in df.description:
-            tokens = self.tokenizer.encode(txt, max_length=512, truncation=True)
-            token_lens.append(len(tokens))
 
         RANDOM_SEED = 42
         np.random.seed(RANDOM_SEED)
         torch.manual_seed(RANDOM_SEED)
 
-        df_train, df_test = train_test_split(df, test_size=0.1, random_state=RANDOM_SEED)
-        df_val, df_test = train_test_split(df_test, test_size=0.5, random_state=RANDOM_SEED)
+        df_train, df_test = train_test_split(
+            df, test_size=0.3, random_state=RANDOM_SEED, stratify=df["label"]
+        )
+        df_val, df_test = train_test_split(
+            df_test, test_size=0.5, random_state=RANDOM_SEED, stratify=df_test["label"]
+        )
 
         self.df_train = df_train
         self.df_test = df_test
@@ -204,7 +187,7 @@ class BertDataModule(pl.LightningDataModule):
 
         :return: Returns the constructed dataloader
         """
-        ds = GPReviewDataset(
+        ds = AGNewsDataset(
             reviews=df.description.to_numpy(),
             targets=df.label.to_numpy(),
             tokenizer=tokenizer,
@@ -249,13 +232,18 @@ class BertNewsClassifier(pl.LightningModule):
         Initializes the network, optimizer and scheduler
         """
         super(BertNewsClassifier, self).__init__()
-        self.PRE_TRAINED_MODEL_NAME = "bert-base-cased"
+        self.PRE_TRAINED_MODEL_NAME = "bert-base-uncased"
         self.bert_model = BertModel.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-        self.drop = nn.Dropout(p=0.3)
+        for param in self.bert_model.parameters():
+            param.requires_grad = False
+        self.drop = nn.Dropout(p=0.2)
         # assigning labels
         self.class_names = ["world", "Sports", "Business", "Sci/Tech"]
         n_classes = len(self.class_names)
-        self.out = nn.Linear(self.bert_model.config.hidden_size, n_classes)
+
+        self.fc1 = nn.Linear(self.bert_model.config.hidden_size, 512)
+        self.out = nn.Linear(512, n_classes)
+
         self.scheduler = None
         self.optimizer = None
         self.args = kwargs
@@ -268,9 +256,10 @@ class BertNewsClassifier(pl.LightningModule):
         :return: output - Type of news for the given news snippet
         """
         _, pooled_output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
-        output = self.drop(pooled_output)
-        F.softmax(output, dim=1)
-        return self.out(output)
+        output = F.relu(self.fc1(pooled_output))
+        output = self.drop(output)
+        output = self.out(output)
+        return output
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -291,7 +280,7 @@ class BertNewsClassifier(pl.LightningModule):
         """
         Training the data as batches and returns training loss on each batch
 
-        :param train_batch: Batch data
+        :param train_batch Batch data
         :param batch_idx: Batch indices
 
         :return: output - Training loss
@@ -300,7 +289,8 @@ class BertNewsClassifier(pl.LightningModule):
         attention_mask = train_batch["attention_mask"].to(self.device)
         targets = train_batch["targets"].to(self.device)
         output = self.forward(input_ids, attention_mask)
-        loss = F.nll_loss(output, targets)
+        loss = F.cross_entropy(output, targets)
+        self.log("train_loss", loss)
         return {"loss": loss}
 
     def test_step(self, test_batch, batch_idx):
@@ -334,7 +324,7 @@ class BertNewsClassifier(pl.LightningModule):
         attention_mask = val_batch["attention_mask"].to(self.device)
         targets = val_batch["targets"].to(self.device)
         output = self.forward(input_ids, attention_mask)
-        loss = F.nll_loss(output, targets)
+        loss = F.cross_entropy(output, targets)
         return {"val_step_loss": loss}
 
     def validation_epoch_end(self, outputs):
@@ -365,7 +355,7 @@ class BertNewsClassifier(pl.LightningModule):
 
         :return: output - Initialized optimizer and scheduler
         """
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
+        self.optimizer = AdamW(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
@@ -373,35 +363,6 @@ class BertNewsClassifier(pl.LightningModule):
             "monitor": "val_loss",
         }
         return [self.optimizer], [self.scheduler]
-
-    def cross_entropy_loss(self):
-        """
-        Initializes the loss function
-
-        :return: output - Initialized cross entropy loss function
-        """
-        return nn.CrossEntropyLoss().to(self.device)
-
-    def optimizer_step(
-        self,
-        epoch,
-        batch_idx,
-        optimizer,
-        optimizer_idx,
-        second_order_closure=None,
-        on_tpu=False,
-        using_lbfgs=False,
-        using_native_amp=False,
-    ):
-        """
-        Training step function which runs for the given number of epochs
-
-        :param epoch: Number of epochs to train
-        :param batch_idx: batch indices
-        :param optimizer: Optimizer to be used in training step
-        """
-        self.optimizer.step()
-        self.optimizer.zero_grad()
 
 
 if __name__ == "__main__":
@@ -412,7 +373,7 @@ if __name__ == "__main__":
         "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
     )
     parser.add_argument(
-        "--max-epochs", type=int, default=5, help="number of epochs to run (default: 5)"
+        "--max-epochs", type=int, default=10, help="number of epochs to run (default: 10)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
@@ -420,6 +381,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--accelerator", type=str, default=None, help="Distributed Backend - (default: None)",
     )
+
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=15000,
+        metavar="N",
+        help="Number of samples to be used for training and evaluation steps (default: 15000) Maximum:100000",
+    )
+
     parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
 
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
@@ -443,10 +413,7 @@ if __name__ == "__main__":
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args,
-        callbacks=[lr_logger, early_stopping],
-        checkpoint_callback=checkpoint_callback,
-        limit_train_batches=0.1,
+        args, callbacks=[lr_logger, early_stopping], checkpoint_callback=checkpoint_callback
     )
     trainer.fit(model, dm)
     trainer.test()
