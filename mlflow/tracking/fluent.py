@@ -1036,11 +1036,12 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
     integrations.
 
-    :param log_input_example: if True, logs a sample of the training data as part of the model
-                              as an example for future reference. If False, no sample is logged.
-    :param log_model_signature: if True, records the type signature of the inputs and outputs as
-                                part of the model. If False, the signature is not recorded to the
-                                model.
+    :param log_input_example: if True, input examples from training datasets will be collected and
+                              logged along with model artifacts during training. If False, no
+                              sample is logged.
+    :param log_model_signature: if True, the type signature of the inputs and outputs to each model
+                                are recorded as part of the model. If False, the signature is not
+                                recorded to the model.
     """
     locals_copy = locals().items()
 
