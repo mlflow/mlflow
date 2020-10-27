@@ -18,6 +18,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
+
 class MNISTDataModule(pl.LightningDataModule):
     def __init__(self, **kwargs):
         """
@@ -31,7 +32,7 @@ class MNISTDataModule(pl.LightningDataModule):
         self.val_data_loader = None
         self.test_data_loader = None
         self.args = kwargs
-        
+
         # transforms for images
         self.transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
@@ -50,9 +51,13 @@ class MNISTDataModule(pl.LightningDataModule):
         :param stage: Stage - training or testing
         """
 
-        self.df_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
+        self.df_train = datasets.MNIST(
+            "dataset", download=True, train=True, transform=self.transform
+        )
         self.df_train, self.df_val = random_split(self.df_train, [55000, 5000])
-        self.df_test = datasets.MNIST("dataset", download=True, train=False, transform=self.transform)
+        self.df_test = datasets.MNIST(
+            "dataset", download=True, train=False, transform=self.transform
+        )
 
     @staticmethod
     def add_model_specific_args(parent_parser):

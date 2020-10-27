@@ -36,7 +36,7 @@ class MNISTDataModule(pl.LightningDataModule):
         self.val_data_loader = None
         self.test_data_loader = None
         self.args = kwargs
-        
+
         # transforms for images
         self.transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
@@ -49,9 +49,13 @@ class MNISTDataModule(pl.LightningDataModule):
         :param stage: Stage - training or testing
         """
 
-        self.df_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
+        self.df_train = datasets.MNIST(
+            "dataset", download=True, train=True, transform=self.transform
+        )
         self.df_train, self.df_val = random_split(self.df_train, [55000, 5000])
-        self.df_test = datasets.MNIST("dataset", download=True, train=False, transform=self.transform)
+        self.df_test = datasets.MNIST(
+            "dataset", download=True, train=False, transform=self.transform
+        )
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -108,6 +112,7 @@ class MNISTDataModule(pl.LightningDataModule):
         :return: output - Test data loader for the given input
         """
         return self.create_data_loader(self.df_test)
+
 
 class LightningMNISTClassifier(pl.LightningModule):
     def __init__(self, **kwargs):
@@ -351,9 +356,7 @@ if __name__ == "__main__":
     lr_logger = LearningRateMonitor()
 
     trainer = pl.Trainer.from_argparse_args(
-        args,
-        callbacks=[lr_logger, early_stopping],
-        checkpoint_callback=checkpoint_callback
+        args, callbacks=[lr_logger, early_stopping], checkpoint_callback=checkpoint_callback
     )
     trainer.fit(model, dm)
     trainer.test()
