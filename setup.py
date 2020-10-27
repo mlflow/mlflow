@@ -55,7 +55,6 @@ setup(
         "sqlparse>=0.3.1",
         # Required to run the MLflow server against SQL-backed storage
         "sqlalchemy",
-        "gorilla",
         "prometheus-flask-exporter",
     ],
     extras_require={
