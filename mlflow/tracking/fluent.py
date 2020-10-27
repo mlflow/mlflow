@@ -1028,6 +1028,21 @@ def _get_experiment_id():
 
 
 def autolog(log_input_example=False, log_model_signature=True):  # pylint: disable=unused-argument
+    """
+    Enable autologging for all supported integrations.
+
+    The parameters are passed to any autologging integrations that support them.
+
+    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
+    integrations.
+
+    :param log_input_example: if True, input examples from training datasets will be collected and
+                              logged along with model artifacts during training. If False, no
+                              sample is logged.
+    :param log_model_signature: if True, the type signature of the inputs and outputs to each model
+                                are recorded as part of the model. If False, the signature is not
+                                recorded to the model.
+    """
     locals_copy = locals().items()
 
     # Mapping of library module name to specific autolog function
