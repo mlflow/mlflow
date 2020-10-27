@@ -334,13 +334,23 @@ def autolog(
         original(self, *args, **kwargs)
 
     def train(*args, **kwargs):
+        global step
+        step = 0
+
         def record_eval_results(eval_results):
             """
             Create a callback function that records evaluation results.
             """
 
             def callback(env):
-                eval_results.append(dict(env.evaluation_result_list))
+                global step
+                import time
+                start = time.time()
+                try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list), step=step)
+                end = time.time()
+                print(end - start)
+                step = step + 1
+                # eval_results.append(dict(env.evaluation_result_list))
 
             return callback
 
@@ -427,8 +437,8 @@ def autolog(
         model = original(*args, **kwargs)
 
         # logging metrics on each iteration.
-        for idx, metrics in enumerate(eval_results):
-            try_mlflow_log(mlflow.log_metrics, metrics, step=idx)
+        # for idx, metrics in enumerate(eval_results):
+        #     try_mlflow_log(mlflow.log_metrics, metrics, step=idx)
 
         # If early_stopping_rounds is present, logging metrics at the best iteration
         # as extra metrics with the max step + 1.
