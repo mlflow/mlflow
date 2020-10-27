@@ -368,7 +368,6 @@ def _load_model(path, **kwargs):
     :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
     import torch
-    pytorch_version = torch.__version__
 
     if os.path.isdir(path):
         # `path` is a directory containing a serialized PyTorch model and a text file containing
@@ -401,7 +400,7 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    if LooseVersion(pytorch_version) >= LooseVersion('1.5.0'):
+    if LooseVersion(torch.__version__) >= LooseVersion('1.5.0'):
         return torch.load(model_path, **kwargs)
     else:
         try:
