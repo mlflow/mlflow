@@ -1051,13 +1051,16 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
     # recurse or yield the incorrect prediction result set by ParentMod.fit()
 
     class ParentMod(sklearn.base.BaseEstimator):
+        def __init__(self):
+            self.prediction = None
+
         def get_params(self, deep=False):
             return {}
 
-        def fit(self, X, y):
-            self.prediction = 7
+        def fit(self, X, y):  # pylint: disable=unused-argument
+            self.prediction = np.array([7])
 
-        def predict(self, X):
+        def predict(self, X):  # pylint: disable=unused-argument
             return self.prediction
 
     class ChildMod(ParentMod):
@@ -1077,4 +1080,4 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
 
     _, _, tags, _ = get_run_data(run.info.run_id)
     assert {"estimator_name": "ChildMod"}.items() <= tags.items()
-    assert model.predict(1) == 8
+    assert model.predict(1) == np.array([8])
