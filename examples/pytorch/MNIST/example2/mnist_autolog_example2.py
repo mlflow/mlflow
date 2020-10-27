@@ -5,8 +5,9 @@
 # pytorch-lightning (using pip install pytorch-lightning)
 #       and mlflow (using pip install mlflow).
 #
-# pylint: disable=W0221
-# pylint: disable=W0613
+# pylint: disable=arguments-differ
+# pylint: disable=unused-argument
+# pylint: disable=abstract-method
 import mlflow
 import pytorch_lightning as pl
 import torch
@@ -16,6 +17,98 @@ from pytorch_lightning.metrics.functional import accuracy
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
+
+class MNISTDataModule(pl.LightningDataModule):
+    def __init__(self, **kwargs):
+        """
+        Initialization of inherited lightning data module
+        """
+        super(MNISTDataModule, self).__init__()
+        self.df_train = None
+        self.df_val = None
+        self.df_test = None
+        self.train_data_loader = None
+        self.val_data_loader = None
+        self.test_data_loader = None
+        self.args = kwargs
+        
+        # transforms for images
+        self.transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+        )
+
+    def prepare_data(self):
+        """
+        Implementation of abstract class
+        """
+        pass
+
+    def setup(self, stage=None):
+        """
+        Downloads the data, parse it and split the data into train, test, validation data
+
+        :param stage: Stage - training or testing
+        """
+
+        self.df_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
+        self.df_train, self.df_val = random_split(self.df_train, [55000, 5000])
+        self.df_test = datasets.MNIST("dataset", download=True, train=False, transform=self.transform)
+
+    @staticmethod
+    def add_model_specific_args(parent_parser):
+        """
+        Returns the review text and the targets of the specified item
+
+        :param parent_parser: Application specific parser
+
+        :return: Returns the augmented arugument parser
+        """
+        parser = ArgumentParser(parents=[parent_parser], add_help=False)
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=16,
+            metavar="N",
+            help="input batch size for training (default: 16)",
+        )
+        parser.add_argument(
+            "--num-workers",
+            type=int,
+            default=3,
+            metavar="N",
+            help="number of workers (default: 0)",
+        )
+        return parser
+
+    def create_data_loader(self, df):
+        """
+        Generic data loader function
+
+        :param df: Input tensor
+
+        :return: Returns the constructed dataloader
+        """
+        return DataLoader(
+            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
+        )
+
+    def train_dataloader(self):
+        """
+        :return: output - Train data loader for the given input
+        """
+        return self.create_data_loader(self.df_train)
+
+    def val_dataloader(self):
+        """
+        :return: output - Validation data loader for the given input
+        """
+        return self.create_data_loader(self.df_val)
+
+    def test_dataloader(self):
+        """
+        :return: output - Test data loader for the given input
+        """
+        return self.create_data_loader(self.df_test)
 
 
 class LightningMNISTClassifier(pl.LightningModule):
@@ -32,11 +125,6 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
         self.args = kwargs
-
-        # transforms for images
-        self.transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -166,35 +254,6 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         return {}
 
-    def train_dataloader(self):
-        """
-        :return: output - Train data loader for the given input
-        """
-        mnist_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
-        return DataLoader(
-            mnist_train, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
-        )
-
-    def val_dataloader(self):
-        """
-        :return: output - Validation data loader for the given input
-        """
-        mnist_train = datasets.MNIST("dataset", download=True, train=True, transform=self.transform)
-        mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
-
-        return DataLoader(
-            mnist_val, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
-        )
-
-    def test_dataloader(self):
-        """
-        :return: output - Test data loader for the given input
-        """
-        mnist_test = datasets.MNIST("dataset", download=True, train=False, transform=self.transform)
-        return DataLoader(
-            mnist_test, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
-        )
-
     def configure_optimizers(self):
         """
         Initializes the optimizer and learning rate scheduler
@@ -255,7 +314,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
     mlflow.set_tracking_uri(dict_args["tracking_uri"])
+
+    dm = MNISTDataModule(**dict_args)
+    dm.prepare_data()
+    dm.setup(stage="fit")
+
     model = LightningMNISTClassifier(**dict_args)
     trainer = pl.Trainer.from_argparse_args(args)
-    trainer.fit(model)
+    trainer.fit(model, dm)
     trainer.test()
