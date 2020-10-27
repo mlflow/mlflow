@@ -1,4 +1,4 @@
-# pylint: disable=W0223
+# pylint: disable=abstract-method
 import argparse
 import torch
 import torch.nn as nn
@@ -8,8 +8,6 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 import mlflow.pytorch
-from mlflow.pytorch import _PyTorchWrapper
-
 
 class IrisClassifier(nn.Module):
     def __init__(self):

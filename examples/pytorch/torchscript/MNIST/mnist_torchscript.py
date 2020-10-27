@@ -1,4 +1,4 @@
-# pylint: disable=W0223
+# pylint: disable=abstract-method
 
 import argparse
 

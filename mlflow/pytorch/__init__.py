@@ -15,7 +15,7 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
-from packaging.version import Version
+from distutils.version import LooseVersion
 
 import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
@@ -406,13 +406,13 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    if Version(pytorch_version) >= Version('1.5.0'):
+    if LooseVersion(pytorch_version) >= LooseVersion('1.5.0'):
         return torch.load(model_path, **kwargs)
     else:
         try:
             # load the model as an eager model.
             return torch.load(model_path, **kwargs)
-        except Exception: # pylint: disable=W0703
+        except Exception: # pylint: disable=broad-except
             # If fails, assume the model as a scripted model
             return torch.jit.load(model_path)
 
