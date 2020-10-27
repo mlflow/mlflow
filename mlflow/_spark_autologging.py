@@ -3,7 +3,6 @@ import logging
 import sys
 import threading
 import uuid
-import gorilla
 
 from py4j.java_gateway import CallbackServerParameters
 
@@ -15,6 +14,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import wrap_patch
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
