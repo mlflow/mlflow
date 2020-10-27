@@ -30,7 +30,7 @@ onnxmltools==1.4.0;
 onnxruntime==0.3.0;
 # Required by mlflow.mleap, and in order to save SparkML models in
 # mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
-mleap==0.16.0
+mleap
 # Required by mlflow.spark
 pyspark
 # Required by mlflow.shap
