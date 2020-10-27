@@ -1005,11 +1005,11 @@ def test_autolog_configuration_options(log_input_example, log_model_signature):
 
 
 @pytest.mark.large
-def test_autolog_does_not_capture_runs_for_preprocessing_or_imputation_estimators():
+def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
     """
-    Verifies that preprocessing and imputation estimators, which represent data manipulation steps
-    (e.g., normalization, label encoding) rather than ML models, do not produce runs when their
-    fit_* operations are invoked independently of an ML pipeline
+    Verifies that preprocessing and feature manipulation estimators, which represent data
+    manipulation steps (e.g., normalization, label encoding) rather than ML models, do not
+    produce runs when their fit_* operations are invoked independently of an ML pipeline
     """
     mlflow.sklearn.autolog()
 
@@ -1021,12 +1021,20 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_imputation_estimator
 
     from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
     from sklearn.impute import SimpleImputer
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.feature_selection import VarianceThreshold
 
     with mlflow.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
         LabelEncoder().fit([1, 2, 2, 6])
         MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
         SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
+        TfidfVectorizer().fit_transform([
+            "MLflow is an end-to-end machine learning platform.",
+            "MLflow enables me to systematize my ML experimentation",
+        ])
+        VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
+
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0

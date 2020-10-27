@@ -915,30 +915,25 @@ def autolog(log_input_example=False, log_model_signature=True):
     estimators_to_patch = set(estimators_to_patch).union(
         set(_get_meta_estimators_for_autologging())
     )
-    # Exclude preprocessing and imputation estimators from patching. These estimators represent
-    # data manipulation routines (e.g., normalization, label encoding) rather than ML
-    # algorithms. Accordingly, we should not create MLflow runs and log parameters / metrics
-    # for these routines, unless they are captured as part of an ML pipeline
+    # Exclude certain preprocessing & feature manipulation estimators from patching. These
+    # estimators represent data manipulation routines (e.g., normalization, label encoding)
+    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
+    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
     # (via `sklearn.pipeline.Pipeline`)
-    import sklearn.preprocessing
-
-    excluded_modules = [sklearn.preprocessing]
-    # The `sklearn.impute` module was introduced in scikit-learn 0.20.0; in an attempt
-    # to preserve compatibility with version 0.19.x, we conditionally import this module
-    try:
-        import sklearn.impute
-
-        excluded_modules.append(sklearn.impute)
-    except ImportError:
-        pass
+    excluded_module_names = [
+        "sklearn.preprocessing",
+        "sklearn.impute",
+        "sklearn.feature_extraction",
+        "sklearn.feature_selection",
+    ]
 
     estimators_to_patch = [
         estimator
         for estimator in estimators_to_patch
         if not any(
             [
-                estimator.__module__.startswith(excluded_module.__name__)
-                for excluded_module in excluded_modules
+                estimator.__module__.startswith(excluded_module_name)
+                for excluded_module_name in excluded_module_names
             ]
         )
     ]
