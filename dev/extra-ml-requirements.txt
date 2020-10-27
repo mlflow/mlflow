@@ -2,15 +2,15 @@
 ## must install in order to use various MLflow Python modules.
 ##
 # Required by mlflow.azureml
-azureml-sdk; python_version >= "3.0"
+azureml-sdk==1.2.0; python_version >= "3.0"
 # Required by mlflow.keras
 keras==2.3.1
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
-mxnet
+mxnet==1.5.0
 # Required by mlflow.fastai
-fastai
+fastai==1.0.60
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
