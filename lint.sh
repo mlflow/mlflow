@@ -31,7 +31,7 @@ exclude_dirs=(
 
 echo -e "\n========== black ==========\n"
 # Exclude proto files because they are auto-generated
-black --check --line-length=100 --exclude=mlflow/protos .
+black --check .
 
 echo -e "\n========== pycodestyle ==========\n"
 exclude=$(join "," "${exclude_dirs[@]}")
