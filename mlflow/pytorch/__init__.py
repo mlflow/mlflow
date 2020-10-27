@@ -400,7 +400,7 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    if LooseVersion(torch.__version__) >= LooseVersion('1.5.0'):
+    if LooseVersion(torch.__version__) >= LooseVersion("1.5.0"):
         return torch.load(model_path, **kwargs)
     else:
         try:

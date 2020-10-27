@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 
 import mlflow.pytorch
 
+
 class IrisClassifier(nn.Module):
     def __init__(self):
         super(IrisClassifier, self).__init__()
