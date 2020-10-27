@@ -350,6 +350,8 @@ def autolog(
 
             def callback(env):
                 global step
+                global total_time
+                global total_iter
                 step
                 total_time
                 total_iter
