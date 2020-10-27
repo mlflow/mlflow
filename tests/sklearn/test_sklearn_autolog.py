@@ -1029,12 +1029,13 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
         LabelEncoder().fit([1, 2, 2, 6])
         MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
         SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
-        TfidfVectorizer().fit_transform([
-            "MLflow is an end-to-end machine learning platform.",
-            "MLflow enables me to systematize my ML experimentation",
-        ])
+        TfidfVectorizer().fit_transform(
+            [
+                "MLflow is an end-to-end machine learning platform.",
+                "MLflow enables me to systematize my ML experimentation",
+            ]
+        )
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
-
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0
