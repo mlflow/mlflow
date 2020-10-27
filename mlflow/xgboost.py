@@ -337,6 +337,12 @@ def autolog(
         global step
         step = 0
 
+        global total_time
+        total_time = 0
+
+        global total_iter
+        total_iter = 0
+
         def record_eval_results(eval_results):
             """
             Create a callback function that records evaluation results.
@@ -344,11 +350,14 @@ def autolog(
 
             def callback(env):
                 global step
-                import time
+                step
+                total_time
+                total_iter
                 start = time.time()
                 try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list), step=step)
                 end = time.time()
-                print(end - start)
+                total_time = total_time + end - start
+                total_iter = total_iter + 1
                 step = step + 1
                 # eval_results.append(dict(env.evaluation_result_list))
 
@@ -435,6 +444,10 @@ def autolog(
 
         # training model
         model = original(*args, **kwargs)
+
+        print("TIMING DURING")
+        print(total_time)
+        print(total_iter)
 
         # logging metrics on each iteration.
         # for idx, metrics in enumerate(eval_results):
