@@ -310,10 +310,9 @@ def autolog(log_input_example=False, log_model_signature=True):
     # We store it on the Dataset object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
+        original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
 
         if data is not None:
-            original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
-
             try:
                 if isinstance(data, str):
                     raise Exception(

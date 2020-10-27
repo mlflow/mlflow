@@ -54,7 +54,8 @@ setup(
         # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
         "sqlparse>=0.3.1",
         # Required to run the MLflow server against SQL-backed storage
-        "sqlalchemy<=1.3.13",
+        "sqlalchemy",
+        "gorilla",
         "prometheus-flask-exporter",
     ],
     extras_require={
@@ -83,7 +84,7 @@ setup(
     """,
     zip_safe=False,
     author="Databricks",
-    description="MLflow: An ML Workflow Tool",
+    description="MLflow: A Platform for ML Development and Productionization",
     long_description=open("README.rst").read(),
     license="Apache License 2.0",
     classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6",],

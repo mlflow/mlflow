@@ -314,10 +314,9 @@ def autolog(
     # We store it on the DMatrix object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
+        original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
         if data is not None:
-            original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
-
             try:
                 if isinstance(data, str):
                     raise Exception(
