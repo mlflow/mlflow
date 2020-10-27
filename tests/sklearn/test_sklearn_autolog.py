@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
+import sklearn.base
 import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
@@ -1042,3 +1043,50 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     assert len(metrics) == 0
     assert len(tags) == 0
     assert len(artifacts) == 0
+
+
+@pytest.mark.large
+def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
+    """
+    Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
+    """
+    mlflow.sklearn.autolog()
+
+    # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
+    # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
+    # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
+    # expected constant prediction value, guarding against regressions of
+    # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
+    # recurse or yield the incorrect prediction result set by ParentMod.fit()
+
+    class ParentMod(sklearn.base.BaseEstimator):
+        def __init__(self):
+            self.prediction = None
+
+        def get_params(self, deep=False):
+            return {}
+
+        def fit(self, X, y):  # pylint: disable=unused-argument
+            self.prediction = np.array([7])
+
+        def predict(self, X):  # pylint: disable=unused-argument
+            return self.prediction
+
+    class ChildMod(ParentMod):
+        def fit(self, X, y):
+            super().fit(X, y)
+            self.prediction = self.prediction + 1
+
+    og_all_estimators = mlflow.sklearn.utils._all_estimators()
+    new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
+
+    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
+        mlflow.sklearn.autolog()
+
+    model = ChildMod()
+    with mlflow.start_run() as run:
+        model.fit(*get_iris())
+
+    _, _, tags, _ = get_run_data(run.info.run_id)
+    assert {"estimator_name": "ChildMod"}.items() <= tags.items()
+    assert model.predict(1) == np.array([8])
