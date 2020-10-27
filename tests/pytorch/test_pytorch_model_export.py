@@ -450,9 +450,7 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
 
     loader_pytorch_version = "0.8.2"
     with mock.patch("mlflow.pytorch._logger.warning") as warn_mock, mock.patch(
-        "torch.__version__"
-    ) as torch_version_mock:
-        torch_version_mock.__str__ = lambda *args, **kwargs: loader_pytorch_version
+        "torch.__version__", loader_pytorch_version):
         warn_mock.side_effect = custom_warn
         mlflow.pytorch.load_model(model_uri=model_path)
 
