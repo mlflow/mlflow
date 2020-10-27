@@ -32,6 +32,6 @@ onnxruntime==0.3.0;
 # mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``
 mleap==0.16.0
 # Required by mlflow.spark
-pyspark==2.4.0
+pyspark
 # Required by mlflow.shap
 shap
