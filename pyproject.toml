@@ -1,0 +1,19 @@
+[tool.black]
+line-length = 100
+exclude = '''
+/(
+  # default excludes
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  # additional excludes
+  | mlflow/protos
+)/
+'''
