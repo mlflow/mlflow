@@ -851,12 +851,12 @@ def test_requirement_file_log_model(create_requirement_file, sequential_model):
             assert "requirements_file" in torchserve_artifacts
             requirements_file = torchserve_artifacts["requirements_file"]
 
-            assert "path" in requirements_file
             assert "uri" in requirements_file
-            req_rel_path = torchserve_artifacts["requirements_file"]["path"]
-
-            req_abs_path = os.path.join(model_path, req_rel_path)
-            with open(req_abs_path) as fp:
+            assert requirements_file["uri"] == requirement_file_path
+            assert "path" in requirements_file
+            requirements_file_path = torchserve_artifacts["requirements_file"]["path"]
+            requirements_file_path = os.path.join(model_path, requirements_file_path)
+            with open(requirements_file_path) as fp:
                 assert fp.read() == "mlflow"
 
 
@@ -879,12 +879,12 @@ def test_requirement_file_save_model(create_requirement_file, sequential_model):
         assert "requirements_file" in torchserve_artifacts
         requirements_file = torchserve_artifacts["requirements_file"]
 
-        assert "path" in requirements_file
         assert "uri" in requirements_file
-        req_rel_path = torchserve_artifacts["requirements_file"]["path"]
-
-        req_abs_path = os.path.join(model_path, req_rel_path)
-        with open(req_abs_path) as fp:
+        assert requirements_file["uri"] == requirement_file_path
+        assert "path" in requirements_file
+        requirements_file_path = torchserve_artifacts["requirements_file"]["path"]
+        requirements_file_path = os.path.join(model_path, requirements_file_path)
+        with open(requirements_file_path) as fp:
             assert fp.read() == "mlflow"
 
 
@@ -942,12 +942,15 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
             torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
 
             assert "extra_files" in torchserve_artifacts
-            extra_files = torchserve_artifacts["extra_files"]
+            loaded_extra_files = torchserve_artifacts["extra_files"]
 
-            for extra_file, content_expected in zip(extra_files, contents_expected):
-                assert "path" in extra_file
-                assert "uri" in extra_file
-                extra_file_path = os.path.join(model_path, extra_file["path"])
+            for loaded_extra_file, extra_file, content_expected in zip(
+                loaded_extra_files, extra_files, contents_expected
+            ):
+                assert "uri" in loaded_extra_file
+                assert loaded_extra_file["uri"] == extra_file
+                assert "path" in loaded_extra_file
+                extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
                 with open(extra_file_path) as fp:
                     assert fp.read() == content_expected
 
@@ -967,12 +970,15 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
         torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
 
         assert "extra_files" in torchserve_artifacts
-        extra_files = torchserve_artifacts["extra_files"]
+        loaded_extra_files = torchserve_artifacts["extra_files"]
 
-        for extra_file, content_expected in zip(extra_files, contents_expected):
-            assert "path" in extra_file
-            assert "uri" in extra_file
-            extra_file_path = os.path.join(model_path, extra_file["path"])
+        for loaded_extra_file, extra_file, content_expected in zip(
+            loaded_extra_files, extra_files, contents_expected
+        ):
+            assert "uri" in loaded_extra_file
+            assert loaded_extra_file["uri"] == extra_file
+            assert "path" in loaded_extra_file
+            extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
             with open(extra_file_path) as fp:
                 assert fp.read() == content_expected
 
