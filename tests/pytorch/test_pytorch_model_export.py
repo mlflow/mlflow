@@ -831,13 +831,13 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
-            artifact_path="model",
+            artifact_path="models",
             conda_env=None,
             requirements_file=requirements_file,
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
-            run_id=mlflow.active_run().info.run_id, model_path="model"
+            run_id=mlflow.active_run().info.run_id, model_path="models"
         )
 
         with TempDir(remove_on_exit=True) as tmp:
