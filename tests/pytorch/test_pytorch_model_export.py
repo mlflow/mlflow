@@ -831,22 +831,33 @@ def test_requirement_file_log_model(create_requirement_file, sequential_model):
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
-            artifact_path="models",
+            artifact_path="model",
             conda_env=None,
             requirements_file=requirement_file_path.strpath,
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
-            run_id=mlflow.active_run().info.run_id, model_path="models"
+            run_id=mlflow.active_run().info.run_id, model_path="model"
         )
-        with TempDir(remove_on_exit=True) as tmp:
-            model_path = _download_artifact_from_uri(model_uri, tmp.path())
-            assert os.path.isdir(os.path.join(model_path, "requirements"))
-            requirements_file = os.path.join(model_path, "requirements", "requirements.txt")
-            assert os.path.isfile(requirements_file)
-            with open(requirements_file) as fp:
-                content = fp.read()
-            assert "mlflow" in content
+
+    with TempDir(remove_on_exit=True) as tmp:
+        model_path = _download_artifact_from_uri(model_uri, tmp.path())
+        model_config_path = os.path.join(model_path, "MLmodel")
+        model_config = Model.load(model_config_path)
+
+        assert "torchserve_artifacts" in model_config.flavors["pytorch"]
+        torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
+
+        assert "requirements_file" in torchserve_artifacts
+        requirements_file = torchserve_artifacts["requirements_file"]
+
+        assert "path" in requirements_file
+        assert "uri" in requirements_file
+        req_rel_path = torchserve_artifacts["requirements_file"]["path"]
+
+        req_abs_path = os.path.join(model_path, req_rel_path)
+        with open(req_abs_path) as fp:
+            assert fp.read() == "mlflow"
 
 
 @pytest.mark.large
