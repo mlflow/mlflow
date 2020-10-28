@@ -37,6 +37,9 @@ FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
+_TORCHSERVE_ARTIFACTS_KEY = "torchserve_artifacts"
+_TORCHSERVE_EXTRA_FILES_KEY = "extra_files"
+_TORCHSERVE_REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
 
@@ -223,7 +226,7 @@ def log_model(
         await_registration_for=await_registration_for,
         requirements_file=requirements_file,
         extra_files=extra_files,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -377,31 +380,50 @@ def save_model(
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
 
+    torchserve_artifacts_config = {}
+
     if requirements_file:
         if not isinstance(requirements_file, str):
             raise TypeError("Path to requirements file should be a string")
 
         with TempDir() as tmp_requirements_dir:
-            saved_requirements_dir_subpath = "requirements"
             _download_artifact_from_uri(
                 artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
             )
+            path_in_model_dir = posixpath.join(
+                _TORCHSERVE_ARTIFACTS_KEY,
+                _TORCHSERVE_REQUIREMENTS_FILE_KEY,
+                os.path.basename(requirements_file),
+            )
+            torchserve_artifacts_config[_TORCHSERVE_REQUIREMENTS_FILE_KEY] = {
+                "path": path_in_model_dir,
+                "uri": requirements_file,
+            }
             shutil.move(
-                tmp_requirements_dir.path(), posixpath.join(path, saved_requirements_dir_subpath)
+                tmp_requirements_dir.path(), posixpath.join(path, _TORCHSERVE_ARTIFACTS_KEY)
             )
 
     if extra_files:
+        torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY] = []
         if not isinstance(extra_files, list):
             raise TypeError("Extra files argument should be a list")
 
         with TempDir() as tmp_extra_files_dir:
-            saved_extra_files_dir_subpath = "artifacts"
             for extra_file in extra_files:
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
+                path_in_model_dir = posixpath.join(
+                    _TORCHSERVE_ARTIFACTS_KEY,
+                    _TORCHSERVE_EXTRA_FILES_KEY,
+                    os.path.basename(extra_file),
+                )
+                torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY].append(
+                    {"path": path_in_model_dir, "uri": extra_file}
+                )
             shutil.move(
-                tmp_extra_files_dir.path(), posixpath.join(path, saved_extra_files_dir_subpath)
+                tmp_extra_files_dir.path(),
+                posixpath.join(path, _TORCHSERVE_ARTIFACTS_KEY, _TORCHSERVE_EXTRA_FILES_KEY),
             )
 
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
@@ -422,8 +444,16 @@ def save_model(
     else:
         code_dir_subpath = None
 
+    torchserve_artifacts_config = (
+        {}
+        if len(torchserve_artifacts_config) == 0
+        else {_TORCHSERVE_ARTIFACTS_KEY: torchserve_artifacts_config}
+    )
     mlflow_model.add_flavor(
-        FLAVOR_NAME, model_data=model_data_subpath, pytorch_version=torch.__version__
+        FLAVOR_NAME,
+        model_data=model_data_subpath,
+        pytorch_version=torch.__version__,
+        **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
         mlflow_model,
