@@ -611,9 +611,9 @@ def autolog(log_input_example=False, log_model_signature=True):
           (e.g. "sklearn.linear_model._base.LinearRegression").
 
       **Artifacts**
-        - An MLflow Model with the `mlflow.sklearn` flavor containing a fitted estimator
+        - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
           (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
-          `mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
+          :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
 
     **How does autologging work for meta estimators?**
       When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
