@@ -390,12 +390,11 @@ def save_model(
             _download_artifact_from_uri(
                 artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
             )
-            path_in_model_dir = posixpath.join(
-                _TORCHSERVE_ARTIFACTS_KEY,
-                os.path.basename(requirements_file),
+            rel_path = posixpath.join(
+                _TORCHSERVE_ARTIFACTS_KEY, os.path.basename(requirements_file),
             )
             torchserve_artifacts_config[_TORCHSERVE_REQUIREMENTS_FILE_KEY] = {
-                "path": path_in_model_dir,
+                "path": rel_path,
                 "uri": requirements_file,
             }
             shutil.move(
@@ -412,13 +411,13 @@ def save_model(
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
-                path_in_model_dir = posixpath.join(
+                rel_path = posixpath.join(
                     _TORCHSERVE_ARTIFACTS_KEY,
                     _TORCHSERVE_EXTRA_FILES_KEY,
                     os.path.basename(extra_file),
                 )
                 torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY].append(
-                    {"path": path_in_model_dir, "uri": extra_file}
+                    {"path": rel_path, "uri": extra_file}
                 )
             shutil.move(
                 tmp_extra_files_dir.path(),
