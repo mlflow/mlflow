@@ -392,7 +392,6 @@ def save_model(
             )
             path_in_model_dir = posixpath.join(
                 _TORCHSERVE_ARTIFACTS_KEY,
-                _TORCHSERVE_REQUIREMENTS_FILE_KEY,
                 os.path.basename(requirements_file),
             )
             torchserve_artifacts_config[_TORCHSERVE_REQUIREMENTS_FILE_KEY] = {
