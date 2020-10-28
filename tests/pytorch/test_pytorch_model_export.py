@@ -817,23 +817,23 @@ def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_
 
 
 @pytest.fixture
-def create_requirement_file(tmpdir):
+def create_requirements_file(tmpdir):
     requirement_file_name = "requirements.txt"
     fp = tmpdir.join(requirement_file_name)
     test_string = "mlflow"
     fp.write(test_string)
-    return fp, test_string
+    return fp.strpath, test_string
 
 
 @pytest.mark.large
-def test_requirement_file_log_model(create_requirement_file, sequential_model):
-    requirement_file_path, content_expected = create_requirement_file
+def test_requirements_file_log_model(create_requirements_file, sequential_model):
+    requirements_file, content_expected = create_requirements_file
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="model",
             conda_env=None,
-            requirements_file=requirement_file_path.strpath,
+            requirements_file=requirements_file,
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
@@ -849,26 +849,24 @@ def test_requirement_file_log_model(create_requirement_file, sequential_model):
             torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
 
             assert "requirements_file" in torchserve_artifacts
-            requirements_file = torchserve_artifacts["requirements_file"]
+            loaded_requirements_file = torchserve_artifacts["requirements_file"]
 
-            assert "uri" in requirements_file
-            assert requirements_file["uri"] == requirement_file_path
-            assert "path" in requirements_file
-            requirements_file_path = torchserve_artifacts["requirements_file"]["path"]
+            assert "uri" in loaded_requirements_file
+            assert loaded_requirements_file["uri"] == requirements_file
+            assert "path" in loaded_requirements_file
+            requirements_file_path = loaded_requirements_file["path"]
             requirements_file_path = os.path.join(model_path, requirements_file_path)
             with open(requirements_file_path) as fp:
                 assert fp.read() == content_expected
 
 
 @pytest.mark.large
-def test_requirement_file_save_model(create_requirement_file, sequential_model):
-    requirement_file_path, content_expected = create_requirement_file
+def test_requirements_file_save_model(create_requirements_file, sequential_model):
+    requirements_file, content_expected = create_requirements_file
     with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model,
-            path=model_path,
-            requirements_file=requirement_file_path.strpath,
+            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file,
         )
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
@@ -877,12 +875,12 @@ def test_requirement_file_save_model(create_requirement_file, sequential_model):
         torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
 
         assert "requirements_file" in torchserve_artifacts
-        requirements_file = torchserve_artifacts["requirements_file"]
+        loaded_requirements_file = torchserve_artifacts["requirements_file"]
 
-        assert "uri" in requirements_file
-        assert requirements_file["uri"] == requirement_file_path
-        assert "path" in requirements_file
-        requirements_file_path = torchserve_artifacts["requirements_file"]["path"]
+        assert "uri" in loaded_requirements_file
+        assert loaded_requirements_file["uri"] == requirements_file
+        assert "path" in loaded_requirements_file
+        requirements_file_path = loaded_requirements_file["path"]
         requirements_file_path = os.path.join(model_path, requirements_file_path)
         with open(requirements_file_path) as fp:
             assert fp.read() == content_expected
