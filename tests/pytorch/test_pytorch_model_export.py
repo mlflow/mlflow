@@ -912,22 +912,22 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
 
 @pytest.fixture
 def create_extra_files(tmpdir):
-    extra_file_name = "extra1.txt"
-    fp = tmpdir.join(extra_file_name)
-    test_string = "pytest_extra_file"
-    fp.write(test_string)
-    return fp
+    fp1 = tmpdir.join("extra1.txt")
+    fp2 = tmpdir.join("extra2.txt")
+    fp1.write("1")
+    fp2.write("2")
+    return [fp1.strpath, fp2.strpath], ["1", "2"]
 
 
 @pytest.mark.large
 def test_extra_files_log_model(create_extra_files, sequential_model):
-    extra_file_path = create_extra_files
+    extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
             conda_env=None,
-            extra_files=[extra_file_path.strpath],
+            extra_files=extra_files,
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
@@ -935,12 +935,21 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
         )
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
-            assert os.path.isdir(os.path.join(model_path, "artifacts"))
-            extra_file = os.path.join(model_path, "artifacts", "extra1.txt")
-            assert os.path.isfile(extra_file)
-            with open(extra_file) as fp:
-                content = fp.read()
-            assert "pytest_extra_file" in content
+            model_config_path = os.path.join(model_path, "MLmodel")
+            model_config = Model.load(model_config_path)
+
+            assert "torchserve_artifacts" in model_config.flavors["pytorch"]
+            torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
+
+            assert "extra_files" in torchserve_artifacts
+            extra_files = torchserve_artifacts["extra_files"]
+
+            for extra_file, content_expected in zip(extra_files, contents_expected):
+                assert "path" in extra_file
+                assert "uri" in extra_file
+                extra_file_path = os.path.join(model_path, extra_file["path"])
+                with open(extra_file_path) as fp:
+                    assert fp.read() == content_expected
 
 
 @pytest.mark.large
