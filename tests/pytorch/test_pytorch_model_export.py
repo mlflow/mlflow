@@ -954,18 +954,27 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
 
 @pytest.mark.large
 def test_extra_files_save_model(create_extra_files, sequential_model):
-    extra_file_path = create_extra_files
-    with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
+    extra_files, contents_expected = create_extra_files
+    with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, extra_files=[extra_file_path.strpath]
+            pytorch_model=sequential_model, path=model_path, extra_files=extra_files
         )
-        assert os.path.isdir(os.path.join(model_path, "artifacts"))
-        extra_file = os.path.join(model_path, "artifacts", "extra1.txt")
-        assert os.path.isfile(extra_file)
-        with open(extra_file) as fp:
-            content = fp.read()
-        assert "pytest_extra_file" in content
+        model_config_path = os.path.join(model_path, "MLmodel")
+        model_config = Model.load(model_config_path)
+
+        assert "torchserve_artifacts" in model_config.flavors["pytorch"]
+        torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
+
+        assert "extra_files" in torchserve_artifacts
+        extra_files = torchserve_artifacts["extra_files"]
+
+        for extra_file, content_expected in zip(extra_files, contents_expected):
+            assert "path" in extra_file
+            assert "uri" in extra_file
+            extra_file_path = os.path.join(model_path, extra_file["path"])
+            with open(extra_file_path) as fp:
+                assert fp.read() == content_expected
 
 
 def test_log_model_invalid_extra_file_path(sequential_model):
