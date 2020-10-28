@@ -7,6 +7,7 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+    NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`.
 """
 import os
 import logging
