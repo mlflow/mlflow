@@ -822,12 +822,12 @@ def create_requirement_file(tmpdir):
     fp = tmpdir.join(requirement_file_name)
     test_string = "mlflow"
     fp.write(test_string)
-    return fp
+    return fp, test_string
 
 
 @pytest.mark.large
 def test_requirement_file_log_model(create_requirement_file, sequential_model):
-    requirement_file_path = create_requirement_file
+    requirement_file_path, content_expected = create_requirement_file
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
@@ -857,12 +857,12 @@ def test_requirement_file_log_model(create_requirement_file, sequential_model):
             requirements_file_path = torchserve_artifacts["requirements_file"]["path"]
             requirements_file_path = os.path.join(model_path, requirements_file_path)
             with open(requirements_file_path) as fp:
-                assert fp.read() == "mlflow"
+                assert fp.read() == content_expected
 
 
 @pytest.mark.large
 def test_requirement_file_save_model(create_requirement_file, sequential_model):
-    requirement_file_path = create_requirement_file
+    requirement_file_path, content_expected = create_requirement_file
     with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
@@ -885,7 +885,7 @@ def test_requirement_file_save_model(create_requirement_file, sequential_model):
         requirements_file_path = torchserve_artifacts["requirements_file"]["path"]
         requirements_file_path = os.path.join(model_path, requirements_file_path)
         with open(requirements_file_path) as fp:
-            assert fp.read() == "mlflow"
+            assert fp.read() == content_expected
 
 
 def test_log_model_invalid_requirement_file_path(sequential_model):
