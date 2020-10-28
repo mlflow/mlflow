@@ -7,6 +7,8 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+    NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
+    since `predict()` is required for pyfunc model inference.
 """
 import os
 import logging
@@ -76,7 +78,12 @@ def save_model(
     input_example: ModelInputExample = None,
 ):
     """
-    Save a scikit-learn model to a path on the local file system.
+    Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
@@ -221,7 +228,12 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
-    Log a scikit-learn model as an MLflow artifact for the current run.
+    Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
@@ -599,7 +611,9 @@ def autolog(log_input_example=False, log_model_signature=True):
           (e.g. "sklearn.linear_model._base.LinearRegression").
 
       **Artifacts**
-        - A fitted estimator (logged by :py:func:`mlflow.sklearn.log_model()`).
+        - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
+          (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
+          :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
 
     **How does autologging work for meta estimators?**
       When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
