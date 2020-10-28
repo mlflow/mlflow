@@ -77,7 +77,12 @@ def save_model(
     input_example: ModelInputExample = None,
 ):
     """
-    Save a scikit-learn model to a path on the local file system.
+    Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
@@ -222,7 +227,12 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
-    Log a scikit-learn model as an MLflow artifact for the current run.
+    Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
