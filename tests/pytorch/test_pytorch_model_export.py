@@ -814,3 +814,148 @@ def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0], sequential_predicted, decimal=4
     )
+
+
+@pytest.fixture
+def create_requirement_file(tmpdir):
+    requirement_file_name = "requirements.txt"
+    fp = tmpdir.join(requirement_file_name)
+    test_string = "mlflow"
+    fp.write(test_string)
+    return fp
+
+
+@pytest.mark.large
+def test_requirement_file_log_model(create_requirement_file, sequential_model):
+    requirement_file_path = create_requirement_file
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            requirements_file=requirement_file_path.strpath,
+        )
+
+        model_uri = "runs:/{run_id}/{model_path}".format(
+            run_id=mlflow.active_run().info.run_id, model_path="models"
+        )
+        with TempDir(remove_on_exit=True) as tmp:
+            model_path = _download_artifact_from_uri(model_uri, tmp.path())
+            assert os.path.isdir(os.path.join(model_path, "requirements"))
+            requirements_file = os.path.join(model_path, "requirements", "requirements.txt")
+            assert os.path.isfile(requirements_file)
+            with open(requirements_file) as fp:
+                content = fp.read()
+            assert "mlflow" in content
+
+
+@pytest.mark.large
+def test_requirement_file_save_model(create_requirement_file, sequential_model):
+    requirement_file_path = create_requirement_file
+    with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
+        model_path = os.path.join(tmp.path(), "models")
+        mlflow.pytorch.save_model(
+            pytorch_model=sequential_model,
+            path=model_path,
+            requirements_file=requirement_file_path.strpath,
+        )
+        assert os.path.isdir(os.path.join(model_path, "requirements"))
+        requirements_file = os.path.join(model_path, "requirements", "requirements.txt")
+        assert os.path.isfile(requirements_file)
+        with open(requirements_file) as fp:
+            content = fp.read()
+
+        assert "mlflow" in content
+
+
+def test_log_model_invalid_requirement_file_path(sequential_model):
+    with mlflow.start_run(), pytest.raises(FileNotFoundError):
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            requirements_file="inexistent_file.txt",
+        )
+
+
+def test_log_model_invalid_requirement_file_type(sequential_model):
+    with mlflow.start_run(), pytest.raises(
+        TypeError, match="Path to requirements file should be a string"
+    ):
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            requirements_file=["inexistent_file.txt"],
+        )
+
+
+@pytest.fixture
+def create_extra_files(tmpdir):
+    extra_file_name = "extra1.txt"
+    fp = tmpdir.join(extra_file_name)
+    test_string = "pytest_extra_file"
+    fp.write(test_string)
+    return fp
+
+
+@pytest.mark.large
+def test_extra_files_log_model(create_extra_files, sequential_model):
+    extra_file_path = create_extra_files
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            extra_files=[extra_file_path.strpath],
+        )
+
+        model_uri = "runs:/{run_id}/{model_path}".format(
+            run_id=mlflow.active_run().info.run_id, model_path="models"
+        )
+        with TempDir(remove_on_exit=True) as tmp:
+            model_path = _download_artifact_from_uri(model_uri, tmp.path())
+            assert os.path.isdir(os.path.join(model_path, "artifacts"))
+            extra_file = os.path.join(model_path, "artifacts", "extra1.txt")
+            assert os.path.isfile(extra_file)
+            with open(extra_file) as fp:
+                content = fp.read()
+            assert "pytest_extra_file" in content
+
+
+@pytest.mark.large
+def test_extra_files_save_model(create_extra_files, sequential_model):
+    extra_file_path = create_extra_files
+    with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
+        model_path = os.path.join(tmp.path(), "models")
+        mlflow.pytorch.save_model(
+            pytorch_model=sequential_model, path=model_path, extra_files=[extra_file_path.strpath]
+        )
+        assert os.path.isdir(os.path.join(model_path, "artifacts"))
+        extra_file = os.path.join(model_path, "artifacts", "extra1.txt")
+        assert os.path.isfile(extra_file)
+        with open(extra_file) as fp:
+            content = fp.read()
+        assert "pytest_extra_file" in content
+
+
+def test_log_model_invalid_extra_file_path(sequential_model):
+    with mlflow.start_run(), pytest.raises(FileNotFoundError):
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            extra_files=["inexistent_file.txt"],
+        )
+
+
+def test_log_model_invalid_extra_file_type(sequential_model):
+    with mlflow.start_run(), pytest.raises(
+        TypeError, match="Extra files argument should be a list"
+    ):
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path="models",
+            conda_env=None,
+            extra_files="inexistent_file.txt",
+        )
