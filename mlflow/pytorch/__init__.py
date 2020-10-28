@@ -327,7 +327,6 @@ def save_model(
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
     if isinstance(pytorch_model, torch.jit.ScriptModule):
-        model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
         torch.jit.ScriptModule.save(pytorch_model, model_path)
     else:
         torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
