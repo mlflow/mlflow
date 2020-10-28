@@ -444,7 +444,7 @@ def save_model(
     else:
         code_dir_subpath = None
 
-    if len(torchserve_artifacts_config) == 0:
+    if len(torchserve_artifacts_config) != 0:
         torchserve_artifacts_config = {_TORCHSERVE_ARTIFACTS_KEY: torchserve_artifacts_config}
 
     mlflow_model.add_flavor(
