@@ -210,8 +210,6 @@ def _update_avg_time_callback(future):
 
 
 class BatchMetricsHandler: # BatchMetricsLogger maybe?
-    BATCH_LOG_INTERVAL = 23
-
     def __init__(self):
         # data is an array of tuples of the form (timestamp, metrics at timestamp)
         self.data = []
