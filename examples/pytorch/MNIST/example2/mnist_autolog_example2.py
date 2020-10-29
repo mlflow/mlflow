@@ -8,7 +8,6 @@
 # pylint: disable=arguments-differ
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
-import mlflow
 import pytorch_lightning as pl
 import torch
 from argparse import ArgumentParser
@@ -301,9 +300,6 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
-    )
-    parser.add_argument(
         "--max-epochs", type=int, default=5, help="number of epochs to run (default: 5)"
     )
     parser.add_argument(
@@ -318,7 +314,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
-    mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     dm = MNISTDataModule(**dict_args)
     dm.prepare_data()

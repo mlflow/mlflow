@@ -11,10 +11,12 @@ is responsible for logging the params, metrics, model summary and the model.
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
 
-## Setup
+## Setting tracking URI
+MLflow tracking URI can be set using the environment variable MLFLOW_TRACKING_URI
 
-Mlflow tracking UI is set to `http://localhost:5000` with experiment name as `Default` in the script - `bert_classification.py`
-Change the variables according to the environment setup.
+Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
+
+For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/SentimentAnalysis` directory and run the command

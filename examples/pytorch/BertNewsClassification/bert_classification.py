@@ -1,14 +1,12 @@
-# pylint: disable=W0221
-# pylint: disable=W0613
-# pylint: disable=E1102
-# pylint: disable=W0223
+# pylint: disable=arguments-differ
+# pylint: disable=unused-argument
+# pylint: disable=abstract-method
 
 import os
 from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
-import mlflow
 import torch
 import torch.nn.functional as F
 from pytorch_lightning.callbacks import (
@@ -370,9 +368,6 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
-    )
-    parser.add_argument(
         "--max-epochs", type=int, default=10, help="number of epochs to run (default: 10)"
     )
     parser.add_argument(
@@ -398,7 +393,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dict_args = vars(args)
-    mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     dm = BertDataModule(**dict_args)
     dm.prepare_data()

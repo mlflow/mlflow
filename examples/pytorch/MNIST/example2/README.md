@@ -11,6 +11,13 @@ For ex: `autolog(log_every_n_iter=5)`
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
 
+## Setting tracking URI
+MLflow tracking URI can be set using the environment variable MLFLOW_TRACKING_URI
+
+Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
+
+For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
+
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example2` directory and run the command
 
