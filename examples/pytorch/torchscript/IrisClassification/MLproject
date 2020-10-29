@@ -6,10 +6,7 @@ entry_points:
   main:
     parameters:
       epochs: {type: int, default: 50}
-      tracking_uri: {type: str, default: 'http://localhost:5000'}
 
     command: |
           python iris_classification.py \
-            --epochs {epochs} \
-            --tracking-uri {tracking_uri} \
-
+            --epochs {epochs}

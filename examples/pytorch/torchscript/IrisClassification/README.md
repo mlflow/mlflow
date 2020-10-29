@@ -6,6 +6,14 @@ This example demonstrates training of MNIST handwritten recognition model and lo
 ### Code related to MLflow:
 This will log the TorchScripted model into MLflow and load the logged model.
 
+## Setting Tracking URI
+
+MLflow tracking URI can be set using the environment variable `MLFLOW_TRACKING_URI`
+
+Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
+
+For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
+
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/torchscript` directory and run the command
 

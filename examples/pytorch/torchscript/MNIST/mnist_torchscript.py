@@ -138,9 +138,6 @@ def main():
         "--save-model", action="store_true", default=False, help="For Saving the current model",
     )
 
-    parser.add_argument(
-        "--tracking-uri", default="http://localhost:5000", help="MLflow Tracking URI",
-    )
     args = parser.parse_args()
     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -172,7 +169,6 @@ def main():
         train(args, scripted_model, device, train_loader, optimizer, epoch)
         scheduler.step()
     test(scripted_model, device, test_loader)
-    mlflow.tracking.set_tracking_uri(args.tracking_uri)
     with mlflow.start_run() as run:
         mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
         model_path = mlflow.get_artifact_uri("model")

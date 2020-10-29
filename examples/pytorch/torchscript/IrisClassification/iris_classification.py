@@ -78,9 +78,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Iris Classification Torchscripted model")
 
     parser.add_argument(
-        "--tracking-uri", type=str, default="http://localhost:5000/", help="MLflow tracking uri"
-    )
-    parser.add_argument(
         "--epochs", type=int, default=100, help="number of epochs to run (default: 100)"
     )
 
@@ -93,7 +90,6 @@ if __name__ == "__main__":
     scripted_model = train_model(scripted_model, args.epochs, X_train, y_train)
     test_model(scripted_model, X_test, y_test)
 
-    mlflow.tracking.set_tracking_uri(args.tracking_uri)
     with mlflow.start_run() as run:
         mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
         model_path = mlflow.get_artifact_uri("model")
