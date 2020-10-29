@@ -236,14 +236,13 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
             for key, value in metrics_at_timestamp.items():
                 final_metrics.append(Metric(key, value, timestamp, step))
 
-        promise = self._thread_pool.submit(
+        future = self._thread_pool.submit(
             _timed_log_batch,
             batch_metrics_handler=self,
             run_id=run_id,
             metrics=final_metrics,
         )
-        promise.add_done_callback(_update_avg_time_callback)
-        # MlflowClient().log_batch(run_id=run_id, metrics=final_metrics, params=[], tags=[])
+        future.add_done_callback(_update_avg_time_callback)
 
         self.data = []
 
