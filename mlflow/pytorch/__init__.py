@@ -77,6 +77,7 @@ def log_model(
 ):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
+    Supports both eager and scripted model.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
                           input and produce a single output tensor. Any code dependencies of the
@@ -183,6 +184,10 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.log_model(model, "models")
+
+            # logging scripted module
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.log_model(scripted_pytorch_model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
@@ -213,6 +218,7 @@ def save_model(
 ):
     """
     Save a PyTorch model to a path on the local file system.
+    Supports both eager and scripted model.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
                           input and produce a single output tensor. Any code dependencies of the
@@ -288,6 +294,10 @@ def save_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
+
+            # Saving scripted model
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.save_model(scripted_pytorch_model, pytorch_model_path)
     """
     import torch
 
