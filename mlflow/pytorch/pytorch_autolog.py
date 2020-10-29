@@ -161,13 +161,13 @@ def autolog(log_every_n_iter=1):
                     restored_epoch = early_stop_callback.stopped_epoch - max(
                         1, early_stop_callback.patience
                     )
-                    try_mlflow_log(mlflow.log_metric, "Restored_Epoch", restored_epoch)
+                    try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
 
                 if hasattr(early_stop_callback, "best_score"):
-                    try_mlflow_log(mlflow.log_metric, "Best_Score", early_stop_callback.best_score)
+                    try_mlflow_log(mlflow.log_metric, "best_score", early_stop_callback.best_score)
 
                 if hasattr(early_stop_callback, "wait_count"):
-                    try_mlflow_log(mlflow.log_metric, "Wait_Count", early_stop_callback.wait_count)
+                    try_mlflow_log(mlflow.log_metric, "wait_count", early_stop_callback.wait_count)
 
     def _run_and_log_function(self, original, args, kwargs):
         """
