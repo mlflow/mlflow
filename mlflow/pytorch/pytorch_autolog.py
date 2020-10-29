@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 import shutil
 import tempfile
 from pytorch_lightning.core.memory import ModelSummary
+from pytorch_lightning.utilities import rank_zero_only
 from mlflow.utils.autologging_utils import try_mlflow_log
 
 logging.basicConfig(level=logging.ERROR)
@@ -26,6 +27,7 @@ every_n_iter = 1
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 
 
+@rank_zero_only
 def autolog(log_every_n_iter=1):
     global every_n_iter
     every_n_iter = log_every_n_iter
