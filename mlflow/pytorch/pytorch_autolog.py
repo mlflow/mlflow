@@ -61,7 +61,7 @@ def autolog(log_every_n_iter=1):
             """
             Logs Optimizer related metrics when the train begins
 
-            :param trainer: pytorch lightning model instance
+            :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
             try_mlflow_log(mlflow.set_tag, "Mode", "training")
@@ -99,7 +99,7 @@ def autolog(log_every_n_iter=1):
             """
             Logs the model checkpoint into mlflow - models folder on the training end
 
-            :param trainer: pytorch lightning model instance
+            :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
 
@@ -116,7 +116,7 @@ def autolog(log_every_n_iter=1):
             """
             Logs accuracy and other relevant metrics on the testing end
 
-            :param trainer: pytorch lightning model instance
+            :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
             try_mlflow_log(mlflow.set_tag, "Mode", "testing")
