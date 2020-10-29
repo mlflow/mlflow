@@ -1,9 +1,15 @@
 import inspect
 import functools
 import warnings
+import time
+import contextlib
+import concurrent
 
 import mlflow
 from mlflow.utils import gorilla
+from mlflow.entities import Metric
+from mlflow.tracking.client import MlflowClient
+
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
@@ -187,3 +193,104 @@ def resolve_input_example_and_signature(
         logger.warning(model_signature_user_msg)
 
     return input_example if log_input_example else None, model_signature
+
+
+def _timed_log_batch(batch_metrics_handler, run_id, metrics):
+    start = time.time()
+    MlflowClient().log_batch(run_id=run_id, metrics=metrics)
+    end = time.time()
+    return batch_metrics_handler, end - start + 0.03
+
+
+def _update_avg_time_callback(future):
+    batch_metrics_handler, log_batch_time = future.result()
+
+    batch_metrics_handler.total_log_batch_time += log_batch_time
+    batch_metrics_handler.num_log_batch += 1
+
+
+class BatchMetricsHandler: # BatchMetricsLogger maybe?
+    BATCH_LOG_INTERVAL = 23
+
+    def __init__(self):
+        # data is an array of tuples of the form (timestamp, metrics at timestamp)
+        self.data = []
+        self.current_step = 0
+        self.accumulated_training_time = 0
+        self.total_log_batch_time = 0
+        self.num_log_batch = 0
+        self.previous_training_timestamp = None
+        self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+    def _purge(self):
+        print("purging")
+
+        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        final_metrics = []
+
+        for idx, entry in enumerate(self.data):
+            step = self.current_step - len(self.data) + idx + 1
+            timestamp = entry[0]
+            metrics_at_timestamp = entry[1]
+
+            for key, value in metrics_at_timestamp.items():
+                final_metrics.append(Metric(key, value, timestamp, step))
+
+        promise = self._thread_pool.submit(
+            _timed_log_batch,
+            batch_metrics_handler=self,
+            run_id=run_id,
+            metrics=final_metrics,
+        )
+        promise.add_done_callback(_update_avg_time_callback)
+        # MlflowClient().log_batch(run_id=run_id, metrics=final_metrics, params=[], tags=[])
+
+        self.data = []
+
+    def _should_purge(self, current_timestamp):
+        if self.previous_training_timestamp is None:
+            self.previous_training_timestamp = current_timestamp
+            return False
+        
+        training_time = current_timestamp - self.previous_training_timestamp
+
+        self.previous_training_timestamp = current_timestamp
+
+        self.accumulated_training_time += training_time
+
+        if self.num_log_batch == 0:
+            return True
+
+        if self.accumulated_training_time >= self.total_log_batch_time / self.num_log_batch:
+            self.accumulated_training_time = 0
+            return True
+
+        return False
+
+    # metrics is a dict representing the set of metrics collected during one iteration
+    def record_metrics(self, metrics):
+        current_timestamp = time.time()
+
+        
+
+        self.data.append([int(time.time() * 1000), metrics])
+        # print(self.current_step)
+
+        # print("accumulated_training_time " + str(self.accumulated_training_time))
+        # print("total_log_batch_time " + str(self.total_log_batch_time))
+        # print("num_log_batch " + str(self.num_log_batch))
+        # print("previous_training_timestamp " + str(self.previous_training_timestamp))
+
+        if self._should_purge(current_timestamp):
+            self._purge()
+
+        self.current_step += 1
+
+@contextlib.contextmanager
+def with_batch_metrics_handler():
+    batch_metrics_handler = BatchMetricsHandler()
+    yield batch_metrics_handler
+    batch_metrics_handler._purge()
+
+    # blocks until all submitted tasks are complete
+    batch_metrics_handler._thread_pool.shutdown(wait=True)

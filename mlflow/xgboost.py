@@ -45,6 +45,8 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
+    BatchMetricsHandler,
+    with_batch_metrics_handler
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -343,8 +345,10 @@ def autolog(
             """
 
             def callback(env):
+                # pass
+                batch_metrics_handler.record_metrics(dict(env.evaluation_result_list))
                 # try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list), step=step)
-                eval_results.append([int(time.time() * 1000), dict(env.evaluation_result_list)])
+                # eval_results.append([int(time.time() * 1000), dict(env.evaluation_result_list)])
                 
             return callback
 
@@ -391,6 +395,8 @@ def autolog(
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
+        # batch_metrics_handler = BatchMetricsHandler()
+
         original = gorilla.get_original_attribute(xgboost, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
@@ -427,25 +433,29 @@ def autolog(
         else:
             kwargs["callbacks"] = [callback]
 
-        # training model
-        model = original(*args, **kwargs)
+        with with_batch_metrics_handler() as batch_metrics_handler:
+            # training model
+            model = original(*args, **kwargs)
 
         # logging metrics on each iteration.
         # for idx, metrics in enumerate(eval_results):
         #     try_mlflow_log(mlflow.log_metrics, metrics, step=idx)
 
 
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        metrics_arr = []
+        # run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        # metrics_arr = []
 
-        for idx, entry in enumerate(eval_results):
-            timestamp = entry[0]
-            metrics_at_timestamp = entry[1]
+        # for idx, entry in enumerate(eval_results):
+        #     timestamp = entry[0]
+        #     metrics_at_timestamp = entry[1]
 
-            for key, value in metrics_at_timestamp.items():
-                metrics_arr.append(Metric(key, value, timestamp, step=idx))
+        #     for key, value in metrics_at_timestamp.items():
+        #         metrics_arr.append(Metric(key, value, timestamp, step=idx))
 
-        MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+        # MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+
+
+
 
         # If early_stopping_rounds is present, logging metrics at the best iteration
         # as extra metrics with the max step + 1.
