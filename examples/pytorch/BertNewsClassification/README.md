@@ -1,4 +1,4 @@
-## Bert Sentiment Analysis example with MLFlow
+## Bert news classification example with MLFlow
 
 In this example, we have used a pretrained Bert model to classify the news reports into any one of the 4 different categories("world", "Sports", "Business", "Sci/Tech").
 The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics.
@@ -19,7 +19,7 @@ Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
 For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
-To run the example via MLflow, navigate to the `mlflow/examples/pytorch/SentimentAnalysis` directory and run the command
+To run the example via MLflow, navigate to the `mlflow/examples/pytorch/BertNewsClassification` directory and run the command
 
 ```
 mlflow run .

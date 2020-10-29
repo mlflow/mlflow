@@ -1,4 +1,4 @@
-name: bert-sentiment
+name: bert-classification
 
 conda_env: conda.yaml
 
