@@ -7,8 +7,9 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+    NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
+    since `predict()` is required for pyfunc model inference.
 """
-import gorilla
 import os
 import logging
 import pickle
@@ -26,6 +27,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -76,7 +78,12 @@ def save_model(
     input_example: ModelInputExample = None,
 ):
     """
-    Save a scikit-learn model to a path on the local file system.
+    Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
@@ -221,7 +228,12 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
-    Log a scikit-learn model as an MLflow artifact for the current run.
+    Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
@@ -599,7 +611,9 @@ def autolog(log_input_example=False, log_model_signature=True):
           (e.g. "sklearn.linear_model._base.LinearRegression").
 
       **Artifacts**
-        - A fitted estimator (logged by :py:func:`mlflow.sklearn.log_model()`).
+        - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
+          (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
+          :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
 
     **How does autologging work for meta estimators?**
       When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
@@ -724,16 +738,21 @@ def autolog(log_input_example=False, log_model_signature=True):
             stacklevel=2,
         )
 
-    def fit_mlflow(self, func_name, *args, **kwargs):
+    def fit_mlflow(self, clazz, func_name, *args, **kwargs):
+        """
+        Autologging function that performs model training by executing the training method
+        referred to be `func_name` on the instance of `clazz` referred to by `self` & records
+        MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
+        """
         should_start_run = mlflow.active_run() is None
         if should_start_run:
             try_mlflow_log(mlflow.start_run)
 
         _log_pretraining_metadata(self, *args, **kwargs)
 
-        original_fit = gorilla.get_original_attribute(self, func_name)
+        original_fit = gorilla.get_original_attribute(clazz, func_name)
         try:
-            fit_output = original_fit(*args, **kwargs)
+            fit_output = original_fit(self, *args, **kwargs)
         except Exception as e:
             if should_start_run:
                 try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
@@ -891,21 +910,27 @@ def autolog(log_input_example=False, log_model_signature=True):
                     )
                     _logger.warning(msg)
 
-    def patched_fit(self, func_name, *args, **kwargs):
+    def patched_fit(self, clazz, func_name, *args, **kwargs):
         """
-        To be applied to a sklearn model class that defines a `fit` method and
-        inherits from `BaseEstimator` (thereby defining the `get_params()` method)
-        """
-        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
-            if t.should_log():
-                return fit_mlflow(self, func_name, *args, **kwargs)
-            else:
-                original_fit = gorilla.get_original_attribute(self, func_name)
-                return original_fit(*args, **kwargs)
+        Autologging patch function to be applied to a sklearn model class that defines a `fit`
+        method and inherits from `BaseEstimator` (thereby defining the `get_params()` method)
 
-    def create_patch_func(func_name):
+        :param clazz: The scikit-learn model class to which this patch function is being applied for
+                      autologging (e.g., `sklearn.linear_model.LogisticRegression`)
+        :param func_name: The function name on the specified `clazz` that this patch is overriding
+                          for autologging (e.g., specify "fit" in order to indicate that
+                          `sklearn.linear_model.LogisticRegression.fit()` is being patched)
+        """
+        with _SklearnTrainingSession(clazz=clazz, allow_children=False) as t:
+            if t.should_log():
+                return fit_mlflow(self, clazz, func_name, *args, **kwargs)
+            else:
+                original_fit = gorilla.get_original_attribute(clazz, func_name)
+                return original_fit(self, *args, **kwargs)
+
+    def create_patch_func(clazz, func_name):
         def f(self, *args, **kwargs):
-            return patched_fit(self, func_name, *args, **kwargs)
+            return patched_fit(self, clazz, func_name, *args, **kwargs)
 
         return f
 
@@ -915,30 +940,25 @@ def autolog(log_input_example=False, log_model_signature=True):
     estimators_to_patch = set(estimators_to_patch).union(
         set(_get_meta_estimators_for_autologging())
     )
-    # Exclude preprocessing and imputation estimators from patching. These estimators represent
-    # data manipulation routines (e.g., normalization, label encoding) rather than ML
-    # algorithms. Accordingly, we should not create MLflow runs and log parameters / metrics
-    # for these routines, unless they are captured as part of an ML pipeline
+    # Exclude certain preprocessing & feature manipulation estimators from patching. These
+    # estimators represent data manipulation routines (e.g., normalization, label encoding)
+    # rather than ML algorithms. Accordingly, we should not create MLflow runs and log
+    # parameters / metrics for these routines, unless they are captured as part of an ML pipeline
     # (via `sklearn.pipeline.Pipeline`)
-    import sklearn.preprocessing
-
-    excluded_modules = [sklearn.preprocessing]
-    # The `sklearn.impute` module was introduced in scikit-learn 0.20.0; in an attempt
-    # to preserve compatibility with version 0.19.x, we conditionally import this module
-    try:
-        import sklearn.impute
-
-        excluded_modules.append(sklearn.impute)
-    except ImportError:
-        pass
+    excluded_module_names = [
+        "sklearn.preprocessing",
+        "sklearn.impute",
+        "sklearn.feature_extraction",
+        "sklearn.feature_selection",
+    ]
 
     estimators_to_patch = [
         estimator
         for estimator in estimators_to_patch
         if not any(
             [
-                estimator.__module__.startswith(excluded_module.__name__)
-                for excluded_module in excluded_modules
+                estimator.__module__.startswith(excluded_module_name)
+                for excluded_module_name in excluded_module_names
             ]
         )
     ]
@@ -965,5 +985,5 @@ def autolog(log_input_example=False, log_model_signature=True):
                 if isinstance(original, property):
                     continue
 
-                patch_func = create_patch_func(func_name)
+                patch_func = create_patch_func(class_def, func_name)
                 wrap_patch(class_def, func_name, patch_func)
