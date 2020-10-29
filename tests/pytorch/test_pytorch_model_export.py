@@ -851,8 +851,6 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
             assert "requirements_file" in torchserve_artifacts
             loaded_requirements_file = torchserve_artifacts["requirements_file"]
 
-            assert "uri" in loaded_requirements_file
-            assert loaded_requirements_file["uri"] == requirements_file
             assert "path" in loaded_requirements_file
             requirements_file_path = loaded_requirements_file["path"]
             requirements_file_path = os.path.join(model_path, requirements_file_path)
@@ -877,8 +875,6 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
         assert "requirements_file" in torchserve_artifacts
         loaded_requirements_file = torchserve_artifacts["requirements_file"]
 
-        assert "uri" in loaded_requirements_file
-        assert loaded_requirements_file["uri"] == requirements_file
         assert "path" in loaded_requirements_file
         requirements_file_path = loaded_requirements_file["path"]
         requirements_file_path = os.path.join(model_path, requirements_file_path)
@@ -945,8 +941,6 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
             for loaded_extra_file, extra_file, content_expected in zip(
                 loaded_extra_files, extra_files, contents_expected
             ):
-                assert "uri" in loaded_extra_file
-                assert loaded_extra_file["uri"] == extra_file
                 assert "path" in loaded_extra_file
                 extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
                 with open(extra_file_path) as fp:
@@ -973,8 +967,6 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
         for loaded_extra_file, extra_file, content_expected in zip(
             loaded_extra_files, extra_files, contents_expected
         ):
-            assert "uri" in loaded_extra_file
-            assert loaded_extra_file["uri"] == extra_file
             assert "path" in loaded_extra_file
             extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
             with open(extra_file_path) as fp:

@@ -393,10 +393,7 @@ def save_model(
             rel_path = posixpath.join(
                 _TORCHSERVE_ARTIFACTS_KEY, os.path.basename(requirements_file),
             )
-            torchserve_artifacts_config[_TORCHSERVE_REQUIREMENTS_FILE_KEY] = {
-                "path": rel_path,
-                "uri": requirements_file,
-            }
+            torchserve_artifacts_config[_TORCHSERVE_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(
                 tmp_requirements_dir.path(), posixpath.join(path, _TORCHSERVE_ARTIFACTS_KEY)
             )
@@ -416,9 +413,7 @@ def save_model(
                     _TORCHSERVE_EXTRA_FILES_KEY,
                     os.path.basename(extra_file),
                 )
-                torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY].append(
-                    {"path": rel_path, "uri": extra_file}
-                )
+                torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY].append({"path": rel_path})
             shutil.move(
                 tmp_extra_files_dir.path(),
                 posixpath.join(path, _TORCHSERVE_ARTIFACTS_KEY, _TORCHSERVE_EXTRA_FILES_KEY),
