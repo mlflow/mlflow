@@ -199,10 +199,10 @@ def _timed_log_batch(batch_metrics_handler, run_id, metrics):
     start = time.time()
     MlflowClient().log_batch(run_id=run_id, metrics=metrics)
     end = time.time()
-    return batch_metrics_handler, end - start + 0.03
+    return batch_metrics_handler, end - start + 0 # for testing
 
 
-def _update_avg_time_callback(future):
+def _update_log_batch_time_callback(future):
     batch_metrics_handler, log_batch_time = future.result()
 
     batch_metrics_handler.total_log_batch_time += log_batch_time
@@ -214,7 +214,7 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
         # data is an array of tuples of the form (timestamp, metrics at timestamp)
         self.data = []
         self.current_step = 0
-        self.accumulated_training_time = 0
+        self.total_training_time = 0
         self.total_log_batch_time = 0
         self.num_log_batch = 0
         self.previous_training_timestamp = None
@@ -240,26 +240,19 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
             run_id=run_id,
             metrics=final_metrics,
         )
-        future.add_done_callback(_update_avg_time_callback)
+        future.add_done_callback(_update_log_batch_time_callback)
 
         self.data = []
 
     def _should_purge(self, current_timestamp):
         if self.previous_training_timestamp is None:
-            self.previous_training_timestamp = current_timestamp
             return False
         
-        training_time = current_timestamp - self.previous_training_timestamp
-
-        self.previous_training_timestamp = current_timestamp
-
-        self.accumulated_training_time += training_time
-
         if self.num_log_batch == 0:
             return True
 
-        if self.accumulated_training_time >= self.total_log_batch_time / self.num_log_batch:
-            self.accumulated_training_time = 0
+        if self.total_training_time >= self.total_log_batch_time / self.num_log_batch * 1.5:
+            self.total_training_time = 0
             return True
 
         return False
@@ -267,19 +260,26 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
     # metrics is a dict representing the set of metrics collected during one iteration
     def record_metrics(self, metrics):
         current_timestamp = time.time()
+        if self.previous_training_timestamp is None:
+            self.previous_training_timestamp = current_timestamp
+            return
 
-        
+        training_time = current_timestamp - self.previous_training_timestamp
+
+        self.total_training_time += training_time
 
         self.data.append([int(time.time() * 1000), metrics])
-        # print(self.current_step)
 
-        # print("accumulated_training_time " + str(self.accumulated_training_time))
+        # print(self.current_step)
+        # print("total_training_time " + str(self.total_training_time))
         # print("total_log_batch_time " + str(self.total_log_batch_time))
         # print("num_log_batch " + str(self.num_log_batch))
         # print("previous_training_timestamp " + str(self.previous_training_timestamp))
 
         if self._should_purge(current_timestamp):
             self._purge()
+
+        self.previous_training_timestamp = current_timestamp
 
         self.current_step += 1
 
