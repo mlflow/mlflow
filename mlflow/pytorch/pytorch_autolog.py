@@ -44,13 +44,13 @@ def autolog(log_every_n_iter=1):
             """
             Log loss and other metrics values after each epoch
 
-            :param trainer: pytorch lightning model instance
+            :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
             if (pl_module.current_epoch + 1) % every_n_iter == 0:
                 for key, value in trainer.callback_metrics.items():
                     try_mlflow_log(
-                        mlflow.log_metric, key, float(value + 1), step=pl_module.current_epoch
+                        mlflow.log_metric, key, float(value), step=pl_module.current_epoch
                     )
 
             for callback in trainer.callbacks:
@@ -64,7 +64,7 @@ def autolog(log_every_n_iter=1):
             :param trainer: pytorch lightning model instance
             :param pl_module: pytorch lightning base module
             """
-            mlflow.set_tag(key="Mode", value="training")
+            try_mlflow_log(mlflow.set_tag, "Mode", "training")
             try_mlflow_log(mlflow.log_param, "epochs", trainer.max_epochs)
 
             for callback in trainer.callbacks:
@@ -103,7 +103,7 @@ def autolog(log_every_n_iter=1):
             :param pl_module: pytorch lightning base module
             """
 
-            mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="models")
+            mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="model")
 
             if self.early_stopping and trainer.checkpoint_callback.best_model_path:
                 try_mlflow_log(
@@ -119,7 +119,7 @@ def autolog(log_every_n_iter=1):
             :param trainer: pytorch lightning model instance
             :param pl_module: pytorch lightning base module
             """
-            mlflow.set_tag(key="Mode", value="testing")
+            try_mlflow_log(mlflow.set_tag, "Mode", "testing")
             for key, value in trainer.callback_metrics.items():
                 try_mlflow_log(mlflow.log_metric, key, float(value))
 
@@ -156,7 +156,7 @@ def autolog(log_every_n_iter=1):
 
                 if hasattr(early_stop_callback, "stopped_epoch"):
                     try_mlflow_log(
-                        mlflow.log_metric, "Stopped_Epoch", early_stop_callback.stopped_epoch
+                        mlflow.log_metric, "stopped_epoch", early_stop_callback.stopped_epoch
                     )
                     restored_epoch = early_stop_callback.stopped_epoch - max(
                         1, early_stop_callback.patience

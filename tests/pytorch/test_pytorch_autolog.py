@@ -61,16 +61,15 @@ def pytorch_model_initialized():
     return trainer
 
 
+# pylint: disable=unused-argument
 def test_pytorch_autolog_persists_manually_created_run(pytorch_model_initialized):
-    _ = pytorch_model_initialized
     autolog()
     with mlflow.start_run() as manual_run:
-        assert mlflow.active_run()
+        assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
 
 def test_pytorch_autolog_ends_auto_created_run(pytorch_model_initialized):
-    _ = pytorch_model_initialized
     autolog()
     assert mlflow.active_run() is None
 
