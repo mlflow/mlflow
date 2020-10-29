@@ -53,24 +53,14 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     assert "model_summary.txt" in artifacts
 
 
-@pytest.fixture
-def pytorch_model_initialized():
-    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    model = IrisClassification()
-    trainer.fit(model)
-    return trainer
-
-
 # pylint: disable=unused-argument
-def test_pytorch_autolog_persists_manually_created_run(pytorch_model_initialized):
-    autolog()
+def test_pytorch_autolog_persists_manually_created_run(pytorch_model):
     with mlflow.start_run() as manual_run:
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
 
-def test_pytorch_autolog_ends_auto_created_run(pytorch_model_initialized):
-    autolog()
+def test_pytorch_autolog_ends_auto_created_run(pytorch_model):
     assert mlflow.active_run() is None
 
 
@@ -113,8 +103,8 @@ def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callbac
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
-    assert "models" in artifacts
-    model = mlflow.pytorch.load_model("runs:/" + run_id + "/models")
+    assert "model" in artifacts
+    model = mlflow.pytorch.load_model("runs:/" + run_id + "/model")
     result = model(torch.Tensor([1.5, 2, 2.5, 3.5]).unsqueeze(0))
     assert result is not None
 
@@ -135,9 +125,9 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
 def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     _, run = pytorch_model_with_callback
     data = run.data
-    assert "Stopped_Epoch" in data.metrics
-    assert "Wait_Count" in data.metrics
-    assert "Restored_Epoch" in data.metrics
+    assert "stopped_epoch" in data.metrics
+    assert "wait_count" in data.metrics
+    assert "restored_epoch" in data.metrics
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
