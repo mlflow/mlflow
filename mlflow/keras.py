@@ -607,8 +607,9 @@ def autolog():
             return False
 
     def _early_stop_check(callbacks):
-        if (LooseVersion(keras.__version__) < LooseVersion("2.3.0") or
-            LooseVersion(keras.__version__) >= LooseVersion("2.4.0")):
+        if LooseVersion(keras.__version__) < LooseVersion("2.3.0") or LooseVersion(
+            keras.__version__
+        ) >= LooseVersion("2.4.0"):
             es_callback = keras.callbacks.EarlyStopping
         else:
             es_callback = keras.callbacks.callbacks.EarlyStopping
