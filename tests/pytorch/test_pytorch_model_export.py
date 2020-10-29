@@ -938,9 +938,7 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
             assert "extra_files" in torchserve_artifacts
             loaded_extra_files = torchserve_artifacts["extra_files"]
 
-            for loaded_extra_file, extra_file, content_expected in zip(
-                loaded_extra_files, extra_files, contents_expected
-            ):
+            for loaded_extra_file, content_expected in zip(loaded_extra_files, contents_expected):
                 assert "path" in loaded_extra_file
                 extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
                 with open(extra_file_path) as fp:
@@ -964,9 +962,7 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
         assert "extra_files" in torchserve_artifacts
         loaded_extra_files = torchserve_artifacts["extra_files"]
 
-        for loaded_extra_file, extra_file, content_expected in zip(
-            loaded_extra_files, extra_files, contents_expected
-        ):
+        for loaded_extra_file, content_expected in zip(loaded_extra_files, contents_expected):
             assert "path" in loaded_extra_file
             extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
             with open(extra_file_path) as fp:
