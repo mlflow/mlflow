@@ -1,9 +1,9 @@
 import inspect
 import functools
-import gorilla
 import warnings
 
 import mlflow
+from mlflow.utils import gorilla
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5

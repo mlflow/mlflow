@@ -7,6 +7,7 @@ import os
 import atexit
 import time
 import logging
+import inspect
 import numpy as np
 import pandas as pd
 
@@ -19,8 +20,11 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
+from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
+
+from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -1021,3 +1025,70 @@ def _get_experiment_id():
         or _get_experiment_id_from_env()
         or (is_in_databricks_notebook() and get_notebook_id())
     ) or deprecated_default_exp_id
+
+
+def autolog(log_input_example=False, log_model_signature=True):  # pylint: disable=unused-argument
+    """
+    Enable autologging for all supported integrations.
+
+    The parameters are passed to any autologging integrations that support them.
+
+    See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
+    integrations.
+
+    :param log_input_example: if True, input examples from training datasets will be collected and
+                              logged along with model artifacts during training. If False, no
+                              sample is logged.
+    :param log_model_signature: if True, the type signature of the inputs and outputs to each model
+                                are recorded as part of the model. If False, the signature is not
+                                recorded to the model.
+    """
+    locals_copy = locals().items()
+
+    # Mapping of library module name to specific autolog function
+    # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
+    LIBRARY_TO_AUTOLOG_FN = {
+        "tensorflow": tensorflow.autolog,
+        "keras": keras.autolog,
+        "mxnet.gluon": gluon.autolog,
+        "xgboost": xgboost.autolog,
+        "lightgbm": lightgbm.autolog,
+        "sklearn": sklearn.autolog,
+        "fastai": fastai.autolog,
+        "pyspark": spark.autolog,
+    }
+
+    def setup_autologging(module):
+        autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+        try:
+            needed_params = list(inspect.signature(autolog_fn).parameters.keys())
+            filtered = {k: v for k, v in locals_copy if k in needed_params}
+        except ValueError:
+            filtered = {}
+
+        try:
+            autolog_fn(**filtered)
+            _logger.info("Autologging successfully enabled for %s.", module.__name__)
+        except Exception as e:  # pylint: disable=broad-except
+            _logger.warning(
+                "Exception raised while enabling autologging for %s: %s", module.__name__, str(e)
+            )
+
+    # for each autolog library (except pyspark), register a post-import hook.
+    # this way, we do not send any errors to the user until we know they are using the library.
+    # the post-import hook also retroactively activates for previously-imported libraries.
+    for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark"])):
+        register_post_import_hook(setup_autologging, module, overwrite=True)
+
+    # for pyspark, we activate autologging immediately, without waiting for a module import.
+    # this is because on Databricks a SparkSession already exists and the user can directly
+    #   interact with it, and this activity should be logged.
+    try:
+        spark.autolog()
+    except ImportError as ie:
+        # if pyspark isn't installed, a user could potentially install it in the middle
+        #   of their session so we want to enable autologging once they do
+        if "pyspark" in str(ie):
+            register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
+    except Exception as e:  # pylint: disable=broad-except
+        _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
