@@ -81,10 +81,15 @@ def log_model(
 ):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
-    Supports both eager and scripted model.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -248,10 +253,15 @@ def save_model(
 ):
     """
     Save a PyTorch model to a path on the local file system.
-    Supports both eager and scripted model.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
