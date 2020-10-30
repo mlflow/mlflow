@@ -575,7 +575,8 @@ class _PyTorchWrapper(object):
 
 def autolog(log_every_n_iter=1):
     """
-    Wrapper for `mlflow.pytorch._pytorch_autolog.autolog` method
+    Wrapper for `mlflow.pytorch._pytorch_autolog.autolog` method.
+    Only PyTorch lightning is supported for this autolog feature.
 
     :param log_every_n_iter: parameter to log metrics once in `n` iteration. By default, metrics
                        are logged after every iteration.
