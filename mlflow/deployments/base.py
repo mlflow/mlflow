@@ -135,14 +135,13 @@ class BaseDeploymentClient(abc.ABC):
 
     @abc.abstractmethod
     @experimental
-    def delete_deployment(self, name, config):
+    def delete_deployment(self, name):
         """
         Delete the deployment with name ``name`` from the specified target. Deletion should be
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
-        :param config: (optional) dict containing updated target-specific configuration for the
-                       deployment
+
         :return: None
         """
         pass

@@ -77,14 +77,15 @@ def test_get():
 
 
 def test_predict():
-    temp_input_file = tempfile.NamedTemporaryFile('w+t')
+    temp_input_file = tempfile.NamedTemporaryFile("w+t")
     temp_input_file.name = "input.json"
     temp_input_file.write('{"data": [5000]}')
     temp_input_file.seek(0)
     runner = CliRunner()
-    res = runner.invoke(cli.predict,
-                        ['--target', f_target, '--name', f_name, '--input_path', temp_input_file, '--output_path', 'sample.json'])
-    assert "RESULT IS: {}".format(str(1)) in res.stdout
+    res = runner.invoke(
+        cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file]
+    )
+    assert "1" in res.stdout
     temp_input_file.close()
 
 

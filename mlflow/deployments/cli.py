@@ -1,8 +1,11 @@
 import click
+import sys
 import json
 import pandas as pd
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
+from mlflow.pyfunc.scoring_server import _get_jsonable_obj
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
 def _user_args_to_dict(user_list):
@@ -66,17 +69,13 @@ parse_custom_arguments = click.option(
 )
 
 parse_input = click.option(
-    "--input_path",
-    "-I",
-    required=True,
-    help="Path to the input file either can be json / csv / text",
+    "--input-path", "-I", required=True, help="Path to input json file for prediction",
 )
 
 parse_output = click.option(
-    "--output_path",
+    "--output-path",
     "-O",
-    required=True,
-    help="Path to the output file. This is optional, if not given it will be printed in stdout",
+    help="File to output results to as json file. If not" "provided, output to stdout.",
 )
 
 
@@ -171,16 +170,14 @@ def update_deployment(flavor, model_uri, target, name, config):
 
 
 @commands.command("delete")
-@parse_custom_arguments
 @deployment_name
 @target_details
-def delete_deployment(target, name, config):
+def delete_deployment(target, name):
     """
     Delete the deployment with name given at `--name` from the specified target.
     """
-    config_dict = _user_args_to_dict(config)
     client = interface.get_deploy_client(target)
-    client.delete_deployment(name, config_dict)
+    client.delete_deployment(name)
     click.echo("Deployment {} is deleted".format(name))
 
 
@@ -239,22 +236,25 @@ def run_local(flavor, model_uri, target, name, config):
     interface.run_local(target, name, model_uri, flavor, config_dict)
 
 
+def predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    json.dump(predictions, output, cls=NumpyEncoder)
+
+
 @commands.command("predict")
-@parse_custom_arguments
 @deployment_name
 @target_details
 @parse_input
 @parse_output
-def predict(target, name, input_path, output_path, config):
+def predict(target, name, input_path, output_path):
     """
     Predict the results for the deployed model for the given input(s)
     """
-    config_dict = _user_args_to_dict(config)
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
-    result = client.predict(name, df, config_dict)
-    click.echo("\n")
-    click.echo("RESULT IS: {}".format(result))
-    click.echo("\n")
-    with open(output_path, "w") as fp:
-        fp.write(str(json.loads(result)))
+    result = client.predict(name, df)
+    if output_path:
+        with open(output_path, "w") as fp:
+            predictions_to_json(result, fp)
+    else:
+        predictions_to_json(result, sys.stdout)
