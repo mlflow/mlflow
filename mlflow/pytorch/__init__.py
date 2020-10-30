@@ -429,8 +429,6 @@ def save_model(
                 tmp_extra_files_dir.path(), posixpath.join(path, saved_extra_files_dir_subpath)
             )
 
-    torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
-
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
         conda_env = get_default_conda_env()

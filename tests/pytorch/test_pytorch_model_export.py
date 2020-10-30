@@ -838,6 +838,7 @@ def create_requirement_file(tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_requirement_file_log_model(create_requirement_file, sequential_model):
     requirement_file_path = create_requirement_file
     with mlflow.start_run():
@@ -862,6 +863,7 @@ def test_requirement_file_log_model(create_requirement_file, sequential_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_requirement_file_save_model(create_requirement_file, sequential_model):
     requirement_file_path = create_requirement_file
     with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
@@ -880,6 +882,7 @@ def test_requirement_file_save_model(create_requirement_file, sequential_model):
         assert "mlflow" in content
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_path(sequential_model):
     with mlflow.start_run(), pytest.raises(FileNotFoundError):
         mlflow.pytorch.log_model(
@@ -890,6 +893,7 @@ def test_log_model_invalid_requirement_file_path(sequential_model):
         )
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_type(sequential_model):
     with mlflow.start_run(), pytest.raises(
         TypeError, match="Path to requirements file should be a string"
@@ -912,6 +916,7 @@ def create_extra_files(tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_file_path = create_extra_files
     with mlflow.start_run():
@@ -936,6 +941,7 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_save_model(create_extra_files, sequential_model):
     extra_file_path = create_extra_files
     with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
@@ -951,6 +957,7 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
         assert "pytest_extra_file" in content
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_path(sequential_model):
     with mlflow.start_run(), pytest.raises(FileNotFoundError):
         mlflow.pytorch.log_model(
@@ -961,6 +968,7 @@ def test_log_model_invalid_extra_file_path(sequential_model):
         )
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_type(sequential_model):
     with mlflow.start_run(), pytest.raises(
         TypeError, match="Extra files argument should be a list"
