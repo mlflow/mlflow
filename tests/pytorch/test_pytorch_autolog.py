@@ -40,9 +40,6 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     assert "loss" in data.metrics
     assert "val_loss" in data.metrics
 
-    # Testing unwanted parameters are not logged
-    assert "callbacks" not in data.params
-
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
     assert data.params["optimizer_name"] == "Adam"
