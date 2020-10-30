@@ -7,7 +7,7 @@ import shutil
 import tempfile
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -195,5 +195,4 @@ def _autolog(log_every_n_iter=1):
         original = gorilla.get_original_attribute(pl.Trainer, "fit")
         return _run_and_log_function(self, original, args, kwargs)
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(pl.Trainer, "fit", fit, settings=settings))
+    wrap_patch(pl.Trainer, "fit", fit)
