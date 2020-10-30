@@ -9,10 +9,10 @@
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
 import pytorch_lightning as pl
+import mlflow.pytorch
 import os
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
@@ -326,7 +326,7 @@ if __name__ == "__main__":
 
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
-    autolog()
+    mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)

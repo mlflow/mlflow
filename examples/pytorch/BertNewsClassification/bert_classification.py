@@ -4,6 +4,7 @@
 
 import os
 from argparse import ArgumentParser
+import mlflow.pytorch
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -21,8 +22,6 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer, AdamW
 from torchtext.utils import download_from_url, extract_archive
 from torchtext.datasets.text_classification import URLS
-
-from mlflow.pytorch.pytorch_autolog import autolog
 
 
 class AGNewsDataset(Dataset):
@@ -389,7 +388,7 @@ if __name__ == "__main__":
 
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
 
-    autolog()
+    mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)

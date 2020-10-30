@@ -2,12 +2,12 @@
 
 In this example, we have used a pretrained Bert model to classify the news reports into any one of the 4 different categories("world", "Sports", "Business", "Sci/Tech").
 The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics.
-The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+The code is trained using pytorch lightning loop and the autolog function call in the main - `mlflow.pytorch.autolog()`
 is responsible for logging the params, metrics, model summary and the model.
  
 
 ### Code related to MLflow:
-* [`mlflow.pytorch.pytorch_autolog`]
+* [`mlflow.pytorch.autolog`]
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
 

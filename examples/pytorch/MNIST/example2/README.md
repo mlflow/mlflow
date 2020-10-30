@@ -1,13 +1,13 @@
 ## MNIST example with MLFlow
 
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+The code is trained using pytorch lightning loop and the autolog function call in the main - `mlflow.pytorch.autolog()`
 is responsible for logging the params, metrics, model summary and the model.
 This example logs metrics only after n epoch iterations. The iteration limit can be set in the autolog method using the parameter `log_every_n_iter=NUMBER-OF-ITERATIONS`.
-For ex: `autolog(log_every_n_iter=5)`
+For ex: `mlflow.pytorch.autolog(log_every_n_iter=5)`
 
 ### Code related to MLflow:
-* [`mlflow.pytorch.pytorch_autolog`]
+* [`mlflow.pytorch.autolog`]
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
 
