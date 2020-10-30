@@ -55,8 +55,12 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
 
 # pylint: disable=unused-argument
-def test_pytorch_autolog_persists_manually_created_run(pytorch_model):
+def test_pytorch_autolog_persists_manually_created_run():
     with mlflow.start_run() as manual_run:
+        mlflow.pytorch.autolog()
+        model = IrisClassification()
+        trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+        trainer.fit(model)
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
