@@ -141,7 +141,6 @@ class BaseDeploymentClient(abc.ABC):
         idempotent (i.e. deletion should not fail if retried on a non-existent deployment).
 
         :param name: Name of deployment to delete
-
         :return: None
         """
         pass
