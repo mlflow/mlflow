@@ -84,6 +84,14 @@ def _autolog(log_every_n_iter=1):
                         if "eps" in defaults_dict:
                             try_mlflow_log(mlflow.log_param, "epsilon", defaults_dict["eps"])
 
+                        if "betas" in defaults_dict:
+                            try_mlflow_log(mlflow.log_param, "betas", defaults_dict["betas"])
+
+                        if "weight_decay" in defaults_dict:
+                            try_mlflow_log(
+                                mlflow.log_param, "weight_decay", defaults_dict["weight_decay"]
+                            )
+
             summary = str(ModelSummary(pl_module, mode="full"))
             tempdir = tempfile.mkdtemp()
             try:

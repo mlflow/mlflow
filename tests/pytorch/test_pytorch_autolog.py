@@ -28,6 +28,8 @@ def test_pytorch_autolog_logs_default_params(pytorch_model):
     assert "learning_rate" in data.params
     assert "epsilon" in data.params
     assert "optimizer_name" in data.params
+    assert "weight_decay" in data.params
+    assert "betas" in data.params
 
 
 def test_pytorch_autolog_logs_expected_data(pytorch_model):
