@@ -5,7 +5,6 @@ import torch
 from iris import IrisClassification
 import mlflow
 import mlflow.pytorch
-from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 
@@ -14,7 +13,7 @@ NUM_EPOCHS = 20
 
 @pytest.fixture
 def pytorch_model():
-    autolog()
+    mlflow.pytorch.autolog()
     model = IrisClassification()
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model)
@@ -66,7 +65,7 @@ def test_pytorch_autolog_ends_auto_created_run(pytorch_model):
 
 @pytest.fixture
 def pytorch_model_with_callback(patience):
-    autolog()
+    mlflow.pytorch.autolog()
     model = IrisClassification()
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
 

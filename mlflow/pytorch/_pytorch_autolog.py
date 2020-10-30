@@ -28,7 +28,7 @@ every_n_iter = 1
 
 
 @rank_zero_only
-def autolog(log_every_n_iter=1):
+def _autolog(log_every_n_iter=1):
     global every_n_iter
     every_n_iter = log_every_n_iter
 

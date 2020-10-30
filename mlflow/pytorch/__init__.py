@@ -571,3 +571,15 @@ class _PyTorchWrapper(object):
             predicted = pd.DataFrame(preds.numpy())
             predicted.index = data.index
             return predicted
+
+
+def autolog(log_every_n_iter=1):
+    """
+    Wrapper for `mlflow.pytorch._pytorch_autolog.autolog` method
+
+    :param log_every_n_iter: parameter to log metrics once in `n` iteration. By default, metrics
+                       are logged after every iteration.
+    """
+    from mlflow.pytorch._pytorch_autolog import _autolog
+
+    _autolog(log_every_n_iter=log_every_n_iter)
