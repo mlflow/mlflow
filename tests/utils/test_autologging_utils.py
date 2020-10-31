@@ -1,6 +1,9 @@
 import inspect
 import pytest
 from unittest.mock import Mock, call
+from unittest import mock
+from mlflow.tracking.client import MlflowClient
+
 
 import mlflow
 from mlflow.utils import gorilla
@@ -9,6 +12,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     resolve_input_example_and_signature,
+    with_batch_metrics_handler,
 )
 
 # Example function signature we are testing on
@@ -263,3 +267,23 @@ def test_avoids_inferring_signature_if_not_needed(logger):
 
     assert x["data"] == 0
     logger.warning.assert_not_called()
+
+
+def test_batch_metrics_handler_logs_all_metrics():
+    with mock.patch.object(MlflowClient, 'log_batch') as log_batch_mock:
+        with with_batch_metrics_handler() as batch_metrics_handler:
+            for i in range(100):
+                batch_metrics_handler.record_metrics({x: i})
+
+        # collect the args of all the logging calls
+        recorded_metrics = []
+        for call in log_batch_mock.call_args_list:
+            recorded_metrics.append(call.kwargs['metrics'])
+
+        desired_metrics = [{ x: i } for i in range(100)]
+    
+        assert recorded_metrics == desired_metrics
+
+# def test_batch_metrics_handler():
+#     with mock.patch.object(MlflowClient, 'log_batch') as log_batch_mock, mock.patch('time.time') as time_mock:
+#         time_mock.side_effect = [0, ]

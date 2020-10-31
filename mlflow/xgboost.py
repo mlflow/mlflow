@@ -346,7 +346,7 @@ def autolog(
 
             def callback(env):
                 # pass
-                batch_metrics_handler.record_metrics(dict(env.evaluation_result_list))
+                batch_metrics_handler.record_metrics(dict(env.evaluation_result_list), env.iteration)
                 # try_mlflow_log(mlflow.log_metrics, dict(env.evaluation_result_list), step=step)
                 # eval_results.append([int(time.time() * 1000), dict(env.evaluation_result_list)])
                 

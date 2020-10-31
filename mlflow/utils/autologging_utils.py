@@ -3,12 +3,12 @@ import functools
 import warnings
 import time
 import contextlib
-import concurrent
 
 import mlflow
 from mlflow.utils import gorilla
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 
 
@@ -195,30 +195,25 @@ def resolve_input_example_and_signature(
     return input_example if log_input_example else None, model_signature
 
 
+# we pass the batch_metrics_handler through, such that the callback can access it
 def _timed_log_batch(batch_metrics_handler, run_id, metrics):
     start = time.time()
-    MlflowClient().log_batch(run_id=run_id, metrics=metrics)
+    metrics_slices = [metrics[i * MAX_METRICS_PER_BATCH:(i + 1) * MAX_METRICS_PER_BATCH] for i in range((len(metrics) + MAX_METRICS_PER_BATCH - 1) // MAX_METRICS_PER_BATCH )]  
+    for metrics_slice in metrics_slices:
+        MlflowClient().log_batch(run_id=run_id, metrics=metrics_slice)
     end = time.time()
-    return batch_metrics_handler, end - start + 0 # for testing
-
-
-def _update_log_batch_time_callback(future):
-    batch_metrics_handler, log_batch_time = future.result()
-
-    batch_metrics_handler.total_log_batch_time += log_batch_time
+    batch_metrics_handler.total_log_batch_time += end - start
     batch_metrics_handler.num_log_batch += 1
 
 
 class BatchMetricsHandler: # BatchMetricsLogger maybe?
     def __init__(self):
         # data is an array of tuples of the form (timestamp, metrics at timestamp)
-        self.data = []
-        self.current_step = 0
+        self.data = {}
         self.total_training_time = 0
         self.total_log_batch_time = 0
         self.num_log_batch = 0
         self.previous_training_timestamp = None
-        self._thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
     def _purge(self):
         print("purging")
@@ -226,49 +221,44 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         final_metrics = []
 
-        for idx, entry in enumerate(self.data):
-            step = self.current_step - len(self.data) + idx + 1
-            timestamp = entry[0]
-            metrics_at_timestamp = entry[1]
+        for step, metrics_at_step in self.data.items():
+            for entry in metrics_at_step:
+                timestamp = entry[0]
+                metrics_at_timestamp = entry[1]
 
-            for key, value in metrics_at_timestamp.items():
-                final_metrics.append(Metric(key, value, timestamp, step))
+                for key, value in metrics_at_timestamp.items():
+                    final_metrics.append(Metric(key, value, timestamp, step))
 
-        future = self._thread_pool.submit(
-            _timed_log_batch,
-            batch_metrics_handler=self,
-            run_id=run_id,
-            metrics=final_metrics,
-        )
-        future.add_done_callback(_update_log_batch_time_callback)
+        _timed_log_batch(self, run_id=run_id, metrics=final_metrics)
 
-        self.data = []
+        self.data = {}
 
     def _should_purge(self, current_timestamp):
-        if self.previous_training_timestamp is None:
-            return False
-        
         if self.num_log_batch == 0:
             return True
 
-        if self.total_training_time >= self.total_log_batch_time / self.num_log_batch * 1.5:
-            self.total_training_time = 0
+        # we give some extra time in case of network slowdown
+        log_batch_time_fudge_factor = 10
+        if self.total_training_time >= self.total_log_batch_time / self.num_log_batch * log_batch_time_fudge_factor:
             return True
 
         return False
 
     # metrics is a dict representing the set of metrics collected during one iteration
-    def record_metrics(self, metrics):
+    def record_metrics(self, metrics, step):
         current_timestamp = time.time()
         if self.previous_training_timestamp is None:
             self.previous_training_timestamp = current_timestamp
             return
 
-        training_time = current_timestamp - self.previous_training_timestamp
+        training_time = current_timestamp - self.previous_training_timestamp #+ 0.01
 
         self.total_training_time += training_time
 
-        self.data.append([int(time.time() * 1000), metrics])
+        if step in self.data:
+            self.data[step].append([int(time.time() * 1000), metrics])
+        else:
+            self.data[step] = [[int(time.time() * 1000), metrics]]
 
         # print(self.current_step)
         # print("total_training_time " + str(self.total_training_time))
@@ -277,17 +267,13 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
         # print("previous_training_timestamp " + str(self.previous_training_timestamp))
 
         if self._should_purge(current_timestamp):
+            self.total_training_time = 0
             self._purge()
 
         self.previous_training_timestamp = current_timestamp
-
-        self.current_step += 1
 
 @contextlib.contextmanager
 def with_batch_metrics_handler():
     batch_metrics_handler = BatchMetricsHandler()
     yield batch_metrics_handler
     batch_metrics_handler._purge()
-
-    # blocks until all submitted tasks are complete
-    batch_metrics_handler._thread_pool.shutdown(wait=True)
