@@ -51,7 +51,6 @@ Following are the parameters which can be overridden by passing values in comman
 4. Batch size to process - batch-size
 5. Number of workers to process input - num-workers
 6. Learning rate - lr
-7. URL to log - tracking-uri
 
 For example:
 ```
@@ -61,8 +60,7 @@ python bert_classification.py \
     --accelerator "ddp" \
     --batch-size 64 \
     --num-workers 2 \
-    --lr 0.01 \
-    --tracking-uri "http://localhost:5000"
+    --lr 0.01
 ```
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

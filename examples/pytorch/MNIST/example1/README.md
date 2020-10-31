@@ -50,7 +50,6 @@ Following are the parameters which can be overridden by passing values in comman
 4. Batch size to process - batch-size
 5. Number of workers to process input - num-workers
 6. Learning rate - lr
-7. URL to log - tracking-uri
 
 For example:
 ```
@@ -61,7 +60,6 @@ python mnist_autolog_example1.py \
     --batch-size 64 \
     --num-workers 3 \
     --lr 0.01 \
-    --tracking-uri "http://localhost:5000" \
     --es-patience 5
 ```
 
