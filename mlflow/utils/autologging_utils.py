@@ -195,13 +195,21 @@ def resolve_input_example_and_signature(
     return input_example if log_input_example else None, model_signature
 
 
+# wrapper functions to be able to mock this easily in the tests
+def time_wrapper_for_log():
+    return time.time()
+def time_wrapper_for_current():
+    return time.time()
+def time_wrapper_for_timestamp():
+    return time.time()
+
 # we pass the batch_metrics_handler through, such that the callback can access it
 def _timed_log_batch(batch_metrics_handler, run_id, metrics):
-    start = time.time()
+    start = time_wrapper_for_log()
     metrics_slices = [metrics[i * MAX_METRICS_PER_BATCH:(i + 1) * MAX_METRICS_PER_BATCH] for i in range((len(metrics) + MAX_METRICS_PER_BATCH - 1) // MAX_METRICS_PER_BATCH )]  
     for metrics_slice in metrics_slices:
         MlflowClient().log_batch(run_id=run_id, metrics=metrics_slice)
-    end = time.time()
+    end = time_wrapper_for_log()
     batch_metrics_handler.total_log_batch_time += end - start
     batch_metrics_handler.num_log_batch += 1
 
@@ -246,7 +254,7 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
 
     # metrics is a dict representing the set of metrics collected during one iteration
     def record_metrics(self, metrics, step):
-        current_timestamp = time.time()
+        current_timestamp = time_wrapper_for_current()
         if self.previous_training_timestamp is None:
             self.previous_training_timestamp = current_timestamp
             return
@@ -256,9 +264,9 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
         self.total_training_time += training_time
 
         if step in self.data:
-            self.data[step].append([int(time.time() * 1000), metrics])
+            self.data[step].append([int(time_wrapper_for_timestamp() * 1000), metrics])
         else:
-            self.data[step] = [[int(time.time() * 1000), metrics]]
+            self.data[step] = [[int(time_wrapper_for_timestamp() * 1000), metrics]]
 
         # print(self.current_step)
         # print("total_training_time " + str(self.total_training_time))

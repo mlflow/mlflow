@@ -280,10 +280,29 @@ def test_batch_metrics_handler_logs_all_metrics():
         for call in log_batch_mock.call_args_list:
             recorded_metrics.append(call.kwargs['metrics'])
 
-        desired_metrics = [{ x: i } for i in range(100)]
+        desired_metrics = [{ 'x': i } for i in range(100)]
     
         assert recorded_metrics == desired_metrics
 
-# def test_batch_metrics_handler():
-#     with mock.patch.object(MlflowClient, 'log_batch') as log_batch_mock, mock.patch('time.time') as time_mock:
-#         time_mock.side_effect = [0, ]
+def test_batch_metrics_handler():
+    with mock.patch.object(MlflowClient, 'log_batch') as log_batch_mock, mock.patch('mlflow.utils.autologging_utils.time_wrapper_for_log') as log_time_mock, mock.patch('mlflow.utils.autologging_utils.time_wrapper_for_current') as current_time_mock, mock.patch('mlflow.utils.autologging_utils.time_wrapper_for_timestamp') as timestamp_time_mock:
+        current_time_mock.side_effect = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] # training occurs every second
+        log_time_mock.side_effect = [100, 101] # logging takes 1 second, numbers don't matter here
+        timestamp_time_mock.side_effect = [9999] # this doesn't matter
+
+        with with_batch_metrics_handler() as batch_metrics_handler:
+            batch_metrics_handler.record_metrics({'x': 1}, 0) # data doesn't matter
+
+            # first metrics should be logged immediately
+            log_batch_mock.assert_called_with(metrics={'x': 1}, run_id=0)
+
+            log_batch_mock.reset_mock() # resets the 'calls' of this mock
+
+            # the above 'training' took 1 second. So with fudge factor of 10x, 10 more 'training' should happen before the metrics are sent.
+            for _ in range(9):
+                batch_metrics_handler.record_metrics({'x': 1}, 0)
+                log_batch_mock.assert_not_called()
+
+            batch_metrics_handler.record_metrics({'x': 1}, 0)
+            log_batch_mock.assert_called_once()
+        
