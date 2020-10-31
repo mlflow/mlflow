@@ -269,7 +269,7 @@ class BertNewsClassifier(pl.LightningModule):
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
         )
         return parser
 

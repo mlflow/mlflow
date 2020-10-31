@@ -60,7 +60,7 @@ python mnist_autolog_example2.py \
     --accelerator "ddp" \
     --batch-size 64 \
     --num-workers 3 \
-    --lr 0.01
+    --lr 0.001
 ```
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

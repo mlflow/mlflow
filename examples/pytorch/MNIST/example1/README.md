@@ -59,7 +59,7 @@ python mnist_autolog_example1.py \
     --accelerator "ddp" \
     --batch-size 64 \
     --num-workers 3 \
-    --lr 0.01 \
+    --lr 0.001 \
     --es-patience 5
 ```
 
