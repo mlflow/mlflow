@@ -172,7 +172,9 @@ def _autolog(log_every_n_iter=1):
                     try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
 
                 if hasattr(early_stop_callback, "best_score"):
-                    try_mlflow_log(mlflow.log_metric, "best_score", early_stop_callback.best_score)
+                    try_mlflow_log(
+                        mlflow.log_metric, "best_score", float(early_stop_callback.best_score)
+                    )
 
                 if hasattr(early_stop_callback, "wait_count"):
                     try_mlflow_log(mlflow.log_metric, "wait_count", early_stop_callback.wait_count)
