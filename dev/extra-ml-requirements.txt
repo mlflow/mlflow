@@ -5,6 +5,8 @@
 azureml-sdk==1.2.0
 # Required by mlflow.keras
 keras==2.3.1
+# See: https://github.com/h5py/h5py/issues/1732
+h5py<3
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
