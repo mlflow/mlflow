@@ -15,7 +15,7 @@ Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
 For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
-To run the example via MLflow, navigate to the `mlflow/examples/pytorch/torchscript` directory and run the command
+To run the example via MLflow, navigate to the `mlflow/examples/pytorch/torchscript/MNIST` directory and run the command
 
 ```
 mlflow run .
