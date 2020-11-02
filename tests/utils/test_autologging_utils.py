@@ -327,7 +327,8 @@ def test_batch_metrics_handler(start_run):
 
             log_batch_mock.reset_mock()  # resets the 'calls' of this mock
 
-            # the above 'training' took 1 second. So with fudge factor of 10x, 10 more 'training' should happen before the metrics are sent.
+            # the above 'training' took 1 second. So with fudge factor of 10x,
+            #   10 more 'training' should happen before the metrics are sent.
             for _ in range(9):
                 batch_metrics_handler.record_metrics({"x": 1}, 0)
                 log_batch_mock.assert_not_called()
