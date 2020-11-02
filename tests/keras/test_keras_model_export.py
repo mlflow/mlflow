@@ -250,7 +250,6 @@ def test_model_save_load(build_model, model_path, data):
     np.allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
 
 
-@pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
 @pytest.mark.large
 def test_signature_and_examples_are_saved_correctly(model, data):
     signature_ = infer_signature(*data)
@@ -270,6 +269,7 @@ def test_signature_and_examples_are_saved_correctly(model, data):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
+@pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
 @pytest.mark.large
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
