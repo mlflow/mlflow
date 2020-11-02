@@ -1027,7 +1027,7 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
-def autolog(log_input_example=False, log_model_signature=True):  # pylint: disable=unused-argument
+def autolog(log_input_examples=False, log_model_signatures=True):  # pylint: disable=unused-argument
     """
     Enable autologging for all supported integrations.
 
@@ -1036,12 +1036,14 @@ def autolog(log_input_example=False, log_model_signature=True):  # pylint: disab
     See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
     integrations.
 
-    :param log_input_example: if True, input examples from training datasets will be collected and
-                              logged along with model artifacts during training. If False, no
-                              sample is logged.
-    :param log_model_signature: if True, the type signature of the inputs and outputs to each model
-                                are recorded as part of the model. If False, the signature is not
-                                recorded to the model.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with model artifacts during training. If ``False``, 
+                               input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with model artifacts during training. If ``False``, signatures are
+                                 not logged.
     """
     locals_copy = locals().items()
 
