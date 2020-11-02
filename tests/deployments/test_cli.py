@@ -1,4 +1,3 @@
-import tempfile
 from click.testing import CliRunner
 from mlflow.deployments import cli
 
