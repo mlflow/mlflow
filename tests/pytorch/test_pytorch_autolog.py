@@ -17,23 +17,24 @@ def pytorch_model():
     model = IrisClassification()
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
     trainer.fit(model)
+    optimizer_name = type(trainer.optimizers[0]).__name__.lower() + "_optimizer"
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
-    return trainer, run
+    return trainer, run, optimizer_name
 
 
 def test_pytorch_autolog_logs_default_params(pytorch_model):
-    _, run = pytorch_model
+    _, run, optimizer_name = pytorch_model
     data = run.data
-    assert "learning_rate" in data.params
-    assert "epsilon" in data.params
+    assert "learning_rate_" + optimizer_name in data.params
+    assert "epsilon_" + optimizer_name in data.params
     assert "optimizer_name" in data.params
-    assert "weight_decay" in data.params
-    assert "betas" in data.params
+    assert "weight_decay_" + optimizer_name in data.params
+    assert "betas_" + optimizer_name in data.params
 
 
 def test_pytorch_autolog_logs_expected_data(pytorch_model):
-    _, run = pytorch_model
+    _, run, _ = pytorch_model
     data = run.data
 
     # Checking if metrics are logged
@@ -133,7 +134,7 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
-    trainer, run = pytorch_model
+    trainer, run, _ = pytorch_model
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
     assert trainer.max_epochs == NUM_EPOCHS

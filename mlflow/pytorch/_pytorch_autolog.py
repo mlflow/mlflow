@@ -11,16 +11,17 @@ from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
 
 logging.basicConfig(level=logging.ERROR)
 
-every_n_iter = 1
+every_n_epoch = 1
 
 
 # autolog module uses `try_mlflow_log` - mlflow utility to log param/metrics/artifacts into mlflow
-# Eventhough the same can be achieved using
+# TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger once the issues
+# in https://github.com/PyTorchLightning/pytorch-lightning/issues have been addressed
 # MlflowLogger(Pytorch Lightning's inbuild class),
 # following are the downsides in using MlflowLogger.
-# 1. MlflowLogger doesn't provide a mechanism to dump an entire model into mlflow.
+# 1. MlflowLogger doesn't provide a mechanism to store an entire model into mlflow.
 #    Only model checkpoint is saved.
-# 2. For dumping the model into mlflow `mlflow.pytorch` library is used
+# 2. For storing the model into mlflow `mlflow.pytorch` library is used
 # and the library expects `mlflow` object to be instantiated.
 # In case of MlflowLogger, Run management is completely controlled by the class and
 # hence mlflow object needs to be reinstantiated by setting
@@ -28,9 +29,9 @@ every_n_iter = 1
 
 
 @rank_zero_only
-def _autolog(log_every_n_iter=1):
-    global every_n_iter
-    every_n_iter = log_every_n_iter
+def _autolog(log_every_n_epoch=1):
+    global every_n_epoch
+    every_n_epoch = log_every_n_epoch
 
     class __MLflowPLCallback(pl.Callback):
         """
@@ -47,7 +48,7 @@ def _autolog(log_every_n_iter=1):
             :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
-            if (pl_module.current_epoch + 1) % every_n_iter == 0:
+            if (pl_module.current_epoch + 1) % every_n_epoch == 0:
                 for key, value in trainer.callback_metrics.items():
                     try_mlflow_log(
                         mlflow.log_metric, key, float(value), step=pl_module.current_epoch
@@ -75,21 +76,33 @@ def _autolog(log_every_n_iter=1):
             if hasattr(trainer, "optimizers"):
                 for optimizer in trainer.optimizers:
                     try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
+                    optimizer_name = type(optimizer).__name__.lower() + "_optimizer"
 
                     if hasattr(optimizer, "defaults"):
-                        defaults_dict = optimizer.defaults
-                        if "lr" in defaults_dict:
-                            try_mlflow_log(mlflow.log_param, "learning_rate", defaults_dict["lr"])
+                        optim_dict = optimizer.defaults
 
-                        if "eps" in defaults_dict:
-                            try_mlflow_log(mlflow.log_param, "epsilon", defaults_dict["eps"])
-
-                        if "betas" in defaults_dict:
-                            try_mlflow_log(mlflow.log_param, "betas", defaults_dict["betas"])
-
-                        if "weight_decay" in defaults_dict:
+                        if "lr" in optim_dict:
                             try_mlflow_log(
-                                mlflow.log_param, "weight_decay", defaults_dict["weight_decay"]
+                                mlflow.log_param,
+                                "learning_rate_" + optimizer_name,
+                                optim_dict["lr"],
+                            )
+
+                        if "eps" in optim_dict:
+                            try_mlflow_log(
+                                mlflow.log_param, "epsilon_" + optimizer_name, optim_dict["eps"]
+                            )
+
+                        if "betas" in optim_dict:
+                            try_mlflow_log(
+                                mlflow.log_param, "betas_" + optimizer_name, optim_dict["betas"]
+                            )
+
+                        if "weight_decay" in optim_dict:
+                            try_mlflow_log(
+                                mlflow.log_param,
+                                "weight_decay_" + optimizer_name,
+                                optim_dict["weight_decay"],
                             )
 
             summary = str(ModelSummary(pl_module, mode="full"))

@@ -573,14 +573,24 @@ class _PyTorchWrapper(object):
             return predicted
 
 
-def autolog(log_every_n_iter=1):
+def autolog(log_every_n_epoch=1):
     """
     Wrapper for `mlflow.pytorch._pytorch_autolog.autolog` method.
-    Only PyTorch lightning is supported for this autolog feature.
+    Automatically log metrics, params, and models from `PyTorch Lightning
+    <https://pytorch-lightning.readthedocs.io/en/latest>`_ model training.
+    Autologging is performed when you call the `fit` method of `pytorch_lightning.Trainer()
+    <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
 
-    :param log_every_n_iter: parameter to log metrics once in `n` iteration. By default, metrics
-                       are logged after every iteration.
+    **Note**: Autologging is only supported for PyTorch Lightning models,
+    i.e. models that subclass `pytorch_lightning.LightningModule
+    <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
+    In particular, autologging support for vanilla Pytorch models that only subclass
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`
+    is not yet available.
+
+    :param log_every_n_epoch: parameter to log metrics once in `n` epoch. By default, metrics
+                       are logged after every epoch.
     """
     from mlflow.pytorch._pytorch_autolog import _autolog
 
-    _autolog(log_every_n_iter=log_every_n_iter)
+    _autolog(log_every_n_epoch=log_every_n_epoch)
