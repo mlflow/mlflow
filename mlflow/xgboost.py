@@ -392,8 +392,6 @@ def autolog(
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
-        # batch_metrics_handler = BatchMetricsHandler()
-
         original = gorilla.get_original_attribute(xgboost, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
