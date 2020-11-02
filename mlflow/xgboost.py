@@ -490,8 +490,8 @@ def autolog(
         input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
-            log_input_example,
-            log_model_signature,
+            log_input_examples,
+            log_model_signatures,
             _logger,
         )
 
