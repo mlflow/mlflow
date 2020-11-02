@@ -21,7 +21,7 @@ def reset_mock():
     cache[:] = []
 
 
-@pytest.fixture(autouse=False)
+@pytest.fixture(autouse=True)
 def tracking_uri_mock(tmpdir, request):
     try:
         if "notrackingurimock" not in request.keywords:
