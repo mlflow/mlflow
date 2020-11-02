@@ -248,7 +248,7 @@ class BatchMetricsHandler:  # BatchMetricsLogger maybe?
 
         self.data = {}
 
-    def _should_purge(self, current_timestamp):
+    def _should_purge(self):
         if self.num_log_batch == 0:
             return True
 
@@ -277,7 +277,7 @@ class BatchMetricsHandler:  # BatchMetricsLogger maybe?
         else:
             self.data[step] = [[int(time_wrapper_for_timestamp() * 1000), metrics]]
 
-        if self._should_purge(current_timestamp):
+        if self._should_purge():
             self.total_training_time = 0
             self._purge()
 

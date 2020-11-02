@@ -270,7 +270,7 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     logger.warning.assert_not_called()
 
 
-def test_batch_metrics_handler_logs_all_metrics(start_run):
+def test_batch_metrics_handler_logs_all_metrics(start_run):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         with with_batch_metrics_handler() as batch_metrics_handler:
             for i in range(100):
@@ -289,7 +289,7 @@ def test_batch_metrics_handler_logs_all_metrics(start_run):
         assert recorded_metrics == desired_metrics
 
 
-def test_batch_metrics_handler(start_run):
+def test_batch_metrics_handler(start_run):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
         "mlflow.utils.autologging_utils.time_wrapper_for_log"
     ) as log_time_mock, mock.patch(
