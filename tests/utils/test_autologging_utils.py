@@ -3,11 +3,12 @@ import pytest
 import itertools
 from unittest.mock import Mock, call
 from unittest import mock
-from mlflow.tracking.client import MlflowClient
 
 
 import mlflow
 from mlflow.utils import gorilla
+from mlflow.tracking.client import MlflowClient
+from mlflow.entities import Metric
 from mlflow.utils.autologging_utils import (
     get_unspecified_default_args,
     log_fn_args_as_params,
@@ -289,7 +290,9 @@ def test_batch_metrics_handler_logs_all_metrics(start_run):  # pylint: disable=u
         assert recorded_metrics == desired_metrics
 
 
-def test_batch_metrics_handler(start_run):  # pylint: disable=unused-argument
+def test_batch_metrics_handler_runs_training_and_logging_in_correct_ratio(
+    start_run,
+):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
         "mlflow.utils.autologging_utils.time_wrapper_for_log"
     ) as log_time_mock, mock.patch(
@@ -317,7 +320,7 @@ def test_batch_metrics_handler(start_run):  # pylint: disable=unused-argument
         timestamp_time_mock.return_value = 9999  # this doesn't matter
 
         with with_batch_metrics_handler() as batch_metrics_handler:
-            batch_metrics_handler.record_metrics({"x": 1}, 0)  # data doesn't matter
+            batch_metrics_handler.record_metrics({"x": 1}, step=0)  # data doesn't matter
             # first metrics should be skipped to record a previous timestamp and batch log time
             log_batch_mock.assert_called_once()
 
@@ -326,8 +329,32 @@ def test_batch_metrics_handler(start_run):  # pylint: disable=unused-argument
             # the above 'training' took 1 second. So with fudge factor of 10x,
             #   10 more 'training' should happen before the metrics are sent.
             for _ in range(9):
-                batch_metrics_handler.record_metrics({"x": 1}, 0)
+                batch_metrics_handler.record_metrics({"x": 1}, step=0)
                 log_batch_mock.assert_not_called()
 
-            batch_metrics_handler.record_metrics({"x": 1}, 0)
+            batch_metrics_handler.record_metrics({"x": 1}, step=0)
             log_batch_mock.assert_called_once()
+
+
+def test_batch_metrics_handler_chunks_metrics_when_batch_logging(start_run):
+    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
+        "mlflow.utils.autologging_utils.time_wrapper_for_timestamp"
+    ) as timestamp_time_mock:
+        timestamp_time_mock.return_value = 0
+
+        with with_batch_metrics_handler() as batch_metrics_handler:
+            batch_metrics_handler.record_metrics({hex(x): x for x in range(5000)}, step=0)
+            run_id = mlflow.active_run().info.run_id
+
+            expected_calls = [
+                call(
+                    metrics=[
+                        Metric(key=hex(x), value=x, step=0, timestamp=0)
+                        for x in range(1000 * i, 1000 * (i + 1))
+                    ],
+                    run_id=run_id,
+                )
+                for i in range(5)
+            ]
+
+            assert log_batch_mock.call_args_list == expected_calls

@@ -13,6 +13,14 @@ class Metric(_MLflowObject):
         self._timestamp = timestamp
         self._step = step
 
+    def __eq__(self, other):
+        return (
+            self._key == other._key
+            and self._value == other._value
+            and self._timestamp == other._timestamp
+            and self._step == other._step
+        )
+
     @property
     def key(self):
         """String key corresponding to the metric name."""
