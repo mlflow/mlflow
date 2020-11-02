@@ -844,12 +844,10 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
             model_config_path = os.path.join(model_path, "MLmodel")
             model_config = Model.load(model_config_path)
+            flavor_config = model_config.flavors["pytorch"]
 
-            assert "torchserve_artifacts" in model_config.flavors["pytorch"]
-            torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
-
-            assert "requirements_file" in torchserve_artifacts
-            loaded_requirements_file = torchserve_artifacts["requirements_file"]
+            assert "requirements_file" in flavor_config
+            loaded_requirements_file = flavor_config["requirements_file"]
 
             assert "path" in loaded_requirements_file
             requirements_file_path = loaded_requirements_file["path"]
@@ -868,12 +866,10 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
         )
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
+        flavor_config = model_config.flavors["pytorch"]
 
-        assert "torchserve_artifacts" in model_config.flavors["pytorch"]
-        torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
-
-        assert "requirements_file" in torchserve_artifacts
-        loaded_requirements_file = torchserve_artifacts["requirements_file"]
+        assert "requirements_file" in flavor_config
+        loaded_requirements_file = flavor_config["requirements_file"]
 
         assert "path" in loaded_requirements_file
         requirements_file_path = loaded_requirements_file["path"]
@@ -931,12 +927,10 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
             model_config_path = os.path.join(model_path, "MLmodel")
             model_config = Model.load(model_config_path)
+            flavor_config = model_config.flavors["pytorch"]
 
-            assert "torchserve_artifacts" in model_config.flavors["pytorch"]
-            torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
-
-            assert "extra_files" in torchserve_artifacts
-            loaded_extra_files = torchserve_artifacts["extra_files"]
+            assert "extra_files" in flavor_config
+            loaded_extra_files = flavor_config["extra_files"]
 
             for loaded_extra_file, content_expected in zip(loaded_extra_files, contents_expected):
                 assert "path" in loaded_extra_file
@@ -955,12 +949,10 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
         )
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
+        flavor_config = model_config.flavors["pytorch"]
 
-        assert "torchserve_artifacts" in model_config.flavors["pytorch"]
-        torchserve_artifacts = model_config.flavors["pytorch"]["torchserve_artifacts"]
-
-        assert "extra_files" in torchserve_artifacts
-        loaded_extra_files = torchserve_artifacts["extra_files"]
+        assert "extra_files" in flavor_config
+        loaded_extra_files = flavor_config["extra_files"]
 
         for loaded_extra_file, content_expected in zip(loaded_extra_files, contents_expected):
             assert "path" in loaded_extra_file
