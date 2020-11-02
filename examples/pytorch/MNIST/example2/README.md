@@ -1,22 +1,12 @@
 ## MNIST example with MLFlow
+In this example, we train a Pytorch Lightning model adapted from [github code] (https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pl_examples/basic_examples/mnist.py) to predict handwritten digits. The code is almost entirely dedicated to model training, with the addition of a single line of code ``mlflow.pytorch.autolog()``. This call would enable automatic logging of params, metrics, model and its summary from training. The example would log metrics every nth epoch. It must be noted that the ``log_every_n_epoch parameter`` is user defined and an example of the same is shown below.
 
-In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop and the autolog function call in the main - `mlflow.pytorch.autolog()`
-is responsible for logging the params, metrics, model summary and the model.
-This example logs metrics only after n epoch iterations. The iteration limit can be set in the autolog method using the parameter `log_every_n_iter=NUMBER-OF-ITERATIONS`.
-For ex: `mlflow.pytorch.autolog(log_every_n_iter=5)`
+For ex: `mlflow.pytorch.autolog(log_every_n_epoch=5)`
 
 ### Code related to MLflow:
 * [`mlflow.pytorch.autolog`]
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
-
-## Setting tracking URI
-MLflow tracking URI can be set using the environment variable MLFLOW_TRACKING_URI
-
-Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
-
-For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example2` directory and run the command
@@ -71,6 +61,9 @@ mlflow ui
 
 and navigating to [http://localhost:5000](http://localhost:5000).
 
-For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
+For more details on MLflow tracking, see [the docs](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking).
+
+## Logging to a custom tracking server
+To configure MLflow to log to a custom (non-default) tracking location, set the ``MLFLOW_TRACKING_URI`` environment variable, e.g. via  ``export MLFLOW_TRACKING_URI=http://localhost:5000/``.  For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded)
 
 
