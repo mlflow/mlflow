@@ -318,11 +318,7 @@ def test_batch_metrics_handler(start_run):
 
         with with_batch_metrics_handler() as batch_metrics_handler:
             batch_metrics_handler.record_metrics({"x": 1}, 0)  # data doesn't matter
-            # first metrics should be skipped to record a previous timestamp
-            log_batch_mock.assert_not_called()
-
-            batch_metrics_handler.record_metrics({"x": 1}, 0)  # data doesn't matter
-            # second metrics should be logged to record a batch log time of 1sec
+            # first metrics should be skipped to record a previous timestamp and batch log time
             log_batch_mock.assert_called_once()
 
             log_batch_mock.reset_mock()  # resets the 'calls' of this mock
