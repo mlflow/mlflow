@@ -1,10 +1,10 @@
+from collections import namedtuple
 import filecmp
 import os
 import random
 import tempfile
 import time
 
-import attrdict
 import pytest
 from unittest import mock
 
@@ -24,6 +24,8 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
 )
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+
+MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
 
 def test_create_experiment():
@@ -135,7 +137,7 @@ def test_set_experiment_with_zero_id(reset_mock):
         MlflowClient,
         "get_experiment_by_name",
         mock.Mock(
-            return_value=attrdict.AttrDict(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
+            return_value=MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
         ),
     )
     reset_mock(MlflowClient, "create_experiment", mock.Mock())

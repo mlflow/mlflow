@@ -23,7 +23,6 @@ import yaml
 import tempfile
 import inspect
 import logging
-import gorilla
 from copy import deepcopy
 
 import mlflow
@@ -33,6 +32,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -314,10 +314,9 @@ def autolog(
     # We store it on the DMatrix object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
+        original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
         if data is not None:
-            original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
-
             try:
                 if isinstance(data, str):
                     raise Exception(
