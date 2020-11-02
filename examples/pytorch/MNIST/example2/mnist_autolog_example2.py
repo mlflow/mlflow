@@ -310,7 +310,7 @@ if __name__ == "__main__":
     )
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
-    mlflow.pytorch.autolog(log_every_n_iter=2)
+    mlflow.pytorch.autolog(log_every_n_epoch=2)
 
     args = parser.parse_args()
     dict_args = vars(args)
