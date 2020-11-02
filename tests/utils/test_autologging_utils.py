@@ -8,7 +8,6 @@ from unittest import mock
 import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
-from mlflow.entities import Metric
 from mlflow.utils.autologging_utils import (
     get_unspecified_default_args,
     log_fn_args_as_params,
