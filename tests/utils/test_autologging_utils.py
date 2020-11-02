@@ -271,45 +271,66 @@ def test_avoids_inferring_signature_if_not_needed(logger):
 
 
 def test_batch_metrics_handler_logs_all_metrics(start_run):
-    with mock.patch.object(MlflowClient, 'log_batch') as log_batch_mock:
+    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         with with_batch_metrics_handler() as batch_metrics_handler:
             for i in range(100):
-                batch_metrics_handler.record_metrics({'x': i}, i)
+                batch_metrics_handler.record_metrics({"x": i}, i)
 
         # collect the args of all the logging calls
         recorded_metrics = []
         for call in log_batch_mock.call_args_list:
             _, kwargs = call
-            metrics_arr = kwargs['metrics']
+            metrics_arr = kwargs["metrics"]
             for metric in metrics_arr:
                 recorded_metrics.append({metric._key: metric._value})
 
-        desired_metrics = [{ 'x': i } for i in range(100)]
-    
+        desired_metrics = [{"x": i} for i in range(100)]
+
         assert recorded_metrics == desired_metrics
 
+
 def test_batch_metrics_handler(start_run):
-    with mock.patch.object(MlflowClient, 'log_batch') as log_batch_mock, mock.patch('mlflow.utils.autologging_utils.time_wrapper_for_log') as log_time_mock, mock.patch('mlflow.utils.autologging_utils.time_wrapper_for_current') as current_time_mock, mock.patch('mlflow.utils.autologging_utils.time_wrapper_for_timestamp') as timestamp_time_mock:
-        current_time_mock.side_effect = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] # training occurs every second
-        log_time_mock.side_effect = itertools.cycle([100,101]) # logging takes 1 second, numbers don't matter here
-        timestamp_time_mock.return_value = 9999 # this doesn't matter
+    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
+        "mlflow.utils.autologging_utils.time_wrapper_for_log"
+    ) as log_time_mock, mock.patch(
+        "mlflow.utils.autologging_utils.time_wrapper_for_current"
+    ) as current_time_mock, mock.patch(
+        "mlflow.utils.autologging_utils.time_wrapper_for_timestamp"
+    ) as timestamp_time_mock:
+        current_time_mock.side_effect = [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+        ]  # training occurs every second
+        log_time_mock.side_effect = itertools.cycle(
+            [100, 101]
+        )  # logging takes 1 second, numbers don't matter here
+        timestamp_time_mock.return_value = 9999  # this doesn't matter
 
         with with_batch_metrics_handler() as batch_metrics_handler:
-            batch_metrics_handler.record_metrics({'x': 1}, 0) # data doesn't matter
+            batch_metrics_handler.record_metrics({"x": 1}, 0)  # data doesn't matter
             # first metrics should be skipped to record a previous timestamp
             log_batch_mock.assert_not_called()
 
-            batch_metrics_handler.record_metrics({'x': 1}, 0) # data doesn't matter
+            batch_metrics_handler.record_metrics({"x": 1}, 0)  # data doesn't matter
             # second metrics should be logged to record a batch log time of 1sec
             log_batch_mock.assert_called_once()
 
-            log_batch_mock.reset_mock() # resets the 'calls' of this mock
+            log_batch_mock.reset_mock()  # resets the 'calls' of this mock
 
             # the above 'training' took 1 second. So with fudge factor of 10x, 10 more 'training' should happen before the metrics are sent.
             for _ in range(9):
-                batch_metrics_handler.record_metrics({'x': 1}, 0)
+                batch_metrics_handler.record_metrics({"x": 1}, 0)
                 log_batch_mock.assert_not_called()
 
-            batch_metrics_handler.record_metrics({'x': 1}, 0)
+            batch_metrics_handler.record_metrics({"x": 1}, 0)
             log_batch_mock.assert_called_once()
-        

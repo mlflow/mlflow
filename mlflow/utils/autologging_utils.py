@@ -11,7 +11,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 
-
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
@@ -198,15 +197,23 @@ def resolve_input_example_and_signature(
 # wrapper functions to be able to mock this easily in the tests
 def time_wrapper_for_log():
     return time.time()
+
+
 def time_wrapper_for_current():
     return time.time()
+
+
 def time_wrapper_for_timestamp():
     return time.time()
+
 
 # we pass the batch_metrics_handler through, such that the callback can access it
 def _timed_log_batch(batch_metrics_handler, run_id, metrics):
     start = time_wrapper_for_log()
-    metrics_slices = [metrics[i * MAX_METRICS_PER_BATCH:(i + 1) * MAX_METRICS_PER_BATCH] for i in range((len(metrics) + MAX_METRICS_PER_BATCH - 1) // MAX_METRICS_PER_BATCH )]  
+    metrics_slices = [
+        metrics[i * MAX_METRICS_PER_BATCH : (i + 1) * MAX_METRICS_PER_BATCH]
+        for i in range((len(metrics) + MAX_METRICS_PER_BATCH - 1) // MAX_METRICS_PER_BATCH)
+    ]
     for metrics_slice in metrics_slices:
         MlflowClient().log_batch(run_id=run_id, metrics=metrics_slice)
     end = time_wrapper_for_log()
@@ -214,7 +221,7 @@ def _timed_log_batch(batch_metrics_handler, run_id, metrics):
     batch_metrics_handler.num_log_batch += 1
 
 
-class BatchMetricsHandler: # BatchMetricsLogger maybe?
+class BatchMetricsHandler:  # BatchMetricsLogger maybe?
     def __init__(self):
         # data is an array of tuples of the form (timestamp, metrics at timestamp)
         self.data = {}
@@ -247,7 +254,10 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
 
         # we give some extra time in case of network slowdown
         log_batch_time_fudge_factor = 10
-        if self.total_training_time >= self.total_log_batch_time / self.num_log_batch * log_batch_time_fudge_factor:
+        if (
+            self.total_training_time
+            >= self.total_log_batch_time / self.num_log_batch * log_batch_time_fudge_factor
+        ):
             return True
 
         return False
@@ -260,7 +270,7 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
             self.previous_training_timestamp = current_timestamp
             return
 
-        training_time = current_timestamp - self.previous_training_timestamp #+ 0.01
+        training_time = current_timestamp - self.previous_training_timestamp  # + 0.01
 
         self.total_training_time += training_time
 
@@ -280,6 +290,7 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
             self._purge()
 
         self.previous_training_timestamp = current_timestamp
+
 
 @contextlib.contextmanager
 def with_batch_metrics_handler():
