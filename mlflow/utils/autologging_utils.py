@@ -256,6 +256,7 @@ class BatchMetricsHandler: # BatchMetricsLogger maybe?
     def record_metrics(self, metrics, step):
         current_timestamp = time_wrapper_for_current()
         if self.previous_training_timestamp is None:
+            self.data[step] = [[int(time_wrapper_for_timestamp() * 1000), metrics]]
             self.previous_training_timestamp = current_timestamp
             return
 
