@@ -5,7 +5,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, log_loss
 import xgboost as xgb
 import matplotlib as mpl
-import time
 
 
 import mlflow
@@ -65,7 +64,7 @@ def main():
             "subsample": args.subsample,
             "seed": 42,
         }
-        model = xgb.train(params, dtrain, num_boost_round=1000, evals=[(dtrain, "train")])
+        model = xgb.train(params, dtrain, evals=[(dtrain, "train")])
 
         # evaluate model
         y_proba = model.predict(dtest)
@@ -74,17 +73,7 @@ def main():
         acc = accuracy_score(y_test, y_pred)
 
         # log metrics
-        start = time.time()
         mlflow.log_metrics({"log_loss": loss, "accuracy": acc})
-        end = time.time()
-        # print("actual call")
-        # print(end - start)
-
-        start = time.time()
-        mlflow.log_metrics({"asdf": 5})
-        end = time.time()
-        # print("fake call")
-        # print(end - start)
 
 
 if __name__ == "__main__":
