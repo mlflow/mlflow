@@ -76,17 +76,16 @@ def test_get():
     assert "key2: val2" in res.stdout
 
 
-def test_predict():
-    temp_input_file = tempfile.NamedTemporaryFile("w+t")
-    temp_input_file.name = "input.json"
-    temp_input_file.write('{"data": [5000]}')
-    temp_input_file.seek(0)
-    runner = CliRunner()
-    res = runner.invoke(
-        cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file]
-    )
-    assert "1" in res.stdout
-    temp_input_file.close()
+def test_predict(tmpdir):
+    temp_input_file_path = tmpdir.join("input.json").strpath
+    with open(temp_input_file_path, "w+t") as temp_input_file:
+        temp_input_file.write('{"data": [5000]}')
+        temp_input_file.seek(0)
+        runner = CliRunner()
+        res = runner.invoke(
+            cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file]
+        )
+        assert "1" in res.stdout
 
 
 def test_target_help():
