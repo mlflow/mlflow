@@ -15,8 +15,6 @@ every_n_epoch = 1
 
 
 # autolog module uses `try_mlflow_log` - mlflow utility to log param/metrics/artifacts into mlflow
-# TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger once the issues
-# in https://github.com/PyTorchLightning/pytorch-lightning/issues have been addressed
 # MlflowLogger(Pytorch Lightning's inbuild class),
 # following are the downsides in using MlflowLogger.
 # 1. MlflowLogger doesn't provide a mechanism to store an entire model into mlflow.
@@ -26,6 +24,8 @@ every_n_epoch = 1
 # In case of MlflowLogger, Run management is completely controlled by the class and
 # hence mlflow object needs to be reinstantiated by setting
 # tracking uri, experiment_id and run_id which may lead to a race condition.
+# TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
+# once the above mentioned issues have been addressed
 
 
 @rank_zero_only
