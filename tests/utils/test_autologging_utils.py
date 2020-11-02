@@ -336,7 +336,9 @@ def test_batch_metrics_handler_runs_training_and_logging_in_correct_ratio(
             log_batch_mock.assert_called_once()
 
 
-def test_batch_metrics_handler_chunks_metrics_when_batch_logging(start_run):
+def test_batch_metrics_handler_chunks_metrics_when_batch_logging(
+    start_run,
+):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
         "mlflow.utils.autologging_utils.time_wrapper_for_timestamp"
     ) as timestamp_time_mock:
@@ -346,15 +348,13 @@ def test_batch_metrics_handler_chunks_metrics_when_batch_logging(start_run):
             batch_metrics_handler.record_metrics({hex(x): x for x in range(5000)}, step=0)
             run_id = mlflow.active_run().info.run_id
 
-            expected_calls = [
-                call(
-                    metrics=[
-                        Metric(key=hex(x), value=x, step=0, timestamp=0)
-                        for x in range(1000 * i, 1000 * (i + 1))
-                    ],
-                    run_id=run_id,
-                )
-                for i in range(5)
-            ]
+            for call_idx, call in enumerate(log_batch_mock.call_args_list):
+                _, kwargs = call
 
-            assert log_batch_mock.call_args_list == expected_calls
+                assert kwargs["run_id"] == run_id
+                assert len(kwargs["metrics"]) == 1000
+                for metric_idx, metric in enumerate(kwargs["metrics"]):
+                    assert metric.key == hex(call_idx * 1000 + metric_idx)
+                    assert metric.timestamp == 0
+                    assert metric.value == call_idx * 1000 + metric_idx
+                    assert metric.step == 0
