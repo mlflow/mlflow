@@ -6,7 +6,9 @@ mlflow:::mlflow_maybe_create_conda_env(python_version = "3.6")
 library(reticulate)
 use_condaenv(mlflow:::mlflow_conda_env_name())
 # pinning tensorflow version to 1.14 until test_keras_model.R is fixed
-keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(), tensorflow="1.15.2")
+# Pin h5py < 3 to avoid this issue: https://github.com/h5py/h5py/issues/1732
+keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(),
+                     tensorflow="1.15.2", extra_packages=c("h5py<3"))
 reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
 # Pin h2o to prevent version-mismatch between python and R
