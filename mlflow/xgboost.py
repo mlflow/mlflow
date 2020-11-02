@@ -345,7 +345,7 @@ def autolog(
                 batch_metrics_handler.record_metrics(
                     dict(env.evaluation_result_list), env.iteration
                 )
-                eval_results.append([int(time.time() * 1000), dict(env.evaluation_result_list)])
+                eval_results.append(dict(env.evaluation_result_list))
 
             return callback
 

@@ -231,8 +231,6 @@ class BatchMetricsHandler:  # BatchMetricsLogger maybe?
         self.previous_training_timestamp = None
 
     def _purge(self):
-        print("purging")
-
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
         final_metrics = []
 
