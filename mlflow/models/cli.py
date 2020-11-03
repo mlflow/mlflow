@@ -1,7 +1,11 @@
 import logging
+import tempfile
+import platform
+
 import click
 import os
 
+from mlflow.pyfunc import scoring_server
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -55,10 +59,16 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False,
             "data": [[1, 2, 3], [4, 5, 6]]
         }'
     """
+    if expose_prometheus:
+        os.environ[scoring_server.PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
+        os.environ[scoring_server.APP_ENV_VAR] = app_name
+    else:
+        tmp_dir = '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()
+        prometheus_metrics_path = tmp_dir + '/metrics'
+        os.environ[scoring_server.PROMETHEUS_EXPORTER_ENV_VAR] = prometheus_metrics_path
     return _get_flavor_backend(
         model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host,
-            expose_prometheus=expose_prometheus, app_name=app_name)
+    ).serve(model_uri=model_uri, port=port, host=host)
 
 
 @commands.command("predict")

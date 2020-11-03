@@ -65,7 +65,7 @@ class PyFuncBackend(FlavorBackend):
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type, json_format)
 
-    def serve(self, model_uri, port, host, expose_prometheus, app_name):
+    def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
         """
@@ -86,9 +86,6 @@ class PyFuncBackend(FlavorBackend):
 
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
-        if expose_prometheus:
-            command_env[scoring_server.PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
-            command_env[scoring_server.APP_ENV_VAR] = app_name
         if not self._no_conda and ENV in self._config:
             conda_env_path = os.path.join(local_path, self._config[ENV])
             return _execute_in_conda_env(
