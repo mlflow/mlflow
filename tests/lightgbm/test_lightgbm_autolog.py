@@ -447,3 +447,13 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_example, log_mo
     model_conf = get_model_conf(run.info.artifact_uri)
     assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
     assert ("signature" in model_conf.to_dict()) == log_model_signature
+
+
+def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
+    """
+    This test verifies that `lightgbm.Dataset(None)` doesn't fail after patching.
+    LightGBM internally calls `lightgbm.Dataset(None)` to create a subset of `Dataset`:
+    https://github.com/microsoft/LightGBM/blob/v3.0.0/python-package/lightgbm/basic.py#L1381
+    """
+    mlflow.lightgbm.autolog()
+    lgb.Dataset(None)

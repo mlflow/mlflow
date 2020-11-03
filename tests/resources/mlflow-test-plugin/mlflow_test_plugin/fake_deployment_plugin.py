@@ -25,7 +25,7 @@ class PluginDeploymentClient(BaseDeploymentClient):
         return {"key1": "val1", "key2": "val2"}
 
     def predict(self, deployment_name, df):
-        return 1
+        return "1"
 
 
 def run_local(name, model_uri, flavor=None, config=None):

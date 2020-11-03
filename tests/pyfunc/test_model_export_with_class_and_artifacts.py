@@ -831,6 +831,23 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
 
 
 @pytest.mark.large
+def test_repr_can_be_called_withtout_run_id_or_artifact_path():
+    model_meta = Model(
+        artifact_path=None,
+        run_id=None,
+        flavors={"python_function": {"loader_module": "someFlavour"}},
+    )
+
+    class TestModel(object):
+        def predict(self, model_input):
+            return model_input
+
+    model_impl = TestModel()
+
+    assert "flavor: someFlavour" in mlflow.pyfunc.PyFuncModel(model_meta, model_impl).__repr__()
+
+
+@pytest.mark.large
 def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs_warning(
     model_path,
 ):
