@@ -7,6 +7,7 @@ import mlflow
 import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
+from mlflow.utils.file_utils import TempDir
 
 NUM_EPOCHS = 20
 
@@ -73,19 +74,20 @@ def pytorch_model_with_callback(patience):
     model = IrisClassification()
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
 
-    checkpoint_callback = ModelCheckpoint(
-        filepath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix=""
-    )
+    with TempDir() as tmp:
+        checkpoint_callback = ModelCheckpoint(
+            filepath=tmp.path(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix=""
+        )
 
-    trainer = pl.Trainer(
-        max_epochs=NUM_EPOCHS * 2,
-        callbacks=[early_stopping],
-        checkpoint_callback=checkpoint_callback,
-    )
-    trainer.fit(model)
+        trainer = pl.Trainer(
+            max_epochs=NUM_EPOCHS * 2,
+            callbacks=[early_stopping],
+            checkpoint_callback=checkpoint_callback,
+        )
+        trainer.fit(model)
 
-    client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+        client = mlflow.tracking.MlflowClient()
+        run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
     return trainer, run
 
