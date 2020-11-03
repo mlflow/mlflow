@@ -33,6 +33,8 @@ from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 
 import itertools
 import inspect
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+
 
 FLAVOR_NAME = "statsmodels"
 STATSMODELS_DATA_SUBPATH = "model.statsmodels"
@@ -157,6 +159,7 @@ def log_model(
     remove_data: bool = False,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
     """
@@ -208,6 +211,9 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     """
     Model.log(
         artifact_path=artifact_path,
@@ -217,6 +223,7 @@ def log_model(
         conda_env=conda_env,
         signature=signature,
         input_example=input_example,
+        await_registration_for=await_registration_for,
         remove_data=remove_data,
         **kwargs
     )
