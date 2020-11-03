@@ -20,7 +20,7 @@ import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.mlflow.api.proto.Service;
+import org.mlflow.api.proto.Common;
 import org.mlflow.tracking.MlflowClientException;
 import org.mlflow.tracking.creds.MlflowHostCreds;
 import org.mlflow.tracking.creds.DatabricksMlflowHostCreds;
@@ -128,7 +128,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   }
 
   @Override
-  public List<Service.FileInfo> listArtifacts(String artifactPath) {
+  public List<Common.FileInfo> listArtifacts(String artifactPath) {
     checkMlflowAccessible();
     String tag = "list artifacts in " + getTargetIdentifier(artifactPath);
     List<String> command = appendRunIdArtifactPath(
@@ -138,7 +138,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   }
 
   @Override
-  public List<Service.FileInfo> listArtifacts() {
+  public List<Common.FileInfo> listArtifacts() {
     return listArtifacts(null);
   }
 
@@ -163,18 +163,18 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   }
 
   /** Parses a list of JSON FileInfos, as returned by 'mlflow artifacts list'. */
-  private List<Service.FileInfo> parseFileInfos(String json) {
+  private List<Common.FileInfo> parseFileInfos(String json) {
     // The protobuf deserializer doesn't allow us to directly deserialize a list, so we
     // deserialize a list-of-dictionaries, and then reserialize each dictionary to pass it to
     // the protobuf deserializer.
     Gson gson = new Gson();
     Type type = new TypeToken<List<Map<String, Object>>>(){}.getType();
     List<Map<String, Object>> listOfDicts = gson.fromJson(json, type);
-    List<Service.FileInfo> fileInfos = new ArrayList<>();
+    List<Common.FileInfo> fileInfos = new ArrayList<>();
     for (Map<String, Object> dict: listOfDicts) {
       String fileInfoJson = gson.toJson(dict);
       try {
-        Service.FileInfo.Builder builder = Service.FileInfo.newBuilder();
+        Common.FileInfo.Builder builder = Common.FileInfo.newBuilder();
         JsonFormat.parser().merge(fileInfoJson, builder);
         fileInfos.add(builder.build());
       } catch (InvalidProtocolBufferException e) {
