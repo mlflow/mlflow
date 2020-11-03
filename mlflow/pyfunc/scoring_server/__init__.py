@@ -19,6 +19,9 @@ import pandas as pd
 from six import reraise
 import sys
 import traceback
+from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
+import os
+from flask import Flask, request
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -42,6 +45,8 @@ except ImportError:
     from io import StringIO
 
 _SERVER_MODEL_PATH = "__pyfunc_model_path__"
+PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
+APP_ENV_VAR = "app"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
@@ -160,6 +165,18 @@ def init(model: PyFuncModel):
     """
     app = flask.Flask(__name__)
     input_schema = model.metadata.get_input_schema()
+    if os.getenv(APP_ENV_VAR):
+        application = os.getenv(APP_ENV_VAR)
+    else:
+        application = 'default'
+
+    if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+        prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
+
+    if not os.path.exists(prometheus_metrics_path):
+        os.makedirs(prometheus_metrics_path)
+    metrics = GunicornInternalPrometheusMetrics(app, export_defaults=False)
+    _logger.info("start flask prometheus exporter")
 
     @app.route("/ping", methods=["GET"])
     def ping():  # pylint: disable=unused-variable
@@ -173,6 +190,12 @@ def init(model: PyFuncModel):
 
     @app.route("/invocations", methods=["POST"])
     @catch_mlflow_exception
+    @metrics.histogram('mlflow_model_server_requests_by_status_and_path',
+                       'request latencies and count by status and path(seconds)',
+                       labels={'status': lambda r: r.status_code,
+                               'path': lambda: request.path,
+                               'request_host': lambda: request.host,
+                               'application': application})
     def transformation():  # pylint: disable=unused-variable
         """
         Do an inference on a single batch of data. In this sample server,
