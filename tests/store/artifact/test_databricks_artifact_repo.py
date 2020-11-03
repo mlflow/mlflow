@@ -15,7 +15,8 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     ArtifactCredentialType,
     ArtifactCredentialInfo,
 )
-from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
+from mlflow.protos.service_pb2 import ListArtifacts
+from mlflow.protos.common_pb2 import FileInfo
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepository
 
