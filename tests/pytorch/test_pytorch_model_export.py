@@ -829,57 +829,67 @@ def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_
 
 
 @pytest.fixture
-def create_requirement_file(tmpdir):
+def create_requirements_file(tmpdir):
     requirement_file_name = "requirements.txt"
     fp = tmpdir.join(requirement_file_name)
     test_string = "mlflow"
     fp.write(test_string)
-    return fp
+    return fp.strpath, test_string
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_requirement_file_log_model(create_requirement_file, sequential_model):
-    requirement_file_path = create_requirement_file
+def test_requirements_file_log_model(create_requirements_file, sequential_model):
+    requirements_file, content_expected = create_requirements_file
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
             conda_env=None,
-            requirements_file=requirement_file_path.strpath,
+            requirements_file=requirements_file,
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
             run_id=mlflow.active_run().info.run_id, model_path="models"
         )
+
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
-            assert os.path.isdir(os.path.join(model_path, "requirements"))
-            requirements_file = os.path.join(model_path, "requirements", "requirements.txt")
-            assert os.path.isfile(requirements_file)
-            with open(requirements_file) as fp:
-                content = fp.read()
-            assert "mlflow" in content
+            model_config_path = os.path.join(model_path, "MLmodel")
+            model_config = Model.load(model_config_path)
+            flavor_config = model_config.flavors["pytorch"]
+
+            assert "requirements_file" in flavor_config
+            loaded_requirements_file = flavor_config["requirements_file"]
+
+            assert "path" in loaded_requirements_file
+            requirements_file_path = loaded_requirements_file["path"]
+            requirements_file_path = os.path.join(model_path, requirements_file_path)
+            with open(requirements_file_path) as fp:
+                assert fp.read() == content_expected
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_requirement_file_save_model(create_requirement_file, sequential_model):
-    requirement_file_path = create_requirement_file
-    with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
+def test_requirements_file_save_model(create_requirements_file, sequential_model):
+    requirements_file, content_expected = create_requirements_file
+    with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model,
-            path=model_path,
-            requirements_file=requirement_file_path.strpath,
+            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file,
         )
-        assert os.path.isdir(os.path.join(model_path, "requirements"))
-        requirements_file = os.path.join(model_path, "requirements", "requirements.txt")
-        assert os.path.isfile(requirements_file)
-        with open(requirements_file) as fp:
-            content = fp.read()
+        model_config_path = os.path.join(model_path, "MLmodel")
+        model_config = Model.load(model_config_path)
+        flavor_config = model_config.flavors["pytorch"]
 
-        assert "mlflow" in content
+        assert "requirements_file" in flavor_config
+        loaded_requirements_file = flavor_config["requirements_file"]
+
+        assert "path" in loaded_requirements_file
+        requirements_file_path = loaded_requirements_file["path"]
+        requirements_file_path = os.path.join(model_path, requirements_file_path)
+        with open(requirements_file_path) as fp:
+            assert fp.read() == content_expected
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
@@ -908,23 +918,23 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
 
 @pytest.fixture
 def create_extra_files(tmpdir):
-    extra_file_name = "extra1.txt"
-    fp = tmpdir.join(extra_file_name)
-    test_string = "pytest_extra_file"
-    fp.write(test_string)
-    return fp
+    fp1 = tmpdir.join("extra1.txt")
+    fp2 = tmpdir.join("extra2.txt")
+    fp1.write("1")
+    fp2.write("2")
+    return [fp1.strpath, fp2.strpath], ["1", "2"]
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_log_model(create_extra_files, sequential_model):
-    extra_file_path = create_extra_files
+    extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
         mlflow.pytorch.log_model(
             pytorch_model=sequential_model,
             artifact_path="models",
             conda_env=None,
-            extra_files=[extra_file_path.strpath],
+            extra_files=extra_files,
         )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
@@ -932,29 +942,41 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
         )
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
-            assert os.path.isdir(os.path.join(model_path, "artifacts"))
-            extra_file = os.path.join(model_path, "artifacts", "extra1.txt")
-            assert os.path.isfile(extra_file)
-            with open(extra_file) as fp:
-                content = fp.read()
-            assert "pytest_extra_file" in content
+            model_config_path = os.path.join(model_path, "MLmodel")
+            model_config = Model.load(model_config_path)
+            flavor_config = model_config.flavors["pytorch"]
+
+            assert "extra_files" in flavor_config
+            loaded_extra_files = flavor_config["extra_files"]
+
+            for loaded_extra_file, content_expected in zip(loaded_extra_files, contents_expected):
+                assert "path" in loaded_extra_file
+                extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
+                with open(extra_file_path) as fp:
+                    assert fp.read() == content_expected
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_save_model(create_extra_files, sequential_model):
-    extra_file_path = create_extra_files
-    with mlflow.start_run(), TempDir(remove_on_exit=True) as tmp:
+    extra_files, contents_expected = create_extra_files
+    with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, extra_files=[extra_file_path.strpath]
+            pytorch_model=sequential_model, path=model_path, extra_files=extra_files
         )
-        assert os.path.isdir(os.path.join(model_path, "artifacts"))
-        extra_file = os.path.join(model_path, "artifacts", "extra1.txt")
-        assert os.path.isfile(extra_file)
-        with open(extra_file) as fp:
-            content = fp.read()
-        assert "pytest_extra_file" in content
+        model_config_path = os.path.join(model_path, "MLmodel")
+        model_config = Model.load(model_config_path)
+        flavor_config = model_config.flavors["pytorch"]
+
+        assert "extra_files" in flavor_config
+        loaded_extra_files = flavor_config["extra_files"]
+
+        for loaded_extra_file, content_expected in zip(loaded_extra_files, contents_expected):
+            assert "path" in loaded_extra_file
+            extra_file_path = os.path.join(model_path, loaded_extra_file["path"])
+            with open(extra_file_path) as fp:
+                assert fp.read() == content_expected
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
