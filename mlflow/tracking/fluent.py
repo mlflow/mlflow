@@ -1037,7 +1037,7 @@ def autolog(log_input_examples=False, log_model_signatures=True):  # pylint: dis
     integrations.
 
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
-                               logged along with model artifacts during training. If ``False``, 
+                               logged along with model artifacts during training. If ``False``,
                                input examples are not logged.
     :param log_model_signatures: If ``True``,
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
