@@ -6,6 +6,7 @@ import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
 import org.mlflow.artifacts.CliBasedArtifactRepository;
 import org.mlflow.api.proto.ModelRegistry.*;
+import org.mlflow.api.proto.Common.*;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 

@@ -20,8 +20,8 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='common.proto',
   package='mlflow',
   syntax='proto2',
-  serialized_options=_b('\n\037com.databricks.api.proto.mlflow\240\001\001\342?\002\020\001'),
-  serialized_pb=_b('\n\x0c\x63ommon.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x42)\n\x1f\x63om.databricks.api.proto.mlflow\xa0\x01\x01\xe2?\x02\x10\x01')
+  serialized_options=_b('\n\024org.mlflow.api.proto\240\001\001\342?\002\020\001'),
+  serialized_pb=_b('\n\x0c\x63ommon.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\x42\x1e\n\x14org.mlflow.api.proto\xa0\x01\x01\xe2?\x02\x10\x01')
   ,
   dependencies=[scalapb_dot_scalapb__pb2.DESCRIPTOR,databricks__pb2.DESCRIPTOR,])
 
