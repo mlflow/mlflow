@@ -37701,7 +37701,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      java.util.List<org.mlflow.api.proto.Service.FileInfo> 
+      java.util.List<com.databricks.api.proto.mlflow.Common.FileInfo> 
           getFilesList();
       /**
        * <pre>
@@ -37710,7 +37710,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      org.mlflow.api.proto.Service.FileInfo getFiles(int index);
+      com.databricks.api.proto.mlflow.Common.FileInfo getFiles(int index);
       /**
        * <pre>
        * File location and metadata for artifacts.
@@ -37726,7 +37726,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      java.util.List<? extends org.mlflow.api.proto.Service.FileInfoOrBuilder> 
+      java.util.List<? extends com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder> 
           getFilesOrBuilderList();
       /**
        * <pre>
@@ -37735,7 +37735,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      org.mlflow.api.proto.Service.FileInfoOrBuilder getFilesOrBuilder(
+      com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder getFilesOrBuilder(
           int index);
 
       /**
@@ -37814,11 +37814,11 @@ public final class Service {
               }
               case 18: {
                 if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-                  files_ = new java.util.ArrayList<org.mlflow.api.proto.Service.FileInfo>();
+                  files_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.Common.FileInfo>();
                   mutable_bitField0_ |= 0x00000002;
                 }
                 files_.add(
-                    input.readMessage(org.mlflow.api.proto.Service.FileInfo.PARSER, extensionRegistry));
+                    input.readMessage(com.databricks.api.proto.mlflow.Common.FileInfo.PARSER, extensionRegistry));
                 break;
               }
               case 26: {
@@ -37918,7 +37918,7 @@ public final class Service {
       }
 
       public static final int FILES_FIELD_NUMBER = 2;
-      private java.util.List<org.mlflow.api.proto.Service.FileInfo> files_;
+      private java.util.List<com.databricks.api.proto.mlflow.Common.FileInfo> files_;
       /**
        * <pre>
        * File location and metadata for artifacts.
@@ -37926,7 +37926,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      public java.util.List<org.mlflow.api.proto.Service.FileInfo> getFilesList() {
+      public java.util.List<com.databricks.api.proto.mlflow.Common.FileInfo> getFilesList() {
         return files_;
       }
       /**
@@ -37936,7 +37936,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      public java.util.List<? extends org.mlflow.api.proto.Service.FileInfoOrBuilder> 
+      public java.util.List<? extends com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder> 
           getFilesOrBuilderList() {
         return files_;
       }
@@ -37957,7 +37957,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      public org.mlflow.api.proto.Service.FileInfo getFiles(int index) {
+      public com.databricks.api.proto.mlflow.Common.FileInfo getFiles(int index) {
         return files_.get(index);
       }
       /**
@@ -37967,7 +37967,7 @@ public final class Service {
        *
        * <code>repeated .mlflow.FileInfo files = 2;</code>
        */
-      public org.mlflow.api.proto.Service.FileInfoOrBuilder getFilesOrBuilder(
+      public com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder getFilesOrBuilder(
           int index) {
         return files_.get(index);
       }
@@ -38523,17 +38523,17 @@ public final class Service {
           return this;
         }
 
-        private java.util.List<org.mlflow.api.proto.Service.FileInfo> files_ =
+        private java.util.List<com.databricks.api.proto.mlflow.Common.FileInfo> files_ =
           java.util.Collections.emptyList();
         private void ensureFilesIsMutable() {
           if (!((bitField0_ & 0x00000002) == 0x00000002)) {
-            files_ = new java.util.ArrayList<org.mlflow.api.proto.Service.FileInfo>(files_);
+            files_ = new java.util.ArrayList<com.databricks.api.proto.mlflow.Common.FileInfo>(files_);
             bitField0_ |= 0x00000002;
            }
         }
 
         private com.google.protobuf.RepeatedFieldBuilderV3<
-            org.mlflow.api.proto.Service.FileInfo, org.mlflow.api.proto.Service.FileInfo.Builder, org.mlflow.api.proto.Service.FileInfoOrBuilder> filesBuilder_;
+            com.databricks.api.proto.mlflow.Common.FileInfo, com.databricks.api.proto.mlflow.Common.FileInfo.Builder, com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder> filesBuilder_;
 
         /**
          * <pre>
@@ -38542,7 +38542,7 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public java.util.List<org.mlflow.api.proto.Service.FileInfo> getFilesList() {
+        public java.util.List<com.databricks.api.proto.mlflow.Common.FileInfo> getFilesList() {
           if (filesBuilder_ == null) {
             return java.util.Collections.unmodifiableList(files_);
           } else {
@@ -38570,7 +38570,7 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public org.mlflow.api.proto.Service.FileInfo getFiles(int index) {
+        public com.databricks.api.proto.mlflow.Common.FileInfo getFiles(int index) {
           if (filesBuilder_ == null) {
             return files_.get(index);
           } else {
@@ -38585,7 +38585,7 @@ public final class Service {
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
         public Builder setFiles(
-            int index, org.mlflow.api.proto.Service.FileInfo value) {
+            int index, com.databricks.api.proto.mlflow.Common.FileInfo value) {
           if (filesBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -38606,7 +38606,7 @@ public final class Service {
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
         public Builder setFiles(
-            int index, org.mlflow.api.proto.Service.FileInfo.Builder builderForValue) {
+            int index, com.databricks.api.proto.mlflow.Common.FileInfo.Builder builderForValue) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             files_.set(index, builderForValue.build());
@@ -38623,7 +38623,7 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public Builder addFiles(org.mlflow.api.proto.Service.FileInfo value) {
+        public Builder addFiles(com.databricks.api.proto.mlflow.Common.FileInfo value) {
           if (filesBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -38644,7 +38644,7 @@ public final class Service {
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
         public Builder addFiles(
-            int index, org.mlflow.api.proto.Service.FileInfo value) {
+            int index, com.databricks.api.proto.mlflow.Common.FileInfo value) {
           if (filesBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -38665,7 +38665,7 @@ public final class Service {
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
         public Builder addFiles(
-            org.mlflow.api.proto.Service.FileInfo.Builder builderForValue) {
+            com.databricks.api.proto.mlflow.Common.FileInfo.Builder builderForValue) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             files_.add(builderForValue.build());
@@ -38683,7 +38683,7 @@ public final class Service {
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
         public Builder addFiles(
-            int index, org.mlflow.api.proto.Service.FileInfo.Builder builderForValue) {
+            int index, com.databricks.api.proto.mlflow.Common.FileInfo.Builder builderForValue) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             files_.add(index, builderForValue.build());
@@ -38701,7 +38701,7 @@ public final class Service {
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
         public Builder addAllFiles(
-            java.lang.Iterable<? extends org.mlflow.api.proto.Service.FileInfo> values) {
+            java.lang.Iterable<? extends com.databricks.api.proto.mlflow.Common.FileInfo> values) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -38753,7 +38753,7 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public org.mlflow.api.proto.Service.FileInfo.Builder getFilesBuilder(
+        public com.databricks.api.proto.mlflow.Common.FileInfo.Builder getFilesBuilder(
             int index) {
           return getFilesFieldBuilder().getBuilder(index);
         }
@@ -38764,7 +38764,7 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public org.mlflow.api.proto.Service.FileInfoOrBuilder getFilesOrBuilder(
+        public com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder getFilesOrBuilder(
             int index) {
           if (filesBuilder_ == null) {
             return files_.get(index);  } else {
@@ -38778,7 +38778,7 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public java.util.List<? extends org.mlflow.api.proto.Service.FileInfoOrBuilder> 
+        public java.util.List<? extends com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder> 
              getFilesOrBuilderList() {
           if (filesBuilder_ != null) {
             return filesBuilder_.getMessageOrBuilderList();
@@ -38793,9 +38793,9 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public org.mlflow.api.proto.Service.FileInfo.Builder addFilesBuilder() {
+        public com.databricks.api.proto.mlflow.Common.FileInfo.Builder addFilesBuilder() {
           return getFilesFieldBuilder().addBuilder(
-              org.mlflow.api.proto.Service.FileInfo.getDefaultInstance());
+              com.databricks.api.proto.mlflow.Common.FileInfo.getDefaultInstance());
         }
         /**
          * <pre>
@@ -38804,10 +38804,10 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public org.mlflow.api.proto.Service.FileInfo.Builder addFilesBuilder(
+        public com.databricks.api.proto.mlflow.Common.FileInfo.Builder addFilesBuilder(
             int index) {
           return getFilesFieldBuilder().addBuilder(
-              index, org.mlflow.api.proto.Service.FileInfo.getDefaultInstance());
+              index, com.databricks.api.proto.mlflow.Common.FileInfo.getDefaultInstance());
         }
         /**
          * <pre>
@@ -38816,16 +38816,16 @@ public final class Service {
          *
          * <code>repeated .mlflow.FileInfo files = 2;</code>
          */
-        public java.util.List<org.mlflow.api.proto.Service.FileInfo.Builder> 
+        public java.util.List<com.databricks.api.proto.mlflow.Common.FileInfo.Builder> 
              getFilesBuilderList() {
           return getFilesFieldBuilder().getBuilderList();
         }
         private com.google.protobuf.RepeatedFieldBuilderV3<
-            org.mlflow.api.proto.Service.FileInfo, org.mlflow.api.proto.Service.FileInfo.Builder, org.mlflow.api.proto.Service.FileInfoOrBuilder> 
+            com.databricks.api.proto.mlflow.Common.FileInfo, com.databricks.api.proto.mlflow.Common.FileInfo.Builder, com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder> 
             getFilesFieldBuilder() {
           if (filesBuilder_ == null) {
             filesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-                org.mlflow.api.proto.Service.FileInfo, org.mlflow.api.proto.Service.FileInfo.Builder, org.mlflow.api.proto.Service.FileInfoOrBuilder>(
+                com.databricks.api.proto.mlflow.Common.FileInfo, com.databricks.api.proto.mlflow.Common.FileInfo.Builder, com.databricks.api.proto.mlflow.Common.FileInfoOrBuilder>(
                     files_,
                     ((bitField0_ & 0x00000002) == 0x00000002),
                     getParentForChildren(),
@@ -40054,885 +40054,6 @@ public final class Service {
 
     @java.lang.Override
     public org.mlflow.api.proto.Service.ListArtifacts getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface FileInfoOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.FileInfo)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <pre>
-     * Path relative to the root artifact directory run.
-     * </pre>
-     *
-     * <code>optional string path = 1;</code>
-     */
-    boolean hasPath();
-    /**
-     * <pre>
-     * Path relative to the root artifact directory run.
-     * </pre>
-     *
-     * <code>optional string path = 1;</code>
-     */
-    java.lang.String getPath();
-    /**
-     * <pre>
-     * Path relative to the root artifact directory run.
-     * </pre>
-     *
-     * <code>optional string path = 1;</code>
-     */
-    com.google.protobuf.ByteString
-        getPathBytes();
-
-    /**
-     * <pre>
-     * Whether the path is a directory.
-     * </pre>
-     *
-     * <code>optional bool is_dir = 2;</code>
-     */
-    boolean hasIsDir();
-    /**
-     * <pre>
-     * Whether the path is a directory.
-     * </pre>
-     *
-     * <code>optional bool is_dir = 2;</code>
-     */
-    boolean getIsDir();
-
-    /**
-     * <pre>
-     * Size in bytes. Unset for directories.
-     * </pre>
-     *
-     * <code>optional int64 file_size = 3;</code>
-     */
-    boolean hasFileSize();
-    /**
-     * <pre>
-     * Size in bytes. Unset for directories.
-     * </pre>
-     *
-     * <code>optional int64 file_size = 3;</code>
-     */
-    long getFileSize();
-  }
-  /**
-   * <pre>
-   * Metadata of a single artifact file or directory.
-   * </pre>
-   *
-   * Protobuf type {@code mlflow.FileInfo}
-   */
-  public  static final class FileInfo extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.FileInfo)
-      FileInfoOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use FileInfo.newBuilder() to construct.
-    private FileInfo(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private FileInfo() {
-      path_ = "";
-      isDir_ = false;
-      fileSize_ = 0L;
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private FileInfo(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              path_ = bs;
-              break;
-            }
-            case 16: {
-              bitField0_ |= 0x00000002;
-              isDir_ = input.readBool();
-              break;
-            }
-            case 24: {
-              bitField0_ |= 0x00000004;
-              fileSize_ = input.readInt64();
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_FileInfo_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.Service.internal_static_mlflow_FileInfo_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.Service.FileInfo.class, org.mlflow.api.proto.Service.FileInfo.Builder.class);
-    }
-
-    private int bitField0_;
-    public static final int PATH_FIELD_NUMBER = 1;
-    private volatile java.lang.Object path_;
-    /**
-     * <pre>
-     * Path relative to the root artifact directory run.
-     * </pre>
-     *
-     * <code>optional string path = 1;</code>
-     */
-    public boolean hasPath() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <pre>
-     * Path relative to the root artifact directory run.
-     * </pre>
-     *
-     * <code>optional string path = 1;</code>
-     */
-    public java.lang.String getPath() {
-      java.lang.Object ref = path_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          path_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Path relative to the root artifact directory run.
-     * </pre>
-     *
-     * <code>optional string path = 1;</code>
-     */
-    public com.google.protobuf.ByteString
-        getPathBytes() {
-      java.lang.Object ref = path_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        path_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int IS_DIR_FIELD_NUMBER = 2;
-    private boolean isDir_;
-    /**
-     * <pre>
-     * Whether the path is a directory.
-     * </pre>
-     *
-     * <code>optional bool is_dir = 2;</code>
-     */
-    public boolean hasIsDir() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <pre>
-     * Whether the path is a directory.
-     * </pre>
-     *
-     * <code>optional bool is_dir = 2;</code>
-     */
-    public boolean getIsDir() {
-      return isDir_;
-    }
-
-    public static final int FILE_SIZE_FIELD_NUMBER = 3;
-    private long fileSize_;
-    /**
-     * <pre>
-     * Size in bytes. Unset for directories.
-     * </pre>
-     *
-     * <code>optional int64 file_size = 3;</code>
-     */
-    public boolean hasFileSize() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <pre>
-     * Size in bytes. Unset for directories.
-     * </pre>
-     *
-     * <code>optional int64 file_size = 3;</code>
-     */
-    public long getFileSize() {
-      return fileSize_;
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, path_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        output.writeBool(2, isDir_);
-      }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        output.writeInt64(3, fileSize_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, path_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(2, isDir_);
-      }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(3, fileSize_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.Service.FileInfo)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.Service.FileInfo other = (org.mlflow.api.proto.Service.FileInfo) obj;
-
-      boolean result = true;
-      result = result && (hasPath() == other.hasPath());
-      if (hasPath()) {
-        result = result && getPath()
-            .equals(other.getPath());
-      }
-      result = result && (hasIsDir() == other.hasIsDir());
-      if (hasIsDir()) {
-        result = result && (getIsDir()
-            == other.getIsDir());
-      }
-      result = result && (hasFileSize() == other.hasFileSize());
-      if (hasFileSize()) {
-        result = result && (getFileSize()
-            == other.getFileSize());
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasPath()) {
-        hash = (37 * hash) + PATH_FIELD_NUMBER;
-        hash = (53 * hash) + getPath().hashCode();
-      }
-      if (hasIsDir()) {
-        hash = (37 * hash) + IS_DIR_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-            getIsDir());
-      }
-      if (hasFileSize()) {
-        hash = (37 * hash) + FILE_SIZE_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getFileSize());
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.Service.FileInfo parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.Service.FileInfo prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * <pre>
-     * Metadata of a single artifact file or directory.
-     * </pre>
-     *
-     * Protobuf type {@code mlflow.FileInfo}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.FileInfo)
-        org.mlflow.api.proto.Service.FileInfoOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_FileInfo_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_FileInfo_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.Service.FileInfo.class, org.mlflow.api.proto.Service.FileInfo.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.Service.FileInfo.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        path_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        isDir_ = false;
-        bitField0_ = (bitField0_ & ~0x00000002);
-        fileSize_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000004);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.Service.internal_static_mlflow_FileInfo_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.FileInfo getDefaultInstanceForType() {
-        return org.mlflow.api.proto.Service.FileInfo.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.FileInfo build() {
-        org.mlflow.api.proto.Service.FileInfo result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.Service.FileInfo buildPartial() {
-        org.mlflow.api.proto.Service.FileInfo result = new org.mlflow.api.proto.Service.FileInfo(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.path_ = path_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.isDir_ = isDir_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
-          to_bitField0_ |= 0x00000004;
-        }
-        result.fileSize_ = fileSize_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.Service.FileInfo) {
-          return mergeFrom((org.mlflow.api.proto.Service.FileInfo)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.Service.FileInfo other) {
-        if (other == org.mlflow.api.proto.Service.FileInfo.getDefaultInstance()) return this;
-        if (other.hasPath()) {
-          bitField0_ |= 0x00000001;
-          path_ = other.path_;
-          onChanged();
-        }
-        if (other.hasIsDir()) {
-          setIsDir(other.getIsDir());
-        }
-        if (other.hasFileSize()) {
-          setFileSize(other.getFileSize());
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.Service.FileInfo parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.Service.FileInfo) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object path_ = "";
-      /**
-       * <pre>
-       * Path relative to the root artifact directory run.
-       * </pre>
-       *
-       * <code>optional string path = 1;</code>
-       */
-      public boolean hasPath() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <pre>
-       * Path relative to the root artifact directory run.
-       * </pre>
-       *
-       * <code>optional string path = 1;</code>
-       */
-      public java.lang.String getPath() {
-        java.lang.Object ref = path_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            path_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Path relative to the root artifact directory run.
-       * </pre>
-       *
-       * <code>optional string path = 1;</code>
-       */
-      public com.google.protobuf.ByteString
-          getPathBytes() {
-        java.lang.Object ref = path_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          path_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Path relative to the root artifact directory run.
-       * </pre>
-       *
-       * <code>optional string path = 1;</code>
-       */
-      public Builder setPath(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        path_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Path relative to the root artifact directory run.
-       * </pre>
-       *
-       * <code>optional string path = 1;</code>
-       */
-      public Builder clearPath() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        path_ = getDefaultInstance().getPath();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Path relative to the root artifact directory run.
-       * </pre>
-       *
-       * <code>optional string path = 1;</code>
-       */
-      public Builder setPathBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        path_ = value;
-        onChanged();
-        return this;
-      }
-
-      private boolean isDir_ ;
-      /**
-       * <pre>
-       * Whether the path is a directory.
-       * </pre>
-       *
-       * <code>optional bool is_dir = 2;</code>
-       */
-      public boolean hasIsDir() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <pre>
-       * Whether the path is a directory.
-       * </pre>
-       *
-       * <code>optional bool is_dir = 2;</code>
-       */
-      public boolean getIsDir() {
-        return isDir_;
-      }
-      /**
-       * <pre>
-       * Whether the path is a directory.
-       * </pre>
-       *
-       * <code>optional bool is_dir = 2;</code>
-       */
-      public Builder setIsDir(boolean value) {
-        bitField0_ |= 0x00000002;
-        isDir_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Whether the path is a directory.
-       * </pre>
-       *
-       * <code>optional bool is_dir = 2;</code>
-       */
-      public Builder clearIsDir() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        isDir_ = false;
-        onChanged();
-        return this;
-      }
-
-      private long fileSize_ ;
-      /**
-       * <pre>
-       * Size in bytes. Unset for directories.
-       * </pre>
-       *
-       * <code>optional int64 file_size = 3;</code>
-       */
-      public boolean hasFileSize() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <pre>
-       * Size in bytes. Unset for directories.
-       * </pre>
-       *
-       * <code>optional int64 file_size = 3;</code>
-       */
-      public long getFileSize() {
-        return fileSize_;
-      }
-      /**
-       * <pre>
-       * Size in bytes. Unset for directories.
-       * </pre>
-       *
-       * <code>optional int64 file_size = 3;</code>
-       */
-      public Builder setFileSize(long value) {
-        bitField0_ |= 0x00000004;
-        fileSize_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Size in bytes. Unset for directories.
-       * </pre>
-       *
-       * <code>optional int64 file_size = 3;</code>
-       */
-      public Builder clearFileSize() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        fileSize_ = 0L;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.FileInfo)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.FileInfo)
-    private static final org.mlflow.api.proto.Service.FileInfo DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.FileInfo();
-    }
-
-    public static org.mlflow.api.proto.Service.FileInfo getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<FileInfo>
-        PARSER = new com.google.protobuf.AbstractParser<FileInfo>() {
-      @java.lang.Override
-      public FileInfo parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new FileInfo(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<FileInfo> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<FileInfo> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.Service.FileInfo getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -48250,11 +47371,6 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_ListArtifacts_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_FileInfo_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_FileInfo_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_GetMetricHistory_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -48304,216 +47420,215 @@ public final class Service {
   static {
     java.lang.String[] descriptorData = {
       "\n\rservice.proto\022\006mlflow\032\025scalapb/scalapb" +
-      ".proto\032\020databricks.proto\"H\n\006Metric\022\013\n\003ke" +
-      "y\030\001 \001(\t\022\r\n\005value\030\002 \001(\001\022\021\n\ttimestamp\030\003 \001(" +
-      "\003\022\017\n\004step\030\004 \001(\003:\0010\"#\n\005Param\022\013\n\003key\030\001 \001(\t" +
-      "\022\r\n\005value\030\002 \001(\t\"C\n\003Run\022\035\n\004info\030\001 \001(\0132\017.m" +
-      "lflow.RunInfo\022\035\n\004data\030\002 \001(\0132\017.mlflow.Run" +
-      "Data\"g\n\007RunData\022\037\n\007metrics\030\001 \003(\0132\016.mlflo" +
-      "w.Metric\022\035\n\006params\030\002 \003(\0132\r.mlflow.Param\022" +
-      "\034\n\004tags\030\003 \003(\0132\016.mlflow.RunTag\"$\n\006RunTag\022" +
-      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"+\n\rExperimen" +
-      "tTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\313\001\n\007Run" +
-      "Info\022\016\n\006run_id\030\017 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\025" +
-      "\n\rexperiment_id\030\002 \001(\t\022\017\n\007user_id\030\006 \001(\t\022!" +
-      "\n\006status\030\007 \001(\0162\021.mlflow.RunStatus\022\022\n\nsta" +
-      "rt_time\030\010 \001(\003\022\020\n\010end_time\030\t \001(\003\022\024\n\014artif" +
-      "act_uri\030\r \001(\t\022\027\n\017lifecycle_stage\030\016 \001(\t\"\273" +
-      "\001\n\nExperiment\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n\004" +
-      "name\030\002 \001(\t\022\031\n\021artifact_location\030\003 \001(\t\022\027\n" +
-      "\017lifecycle_stage\030\004 \001(\t\022\030\n\020last_update_ti" +
-      "me\030\005 \001(\003\022\025\n\rcreation_time\030\006 \001(\003\022#\n\004tags\030" +
-      "\007 \003(\0132\025.mlflow.ExperimentTag\"\221\001\n\020CreateE" +
-      "xperiment\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\031\n\021artifac" +
-      "t_location\030\002 \001(\t\032!\n\010Response\022\025\n\rexperime" +
-      "nt_id\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\230\001\n\017ListExperiments\022#\n\t" +
-      "view_type\030\001 \001(\0162\020.mlflow.ViewType\0323\n\010Res" +
-      "ponse\022\'\n\013experiments\030\001 \003(\0132\022.mlflow.Expe" +
-      "riment:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\260\001\n\rGetExperiment\022\033\n\rexperim" +
-      "ent_id\030\001 \001(\tB\004\370\206\031\001\032U\n\010Response\022&\n\nexperi" +
-      "ment\030\001 \001(\0132\022.mlflow.Experiment\022!\n\004runs\030\002" +
-      " \003(\0132\017.mlflow.RunInfoB\002\030\001:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"h\n\020Delete" +
-      "Experiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"i\n\021RestoreExperiment\022\033\n" +
-      "\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
-      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"z\n\020UpdateExperiment\022\033\n\rexperiment_id" +
-      "\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(\t\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\270\001\n\tCreateRun\022\025\n\rexperiment_id\030\001" +
-      " \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022\n\nstart_time\030\007 \001(" +
-      "\003\022\034\n\004tags\030\t \003(\0132\016.mlflow.RunTag\032$\n\010Respo" +
-      "nse\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\276\001\n\tU" +
-      "pdateRun\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001" +
-      "(\t\022!\n\006status\030\002 \001(\0162\021.mlflow.RunStatus\022\020\n" +
-      "\010end_time\030\003 \001(\003\032-\n\010Response\022!\n\010run_info\030" +
-      "\001 \001(\0132\017.mlflow.RunInfo:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun" +
-      "\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "[\n\nRestoreRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010R" +
-      "esponse:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\"\270\001\n\tLogMetric\022\016\n\006run_id\030\006 \001" +
-      "(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022" +
-      "\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n\ttimestamp\030\004 \001(\003B" +
-      "\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\215\001\n\010LogParam\022\016\n\006run_id\030\004 \001(\t\022\020\n\010run_uuid" +
-      "\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\t" +
-      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\220\001\n\020SetExperimen" +
-      "tTag\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key" +
-      "\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Res" +
-      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]\"\213\001\n\006SetTag\022\016\n\006run_id\030\004 \001(\t\022\020\n" +
-      "\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005va" +
-      "lue\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"m\n\tDele" +
-      "teTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\t" +
-      "B\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"}\n\006GetRun\022\016\n\006run" +
-      "_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Response\022" +
-      "\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\230\002\n\nSearc" +
-      "hRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030" +
-      "\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.Vi" +
-      "ewType:\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005" +
-      ":\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage_token\030\007" +
-      " \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow." +
-      "Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"\330\001\n\rLi" +
-      "stArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030" +
-      "\001 \001(\t\022\014\n\004path\030\002 \001(\t\022\022\n\npage_token\030\004 \001(\t\032" +
-      "V\n\010Response\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002" +
-      " \003(\0132\020.mlflow.FileInfo\022\027\n\017next_page_toke" +
-      "n\030\003 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016" +
-      "\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020Ge" +
-      "tMetricHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uu" +
-      "id\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Re" +
-      "sponse\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:" +
+      ".proto\032\014common.proto\032\020databricks.proto\"H" +
+      "\n\006Metric\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\001\022\021\n\t" +
+      "timestamp\030\003 \001(\003\022\017\n\004step\030\004 \001(\003:\0010\"#\n\005Para" +
+      "m\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"C\n\003Run\022\035\n\004" +
+      "info\030\001 \001(\0132\017.mlflow.RunInfo\022\035\n\004data\030\002 \001(" +
+      "\0132\017.mlflow.RunData\"g\n\007RunData\022\037\n\007metrics" +
+      "\030\001 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\002 \003(\0132\r" +
+      ".mlflow.Param\022\034\n\004tags\030\003 \003(\0132\016.mlflow.Run" +
+      "Tag\"$\n\006RunTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(" +
+      "\t\"+\n\rExperimentTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
+      "\030\002 \001(\t\"\313\001\n\007RunInfo\022\016\n\006run_id\030\017 \001(\t\022\020\n\010ru" +
+      "n_uuid\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t\022\017\n\007u" +
+      "ser_id\030\006 \001(\t\022!\n\006status\030\007 \001(\0162\021.mlflow.Ru" +
+      "nStatus\022\022\n\nstart_time\030\010 \001(\003\022\020\n\010end_time\030" +
+      "\t \001(\003\022\024\n\014artifact_uri\030\r \001(\t\022\027\n\017lifecycle" +
+      "_stage\030\016 \001(\t\"\273\001\n\nExperiment\022\025\n\rexperimen" +
+      "t_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\031\n\021artifact_loc" +
+      "ation\030\003 \001(\t\022\027\n\017lifecycle_stage\030\004 \001(\t\022\030\n\020" +
+      "last_update_time\030\005 \001(\003\022\025\n\rcreation_time\030" +
+      "\006 \001(\003\022#\n\004tags\030\007 \003(\0132\025.mlflow.ExperimentT" +
+      "ag\"\221\001\n\020CreateExperiment\022\022\n\004name\030\001 \001(\tB\004\370" +
+      "\206\031\001\022\031\n\021artifact_location\030\002 \001(\t\032!\n\010Respon" +
+      "se\022\025\n\rexperiment_id\030\001 \001(\t:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\230\001\n\017ListE" +
+      "xperiments\022#\n\tview_type\030\001 \001(\0162\020.mlflow.V" +
+      "iewType\0323\n\010Response\022\'\n\013experiments\030\001 \003(\013" +
+      "2\022.mlflow.Experiment:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"\260\001\n\rGetExperim" +
+      "ent\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\032U\n\010Resp" +
+      "onse\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Experi" +
+      "ment\022!\n\004runs\030\002 \003(\0132\017.mlflow.RunInfoB\002\030\001:" +
       "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007met" +
-      "rics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003" +
-      "(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow" +
-      ".RunTag\032\n\n\010Response:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"g\n\010LogModel\022\016\n\006" +
-      "run_id\030\001 \001(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010Resp" +
-      "onse:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\225\001\n\023GetExperimentByName\022\035\n\017exp" +
-      "eriment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\n" +
-      "experiment\030\001 \001(\0132\022.mlflow.Experiment:+\342?" +
+      "nse]\"h\n\020DeleteExperiment\022\033\n\rexperiment_i" +
+      "d\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"i\n\021Restor" +
+      "eExperiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001" +
+      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"z\n\020UpdateExperiment\022\033\n" +
+      "\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002" +
+      " \001(\t\032\n\n\010Response:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\270\001\n\tCreateRun\022\025\n\re" +
+      "xperiment_id\030\001 \001(\t\022\017\n\007user_id\030\002 \001(\t\022\022\n\ns" +
+      "tart_time\030\007 \001(\003\022\034\n\004tags\030\t \003(\0132\016.mlflow.R" +
+      "unTag\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow." +
+      "Run:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\276\001\n\tUpdateRun\022\016\n\006run_id\030\004 \001(\t\022\020" +
+      "\n\010run_uuid\030\001 \001(\t\022!\n\006status\030\002 \001(\0162\021.mlflo" +
+      "w.RunStatus\022\020\n\010end_time\030\003 \001(\003\032-\n\010Respons" +
+      "e\022!\n\010run_info\030\001 \001(\0132\017.mlflow.RunInfo:+\342?" +
       "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETE" +
-      "D_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEB" +
-      "OOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014" +
-      "\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r" +
-      "\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022" +
-      "\n\n\006KILLED\020\0052\341\036\n\rMlflowService\022\246\001\n\023getExp" +
-      "erimentByName\022\033.mlflow.GetExperimentByNa" +
-      "me\032$.mlflow.GetExperimentByName.Response" +
-      "\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-b" +
-      "y-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022\306" +
-      "\001\n\020createExperiment\022\030.mlflow.CreateExper" +
-      "iment\032!.mlflow.CreateExperiment.Response" +
-      "\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/crea" +
-      "te\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experi" +
-      "ments/create\032\004\010\002\020\000\020\001*\021Create Experiment\022" +
-      "\274\001\n\017listExperiments\022\027.mlflow.ListExperim" +
-      "ents\032 .mlflow.ListExperiments.Response\"n" +
-      "\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010" +
-      "\002\020\000\n-\n\003GET\022 /preview/mlflow/experiments/" +
-      "list\032\004\010\002\020\000\020\001*\020List Experiments\022\262\001\n\rgetEx" +
-      "periment\022\025.mlflow.GetExperiment\032\036.mlflow" +
-      ".GetExperiment.Response\"j\362\206\031f\n$\n\003GET\022\027/m" +
-      "lflow/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/pre" +
-      "view/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get" +
-      " Experiment\022\306\001\n\020deleteExperiment\022\030.mlflo" +
-      "w.DeleteExperiment\032!.mlflow.DeleteExperi" +
-      "ment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/exp" +
-      "eriments/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/" +
-      "mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Delet" +
-      "e Experiment\022\314\001\n\021restoreExperiment\022\031.mlf" +
-      "low.RestoreExperiment\032\".mlflow.RestoreEx" +
-      "periment.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow" +
-      "/experiments/restore\032\004\010\002\020\000\n1\n\004POST\022#/pre" +
-      "view/mlflow/experiments/restore\032\004\010\002\020\000\020\001*" +
-      "\022Restore Experiment\022\306\001\n\020updateExperiment" +
-      "\022\030.mlflow.UpdateExperiment\032!.mlflow.Upda" +
-      "teExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/ml" +
-      "flow/experiments/update\032\004\010\002\020\000\n0\n\004POST\022\"/" +
-      "preview/mlflow/experiments/update\032\004\010\002\020\000\020" +
-      "\001*\021Update Experiment\022\234\001\n\tcreateRun\022\021.mlf" +
-      "low.CreateRun\032\032.mlflow.CreateRun.Respons" +
-      "e\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002" +
-      "\020\000\n)\n\004POST\022\033/preview/mlflow/runs/create\032" +
-      "\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlfl" +
-      "ow.UpdateRun\032\032.mlflow.UpdateRun.Response" +
-      "\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020" +
-      "\000\n)\n\004POST\022\033/preview/mlflow/runs/update\032\004" +
-      "\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlflo" +
-      "w.DeleteRun\032\032.mlflow.DeleteRun.Response\"" +
-      "`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000" +
-      "\n)\n\004POST\022\033/preview/mlflow/runs/delete\032\004\010" +
-      "\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlflo" +
-      "w.RestoreRun\032\033.mlflow.RestoreRun.Respons" +
-      "e\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010" +
-      "\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs/restor" +
-      "e\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021.m" +
-      "lflow.LogMetric\032\032.mlflow.LogMetric.Respo" +
-      "nse\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-metr" +
-      "ic\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/l" +
-      "og-metric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logPar" +
-      "am\022\020.mlflow.LogParam\032\031.mlflow.LogParam.R" +
-      "esponse\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-" +
-      "parameter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow" +
-      "/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341" +
-      "\001\n\020setExperimentTag\022\030.mlflow.SetExperime" +
-      "ntTag\032!.mlflow.SetExperimentTag.Response" +
-      "\"\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflow/experiments/se" +
-      "t-experiment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview" +
-      "/mlflow/experiments/set-experiment-tag\032\004" +
-      "\010\002\020\000\020\001*\022Set Experiment Tag\022\222\001\n\006setTag\022\016." +
-      "mlflow.SetTag\032\027.mlflow.SetTag.Response\"_" +
-      "\362\206\031[\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000" +
-      "\n*\n\004POST\022\034/preview/mlflow/runs/set-tag\032\004" +
-      "\010\002\020\000\020\001*\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow.D" +
-      "eleteTag\032\032.mlflow.DeleteTag.Response\"h\362\206" +
-      "\031d\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020" +
-      "\000\n-\n\004POST\022\037/preview/mlflow/runs/delete-t" +
-      "ag\032\004\010\002\020\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlfl" +
-      "ow.GetRun\032\027.mlflow.GetRun.Response\"U\362\206\031Q" +
-      "\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030" +
-      "/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Ru" +
-      "n\022\314\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033.m" +
-      "lflow.SearchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POS" +
-      "T\022\023/mlflow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/p" +
-      "review/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033" +
-      "/preview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Sea" +
-      "rch Runs\022\260\001\n\rlistArtifacts\022\025.mlflow.List" +
-      "Artifacts\032\036.mlflow.ListArtifacts.Respons" +
-      "e\"h\362\206\031d\n#\n\003GET\022\026/mlflow/artifacts/list\032\004" +
-      "\010\002\020\000\n+\n\003GET\022\036/preview/mlflow/artifacts/l" +
-      "ist\032\004\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetri" +
-      "cHistory\022\030.mlflow.GetMetricHistory\032!.mlf" +
-      "low.GetMetricHistory.Response\"v\362\206\031r\n(\n\003G" +
-      "ET\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\n0\n" +
-      "\003GET\022#/preview/mlflow/metrics/get-histor" +
-      "y\032\004\010\002\020\000\020\001*\022Get Metric History\022\236\001\n\010logBat" +
-      "ch\022\020.mlflow.LogBatch\032\031.mlflow.LogBatch.R" +
-      "esponse\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-" +
-      "batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/run" +
-      "s/log-batch\032\004\010\002\020\000\020\001*\tLog Batch\022\236\001\n\010logMo" +
-      "del\022\020.mlflow.LogModel\032\031.mlflow.LogModel." +
-      "Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log" +
-      "-model\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/ru" +
-      "ns/log-model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.m" +
-      "lflow.api.proto\220\001\001\342?\002\020\001"
+      "]\"Z\n\tDeleteRun\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"[\n\nRestoreRun\022\024\n\006run_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\270\001\n\tLogMetric" +
+      "\022\016\n\006run_id\030\006 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003ke" +
+      "y\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\001B\004\370\206\031\001\022\027\n\tti" +
+      "mestamp\030\004 \001(\003B\004\370\206\031\001\022\017\n\004step\030\005 \001(\003:\0010\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\215\001\n\010LogParam\022\016\n\006run_id\030\004 \001" +
+      "(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022" +
+      "\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\220\001" +
+      "\n\020SetExperimentTag\022\033\n\rexperiment_id\030\001 \001(" +
+      "\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(" +
+      "\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]\"\213\001\n\006SetTag\022\016\n\006r" +
+      "un_id\030\004 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001" +
+      "(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Respons" +
+      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"m\n\tDeleteTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031" +
+      "\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"}\n" +
+      "\006GetRun\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(" +
+      "\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"\230\002\n\nSearchRuns\022\026\n\016experiment_ids\030\001 " +
+      "\003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_type\030\003 \001" +
+      "(\0162\020.mlflow.ViewType:\013ACTIVE_ONLY\022\031\n\013max" +
+      "_results\030\005 \001(\005:\0041000\022\020\n\010order_by\030\006 \003(\t\022\022" +
+      "\n\npage_token\030\007 \001(\t\032>\n\010Response\022\031\n\004runs\030\001" +
+      " \003(\0132\013.mlflow.Run\022\027\n\017next_page_token\030\002 \001" +
+      "(\t:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"\330\001\n\rListArtifacts\022\016\n\006run_id\030\003 \001(" +
+      "\t\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\022\022\n\npag" +
+      "e_token\030\004 \001(\t\032V\n\010Response\022\020\n\010root_uri\030\001 " +
+      "\001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo\022\027\n\017" +
+      "next_page_token\030\003 \001(\t:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\250\001\n\020GetMetric" +
+      "History\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(" +
+      "\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022" +
+      "\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\261\001" +
+      "\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 " +
+      "\003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r.ml" +
+      "flow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag" +
+      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"g\n\010LogModel\022\016\n\006run_id\030" +
+      "\001 \001(\t\022\022\n\nmodel_json\030\002 \001(\t\032\n\n\010Response:+\342" +
+      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
+      "e]\"\225\001\n\023GetExperimentByName\022\035\n\017experiment" +
+      "_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Response\022&\n\nexperim" +
+      "ent\030\001 \001(\0132\022.mlflow.Experiment:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]*6\n\010Vi" +
+      "ewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020" +
+      "\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007" +
+      "\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNO" +
+      "WN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHED" +
+      "ULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILL" +
+      "ED\020\0052\341\036\n\rMlflowService\022\246\001\n\023getExperiment" +
+      "ByName\022\033.mlflow.GetExperimentByName\032$.ml" +
+      "flow.GetExperimentByName.Response\"L\362\206\031H\n" +
+      ",\n\003GET\022\037/mlflow/experiments/get-by-name\032" +
+      "\004\010\002\020\000\020\001*\026Get Experiment By Name\022\306\001\n\020crea" +
+      "teExperiment\022\030.mlflow.CreateExperiment\032!" +
+      ".mlflow.CreateExperiment.Response\"u\362\206\031q\n" +
+      "(\n\004POST\022\032/mlflow/experiments/create\032\004\010\002\020" +
+      "\000\n0\n\004POST\022\"/preview/mlflow/experiments/c" +
+      "reate\032\004\010\002\020\000\020\001*\021Create Experiment\022\274\001\n\017lis" +
+      "tExperiments\022\027.mlflow.ListExperiments\032 ." +
+      "mlflow.ListExperiments.Response\"n\362\206\031j\n%\n" +
+      "\003GET\022\030/mlflow/experiments/list\032\004\010\002\020\000\n-\n\003" +
+      "GET\022 /preview/mlflow/experiments/list\032\004\010" +
+      "\002\020\000\020\001*\020List Experiments\022\262\001\n\rgetExperimen" +
+      "t\022\025.mlflow.GetExperiment\032\036.mlflow.GetExp" +
+      "eriment.Response\"j\362\206\031f\n$\n\003GET\022\027/mlflow/e" +
+      "xperiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/ml" +
+      "flow/experiments/get\032\004\010\002\020\000\020\001*\016Get Experi" +
+      "ment\022\306\001\n\020deleteExperiment\022\030.mlflow.Delet" +
+      "eExperiment\032!.mlflow.DeleteExperiment.Re" +
+      "sponse\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiment" +
+      "s/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/" +
+      "experiments/delete\032\004\010\002\020\000\020\001*\021Delete Exper" +
+      "iment\022\314\001\n\021restoreExperiment\022\031.mlflow.Res" +
+      "toreExperiment\032\".mlflow.RestoreExperimen" +
+      "t.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow/experi" +
+      "ments/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/ml" +
+      "flow/experiments/restore\032\004\010\002\020\000\020\001*\022Restor" +
+      "e Experiment\022\306\001\n\020updateExperiment\022\030.mlfl" +
+      "ow.UpdateExperiment\032!.mlflow.UpdateExper" +
+      "iment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/ex" +
+      "periments/update\032\004\010\002\020\000\n0\n\004POST\022\"/preview" +
+      "/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Upda" +
+      "te Experiment\022\234\001\n\tcreateRun\022\021.mlflow.Cre" +
+      "ateRun\032\032.mlflow.CreateRun.Response\"`\362\206\031\\" +
+      "\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n\004P" +
+      "OST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\020\001" +
+      "*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlflow.Upda" +
+      "teRun\032\032.mlflow.UpdateRun.Response\"`\362\206\031\\\n" +
+      "!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004PO" +
+      "ST\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\020\001*" +
+      "\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlflow.Delet" +
+      "eRun\032\032.mlflow.DeleteRun.Response\"`\362\206\031\\\n!" +
+      "\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004POS" +
+      "T\022\033/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001*\n" +
+      "Delete Run\022\242\001\n\nrestoreRun\022\022.mlflow.Resto" +
+      "reRun\032\033.mlflow.RestoreRun.Response\"c\362\206\031_" +
+      "\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*\n\004" +
+      "POST\022\034/preview/mlflow/runs/restore\032\004\010\002\020\000" +
+      "\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021.mlflow.L" +
+      "ogMetric\032\032.mlflow.LogMetric.Response\"h\362\206" +
+      "\031d\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020" +
+      "\000\n-\n\004POST\022\037/preview/mlflow/runs/log-metr" +
+      "ic\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logParam\022\020.ml" +
+      "flow.LogParam\032\031.mlflow.LogParam.Response" +
+      "\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-paramet" +
+      "er\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs/l" +
+      "og-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020setE" +
+      "xperimentTag\022\030.mlflow.SetExperimentTag\032!" +
+      ".mlflow.SetExperimentTag.Response\"\217\001\362\206\031\212" +
+      "\001\n4\n\004POST\022&/mlflow/experiments/set-exper" +
+      "iment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlflow" +
+      "/experiments/set-experiment-tag\032\004\010\002\020\000\020\001*" +
+      "\022Set Experiment Tag\022\222\001\n\006setTag\022\016.mlflow." +
+      "SetTag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n\"\n" +
+      "\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004POS" +
+      "T\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*" +
+      "\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow.DeleteTa" +
+      "g\032\032.mlflow.DeleteTag.Response\"h\362\206\031d\n%\n\004P" +
+      "OST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004PO" +
+      "ST\022\037/preview/mlflow/runs/delete-tag\032\004\010\002\020" +
+      "\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflow.GetR" +
+      "un\032\027.mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003GET" +
+      "\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/previe" +
+      "w/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\ns" +
+      "earchRuns\022\022.mlflow.SearchRuns\032\033.mlflow.S" +
+      "earchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlf" +
+      "low/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/preview/" +
+      "mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/previe" +
+      "w/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Run" +
+      "s\022\260\001\n\rlistArtifacts\022\025.mlflow.ListArtifac" +
+      "ts\032\036.mlflow.ListArtifacts.Response\"h\362\206\031d" +
+      "\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n+\n" +
+      "\003GET\022\036/preview/mlflow/artifacts/list\032\004\010\002" +
+      "\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetricHistor" +
+      "y\022\030.mlflow.GetMetricHistory\032!.mlflow.Get" +
+      "MetricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/ml" +
+      "flow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022#/" +
+      "preview/mlflow/metrics/get-history\032\004\010\002\020\000" +
+      "\020\001*\022Get Metric History\022\236\001\n\010logBatch\022\020.ml" +
+      "flow.LogBatch\032\031.mlflow.LogBatch.Response" +
+      "\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004" +
+      "\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-b" +
+      "atch\032\004\010\002\020\000\020\001*\tLog Batch\022\236\001\n\010logModel\022\020.m" +
+      "lflow.LogModel\032\031.mlflow.LogModel.Respons" +
+      "e\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-model\032" +
+      "\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-" +
+      "model\032\004\010\002\020\000\020\001*\tLog ModelB\036\n\024org.mlflow.a" +
+      "pi.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -48527,6 +47642,7 @@ public final class Service {
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
+          com.databricks.api.proto.mlflow.Common.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
         }, assigner);
     internal_static_mlflow_Metric_descriptor =
@@ -48793,14 +47909,8 @@ public final class Service {
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ListArtifacts_Response_descriptor,
         new java.lang.String[] { "RootUri", "Files", "NextPageToken", });
-    internal_static_mlflow_FileInfo_descriptor =
-      getDescriptor().getMessageTypes().get(26);
-    internal_static_mlflow_FileInfo_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_FileInfo_descriptor,
-        new java.lang.String[] { "Path", "IsDir", "FileSize", });
     internal_static_mlflow_GetMetricHistory_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(26);
     internal_static_mlflow_GetMetricHistory_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetMetricHistory_descriptor,
@@ -48812,7 +47922,7 @@ public final class Service {
         internal_static_mlflow_GetMetricHistory_Response_descriptor,
         new java.lang.String[] { "Metrics", });
     internal_static_mlflow_LogBatch_descriptor =
-      getDescriptor().getMessageTypes().get(28);
+      getDescriptor().getMessageTypes().get(27);
     internal_static_mlflow_LogBatch_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogBatch_descriptor,
@@ -48824,7 +47934,7 @@ public final class Service {
         internal_static_mlflow_LogBatch_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_LogModel_descriptor =
-      getDescriptor().getMessageTypes().get(29);
+      getDescriptor().getMessageTypes().get(28);
     internal_static_mlflow_LogModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_LogModel_descriptor,
@@ -48836,7 +47946,7 @@ public final class Service {
         internal_static_mlflow_LogModel_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetExperimentByName_descriptor =
-      getDescriptor().getMessageTypes().get(30);
+      getDescriptor().getMessageTypes().get(29);
     internal_static_mlflow_GetExperimentByName_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetExperimentByName_descriptor,
@@ -48856,6 +47966,7 @@ public final class Service {
     com.google.protobuf.Descriptors.FileDescriptor
         .internalUpdateFileDescriptor(descriptor, registry);
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();
+    com.databricks.api.proto.mlflow.Common.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
   }
 
