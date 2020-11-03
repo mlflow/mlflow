@@ -1,6 +1,11 @@
 import click
+import sys
+import json
+import pandas as pd
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
+from mlflow.pyfunc.scoring_server import _get_jsonable_obj
+from mlflow.utils.proto_json_utils import NumpyEncoder
 
 
 def _user_args_to_dict(user_list):
@@ -9,14 +14,14 @@ def _user_args_to_dict(user_list):
     for s in user_list:
         try:
             name, value = s.split("=")
-        except ValueError:
+        except ValueError as exc:
             # not enough values to unpack
             raise click.BadOptionUsage(
                 "config",
                 "Config options must be a pair and should be"
                 "provided as ``-C key=value`` or "
                 "``--config key=value``",
-            )
+            ) from exc
         if name in user_dict:
             raise click.ClickException("Repeated parameter: '{}'".format(name))
         user_dict[name] = value
@@ -30,7 +35,7 @@ if len(installed_targets) > 0:
     )
 else:
     supported_targets_msg = (
-        "NOTE: you currently do not have support for installed for any " "deployment targets."
+        "NOTE: you currently do not have support installed for any deployment targets."
     )
 
 target_details = click.option(
@@ -61,6 +66,16 @@ parse_custom_arguments = click.option(
     "deployment, of the form -C name=value. See "
     "documentation/help for your deployment target for a "
     "list of supported config options.",
+)
+
+parse_input = click.option(
+    "--input-path", "-I", required=True, help="Path to input json file for prediction",
+)
+
+parse_output = click.option(
+    "--output-path",
+    "-O",
+    help="File to output results to as a JSON file. If not provided, prints output to stdout.",
 )
 
 
@@ -96,7 +111,6 @@ def commands():
     writing and distributing a plugin, see
     https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins.
     """
-    pass
 
 
 @commands.command("create")
@@ -220,3 +234,27 @@ def run_local(flavor, model_uri, target, name, config):
     """
     config_dict = _user_args_to_dict(config)
     interface.run_local(target, name, model_uri, flavor, config_dict)
+
+
+def predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    json.dump(predictions, output, cls=NumpyEncoder)
+
+
+@commands.command("predict")
+@deployment_name
+@target_details
+@parse_input
+@parse_output
+def predict(target, name, input_path, output_path):
+    """
+    Predict the results for the deployed model for the given input(s)
+    """
+    df = pd.read_json(input_path)
+    client = interface.get_deploy_client(target)
+    result = client.predict(name, df)
+    if output_path:
+        with open(output_path, "w") as fp:
+            predictions_to_json(result, fp)
+    else:
+        predictions_to_json(result, sys.stdout)
