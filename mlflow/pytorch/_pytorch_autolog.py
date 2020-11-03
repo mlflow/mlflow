@@ -8,6 +8,7 @@ import tempfile
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
+from mlflow.utils.annotations import experimental
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -29,7 +30,20 @@ every_n_epoch = 1
 
 
 @rank_zero_only
+@experimental
 def _autolog(log_every_n_epoch=1):
+    """
+    Enable automatic logging from pytorch to MLflow.
+    Logs loss and any other metrics specified in the fit
+    function, and optimizer data as parameters. Model checkpoints
+    are logged as artifacts and pytorch model is stored under `model` directory.
+
+    MLflow will also log the parameters of the
+    `EarlyStoppingCallback <https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html>`
+
+    :param log_every_n_epoch: parameter to log metrics once in `n` epoch. By default, metrics
+                       are logged after every epoch.
+    """
     global every_n_epoch
     every_n_epoch = log_every_n_epoch
 
