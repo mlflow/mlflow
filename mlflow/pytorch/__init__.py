@@ -37,8 +37,8 @@ FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
-_TORCHSERVE_EXTRA_FILES_KEY = "extra_files"
-_TORCHSERVE_REQUIREMENTS_FILE_KEY = "requirements_file"
+_EXTRA_FILES_KEY = "extra_files"
+_REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
 
@@ -390,11 +390,11 @@ def save_model(
                 artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
             )
             rel_path = os.path.basename(requirements_file)
-            torchserve_artifacts_config[_TORCHSERVE_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
+            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
             shutil.move(tmp_requirements_dir.path(rel_path), path)
 
     if extra_files:
-        torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY] = []
+        torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
         if not isinstance(extra_files, list):
             raise TypeError("Extra files argument should be a list")
 
@@ -403,12 +403,10 @@ def save_model(
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
-                rel_path = posixpath.join(
-                    _TORCHSERVE_EXTRA_FILES_KEY, os.path.basename(extra_file),
-                )
-                torchserve_artifacts_config[_TORCHSERVE_EXTRA_FILES_KEY].append({"path": rel_path})
+                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file),)
+                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
             shutil.move(
-                tmp_extra_files_dir.path(), posixpath.join(path, _TORCHSERVE_EXTRA_FILES_KEY),
+                tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
 
     torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
