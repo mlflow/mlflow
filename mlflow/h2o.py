@@ -108,7 +108,10 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # Save h2o-model
-    h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+    if "download_model" in dir(h2o):
+        h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
+    else:
+        h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
