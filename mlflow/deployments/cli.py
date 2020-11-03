@@ -75,7 +75,7 @@ parse_input = click.option(
 parse_output = click.option(
     "--output-path",
     "-O",
-    help="File to output results to as json file. If not" "provided, output to stdout.",
+    help="File to output results to as a JSON file. If not provided, prints output to stdout.",
 )
 
 
