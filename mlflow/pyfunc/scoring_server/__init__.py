@@ -21,7 +21,7 @@ import sys
 import traceback
 from prometheus_flask_exporter.multiprocess import GunicornInternalPrometheusMetrics
 import os
-from flask import Flask, request
+from flask import request
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the version of
@@ -173,8 +173,8 @@ def init(model: PyFuncModel):
     if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
         prometheus_metrics_path = os.getenv(PROMETHEUS_EXPORTER_ENV_VAR)
 
-    if not os.path.exists(prometheus_metrics_path):
-        os.makedirs(prometheus_metrics_path)
+        if not os.path.exists(prometheus_metrics_path):
+            os.makedirs(prometheus_metrics_path)
     metrics = GunicornInternalPrometheusMetrics(app, export_defaults=False)
     _logger.info("start flask prometheus exporter")
 

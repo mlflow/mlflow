@@ -34,8 +34,8 @@ def commands():
 @cli_args.INSTALL_MLFLOW
 @cli_args.EXPOSE_PROMETHEUS
 @cli_args.APP_NAME
-def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False, expose_prometheus=None,
-          app_name="default"):
+def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False,
+          expose_prometheus=None, app_name="default"):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
     The command supports models with the ``python_function`` or ``crate`` (R Function) flavor.
@@ -57,7 +57,8 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False, 
     """
     return _get_flavor_backend(
         model_uri, no_conda=no_conda, workers=workers, install_mlflow=install_mlflow
-    ).serve(model_uri=model_uri, port=port, host=host, expose_prometheus=expose_prometheus, app_name=app_name)
+    ).serve(model_uri=model_uri, port=port, host=host,
+            expose_prometheus=expose_prometheus, app_name=app_name)
 
 
 @commands.command("predict")
