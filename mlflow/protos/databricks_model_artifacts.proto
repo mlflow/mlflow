@@ -1,0 +1,90 @@
+syntax = "proto2";
+
+package mlflow;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+import "common.proto";
+
+option java_package = "com.databricks.api.proto.mlflow";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service DatabricksModelArtifactsService {
+
+  // Fetch the pre-signed url to read from the specified model registry artifact location
+  //
+  // Note: Even if no artifacts exist at the specified artifact location, this API will
+  // still provide read credentials as long as the format of the location is valid.
+  // Callers must subsequently check for the existence of the artifacts using the appropriate
+  // cloud storage APIs
+  rpc getModelVersionSignedDownloadUri (GetModelVersionSignedDownloadUri) returns (GetModelVersionSignedDownloadUri.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/model-versions/get-signed-download-uri"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  // List model artifacts for a model saved in the model registry.
+  rpc listModelArtifacts (ListModelArtifacts) returns (ListModelArtifacts.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/model-versions/list-artifacts"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+}
+
+message GetModelVersionSignedDownloadUri {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
+
+  // The artifact path, relative to the model artifact's root location, for which to
+  // fetch artifact read credentials
+  optional string path = 3 [(validate_required) = true];
+
+  message Response {
+    // A pre-signed url to download a model artifact corresponding to the requested path
+    optional string artifact_uri = 1;
+  }
+}
+
+message ListModelArtifacts {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Model version number
+  optional string version = 2 [(validate_required) = true];
+
+  // Filter artifacts matching this path (a relative path from the model's root artifact directory).
+  optional string path = 3;
+
+  // Token indicating the page of artifact results to fetch
+  optional string page_token = 4;
+
+  message Response {
+    // File location and metadata for model artifacts.
+    repeated FileInfo files = 1;
+
+    // Token that can be used to retrieve the next page of artifact results
+    optional string next_page_token = 2;
+  }
+}
