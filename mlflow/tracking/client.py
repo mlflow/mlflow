@@ -18,7 +18,6 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
@@ -1217,7 +1216,6 @@ class MlflowClient(object):
 
     # Registered Model Methods
 
-    @experimental
     def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
@@ -1258,7 +1256,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().create_registered_model(name, tags, description)
 
-    @experimental
     def rename_registered_model(self, name, new_name):
         """
         Update registered model name.
@@ -1308,7 +1305,6 @@ class MlflowClient(object):
         """
         self._get_registry_client().rename_registered_model(name, new_name)
 
-    @experimental
     def update_registered_model(self, name, description=None):
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -1359,7 +1355,6 @@ class MlflowClient(object):
             name=name, description=description
         )
 
-    @experimental
     def delete_registered_model(self, name):
         """
         Delete registered model.
@@ -1412,7 +1407,6 @@ class MlflowClient(object):
         """
         self._get_registry_client().delete_registered_model(name)
 
-    @experimental
     def list_registered_models(
         self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
     ):
@@ -1464,7 +1458,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().list_registered_models(max_results, page_token)
 
-    @experimental
     def search_registered_models(
         self,
         filter_string=None,
@@ -1544,7 +1537,6 @@ class MlflowClient(object):
             filter_string, max_results, order_by, page_token
         )
 
-    @experimental
     def get_registered_model(self, name):
         """
         :param name: Name of the registered model to update.
@@ -1583,7 +1575,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_registered_model(name)
 
-    @experimental
     def get_latest_versions(self, name, stages=None):
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
@@ -1651,7 +1642,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_latest_versions(name, stages)
 
-    @experimental
     def set_registered_model_tag(self, name, key, value):
         """
         Set a tag for the registered model.
@@ -1699,7 +1689,6 @@ class MlflowClient(object):
         """
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
-    @experimental
     def delete_registered_model_tag(self, name, key):
         """
         Delete a tag associated with the registered model.
@@ -1752,7 +1741,6 @@ class MlflowClient(object):
 
     # Model Version Methods
 
-    @experimental
     def create_model_version(
         self,
         name,
@@ -1877,7 +1865,6 @@ class MlflowClient(object):
         if workspace_host and run_id and experiment_id:
             return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
-    @experimental
     def update_model_version(self, name, version, description=None):
         """
         Update metadata associated with a model version in backend.
@@ -1943,7 +1930,6 @@ class MlflowClient(object):
             name=name, version=version, description=description
         )
 
-    @experimental
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
         Update model version stage.
@@ -2012,7 +1998,6 @@ class MlflowClient(object):
             name, version, stage, archive_existing_versions
         )
 
-    @experimental
     def delete_model_version(self, name, version):
         """
         Delete model version in backend.
@@ -2092,7 +2077,6 @@ class MlflowClient(object):
         """
         self._get_registry_client().delete_model_version(name, version)
 
-    @experimental
     def get_model_version(self, name, version):
         """
         :param name: Name of the containing registered model.
@@ -2146,7 +2130,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version(name, version)
 
-    @experimental
     def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
@@ -2189,7 +2172,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
-    @experimental
     def search_model_versions(self, filter_string):
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -2234,7 +2216,6 @@ class MlflowClient(object):
         """
         return self._get_registry_client().search_model_versions(filter_string)
 
-    @experimental
     def get_model_version_stages(self, name, version):  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
@@ -2274,7 +2255,6 @@ class MlflowClient(object):
         """
         return ALL_STAGES
 
-    @experimental
     def set_model_version_tag(self, name, version, key, value):
         """
         Set a tag for the model version.
@@ -2334,7 +2314,6 @@ class MlflowClient(object):
         """
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    @experimental
     def delete_model_version_tag(self, name, version, key):
         """
         Delete a tag associated with the model version.

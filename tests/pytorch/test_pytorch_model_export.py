@@ -84,9 +84,11 @@ def train_model(model, data):
             optimizer.step()
 
 
-@pytest.fixture(scope="module")
-def sequential_model(data):
+@pytest.fixture
+def sequential_model(data, scripted_model):
     model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    if scripted_model:
+        model = torch.jit.script(model)
 
     train_model(model=model, data=data)
     return model
@@ -176,12 +178,13 @@ def _predict(model, data):
     return predictions
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def sequential_predicted(sequential_model, data):
     return _predict(sequential_model, data)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_signature_and_examples_are_saved_correctly(sequential_model, data):
     model = sequential_model
     signature_ = infer_signature(*data)
@@ -202,6 +205,7 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model(sequential_model, data, sequential_predicted):
     old_uri = tracking.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -263,6 +267,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
@@ -290,6 +295,7 @@ def test_raise_exception(sequential_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
     mlflow.pytorch.save_model(sequential_model, model_path)
 
@@ -305,6 +311,7 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_from_remote_uri_succeeds(
     sequential_model, model_path, mock_s3_bucket, data, sequential_predicted
 ):
@@ -321,6 +328,7 @@ def test_load_model_from_remote_uri_succeeds(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, model_path, pytorch_custom_env
 ):
@@ -341,6 +349,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -356,6 +365,7 @@ def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, pytorch_custom_env
 ):
@@ -385,6 +395,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model, model_path
 ):
@@ -399,6 +410,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model,
 ):
@@ -422,6 +434,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
     saver_pytorch_version = "1.0"
@@ -437,9 +450,8 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
 
     loader_pytorch_version = "0.8.2"
     with mock.patch("mlflow.pytorch._logger.warning") as warn_mock, mock.patch(
-        "torch.__version__"
-    ) as torch_version_mock:
-        torch_version_mock.__str__ = lambda *args, **kwargs: loader_pytorch_version
+        "torch.__version__", loader_pytorch_version
+    ):
         warn_mock.side_effect = custom_warn
         mlflow.pytorch.load_model(model_uri=model_path)
 
@@ -826,6 +838,7 @@ def create_requirements_file(tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_requirements_file_log_model(create_requirements_file, sequential_model):
     requirements_file, content_expected = create_requirements_file
     with mlflow.start_run():
@@ -857,6 +870,7 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_requirements_file_save_model(create_requirements_file, sequential_model):
     requirements_file, content_expected = create_requirements_file
     with TempDir(remove_on_exit=True) as tmp:
@@ -878,6 +892,7 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
             assert fp.read() == content_expected
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_path(sequential_model):
     with mlflow.start_run(), pytest.raises(FileNotFoundError):
         mlflow.pytorch.log_model(
@@ -888,6 +903,7 @@ def test_log_model_invalid_requirement_file_path(sequential_model):
         )
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_requirement_file_type(sequential_model):
     with mlflow.start_run(), pytest.raises(
         TypeError, match="Path to requirements file should be a string"
@@ -910,6 +926,7 @@ def create_extra_files(tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
@@ -940,6 +957,7 @@ def test_extra_files_log_model(create_extra_files, sequential_model):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_extra_files_save_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
     with TempDir(remove_on_exit=True) as tmp:
@@ -961,6 +979,7 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
                 assert fp.read() == content_expected
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_path(sequential_model):
     with mlflow.start_run(), pytest.raises(FileNotFoundError):
         mlflow.pytorch.log_model(
@@ -971,6 +990,7 @@ def test_log_model_invalid_extra_file_path(sequential_model):
         )
 
 
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_model_invalid_extra_file_type(sequential_model):
     with mlflow.start_run(), pytest.raises(
         TypeError, match="Extra files argument should be a list"

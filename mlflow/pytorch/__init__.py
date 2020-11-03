@@ -15,6 +15,7 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
+from distutils.version import LooseVersion
 import posixpath
 
 import mlflow
@@ -83,8 +84,14 @@ def log_model(
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -210,6 +217,10 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.log_model(model, "models")
+
+            # logging scripted module
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.log_model(scripted_pytorch_model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
@@ -245,8 +256,14 @@ def save_model(
     """
     Save a PyTorch model to a path on the local file system.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -340,6 +357,10 @@ def save_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
+
+            # Saving scripted model
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.save_model(scripted_pytorch_model, pytorch_model_path)
     """
     import torch
 
@@ -378,6 +399,10 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    if isinstance(pytorch_model, torch.jit.ScriptModule):
+        torch.jit.ScriptModule.save(pytorch_model, model_path)
+    else:
+        torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     torchserve_artifacts_config = {}
 
@@ -408,8 +433,6 @@ def save_model(
             shutil.move(
                 tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
-
-    torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -482,7 +505,15 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    return torch.load(model_path, **kwargs)
+    if LooseVersion(torch.__version__) >= LooseVersion("1.5.0"):
+        return torch.load(model_path, **kwargs)
+    else:
+        try:
+            # load the model as an eager model.
+            return torch.load(model_path, **kwargs)
+        except Exception:  # pylint: disable=broad-except
+            # If fails, assume the model as a scripted model
+            return torch.jit.load(model_path)
 
 
 def load_model(model_uri, **kwargs):
