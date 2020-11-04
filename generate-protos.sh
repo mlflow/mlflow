@@ -11,7 +11,6 @@ PROTOS="mlflow/protos"
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
     --java_out="mlflow/java/client/src/main/java" \
-    "$PROTOS"/common.proto \
     "$PROTOS"/databricks.proto \
     "$PROTOS"/service.proto \
     "$PROTOS"/model_registry.proto \
@@ -21,19 +20,18 @@ protoc -I="$PROTOS" \
 
 OLD_SCALAPB="from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"
 NEW_SCALAPB="from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2"
-sed -i'.old' -e "s/$OLD_SCALAPB/$NEW_SCALAPB/g" "$PROTOS/databricks_pb2.py" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/databricks_model_artifacts_pb2.py" "$PROTOS/common_pb2.py"
+sed -i'.old' -e "s/$OLD_SCALAPB/$NEW_SCALAPB/g" "$PROTOS/databricks_pb2.py" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/databricks_model_artifacts_pb2.py"
 
 OLD_DATABRICKS="import databricks_pb2 as databricks__pb2"
 NEW_DATABRICKS="from . import databricks_pb2 as databricks__pb2"
-sed -i'.old' -e "s/$OLD_DATABRICKS/$NEW_DATABRICKS/g" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/databricks_model_artifacts_pb2.py" "$PROTOS/common_pb2.py"
+sed -i'.old' -e "s/$OLD_DATABRICKS/$NEW_DATABRICKS/g" "$PROTOS/service_pb2.py" "$PROTOS/model_registry_pb2.py" "$PROTOS/databricks_artifacts_pb2.py" "$PROTOS/databricks_model_artifacts_pb2.py"
 
-OLD_COMMON="import common_pb2 as common__pb2"
-NEW_COMMON="from . import common_pb2 as common__pb2"
-sed -i'.old' -e "s/$OLD_COMMON/$NEW_COMMON/g" "$PROTOS/service_pb2.py" "$PROTOS/databricks_model_artifacts_pb2.py"
+OLD_SERVICE="import service_pb2 as service__pb2"
+NEW_SERVICE="from . import service_pb2 as service__pb2"
+sed -i'.old' -e "s/$OLD_SERVICE/$NEW_SERVICE/g" "$PROTOS/databricks_model_artifacts_pb2.py"
 
 rm "$PROTOS/databricks_pb2.py.old"
 rm "$PROTOS/service_pb2.py.old"
 rm "$PROTOS/model_registry_pb2.py.old"
 rm "$PROTOS/databricks_artifacts_pb2.py.old"
-rm "$PROTOS/common_pb2.py.old"
 rm "$PROTOS/databricks_model_artifacts_pb2.py.old"

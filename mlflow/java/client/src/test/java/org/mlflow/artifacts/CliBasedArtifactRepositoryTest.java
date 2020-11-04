@@ -18,7 +18,7 @@ import org.testng.annotations.AfterSuite;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
-import org.mlflow.api.proto.Common.FileInfo;
+import org.mlflow.api.proto.Service.FileInfo;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mlflow.tracking.MlflowClient;
 import org.mlflow.tracking.TestClientProvider;

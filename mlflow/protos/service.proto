@@ -3,7 +3,6 @@ syntax = "proto2";
 package mlflow;
 
 import "scalapb/scalapb.proto";
-import "common.proto";
 import "databricks.proto";
 
 option java_package = "org.mlflow.api.proto";
@@ -986,6 +985,18 @@ message ListArtifacts {
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
   }
+}
+
+// Metadata of a single artifact file or directory.
+message FileInfo {
+  // Path relative to the root artifact directory run.
+  optional string path = 1;
+
+  // Whether the path is a directory.
+  optional bool is_dir = 2;
+
+  // Size in bytes. Unset for directories.
+  optional int64 file_size = 3;
 }
 
 message GetMetricHistory {

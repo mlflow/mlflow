@@ -1932,7 +1932,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      java.util.List<org.mlflow.api.proto.Common.FileInfo> 
+      java.util.List<org.mlflow.api.proto.Service.FileInfo> 
           getFilesList();
       /**
        * <pre>
@@ -1941,7 +1941,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      org.mlflow.api.proto.Common.FileInfo getFiles(int index);
+      org.mlflow.api.proto.Service.FileInfo getFiles(int index);
       /**
        * <pre>
        * File location and metadata for model artifacts.
@@ -1957,7 +1957,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      java.util.List<? extends org.mlflow.api.proto.Common.FileInfoOrBuilder> 
+      java.util.List<? extends org.mlflow.api.proto.Service.FileInfoOrBuilder> 
           getFilesOrBuilderList();
       /**
        * <pre>
@@ -1966,7 +1966,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      org.mlflow.api.proto.Common.FileInfoOrBuilder getFilesOrBuilder(
+      org.mlflow.api.proto.Service.FileInfoOrBuilder getFilesOrBuilder(
           int index);
 
       /**
@@ -2038,11 +2038,11 @@ public final class DatabricksModelArtifacts {
                 break;
               case 10: {
                 if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
-                  files_ = new java.util.ArrayList<org.mlflow.api.proto.Common.FileInfo>();
+                  files_ = new java.util.ArrayList<org.mlflow.api.proto.Service.FileInfo>();
                   mutable_bitField0_ |= 0x00000001;
                 }
                 files_.add(
-                    input.readMessage(org.mlflow.api.proto.Common.FileInfo.PARSER, extensionRegistry));
+                    input.readMessage(org.mlflow.api.proto.Service.FileInfo.PARSER, extensionRegistry));
                 break;
               }
               case 18: {
@@ -2088,7 +2088,7 @@ public final class DatabricksModelArtifacts {
 
       private int bitField0_;
       public static final int FILES_FIELD_NUMBER = 1;
-      private java.util.List<org.mlflow.api.proto.Common.FileInfo> files_;
+      private java.util.List<org.mlflow.api.proto.Service.FileInfo> files_;
       /**
        * <pre>
        * File location and metadata for model artifacts.
@@ -2096,7 +2096,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      public java.util.List<org.mlflow.api.proto.Common.FileInfo> getFilesList() {
+      public java.util.List<org.mlflow.api.proto.Service.FileInfo> getFilesList() {
         return files_;
       }
       /**
@@ -2106,7 +2106,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      public java.util.List<? extends org.mlflow.api.proto.Common.FileInfoOrBuilder> 
+      public java.util.List<? extends org.mlflow.api.proto.Service.FileInfoOrBuilder> 
           getFilesOrBuilderList() {
         return files_;
       }
@@ -2127,7 +2127,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      public org.mlflow.api.proto.Common.FileInfo getFiles(int index) {
+      public org.mlflow.api.proto.Service.FileInfo getFiles(int index) {
         return files_.get(index);
       }
       /**
@@ -2137,7 +2137,7 @@ public final class DatabricksModelArtifacts {
        *
        * <code>repeated .mlflow.FileInfo files = 1;</code>
        */
-      public org.mlflow.api.proto.Common.FileInfoOrBuilder getFilesOrBuilder(
+      public org.mlflow.api.proto.Service.FileInfoOrBuilder getFilesOrBuilder(
           int index) {
         return files_.get(index);
       }
@@ -2567,17 +2567,17 @@ public final class DatabricksModelArtifacts {
         }
         private int bitField0_;
 
-        private java.util.List<org.mlflow.api.proto.Common.FileInfo> files_ =
+        private java.util.List<org.mlflow.api.proto.Service.FileInfo> files_ =
           java.util.Collections.emptyList();
         private void ensureFilesIsMutable() {
           if (!((bitField0_ & 0x00000001) == 0x00000001)) {
-            files_ = new java.util.ArrayList<org.mlflow.api.proto.Common.FileInfo>(files_);
+            files_ = new java.util.ArrayList<org.mlflow.api.proto.Service.FileInfo>(files_);
             bitField0_ |= 0x00000001;
            }
         }
 
         private com.google.protobuf.RepeatedFieldBuilderV3<
-            org.mlflow.api.proto.Common.FileInfo, org.mlflow.api.proto.Common.FileInfo.Builder, org.mlflow.api.proto.Common.FileInfoOrBuilder> filesBuilder_;
+            org.mlflow.api.proto.Service.FileInfo, org.mlflow.api.proto.Service.FileInfo.Builder, org.mlflow.api.proto.Service.FileInfoOrBuilder> filesBuilder_;
 
         /**
          * <pre>
@@ -2586,7 +2586,7 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public java.util.List<org.mlflow.api.proto.Common.FileInfo> getFilesList() {
+        public java.util.List<org.mlflow.api.proto.Service.FileInfo> getFilesList() {
           if (filesBuilder_ == null) {
             return java.util.Collections.unmodifiableList(files_);
           } else {
@@ -2614,7 +2614,7 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public org.mlflow.api.proto.Common.FileInfo getFiles(int index) {
+        public org.mlflow.api.proto.Service.FileInfo getFiles(int index) {
           if (filesBuilder_ == null) {
             return files_.get(index);
           } else {
@@ -2629,7 +2629,7 @@ public final class DatabricksModelArtifacts {
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
         public Builder setFiles(
-            int index, org.mlflow.api.proto.Common.FileInfo value) {
+            int index, org.mlflow.api.proto.Service.FileInfo value) {
           if (filesBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -2650,7 +2650,7 @@ public final class DatabricksModelArtifacts {
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
         public Builder setFiles(
-            int index, org.mlflow.api.proto.Common.FileInfo.Builder builderForValue) {
+            int index, org.mlflow.api.proto.Service.FileInfo.Builder builderForValue) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             files_.set(index, builderForValue.build());
@@ -2667,7 +2667,7 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public Builder addFiles(org.mlflow.api.proto.Common.FileInfo value) {
+        public Builder addFiles(org.mlflow.api.proto.Service.FileInfo value) {
           if (filesBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -2688,7 +2688,7 @@ public final class DatabricksModelArtifacts {
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
         public Builder addFiles(
-            int index, org.mlflow.api.proto.Common.FileInfo value) {
+            int index, org.mlflow.api.proto.Service.FileInfo value) {
           if (filesBuilder_ == null) {
             if (value == null) {
               throw new NullPointerException();
@@ -2709,7 +2709,7 @@ public final class DatabricksModelArtifacts {
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
         public Builder addFiles(
-            org.mlflow.api.proto.Common.FileInfo.Builder builderForValue) {
+            org.mlflow.api.proto.Service.FileInfo.Builder builderForValue) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             files_.add(builderForValue.build());
@@ -2727,7 +2727,7 @@ public final class DatabricksModelArtifacts {
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
         public Builder addFiles(
-            int index, org.mlflow.api.proto.Common.FileInfo.Builder builderForValue) {
+            int index, org.mlflow.api.proto.Service.FileInfo.Builder builderForValue) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             files_.add(index, builderForValue.build());
@@ -2745,7 +2745,7 @@ public final class DatabricksModelArtifacts {
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
         public Builder addAllFiles(
-            java.lang.Iterable<? extends org.mlflow.api.proto.Common.FileInfo> values) {
+            java.lang.Iterable<? extends org.mlflow.api.proto.Service.FileInfo> values) {
           if (filesBuilder_ == null) {
             ensureFilesIsMutable();
             com.google.protobuf.AbstractMessageLite.Builder.addAll(
@@ -2797,7 +2797,7 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public org.mlflow.api.proto.Common.FileInfo.Builder getFilesBuilder(
+        public org.mlflow.api.proto.Service.FileInfo.Builder getFilesBuilder(
             int index) {
           return getFilesFieldBuilder().getBuilder(index);
         }
@@ -2808,7 +2808,7 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public org.mlflow.api.proto.Common.FileInfoOrBuilder getFilesOrBuilder(
+        public org.mlflow.api.proto.Service.FileInfoOrBuilder getFilesOrBuilder(
             int index) {
           if (filesBuilder_ == null) {
             return files_.get(index);  } else {
@@ -2822,7 +2822,7 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public java.util.List<? extends org.mlflow.api.proto.Common.FileInfoOrBuilder> 
+        public java.util.List<? extends org.mlflow.api.proto.Service.FileInfoOrBuilder> 
              getFilesOrBuilderList() {
           if (filesBuilder_ != null) {
             return filesBuilder_.getMessageOrBuilderList();
@@ -2837,9 +2837,9 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public org.mlflow.api.proto.Common.FileInfo.Builder addFilesBuilder() {
+        public org.mlflow.api.proto.Service.FileInfo.Builder addFilesBuilder() {
           return getFilesFieldBuilder().addBuilder(
-              org.mlflow.api.proto.Common.FileInfo.getDefaultInstance());
+              org.mlflow.api.proto.Service.FileInfo.getDefaultInstance());
         }
         /**
          * <pre>
@@ -2848,10 +2848,10 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public org.mlflow.api.proto.Common.FileInfo.Builder addFilesBuilder(
+        public org.mlflow.api.proto.Service.FileInfo.Builder addFilesBuilder(
             int index) {
           return getFilesFieldBuilder().addBuilder(
-              index, org.mlflow.api.proto.Common.FileInfo.getDefaultInstance());
+              index, org.mlflow.api.proto.Service.FileInfo.getDefaultInstance());
         }
         /**
          * <pre>
@@ -2860,16 +2860,16 @@ public final class DatabricksModelArtifacts {
          *
          * <code>repeated .mlflow.FileInfo files = 1;</code>
          */
-        public java.util.List<org.mlflow.api.proto.Common.FileInfo.Builder> 
+        public java.util.List<org.mlflow.api.proto.Service.FileInfo.Builder> 
              getFilesBuilderList() {
           return getFilesFieldBuilder().getBuilderList();
         }
         private com.google.protobuf.RepeatedFieldBuilderV3<
-            org.mlflow.api.proto.Common.FileInfo, org.mlflow.api.proto.Common.FileInfo.Builder, org.mlflow.api.proto.Common.FileInfoOrBuilder> 
+            org.mlflow.api.proto.Service.FileInfo, org.mlflow.api.proto.Service.FileInfo.Builder, org.mlflow.api.proto.Service.FileInfoOrBuilder> 
             getFilesFieldBuilder() {
           if (filesBuilder_ == null) {
             filesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-                org.mlflow.api.proto.Common.FileInfo, org.mlflow.api.proto.Common.FileInfo.Builder, org.mlflow.api.proto.Common.FileInfoOrBuilder>(
+                org.mlflow.api.proto.Service.FileInfo, org.mlflow.api.proto.Service.FileInfo.Builder, org.mlflow.api.proto.Service.FileInfoOrBuilder>(
                     files_,
                     ((bitField0_ & 0x00000001) == 0x00000001),
                     getParentForChildren(),
@@ -4125,27 +4125,28 @@ public final class DatabricksModelArtifacts {
     java.lang.String[] descriptorData = {
       "\n databricks_model_artifacts.proto\022\006mlfl" +
       "ow\032\025scalapb/scalapb.proto\032\020databricks.pr" +
-      "oto\032\014common.proto\"\260\001\n GetModelVersionSig" +
-      "nedDownloadUri\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007ve" +
-      "rsion\030\002 \001(\tB\004\370\206\031\001\022\022\n\004path\030\003 \001(\tB\004\370\206\031\001\032 \n" +
-      "\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\324\001\n" +
-      "\022ListModelArtifacts\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022" +
-      "\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\014\n\004path\030\003 \001(\t\022\022\n\n" +
-      "page_token\030\004 \001(\t\032D\n\010Response\022\037\n\005files\030\001 " +
-      "\003(\0132\020.mlflow.FileInfo\022\027\n\017next_page_token" +
-      "\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]2\374\002\n\037DatabricksModelArtifacts" +
-      "Service\022\304\001\n getModelVersionSignedDownloa" +
-      "dUri\022(.mlflow.GetModelVersionSignedDownl" +
-      "oadUri\0321.mlflow.GetModelVersionSignedDow" +
-      "nloadUri.Response\"C\362\206\031?\n;\n\003GET\022./mlflow/" +
-      "model-versions/get-signed-download-uri\032\004" +
-      "\010\002\020\000\020\003\022\221\001\n\022listModelArtifacts\022\032.mlflow.L" +
-      "istModelArtifacts\032#.mlflow.ListModelArti" +
-      "facts.Response\":\362\206\0316\n2\n\003GET\022%/mlflow/mod" +
-      "el-versions/list-artifacts\032\004\010\002\020\000\020\003B,\n\037co" +
-      "m.databricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "oto\032\rservice.proto\"\260\001\n GetModelVersionSi" +
+      "gnedDownloadUri\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007v" +
+      "ersion\030\002 \001(\tB\004\370\206\031\001\022\022\n\004path\030\003 \001(\tB\004\370\206\031\001\032 " +
+      "\n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\324\001" +
+      "\n\022ListModelArtifacts\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001" +
+      "\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\014\n\004path\030\003 \001(\t\022\022\n" +
+      "\npage_token\030\004 \001(\t\032D\n\010Response\022\037\n\005files\030\001" +
+      " \003(\0132\020.mlflow.FileInfo\022\027\n\017next_page_toke" +
+      "n\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]2\374\002\n\037DatabricksModelArtifact" +
+      "sService\022\304\001\n getModelVersionSignedDownlo" +
+      "adUri\022(.mlflow.GetModelVersionSignedDown" +
+      "loadUri\0321.mlflow.GetModelVersionSignedDo" +
+      "wnloadUri.Response\"C\362\206\031?\n;\n\003GET\022./mlflow" +
+      "/model-versions/get-signed-download-uri\032" +
+      "\004\010\002\020\000\020\003\022\221\001\n\022listModelArtifacts\022\032.mlflow." +
+      "ListModelArtifacts\032#.mlflow.ListModelArt" +
+      "ifacts.Response\":\362\206\0316\n2\n\003GET\022%/mlflow/mo" +
+      "del-versions/list-artifacts\032\004\010\002\020\000\020\003B,\n\037c" +
+      "om.databricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020" +
+      "\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4160,7 +4161,7 @@ public final class DatabricksModelArtifacts {
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
           com.databricks.api.proto.databricks.Databricks.getDescriptor(),
-          org.mlflow.api.proto.Common.getDescriptor(),
+          org.mlflow.api.proto.Service.getDescriptor(),
         }, assigner);
     internal_static_mlflow_GetModelVersionSignedDownloadUri_descriptor =
       getDescriptor().getMessageTypes().get(0);
@@ -4196,7 +4197,7 @@ public final class DatabricksModelArtifacts {
         .internalUpdateFileDescriptor(descriptor, registry);
     org.mlflow.scalapb_interface.Scalapb.getDescriptor();
     com.databricks.api.proto.databricks.Databricks.getDescriptor();
-    org.mlflow.api.proto.Common.getDescriptor();
+    org.mlflow.api.proto.Service.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

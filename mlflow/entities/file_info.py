@@ -1,5 +1,5 @@
 from mlflow.entities._mlflow_object import _MLflowObject
-from mlflow.protos.common_pb2 import FileInfo as ProtoFileInfo
+from mlflow.protos.service_pb2 import FileInfo as ProtoFileInfo
 
 
 class FileInfo(_MLflowObject):

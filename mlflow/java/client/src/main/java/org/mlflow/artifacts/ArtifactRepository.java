@@ -3,7 +3,7 @@ package org.mlflow.artifacts;
 import java.io.File;
 import java.util.List;
 
-import org.mlflow.api.proto.Common.FileInfo;
+import org.mlflow.api.proto.Service.FileInfo;
 
 /**
  * Allows logging, listing, and downloading artifacts against a remote Artifact Repository.
