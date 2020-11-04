@@ -221,11 +221,12 @@ def _load_model(path, init=False):
 
     model_path = os.path.join(path, params["model_file"])
     if "upload_model" in dir(h2o):
-       model = h2o.upload_model(model_path)
+        model = h2o.upload_model(model_path)
     else:
-       model = h2o.load_model(model_path)
+        model = h2o.load_model(model_path)
 
     return model
+
 
 class _H2OModelWrapper:
     def __init__(self, h2o_model):
