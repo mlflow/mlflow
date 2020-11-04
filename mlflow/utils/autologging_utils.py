@@ -237,8 +237,9 @@ class BatchMetricsLogger:
 
     def record_metrics(self, metrics, step):
         """
-        Submit a set of metrics to be logged. The metrics may not be immediately logged, as this class
-        will batch them in order to not increase execution time too much by logging frequently.
+        Submit a set of metrics to be logged. The metrics may not be immediately logged, as this
+        class will batch them in order to not increase execution time too much by logging
+        frequently.
 
         :param metrics: dictionary containing key, value pairs of metrics to be logged.
         :param step: the training step that the metrics correspond to.
