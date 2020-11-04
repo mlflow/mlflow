@@ -322,4 +322,4 @@ against custom databases.
 - `mlflow-elasticsearchstore <https://github.com/criteo/mlflow-elasticsearchstore>`_ Running MLflow Tracking Store with Elasticsearch
 
 This plugin is experimental please refer to <https://github.com/criteo/mlflow-elasticsearchstore/issues> to have the list of limitations.
-Library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>low
+Library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>
