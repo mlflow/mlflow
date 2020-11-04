@@ -1,22 +1,11 @@
 ## Bert news classification example with MLFlow
-
-In this example, we have used a pretrained Bert model to classify the news reports into any one of the 4 different categories("world", "Sports", "Business", "Sci/Tech").
-The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics.
-The code is trained using pytorch lightning loop and the autolog function call in the main - `mlflow.pytorch.autolog()`
-is responsible for logging the params, metrics, model summary and the model.
+In this example, we train a Pytorch Lightning model adapted from [github](https://github.com/ricardorei/lightning-text-classification/blob/master/classifier.py) to classify news into 4 different categories namely "world", "Sports", "Business" and "Sci/Tech". The code is almost entirely dedicated to model training in a ``DDP (Distributed Data Parallel)`` environment, with the addition of a single ``mlflow.pytorch.autolog()`` call to enable automatic logging of params, metrics, models and its summary from training.
  
 
 ### Code related to MLflow:
 * [`mlflow.pytorch.autolog`]
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
-
-## Setting tracking URI
-MLflow tracking URI can be set using the environment variable MLFLOW_TRACKING_URI
-
-Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
-
-For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/BertNewsClassification` directory and run the command
@@ -71,5 +60,7 @@ mlflow ui
 
 and navigating to [http://localhost:5000](http://localhost:5000).
 
-For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
+For more details on MLflow tracking, see [the docs](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking).
 
+## Logging to a custom tracking server
+To configure MLflow to log to a custom (non-default) tracking location, set the ``MLFLOW_TRACKING_URI`` environment variable, e.g. via  ``export MLFLOW_TRACKING_URI=http://localhost:5000/``.  For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).
