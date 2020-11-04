@@ -434,7 +434,7 @@ Pytorch (experimental)
 
 Call :py:func:`mlflow.pytorch.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Pytorch <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`_.
 
-In the current implementation, PyTorch autolog works with the `Lightning training loop <https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pytorch_lightning/trainer/training_loop.py>`_. The respective metrics associated with ``EarlyStopping Callabacks`` and ``pytorch_lightning.trainer`` are automatically logged.
+In the current implementation, PyTorch autolog works with the `Lightning training loop <https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pytorch_lightning/trainer/training_loop.py>`_. The respective metrics associated with ``EarlyStopping Callabacks`` and ``pytorch_lightning.trainer`` are automatically logged. It must be noted that in case of a multi-optimizer scenario (such as usage of autoencoder) by default only the parameters for the first optimizer would be logged.
 As an example, try running the `MLflow Pytorch examples <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`_.
 
 Autologging captures the following information:
