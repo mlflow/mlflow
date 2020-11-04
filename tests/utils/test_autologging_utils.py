@@ -1,4 +1,5 @@
 import inspect
+import time
 import pytest
 from unittest.mock import Mock, call
 from unittest import mock
@@ -300,7 +301,6 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
             log_batch_mock.assert_called_once()
 
             batch_metrics_logger.total_log_batch_time = 1
-            batch_metrics_logger.num_log_batch = 1
             batch_metrics_logger.total_training_time = 1
 
             log_batch_mock.reset_mock()  # resets the 'calls' of this mock
@@ -308,12 +308,10 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
             # the above 'training' took 1 second. So with fudge factor of 10x,
             #   9 more 'training' should happen before the metrics are sent and
             #   then the 10th should send them.
-            for i in range(9):
+            for i in range(2, 11):
                 batch_metrics_logger.record_metrics({"x": 1}, step=0)
                 log_batch_mock.assert_not_called()
-                batch_metrics_logger.total_log_batch_time = i + 2
-                batch_metrics_logger.num_log_batch = i + 2
-                batch_metrics_logger.total_training_time = i + 2
+                batch_metrics_logger.total_training_time = i
 
             # at this point, average log batch time is 1, and total training time is 10
             # thus the next record_metrics call should send the batch.
@@ -339,3 +337,18 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
                     assert metric.key == hex(call_idx * 1000 + metric_idx)
                     assert metric.value == call_idx * 1000 + metric_idx
                     assert metric.step == 0
+
+
+def test_batch_metrics_logger_records_time_correctly(start_run,):  # pylint: disable=unused-argument
+    with mock.patch.object(MlflowClient, "log_batch", wraps=lambda *args, **kwargs: time.sleep(1)):
+        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
+            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+
+            assert batch_metrics_logger.total_log_batch_time >= 1
+
+            time.sleep(2)
+
+            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+
+            assert batch_metrics_logger.total_training_time >= 2

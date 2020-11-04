@@ -202,7 +202,6 @@ class BatchMetricsLogger:
         self.data = []
         self.total_training_time = 0
         self.total_log_batch_time = 0
-        self.num_log_batch = 0
         self.previous_training_timestamp = None
 
     def _purge(self):
@@ -219,18 +218,13 @@ class BatchMetricsLogger:
             MlflowClient().log_batch(run_id=self.run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
-        self.num_log_batch += 1
 
     def _should_purge(self):
-        if self.num_log_batch == 0:
+        if self.total_log_batch_time == 0:
             return True
 
-        # we give some extra time in case of network slowdown
         log_batch_time_fudge_factor = 10
-        if (
-            self.total_training_time
-            >= self.total_log_batch_time / self.num_log_batch * log_batch_time_fudge_factor
-        ):
+        if self.total_training_time >= self.total_log_batch_time * log_batch_time_fudge_factor:
             return True
 
         return False
@@ -257,7 +251,6 @@ class BatchMetricsLogger:
 
         if self._should_purge():
             self._purge()
-            self.total_training_time = 0
 
         self.previous_training_timestamp = current_timestamp
 
