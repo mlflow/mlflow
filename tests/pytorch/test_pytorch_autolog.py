@@ -76,7 +76,12 @@ def pytorch_model_with_callback(patience):
 
     with TempDir() as tmp:
         checkpoint_callback = ModelCheckpoint(
-            filepath=tmp.path(), save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix=""
+            filepath=tmp.path(),
+            save_top_k=1,
+            verbose=True,
+            monitor="val_loss",
+            mode="min",
+            prefix="",
         )
 
         trainer = pl.Trainer(
