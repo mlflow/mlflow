@@ -202,13 +202,14 @@ def test_log_model_calls_register_model(ols_model):
             statsmodels_model=ols_model.model,
             artifact_path=artifact_path,
             conda_env=conda_env,
-            registered_model_name="OLSModel1"
+            registered_model_name="OLSModel1",
         )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
         mlflow.register_model.assert_called_once_with(
-            model_uri, "OLSModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS)
+            model_uri, "OLSModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(ols_model):

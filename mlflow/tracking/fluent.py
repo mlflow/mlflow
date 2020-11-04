@@ -25,7 +25,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
-from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai, pytorch
+from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, statsmodels, spark, sklearn, \
+    fastai, pytorch
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -1284,6 +1285,7 @@ def autolog(
         "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,
+        "statsmodels": statsmodels.autolog,
         "sklearn": sklearn.autolog,
         "fastai": fastai.autolog,
         "pyspark": spark.autolog,
