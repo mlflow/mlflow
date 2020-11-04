@@ -92,10 +92,7 @@ def _autolog(log_every_n_epoch=1):
                 try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
 
                 if hasattr(optimizer, "defaults"):
-                    optim_dict = optimizer.defaults
-
-                    for key, value in optim_dict.items():
-                        try_mlflow_log(mlflow.log_param, key, value)
+                    try_mlflow_log(mlflow.log_params, optimizer.defaults)
 
             summary = str(ModelSummary(pl_module, mode="full"))
             tempdir = tempfile.mkdtemp()
