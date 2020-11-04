@@ -302,6 +302,7 @@ for installation instructions, and see the
 for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
+- `mlflow-torchserve <https://github.com/mlflow/mlflow-torchserve>`_
 
 
 Project Backend Plugins
@@ -321,4 +322,4 @@ against custom databases.
 - `mlflow-elasticsearchstore <https://github.com/criteo/mlflow-elasticsearchstore>`_ Running MLflow Tracking Store with Elasticsearch
 
 This plugin is experimental please refer to <https://github.com/criteo/mlflow-elasticsearchstore/issues> to have the list of limitations.
-Library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>
+Library is available on PyPI here : <https://pypi.org/project/mlflow-elasticsearchstore/>low
