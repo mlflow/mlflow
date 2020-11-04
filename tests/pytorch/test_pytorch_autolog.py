@@ -1,4 +1,3 @@
-import os
 import pytest
 import pytorch_lightning as pl
 import torch
