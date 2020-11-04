@@ -45,7 +45,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
-    with_batch_metrics_handler,
+    with_batch_metrics_logger,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -335,15 +335,13 @@ def autolog(
         original(self, *args, **kwargs)
 
     def train(*args, **kwargs):
-        def record_eval_results(eval_results):
+        def record_eval_results(eval_results, batch_metrics_logger):
             """
             Create a callback function that records evaluation results.
             """
 
             def callback(env):
-                batch_metrics_handler.record_metrics(
-                    dict(env.evaluation_result_list), env.iteration
-                )
+                batch_metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
                 eval_results.append(dict(env.evaluation_result_list))
 
             return callback
@@ -417,18 +415,19 @@ def autolog(
         # adding a callback that records evaluation results.
         eval_results = []
         callbacks_index = all_arg_names.index("callbacks")
-        callback = record_eval_results(eval_results)
-        if num_pos_args >= callbacks_index + 1:
-            tmp_list = list(args)
-            tmp_list[callbacks_index] += [callback]
-            args = tuple(tmp_list)
-        elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
-            kwargs["callbacks"] += [callback]
-        else:
-            kwargs["callbacks"] = [callback]
 
-        # logging metrics on each iteration
-        with with_batch_metrics_handler() as batch_metrics_handler:
+        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
+            callback = record_eval_results(eval_results, batch_metrics_logger)
+            if num_pos_args >= callbacks_index + 1:
+                tmp_list = list(args)
+                tmp_list[callbacks_index] += [callback]
+                args = tuple(tmp_list)
+            elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
+                kwargs["callbacks"] += [callback]
+            else:
+                kwargs["callbacks"] = [callback]
+
             # training model
             model = original(*args, **kwargs)
 

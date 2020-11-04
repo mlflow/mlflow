@@ -194,57 +194,32 @@ def resolve_input_example_and_signature(
     return input_example if log_input_example else None, model_signature
 
 
-# wrapper functions to be able to mock this easily in the tests
-def time_wrapper_for_log():
-    return time.time()
+class BatchMetricsLogger:
+    def __init__(self, run_id):
+        self.run_id = run_id
 
-
-def time_wrapper_for_current():
-    return time.time()
-
-
-def time_wrapper_for_timestamp():
-    return time.time()
-
-
-# we pass the batch_metrics_handler through, such that the callback can access it
-def _timed_log_batch(batch_metrics_handler, run_id, metrics):
-    start = time_wrapper_for_log()
-    metrics_slices = [
-        metrics[i * MAX_METRICS_PER_BATCH : (i + 1) * MAX_METRICS_PER_BATCH]
-        for i in range((len(metrics) + MAX_METRICS_PER_BATCH - 1) // MAX_METRICS_PER_BATCH)
-    ]
-    for metrics_slice in metrics_slices:
-        MlflowClient().log_batch(run_id=run_id, metrics=metrics_slice)
-    end = time_wrapper_for_log()
-    batch_metrics_handler.total_log_batch_time += end - start
-    batch_metrics_handler.num_log_batch += 1
-
-
-class BatchMetricsHandler:  # BatchMetricsLogger maybe?
-    def __init__(self):
-        # data is an array of tuples of the form (timestamp, metrics at timestamp)
-        self.data = {}
+        # data is an array of Metric objects
+        self.data = []
         self.total_training_time = 0
         self.total_log_batch_time = 0
         self.num_log_batch = 0
         self.previous_training_timestamp = None
 
     def _purge(self):
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        final_metrics = []
+        self._timed_log_batch()
+        self.data = []
 
-        for step, metrics_at_step in self.data.items():
-            for entry in metrics_at_step:
-                timestamp = entry[0]
-                metrics_at_timestamp = entry[1]
-
-                for key, value in metrics_at_timestamp.items():
-                    final_metrics.append(Metric(key, value, timestamp, step))
-
-        _timed_log_batch(self, run_id=run_id, metrics=final_metrics)
-
-        self.data = {}
+    def _timed_log_batch(self):
+        start = time.time()
+        metrics_slices = [
+            self.data[i : i + MAX_METRICS_PER_BATCH]
+            for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
+        ]
+        for metrics_slice in metrics_slices:
+            MlflowClient().log_batch(run_id=self.run_id, metrics=metrics_slice)
+        end = time.time()
+        self.total_log_batch_time += end - start
+        self.num_log_batch += 1
 
     def _should_purge(self):
         if self.num_log_batch == 0:
@@ -260,9 +235,15 @@ class BatchMetricsHandler:  # BatchMetricsLogger maybe?
 
         return False
 
-    # metrics is a dict representing the set of metrics collected during one iteration
     def record_metrics(self, metrics, step):
-        current_timestamp = time_wrapper_for_current()
+        """
+        Submit a set of metrics to be logged. The metrics may not be immediately logged, as this class
+        will batch them in order to not increase execution time too much by logging frequently.
+
+        :param metrics: dictionary containing key, value pairs of metrics to be logged.
+        :param step: the training step that the metrics correspond to.
+        """
+        current_timestamp = time.time()
         if self.previous_training_timestamp is None:
             self.previous_training_timestamp = current_timestamp
 
@@ -270,20 +251,30 @@ class BatchMetricsHandler:  # BatchMetricsLogger maybe?
 
         self.total_training_time += training_time
 
-        if step in self.data:
-            self.data[step].append([int(time_wrapper_for_timestamp() * 1000), metrics])
-        else:
-            self.data[step] = [[int(time_wrapper_for_timestamp() * 1000), metrics]]
+        for key, value in metrics.items():
+            self.data.append(Metric(key, value, current_timestamp, step))
 
         if self._should_purge():
-            self.total_training_time = 0
             self._purge()
+            self.total_training_time = 0
 
         self.previous_training_timestamp = current_timestamp
 
 
 @contextlib.contextmanager
-def with_batch_metrics_handler():
-    batch_metrics_handler = BatchMetricsHandler()
-    yield batch_metrics_handler
-    batch_metrics_handler._purge()
+def with_batch_metrics_logger(run_id):
+    """
+    Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
+    The BatchMetricsLogger will keep metrics in a list until it decides they should be logged, at
+    which point the accumulated metrics will be batch logged. The BatchMetricsLogger will ensure
+    that logging imposes no more than a 10% overhead on the training, where the training is
+    measured by adding up the time elapsed between consecutive calls to record_metrics.
+
+    Once the context is closed, any metrics that have yet to be logged will be logged.
+
+    :param run_id: ID of the run that the metrics will be logged to.
+    """
+
+    with_batch_metrics_logger = BatchMetricsLogger(run_id)
+    yield with_batch_metrics_logger
+    with_batch_metrics_logger._purge()
