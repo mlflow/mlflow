@@ -532,7 +532,7 @@ class _SklearnTrainingSession(object):
 
 
 @experimental
-def autolog(log_input_example=False, log_model_signature=True):
+def autolog(log_input_examples=False, log_model_signatures=True):
     """
     Enables autologging for scikit-learn estimators.
 
@@ -696,11 +696,14 @@ def autolog(log_input_example=False, log_model_signature=True):
         pprint(artifacts)
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
 
-    :param log_input_example: if True, logs a sample of the training data as part of the model
-                              as an example for future reference. If False, no sample is logged.
-    :param log_model_signature: if True, records the type signature of the inputs and outputs as
-                                part of the model. If False, the signature is not recorded to the
-                                model.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with scikit-learn model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with scikit-learn model artifacts during training. If ``False``,
+                                 signatures are not logged.
     """
     import pandas as pd
     import sklearn
@@ -846,8 +849,8 @@ def autolog(log_input_example=False, log_model_signature=True):
         input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
-            log_input_example,
-            log_model_signature,
+            log_input_examples,
+            log_model_signatures,
             _logger,
         )
 

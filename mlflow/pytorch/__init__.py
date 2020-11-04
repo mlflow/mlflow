@@ -15,6 +15,7 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
+from distutils.version import LooseVersion
 import posixpath
 
 import mlflow
@@ -37,6 +38,8 @@ FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
+_EXTRA_FILES_KEY = "extra_files"
+_REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
 
@@ -81,8 +84,14 @@ def log_model(
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -208,6 +217,10 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.log_model(model, "models")
+
+            # logging scripted module
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.log_model(scripted_pytorch_model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
@@ -223,7 +236,7 @@ def log_model(
         await_registration_for=await_registration_for,
         requirements_file=requirements_file,
         extra_files=extra_files,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -243,8 +256,14 @@ def save_model(
     """
     Save a PyTorch model to a path on the local file system.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -338,6 +357,10 @@ def save_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
+
+            # Saving scripted model
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.save_model(scripted_pytorch_model, pytorch_model_path)
     """
     import torch
 
@@ -376,35 +399,40 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    if isinstance(pytorch_model, torch.jit.ScriptModule):
+        torch.jit.ScriptModule.save(pytorch_model, model_path)
+    else:
+        torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+
+    torchserve_artifacts_config = {}
 
     if requirements_file:
         if not isinstance(requirements_file, str):
             raise TypeError("Path to requirements file should be a string")
 
         with TempDir() as tmp_requirements_dir:
-            saved_requirements_dir_subpath = "requirements"
             _download_artifact_from_uri(
                 artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
             )
-            shutil.move(
-                tmp_requirements_dir.path(), posixpath.join(path, saved_requirements_dir_subpath)
-            )
+            rel_path = os.path.basename(requirements_file)
+            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
+            shutil.move(tmp_requirements_dir.path(rel_path), path)
 
     if extra_files:
+        torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
         if not isinstance(extra_files, list):
             raise TypeError("Extra files argument should be a list")
 
         with TempDir() as tmp_extra_files_dir:
-            saved_extra_files_dir_subpath = "artifacts"
             for extra_file in extra_files:
                 _download_artifact_from_uri(
                     artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
                 )
+                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file),)
+                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
             shutil.move(
-                tmp_extra_files_dir.path(), posixpath.join(path, saved_extra_files_dir_subpath)
+                tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
             )
-
-    torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -423,7 +451,10 @@ def save_model(
         code_dir_subpath = None
 
     mlflow_model.add_flavor(
-        FLAVOR_NAME, model_data=model_data_subpath, pytorch_version=torch.__version__
+        FLAVOR_NAME,
+        model_data=model_data_subpath,
+        pytorch_version=torch.__version__,
+        **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
         mlflow_model,
@@ -474,7 +505,15 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    return torch.load(model_path, **kwargs)
+    if LooseVersion(torch.__version__) >= LooseVersion("1.5.0"):
+        return torch.load(model_path, **kwargs)
+    else:
+        try:
+            # load the model as an eager model.
+            return torch.load(model_path, **kwargs)
+        except Exception:  # pylint: disable=broad-except
+            # If fails, assume the model as a scripted model
+            return torch.jit.load(model_path)
 
 
 def load_model(model_uri, **kwargs):

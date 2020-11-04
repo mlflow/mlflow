@@ -2,12 +2,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking import MlflowClient
-from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
-@experimental
 def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS):
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.
