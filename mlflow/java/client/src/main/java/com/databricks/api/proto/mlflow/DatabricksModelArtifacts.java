@@ -200,26 +200,26 @@ public final class DatabricksModelArtifacts {
        * A pre-signed url to download a model artifact corresponding to the requested path
        * </pre>
        *
-       * <code>optional string artifact_uri = 1;</code>
+       * <code>optional string signed_uri = 1;</code>
        */
-      boolean hasArtifactUri();
+      boolean hasSignedUri();
       /**
        * <pre>
        * A pre-signed url to download a model artifact corresponding to the requested path
        * </pre>
        *
-       * <code>optional string artifact_uri = 1;</code>
+       * <code>optional string signed_uri = 1;</code>
        */
-      java.lang.String getArtifactUri();
+      java.lang.String getSignedUri();
       /**
        * <pre>
        * A pre-signed url to download a model artifact corresponding to the requested path
        * </pre>
        *
-       * <code>optional string artifact_uri = 1;</code>
+       * <code>optional string signed_uri = 1;</code>
        */
       com.google.protobuf.ByteString
-          getArtifactUriBytes();
+          getSignedUriBytes();
     }
     /**
      * Protobuf type {@code mlflow.GetModelVersionSignedDownloadUri.Response}
@@ -234,7 +234,7 @@ public final class DatabricksModelArtifacts {
         super(builder);
       }
       private Response() {
-        artifactUri_ = "";
+        signedUri_ = "";
       }
 
       @java.lang.Override
@@ -264,7 +264,7 @@ public final class DatabricksModelArtifacts {
               case 10: {
                 com.google.protobuf.ByteString bs = input.readBytes();
                 bitField0_ |= 0x00000001;
-                artifactUri_ = bs;
+                signedUri_ = bs;
                 break;
               }
               default: {
@@ -300,16 +300,16 @@ public final class DatabricksModelArtifacts {
       }
 
       private int bitField0_;
-      public static final int ARTIFACT_URI_FIELD_NUMBER = 1;
-      private volatile java.lang.Object artifactUri_;
+      public static final int SIGNED_URI_FIELD_NUMBER = 1;
+      private volatile java.lang.Object signedUri_;
       /**
        * <pre>
        * A pre-signed url to download a model artifact corresponding to the requested path
        * </pre>
        *
-       * <code>optional string artifact_uri = 1;</code>
+       * <code>optional string signed_uri = 1;</code>
        */
-      public boolean hasArtifactUri() {
+      public boolean hasSignedUri() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
@@ -317,10 +317,10 @@ public final class DatabricksModelArtifacts {
        * A pre-signed url to download a model artifact corresponding to the requested path
        * </pre>
        *
-       * <code>optional string artifact_uri = 1;</code>
+       * <code>optional string signed_uri = 1;</code>
        */
-      public java.lang.String getArtifactUri() {
-        java.lang.Object ref = artifactUri_;
+      public java.lang.String getSignedUri() {
+        java.lang.Object ref = signedUri_;
         if (ref instanceof java.lang.String) {
           return (java.lang.String) ref;
         } else {
@@ -328,7 +328,7 @@ public final class DatabricksModelArtifacts {
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            artifactUri_ = s;
+            signedUri_ = s;
           }
           return s;
         }
@@ -338,16 +338,16 @@ public final class DatabricksModelArtifacts {
        * A pre-signed url to download a model artifact corresponding to the requested path
        * </pre>
        *
-       * <code>optional string artifact_uri = 1;</code>
+       * <code>optional string signed_uri = 1;</code>
        */
       public com.google.protobuf.ByteString
-          getArtifactUriBytes() {
-        java.lang.Object ref = artifactUri_;
+          getSignedUriBytes() {
+        java.lang.Object ref = signedUri_;
         if (ref instanceof java.lang.String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          artifactUri_ = b;
+          signedUri_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -369,7 +369,7 @@ public final class DatabricksModelArtifacts {
       public void writeTo(com.google.protobuf.CodedOutputStream output)
                           throws java.io.IOException {
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, artifactUri_);
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, signedUri_);
         }
         unknownFields.writeTo(output);
       }
@@ -381,7 +381,7 @@ public final class DatabricksModelArtifacts {
 
         size = 0;
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, artifactUri_);
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, signedUri_);
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -399,10 +399,10 @@ public final class DatabricksModelArtifacts {
         com.databricks.api.proto.mlflow.DatabricksModelArtifacts.GetModelVersionSignedDownloadUri.Response other = (com.databricks.api.proto.mlflow.DatabricksModelArtifacts.GetModelVersionSignedDownloadUri.Response) obj;
 
         boolean result = true;
-        result = result && (hasArtifactUri() == other.hasArtifactUri());
-        if (hasArtifactUri()) {
-          result = result && getArtifactUri()
-              .equals(other.getArtifactUri());
+        result = result && (hasSignedUri() == other.hasSignedUri());
+        if (hasSignedUri()) {
+          result = result && getSignedUri()
+              .equals(other.getSignedUri());
         }
         result = result && unknownFields.equals(other.unknownFields);
         return result;
@@ -415,9 +415,9 @@ public final class DatabricksModelArtifacts {
         }
         int hash = 41;
         hash = (19 * hash) + getDescriptor().hashCode();
-        if (hasArtifactUri()) {
-          hash = (37 * hash) + ARTIFACT_URI_FIELD_NUMBER;
-          hash = (53 * hash) + getArtifactUri().hashCode();
+        if (hasSignedUri()) {
+          hash = (37 * hash) + SIGNED_URI_FIELD_NUMBER;
+          hash = (53 * hash) + getSignedUri().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -552,7 +552,7 @@ public final class DatabricksModelArtifacts {
         @java.lang.Override
         public Builder clear() {
           super.clear();
-          artifactUri_ = "";
+          signedUri_ = "";
           bitField0_ = (bitField0_ & ~0x00000001);
           return this;
         }
@@ -585,7 +585,7 @@ public final class DatabricksModelArtifacts {
           if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
             to_bitField0_ |= 0x00000001;
           }
-          result.artifactUri_ = artifactUri_;
+          result.signedUri_ = signedUri_;
           result.bitField0_ = to_bitField0_;
           onBuilt();
           return result;
@@ -635,9 +635,9 @@ public final class DatabricksModelArtifacts {
 
         public Builder mergeFrom(com.databricks.api.proto.mlflow.DatabricksModelArtifacts.GetModelVersionSignedDownloadUri.Response other) {
           if (other == com.databricks.api.proto.mlflow.DatabricksModelArtifacts.GetModelVersionSignedDownloadUri.Response.getDefaultInstance()) return this;
-          if (other.hasArtifactUri()) {
+          if (other.hasSignedUri()) {
             bitField0_ |= 0x00000001;
-            artifactUri_ = other.artifactUri_;
+            signedUri_ = other.signedUri_;
             onChanged();
           }
           this.mergeUnknownFields(other.unknownFields);
@@ -670,15 +670,15 @@ public final class DatabricksModelArtifacts {
         }
         private int bitField0_;
 
-        private java.lang.Object artifactUri_ = "";
+        private java.lang.Object signedUri_ = "";
         /**
          * <pre>
          * A pre-signed url to download a model artifact corresponding to the requested path
          * </pre>
          *
-         * <code>optional string artifact_uri = 1;</code>
+         * <code>optional string signed_uri = 1;</code>
          */
-        public boolean hasArtifactUri() {
+        public boolean hasSignedUri() {
           return ((bitField0_ & 0x00000001) == 0x00000001);
         }
         /**
@@ -686,16 +686,16 @@ public final class DatabricksModelArtifacts {
          * A pre-signed url to download a model artifact corresponding to the requested path
          * </pre>
          *
-         * <code>optional string artifact_uri = 1;</code>
+         * <code>optional string signed_uri = 1;</code>
          */
-        public java.lang.String getArtifactUri() {
-          java.lang.Object ref = artifactUri_;
+        public java.lang.String getSignedUri() {
+          java.lang.Object ref = signedUri_;
           if (!(ref instanceof java.lang.String)) {
             com.google.protobuf.ByteString bs =
                 (com.google.protobuf.ByteString) ref;
             java.lang.String s = bs.toStringUtf8();
             if (bs.isValidUtf8()) {
-              artifactUri_ = s;
+              signedUri_ = s;
             }
             return s;
           } else {
@@ -707,16 +707,16 @@ public final class DatabricksModelArtifacts {
          * A pre-signed url to download a model artifact corresponding to the requested path
          * </pre>
          *
-         * <code>optional string artifact_uri = 1;</code>
+         * <code>optional string signed_uri = 1;</code>
          */
         public com.google.protobuf.ByteString
-            getArtifactUriBytes() {
-          java.lang.Object ref = artifactUri_;
+            getSignedUriBytes() {
+          java.lang.Object ref = signedUri_;
           if (ref instanceof String) {
             com.google.protobuf.ByteString b = 
                 com.google.protobuf.ByteString.copyFromUtf8(
                     (java.lang.String) ref);
-            artifactUri_ = b;
+            signedUri_ = b;
             return b;
           } else {
             return (com.google.protobuf.ByteString) ref;
@@ -727,15 +727,15 @@ public final class DatabricksModelArtifacts {
          * A pre-signed url to download a model artifact corresponding to the requested path
          * </pre>
          *
-         * <code>optional string artifact_uri = 1;</code>
+         * <code>optional string signed_uri = 1;</code>
          */
-        public Builder setArtifactUri(
+        public Builder setSignedUri(
             java.lang.String value) {
           if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-          artifactUri_ = value;
+          signedUri_ = value;
           onChanged();
           return this;
         }
@@ -744,11 +744,11 @@ public final class DatabricksModelArtifacts {
          * A pre-signed url to download a model artifact corresponding to the requested path
          * </pre>
          *
-         * <code>optional string artifact_uri = 1;</code>
+         * <code>optional string signed_uri = 1;</code>
          */
-        public Builder clearArtifactUri() {
+        public Builder clearSignedUri() {
           bitField0_ = (bitField0_ & ~0x00000001);
-          artifactUri_ = getDefaultInstance().getArtifactUri();
+          signedUri_ = getDefaultInstance().getSignedUri();
           onChanged();
           return this;
         }
@@ -757,15 +757,15 @@ public final class DatabricksModelArtifacts {
          * A pre-signed url to download a model artifact corresponding to the requested path
          * </pre>
          *
-         * <code>optional string artifact_uri = 1;</code>
+         * <code>optional string signed_uri = 1;</code>
          */
-        public Builder setArtifactUriBytes(
+        public Builder setSignedUriBytes(
             com.google.protobuf.ByteString value) {
           if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000001;
-          artifactUri_ = value;
+          signedUri_ = value;
           onChanged();
           return this;
         }
@@ -4125,28 +4125,27 @@ public final class DatabricksModelArtifacts {
     java.lang.String[] descriptorData = {
       "\n databricks_model_artifacts.proto\022\006mlfl" +
       "ow\032\025scalapb/scalapb.proto\032\020databricks.pr" +
-      "oto\032\rservice.proto\"\260\001\n GetModelVersionSi" +
+      "oto\032\rservice.proto\"\256\001\n GetModelVersionSi" +
       "gnedDownloadUri\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007v" +
-      "ersion\030\002 \001(\tB\004\370\206\031\001\022\022\n\004path\030\003 \001(\tB\004\370\206\031\001\032 " +
-      "\n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342?(\n&c" +
-      "om.databricks.rpc.RPC[$this.Response]\"\324\001" +
-      "\n\022ListModelArtifacts\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001" +
-      "\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\014\n\004path\030\003 \001(\t\022\022\n" +
-      "\npage_token\030\004 \001(\t\032D\n\010Response\022\037\n\005files\030\001" +
-      " \003(\0132\020.mlflow.FileInfo\022\027\n\017next_page_toke" +
-      "n\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]2\374\002\n\037DatabricksModelArtifact" +
-      "sService\022\304\001\n getModelVersionSignedDownlo" +
-      "adUri\022(.mlflow.GetModelVersionSignedDown" +
-      "loadUri\0321.mlflow.GetModelVersionSignedDo" +
-      "wnloadUri.Response\"C\362\206\031?\n;\n\003GET\022./mlflow" +
-      "/model-versions/get-signed-download-uri\032" +
-      "\004\010\002\020\000\020\003\022\221\001\n\022listModelArtifacts\022\032.mlflow." +
-      "ListModelArtifacts\032#.mlflow.ListModelArt" +
-      "ifacts.Response\":\362\206\0316\n2\n\003GET\022%/mlflow/mo" +
-      "del-versions/list-artifacts\032\004\010\002\020\000\020\003B,\n\037c" +
-      "om.databricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020" +
-      "\001"
+      "ersion\030\002 \001(\tB\004\370\206\031\001\022\022\n\004path\030\003 \001(\tB\004\370\206\031\001\032\036" +
+      "\n\010Response\022\022\n\nsigned_uri\030\001 \001(\t:+\342?(\n&com" +
+      ".databricks.rpc.RPC[$this.Response]\"\324\001\n\022" +
+      "ListModelArtifacts\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025" +
+      "\n\007version\030\002 \001(\tB\004\370\206\031\001\022\014\n\004path\030\003 \001(\t\022\022\n\np" +
+      "age_token\030\004 \001(\t\032D\n\010Response\022\037\n\005files\030\001 \003" +
+      "(\0132\020.mlflow.FileInfo\022\027\n\017next_page_token\030" +
+      "\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]2\374\002\n\037DatabricksModelArtifactsS" +
+      "ervice\022\304\001\n getModelVersionSignedDownload" +
+      "Uri\022(.mlflow.GetModelVersionSignedDownlo" +
+      "adUri\0321.mlflow.GetModelVersionSignedDown" +
+      "loadUri.Response\"C\362\206\031?\n;\n\003GET\022./mlflow/m" +
+      "odel-versions/get-signed-download-uri\032\004\010" +
+      "\002\020\000\020\003\022\221\001\n\022listModelArtifacts\022\032.mlflow.Li" +
+      "stModelArtifacts\032#.mlflow.ListModelArtif" +
+      "acts.Response\":\362\206\0316\n2\n\003GET\022%/mlflow/mode" +
+      "l-versions/list-artifacts\032\004\010\002\020\000\020\003B,\n\037com" +
+      ".databricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -4174,7 +4173,7 @@ public final class DatabricksModelArtifacts {
     internal_static_mlflow_GetModelVersionSignedDownloadUri_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetModelVersionSignedDownloadUri_Response_descriptor,
-        new java.lang.String[] { "ArtifactUri", });
+        new java.lang.String[] { "SignedUri", });
     internal_static_mlflow_ListModelArtifacts_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_ListModelArtifacts_fieldAccessorTable = new

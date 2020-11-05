@@ -24,7 +24,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='mlflow',
   syntax='proto2',
   serialized_options=_b('\n\037com.databricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001'),
-  serialized_pb=_b('\n databricks_model_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\rservice.proto\"\xb0\x01\n GetModelVersionSignedDownloadUri\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04path\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a \n\x08Response\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd4\x01\n\x12ListModelArtifacts\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x03 \x01(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1a\x44\n\x08Response\x12\x1f\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]2\xfc\x02\n\x1f\x44\x61tabricksModelArtifactsService\x12\xc4\x01\n getModelVersionSignedDownloadUri\x12(.mlflow.GetModelVersionSignedDownloadUri\x1a\x31.mlflow.GetModelVersionSignedDownloadUri.Response\"C\xf2\x86\x19?\n;\n\x03GET\x12./mlflow/model-versions/get-signed-download-uri\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x91\x01\n\x12listModelArtifacts\x12\x1a.mlflow.ListModelArtifacts\x1a#.mlflow.ListModelArtifacts.Response\":\xf2\x86\x19\x36\n2\n\x03GET\x12%/mlflow/model-versions/list-artifacts\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
+  serialized_pb=_b('\n databricks_model_artifacts.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\rservice.proto\"\xae\x01\n GetModelVersionSignedDownloadUri\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04path\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\nsigned_uri\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd4\x01\n\x12ListModelArtifacts\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04path\x18\x03 \x01(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1a\x44\n\x08Response\x12\x1f\n\x05\x66iles\x18\x01 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]2\xfc\x02\n\x1f\x44\x61tabricksModelArtifactsService\x12\xc4\x01\n getModelVersionSignedDownloadUri\x12(.mlflow.GetModelVersionSignedDownloadUri\x1a\x31.mlflow.GetModelVersionSignedDownloadUri.Response\"C\xf2\x86\x19?\n;\n\x03GET\x12./mlflow/model-versions/get-signed-download-uri\x1a\x04\x08\x02\x10\x00\x10\x03\x12\x91\x01\n\x12listModelArtifacts\x12\x1a.mlflow.ListModelArtifacts\x1a#.mlflow.ListModelArtifacts.Response\":\xf2\x86\x19\x36\n2\n\x03GET\x12%/mlflow/model-versions/list-artifacts\x1a\x04\x08\x02\x10\x00\x10\x03\x42,\n\x1f\x63om.databricks.api.proto.mlflow\x90\x01\x01\xa0\x01\x01\xe2?\x02\x10\x01')
   ,
   dependencies=[scalapb_dot_scalapb__pb2.DESCRIPTOR,databricks__pb2.DESCRIPTOR,service__pb2.DESCRIPTOR,])
 
@@ -39,7 +39,7 @@ _GETMODELVERSIONSIGNEDDOWNLOADURI_RESPONSE = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='artifact_uri', full_name='mlflow.GetModelVersionSignedDownloadUri.Response.artifact_uri', index=0,
+      name='signed_uri', full_name='mlflow.GetModelVersionSignedDownloadUri.Response.signed_uri', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
@@ -58,7 +58,7 @@ _GETMODELVERSIONSIGNEDDOWNLOADURI_RESPONSE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=200,
-  serialized_end=232,
+  serialized_end=230,
 )
 
 _GETMODELVERSIONSIGNEDDOWNLOADURI = _descriptor.Descriptor(
@@ -102,7 +102,7 @@ _GETMODELVERSIONSIGNEDDOWNLOADURI = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=101,
-  serialized_end=277,
+  serialized_end=275,
 )
 
 
@@ -139,8 +139,8 @@ _LISTMODELARTIFACTS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=379,
-  serialized_end=447,
+  serialized_start=377,
+  serialized_end=445,
 )
 
 _LISTMODELARTIFACTS = _descriptor.Descriptor(
@@ -190,8 +190,8 @@ _LISTMODELARTIFACTS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=280,
-  serialized_end=492,
+  serialized_start=278,
+  serialized_end=490,
 )
 
 _GETMODELVERSIONSIGNEDDOWNLOADURI_RESPONSE.containing_type = _GETMODELVERSIONSIGNEDDOWNLOADURI
@@ -247,8 +247,8 @@ _DATABRICKSMODELARTIFACTSSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=495,
-  serialized_end=875,
+  serialized_start=493,
+  serialized_end=873,
   methods=[
   _descriptor.MethodDescriptor(
     name='getModelVersionSignedDownloadUri',

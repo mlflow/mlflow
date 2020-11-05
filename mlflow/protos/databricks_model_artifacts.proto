@@ -60,7 +60,7 @@ message GetModelVersionSignedDownloadUri {
 
   message Response {
     // A pre-signed url to download a model artifact corresponding to the requested path
-    optional string artifact_uri = 1;
+    optional string signed_uri = 1;
   }
 }
 
