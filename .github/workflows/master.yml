@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@master
-    - uses: r-lib/actions/setup-r@v1
+    - uses: harupy/actions/setup-r@workaround
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
     - name: Query dependencies
