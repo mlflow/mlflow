@@ -47,15 +47,21 @@ The parameters below can be overridden via the command line:
 5. ``num-workers`` - Number of worker threads to load training data
 6. ``lr`` - Learning rate
 
+
 For example:
+```
+mlflow run . -P epochs=5 -P gpus=1 -P batch_size=32 -P num_workers=2 -P learning_rate=0.01 -P accelerator="ddp"
+```
+
+Or to run the training script directly with custom parameters:
 ```
 python bert_classification.py \
     --max-epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
-    --batch-size 64 \
+    --batch-size 32 \
     --num-workers 2 \
-    --lr 0.001
+    --lr 0.01
 ```
 
 ## Logging to a custom tracking server
