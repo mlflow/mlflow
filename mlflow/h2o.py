@@ -108,7 +108,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # Save h2o-model
-    if "download_model" in dir(h2o):
+    if hasattr(h2o,"download_model"):
         h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
     else:
         h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
@@ -220,7 +220,7 @@ def _load_model(path, init=False):
         h2o.no_progress()
 
     model_path = os.path.join(path, params["model_file"])
-    if "upload_model" in dir(h2o):
+    if hasattr(h2o,"upload_model"):
         model = h2o.upload_model(model_path)
     else:
         model = h2o.load_model(model_path)
