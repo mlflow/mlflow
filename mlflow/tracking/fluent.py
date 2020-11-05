@@ -7,6 +7,8 @@ import os
 import atexit
 import time
 import logging
+import numpy as np
+import pandas as pd
 
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -819,8 +821,6 @@ def search_runs(
            metrics.m tags.s.release                            run_id
         0       1.55       1.1.0-RC  5cc7feaf532f496f885ad7750809c4d4
     """
-    import numpy as np
-    import pandas as pd
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
 

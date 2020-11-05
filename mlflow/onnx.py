@@ -9,6 +9,9 @@ ONNX (native) format
 """
 import os
 import yaml
+import numpy as np
+
+import pandas as pd
 
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -181,8 +184,6 @@ class _OnnxModelWrapper:
         :return: A Pandas DataFrame output. Each column of the DataFrame corresponds to an
                  output tensor produced by the underlying ONNX model.
         """
-        import numpy as np
-        import pandas as pd
         # ONNXRuntime throws the following exception for some operators when the input
         # dataframe contains float64 values. Unfortunately, even if the original user-supplied
         # dataframe did not contain float64 values, the serialization/deserialization between the

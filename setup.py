@@ -1,4 +1,6 @@
 import os
+import logging
+
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
 
@@ -25,26 +27,60 @@ alembic_files = [
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
 
+requirements = [
+        "click>=7.0",
+        "cloudpickle",
+        "databricks-cli>=0.8.7",
+        "requests>=2.17.3",
+        "six>=1.10.0",
+        "python-dateutil",
+        "protobuf>=3.6.0",
+        "gitpython>=2.1.0",
+        "pyyaml",
+        "querystring_parser",
+        "simplejson",
+        "entrypoints",
+        "gorilla",
+        "pandas",
+        "numpy",
+        "sqlparse"
+    ]
+
+logging.debug("MLFLOW_SKINNY env var is set : {}".format(bool(os.environ["MLFLOW_SKINNY"])))
+if os.environ.get("MLFLOW_SKINNY") is None:
+    requirements.extend([
+        "alembic<=1.4.1",
+        # Required
+        "azure-storage-blob",
+        "click>=7.0",
+        "cloudpickle",
+        "databricks-cli>=0.8.7",
+        "requests>=2.17.3",
+        "six>=1.10.0",
+        "waitress; platform_system == 'Windows'",
+        "gunicorn; platform_system != 'Windows'",
+        "Flask",
+        "python-dateutil",
+        "protobuf>=3.6.0",
+        "gitpython>=2.1.0",
+        "pyyaml",
+        "querystring_parser",
+        "docker>=4.0.0",
+        "entrypoints",
+        # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
+        "sqlparse>=0.3.1",
+        # Required to run the MLflow server against SQL-backed storage
+        "sqlalchemy<=1.3.13",
+        "gorilla",
+        "prometheus-flask-exporter"
+        ])
+
 setup(
     name="mlflow",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
-    install_requires=[
-        'click>=7.0',
-        'cloudpickle',
-        'databricks-cli>=0.8.7',
-        'requests>=2.17.3',
-        'six>=1.10.0',
-        'python-dateutil',
-        'protobuf>=3.6.0',
-        'gitpython>=2.1.0',
-        'pyyaml',
-        'querystring_parser',
-        'simplejson',
-        'entrypoints',
-        'gorilla',
-    ],
+    install_requires=requirements,
     extras_require={
         "extras": [
             "scikit-learn",
@@ -61,10 +97,10 @@ setup(
             # Required by the mlflow.projects module, when running projects against
             # a remote Kubernetes cluster
             "kubernetes",
-        ],
-        "sqlserver": ["mlflow-dbstore",],
-        "aliyun-oss": ["aliyunstoreplugin",],
-    },
+            ],
+    "sqlserver": ["mlflow-dbstore",],
+    "aliyun-oss": ["aliyunstoreplugin",],
+        },
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli

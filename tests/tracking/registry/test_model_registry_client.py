@@ -95,3 +95,17 @@ def test_transition_model_version_stage(mock_registry_store):
         name=name, version=version, stage=stage, archive_existing_versions=False
     )
     assert expected_result == actual_result
+
+
+def test_registry_uri_set_as_param():
+    uri = "sqlite:///somedb.db"
+    client = MlflowClient(tracking_uri="databricks://tracking", registry_uri=uri)
+    assert client._registry_uri == uri
+
+
+def test_registry_uri_from_set_registry_uri():
+    uri = "sqlite:///somedb.db"
+    set_registry_uri(uri)
+    client = MlflowClient(tracking_uri="databricks://tracking")
+    assert client._registry_uri == uri
+    set_registry_uri(None)
