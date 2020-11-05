@@ -5,6 +5,15 @@ import tempfile
 import numpy as np
 
 import mlflow
+from mlflow.utils.annotations import experimental
+from mlflow.utils.uri import append_to_uri_path
+
+
+_MAXIMUM_BACKGROUND_DATA_SIZE = 100
+_DEFAULT_ARTIFACT_PATH = "model_explanations_shap"
+_SUMMARY_BAR_PLOT_FILE_NAME = "summary_bar_plot.png"
+_BASE_VALUES_FILE_NAME = "base_values.npy"
+_SHAP_VALUES_FILE_NAME = "shap_values.npy"
 
 
 @contextmanager
