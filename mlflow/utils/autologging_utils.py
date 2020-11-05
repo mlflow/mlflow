@@ -220,7 +220,7 @@ class BatchMetricsLogger:
         self.total_log_batch_time += end - start
 
     def _should_purge(self):
-        if self.total_log_batch_time == 0:
+        if self.total_log_batch_time == 0:  # we don't yet have data on how long logging takes
             return True
 
         log_batch_time_fudge_factor = 10

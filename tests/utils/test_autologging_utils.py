@@ -318,6 +318,19 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
             batch_metrics_logger.record_metrics({"x": 1}, step=0)
             log_batch_mock.assert_called_once()
 
+            # update log_batch time to reflect the 'mocked' training time
+            batch_metrics_logger.total_log_batch_time = 2
+
+            log_batch_mock.reset_mock()  # reset the recorded calls
+
+            for i in range(12, 21):
+                batch_metrics_logger.record_metrics({"x": 1}, step=0)
+                log_batch_mock.assert_not_called()
+                batch_metrics_logger.total_training_time = i
+
+            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+            log_batch_mock.assert_called_once()
+
 
 def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
     start_run,
