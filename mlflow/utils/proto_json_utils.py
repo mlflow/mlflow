@@ -3,6 +3,11 @@ import base64
 from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
+import numpy as np
+import pandas as pd
+
+from mlflow.types import DataType
+from mlflow.types.schema import Schema
 
 
 def message_to_json(message):
@@ -52,7 +57,6 @@ class NumpyEncoder(JSONEncoder):
     """
 
     def try_convert(self, o):
-        import numpy as np
         def encode_binary(x):
             return base64.encodebytes(x).decode("ascii")
 
@@ -79,19 +83,17 @@ class NumpyEncoder(JSONEncoder):
 
 
 def _dataframe_from_json(
-    path_or_str, schema = None, pandas_orient: str = "split", precise_float=False
-): # -> pd.DataFrame, typing removed for lazy loading
+    path_or_str, schema: Schema = None, pandas_orient: str = "split", precise_float=False
+) -> pd.DataFrame:
     """
     Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
     make any necessary conversions (e.g. string -> binary for binary columns).
 
     :param path_or_str: Path to a json file or a json string.
-    :param schema: Mlflow schema used when parsing the data. Type removed for lazy import
+    :param schema: Mlflow schema used when parsing the data.
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
-    import pandas as pd
-    from mlflow.types import DataType
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.pandas_types()))
         df = pd.read_json(

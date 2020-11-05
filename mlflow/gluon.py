@@ -67,7 +67,6 @@ class _GluonModelWrapper:
         self.gluon_model = gluon_model
 
     def predict(self, df):
-        import pandas as pd
         """
         :param df: A Pandas DataFrame containing input array values. A DataFrame input,
                    `df` is converted to an MXNet ndarray via `ndarray = mx.nd.array(df.values)`.

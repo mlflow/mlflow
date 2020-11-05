@@ -17,6 +17,7 @@ import atexit
 import time
 import tempfile
 from collections import namedtuple
+import pandas
 from distutils.version import LooseVersion
 from contextlib import contextmanager
 
@@ -512,7 +513,6 @@ class _TFWrapper(object):
         }
 
     def predict(self, df):
-        import pandas
         with self.tf_graph.as_default():
             # Build the feed dict, mapping input tensors to DataFrame column values.
             feed_dict = {
@@ -538,7 +538,6 @@ class _TF2Wrapper(object):
 
     def predict(self, df):
         import tensorflow
-        import pandas
 
         feed_dict = {}
         for df_col_name in list(df):

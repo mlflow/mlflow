@@ -12,6 +12,7 @@ spaCy (native) format
 import logging
 import os
 
+import pandas as pd
 import yaml
 
 import mlflow
@@ -244,7 +245,6 @@ class _SpacyModelWrapper:
                           expected shape is (n_rows,1 column)
         :return: dataframe with predictions
         """
-        import pandas as pd
         if len(dataframe.columns) != 1:
             raise MlflowException("Shape of input dataframe must be (n_rows, 1column)")
 

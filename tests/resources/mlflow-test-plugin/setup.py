@@ -8,7 +8,9 @@ setup(
     packages=find_packages(),
     # Require MLflow as a dependency of the plugin, so that plugin users can simply install
     # the plugin & then immediately use it with MLflow
-    install_requires=["mlflow"],
+    # No longer installing the plugin explicitly, tests could install pypi
+    #     mlflow by mistake and pass otherwise
+    install_requires=[],
     entry_points={
         # Define a Tracking Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.tracking_store": "file-plugin=mlflow_test_plugin.file_store:PluginFileStore",
