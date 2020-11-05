@@ -19,6 +19,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.exceptions import MlflowException
 
 FLAVOR_NAME = "h2o"
 
@@ -108,9 +109,14 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # Save h2o-model
-    if hasattr(h2o,"download_model"):
+    if hasattr(h2o, "download_model"):
         h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
     else:
+        if "pysparkling" in dir():
+            raise MlflowException(
+                "Mlflow not compatible with Sparkling water over this H2O version. "
+                "Please upgrade H2O"
+            )
         h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
     model_file = os.path.basename(h2o_save_location)
 
@@ -220,9 +226,14 @@ def _load_model(path, init=False):
         h2o.no_progress()
 
     model_path = os.path.join(path, params["model_file"])
-    if hasattr(h2o,"upload_model"):
+    if hasattr(h2o, "upload_model"):
         model = h2o.upload_model(model_path)
     else:
+        if "pysparkling" in dir():
+            raise MlflowException(
+                "Mlflow not compatible with Sparkling water over this H2O version. "
+                "Please upgrade H2O"
+            )
         model = h2o.load_model(model_path)
 
     return model
