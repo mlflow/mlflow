@@ -17,6 +17,8 @@ import yaml
 import gorilla
 import tempfile
 import shutil
+import pandas as pd
+import numpy as np
 
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature, ModelInputExample
@@ -233,8 +235,6 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         from fastai.tabular import TabularList
         from fastai.basic_data import DatasetType
-        import pandas as pd
-        import numpy as np
 
         test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
         self.learner.data.add_test(test_data)
