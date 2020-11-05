@@ -8,6 +8,7 @@ H20 (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import os
+import warnings
 import yaml
 
 import mlflow
@@ -19,7 +20,6 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.exceptions import MlflowException
 
 FLAVOR_NAME = "h2o"
 
@@ -112,11 +112,10 @@ def save_model(
     if hasattr(h2o, "download_model"):
         h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
     else:
-        if "pysparkling" in dir():
-            raise MlflowException(
-                "Mlflow not compatible with Sparkling water over this H2O version. "
-                "Please upgrade H2O"
-            )
+        warnings.warn(
+            "If your cluster is remote, H2O may not store the model correctly. "
+            "Please upgrade H2O version to a newer version"
+        )
         h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
     model_file = os.path.basename(h2o_save_location)
 
@@ -229,11 +228,10 @@ def _load_model(path, init=False):
     if hasattr(h2o, "upload_model"):
         model = h2o.upload_model(model_path)
     else:
-        if "pysparkling" in dir():
-            raise MlflowException(
-                "Mlflow not compatible with Sparkling water over this H2O version. "
-                "Please upgrade H2O"
-            )
+        warnings.warn(
+            "If your cluster is remote, H2O may not load the model correctly. "
+            "Please upgrade H2O version to a newer version"
+        )
         model = h2o.load_model(model_path)
 
     return model
