@@ -432,12 +432,10 @@ Autologging captures the following information:
 Pytorch (experimental)
 --------------------------
 
-Call :py:func:`mlflow.pytorch.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Pytorch <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`_.
+Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`_. Note
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning. 
 
-In the current implementation, PyTorch autolog works with the `Lightning training loop <https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pytorch_lightning/trainer/training_loop.py>`_. The respective metrics associated with ``EarlyStopping Callabacks`` and ``pytorch_lightning.trainer`` are automatically logged. 
-As an example, try running the `MLflow Pytorch examples <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`_.
-
-Autologging captures the following information:
+Autologging is triggered on calls to `pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
 
 +------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 | Framework/module                         | Metrics                                                    | Parameters                                                                          | Tags          | Artifacts                                                                                                                                     |
@@ -458,14 +456,14 @@ Autologging captures the following information:
 |                                          |                                                            |                                                                                     |               |                                                                                                                                               |
 +------------------------------------------+------------------------------------------------------------+-------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
 
-If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information.
-Also, MLflow will then automatically end the run once training ends via calls to  ``pytorch_lightning.trainer.fit()`` or once ``pytorch`` models are exported via ``mlflow.pytorch.log_model()``.
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information, ending the run once
+the call to ``pytorch_lightning.trainer.Trainer.fit()`` completes.
 
 If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
 
 .. note::
-  - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.fit()`` are not currently automatically logged.
-  - In case of a multi-optimizer scenario (such as usage of autoencoder) by default only the parameters for the first optimizer would be logged.
+  - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
+  - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
   - This feature is experimental - the API and format of the logged data are subject to change
 
 
