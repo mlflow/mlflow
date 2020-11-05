@@ -220,9 +220,6 @@ class BatchMetricsLogger:
         self.total_log_batch_time += end - start
 
     def _should_purge(self):
-        if self.total_log_batch_time == 0:  # we don't yet have data on how long logging takes
-            return True
-
         log_batch_time_fudge_factor = 10
         if self.total_training_time >= self.total_log_batch_time * log_batch_time_fudge_factor:
             return True
@@ -259,8 +256,8 @@ class BatchMetricsLogger:
 def with_batch_metrics_logger(run_id):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
-    The BatchMetricsLogger will keep metrics in a list until it decides they should be logged, at
-    which point the accumulated metrics will be batch logged. The BatchMetricsLogger will ensure
+    The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
+    which point the accumulated metrics will be batch logged. The BatchMetricsLogger ensures
     that logging imposes no more than a 10% overhead on the training, where the training is
     measured by adding up the time elapsed between consecutive calls to record_metrics.
 

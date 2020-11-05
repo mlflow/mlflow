@@ -416,7 +416,7 @@ def autolog(
         eval_results = []
         callbacks_index = all_arg_names.index("callbacks")
 
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        run_id = mlflow.active_run().info.run_id
         with with_batch_metrics_logger(run_id) as batch_metrics_logger:
             callback = record_eval_results(eval_results, batch_metrics_logger)
             if num_pos_args >= callbacks_index + 1:
