@@ -30,7 +30,6 @@ class ModelsArtifactRepository(ArtifactRepository):
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
         #  we don't get a download URI here, or fail during the download itself.
         if is_databricks_model_registry_artifacts_uri(uri):
-            print("We are rolling")
             self.repo = DatabricksModelArtifactRepository(artifact_uri)
         else:
             self.repo = get_artifact_repository(uri)

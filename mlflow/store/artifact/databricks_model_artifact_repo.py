@@ -24,6 +24,23 @@ REGISTRY_GET_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed
 
 
 class DatabricksModelArtifactRepository(ArtifactRepository):
+    """
+    Performs storage operations on model registry artifacts in the access-controlled
+    `dbfs:/databricks/model-registry` location
+
+    Signed access URIs for S3 / Azure Blob Storage are fetched from the MLflow service and used to
+    download model artifacts.
+
+    The artifact_uri is expected to be of the form
+    - `models:/<model_name>/<model_version>`
+    - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
+    - `models://<profile>/<model_name>/<model_version or state>`
+
+    Note : This artifact repository is meant is to be instantiate by the ModelsArtifactRepository
+    when the model download uri is of the form
+    `dbfs:/databricks/mlflow-registry/<model-version-id>/models/<artifact-path>`
+    """
+
     def __init__(self, artifact_uri):
         if not is_databricks_profile(artifact_uri):
             raise MlflowException(
