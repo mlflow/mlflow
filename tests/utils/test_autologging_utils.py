@@ -13,7 +13,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     resolve_input_example_and_signature,
-    with_batch_metrics_logger,
+    batch_metrics_logger,
 )
 
 # Example function signature we are testing on
@@ -273,9 +273,9 @@ def test_avoids_inferring_signature_if_not_needed(logger):
 def test_batch_metrics_logger_logs_all_metrics(start_run):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
+        with batch_metrics_logger(run_id) as metrics_logger:
             for i in range(100):
-                batch_metrics_logger.record_metrics({"x": i}, i)
+                metrics_logger.record_metrics({"x": i}, i)
 
         # collect the args of all the logging calls
         recorded_metrics = []
@@ -295,40 +295,40 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
 ):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
-            batch_metrics_logger.record_metrics({"x": 1}, step=0)  # data doesn't matter
+        with batch_metrics_logger(run_id) as metrics_logger:
+            metrics_logger.record_metrics({"x": 1}, step=0)  # data doesn't matter
             # first metrics should be skipped to record a previous timestamp and batch log time
             log_batch_mock.assert_called_once()
 
-            batch_metrics_logger.total_log_batch_time = 1
-            batch_metrics_logger.total_training_time = 1
+            metrics_logger.total_log_batch_time = 1
+            metrics_logger.total_training_time = 1
 
             log_batch_mock.reset_mock()  # resets the 'calls' of this mock
 
-            # the above 'training' took 1 second. So with fudge factor of 10x,
-            #   9 more 'training' should happen before the metrics are sent and
-            #   then the 10th should send them.
+            # the above 'training' took 1 second. So with target training-to-logging time ratio of
+            #   10:1, 9 more 'training' should happen without sending the batch and then after the
+            #   10th training the batch should be sent.
             for i in range(2, 11):
-                batch_metrics_logger.record_metrics({"x": 1}, step=0)
+                metrics_logger.record_metrics({"x": 1}, step=0)
                 log_batch_mock.assert_not_called()
-                batch_metrics_logger.total_training_time = i
+                metrics_logger.total_training_time = i
 
-            # at this point, average log batch time is 1, and total training time is 10
+            # at this point, average log batch time is 1, and total training time is 9
             # thus the next record_metrics call should send the batch.
-            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+            metrics_logger.record_metrics({"x": 1}, step=0)
             log_batch_mock.assert_called_once()
 
             # update log_batch time to reflect the 'mocked' training time
-            batch_metrics_logger.total_log_batch_time = 2
+            metrics_logger.total_log_batch_time = 2
 
             log_batch_mock.reset_mock()  # reset the recorded calls
 
             for i in range(12, 21):
-                batch_metrics_logger.record_metrics({"x": 1}, step=0)
+                metrics_logger.record_metrics({"x": 1}, step=0)
                 log_batch_mock.assert_not_called()
-                batch_metrics_logger.total_training_time = i
+                metrics_logger.total_training_time = i
 
-            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+            metrics_logger.record_metrics({"x": 1}, step=0)
             log_batch_mock.assert_called_once()
 
 
@@ -337,8 +337,8 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
 ):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
-            batch_metrics_logger.record_metrics({hex(x): x for x in range(5000)}, step=0)
+        with batch_metrics_logger(run_id) as metrics_logger:
+            metrics_logger.record_metrics({hex(x): x for x in range(5000)}, step=0)
             run_id = mlflow.active_run().info.run_id
 
             for call_idx, call in enumerate(log_batch_mock.call_args_list):
@@ -355,13 +355,13 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
 def test_batch_metrics_logger_records_time_correctly(start_run,):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch", wraps=lambda *args, **kwargs: time.sleep(1)):
         run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
-            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+        with batch_metrics_logger(run_id) as metrics_logger:
+            metrics_logger.record_metrics({"x": 1}, step=0)
 
-            assert batch_metrics_logger.total_log_batch_time >= 1
+            assert metrics_logger.total_log_batch_time >= 1
 
             time.sleep(2)
 
-            batch_metrics_logger.record_metrics({"x": 1}, step=0)
+            metrics_logger.record_metrics({"x": 1}, step=0)
 
-            assert batch_metrics_logger.total_training_time >= 2
+            assert metrics_logger.total_training_time >= 2

@@ -45,7 +45,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
-    with_batch_metrics_logger,
+    batch_metrics_logger,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -335,13 +335,13 @@ def autolog(
         original(self, *args, **kwargs)
 
     def train(*args, **kwargs):
-        def record_eval_results(eval_results, batch_metrics_logger):
+        def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
             """
 
             def callback(env):
-                batch_metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
+                metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
                 eval_results.append(dict(env.evaluation_result_list))
 
             return callback
@@ -417,8 +417,8 @@ def autolog(
         callbacks_index = all_arg_names.index("callbacks")
 
         run_id = mlflow.active_run().info.run_id
-        with with_batch_metrics_logger(run_id) as batch_metrics_logger:
-            callback = record_eval_results(eval_results, batch_metrics_logger)
+        with batch_metrics_logger(run_id) as metrics_logger:
+            callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
                 tmp_list = list(args)
                 tmp_list[callbacks_index] += [callback]

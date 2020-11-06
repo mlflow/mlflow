@@ -220,8 +220,8 @@ class BatchMetricsLogger:
         self.total_log_batch_time += end - start
 
     def _should_purge(self):
-        log_batch_time_fudge_factor = 10
-        if self.total_training_time >= self.total_log_batch_time * log_batch_time_fudge_factor:
+        target_training_to_logging_time_ratio = 10
+        if self.total_training_time >= self.total_log_batch_time * target_training_to_logging_time_ratio:
             return True
 
         return False
@@ -253,7 +253,7 @@ class BatchMetricsLogger:
 
 
 @contextlib.contextmanager
-def with_batch_metrics_logger(run_id):
+def batch_metrics_logger(run_id):
     """
     Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
     The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
@@ -266,6 +266,6 @@ def with_batch_metrics_logger(run_id):
     :param run_id: ID of the run that the metrics will be logged to.
     """
 
-    with_batch_metrics_logger = BatchMetricsLogger(run_id)
-    yield with_batch_metrics_logger
-    with_batch_metrics_logger._purge()
+    batch_metrics_logger = BatchMetricsLogger(run_id)
+    yield batch_metrics_logger
+    batch_metrics_logger._purge()
