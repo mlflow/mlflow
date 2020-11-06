@@ -748,11 +748,14 @@ public class MlflowClient implements Serializable {
    * @return A local file or directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(String modelName, String version) {
-    String downloadUri = getModelVersionDownloadUri(modelName, version);
-
+    String scheme = "models"
+    String path = modelName + "/" + version
+    URIBuilder downloadUriBuilder = new URIBuilder().setScheme(scheme).setPath(path)
+    System.out.println("ARJUN")
+    System.out.println(downloadUriBuilder.toString())
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
             hostCredsProvider);
-    return repository.downloadArtifactFromUri(downloadUri);
+    return repository.downloadArtifactFromUri(downloadUriBuilder.toString());
   }
 
   /**
