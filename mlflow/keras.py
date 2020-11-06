@@ -468,6 +468,8 @@ def _load_pyfunc(path):
         with open(save_format_path, "r") as f:
             save_format = f.read()
 
+    # In SavedModel format, if we don't compile the model
+    should_compile = save_format == "tf"
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == "tensorflow":
         if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
@@ -480,12 +482,12 @@ def _load_pyfunc(path):
                 with sess.as_default():  # pylint:disable=not-context-manager
                     K.set_learning_phase(0)
                     m = _load_model(
-                        path, keras_module=keras_module, save_format=save_format, compile=False
+                        path, keras_module=keras_module, save_format=save_format, compile=should_compile
                     )
                     return _KerasModelWrapper(m, graph, sess)
         else:
             K.set_learning_phase(0)
-            m = _load_model(path, keras_module=keras_module, save_format=save_format, compile=False)
+            m = _load_model(path, keras_module=keras_module, save_format=save_format, compile=should_compile)
             return _KerasModelWrapper(m, None, None)
 
     else:
