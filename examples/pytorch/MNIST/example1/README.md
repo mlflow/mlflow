@@ -1,14 +1,16 @@
 ## MNIST example with MLFlow
-In this example, we train a Pytorch Lightning model to preidct handwritten digits. The code, adapted from this [repository](https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pl_examples/basic_examples/mnist.py), is almost entirely dedicated to model training, with the addition of a single mlflow.pytorch.autolog() call to enable automatic logging of params, metrics, and models.Additionally the call would also enable saving of parameters and metrics related to ``early stopping callback`` and the best model check point.
+In this example, we train a Pytorch Lightning model to predict handwritten digits, leveraging early stopping.
+The code, adapted from this [repository](https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pl_examples/basic_examples/mnist.py), is almost entirely dedicated to model training, with the addition of a single ``mlflow.pytorch.autolog()`` call to enable automatic logging of params, metrics, and models,
+including the best model from early stopping.
 
 ### Running the code
-To run the example via MLflow, navigate to the `mlflow/examples/pytorch/BertNewsClassification` directory and run the command
+To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example1` directory and run the command
 
 ```
 mlflow run .
 ```
 
-This will run `bert_classification.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_autolog_example1.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -46,7 +48,7 @@ The parameters can be overridden via the command line:
 
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. gpus - Number of GPUs
-3. accelrator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used. 
+3. accelerator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used. 
 4. batch-size - Input batch size for training
 5. num-workers - Number of worker threads to load training data
 6. lr - Learning rate

@@ -1,5 +1,5 @@
 ## BERT news classification example
-In this example, we train a Pytorch Lightning model to classify news articles into "World", "Sports", "Business" and "Sci/Tech" categories. The code, adapted from this [repository](https://github.com/ricardorei/lightning-text-classification/blob/master/classifier.py), is almost entirely dedicated to model training, with the addition of a single mlflow.pytorch.autolog() call to enable automatic logging of params, metrics, and models.
+In this example, we train a Pytorch Lightning model to classify news articles into "World", "Sports", "Business" and "Sci/Tech" categories. The code, adapted from this [repository](https://github.com/ricardorei/lightning-text-classification/blob/master/classifier.py), is almost entirely dedicated to model training, with the addition of a single ``mlflow.pytorch.autolog()`` call to enable automatic logging of params, metrics, and models.
  
 
 ### Running the code
@@ -44,7 +44,7 @@ The parameters can be overridden via the command line:
 
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. gpus - Number of GPUs
-3. accelrator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used. 
+3. accelerator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used. 
 4. batch-size - Input batch size for training
 5. num-workers - Number of worker threads to load training data
 6. lr - Learning rate
