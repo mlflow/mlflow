@@ -31,33 +31,20 @@ def host_creds_mock():
 
 
 @pytest.fixture()
-def databricks_model_artifact_repo():
+def databricks_model_artifact_repo(host_creds_mock):
     return DatabricksModelArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
 
 
-def mocked_requests_get(*args, **kwargs):
-    class MockResponse:
-        def __init__(self, json_data, status_code):
-            self.json_data = json_data
-            self.status_code = status_code
-
-        def json(self):
-            return self.json_data
-
-    if args[0] == "http://someurl.com/test.json":
-        return MockResponse({"key1": "value1"}, 200)
-    elif args[0] == "http://someotherurl.com/anothertest.json":
-        return MockResponse({"key2": "value2"}, 200)
-
-    return MockResponse(None, 404)
-
-
 class TestDatabricksModelArtifactRepository(object):
-    def test_init_validation_and_cleaning(self, host_creds_mock):
-        repo = DatabricksModelArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
-        assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITH_PROFILE
-        assert repo.model_name == MOCK_MODEL_NAME
-        assert repo.model_version == MOCK_MODEL_VERSION
+    def test_init_validation_and_cleaning(self):
+        with mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds"
+        ) as get_creds_mock:
+            get_creds_mock.return_value = None
+            repo = DatabricksModelArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
+            assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITH_PROFILE
+            assert repo.model_name == MOCK_MODEL_NAME
+            assert repo.model_version == MOCK_MODEL_VERSION
 
         with pytest.raises(MlflowException):
             DatabricksModelArtifactRepository("s3://test")
@@ -72,7 +59,7 @@ class TestDatabricksModelArtifactRepository(object):
         with pytest.raises(MlflowException):
             DatabricksModelArtifactRepository("models://scope:key@notdatabricks/MyModel/12")
 
-    def test_init_when_profile_is_infered(self, host_creds_mock):
+    def test_init_when_profile_is_infered(self):
         with mock.patch(
             "mlflow.tracking.get_registry_uri", return_value="databricks://getRegistryUriDefault"
         ), mock.patch(
@@ -84,7 +71,7 @@ class TestDatabricksModelArtifactRepository(object):
             assert repo.model_name == MOCK_MODEL_NAME
             assert repo.model_version == MOCK_MODEL_VERSION
 
-    def test_list_artifacts(self, host_creds_mock, databricks_model_artifact_repo):
+    def test_list_artifacts(self, databricks_model_artifact_repo):
         list_artifact_dir_response_mock = mock.MagicMock
         list_artifact_dir_response_mock.status_code = 200
         list_artifact_dir_json_mock = {
@@ -109,22 +96,7 @@ class TestDatabricksModelArtifactRepository(object):
             assert artifacts[1].file_size is None
             call_endpoint_mock.assert_called_with(ANY, REGISTRY_LIST_ENDPOINT)
 
-    def test_list_artifacts_for_single_file(self, host_creds_mock, databricks_model_artifact_repo):
-        list_artifact_file_response_mock = mock.MagicMock
-        list_artifact_file_response_mock.status_code = 200
-        list_artifact_file_json_mock = {
-            "files": [{"path": "MLmodel", "is_dir": False, "file_size": 294}]
-        }
-        list_artifact_file_response_mock.text = json.dumps(list_artifact_file_json_mock)
-        with mock.patch(
-            DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
-        ) as call_endpoint_mock:
-            # Calling list_artifacts() on a path that's a file should return an empty list
-            call_endpoint_mock.return_value = list_artifact_file_response_mock
-            artifacts = databricks_model_artifact_repo.list_artifacts("MLmodel")
-            assert len(artifacts) == 0
-
-    def test_list_artifacts_for_single_file(self, host_creds_mock, databricks_model_artifact_repo):
+    def test_list_artifacts_for_single_file(self, databricks_model_artifact_repo):
         list_artifact_file_response_mock = mock.MagicMock
         list_artifact_file_response_mock.status_code = 200
         list_artifact_file_json_mock = {
@@ -149,7 +121,7 @@ class TestDatabricksModelArtifactRepository(object):
         ],
     )
     def test_databricks_download_file(
-        self, host_creds_mock, databricks_model_artifact_repo, remote_file_path, local_path
+        self, databricks_model_artifact_repo, remote_file_path, local_path
     ):
         signed_uri_response_mock = mock.MagicMock
         signed_uri_response_mock.status_code = 200
@@ -168,9 +140,7 @@ class TestDatabricksModelArtifactRepository(object):
             call_endpoint_mock.assert_called_with(ANY, REGISTRY_GET_PRESIGNED_URI_ENDPOINT)
             download_mock.assert_called_with(signed_uri_mock["signed_uri"], ANY, ANY)
 
-    def test_databricks_download_file_get_request_fail(
-        self, host_creds_mock, databricks_model_artifact_repo
-    ):
+    def test_databricks_download_file_get_request_fail(self, databricks_model_artifact_repo):
         with mock.patch(
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
         ) as call_endpoint_mock:
