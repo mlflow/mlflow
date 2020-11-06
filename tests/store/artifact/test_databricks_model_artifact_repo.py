@@ -1,4 +1,3 @@
-import os
 import pytest
 from unittest import mock
 import json
@@ -31,7 +30,7 @@ def host_creds_mock():
 
 
 @pytest.fixture()
-def databricks_model_artifact_repo(host_creds_mock):
+def databricks_model_artifact_repo(host_creds_mock):  # pylint: disable=unused-argument
     return DatabricksModelArtifactRepository(MOCK_MODEL_ROOT_URI_WITH_PROFILE)
 
 
@@ -61,11 +60,14 @@ class TestDatabricksModelArtifactRepository(object):
 
     def test_init_when_profile_is_infered(self):
         with mock.patch(
+            DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds"
+        ) as get_creds_mock, mock.patch(
             "mlflow.tracking.get_registry_uri", return_value="databricks://getRegistryUriDefault"
         ), mock.patch(
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".is_databricks_profile",
             return_value=True,
         ):
+            get_creds_mock.return_value = None
             repo = DatabricksModelArtifactRepository(MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE)
             assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE
             assert repo.model_name == MOCK_MODEL_NAME
