@@ -87,6 +87,14 @@ def _autolog(log_every_n_epoch=1):
                     self.early_stopping = True
                     self._log_early_stop_params(callback)
 
+            # TODO For logging optimizer params - Following scenarios are to revisited.
+            # 1. In the current scenario, only the first optimizer details are logged.
+            #    Code to be enhanced to log params when multiple optimizers are used.
+            # 2. mlflow.log_params is used to store optimizer default values into mlflow.
+            #    The keys in default dictionary are too short, Ex: (lr - learning_rate).
+            #    Efficient mapping technique needs to be introduced
+            #    to rename the optimizer parameters based on keys in default dictionary.
+
             if hasattr(trainer, "optimizers"):
                 optimizer = trainer.optimizers[0]
                 try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
