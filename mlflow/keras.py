@@ -389,7 +389,7 @@ def _save_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
-def _load_model(model_path, keras_module, save_format: str, **kwargs):
+def _load_model(model_path, keras_module, save_format, **kwargs):
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
     custom_objects_path = None

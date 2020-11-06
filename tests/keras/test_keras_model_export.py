@@ -171,7 +171,6 @@ def test_that_keras_module_arg_works(model_path):
     class FakeKerasModule(object):
         __name__ = "some.test.keras.module"
         __version__ = "42.42.42"
-        __package__ = ""
 
         @staticmethod
         def load_model(file, **kwargs):
@@ -211,10 +210,11 @@ def test_that_keras_module_arg_works(model_path):
             assert x == b
 
 
-@pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
+# @pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
 @pytest.mark.parametrize("build_model", [model, tf_keras_model])
+@pytest.mark.parametrize("build_model,save_format", [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"), (tf_keras_model, "tf")])
 @pytest.mark.large
-def test_model_save_load(build_model, model_path, data):
+def test_model_save_load(build_model, save_format, model_path, data):
     x, _ = data
     keras_model = build_model(data)
     if build_model == tf_keras_model:
@@ -222,10 +222,15 @@ def test_model_save_load(build_model, model_path, data):
     else:
         model_path = os.path.join(model_path, "plain")
     expected = keras_model.predict(x)
-    mlflow.keras.save_model(keras_model, model_path)
+    kwargs = {"save_format": save_format} if save_format else {}
+    mlflow.keras.save_model(keras_model, model_path, **kwargs)
     # Loading Keras model
     model_loaded = mlflow.keras.load_model(model_path)
-    assert type(keras_model) == type(model_loaded)
+    # When saving as SavedModel, we actually convert the model
+    # to a slightly different format, so we cannot assume it is
+    # exactly the same.
+    if save_format is not "tf":
+        assert type(keras_model) == type(model_loaded)
     assert all(expected == model_loaded.predict(x))
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
