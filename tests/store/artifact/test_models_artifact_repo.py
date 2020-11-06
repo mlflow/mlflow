@@ -34,7 +34,7 @@ def test_models_artifact_repo_init_with_version_uri_and_db_profile(
     host_creds_mock, mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     model_uri = "models://profile@databricks/MyModel/12"
-    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY, autospec=True) as mock_repo:
+    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY, autospec=True):
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, DatabricksModelArtifactRepository)
@@ -65,7 +65,7 @@ def test_models_artifact_repo_init_with_version_uri_and_bad_db_profile_from_cont
     host_creds_mock, mock_get_model_version_download_uri,
 ):  # pylint: disable=unused-argument
     model_uri = "models:/MyModel/12"
-    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY, autospec=True) as mock_repo, mock.patch(
+    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY, autospec=True), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".is_databricks_profile", return_value=True
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".mlflow.get_registry_uri",
