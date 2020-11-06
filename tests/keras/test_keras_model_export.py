@@ -210,7 +210,6 @@ def test_that_keras_module_arg_works(model_path):
             assert x == b
 
 
-@pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
 @pytest.mark.parametrize("build_model", [model, tf_keras_model])
 @pytest.mark.large
 def test_model_save_load(build_model, model_path, data):
@@ -269,7 +268,6 @@ def test_signature_and_examples_are_saved_correctly(model, data):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-@pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
 @pytest.mark.large
 def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
     x, _ = data
