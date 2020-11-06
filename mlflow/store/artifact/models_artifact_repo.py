@@ -3,9 +3,13 @@ import urllib.parse
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.databricks_model_artifact_repo import DatabricksModelArtifactRepository
+from mlflow.utils.uri import is_databricks_model_registry_artifacts_uri
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
+    parse_model_uri,
+    get_model_version_from_stage,
 )
 
 
@@ -25,37 +29,11 @@ class ModelsArtifactRepository(ArtifactRepository):
         uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
         #  we don't get a download URI here, or fail during the download itself.
-        self.repo = get_artifact_repository(uri)
-
-    @staticmethod
-    def _improper_model_uri_msg(uri):
-        return (
-            "Not a proper models:/ URI: %s. " % uri
-            + "Models URIs must be of the form 'models:/<model_name>/<version or stage>'."
-        )
-
-    @staticmethod
-    def _parse_uri(uri):
-        """
-        Returns (name, version, stage). Since a models:/ URI can only have one of {version, stage},
-        it will return (name, version, None) or (name, None, stage).
-        """
-        parsed = urllib.parse.urlparse(uri)
-        if parsed.scheme != "models":
-            raise MlflowException(ModelsArtifactRepository._improper_model_uri_msg(uri))
-
-        path = parsed.path
-        if not path.startswith("/") or len(path) <= 1:
-            raise MlflowException(ModelsArtifactRepository._improper_model_uri_msg(uri))
-        parts = path[1:].split("/")
-
-        if len(parts) != 2 or parts[0].strip() == "":
-            raise MlflowException(ModelsArtifactRepository._improper_model_uri_msg(uri))
-
-        if parts[1].isdigit():
-            return parts[0], int(parts[1]), None
+        if is_databricks_model_registry_artifacts_uri(uri):
+            print("We are rolling")
+            self.repo = DatabricksModelArtifactRepository(artifact_uri)
         else:
-            return parts[0], None, parts[1]
+            self.repo = get_artifact_repository(uri)
 
     @staticmethod
     def is_models_uri(uri):
@@ -71,15 +49,9 @@ class ModelsArtifactRepository(ArtifactRepository):
             get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        (name, version, stage) = ModelsArtifactRepository._parse_uri(uri)
+        (name, version, stage) = parse_model_uri(uri)
         if stage is not None:
-            latest = client.get_latest_versions(name, [stage])
-            if len(latest) == 0:
-                raise MlflowException(
-                    "No versions of model with name '{name}' and "
-                    "stage '{stage}' found".format(name=name, stage=stage)
-                )
-            version = latest[0].version
+            version = get_model_version_from_stage(client, name, stage)
         download_uri = client.get_model_version_download_uri(name, version)
         return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 

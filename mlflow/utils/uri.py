@@ -1,6 +1,7 @@
 import posixpath
 import urllib.parse
 
+import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -240,6 +241,7 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
 def is_databricks_model_registry_artifacts_uri(artifact_uri):
     _MODEL_REGISTRY_ARTIFACT_URI = "databricks/mlflow-registry/"
     artifact_uri_path = extract_and_normalize_path(artifact_uri)
+    print(f"artifact_uri_path : {artifact_uri_path}")
     return artifact_uri_path.startswith(_MODEL_REGISTRY_ARTIFACT_URI)
 
 
@@ -265,3 +267,51 @@ def is_valid_dbfs_uri(uri):
     except MlflowException:
         db_profile_uri = None
     return not parsed.netloc or db_profile_uri is not None
+
+
+def is_databricks_profile(uri):
+    profile_uri = get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+    return is_databricks_uri(profile_uri)
+
+
+# Model URI Utils
+
+
+def improper_model_uri_msg(uri):
+    return (
+        "Not a proper models:/ URI: %s. " % uri
+        + "Models URIs must be of the form 'models:/<model_name>/<version or stage>'."
+    )
+
+
+def get_model_version_from_stage(client, name, stage):
+    latest = client.get_latest_versions(name, [stage])
+    if len(latest) == 0:
+        raise MlflowException(
+            "No versions of model with name '{name}' and "
+            "stage '{stage}' found".format(name=name, stage=stage)
+        )
+    return latest[0].version
+
+
+def parse_model_uri(uri):
+    """
+    Returns (name, version, stage). Since a models:/ URI can only have one of {version, stage},
+    it will return (name, version, None) or (name, None, stage).
+    """
+    parsed = urllib.parse.urlparse(uri)
+    if parsed.scheme != "models":
+        raise MlflowException(improper_model_uri_msg(uri))
+
+    path = parsed.path
+    if not path.startswith("/") or len(path) <= 1:
+        raise MlflowException(improper_model_uri_msg(uri))
+    parts = path[1:].split("/")
+
+    if len(parts) != 2 or parts[0].strip() == "":
+        raise MlflowException(improper_model_uri_msg(uri))
+
+    if parts[1].isdigit():
+        return parts[0], int(parts[1]), None
+    else:
+        return parts[0], None, parts[1]

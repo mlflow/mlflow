@@ -13,7 +13,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 @pytest.fixture()
 def host_creds_mock():
     with mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store"
+        "mlflow.store.artifact.dbfs_artifact_repo.get_host_creds_from_default_store"
     ) as get_creds_mock:
         get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
         yield

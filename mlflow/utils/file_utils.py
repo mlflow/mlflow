@@ -3,6 +3,7 @@ import errno
 import gzip
 import os
 import posixpath
+import requests
 import shutil
 import sys
 import tarfile
@@ -413,3 +414,13 @@ def yield_file_in_chunks(file, chunk_size=100000000):
                 yield chunk
             else:
                 break
+
+
+def download_file_using_signed_uri(signed_uri, download_path, chuck_size=100000000):
+    with requests.get(signed_uri, stream=True) as response:
+        response.raise_for_status()
+        with open(download_path, "wb") as output_file:
+            for chunk in response.iter_content(chunk_size=chuck_size):
+                if not chunk:
+                    break
+                output_file.write(chunk)
