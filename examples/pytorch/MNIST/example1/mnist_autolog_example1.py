@@ -9,11 +9,10 @@
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
 import pytorch_lightning as pl
+import mlflow.pytorch
 import os
-import mlflow
 import torch
 from argparse import ArgumentParser
-from mlflow.pytorch.pytorch_autolog import autolog
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
@@ -147,7 +146,7 @@ class LightningMNISTClassifier(pl.LightningModule):
             help="number of workers (default: 3)",
         )
         parser.add_argument(
-            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
         )
         return parser
 
@@ -272,36 +271,12 @@ class LightningMNISTClassifier(pl.LightningModule):
         }
         return [self.optimizer], [self.scheduler]
 
-    def optimizer_step(
-        self,
-        epoch,
-        batch_idx,
-        optimizer,
-        optimizer_idx,
-        second_order_closure=None,
-        on_tpu=False,
-        using_lbfgs=False,
-        using_native_amp=False,
-    ):
-        """
-        Training step function which runs for the given number of epochs
-
-        :param epoch: Number of epochs to train
-        :param batch_idx: batch indices
-        :param optimizer: Optimizer to be used in training step
-        """
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="PyTorch Autolog Mnist Example")
 
     # Add trainer specific arguments
 
-    parser.add_argument(
-        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
-    )
     parser.add_argument(
         "--max-epochs", type=int, default=20, help="number of epochs to run (default: 20)"
     )
@@ -330,12 +305,10 @@ if __name__ == "__main__":
 
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
-    autolog()
+    mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
-
-    mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     model = LightningMNISTClassifier(**dict_args)
 

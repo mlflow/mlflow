@@ -23,7 +23,6 @@ import yaml
 import tempfile
 import inspect
 import logging
-import gorilla
 from copy import deepcopy
 
 import mlflow
@@ -33,6 +32,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -283,7 +283,7 @@ class _XGBModelWrapper:
 
 @experimental
 def autolog(
-    importance_types=["weight"], log_input_example=False, log_model_signature=True
+    importance_types=["weight"], log_input_examples=False, log_model_signatures=True
 ):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
@@ -299,11 +299,14 @@ def autolog(
     Note that the `scikit-learn API`_ is not supported.
 
     :param importance_types: importance types to log.
-    :param log_input_example: if True, logs a sample of the training data as part of the model
-                              as an example for future reference. If False, no sample is logged.
-    :param log_model_signature: if True, records the type signature of the inputs and outputs as
-                                part of the model. If False, the signature is not recorded to the
-                                model.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with XGBoost model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with XGBoost model artifacts during training. If ``False``,
+                                 signatures are not logged.
     """
     import xgboost
     import numpy as np
@@ -314,10 +317,9 @@ def autolog(
     # We store it on the DMatrix object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
+        original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
         if data is not None:
-            original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
-
             try:
                 if isinstance(data, str):
                     raise Exception(
@@ -488,8 +490,8 @@ def autolog(
         input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
-            log_input_example,
-            log_model_signature,
+            log_input_examples,
+            log_model_signatures,
             _logger,
         )
 

@@ -1,9 +1,9 @@
-import gorilla
 import inspect
 import pytest
 from unittest.mock import Mock, call
 
 import mlflow
+from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     get_unspecified_default_args,
     log_fn_args_as_params,

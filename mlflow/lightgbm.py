@@ -24,7 +24,6 @@ import tempfile
 import shutil
 import inspect
 import logging
-import gorilla
 from copy import deepcopy
 
 import mlflow
@@ -34,6 +33,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -281,7 +281,7 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(log_input_example=False, log_model_signature=True):
+def autolog(log_input_examples=False, log_model_signatures=True):
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
@@ -295,11 +295,14 @@ def autolog(log_input_example=False, log_model_signature=True):
 
     Note that the `scikit-learn API`_ is not supported.
 
-    :param log_input_example: if True, logs a sample of the training data as part of the model
-                              as an example for future reference. If False, no sample is logged.
-    :param log_model_signature: if True, records the type signature of the inputs and outputs as
-                                part of the model. If False, the signature is not recorded to the
-                                model.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with LightGBM model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with LightGBM model artifacts during training. If ``False``,
+                                 signatures are not logged.
     """
     import lightgbm
     import numpy as np
@@ -310,10 +313,9 @@ def autolog(log_input_example=False, log_model_signature=True):
     # We store it on the Dataset object so the train function is able to read it.
     def __init__(self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
+        original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
 
         if data is not None:
-            original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
-
             try:
                 if isinstance(data, str):
                     raise Exception(
@@ -492,8 +494,8 @@ def autolog(log_input_example=False, log_model_signature=True):
         input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
-            log_input_example,
-            log_model_signature,
+            log_input_examples,
+            log_model_signatures,
             _logger,
         )
 
