@@ -18,11 +18,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/registered-models/create"
+        path: "/preview/mlflow/registered-models/create"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/registered-models/create"
+        path: "/mlflow/registered-models/create"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -34,11 +34,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/registered-models/rename"
+        path: "/preview/mlflow/registered-models/rename"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/registered-models/rename"
+        path: "/mlflow/registered-models/rename"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -50,11 +50,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/registered-models/update"
+        path: "/preview/mlflow/registered-models/update"
         since { major: 2, minor: 0 },
       }, {
         method: "PATCH",
-        path: "/preview/mlflow/registered-models/update"
+        path: "/mlflow/registered-models/update"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -66,11 +66,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/registered-models/delete"
+        path: "/preview/mlflow/registered-models/delete"
         since { major: 2, minor: 0 },
       }, {
         method: "DELETE",
-        path: "/preview/mlflow/registered-models/delete"
+        path: "/mlflow/registered-models/delete"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -82,11 +82,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/registered-models/get"
+        path: "/preview/mlflow/registered-models/get"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/registered-models/get"
+        path: "/mlflow/registered-models/get"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -98,11 +98,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/registered-models/search"
+        path: "/preview/mlflow/registered-models/search"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/registered-models/search"
+        path: "/mlflow/registered-models/search"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -114,11 +114,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/registered-models/list"
+        path: "/preview/mlflow/registered-models/list"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/registered-models/list"
+        path: "/mlflow/registered-models/list"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -130,11 +130,11 @@ service ModelRegistryService {
     option(rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/registered-models/get-latest-versions"
+        path: "/preview/mlflow/registered-models/get-latest-versions"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/registered-models/get-latest-versions"
+        path: "/mlflow/registered-models/get-latest-versions"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -146,11 +146,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/model-versions/create"
+        path: "/preview/mlflow/model-versions/create"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/model-versions/create"
+        path: "/mlflow/model-versions/create"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -162,11 +162,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/model-versions/update"
+        path: "/preview/mlflow/model-versions/update"
         since { major: 2, minor: 0 },
       }, {
         method: "PATCH",
-        path: "/preview/mlflow/model-versions/update"
+        path: "/mlflow/model-versions/update"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -178,11 +178,11 @@ service ModelRegistryService {
     option (rpc) = {
     endpoints: [{
         method: "POST",
-        path: "/mlflow/model-versions/transition-stage"
+        path: "/preview/mlflow/model-versions/transition-stage"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/model-versions/transition-stage"
+        path: "/mlflow/model-versions/transition-stage"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -194,11 +194,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/model-versions/delete"
+        path: "/preview/mlflow/model-versions/delete"
         since { major: 2, minor: 0 },
       }, {
         method: "DELETE",
-        path: "/preview/mlflow/model-versions/delete"
+        path: "/mlflow/model-versions/delete"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -210,11 +210,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/model-versions/get"
+        path: "/preview/mlflow/model-versions/get"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/model-versions/get"
+        path: "/mlflow/model-versions/get"
         since { major: 2, minor: 0 },
       }],
       visibility:PUBLIC,
@@ -226,11 +226,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/model-versions/search"
+        path: "/preview/mlflow/model-versions/search"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/model-versions/search"
+        path: "/mlflow/model-versions/search"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -242,11 +242,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/model-versions/get-download-uri"
+        path: "/preview/mlflow/model-versions/get-download-uri"
         since { major: 2, minor: 0},
       }, {
         method: "GET",
-        path: "/preview/mlflow/model-versions/get-download-uri"
+        path: "/mlflow/model-versions/get-download-uri"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -258,11 +258,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/registered-models/set-tag"
+        path: "/preview/mlflow/registered-models/set-tag"
         since { major: 2, minor: 0},
       }, {
         method: "POST",
-        path: "/preview/mlflow/registered-models/set-tag"
+        path: "/mlflow/registered-models/set-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -274,11 +274,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/model-versions/set-tag"
+        path: "/preview/mlflow/model-versions/set-tag"
         since { major: 2, minor: 0},
       }, {
         method: "POST",
-        path: "/preview/mlflow/model-versions/set-tag"
+        path: "/mlflow/model-versions/set-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -290,11 +290,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/registered-models/delete-tag"
+        path: "/preview/mlflow/registered-models/delete-tag"
         since { major: 2, minor: 0},
       }, {
         method: "DELETE",
-        path: "/preview/mlflow/registered-models/delete-tag"
+        path: "/mlflow/registered-models/delete-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
@@ -306,11 +306,11 @@ service ModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/model-versions/delete-tag"
+        path: "/preview/mlflow/model-versions/delete-tag"
         since { major: 2, minor: 0},
       }, {
         method: "DELETE",
-        path: "/preview/mlflow/model-versions/delete-tag"
+        path: "/mlflow/model-versions/delete-tag"
         since { major: 2, minor: 0},
       }],
       visibility: PUBLIC,
