@@ -9,6 +9,7 @@ entry_points:
       gpus: {type: int, default: 0}
       batch_size: {type: int, default: 64}
       num_workers: {type: int, default: 3}
+      num_samples: {type: int, default: 15000}
       learning_rate: {type: float, default: 0.001}
 
     command: |
@@ -17,4 +18,5 @@ entry_points:
             --gpus {gpus} \
             --batch-size {batch_size} \
             --num-workers {num_workers} \
+            --num-samples {num_samples} \
             --lr {learning_rate}

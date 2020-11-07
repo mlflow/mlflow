@@ -12,3 +12,4 @@ dependencies:
   - mlflow
   - cloudpickle==1.6.0
   - boto3
+  - gorilla
