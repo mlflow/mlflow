@@ -13,6 +13,6 @@ def test_enabling_autologging_throws_for_missing_jar():
     try:
         with pytest.raises(MlflowException) as exc:
             mlflow.spark.autolog()
-        assert "Please ensure you have the mlflow-spark JAR attached" in exc.value.message
+        assert "ensure you have the mlflow-spark JAR attached" in exc.value.message
     finally:
         spark_session.stop()

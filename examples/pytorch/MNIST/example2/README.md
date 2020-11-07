@@ -1,15 +1,22 @@
 ## MNIST example with MLFlow
 
 In this example, we train a model to predict handwritten digits.The autolog code uses Pytorch Lightning's MLFlowLogger to log metrics. 
-The code is trained using pytorch lightning loop and the autolog function call in the main - `autolog()`
+The code is trained using pytorch lightning loop and the autolog function call in the main - `mlflow.pytorch.autolog()`
 is responsible for logging the params, metrics, model summary and the model.
-This example logs metrics only after n epoch iterations. The iteration limit can be set in the autolog method using the parameter `log_every_n_iter=NUMBER-OF-ITERATIONS`.
-For ex: `autolog(log_every_n_iter=5)`
+This example logs metrics only after n epoch iterations. The iteration limit can be set in the autolog method using the parameter `log_every_n_iter=NUMBER-OF-EPOCH`.
+For ex: `mlflow.pytorch.autolog(log_every_n_epoch=5)`
 
 ### Code related to MLflow:
-* [`mlflow.pytorch.pytorch_autolog`]
+* [`mlflow.pytorch.autolog`]
 This is an experimental api that logs ML model artifacts and metrics.
 The metrics are logged during training of the model.
+
+## Setting tracking URI
+MLflow tracking URI can be set using the environment variable MLFLOW_TRACKING_URI
+
+Example: `export MLFLOW_TRACKING_URI=http://localhost:5000/`
+
+For more details - https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded
 
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example2` directory and run the command
@@ -44,7 +51,6 @@ Following are the parameters which can be overridden by passing values in comman
 4. Batch size to process - batch-size
 5. Number of workers to process input - num-workers
 6. Learning rate - lr
-7. URL to log - tracking-uri
 
 For example:
 ```
@@ -54,8 +60,7 @@ python mnist_autolog_example2.py \
     --accelerator "ddp" \
     --batch-size 64 \
     --num-workers 3 \
-    --lr 0.01 \
-    --tracking-uri "http://localhost:5000"
+    --lr 0.001
 ```
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

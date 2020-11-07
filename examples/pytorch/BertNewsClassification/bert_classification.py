@@ -1,14 +1,13 @@
-# pylint: disable=W0221
-# pylint: disable=W0613
-# pylint: disable=E1102
-# pylint: disable=W0223
+# pylint: disable=arguments-differ
+# pylint: disable=unused-argument
+# pylint: disable=abstract-method
 
 import os
 from argparse import ArgumentParser
+import mlflow.pytorch
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
-import mlflow
 import torch
 import torch.nn.functional as F
 from pytorch_lightning.callbacks import (
@@ -23,8 +22,6 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import BertModel, BertTokenizer, AdamW
 from torchtext.utils import download_from_url, extract_archive
 from torchtext.datasets.text_classification import URLS
-
-from mlflow.pytorch.pytorch_autolog import autolog
 
 
 class AGNewsDataset(Dataset):
@@ -272,7 +269,7 @@ class BertNewsClassifier(pl.LightningModule):
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--lr", type=float, default=1e-3, metavar="LR", help="learning rate (default: 1e-3)",
+            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
         )
         return parser
 
@@ -370,9 +367,6 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--tracking-uri", type=str, default="http://localhost:5000/", help="mlflow tracking uri"
-    )
-    parser.add_argument(
         "--max-epochs", type=int, default=10, help="number of epochs to run (default: 10)"
     )
     parser.add_argument(
@@ -394,11 +388,10 @@ if __name__ == "__main__":
 
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
 
-    autolog()
+    mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
-    mlflow.set_tracking_uri(dict_args["tracking_uri"])
 
     dm = BertDataModule(**dict_args)
     dm.prepare_data()

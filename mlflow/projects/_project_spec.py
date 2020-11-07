@@ -1,9 +1,8 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
+from shlex import quote
 import yaml
-
-from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
@@ -123,12 +122,12 @@ class Project(object):
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
-            command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
+            command = "%s %s" % (ext_to_cmd[file_extension], quote(entry_point))
             if not is_string_type(command):
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
         elif file_extension == ".R":
-            command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % shlex_quote(entry_point)
+            command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % quote(entry_point)
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException(
             "Could not find {0} among entry points {1} or interpret {0} as a "
@@ -197,7 +196,7 @@ class EntryPoint(object):
 
     @staticmethod
     def _sanitize_param_dict(param_dict):
-        return {str(key): shlex_quote(str(value)) for key, value in param_dict.items()}
+        return {str(key): quote(str(value)) for key, value in param_dict.items()}
 
 
 class Parameter(object):

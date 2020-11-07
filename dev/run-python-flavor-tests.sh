@@ -21,7 +21,9 @@ pytest --verbose tests/gluon --large
 pytest --verbose tests/gluon_autolog --large
 pytest --verbose tests/spacy --large
 pytest --verbose tests/fastai --large
+pytest --verbose tests/shap --large
 pytest --verbose tests/utils/test_model_utils.py --large
+pytest --verbose tests/tracking/fluent/test_fluent_autolog.py --large
 
 
 test $err = 0

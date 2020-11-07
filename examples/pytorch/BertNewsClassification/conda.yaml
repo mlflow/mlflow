@@ -15,4 +15,3 @@ dependencies:
   - boto3
   - transformers
   - torchtext
-name: mlflow-env
