@@ -8,7 +8,7 @@ from unittest.mock import Mock
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.dbfs_artifact_repo import (
-    get_host_creds_from_default_store,
+    _get_host_creds_from_default_store,
     DbfsRestArtifactRepository,
 )
 from mlflow.store.tracking.file_store import FileStore
@@ -19,7 +19,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 @pytest.fixture()
 def dbfs_artifact_repo():
     with mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo.get_host_creds_from_default_store"
+        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store"
     ) as get_creds_mock:
         get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
         return get_artifact_repository("dbfs:/test/")
@@ -67,7 +67,7 @@ LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
 class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
         with mock.patch(
-            DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".get_host_creds_from_default_store"
+            DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store"
         ) as get_creds_mock:
             get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
             repo = get_artifact_repository("dbfs:/test/")
@@ -81,7 +81,7 @@ class TestDbfsArtifactRepository(object):
         databricks_host = "https://something.databricks.com"
         default_host = "http://host"
         with mock.patch(
-            DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".get_host_creds_from_default_store",
+            DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store",
             return_value=lambda: MlflowHostCreds(default_host),
         ), mock.patch(
             DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds",
@@ -263,10 +263,10 @@ def test_get_host_creds_from_default_store_file_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
         get_store_mock.return_value = FileStore()
         with pytest.raises(MlflowException):
-            get_host_creds_from_default_store()
+            _get_host_creds_from_default_store()
 
 
 def test_get_host_creds_from_default_store_rest_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
         get_store_mock.return_value = RestStore(lambda: MlflowHostCreds("http://host"))
-        assert isinstance(get_host_creds_from_default_store()(), MlflowHostCreds)
+        assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)

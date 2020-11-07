@@ -19,8 +19,8 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100000000
-REGISTRY_LIST_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
-REGISTRY_GET_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
+REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 
 class DatabricksModelArtifactRepository(ArtifactRepository):
@@ -36,7 +36,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
     - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
     - `models://<profile>/<model_name>/<model_version or state>`
 
-    Note : This artifact repository is meant is to be instantiate by the ModelsArtifactRepository
+    Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
     when the model download uri is of the form
     `dbfs:/databricks/mlflow-registry/<model-version-id>/models/<artifact-path>`
     """
@@ -70,7 +70,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
         return http_request(host_creds=host_creds, endpoint=endpoint, method="GET", params=json)
 
     def _make_json_body(self, path, page_token=None):
-        if page_token:
+        if not page_token:
             return {"name": self.model_name, "version": self.model_version, "path": path}
         return {
             "name": self.model_name,
@@ -86,7 +86,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
             path = ""
         while True:
             json_body = self._make_json_body(path, page_token)
-            response = self._call_endpoint(json_body, REGISTRY_LIST_ENDPOINT)
+            response = self._call_endpoint(json_body, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
             try:
                 json_response = json.loads(response.text)
             except ValueError:
@@ -117,7 +117,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
         if not path:
             path = ""
         json_body = self._make_json_body(path)
-        response = self._call_endpoint(json_body, REGISTRY_GET_PRESIGNED_URI_ENDPOINT)
+        response = self._call_endpoint(json_body, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
         try:
             json_response = json.loads(response.text)
         except ValueError:

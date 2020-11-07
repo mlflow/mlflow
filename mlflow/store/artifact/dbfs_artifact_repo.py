@@ -54,7 +54,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
             hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
             self.get_host_creds = lambda: hostcreds_from_uri
         else:
-            self.get_host_creds = get_host_creds_from_default_store()
+            self.get_host_creds = _get_host_creds_from_default_store()
 
     def _databricks_api_request(self, endpoint, **kwargs):
         host_creds = self.get_host_creds()
@@ -173,7 +173,7 @@ class DbfsRestArtifactRepository(ArtifactRepository):
         raise MlflowException("Not implemented yet")
 
 
-def get_host_creds_from_default_store():
+def _get_host_creds_from_default_store():
     store = utils._get_store()
     if not isinstance(store, RestStore):
         raise MlflowException(

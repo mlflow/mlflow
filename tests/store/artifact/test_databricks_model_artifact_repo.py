@@ -16,8 +16,8 @@ MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE = "models:/MyModel/12"
 MOCK_MODEL_NAME = "MyModel"
 MOCK_MODEL_VERSION = "12"
 
-REGISTRY_LIST_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
-REGISTRY_GET_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
+REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 
 @pytest.fixture()
@@ -58,7 +58,7 @@ class TestDatabricksModelArtifactRepository(object):
         with pytest.raises(MlflowException):
             DatabricksModelArtifactRepository("models://scope:key@notdatabricks/MyModel/12")
 
-    def test_init_when_profile_is_infered(self):
+    def test_init_when_profile_is_inferred(self):
         with mock.patch(
             DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".get_databricks_host_creds"
         ) as get_creds_mock, mock.patch(
@@ -79,7 +79,7 @@ class TestDatabricksModelArtifactRepository(object):
         list_artifact_dir_json_mock = {
             "files": [
                 {"path": "MLmodel", "is_dir": False, "file_size": 294},
-                {"path": "data", "is_dir": True, "file_size": 0},
+                {"path": "data", "is_dir": True, "file_size": None},
             ]
         }
         list_artifact_dir_response_mock.text = json.dumps(list_artifact_dir_json_mock)
@@ -96,7 +96,7 @@ class TestDatabricksModelArtifactRepository(object):
             assert artifacts[1].path == "data"
             assert artifacts[1].is_dir is True
             assert artifacts[1].file_size is None
-            call_endpoint_mock.assert_called_with(ANY, REGISTRY_LIST_ENDPOINT)
+            call_endpoint_mock.assert_called_with(ANY, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
 
     def test_list_artifacts_for_single_file(self, databricks_model_artifact_repo):
         list_artifact_file_response_mock = mock.MagicMock
@@ -139,7 +139,7 @@ class TestDatabricksModelArtifactRepository(object):
             call_endpoint_mock.return_value = signed_uri_response_mock
             download_mock.return_value = None
             databricks_model_artifact_repo.download_artifacts(remote_file_path, local_path)
-            call_endpoint_mock.assert_called_with(ANY, REGISTRY_GET_PRESIGNED_URI_ENDPOINT)
+            call_endpoint_mock.assert_called_with(ANY, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
             download_mock.assert_called_with(signed_uri_mock["signed_uri"], ANY, ANY)
 
     def test_databricks_download_file_get_request_fail(self, databricks_model_artifact_repo):
