@@ -214,7 +214,7 @@ def test_that_keras_module_arg_works(model_path):
     "build_model,save_format",
     # Unskip these parameters once https://github.com/h5py/h5py/issues/1732 is fixed
     # [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"),
-    (tf_keras_model, "tf")],
+    [(tf_keras_model, "tf")],
 )
 @pytest.mark.large
 def test_model_save_load(build_model, save_format, model_path, data):
