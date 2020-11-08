@@ -78,7 +78,7 @@ class MNISTDataModule(pl.LightningDataModule):
             type=int,
             default=3,
             metavar="N",
-            help="number of workers (default: 0)",
+            help="number of workers (default: 3)",
         )
         return parser
 
