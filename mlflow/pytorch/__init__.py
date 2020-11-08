@@ -623,10 +623,10 @@ def autolog(log_every_n_epoch=1):
     i.e. models that subclass
     `pytorch_lightning.LightningModule <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
     In particular, autologging support for vanilla Pytorch models that only subclass
-    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
     is not yet available.
 
-    :param log_every_n_epoch: parameter to log metrics once in `n` epoch. By default, metrics
+    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
     """
     from mlflow.pytorch._pytorch_autolog import _autolog
