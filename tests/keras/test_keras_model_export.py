@@ -210,10 +210,11 @@ def test_that_keras_module_arg_works(model_path):
             assert x == b
 
 
-# @pytest.mark.skip("Unskip this test once https://github.com/h5py/h5py/issues/1732 is fixed")
 @pytest.mark.parametrize(
     "build_model,save_format",
-    [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"), (tf_keras_model, "tf")],
+    # Unskip these parameters once https://github.com/h5py/h5py/issues/1732 is fixed
+    # [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"),
+    (tf_keras_model, "tf")],
 )
 @pytest.mark.large
 def test_model_save_load(build_model, save_format, model_path, data):
