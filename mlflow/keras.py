@@ -482,12 +482,17 @@ def _load_pyfunc(path):
                 with sess.as_default():  # pylint:disable=not-context-manager
                     K.set_learning_phase(0)
                     m = _load_model(
-                        path, keras_module=keras_module, save_format=save_format, compile=should_compile
+                        path,
+                        keras_module=keras_module,
+                        save_format=save_format,
+                        compile=should_compile,
                     )
                     return _KerasModelWrapper(m, graph, sess)
         else:
             K.set_learning_phase(0)
-            m = _load_model(path, keras_module=keras_module, save_format=save_format, compile=should_compile)
+            m = _load_model(
+                path, keras_module=keras_module, save_format=save_format, compile=should_compile
+            )
             return _KerasModelWrapper(m, None, None)
 
     else:
