@@ -45,6 +45,7 @@ two_default_test_args = [
 @pytest.mark.parametrize(
     "user_args,user_kwargs,all_param_names,all_default_values,expected", two_default_test_args
 )
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_get_two_unspecified_default_args(
     user_args, user_kwargs, all_param_names, all_default_values, expected
 ):
@@ -83,6 +84,7 @@ three_default_test_args = [
 @pytest.mark.parametrize(
     "user_args,user_kwargs,all_param_names,all_default_values,expected", three_default_test_args
 )
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_get_three_unspecified_default_args(
     user_args, user_kwargs, all_param_names, all_default_values, expected
 ):
@@ -121,6 +123,7 @@ log_test_args = [
 
 @pytest.mark.large
 @pytest.mark.parametrize("args,kwargs,expected", log_test_args)
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = mlflow.tracking.MlflowClient()
@@ -131,6 +134,7 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: di
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint: disable=W0613
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
@@ -146,6 +150,7 @@ def get_func_attrs(f):
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_wrap_patch_with_class():
     class Math:
         def add(self, a, b):
@@ -166,6 +171,7 @@ def test_wrap_patch_with_class():
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_wrap_patch_with_module():
     def new_log_param(key, value):
         """new mlflow.log_param"""
