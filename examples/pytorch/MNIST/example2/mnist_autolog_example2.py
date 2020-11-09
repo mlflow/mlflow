@@ -224,7 +224,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         :return: output - average valid loss
         """
         avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
-        self.log("val_loss", avg_loss)
+        self.log("val_loss", avg_loss, sync_dist=True)
 
     def test_step(self, test_batch, batch_idx):
         """
