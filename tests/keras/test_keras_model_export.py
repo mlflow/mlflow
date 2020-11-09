@@ -232,7 +232,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     # When saving as SavedModel, we actually convert the model
     # to a slightly different format, so we cannot assume it is
     # exactly the same.
-    if save_format is not "tf":
+    if save_format != "tf":
         assert type(keras_model) == type(model_loaded)
     assert all(expected == model_loaded.predict(x))
     # Loading pyfunc model
