@@ -215,13 +215,16 @@ class BatchMetricsLogger:
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            MlflowClient().log_batch(run_id=self.run_id, metrics=metrics_slice)
+            try_mlflow_log(MlflowClient().log_batch, run_id=self.run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
 
     def _should_purge(self):
         target_training_to_logging_time_ratio = 10
-        if self.total_training_time >= self.total_log_batch_time * target_training_to_logging_time_ratio:
+        if (
+            self.total_training_time
+            >= self.total_log_batch_time * target_training_to_logging_time_ratio
+        ):
             return True
 
         return False
@@ -244,7 +247,7 @@ class BatchMetricsLogger:
         self.total_training_time += training_time
 
         for key, value in metrics.items():
-            self.data.append(Metric(key, value, current_timestamp, step))
+            self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
         if self._should_purge():
             self._purge()
@@ -260,6 +263,9 @@ def batch_metrics_logger(run_id):
     which point the accumulated metrics will be batch logged. The BatchMetricsLogger ensures
     that logging imposes no more than a 10% overhead on the training, where the training is
     measured by adding up the time elapsed between consecutive calls to record_metrics.
+
+    If logging a batch fails, a log will be emitted and subsequent metrics will continue to
+    be collected.
 
     Once the context is closed, any metrics that have yet to be logged will be logged.
 

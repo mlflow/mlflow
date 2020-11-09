@@ -270,34 +270,29 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     logger.warning.assert_not_called()
 
 
-def test_batch_metrics_logger_logs_all_metrics(start_run):  # pylint: disable=unused-argument
-    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-        with batch_metrics_logger(run_id) as metrics_logger:
-            for i in range(100):
-                metrics_logger.record_metrics({"x": i}, i)
+def test_batch_metrics_logger_logs_all_metrics(start_run,):  # pylint: disable=unused-argument
+    run_id = mlflow.active_run().info.run_id
+    with batch_metrics_logger(run_id) as metrics_logger:
+        for i in range(100):
+            metrics_logger.record_metrics({hex(i): i}, i)
 
-        # collect the args of all the logging calls
-        recorded_metrics = []
-        for call in log_batch_mock.call_args_list:
-            _, kwargs = call
-            metrics_arr = kwargs["metrics"]
-            for metric in metrics_arr:
-                recorded_metrics.append({metric._key: metric._value})
+    metrics_on_run = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
 
-        desired_metrics = [{"x": i} for i in range(100)]
-
-        assert recorded_metrics == desired_metrics
+    for i in range(100):
+        assert hex(i) in metrics_on_run
+        assert metrics_on_run[hex(i)] == i
 
 
 def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
     start_run,
 ):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
             metrics_logger.record_metrics({"x": 1}, step=0)  # data doesn't matter
-            # first metrics should be skipped to record a previous timestamp and batch log time
+
+            # first metrics should be logged immediately to record a previous timestamp and
+            #   batch log time
             log_batch_mock.assert_called_once()
 
             metrics_logger.total_log_batch_time = 1
@@ -336,7 +331,7 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
     start_run,
 ):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
             metrics_logger.record_metrics({hex(x): x for x in range(5000)}, step=0)
             run_id = mlflow.active_run().info.run_id
@@ -354,7 +349,7 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
 
 def test_batch_metrics_logger_records_time_correctly(start_run,):  # pylint: disable=unused-argument
     with mock.patch.object(MlflowClient, "log_batch", wraps=lambda *args, **kwargs: time.sleep(1)):
-        run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+        run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
             metrics_logger.record_metrics({"x": 1}, step=0)
 
@@ -365,3 +360,47 @@ def test_batch_metrics_logger_records_time_correctly(start_run,):  # pylint: dis
             metrics_logger.record_metrics({"x": 1}, step=0)
 
             assert metrics_logger.total_training_time >= 2
+
+
+def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(
+    start_run,
+):  # pylint: disable=unused-argument
+    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
+        "time.time", return_value=123.45678901234567890
+    ):
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            metrics_logger.record_metrics({"x": 1}, step=0)
+
+        _, kwargs = log_batch_mock.call_args
+
+        logged_metric = kwargs["metrics"][0]
+
+        assert logged_metric.timestamp == 123456
+
+
+def test_batch_metrics_logger_continues_if_log_batch_fails(
+    start_run,
+):  # pylint: disable=unused-argument
+    with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
+        log_batch_mock.side_effect = [Exception("asdf"), None]
+
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            # this call should fail to record since log_batch raised exception
+            metrics_logger.record_metrics({"x": 1}, step=0)
+
+            metrics_logger.record_metrics({"y": 2}, step=1)
+
+        # even though the first call to log_batch failed, the BatchMetricsLogger should continue
+        #   logging subsequent batches
+        last_call = log_batch_mock.call_args_list[-1]
+
+        _, kwargs = last_call
+
+        assert kwargs["run_id"] == run_id
+        assert len(kwargs["metrics"]) == 1
+        metric = kwargs["metrics"][0]
+        assert metric.key == "y"
+        assert metric.value == 2
+        assert metric.step == 1

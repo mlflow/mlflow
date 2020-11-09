@@ -64,7 +64,7 @@ def main():
             "subsample": args.subsample,
             "seed": 42,
         }
-        model = xgb.train(params, dtrain, evals=[(dtrain, "train")])
+        model = xgb.train(params, dtrain, num_boost_round=1000, evals=[(dtrain, "train")])
 
         # evaluate model
         y_proba = model.predict(dtest)
