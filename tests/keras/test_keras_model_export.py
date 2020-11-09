@@ -212,7 +212,7 @@ def test_that_keras_module_arg_works(model_path):
 
 @pytest.mark.parametrize(
     "build_model,save_format",
-    # Unskip these parameters once https://github.com/h5py/h5py/issues/1732 is fixed
+    # TODO: Unskip these parameters once https://github.com/h5py/h5py/issues/1732 is fixed
     # [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"),
     [(tf_keras_model, "tf")],
 )
