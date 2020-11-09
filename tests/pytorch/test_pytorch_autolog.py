@@ -71,7 +71,11 @@ def pytorch_model_with_callback(patience):
     mlflow.pytorch.autolog()
     model = IrisClassification()
     early_stopping = EarlyStopping(
-        monitor="val_loss", mode="min", min_delta=99999999, patience=patience, verbose=True
+        monitor="val_loss",
+        mode="min",
+        min_delta=99999999,  # forces early stopping
+        patience=patience,
+        verbose=True,
     )
 
     with TempDir() as tmp:
