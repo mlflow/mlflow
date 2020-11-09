@@ -657,11 +657,7 @@ class SearchUtils(object):
         else:
             value = cls._strip_quotes(value_token.value, expect_quoted_value=True)
 
-        comp = {
-            "key": key,
-            "comparator": stripped_comparison[1].value,
-            "value": value,
-        }
+        comp = {"key": key, "comparator": stripped_comparison[1].value, "value": value}
         return comp
 
     @classmethod

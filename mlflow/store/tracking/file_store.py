@@ -56,7 +56,6 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     path_to_local_file_uri,
 )
-from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
@@ -720,6 +719,8 @@ class FileStore(AbstractStore):
     def _search_runs(
         self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
     ):
+        from mlflow.utils.search_utils import SearchUtils
+
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "

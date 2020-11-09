@@ -7,12 +7,7 @@ import sys
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.projects.docker import (
-    validate_docker_env,
-    validate_docker_installation,
-    build_docker_image,
-    get_docker_tracking_cmd_and_envs,
-)
+
 from mlflow.projects.submitted_run import LocalSubmittedRun
 from mlflow.projects.backend.abstract_backend import AbstractBackend
 from mlflow.projects.utils import (
@@ -65,6 +60,12 @@ class LocalBackend(AbstractBackend):
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
+            from mlflow.projects.docker import (
+                validate_docker_env,
+                validate_docker_installation,
+                build_docker_image,
+            )
+
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
             validate_docker_env(project)
             validate_docker_installation()
@@ -199,6 +200,8 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
 
 
 def _get_docker_command(image, active_run, docker_args=None, volumes=None, user_env_vars=None):
+    from mlflow.projects.docker import get_docker_tracking_cmd_and_envs
+
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
 

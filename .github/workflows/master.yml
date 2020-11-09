@@ -89,6 +89,22 @@ jobs:
         name: 00check.log
         path: /tmp/00check.log
 
+  python-skinny:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_SMALL_PYTHON_DEPS: true
+        SKINNY_CLIENT: true
+      run: |
+        source ./dev/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./dev/run-python-skinny-tests.sh
+
   python-small:
     runs-on: ubuntu-latest
     steps:

@@ -1,4 +1,3 @@
-import gorilla
 import logging
 import mlflow.pytorch
 import os
@@ -9,6 +8,7 @@ from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
 from mlflow.utils.annotations import experimental
+from mlflow.utils import gorilla
 
 logging.basicConfig(level=logging.ERROR)
 

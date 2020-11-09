@@ -23,17 +23,9 @@ from mlflow.projects.utils import (
     PROJECT_STORAGE_DIR,
     PROJECT_DOCKER_ARGS,
 )
-from mlflow.projects.docker import (
-    build_docker_image,
-    validate_docker_env,
-    validate_docker_installation,
-)
 from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_PROJECT_ENV,
-    MLFLOW_PROJECT_BACKEND,
-)
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
 import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
@@ -136,6 +128,11 @@ def _run(
         )
 
     elif backend_name == "kubernetes":
+        from mlflow.projects.docker import (
+            build_docker_image,
+            validate_docker_env,
+            validate_docker_installation,
+        )
         from mlflow.projects import kubernetes as kb
 
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")

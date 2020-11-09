@@ -1,6 +1,10 @@
 import os
+import logging
+
 from importlib.machinery import SourceFileLoader
 from setuptools import setup, find_packages
+
+_MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
 version = (
     SourceFileLoader("mlflow.version", os.path.join("mlflow", "version.py")).load_module().VERSION
@@ -25,38 +29,52 @@ alembic_files = [
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
 
+requirements = [
+    "click>=7.0",
+    "cloudpickle",
+    "databricks-cli>=0.8.7",
+    "entrypoints",
+    "gitpython>=2.1.0",
+    "numpy",
+    "pandas",
+    "python-dateutil",
+    "pyyaml",
+    "protobuf>=3.6.0",
+    "requests>=2.17.3",
+    "six>=1.10.0",
+    "simplejson",
+]
+
+_is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
+logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
+
+if not _is_mlflow_skinny:
+    requirements.extend(
+        [
+            "alembic<=1.4.1",
+            # Required
+            "azure-storage-blob",
+            "cloudpickle",
+            "docker>=4.0.0",
+            "Flask",
+            "gitpython>=2.1.0",
+            "gunicorn; platform_system != 'Windows'",
+            "prometheus-flask-exporter",
+            "querystring_parser",
+            # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
+            "sqlparse>=0.3.1",
+            # Required to run the MLflow server against SQL-backed storage
+            "sqlalchemy<=1.3.13",
+            "waitress; platform_system == 'Windows'",
+        ]
+    )
+
 setup(
     name="mlflow",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files},
-    install_requires=[
-        "alembic<=1.4.1",
-        # Required
-        "azure-storage-blob",
-        "click>=7.0",
-        "cloudpickle",
-        "databricks-cli>=0.8.7",
-        "requests>=2.17.3",
-        "six>=1.10.0",
-        'waitress; platform_system == "Windows"',
-        'gunicorn; platform_system != "Windows"',
-        "Flask",
-        "numpy",
-        "pandas",
-        "python-dateutil",
-        "protobuf>=3.6.0",
-        "gitpython>=2.1.0",
-        "pyyaml",
-        "querystring_parser",
-        "docker>=4.0.0",
-        "entrypoints",
-        # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-        "sqlparse>=0.3.1",
-        # Required to run the MLflow server against SQL-backed storage
-        "sqlalchemy",
-        "prometheus-flask-exporter",
-    ],
+    install_requires=requirements,
     extras_require={
         "extras": [
             "scikit-learn",
@@ -74,8 +92,8 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
         ],
-        "sqlserver": ["mlflow-dbstore",],
-        "aliyun-oss": ["aliyunstoreplugin",],
+        "sqlserver": ["mlflow-dbstore"],
+        "aliyun-oss": ["aliyunstoreplugin"],
     },
     entry_points="""
         [console_scripts]
@@ -86,7 +104,7 @@ setup(
     description="MLflow: A Platform for ML Development and Productionization",
     long_description=open("README.rst").read(),
     license="Apache License 2.0",
-    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6",],
+    classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
     python_requires=">=3.5",

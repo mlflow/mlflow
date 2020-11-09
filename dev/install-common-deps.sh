@@ -48,7 +48,12 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
-pip install .[extras]
+if [[ "$SKINNY_CLIENT" == "true" ]]; then
+  export MLFLOW_SKINNY="true"
+  pip install .
+else
+  pip install .[extras]
+fi
 export MLFLOW_HOME=$(pwd)
 
 # Print current environment info
