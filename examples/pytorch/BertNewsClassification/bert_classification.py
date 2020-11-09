@@ -373,7 +373,7 @@ if __name__ == "__main__":
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--accelerator", type=str, default=None, help="Distributed Backend - (default: None)",
+        "--accelerator", type=lambda x: None if x == "None" else x, default=None, help="Accelerator - (default: None)",
     )
 
     parser.add_argument(
