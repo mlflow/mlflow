@@ -234,10 +234,10 @@ def test_model_save_load(build_model, save_format, model_path, data):
     # exactly the same.
     if save_format != "tf":
         assert type(keras_model) == type(model_loaded)
-    assert all(expected == model_loaded.predict(x))
+    assert expected == pytest.approx(model_loaded.predict(x))
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert all(pyfunc_loaded.predict(x).values == expected)
+    assert expected == pytest.approx(pyfunc_loaded.predict(x).values)
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
