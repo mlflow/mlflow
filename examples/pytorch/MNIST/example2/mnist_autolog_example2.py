@@ -279,13 +279,16 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--max-epochs", type=int, default=5, help="number of epochs to run (default: 5)"
+        "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
     )
     parser.add_argument(
-        "--accelerator", type=str, default=None, help="Accelerator - (default: None)",
+        "--accelerator",
+        type=lambda x: None if x == "None" else x,
+        default=None,
+        help="Accelerator - (default: None)",
     )
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
