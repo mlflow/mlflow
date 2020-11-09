@@ -78,7 +78,7 @@ class MNISTDataModule(pl.LightningDataModule):
             type=int,
             default=3,
             metavar="N",
-            help="number of workers (default: 0)",
+            help="number of workers (default: 3)",
         )
         return parser
 
@@ -222,7 +222,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         :return: output - average valid loss
         """
         avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
-        self.log("val_loss", avg_loss)
+        self.log("val_loss", avg_loss, sync_dist=True)
 
     def test_step(self, test_batch, batch_idx):
         """

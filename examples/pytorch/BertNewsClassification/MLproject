@@ -5,7 +5,7 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
-      epochs: {type: int, default: 5}
+      max_epochs: {type: int, default: 5}
       gpus: {type: int, default: 0}
       batch_size: {type: int, default: 64}
       num_workers: {type: int, default: 3}
@@ -14,7 +14,7 @@ entry_points:
 
     command: |
           python bert_classification.py \
-            --max-epochs {epochs} \
+            --max_epochs {max_epochs} \
             --gpus {gpus} \
             --batch-size {batch_size} \
             --num-workers {num_workers} \

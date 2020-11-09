@@ -39567,114 +39567,114 @@ public final class ModelRegistry {
       "\020\0032\372\"\n\024ModelRegistryService\022\350\001\n\025createRe" +
       "gisteredModel\022\035.mlflow.CreateRegisteredM" +
       "odel\032&.mlflow.CreateRegisteredModel.Resp" +
-      "onse\"\207\001\362\206\031\202\001\n.\n\004POST\022 /mlflow/registered" +
-      "-models/create\032\004\010\002\020\000\n6\n\004POST\022(/preview/m" +
+      "onse\"\207\001\362\206\031\202\001\n6\n\004POST\022(/preview/mlflow/re" +
+      "gistered-models/create\032\004\010\002\020\000\n.\n\004POST\022 /m" +
       "lflow/registered-models/create\032\004\010\002\020\000\020\001*\026" +
       "Create RegisteredModel\022\350\001\n\025renameRegiste" +
       "redModel\022\035.mlflow.RenameRegisteredModel\032" +
       "&.mlflow.RenameRegisteredModel.Response\"" +
-      "\207\001\362\206\031\202\001\n.\n\004POST\022 /mlflow/registered-mode" +
-      "ls/rename\032\004\010\002\020\000\n6\n\004POST\022(/preview/mlflow" +
+      "\207\001\362\206\031\202\001\n6\n\004POST\022(/preview/mlflow/registe" +
+      "red-models/rename\032\004\010\002\020\000\n.\n\004POST\022 /mlflow" +
       "/registered-models/rename\032\004\010\002\020\000\020\001*\026Renam" +
       "e RegisteredModel\022\352\001\n\025updateRegisteredMo" +
       "del\022\035.mlflow.UpdateRegisteredModel\032&.mlf" +
       "low.UpdateRegisteredModel.Response\"\211\001\362\206\031" +
-      "\204\001\n/\n\005PATCH\022 /mlflow/registered-models/u" +
-      "pdate\032\004\010\002\020\000\n7\n\005PATCH\022(/preview/mlflow/re" +
+      "\204\001\n7\n\005PATCH\022(/preview/mlflow/registered-" +
+      "models/update\032\004\010\002\020\000\n/\n\005PATCH\022 /mlflow/re" +
       "gistered-models/update\032\004\010\002\020\000\020\001*\026Update R" +
       "egisteredModel\022\354\001\n\025deleteRegisteredModel" +
       "\022\035.mlflow.DeleteRegisteredModel\032&.mlflow" +
       ".DeleteRegisteredModel.Response\"\213\001\362\206\031\206\001\n" +
-      "0\n\006DELETE\022 /mlflow/registered-models/del" +
-      "ete\032\004\010\002\020\000\n8\n\006DELETE\022(/preview/mlflow/reg" +
+      "8\n\006DELETE\022(/preview/mlflow/registered-mo" +
+      "dels/delete\032\004\010\002\020\000\n0\n\006DELETE\022 /mlflow/reg" +
       "istered-models/delete\032\004\010\002\020\000\020\001*\026Delete Re" +
       "gisteredModel\022\322\001\n\022getRegisteredModel\022\032.m" +
       "lflow.GetRegisteredModel\032#.mlflow.GetReg" +
-      "isteredModel.Response\"{\362\206\031w\n*\n\003GET\022\035/mlf" +
-      "low/registered-models/get\032\004\010\002\020\000\n2\n\003GET\022%" +
-      "/preview/mlflow/registered-models/get\032\004\010" +
+      "isteredModel.Response\"{\362\206\031w\n2\n\003GET\022%/pre" +
+      "view/mlflow/registered-models/get\032\004\010\002\020\000\n" +
+      "*\n\003GET\022\035/mlflow/registered-models/get\032\004\010" +
       "\002\020\000\020\001*\023Get RegisteredModel\022\352\001\n\026searchReg" +
       "isteredModels\022\036.mlflow.SearchRegisteredM" +
       "odels\032\'.mlflow.SearchRegisteredModels.Re" +
-      "sponse\"\206\001\362\206\031\201\001\n-\n\003GET\022 /mlflow/registere" +
-      "d-models/search\032\004\010\002\020\000\n5\n\003GET\022(/preview/m" +
+      "sponse\"\206\001\362\206\031\201\001\n5\n\003GET\022(/preview/mlflow/r" +
+      "egistered-models/search\032\004\010\002\020\000\n-\n\003GET\022 /m" +
       "lflow/registered-models/search\032\004\010\002\020\000\020\001*\027" +
       "Search RegisteredModels\022\334\001\n\024listRegister" +
       "edModels\022\034.mlflow.ListRegisteredModels\032%" +
       ".mlflow.ListRegisteredModels.Response\"\177\362" +
-      "\206\031{\n+\n\003GET\022\036/mlflow/registered-models/li" +
-      "st\032\004\010\002\020\000\n3\n\003GET\022&/preview/mlflow/registe" +
+      "\206\031{\n3\n\003GET\022&/preview/mlflow/registered-m" +
+      "odels/list\032\004\010\002\020\000\n+\n\003GET\022\036/mlflow/registe" +
       "red-models/list\032\004\010\002\020\000\020\001*\025List Registered" +
       "Models\022\366\001\n\021getLatestVersions\022\031.mlflow.Ge" +
       "tLatestVersions\032\".mlflow.GetLatestVersio" +
-      "ns.Response\"\241\001\362\206\031\234\001\n:\n\003GET\022-/mlflow/regi" +
-      "stered-models/get-latest-versions\032\004\010\002\020\000\n" +
-      "B\n\003GET\0225/preview/mlflow/registered-model" +
+      "ns.Response\"\241\001\362\206\031\234\001\nB\n\003GET\0225/preview/mlf" +
+      "low/registered-models/get-latest-version" +
+      "s\032\004\010\002\020\000\n:\n\003GET\022-/mlflow/registered-model" +
       "s/get-latest-versions\032\004\010\002\020\000\020\001*\030Get Lates" +
       "t ModelVersions\022\324\001\n\022createModelVersion\022\032" +
       ".mlflow.CreateModelVersion\032#.mlflow.Crea" +
-      "teModelVersion.Response\"}\362\206\031y\n+\n\004POST\022\035/" +
-      "mlflow/model-versions/create\032\004\010\002\020\000\n3\n\004PO" +
-      "ST\022%/preview/mlflow/model-versions/creat" +
+      "teModelVersion.Response\"}\362\206\031y\n3\n\004POST\022%/" +
+      "preview/mlflow/model-versions/create\032\004\010\002" +
+      "\020\000\n+\n\004POST\022\035/mlflow/model-versions/creat" +
       "e\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\326\001\n\022updat" +
       "eModelVersion\022\032.mlflow.UpdateModelVersio" +
       "n\032#.mlflow.UpdateModelVersion.Response\"\177" +
-      "\362\206\031{\n,\n\005PATCH\022\035/mlflow/model-versions/up" +
-      "date\032\004\010\002\020\000\n4\n\005PATCH\022%/preview/mlflow/mod" +
+      "\362\206\031{\n4\n\005PATCH\022%/preview/mlflow/model-ver" +
+      "sions/update\032\004\010\002\020\000\n,\n\005PATCH\022\035/mlflow/mod" +
       "el-versions/update\032\004\010\002\020\000\020\001*\023Update Model" +
       "Version\022\217\002\n\033transitionModelVersionStage\022" +
       "#.mlflow.TransitionModelVersionStage\032,.m" +
       "lflow.TransitionModelVersionStage.Respon" +
-      "se\"\234\001\362\206\031\227\001\n5\n\004POST\022\'/mlflow/model-versio" +
-      "ns/transition-stage\032\004\010\002\020\000\n=\n\004POST\022//prev" +
-      "iew/mlflow/model-versions/transition-sta" +
+      "se\"\234\001\362\206\031\227\001\n=\n\004POST\022//preview/mlflow/mode" +
+      "l-versions/transition-stage\032\004\010\002\020\000\n5\n\004POS" +
+      "T\022\'/mlflow/model-versions/transition-sta" +
       "ge\032\004\010\002\020\000\020\001*\035Transition ModelVersion Stag" +
       "e\022\331\001\n\022deleteModelVersion\022\032.mlflow.Delete" +
       "ModelVersion\032#.mlflow.DeleteModelVersion" +
-      ".Response\"\201\001\362\206\031}\n-\n\006DELETE\022\035/mlflow/mode" +
-      "l-versions/delete\032\004\010\002\020\000\n5\n\006DELETE\022%/prev" +
-      "iew/mlflow/model-versions/delete\032\004\010\002\020\000\020\001" +
+      ".Response\"\201\001\362\206\031}\n5\n\006DELETE\022%/preview/mlf" +
+      "low/model-versions/delete\032\004\010\002\020\000\n-\n\006DELET" +
+      "E\022\035/mlflow/model-versions/delete\032\004\010\002\020\000\020\001" +
       "*\023Delete ModelVersion\022\300\001\n\017getModelVersio" +
       "n\022\027.mlflow.GetModelVersion\032 .mlflow.GetM" +
-      "odelVersion.Response\"r\362\206\031n\n\'\n\003GET\022\032/mlfl" +
-      "ow/model-versions/get\032\004\010\002\020\000\n/\n\003GET\022\"/pre" +
-      "view/mlflow/model-versions/get\032\004\010\002\020\000\020\001*\020" +
+      "odelVersion.Response\"r\362\206\031n\n/\n\003GET\022\"/prev" +
+      "iew/mlflow/model-versions/get\032\004\010\002\020\000\n\'\n\003G" +
+      "ET\022\032/mlflow/model-versions/get\032\004\010\002\020\000\020\001*\020" +
       "Get ModelVersion\022\326\001\n\023searchModelVersions" +
       "\022\033.mlflow.SearchModelVersions\032$.mlflow.S" +
-      "earchModelVersions.Response\"|\362\206\031x\n*\n\003GET" +
-      "\022\035/mlflow/model-versions/search\032\004\010\002\020\000\n2\n" +
-      "\003GET\022%/preview/mlflow/model-versions/sea" +
+      "earchModelVersions.Response\"|\362\206\031x\n2\n\003GET" +
+      "\022%/preview/mlflow/model-versions/search\032" +
+      "\004\010\002\020\000\n*\n\003GET\022\035/mlflow/model-versions/sea" +
       "rch\032\004\010\002\020\000\020\001*\024Search ModelVersions\022\230\002\n\032ge" +
       "tModelVersionDownloadUri\022\".mlflow.GetMod" +
       "elVersionDownloadUri\032+.mlflow.GetModelVe" +
-      "rsionDownloadUri.Response\"\250\001\362\206\031\243\001\n4\n\003GET" +
-      "\022\'/mlflow/model-versions/get-download-ur" +
-      "i\032\004\010\002\020\000\n<\n\003GET\022//preview/mlflow/model-ve" +
+      "rsionDownloadUri.Response\"\250\001\362\206\031\243\001\n<\n\003GET" +
+      "\022//preview/mlflow/model-versions/get-dow" +
+      "nload-uri\032\004\010\002\020\000\n4\n\003GET\022\'/mlflow/model-ve" +
       "rsions/get-download-uri\032\004\010\002\020\000\020\001*+Get Dow" +
       "nload URI For ModelVersion Artifacts\022\354\001\n" +
       "\025setRegisteredModelTag\022\035.mlflow.SetRegis" +
       "teredModelTag\032&.mlflow.SetRegisteredMode" +
-      "lTag.Response\"\213\001\362\206\031\206\001\n/\n\004POST\022!/mlflow/r" +
-      "egistered-models/set-tag\032\004\010\002\020\000\n7\n\004POST\022)" +
-      "/preview/mlflow/registered-models/set-ta" +
+      "lTag.Response\"\213\001\362\206\031\206\001\n7\n\004POST\022)/preview/" +
+      "mlflow/registered-models/set-tag\032\004\010\002\020\000\n/" +
+      "\n\004POST\022!/mlflow/registered-models/set-ta" +
       "g\032\004\010\002\020\000\020\001*\030Set Registered Model Tag\022\331\001\n\022" +
       "setModelVersionTag\022\032.mlflow.SetModelVers" +
       "ionTag\032#.mlflow.SetModelVersionTag.Respo" +
-      "nse\"\201\001\362\206\031}\n,\n\004POST\022\036/mlflow/model-versio" +
-      "ns/set-tag\032\004\010\002\020\000\n4\n\004POST\022&/preview/mlflo" +
+      "nse\"\201\001\362\206\031}\n4\n\004POST\022&/preview/mlflow/mode" +
+      "l-versions/set-tag\032\004\010\002\020\000\n,\n\004POST\022\036/mlflo" +
       "w/model-versions/set-tag\032\004\010\002\020\000\020\001*\025Set Mo" +
       "del Version Tag\022\202\002\n\030deleteRegisteredMode" +
       "lTag\022 .mlflow.DeleteRegisteredModelTag\032)" +
       ".mlflow.DeleteRegisteredModelTag.Respons" +
-      "e\"\230\001\362\206\031\223\001\n4\n\006DELETE\022$/mlflow/registered-" +
-      "models/delete-tag\032\004\010\002\020\000\n<\n\006DELETE\022,/prev" +
-      "iew/mlflow/registered-models/delete-tag\032" +
+      "e\"\230\001\362\206\031\223\001\n<\n\006DELETE\022,/preview/mlflow/reg" +
+      "istered-models/delete-tag\032\004\010\002\020\000\n4\n\006DELET" +
+      "E\022$/mlflow/registered-models/delete-tag\032" +
       "\004\010\002\020\000\020\001*\033Delete Registered Model Tag\022\360\001\n" +
       "\025deleteModelVersionTag\022\035.mlflow.DeleteMo" +
       "delVersionTag\032&.mlflow.DeleteModelVersio" +
-      "nTag.Response\"\217\001\362\206\031\212\001\n1\n\006DELETE\022!/mlflow" +
-      "/model-versions/delete-tag\032\004\010\002\020\000\n9\n\006DELE" +
-      "TE\022)/preview/mlflow/model-versions/delet" +
+      "nTag.Response\"\217\001\362\206\031\212\001\n9\n\006DELETE\022)/previe" +
+      "w/mlflow/model-versions/delete-tag\032\004\010\002\020\000" +
+      "\n1\n\006DELETE\022!/mlflow/model-versions/delet" +
       "e-tag\032\004\010\002\020\000\020\001*\030Delete Model Version TagB" +
       "!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
