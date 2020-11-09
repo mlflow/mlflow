@@ -367,7 +367,7 @@ if __name__ == "__main__":
 
     # Add trainer specific arguments
     parser.add_argument(
-        "--max-epochs", type=int, default=10, help="number of epochs to run (default: 10)"
+        "--max_epochs", type=int, default=10, help="number of epochs to run (default: 10)"
     )
     parser.add_argument(
         "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
