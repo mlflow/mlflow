@@ -386,18 +386,16 @@ def deploy(
         registered_model = None
         azure_model_id = None
 
-        """
-            If we are passed a 'models' uri, we will attempt to extract a name and version which
-            can be used to retreive an AzureML Model. This will ignore stage based model uris,
-            which is alright until we have full deployment plugin support.
-            
-            If instead we are passed a 'runs' uri while the user is using the AzureML tracking
-            and registry stores, we will be able to register the model on their behalf using
-            the AzureML plugin, which will maintain lineage between the model and the run that
-            produced it. This returns an MLFlow Model object however, so we'll still need the 
-            name and ID in order to retrieve the AzureML Model object which is currently 
-            needed to deploy.
-        """
+        # If we are passed a 'models' uri, we will attempt to extract a name and version which
+        # can be used to retreive an AzureML Model. This will ignore stage based model uris,
+        # which is alright until we have full deployment plugin support.
+        #
+        # If instead we are passed a 'runs' uri while the user is using the AzureML tracking
+        # and registry stores, we will be able to register the model on their behalf using
+        # the AzureML plugin, which will maintain lineage between the model and the run that
+        # produced it. This returns an MLFlow Model object however, so we'll still need the
+        # name and ID in order to retrieve the AzureML Model object which is currently
+        # needed to deploy.
         if model_uri.startswith("models:/"):
             m_name = model_uri.split("/")[-2]
             m_version = int(model_uri.split("/")[-1])
