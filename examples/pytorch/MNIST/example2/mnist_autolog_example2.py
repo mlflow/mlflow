@@ -93,9 +93,7 @@ class MNISTDataModule(pl.LightningDataModule):
         :return: Returns the constructed dataloader
         """
         return DataLoader(
-            df,
-            batch_size=self.args["batch_size"],
-            num_workers=self.args["num_workers"],
+            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"],
         )
 
     def train_dataloader(self):
@@ -150,11 +148,7 @@ class LightningMNISTClassifier(pl.LightningModule):
             help="number of workers (default: 3)",
         )
         parser.add_argument(
-            "--lr",
-            type=float,
-            default=0.001,
-            metavar="LR",
-            help="learning rate (default: 0.001)",
+            "--lr", type=float, default=0.001, metavar="LR", help="learning rate (default: 0.001)",
         )
         return parser
 
@@ -273,12 +267,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer,
-                mode="min",
-                factor=0.2,
-                patience=2,
-                min_lr=1e-6,
-                verbose=True,
+                self.optimizer, mode="min", factor=0.2, patience=2, min_lr=1e-6, verbose=True,
             ),
             "monitor": "val_loss",
         }
