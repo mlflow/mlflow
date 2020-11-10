@@ -277,25 +277,17 @@ class LightningMNISTClassifier(pl.LightningModule):
 if __name__ == "__main__":
     parser = ArgumentParser(description="PyTorch autolog Mnist Example")
 
-    # Add trainer specific arguments
-    parser.add_argument(
-        "--max_epochs", type=int, default=5, help="number of epochs to run (default: 5)"
-    )
-    parser.add_argument(
-        "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
-    )
-    parser.add_argument(
-        "--accelerator",
-        type=lambda x: None if x == "None" else x,
-        default=None,
-        help="Accelerator - (default: None)",
-    )
+    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
     mlflow.pytorch.autolog(log_every_n_epoch=2)
 
     args = parser.parse_args()
     dict_args = vars(args)
+
+    if "accelerator" in dict_args:
+        if dict_args["accelerator"] == "None":
+            dict_args["accelerator"] = None
 
     dm = MNISTDataModule(**dict_args)
     dm.prepare_data()
