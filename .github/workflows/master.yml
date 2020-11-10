@@ -23,7 +23,7 @@ jobs:
         pip install -r ./dev/lint-requirements.txt
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
+#        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./lint.sh
   r:
@@ -100,7 +100,7 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
+#        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-small-python-tests.sh
 
@@ -116,7 +116,7 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
+#        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.02"
@@ -135,7 +135,7 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
+#        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         cd mlflow/java
         mvn clean package -q
@@ -185,7 +185,7 @@ jobs:
           source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
+#          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./dev/run-python-flavor-tests.sh;
 
@@ -221,7 +221,7 @@ jobs:
           source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
+#          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./dev/run-python-tf-tests.sh;
 
@@ -237,7 +237,7 @@ jobs:
           source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
+#          export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
           ./dev/run-python-sagemaker-tests.sh;
 
