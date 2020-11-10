@@ -24,7 +24,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
-from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai
+from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai, pytorch
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -1058,6 +1058,9 @@ def autolog(log_input_examples=False, log_model_signatures=True):  # pylint: dis
         "sklearn": sklearn.autolog,
         "fastai": fastai.autolog,
         "pyspark": spark.autolog,
+        # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
+        # Pytorch frameworks under mlflow.pytorch.autolog
+        "pytorch_lightning": pytorch.autolog,
     }
 
     def setup_autologging(module):

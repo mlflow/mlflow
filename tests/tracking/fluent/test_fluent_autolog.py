@@ -12,6 +12,7 @@ import xgboost
 import lightgbm
 import mxnet.gluon
 import pyspark
+import pytorch_lightning
 
 library_to_mlflow_module_without_pyspark = {
     tensorflow: "tensorflow",
@@ -21,6 +22,7 @@ library_to_mlflow_module_without_pyspark = {
     xgboost: "xgboost",
     lightgbm: "lightgbm",
     mxnet.gluon: "gluon",
+    pytorch_lightning: "pytorch",
 }
 
 library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark: "spark"}
