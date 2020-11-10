@@ -85,6 +85,7 @@ set_tag = mlflow.tracking.fluent.set_tag
 delete_tag = mlflow.tracking.fluent.delete_tag
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
+log_text = mlflow.tracking.fluent.log_text
 active_run = mlflow.tracking.fluent.active_run
 get_run = mlflow.tracking.fluent.get_run
 start_run = mlflow.tracking.fluent.start_run

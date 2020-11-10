@@ -4,6 +4,9 @@ and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 import logging
+import os
+import posixpath
+import tempfile
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -865,6 +868,49 @@ class MlflowClient(object):
             is_dir: False
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def _log_artifact_helper(self, run_id, artifact_file):
+        """
+        Yields a temporary path (absolute), and then call `log_artifact` against that path.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_path = posixpath.dirname(norm_path)
+        artifact_path = None if artifact_path == "" else artifact_path
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, filename)
+            yield tmp_path
+            self.log_artifact(run_id, tmp_path, artifact_path)
+
+    def log_text(self, run_id, text, artifact_file):
+        """
+        Log a text as an artifact.
+
+        :param run_id: String ID of the run.
+        :param text: Text to log.
+        :param artifact_file: Path in ``artifact_uri``.
+
+        ..code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            client.log_text(run.info.run_id, "text", "file.txt")
+            client.log_text(run.info.run_id, "text", "dir/file.txt")
+
+            client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
+            client.log_text(run.info.run_id, "1,2,3", "data.csv")
+        """
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                f.write(text)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """

@@ -524,6 +524,29 @@ def log_artifact(local_path, artifact_path=None):
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
+def log_text(text, artifact_file):
+    """
+    Log a text as an artifact.
+
+    :param text: Text to log.
+    :param artifact_file: Path in ``artifact_uri``.
+
+    ..code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.log_text("text", "file.txt")
+            mlflow.log_text("text", "dir/file.txt")
+
+            mlflow.log_text("<h1>header</h1>", "index.html")
+            mlflow.log_text("1,2,3", "data.csv")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_text(run_id, text, artifact_file)
+
+
 def log_artifacts(local_dir, artifact_path=None):
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,

@@ -1,6 +1,7 @@
 from collections import namedtuple
 import filecmp
 import os
+import posixpath
 import random
 import tempfile
 import time
@@ -492,6 +493,23 @@ def test_log_artifact():
         assert len(dir_comparison.right_only) == 0
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
+
+
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2"])
+def test_log_text(subdir):
+    filename = "file.txt"
+    text = "a"
+    artifact_file = posixpath.join(subdir, filename) if subdir is not None else filename
+    with mlflow.start_run():
+        mlflow.log_text(text, artifact_file)
+
+        artifact_uri = mlflow.get_artifact_uri(subdir)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+        filepath = os.path.join(run_artifact_dir, filename)
+        with open(filepath) as f:
+            assert f.read() == text
 
 
 def test_with_startrun():
