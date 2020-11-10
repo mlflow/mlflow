@@ -24,7 +24,7 @@ Scikit-learn:
 
 SHAP:
 
-- Add `mlflow.shap.log_explanation` for logging model explanations (#3513, @harupy)
+- Add ``mlflow.shap.log_explanation`` for logging model explanations (#3513, @harupy)
 
 More features and improvements:
 
