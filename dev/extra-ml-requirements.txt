@@ -5,6 +5,9 @@
 azureml-sdk==1.2.0
 # Required by mlflow.keras
 keras==2.3.1
+# Pin h5py < 3.0.0 to avoid this issue: https://github.com/tensorflow/tensorflow/issues/44467
+# TODO: unpin after we use tensorflow >= 2.4
+h5py<3.0.0
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
