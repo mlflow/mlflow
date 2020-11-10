@@ -14,8 +14,8 @@ Autologging:
 PyTorch:
 
 - Add autologging functionality for PyTorch (#3601, @shrinath-suresh, #3636, @karthik-77)
-- `mlflow.pytorch.log_model` now supports logging TorchScript models (#3557, @shrinath-suresh)
-- `mlflow.pytorch.log_model` now supports ``requirements_file`` and ``extra_files`` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
+- ``mlflow.pytorch.log_model`` now supports logging TorchScript models (#3557, @shrinath-suresh)
+- ``mlflow.pytorch.log_model`` now supports ``requirements_file`` and ``extra_files`` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
 
 Scikit-learn:
 
