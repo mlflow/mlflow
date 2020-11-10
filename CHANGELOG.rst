@@ -4,29 +4,30 @@ Changelog
 -------------------
 MLflow 1.12.0 includes several major features and improvements:
 
-Features
+Features:
+~~~~~~~~~
 
-Autologging:
+**Autologging:**
 
 - Add universal ``mlflow.autolog()`` function which enables autologging for all supported integrations (#3561, @andrewnitu)
 - Scikit-learn, XGBoost, and LightGBM autologging now supports logging model signatures and input examples (#3386, #3403, #3449, @andrewnitu)
 
-PyTorch:
+**PyTorch:**
 
 - Add autologging functionality for PyTorch (#3601, @shrinath-suresh, #3636, @karthik-77)
 - ``mlflow.pytorch.log_model`` now supports logging TorchScript models (#3557, @shrinath-suresh)
 - ``mlflow.pytorch.log_model`` now supports ``requirements_file`` and ``extra_files`` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
 
-Scikit-learn:
+**Scikit-learn:**
 
 - ``mlflow.sklearn.autolog`` now supports logging metrics (e.g. accuracy) and plots (e.g. confusion matrix heat map) (#3423, #3327, @willzhan-db, @harupy)
 
-SHAP:
+**SHAP:**
 
 - Add `mlflow.shap.log_explanation` for logging model explanations (#3513, @harupy)
 
-
 More features and improvements:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - ``search_model_versions`` now supports the ``IN`` operator for ``runId`` (#3470, @ankit-db)
 - ``log_model`` and `create_model_version` now supports an ``await_creation_for`` argument argument for waiting for model version creation (#3376, @andychow-db)
@@ -36,6 +37,7 @@ More features and improvements:
 - Clean up model registry endpoint and client method definitions (#3610, @sueann)
 
 Bug fixes and documentation updates:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Ensure that results are synced across distributed processes if ddp enabled (no-op else) (#3651, @SeanNaren)
 - Remove optimizer step override to ensure that all accelerator cases are covered by base module (#3635, @SeanNaren)
