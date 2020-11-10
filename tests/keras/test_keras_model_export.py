@@ -555,7 +555,7 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
 
 @pytest.mark.large
 def test_load_without_save_format(tf_keras_model, model_path):
-    """Ensures that keras models with save_format can still be loaded."""
+    """Ensures that keras models without save_format can still be loaded."""
     mlflow.keras.save_model(tf_keras_model, model_path, save_format="h5")
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
