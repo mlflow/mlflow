@@ -234,10 +234,10 @@ def test_model_save_load(build_model, save_format, model_path, data):
     # exactly the same.
     if save_format != "tf":
         assert type(keras_model) == type(model_loaded)
-    assert expected == pytest.approx(model_loaded.predict(x))
+    np.testing.assert_allclose(model_loaded.predict(x), expected, rtol=1e-5)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert expected == pytest.approx(pyfunc_loaded.predict(x).values)
+    np.testing.assert_allclose(pyfunc_loaded.predict(x).values, expected, rtol=1e-5)
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
@@ -246,12 +246,11 @@ def test_model_save_load(build_model, save_format, model_path, data):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
     )
     print(scoring_response.content)
-    assert all(
-        pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
+    actual_scoring_response = pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
             np.float32
         )
-        == expected
-    )
+    np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
+
     # test spark udf
     spark_udf_preds = score_model_as_udf(
         model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
