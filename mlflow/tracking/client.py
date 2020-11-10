@@ -906,7 +906,7 @@ class MlflowClient(object):
             client.log_text(run.info.run_id, "text", "dir/file.txt")
 
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
-            client.log_text(run.info.run_id, "1,2,3", "data.csv")
+            client.log_text(run.info.run_id, "print('mlflow')", "script.py")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:

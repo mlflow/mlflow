@@ -541,7 +541,7 @@ def log_text(text, artifact_file):
             mlflow.log_text("text", "dir/file.txt")
 
             mlflow.log_text("<h1>header</h1>", "index.html")
-            mlflow.log_text("1,2,3", "data.csv")
+            mlflow.log_text("print('mlflow')", "script.py")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_text(run_id, text, artifact_file)
