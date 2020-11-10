@@ -187,3 +187,4 @@ def test_delete_artifacts(local_artifact_repo):
         assert os.path.exists(os.path.join(local_artifact_repo._artifact_dir, "b.txt"))
         local_artifact_repo.delete_artifacts()
         assert not os.path.exists(os.path.join(local_artifact_repo._artifact_dir))
+        local_artifact_repo.delete_artifacts()
