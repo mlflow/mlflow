@@ -1,5 +1,63 @@
 Changelog
 =========
+1.12.0 (2020-11-10)
+-------------------
+MLflow 1.12.0 includes several major features and improvements:
+
+Features:
+
+- Put preview paths before non-preview paths for backwards compatibility (#3648, @sueann)
+- Autolog with PyTorch using lightning (#3601, @shrinath-suresh)
+- mlflow deployments - Adding 'predict' cli command (#3597, @shrinath-suresh)
+- Logging/Loading TorchScripted model (#3557, @shrinath-suresh)
+- Clean up model registry endpoint and client method definitions (#3610, @sueann)
+- Adding support for logging additional artifacts when using mfllow pytorch log and save model (#3436, @shrinath-suresh)
+- Add universal mlflow.autolog() function! (#3561, @andrewnitu)
+- Add universal mlflow.autolog() function! (#3498, @andrewnitu)
+- Add `mlflow.shap.log_explanation` (#3513, @harupy)
+- Add input example and model signature options to Sklearn, XGBoost, LightGBM autologging, and change LightGBM input example and signature implementation (#3449, @andrewnitu)
+- [ML-12267] Search using the IN operator for `runId` in search model versions (#3470, @ankit-db)
+- Add additional artifacts for auto logging (#3423, @harupy)
+- support h2o for R (#3416, @yitao-li)
+- Add inference of input/output schema and input example to XGBoost autologging (#3403, @andrewnitu)
+- Await model version creation (#3376, @andychow-db)
+- Add inference of input/output schema and input example to LightGBM autologging (#3386, @andrewnitu)
+- check files (#3327, @willzhan-db)
+
+Bug fixes and documentation updates:
+
+- Ensure that results are synced across distributed processes if ddp enabled (no-op else) (#3651, @SeanNaren)
+- Remove optimizer step override to ensure that all accelerator cases are covered by base module (#3635, @SeanNaren)
+- Fix keras 2.4 autolog#3571 (#3611, @sephib)
+- Scikit-learn autologging: Exclude feature extraction / selection estimator (#3600, @dbczumar)
+- Sklearn autologging: Fix behavior when a child and its parent are both patched (#3582, @dbczumar)
+- Fix a bug where `lightgbm.Dataset(None)` fails after running `mlflow.lightgbm.autolog` (#3594, @harupy)
+- Fix a bug where `xgboost.DMatrix(None)` fails after running `mlflow.xgboost.autolog` (#3584, @harupy)
+- pass `docker_args` in non-synchronous mlflow project runs (#3563, @alfozan)
+- [R] Fix broken h2o archive link (#3544, @harupy)
+- Fix a bug of `FTPArtifactRepository.log_artifacts` with `artifact_path` keyword argument (issue #3388) (#3391, @kzm4269)
+- Fix h2o issue breaking R build (#3512, @harupy)
+- Exclude preprocessing & imputation steps from scikit-learn autologging (#3491, @dbczumar)
+- fix duplicate stderr logging (#3145, @yitao-li)
+- "Call `atexit.register(_flush_queue)` in `tensorflow.autolog` (#3410, @harupy)
+- Fix for restarting terminated run not setting status correctly (#3329, @apurva-koti)
+- Fix model version run_link URL for some Databricks regions (#3417, @sueann)
+- Skip JSON validation when endpoint is not MLflow REST API (#3405, @harupy)
+- Pytorch Autologging Description Added To Tracking.rst  (#3636, @karthik-77)
+- Mlflow torchserve plugin doc (#3634, @karthik-77)
+- Universal mlflow.autolog() documentation (#3590, @andrewnitu)
+- Final part of code snippets for fluent and MlflowClient APIs (#3573, @dmatrix)
+- Add mlflow-elasticsearchstore to the doc (#3462, @AxelVivien25)
+- Part 3 of issue 3153 (#3489, @dmatrix)
+- Part 2 of the issue 3153 code snippets for the remaing API methods (#3437, @dmatrix)
+- Add mlflow-yarn backend to the doc (#3373, @fhoering)
+- Update example code for Spark autologging (#3439, @andrewnitu)
+- Part 1 of code snippets for the fluent mlflow API module. This addresses issue #3153 (#3385, @dmatrix)
+- Allow to skip TLS verification of S3 endpoint (#3345, @dolfinus)
+- mention additional librairies (#3243, @OlivierBondu)
+
+Small bug fixes and doc updates (#3607, #3616, #3534, #3598, #3542, #3568, #3349, #3554, #3541, #3533, #3535, #3516, #3497, #3522, #3521, #3492, #3502, #3434, #3422, #3394, #3387, #3294, #3324, @harupy; #3451, @jgc128; #3638, #3632, #3608, #3452, #3399, @shrinath-suresh; #3495, #3459, @smurching; #3488, @edgan8; #3639, @karthik-77; #3589, #3444, #3276, @lorenzwalthert; #3538, #3506, #3509, #3507, #3510, #3508, @rahulporuri; #3504, @sbrugman; #3486, #3466, @apurva-koti; #3477, @juntai-zheng; #3617, #3609, #3605, #3603, #3560, @dbczumar; #3411, @danielvdende; #3377, @willzhan-db; #3420, #3404, @andrewnitu; #3591, @mateiz; #3465, @abawchen; #3543, @emptalk; #3302, @bramrodenburg; #3468, @ghisvail; #3496, @extrospective; #3549, #3501, #3435, @yitao-li)
+
 1.11.0 (2020-08-31)
 -------------------
 MLflow 1.11.0 includes several major features and improvements:
