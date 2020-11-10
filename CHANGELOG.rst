@@ -9,13 +9,13 @@ Features:
 
 Autologging:
 
-- Add universal ``mlflow.autolog()`` function which enables autologging for all supported integrations (#3561, @andrewnitu)
+- Add universal ``mlflow.autolog`` which enables autologging for all supported integrations (#3561, #3590, @andrewnitu)
 - Scikit-learn, XGBoost, and LightGBM autologging now supports logging model signatures and input examples (#3386, #3403, #3449, @andrewnitu)
 
 PyTorch:
 
 - Add autologging functionality for PyTorch (#3601, @shrinath-suresh, #3636, @karthik-77)
-- ``mlflow.pytorch.log_model`` now supports logging TorchScript models (#3557, @shrinath-suresh) and ``requirements_file`` and ``extra_files`` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
+- ``mlflow.pytorch.log_model`` now supports logging/loading TorchScript models (#3557, @shrinath-suresh) and ``requirements_file`` and ``extra_files`` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
 
 Scikit-learn:
 
@@ -28,18 +28,18 @@ SHAP:
 More features and improvements:
 
 - ``search_model_versions`` now supports the ``IN`` operator for ``runId`` (#3470, @ankit-db)
-- ``log_model`` and `create_model_version` now supports an ``await_creation_for`` argument argument for waiting for model version creation (#3376, @andychow-db)
-- Add support for H2O (#3416, @yitao-li)
+- ``log_model`` and ``create_model_version`` now supports an ``await_creation_for`` argument (#3376, @andychow-db)
 - Put preview paths before non-preview paths for backwards compatibility (#3648, @sueann)
-- MLflow deployments plugin now supports 'predict' cli command (#3597, @shrinath-suresh)
 - Clean up model registry endpoint and client method definitions (#3610, @sueann)
+- MLflow deployments plugin now supports 'predict' CLI command (#3597, @shrinath-suresh)
+- Support H2O for R (#3416, @yitao-li)
 
 Bug fixes and documentation updates:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Ensure that results are synced across distributed processes if ddp enabled (no-op else) (#3651, @SeanNaren)
 - Remove optimizer step override to ensure that all accelerator cases are covered by base module (#3635, @SeanNaren)
-- Fix keras 2.4 autolog#3571 (#3611, @sephib)
+- Fix ``AttributeError`` in keras autologgging (#3611, @sephib)
 - Scikit-learn autologging: Exclude feature extraction / selection estimator (#3600, @dbczumar)
 - Scikit-learn autologging: Fix behavior when a child and its parent are both patched (#3582, @dbczumar)
 - Fix a bug where `lightgbm.Dataset(None)` fails after running `mlflow.lightgbm.autolog` (#3594, @harupy)
@@ -48,18 +48,17 @@ Bug fixes and documentation updates:
 - Fix a bug of `FTPArtifactRepository.log_artifacts` with `artifact_path` keyword argument (issue #3388) (#3391, @kzm4269)
 - Exclude preprocessing & imputation steps from scikit-learn autologging (#3491, @dbczumar)
 - Fix duplicate stderr logging (#3145, @yitao-li)
-- Lazily call `atexit.register(_flush_queue)` in `tensorflow.autolog` (#3410, @harupy)
+- Don't call ``atexit.register(_flush_queue)`` in ``__main__`` scope of ``mlflow/tensorflow.py`` (#3410, @harupy)
 - Fix for restarting terminated run not setting status correctly (#3329, @apurva-koti)
 - Fix model version run_link URL for some Databricks regions (#3417, @sueann)
 - Skip JSON validation when endpoint is not MLflow REST API (#3405, @harupy)
-- Document Mlflow torchserve plugin (#3634, @karthik-77)
-- Document Universal mlflow.autolog() (#3590, @andrewnitu)
+- Document ``mlflow-torchserve`` plugin (#3634, @karthik-77)
 - Add `mlflow-elasticsearchstore` to the doc (#3462, @AxelVivien25)
 - Add code snippets for fluent and MlflowClient APIs (#3385, #3437, #3489 #3573, @dmatrix)
 - Document `mlflow-yarn` backend (#3373, @fhoering)
 - Update example code for Spark autologging (#3439, @andrewnitu)
 - Allows to skip TLS verification of S3 endpoint (#3345, @dolfinus)
-- mention additional libraries (#3243, @OlivierBondu)
+- Mention additional libraries (#3243, @OlivierBondu)
 
 Small bug fixes and doc updates (#3607, #3616, #3534, #3598, #3542, #3568, #3349, #3554, #3544, #3541, #3533, #3535, #3516, #3512, #3497, #3522, #3521, #3492, #3502, #3434, #3422, #3394, #3387, #3294, #3324, @harupy; #3451, @jgc128; #3638, #3632, #3608, #3452, #3399, @shrinath-suresh; #3495, #3459, @smurching; #3488, @edgan8; #3639, @karthik-77; #3589, #3444, #3276, @lorenzwalthert; #3538, #3506, #3509, #3507, #3510, #3508, @rahulporuri; #3504, @sbrugman; #3486, #3466, @apurva-koti; #3477, @juntai-zheng; #3617, #3609, #3605, #3603, #3560, @dbczumar; #3411, @danielvdende; #3377, @willzhan-db; #3420, #3404, @andrewnitu; #3591, @mateiz; #3465, @abawchen; #3543, @emptalk; #3302, @bramrodenburg; #3468, @ghisvail; #3496, @extrospective; #3549, #3501, #3435, @yitao-li)
 
