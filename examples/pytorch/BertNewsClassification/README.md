@@ -60,8 +60,8 @@ python bert_classification.py \
     --max_epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
-    --batch-size 64 \
-    --num-workers 2 \
+    --batch_size 64 \
+    --num_workers 2 \
     --lr 0.001
 ```
 

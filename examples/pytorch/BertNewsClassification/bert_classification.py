@@ -158,14 +158,14 @@ class BertDataModule(pl.LightningDataModule):
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--batch-size",
+            "--batch_size",
             type=int,
             default=16,
             metavar="N",
             help="input batch size for training (default: 16)",
         )
         parser.add_argument(
-            "--num-workers",
+            "--num_workers",
             type=int,
             default=3,
             metavar="N",
@@ -366,7 +366,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Bert-News Classifier Example")
 
     parser.add_argument(
-        "--num-samples",
+        "--num_samples",
         type=int,
         default=15000,
         metavar="N",

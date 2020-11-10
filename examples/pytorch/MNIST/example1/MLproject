@@ -21,10 +21,10 @@ entry_points:
             --max_epochs {max_epochs} \
             --gpus {gpus} \
             --accelerator {accelerator} \
-            --batch-size {batch_size} \
-            --num-workers {num_workers} \
+            --batch_size {batch_size} \
+            --num_workers {num_workers} \
             --lr {learning_rate} \
-            --es-patience {patience} \
-            --es-mode {mode} \
-            --es-verbose {verbose} \
-            --es-monitor {monitor}
+            --es_patience {patience} \
+            --es_mode {mode} \
+            --es_verbose {verbose} \
+            --es_monitor {monitor}

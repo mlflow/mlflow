@@ -49,8 +49,8 @@ The parameters can be overridden via the command line:
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. gpus - Number of GPUs
 3. accelerator - [Accelerator backend](https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-flags) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no accelerator is used. 
-4. batch-size - Input batch size for training
-5. num-workers - Number of worker threads to load training data
+4. batch_size - Input batch size for training
+5. num_workers - Number of worker threads to load training data
 6. lr - Learning rate
 7. patience -parameter of early stopping
 8. mode - parameter of early stopping
@@ -68,13 +68,13 @@ python mnist_autolog_example1.py \
     --max_epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
-    --batch-size 64 \
-    --num-workers 3 \
+    --batch_size 64 \
+    --num_workers 3 \
     --lr 0.001 \
-    --es-patience 5
-    --es-mode "min"
-    --es-monitor "val_loss"
-    --es-verbose True
+    --es_patience 5 \
+    --es_mode "min" \
+    --es_monitor "val_loss" \
+    --es_verbose True
 ```
 
 ## Logging to a custom tracking server
