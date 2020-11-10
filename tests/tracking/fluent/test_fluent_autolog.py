@@ -80,7 +80,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
     # modify the __signature__ of the mock to contain the needed parameters
     args = (
-        {"log_input_example": bool, "log_model_signature": bool}
+        {"log_input_examples": bool, "log_model_signatures": bool}
         if library in integrations_with_config
         else {}
     )
@@ -96,7 +96,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         autolog_mock.assert_not_called()
 
         # this should attach import hooks to each library
-        mlflow.autolog(log_input_example=True, log_model_signature=True)
+        mlflow.autolog(log_input_examples=True, log_model_signatures=True)
 
         autolog_mock.assert_not_called()
 
@@ -104,7 +104,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
         # after each library is imported, its corresponding autolog function should have been called
         if library in integrations_with_config:
-            autolog_mock.assert_called_once_with(log_input_example=True, log_model_signature=True)
+            autolog_mock.assert_called_once_with(log_input_examples=True, log_model_signatures=True)
         else:
             autolog_mock.assert_called_once_with()
 

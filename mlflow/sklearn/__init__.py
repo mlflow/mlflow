@@ -7,6 +7,8 @@ Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persisten
 
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
+    NOTE: The `mlflow.pyfunc` flavor is only added for scikit-learn models that define `predict()`,
+    since `predict()` is required for pyfunc model inference.
 """
 import os
 import logging
@@ -76,7 +78,12 @@ def save_model(
     input_example: ModelInputExample = None,
 ):
     """
-    Save a scikit-learn model to a path on the local file system.
+    Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     :param sk_model: scikit-learn model to be saved.
     :param path: Local path where the model is to be saved.
@@ -221,7 +228,12 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
-    Log a scikit-learn model as an MLflow artifact for the current run.
+    Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
+    containing the following flavors:
+
+        - :py:mod:`mlflow.sklearn`
+        - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for scikit-learn models
+          that define `predict()`, since `predict()` is required for pyfunc model inference.
 
     :param sk_model: scikit-learn model to be saved.
     :param artifact_path: Run-relative artifact path.
@@ -520,7 +532,7 @@ class _SklearnTrainingSession(object):
 
 
 @experimental
-def autolog(log_input_example=False, log_model_signature=True, should_log_model=True):
+def autolog(log_input_examples=False, log_model_signatures=True, should_log_model=True):
     """
     Enables autologging for scikit-learn estimators.
 
@@ -599,7 +611,9 @@ def autolog(log_input_example=False, log_model_signature=True, should_log_model=
           (e.g. "sklearn.linear_model._base.LinearRegression").
 
       **Artifacts**
-        - A fitted estimator (logged by :py:func:`mlflow.sklearn.log_model()`).
+        - An MLflow Model with the :py:mod:`mlflow.sklearn` flavor containing a fitted estimator
+          (logged by :py:func:`mlflow.sklearn.log_model()`). The Model also contains the
+          :py:mod:`mlflow.pyfunc` flavor when the scikit-learn estimator defines `predict()`.
 
     **How does autologging work for meta estimators?**
       When a meta estimator (e.g. `Pipeline`_, `GridSearchCV`_) calls ``fit()``, it internally calls
@@ -682,11 +696,14 @@ def autolog(log_input_example=False, log_model_signature=True, should_log_model=
         pprint(artifacts)
         # ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
 
-    :param log_input_example: if True, logs a sample of the training data as part of the model
-                              as an example for future reference. If False, no sample is logged.
-    :param log_model_signature: if True, records the type signature of the inputs and outputs as
-                                part of the model. If False, the signature is not recorded to the
-                                model.
+    :param log_input_examples: If ``True``, input examples from training datasets are collected and
+                               logged along with scikit-learn model artifacts during training. If
+                               ``False``, input examples are not logged.
+    :param log_model_signatures: If ``True``,
+                                 :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                 describing model inputs and outputs are collected and logged along
+                                 with scikit-learn model artifacts during training. If ``False``,
+                                 signatures are not logged.
     :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
     """
     import pandas as pd
@@ -833,8 +850,8 @@ def autolog(log_input_example=False, log_model_signature=True, should_log_model=
         input_example, signature = resolve_input_example_and_signature(
             get_input_example,
             infer_model_signature,
-            log_input_example,
-            log_model_signature,
+            log_input_examples,
+            log_model_signatures,
             _logger,
         )
 

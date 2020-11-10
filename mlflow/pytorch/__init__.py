@@ -15,8 +15,11 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
+from distutils.version import LooseVersion
+import posixpath
 
 import mlflow
+import shutil
 import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -27,7 +30,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -35,6 +38,8 @@ FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
+_EXTRA_FILES_KEY = "extra_files"
+_REQUIREMENTS_FILE_KEY = "requirements_file"
 
 _logger = logging.getLogger(__name__)
 
@@ -72,13 +77,21 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    requirements_file=None,
+    extra_files=None,
     **kwargs
 ):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -136,6 +149,28 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+
+    :param requirements_file: A string containing the path to requirements file. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``requirements_file`` string -
+
+                      requirements_file = "s3://my-bucket/path/to/my_file"
+
+                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
+
+                      If ``None``, no requirements file is added to the model.
+
+    :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``extra_files`` list -
+
+                      extra_files = ["s3://my-bucket/path/to/my_file1",
+                                    "s3://my-bucket/path/to/my_file2"]
+
+                      In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+                      If ``None``, no extra files are added to the model.
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -182,6 +217,10 @@ def log_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.log_model(model, "models")
+
+            # logging scripted module
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.log_model(scripted_pytorch_model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
@@ -195,7 +234,9 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs
+        requirements_file=requirements_file,
+        extra_files=extra_files,
+        **kwargs,
     )
 
 
@@ -208,13 +249,21 @@ def save_model(
     pickle_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
+    requirements_file=None,
+    extra_files=None,
     **kwargs
 ):
     """
     Save a PyTorch model to a path on the local file system.
 
-    :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
-                          input and produce a single output tensor. Any code dependencies of the
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+
+                          The model accept a single ``torch.FloatTensor`` as
+                          input and produce a single output tensor.
+
+                          If saving an eager model, any code dependencies of the
                           model's class, including the class definition itself, should be
                           included in one of the following locations:
 
@@ -268,6 +317,27 @@ def save_model(
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
 
+    :param requirements_file: A string containing the path to requirements file. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``requirements_file`` string -
+
+                      requirements_file = "s3://my-bucket/path/to/my_file"
+
+                      In this case, the ``"my_file"`` requirements file is downloaded from S3.
+
+                      If ``None``, no requirements file is added to the model.
+
+    :param extra_files: A list containing the paths to corresponding extra files. Remote URIs
+                      are resolved to absolute filesystem paths.
+                      For example, consider the following ``extra_files`` list -
+
+                      extra_files = ["s3://my-bucket/path/to/my_file1",
+                                    "s3://my-bucket/path/to/my_file2"]
+
+                      In this case, the ``"my_file1 & my_file2"`` extra file is downloaded from S3.
+
+                      If ``None``, no extra files are added to the model.
+
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     .. code-block:: python
@@ -287,6 +357,10 @@ def save_model(
         with mlflow.start_run() as run:
             mlflow.log_param("epochs", 500)
             mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
+
+            # Saving scripted model
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.save_model(scripted_pytorch_model, pytorch_model_path)
     """
     import torch
 
@@ -325,7 +399,40 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
-    torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+    if isinstance(pytorch_model, torch.jit.ScriptModule):
+        torch.jit.ScriptModule.save(pytorch_model, model_path)
+    else:
+        torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
+
+    torchserve_artifacts_config = {}
+
+    if requirements_file:
+        if not isinstance(requirements_file, str):
+            raise TypeError("Path to requirements file should be a string")
+
+        with TempDir() as tmp_requirements_dir:
+            _download_artifact_from_uri(
+                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
+            )
+            rel_path = os.path.basename(requirements_file)
+            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
+            shutil.move(tmp_requirements_dir.path(rel_path), path)
+
+    if extra_files:
+        torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
+        if not isinstance(extra_files, list):
+            raise TypeError("Extra files argument should be a list")
+
+        with TempDir() as tmp_extra_files_dir:
+            for extra_file in extra_files:
+                _download_artifact_from_uri(
+                    artifact_uri=extra_file, output_path=tmp_extra_files_dir.path()
+                )
+                rel_path = posixpath.join(_EXTRA_FILES_KEY, os.path.basename(extra_file),)
+                torchserve_artifacts_config[_EXTRA_FILES_KEY].append({"path": rel_path})
+            shutil.move(
+                tmp_extra_files_dir.path(), posixpath.join(path, _EXTRA_FILES_KEY),
+            )
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -344,7 +451,10 @@ def save_model(
         code_dir_subpath = None
 
     mlflow_model.add_flavor(
-        FLAVOR_NAME, model_data=model_data_subpath, pytorch_version=torch.__version__
+        FLAVOR_NAME,
+        model_data=model_data_subpath,
+        pytorch_version=torch.__version__,
+        **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
         mlflow_model,
@@ -395,7 +505,15 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    return torch.load(model_path, **kwargs)
+    if LooseVersion(torch.__version__) >= LooseVersion("1.5.0"):
+        return torch.load(model_path, **kwargs)
+    else:
+        try:
+            # load the model as an eager model.
+            return torch.load(model_path, **kwargs)
+        except Exception:  # pylint: disable=broad-except
+            # If fails, assume the model as a scripted model
+            return torch.jit.load(model_path)
 
 
 def load_model(model_uri, **kwargs):
@@ -492,3 +610,27 @@ class _PyTorchWrapper(object):
             predicted = pd.DataFrame(preds.numpy())
             predicted.index = data.index
             return predicted
+
+
+def autolog(log_every_n_epoch=1):
+    """
+    Automatically log metrics, params, and models from `PyTorch Lightning
+    <https://pytorch-lightning.readthedocs.io/en/latest>`_ model training.
+    Autologging is performed when you call the `fit` method of
+    `pytorch_lightning.Trainer() \
+    <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
+
+    **Note**: Autologging is only supported for PyTorch Lightning models,
+    i.e. models that subclass
+    `pytorch_lightning.LightningModule \
+    <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
+    In particular, autologging support for vanilla Pytorch models that only subclass
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
+    is not yet available.
+
+    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+                       are logged after every epoch.
+    """
+    from mlflow.pytorch._pytorch_autolog import _autolog
+
+    _autolog(log_every_n_epoch=log_every_n_epoch)

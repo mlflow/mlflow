@@ -429,6 +429,44 @@ Autologging captures the following information:
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
+Pytorch (experimental)
+--------------------------
+
+Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning. 
+
+Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
+
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework/module                               | Metrics                                                     | Parameters                                                                           | Tags          | Artifacts                                                                                                                                     |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``pytorch_lightning.trainer.Trainer``          | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon.                        | --            | Model summary on training start, `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+|                                                | user-defined-metrics.                                       |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``pytorch_lightning.callbacks.earlystopping``  | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon                         | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+|                                                | user-defined-metrics.                                       | Parameters from the ``EarlyStopping`` callbacks.                                     |               | Best Pytorch model checkpoint, if training stops due to early stopping callback.                                                              |
+|                                                | Metrics from the ``EarlyStopping`` callbacks.               | For example, ``min_delta``, ``patience``, ``baseline``,``restore_best_weights``, etc |               |                                                                                                                                               |
+|                                                | For example, ``stopped_epoch``, ``restored_epoch``,         |                                                                                      |               |                                                                                                                                               |
+|                                                | ``restore_best_weight``, etc.                               |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information, ending the run once
+the call to ``pytorch_lightning.trainer.Trainer.fit()`` completes.
+
+If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
+
+.. note::
+  - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
+  - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
+  - This feature is experimental - the API and format of the logged data are subject to change
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments

@@ -5,6 +5,8 @@
 azureml-sdk==1.2.0
 # Required by mlflow.keras
 keras==2.3.1
+# Pin h5py < 3.0.0 to avoid this issue: https://github.com/h5py/h5py/issues/1732
+h5py<3.0.0
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
@@ -18,6 +20,7 @@ tensorflow==1.15.2
 # Required by mlflow.pytorch
 torch
 torchvision
+pytorch_lightning>=1.0.2
 # Required by mlflow.xgboost
 xgboost>=0.82
 # Required by mlflow.lightgbm
