@@ -75,7 +75,8 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     else:
         pip_deps.append("tensorflow=={}".format(tf.__version__))
 
-    # Tensorflow<2.4 does not work with h5py>=3.0.0`
+    # Tensorflow<2.4 does not work with h5py>=3.0.0
+    # see https://github.com/tensorflow/tensorflow/issues/44467
     if LooseVersion(tf.__version__) < LooseVersion("2.4"):
         pip_deps.append("h5py<3.0.0")
 
