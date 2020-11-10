@@ -249,7 +249,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     actual_scoring_response = pd.read_json(
         scoring_response.content, orient="records", encoding="utf8"
     ).values.astype(np.float32)
-    np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
+    np.testing.assert_allclose(actual_scoring_response, expected, rtol=3e-6)
 
     # test spark udf
     spark_udf_preds = score_model_as_udf(
@@ -548,6 +548,21 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     assert os.path.isdir(
         os.path.join(model_path, "data", "model")
     ), "Expected directory containing saved_model.pb"
+
+    model_loaded = mlflow.keras.load_model(model_path)
+    assert tf_keras_model.to_json() == model_loaded.to_json()
+
+
+@pytest.mark.large
+def test_load_without_save_format(tf_keras_model, model_path):
+    """Ensures that keras models saved in earlier versions (before save_format support) can still be loaded."""
+    mlflow.keras.save_model(tf_keras_model, model_path, save_format="h5")
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME)
+    assert flavor_conf is not None
+    del flavor_conf["save_format"]
+    model_conf.save(model_conf_path)
 
     model_loaded = mlflow.keras.load_model(model_path)
     assert tf_keras_model.to_json() == model_loaded.to_json()
