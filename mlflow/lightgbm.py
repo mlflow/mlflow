@@ -281,7 +281,7 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(log_input_examples=False, log_model_signatures=True, should_log_model=True):
+def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
@@ -303,7 +303,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, should_log_mode
                                  describing model inputs and outputs are collected and logged along
                                  with LightGBM model artifacts during training. If ``False``,
                                  signatures are not logged.
-    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
+    :param log_models: if True, logs the trained model. If False, the trained model is not recorded.
     """
     import lightgbm
     import numpy as np
@@ -501,7 +501,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, should_log_mode
         )
 
         # Whether to automatically log the trained model based on boolean flag.
-        if should_log_model:
+        if log_models:
             try_mlflow_log(
                 log_model,
                 model,

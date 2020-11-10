@@ -532,7 +532,7 @@ class _SklearnTrainingSession(object):
 
 
 @experimental
-def autolog(log_input_examples=False, log_model_signatures=True, should_log_model=True):
+def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):
     """
     Enables autologging for scikit-learn estimators.
 
@@ -704,7 +704,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, should_log_mode
                                  describing model inputs and outputs are collected and logged along
                                  with scikit-learn model artifacts during training. If ``False``,
                                  signatures are not logged.
-    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
+    :param log_models: if True, logs the trained model. If False, the trained model is not recorded.
     """
     import pandas as pd
     import sklearn
@@ -855,7 +855,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, should_log_mode
             _logger,
         )
 
-        if should_log_model:
+        if log_models:
             try_mlflow_log(
                 log_model,
                 estimator,
@@ -865,7 +865,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, should_log_mode
             )
 
         if _is_parameter_search_estimator(estimator):
-            if hasattr(estimator, "best_estimator_") and should_log_model:
+            if hasattr(estimator, "best_estimator_") and log_models:
                 try_mlflow_log(
                     log_model,
                     estimator.best_estimator_,

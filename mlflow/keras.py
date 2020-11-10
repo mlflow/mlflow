@@ -544,7 +544,7 @@ def load_model(model_uri, **kwargs):
 
 
 @experimental
-def autolog(should_log_model=True):
+def autolog(log_models=True):
     # pylint: disable=E0611
     """
     Enables automatic logging from Keras to MLflow. Autologging captures the following information:
@@ -592,7 +592,7 @@ def autolog(should_log_model=True):
     MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
 
-    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
+    :param log_models: if True, logs the trained model. If False, the trained model is not recorded.
     """
     import keras
 
@@ -639,7 +639,7 @@ def autolog(should_log_model=True):
             try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
         def on_train_end(self, logs=None):
-            if should_log_model:
+            if log_models:
                 try_mlflow_log(log_model, self.model, artifact_path="model")
 
         # As of Keras 2.4.0, Keras Callback implementations must define the following

@@ -1027,7 +1027,7 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
-def autolog(log_input_examples=False, log_model_signatures=True, should_log_model=True):  # pylint: disable=unused-argument
+def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):  # pylint: disable=unused-argument
     """
     Enable autologging for all supported integrations.
 
@@ -1044,7 +1044,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, should_log_mode
                                  describing model inputs and outputs are collected and logged along
                                  with model artifacts during training. If ``False``, signatures are
                                  not logged.
-    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
+    :param log_models: if True, logs the trained model. If False, the trained model is not recorded.
     """
     locals_copy = locals().items()
 
