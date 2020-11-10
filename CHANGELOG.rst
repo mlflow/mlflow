@@ -8,18 +8,18 @@ Features
 
 Autologging:
 
-- Add universal `mlflow.autolog()` function which enables autologging for all supported integrations (#3561, @andrewnitu)
+- Add universal ``mlflow.autolog()`` function which enables autologging for all supported integrations (#3561, @andrewnitu)
 - Scikit-learn, XGBoost, and LightGBM autologging now supports logging model signatures and input examples (#3386, #3403, #3449, @andrewnitu)
 
 PyTorch:
 
 - Add autologging functionality for PyTorch (#3601, @shrinath-suresh, #3636, @karthik-77)
 - `mlflow.pytorch.log_model` now supports logging TorchScript models (#3557, @shrinath-suresh)
-- `mlflow.pytorch.log_model` now supports `requirements_file` and `extra_files` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
+- `mlflow.pytorch.log_model` now supports ``requirements_file`` and ``extra_files`` arguments for logging additional artifacts along with a model (#3436, @shrinath-suresh)
 
 Scikit-learn:
 
-- `mlflow.sklearn.autolog` now supports logging metrics (e.g. accuracy) and plots (e.g. confusion matrix heat map) (#3423, #3327, @willzhan-db, @harupy)
+- ``mlflow.sklearn.autolog`` now supports logging metrics (e.g. accuracy) and plots (e.g. confusion matrix heat map) (#3423, #3327, @willzhan-db, @harupy)
 
 SHAP:
 
@@ -28,8 +28,8 @@ SHAP:
 
 More features and improvements:
 
-- `search_model_versions` now supports the `IN` operator for `runId` (#3470, @ankit-db)
-- `log_model` and `create_model_version` now supports an `await_creation_for` argument argument for waiting for model version creation (#3376, @andychow-db)
+- ``search_model_versions`` now supports the ``IN`` operator for ``runId`` (#3470, @ankit-db)
+- ``log_model`` and `create_model_version` now supports an ``await_creation_for`` argument argument for waiting for model version creation (#3376, @andychow-db)
 - Add support for H2O (#3416, @yitao-li)
 - Put preview paths before non-preview paths for backwards compatibility (#3648, @sueann)
 - MLflow deployments plugin now supports 'predict' cli command (#3597, @shrinath-suresh)
