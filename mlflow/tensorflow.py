@@ -709,7 +709,8 @@ def _setup_callbacks(lst):
             pass
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+            if should_log_model:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     class __MLflowTfKeras2Callback(Callback):
         """
@@ -748,7 +749,8 @@ def _setup_callbacks(lst):
                 try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+            if should_log_model:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     tb = _get_tensorboard_callback(lst)
     if tb is None:
@@ -765,7 +767,7 @@ def _setup_callbacks(lst):
 
 
 @experimental
-def autolog(every_n_iter=100):
+def autolog(every_n_iter=100, should_log_model=True):
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -819,6 +821,7 @@ def autolog(every_n_iter=100):
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
+    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
     """
     import tensorflow
 

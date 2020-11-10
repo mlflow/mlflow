@@ -283,7 +283,10 @@ class _XGBModelWrapper:
 
 @experimental
 def autolog(
-    importance_types=["weight"], log_input_example=False, log_model_signature=True
+    importance_types=["weight"],
+    log_input_example=False,
+    log_model_signature=True,
+    should_log_model=True
 ):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
@@ -304,6 +307,7 @@ def autolog(
     :param log_model_signature: if True, records the type signature of the inputs and outputs as
                                 part of the model. If False, the signature is not recorded to the
                                 model.
+    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
     """
     import xgboost
     import numpy as np
@@ -492,13 +496,15 @@ def autolog(
             _logger,
         )
 
-        try_mlflow_log(
-            log_model,
-            model,
-            artifact_path="model",
-            signature=signature,
-            input_example=input_example,
-        )
+        # Only log the model if the autolog() param should_log_model is set to True.
+        if should_log_model:
+            try_mlflow_log(
+                log_model,
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+            )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)

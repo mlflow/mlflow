@@ -277,7 +277,7 @@ def load_model(model_uri):
 
 
 @experimental
-def autolog():
+def autolog(should_log_model=True):
     """
     Enable automatic logging from Fastai to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -287,6 +287,8 @@ def autolog():
     MLflow will also log the parameters of the
     `EarlyStoppingCallback <https://docs.fast.ai/callbacks.html#EarlyStoppingCallback>`_
     and `OneCycleScheduler <https://docs.fast.ai/callbacks.html#OneCycleScheduler>`_ callbacks
+
+    :param should_log_model: if True, logs the trained model. If False, the trained model is not recorded.
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info
@@ -347,7 +349,8 @@ def autolog():
                 shutil.rmtree(tempdir)
 
         def on_train_end(self, **kwargs):
-            try_mlflow_log(log_model, self.learner, artifact_path="model")
+            if should_log_model:
+                try_mlflow_log(log_model, self.learner, artifact_path="model")
 
     def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
