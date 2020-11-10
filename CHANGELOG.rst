@@ -26,8 +26,7 @@ Features:
 
 - Add `mlflow.shap.log_explanation` for logging model explanations (#3513, @harupy)
 
-More features and improvements:
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**More features and improvements:**
 
 - ``search_model_versions`` now supports the ``IN`` operator for ``runId`` (#3470, @ankit-db)
 - ``log_model`` and `create_model_version` now supports an ``await_creation_for`` argument argument for waiting for model version creation (#3376, @andychow-db)
