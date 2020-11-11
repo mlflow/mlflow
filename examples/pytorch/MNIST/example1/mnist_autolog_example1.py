@@ -56,32 +56,6 @@ class MNISTDataModule(pl.LightningDataModule):
             "dataset", download=True, train=False, transform=self.transform
         )
 
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        """
-        Returns the review text and the targets of the specified item
-
-        :param parent_parser: Application specific parser
-
-        :return: Returns the augmented arugument parser
-        """
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=16,
-            metavar="N",
-            help="input batch size for training (default: 16)",
-        )
-        parser.add_argument(
-            "--num-workers",
-            type=int,
-            default=3,
-            metavar="N",
-            help="number of workers (default: 3)",
-        )
-        return parser
-
     def create_data_loader(self, df):
         """
         Generic data loader function
@@ -132,14 +106,14 @@ class LightningMNISTClassifier(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--batch-size",
+            "--batch_size",
             type=int,
             default=64,
             metavar="N",
             help="input batch size for training (default: 64)",
         )
         parser.add_argument(
-            "--num-workers",
+            "--num_workers",
             type=int,
             default=3,
             metavar="N",
@@ -275,40 +249,32 @@ class LightningMNISTClassifier(pl.LightningModule):
 if __name__ == "__main__":
     parser = ArgumentParser(description="PyTorch Autolog Mnist Example")
 
-    # Add trainer specific arguments
-
-    parser.add_argument(
-        "--max-epochs", type=int, default=20, help="number of epochs to run (default: 20)"
-    )
-    parser.add_argument(
-        "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
-    )
-    parser.add_argument(
-        "--accelerator", type=str, default=None, help="Accelerator - (default: None)",
-    )
-
     # Early stopping parameters
-
     parser.add_argument(
-        "--es-monitor", type=str, default="val_loss", help="Early stopping monitor parameter"
+        "--es_monitor", type=str, default="val_loss", help="Early stopping monitor parameter"
     )
 
-    parser.add_argument("--es-mode", type=str, default="min", help="Early stopping mode parameter")
+    parser.add_argument("--es_mode", type=str, default="min", help="Early stopping mode parameter")
 
     parser.add_argument(
-        "--es-verbose", type=bool, default=True, help="Early stopping verbose parameter"
+        "--es_verbose", type=bool, default=True, help="Early stopping verbose parameter"
     )
 
     parser.add_argument(
-        "--es-patience", type=int, default=3, help="Early stopping patience parameter"
+        "--es_patience", type=int, default=3, help="Early stopping patience parameter"
     )
 
+    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
 
     mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
+
+    if "accelerator" in dict_args:
+        if dict_args["accelerator"] == "None":
+            dict_args["accelerator"] = None
 
     model = LightningMNISTClassifier(**dict_args)
 
