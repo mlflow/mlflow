@@ -264,7 +264,7 @@ def batch_metrics_logger(run_id):
     that logging imposes no more than a 10% overhead on the training, where the training is
     measured by adding up the time elapsed between consecutive calls to record_metrics.
 
-    If logging a batch fails, a log will be emitted and subsequent metrics will continue to
+    If logging a batch fails, a warning will be emitted and subsequent metrics will continue to
     be collected.
 
     Once the context is closed, any metrics that have yet to be logged will be logged.
