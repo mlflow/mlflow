@@ -119,10 +119,10 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "multiclass_classification.py"]),
         ("pytorch/MNIST/example1", ["python", "mnist_autolog_example1.py", "--max_epochs", "1"]),
         ("pytorch/MNIST/example2", ["python", "mnist_autolog_example2.py", "--max_epochs", "1"]),
-        # (
-        #     "pytorch/BertNewsClassification",
-        #     ["python", "bert_classification.py", "--max_    epochs", "1", "--num-samples", "100"],
-        # ),
+        (
+            "pytorch/BertNewsClassification",
+            ["python", "bert_classification.py", "--max_    epochs", "1", "--num-samples", "100"],
+        ),
     ],
 )
 def test_command_example(directory, command):
