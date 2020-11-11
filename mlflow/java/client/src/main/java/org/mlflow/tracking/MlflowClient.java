@@ -751,8 +751,6 @@ public class MlflowClient implements Serializable {
     String scheme = "models";
     String path = modelName + "/" + version;
     URIBuilder downloadUriBuilder = new URIBuilder().setScheme(scheme).setPath(path);
-    System.out.println("ARJUN");
-    System.out.println(downloadUriBuilder.toString());
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
             hostCredsProvider);
     return repository.downloadArtifactFromUri(downloadUriBuilder.toString());
