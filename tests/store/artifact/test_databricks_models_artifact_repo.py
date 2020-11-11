@@ -93,7 +93,7 @@ class TestDatabricksModelArtifactRepository(object):
             assert repo.model_version == MOCK_MODEL_VERSION
 
     @pytest.mark.parametrize(
-        "stage_uri_without_profile", ["models:/MyModel/Staging", "models:/MyModel/Production",],
+        "stage_uri_without_profile", ["models:/MyModel/Staging", "models:/MyModel/Production"],
     )
     def test_init_with_stage_uri_and_profile_is_inferred(self, stage_uri_without_profile):
         model_version_detailed = ModelVersion(

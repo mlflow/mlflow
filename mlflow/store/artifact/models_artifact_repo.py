@@ -6,7 +6,7 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.utils.model_utils import (
     get_model_name_and_version,
-    is_using_databricks_registry
+    is_using_databricks_registry,
 )
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
@@ -47,7 +47,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.tracking import MlflowClient
 
         databricks_profile_uri = (
-                get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+            get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
         (name, version) = get_model_name_and_version(client, uri)

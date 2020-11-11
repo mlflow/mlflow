@@ -421,7 +421,8 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
     uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
 
-    Note : This function is meant to download files using presigned urls from various cloud providers.
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
     """
     with requests.get(http_uri, stream=True) as response:
         response.raise_for_status()

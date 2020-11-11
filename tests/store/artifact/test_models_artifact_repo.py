@@ -31,7 +31,7 @@ def test_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile)
 
 @pytest.mark.parametrize(
     "uri_without_profile",
-    ["models:/MyModel/12", "models:/MyModel/Staging", "models:/MyModel/Production",],
+    ["models:/MyModel/12", "models:/MyModel/Staging", "models:/MyModel/Production"],
 )
 def test_models_artifact_repo_init_with_db_profile_inferred_from_context(uri_without_profile):
     with mock.patch(
