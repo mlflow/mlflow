@@ -158,14 +158,14 @@ class BertDataModule(pl.LightningDataModule):
         """
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument(
-            "--batch-size",
+            "--batch_size",
             type=int,
             default=16,
             metavar="N",
             help="input batch size for training (default: 16)",
         )
         parser.add_argument(
-            "--num-workers",
+            "--num_workers",
             type=int,
             default=3,
             metavar="N",
@@ -365,33 +365,26 @@ class BertNewsClassifier(pl.LightningModule):
 if __name__ == "__main__":
     parser = ArgumentParser(description="Bert-News Classifier Example")
 
-    # Add trainer specific arguments
     parser.add_argument(
-        "--max-epochs", type=int, default=10, help="number of epochs to run (default: 10)"
-    )
-    parser.add_argument(
-        "--gpus", type=int, default=0, help="Number of gpus - by default runs on CPU"
-    )
-    parser.add_argument(
-        "--accelerator", type=str, default=None, help="Distributed Backend - (default: None)",
-    )
-
-    parser.add_argument(
-        "--num-samples",
+        "--num_samples",
         type=int,
         default=15000,
         metavar="N",
         help="Number of samples to be used for training and evaluation steps (default: 15000) Maximum:100000",
     )
 
+    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
     parser = BertNewsClassifier.add_model_specific_args(parent_parser=parser)
-
     parser = BertDataModule.add_model_specific_args(parent_parser=parser)
 
     mlflow.pytorch.autolog()
 
     args = parser.parse_args()
     dict_args = vars(args)
+
+    if "accelerator" in dict_args:
+        if dict_args["accelerator"] == "None":
+            dict_args["accelerator"] = None
 
     dm = BertDataModule(**dict_args)
     dm.prepare_data()
