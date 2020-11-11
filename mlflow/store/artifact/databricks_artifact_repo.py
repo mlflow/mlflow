@@ -22,9 +22,9 @@ from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
+    download_file_using_http_uri,
     relative_path_to_artifact_path,
     yield_file_in_chunks,
-    download_file_using_signed_uri,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -237,7 +237,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
         try:
             signed_read_uri = cloud_credential.signed_uri
-            download_file_using_signed_uri(signed_read_uri, local_file_path, _DOWNLOAD_CHUNK_SIZE)
+            download_file_using_http_uri(signed_read_uri, local_file_path, _DOWNLOAD_CHUNK_SIZE)
         except Exception as err:
             raise MlflowException(err)
 

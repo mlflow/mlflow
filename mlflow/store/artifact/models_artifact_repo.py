@@ -3,13 +3,14 @@ import urllib.parse
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.databricks_model_artifact_repo import DatabricksModelArtifactRepository
-from mlflow.utils.uri import is_databricks_model_registry_artifacts_uri
+from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.utils.model_utils import (
+    get_model_name_and_version,
+    is_using_databricks_registry
+)
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
-    parse_model_uri,
-    get_model_version_from_stage,
 )
 
 
@@ -26,12 +27,13 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri)
-        uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
         #  we don't get a download URI here, or fail during the download itself.
-        if is_databricks_model_registry_artifacts_uri(uri):
-            self.repo = DatabricksModelArtifactRepository(artifact_uri)
+        if is_using_databricks_registry(artifact_uri):
+            # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
+            self.repo = DatabricksModelsArtifactRepository(artifact_uri)
         else:
+            uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
             self.repo = get_artifact_repository(uri)
 
     @staticmethod
@@ -45,12 +47,10 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.tracking import MlflowClient
 
         databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+                get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=databricks_profile_uri)
-        (name, version, stage) = parse_model_uri(uri)
-        if stage is not None:
-            version = get_model_version_from_stage(client, name, stage)
+        (name, version) = get_model_name_and_version(client, uri)
         download_uri = client.get_model_version_download_uri(name, version)
         return add_databricks_profile_info_to_artifact_uri(download_uri, databricks_profile_uri)
 
