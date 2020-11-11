@@ -96,7 +96,7 @@ def save_model(
     keras_module=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    **kwargs,
+    **kwargs
 ):
     """
     Save a Keras model to a path on the local file system.
@@ -285,7 +285,7 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    **kwargs,
+    **kwargs
 ):
     """
     Log a Keras model as an MLflow artifact for the current run.
@@ -371,7 +371,7 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs,
+        **kwargs
     )
 
 
@@ -544,7 +544,7 @@ def load_model(model_uri, **kwargs):
         model_path=keras_model_artifacts_path,
         keras_module=keras_module,
         save_format=save_format,
-        **kwargs,
+        **kwargs
     )
 
 
