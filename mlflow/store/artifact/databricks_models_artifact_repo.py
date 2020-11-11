@@ -4,80 +4,63 @@ import json
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import download_file_using_signed_uri
+from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.rest_utils import http_request
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.uri import (
-    get_databricks_profile_uri_from_artifact_uri,
-    is_databricks_profile,
-    parse_model_uri,
-    get_model_version_from_stage,
+from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
+from mlflow.store.artifact.utils.model_utils import (
+    get_model_name_and_version,
+    is_using_databricks_registry,
 )
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 100000000
-REGISTRY_LIST_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
-REGISTRY_GET_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
+REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
+REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT = "/api/2.0/mlflow/model-versions/get-signed-download-uri"
 
 
-class DatabricksModelArtifactRepository(ArtifactRepository):
+class DatabricksModelsArtifactRepository(ArtifactRepository):
     """
-    Performs storage operations on model registry artifacts in the access-controlled
-    `dbfs:/databricks/model-registry` location
+    Performs storage operations on artifacts controlled by a Databricks-hosted model registry.
 
-    Signed access URIs for S3 / Azure Blob Storage are fetched from the MLflow service and used to
-    download model artifacts.
+    Signed access URIs for the appropriate cloud storage locations are fetched from the
+    MLflow service and used to download model artifacts.
 
     The artifact_uri is expected to be of the form
     - `models:/<model_name>/<model_version>`
     - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
-    - `models://<profile>/<model_name>/<model_version or state>`
+    - `models://<profile>/<model_name>/<model_version or stage>`
 
-    Note : This artifact repository is meant is to be instantiate by the ModelsArtifactRepository
-    when the model download uri is of the form
-    `dbfs:/databricks/mlflow-registry/<model-version-id>/models/<artifact-path>`
+    Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
+    when the client is pointing to a Databricks-hosted model registry.
     """
 
     def __init__(self, artifact_uri):
-        if not is_databricks_profile(artifact_uri):
+        if not is_using_databricks_registry(artifact_uri):
             raise MlflowException(
-                message="A valid databricks profile is required to use this repository",
+                message="A valid databricks profile is required to instantiate this repository",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
         from mlflow.tracking import MlflowClient
 
-        databricks_profile_uri = (
+        self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
-
-        self.client = MlflowClient(registry_uri=databricks_profile_uri)
-        hostcreds_from_uri = get_databricks_host_creds(databricks_profile_uri)
-        self.get_host_creds = lambda: hostcreds_from_uri
-        self.model_name, self.model_version = self._get_model_name_and_version(artifact_uri)
-
-    def _get_model_name_and_version(self, artifact_uri):
-        (model_name, model_version, model_stage) = parse_model_uri(artifact_uri)
-        if model_stage is not None:
-            model_version = get_model_version_from_stage(self.client, model_name, model_stage)
-        return model_name, str(model_version)
+        self.client = MlflowClient(registry_uri=self.databricks_profile_uri)
+        self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
     def _call_endpoint(self, json, endpoint):
-        host_creds = self.get_host_creds()
-        return http_request(host_creds=host_creds, endpoint=endpoint, method="GET", params=json)
+        db_creds = get_databricks_host_creds(self.databricks_profile_uri)
+        return http_request(host_creds=db_creds, endpoint=endpoint, method="GET", params=json)
 
     def _make_json_body(self, path, page_token=None):
+        body = {"name": self.model_name, "version": self.model_version, "path": path}
         if page_token:
-            return {"name": self.model_name, "version": self.model_version, "path": path}
-        return {
-            "name": self.model_name,
-            "version": self.model_version,
-            "path": path,
-            "page_token": page_token,
-        }
+            body["page_token"] = page_token
+        return body
 
     def list_artifacts(self, path=None):
         infos = []
@@ -86,7 +69,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
             path = ""
         while True:
             json_body = self._make_json_body(path, page_token)
-            response = self._call_endpoint(json_body, REGISTRY_LIST_ENDPOINT)
+            response = self._call_endpoint(json_body, REGISTRY_LIST_ARTIFACTS_ENDPOINT)
             try:
                 json_response = json.loads(response.text)
             except ValueError:
@@ -117,7 +100,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
         if not path:
             path = ""
         json_body = self._make_json_body(path)
-        response = self._call_endpoint(json_body, REGISTRY_GET_PRESIGNED_URI_ENDPOINT)
+        response = self._call_endpoint(json_body, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
         try:
             json_response = json.loads(response.text)
         except ValueError:
@@ -130,7 +113,7 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         try:
             signed_uri = self._get_signed_download_uri(remote_file_path)
-            download_file_using_signed_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE)
+            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE)
         except Exception as err:
             raise MlflowException(err)
 
@@ -141,4 +124,4 @@ class DatabricksModelArtifactRepository(ArtifactRepository):
         raise MlflowException("This repository does not support logging artifacts.")
 
     def delete_artifacts(self, artifact_path=None):
-        raise MlflowException("Not implemented yet")
+        raise NotImplementedError("Not implemented yet")
