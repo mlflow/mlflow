@@ -97,6 +97,7 @@ def test_set_experiment():
         assert another_run.info.experiment_id == exp_id2.experiment_id
 
 
+@pytest.mark.usefixtures("reset_active_experiment")
 def test_set_experiment_with_deleted_experiment_name():
     name = "dead_exp"
     mlflow.set_experiment(name)
