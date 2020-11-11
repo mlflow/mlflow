@@ -35,6 +35,7 @@ jobs:
     # as a cache key when caching/restoring R dependencies.
     - name: Query dependencies
       run: |
+        print(R.version)
         install.packages('remotes')
         saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
