@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-ROOT_DIR = os.path.abspath(os.path.join(__file__, "../../../.."))
+ROOT_DIR = os.path.abspath(os.path.join(__file__, os.sep.join([".."] * 4)))
 
 setup(
     name="mlflow-test-plugin",
