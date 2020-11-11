@@ -108,7 +108,7 @@ public class ModelRegistryMlflowClientTest {
     public void testDownloadModelVersion() throws IOException {
         File tempDownloadDir = client.downloadModelVersion(modelName, "1");
         File[] tempDownloadFile = tempDownloadDir.listFiles(filter);
-        Assert.assertEquals(tempDownloadFiles.length, 1);
+        Assert.assertEquals(tempDownloadFile.length, 1);
         String downloadedContent = FileUtils.readFileToString(tempDownloadFile[0],
                 StandardCharsets.UTF_8);
         Assert.assertEquals(content, downloadedContent);
@@ -118,7 +118,7 @@ public class ModelRegistryMlflowClientTest {
     public void testDownloadLatestModelVersion() throws IOException {
         File tempDownloadDir = client.downloadLatestModelVersion(modelName, "None");
         File[] tempDownloadFile = tempDownloadDir.listFiles(filter);
-        Assert.assertEquals(tempDownloadFiles.length, 1);
+        Assert.assertEquals(tempDownloadFile.length, 1);
         String downloadedContent = FileUtils.readFileToString(tempDownloadFile[0],
                 StandardCharsets.UTF_8);
         Assert.assertEquals(content, downloadedContent);
