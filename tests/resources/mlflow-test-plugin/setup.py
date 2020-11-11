@@ -1,5 +1,7 @@
+import os
 from setuptools import setup, find_packages
 
+ROOT_DIR = os.path.abspath(os.path.join(__file__, "../../../.."))
 
 setup(
     name="mlflow-test-plugin",
@@ -8,7 +10,7 @@ setup(
     packages=find_packages(),
     # Require MLflow as a dependency of the plugin, so that plugin users can simply install
     # the plugin & then immediately use it with MLflow
-    install_requires=["mlflow"],
+    install_requires=["mlflow @ file://{}".format(ROOT_DIR)],
     entry_points={
         # Define a Tracking Store plugin for tracking URIs with scheme 'file-plugin'
         "mlflow.tracking_store": "file-plugin=mlflow_test_plugin.file_store:PluginFileStore",
