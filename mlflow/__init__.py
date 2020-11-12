@@ -123,6 +123,7 @@ __all__ = [
     "delete_tag",
     "log_artifacts",
     "log_artifact",
+    "log_text",
     "active_run",
     "start_run",
     "end_run",
