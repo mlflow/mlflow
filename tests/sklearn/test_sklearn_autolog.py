@@ -1016,7 +1016,7 @@ def test_sklearn_autolog_log_models_configuration(log_models):
         model.fit(X, y)
 
     run_id = run.info.run_id
-    params, metrics, tags, artifacts = get_run_data(run_id)
+    _, _, _, artifacts = get_run_data(run_id)
     assert (MODEL_DIR in artifacts) == log_models
 
 

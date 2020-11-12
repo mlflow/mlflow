@@ -653,7 +653,6 @@ def _setup_callbacks(lst, log_models):
 
         def __init__(self, log_models):
             self.log_models = log_models
-            pass
 
         def __enter__(self):
             pass
@@ -721,7 +720,6 @@ def _setup_callbacks(lst, log_models):
 
         def __init__(self, log_models):
             self.log_models = log_models
-            pass
 
         def __enter__(self):
             pass
