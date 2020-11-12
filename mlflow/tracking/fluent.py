@@ -529,7 +529,7 @@ def log_text(text, artifact_file):
     Log a text as an artifact.
 
     :param text: Text to log.
-    :param artifact_file: Path in ``artifact_uri``.
+    :param artifact_file: Path in ``artifact_uri`` to write to.
 
     ..code-block:: python
         :caption: Example
@@ -537,11 +537,14 @@ def log_text(text, artifact_file):
         import mlflow
 
         with mlflow.start_run():
-            mlflow.log_text("text", "file.txt")
-            mlflow.log_text("text", "dir/file.txt")
+            # Log a text in the artifact root
+            mlflow.log_text("text1", "file1.txt")
 
+            # Log a text in a subdirectory
+            mlflow.log_text("text2", "dir/file2.txt")
+
+            # Log an HTML text
             mlflow.log_text("<h1>header</h1>", "index.html")
-            mlflow.log_text("print('mlflow')", "script.py")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_text(run_id, text, artifact_file)

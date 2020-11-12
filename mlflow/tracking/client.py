@@ -902,11 +902,14 @@ class MlflowClient(object):
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
 
-            client.log_text(run.info.run_id, "text", "file.txt")
-            client.log_text(run.info.run_id, "text", "dir/file.txt")
+            # Log a text in the artifact root
+            client.log_text(run.info.run_id, "text1", "file1.txt")
 
+            # Log a text in a subdirectory
+            client.log_text(run.info.run_id, "text2", "dir/file2.txt")
+
+            # Log an HTML text
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
-            client.log_text(run.info.run_id, "print('mlflow')", "script.py")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:
