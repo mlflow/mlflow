@@ -937,7 +937,7 @@ class MlflowClient(object):
         :param text: Text to log.
         :param artifact_file: The run-relative artifact file path to which the text is saved.
 
-        ..code-block:: python
+        .. code-block:: python
             :caption: Example
 
             from mlflow.tracking import MlflowClient
