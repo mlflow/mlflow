@@ -1004,6 +1004,19 @@ def test_autolog_configuration_options(log_input_examples, log_model_signatures)
     assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_sklearn_autolog_log_models_configuration(log_models):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_models=log_models)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert (MODEL_DIR in artifacts) == log_models
 
 @pytest.mark.large
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():

@@ -133,6 +133,19 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_fastai_autolog_log_models_configuration(log_models):
+    mlflow.fastai.autolog(log_models=log_models)
+    model = fastai_model(iris_data())
+    model.fit(NUM_EPOCHS)
+
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    artifacts = client.list_artifacts(run_id)
+    artifacts = list(map(lambda x: x.path, artifacts))
+    assert ("model" in artifacts) == log_models
+
+@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_logs_default_params(fastai_random_data_run, fit_variant):
     _, run = fastai_random_data_run

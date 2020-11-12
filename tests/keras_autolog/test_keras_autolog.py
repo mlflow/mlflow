@@ -214,6 +214,21 @@ def keras_random_data_run_with_callback(
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
 
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_keras_autolog_log_models_configuration(random_train_data, random_one_hot_labels, log_models):
+    mlflow.keras.autolog(log_models=log_models)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_model()
+    model.fit(data, labels, epochs=10, steps_per_epoch=1)
+
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    assert ("model" in artifacts) == log_models
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])

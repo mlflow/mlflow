@@ -1027,7 +1027,9 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
-def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):  # pylint: disable=unused-argument
+def autolog(
+    log_input_examples=False, log_model_signatures=True, log_models=True
+):  # pylint: disable=unused-argument
     """
     Enable autologging for all supported integrations.
 

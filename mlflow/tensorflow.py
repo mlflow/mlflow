@@ -637,7 +637,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst):
+def _setup_callbacks(lst, log_models):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -651,7 +651,8 @@ def _setup_callbacks(lst):
         Records model structural information as params after training finishes.
         """
 
-        def __init__(self):
+        def __init__(self, log_models):
+            self.log_models = log_models
             pass
 
         def __enter__(self):
@@ -709,7 +710,7 @@ def _setup_callbacks(lst):
             pass
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            if log_models:
+            if self.log_models:
                 try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     class __MLflowTfKeras2Callback(Callback):
@@ -718,7 +719,8 @@ def _setup_callbacks(lst):
         Records model structural information as params when training starts.
         """
 
-        def __init__(self):
+        def __init__(self, log_models):
+            self.log_models = log_models
             pass
 
         def __enter__(self):
@@ -749,7 +751,7 @@ def _setup_callbacks(lst):
                 try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            if log_models:
+            if self.log_models:
                 try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     tb = _get_tensorboard_callback(lst)
@@ -760,9 +762,9 @@ def _setup_callbacks(lst):
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
-        out_list += [__MLflowTfKerasCallback()]
+        out_list += [__MLflowTfKerasCallback(log_models)]
     else:
-        out_list += [__MLflowTfKeras2Callback()]
+        out_list += [__MLflowTfKeras2Callback(log_models)]
     return out_list, log_dir
 
 
@@ -991,13 +993,13 @@ def autolog(every_n_iter=100, log_models=True):
             if len(args) >= 6:
                 tmp_list = list(args)
                 early_stop_callback = _early_stop_check(tmp_list[5])
-                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
+                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models)
                 args = tuple(tmp_list)
             elif "callbacks" in kwargs:
                 early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
+                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], log_models)
             else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
+                kwargs["callbacks"], log_dir = _setup_callbacks([], log_models)
 
             _log_early_stop_callback_params(early_stop_callback)
 
@@ -1025,12 +1027,12 @@ def autolog(every_n_iter=100, log_models=True):
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 5:
                 tmp_list = list(args)
-                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
+                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models)
                 args = tuple(tmp_list)
             elif "callbacks" in kwargs:
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
+                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], log_models)
             else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
+                kwargs["callbacks"], log_dir = _setup_callbacks([], log_models)
             result = original(self, *args, **kwargs)
             _flush_queue()
             _log_artifacts_with_warning(
