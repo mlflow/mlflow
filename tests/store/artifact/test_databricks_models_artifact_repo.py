@@ -17,6 +17,7 @@ DATABRICKS_MODEL_ARTIFACT_REPOSITORY = (
 )
 MOCK_MODEL_ROOT_URI_WITH_PROFILE = "models://profile@databricks/MyModel/12"
 MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE = "models:/MyModel/12"
+MOCK_PROFILE = "databricks://profile"
 MOCK_MODEL_NAME = "MyModel"
 MOCK_MODEL_VERSION = "12"
 
@@ -63,6 +64,7 @@ class TestDatabricksModelArtifactRepository(object):
             assert repo.artifact_uri == stage_uri_with_profile
             assert repo.model_name == MOCK_MODEL_NAME
             assert repo.model_version == MOCK_MODEL_VERSION
+            assert repo.databricks_profile_uri == MOCK_PROFILE
 
     @pytest.mark.parametrize(
         "invalid_artifact_uri",
@@ -82,15 +84,16 @@ class TestDatabricksModelArtifactRepository(object):
         # First mock for `is_using_databricks_registry` to pass
         # Second mock to set `databricks_profile_uri` during instantiation
         with mock.patch(
-            "mlflow.store.artifact.utils.model_utils.mlflow.get_registry_uri",
-            return_value="databricks://getRegistryUriDefault",
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=MOCK_PROFILE,
         ), mock.patch(
-            "mlflow.tracking.get_registry_uri", return_value="databricks://getRegistryUriDefault"
+            "mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE
         ):
             repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE)
             assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE
             assert repo.model_name == MOCK_MODEL_NAME
             assert repo.model_version == MOCK_MODEL_VERSION
+            assert repo.databricks_profile_uri == MOCK_PROFILE
 
     @pytest.mark.parametrize(
         "stage_uri_without_profile", ["models:/MyModel/Staging", "models:/MyModel/Production"],
@@ -111,15 +114,16 @@ class TestDatabricksModelArtifactRepository(object):
             MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
         )
         with get_latest_versions_patch, mock.patch(
-            "mlflow.store.artifact.utils.model_utils.mlflow.get_registry_uri",
-            return_value="databricks://getRegistryUriDefault",
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
+            return_value=MOCK_PROFILE,
         ), mock.patch(
-            "mlflow.tracking.get_registry_uri", return_value="databricks://getRegistryUriDefault"
+            "mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE
         ):
             repo = DatabricksModelsArtifactRepository(stage_uri_without_profile)
             assert repo.artifact_uri == stage_uri_without_profile
             assert repo.model_name == MOCK_MODEL_NAME
             assert repo.model_version == MOCK_MODEL_VERSION
+            assert repo.databricks_profile_uri == MOCK_PROFILE
 
     @pytest.mark.parametrize(
         "valid_profileless_artifact_uri", ["models:/MyModel/12", "models:/MyModel/Staging"],
@@ -127,7 +131,7 @@ class TestDatabricksModelArtifactRepository(object):
     def test_init_with_valid_uri_but_no_profile(self, valid_profileless_artifact_uri):
         # Mock for `is_using_databricks_registry` fail when calling `get_registry_uri`
         with mock.patch(
-            "mlflow.store.artifact.utils.model_utils.mlflow.get_registry_uri", return_value=None,
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=None,
         ):
             with pytest.raises(MlflowException):
                 DatabricksModelsArtifactRepository(valid_profileless_artifact_uri)

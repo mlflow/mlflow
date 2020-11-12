@@ -37,7 +37,7 @@ def test_models_artifact_repo_init_with_db_profile_inferred_from_context(uri_wit
     with mock.patch(
         MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".DatabricksModelsArtifactRepository", autospec=True
     ) as mock_repo, mock.patch(
-        "mlflow.store.artifact.utils.model_utils.mlflow.get_registry_uri",
+        "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
         return_value="databricks://getRegistryUriDefault",
     ):
         models_repo = ModelsArtifactRepository(uri_without_profile)
@@ -52,7 +52,7 @@ def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_reg
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch(
-        "mlflow.store.artifact.utils.model_utils.mlflow.get_registry_uri",
+        "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
         return_value=non_databricks_uri,
     ), mock.patch(
         "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository"

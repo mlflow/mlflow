@@ -4,7 +4,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
-from mlflow.store.artifact.utils.model_utils import (
+from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
@@ -27,14 +27,14 @@ class ModelsArtifactRepository(ArtifactRepository):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri)
-        # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
-        #  we don't get a download URI here, or fail during the download itself.
         if is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
             self.repo = DatabricksModelsArtifactRepository(artifact_uri)
         else:
             uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
             self.repo = get_artifact_repository(uri)
+            # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
+            #  we don't get a download URI here, or fail during the download itself.
 
     @staticmethod
     def is_models_uri(uri):

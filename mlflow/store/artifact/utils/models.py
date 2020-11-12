@@ -50,8 +50,8 @@ def _parse_model_uri(uri):
         return parts[0], None, parts[1]
 
 
-def get_model_name_and_version(client, artifact_uri):
-    (model_name, model_version, model_stage) = _parse_model_uri(artifact_uri)
+def get_model_name_and_version(client, models_uri):
+    (model_name, model_version, model_stage) = _parse_model_uri(models_uri)
     if model_stage is not None:
         model_version = _get_model_version_from_stage(client, model_name, model_stage)
     return model_name, str(model_version)
