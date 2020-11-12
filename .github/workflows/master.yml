@@ -2,9 +2,12 @@ name: MLflow tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+    - master
+    - branch-**
   pull_request:
-    branches: [ master ]
+    - master
+    - branch-**
 
 env:
   CONDA_DIR: /usr/share/miniconda
