@@ -308,7 +308,8 @@ def autolog(log_models=True):
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
-    :param log_models: if True, logs the trained model. If False, the trained model is not recorded.
+    :param log_models: If ``True``, the trained model will be logged as an artifact. If ``False``,
+                       the trained model is not logged.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd

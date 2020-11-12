@@ -304,13 +304,18 @@ def autolog(
     :param importance_types: importance types to log.
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with XGBoost model artifacts during training. If
-                               ``False``, input examples are not logged.
+                               ``False``, input examples are not logged. Note: if ``log_models``
+                               is set to ``False``, then the value of ``log_input_examples``
+                               will be ignored and not logged.
     :param log_model_signatures: If ``True``,
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with XGBoost model artifacts during training. If ``False``,
-                                 signatures are not logged.
-    :param log_models: if True, logs the trained model. If False, the trained model is not recorded.
+                                 signatures are not logged. Note: if ``log_models`` is set
+                                 to ``False``, then the value of ``log_model_signatures``
+                                 will be ignored and not logged.
+    :param log_models: If ``True``, the trained model will be logged as an artifact. If ``False``,
+                       the trained model is not logged.
     """
     import xgboost
     import numpy as np
