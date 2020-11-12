@@ -3,6 +3,7 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+import contextlib
 import logging
 import os
 import posixpath
@@ -869,7 +870,49 @@ class MlflowClient(object):
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    import contextlib
+    def log_artifacts(self, run_id, local_dir, artifact_path=None):
+        """
+        Write a directory of files to the remote ``artifact_uri``.
+
+        :param local_dir: Path to the directory of files to write.
+        :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
+
+        .. code-block:: python
+            :caption: Example
+
+            import os
+            import json
+
+            # Create some artifacts data to preserve
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            data = {"state": "TX", "Available": 25, "Type": "Detached"}
+
+            # Create couple of artifact files under the local directory "data"
+            os.makedirs("data", exist_ok=True)
+            with open("data/data.json", 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2)
+            with open("data/features.txt", 'w') as f:
+                f.write(features)
+
+            # Create a run under the default experiment (whose id is '0'), and log
+            # all files in "data" to root artifact_uri/states
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            client.log_artifacts(run.info.run_id, "data", artifact_path="states")
+            artifacts = client.list_artifacts(run.info.run_id)
+            for artifact in artifacts:
+                print("artifact: {}".format(artifact.path))
+                print("is_dir: {}".format(artifact.is_dir))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            artifact: states
+            is_dir: True
+        """
+        self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
     @contextlib.contextmanager
     def _log_artifact_helper(self, run_id, artifact_file):
@@ -914,50 +957,6 @@ class MlflowClient(object):
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:
                 f.write(text)
-
-    def log_artifacts(self, run_id, local_dir, artifact_path=None):
-        """
-        Write a directory of files to the remote ``artifact_uri``.
-
-        :param local_dir: Path to the directory of files to write.
-        :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
-
-        .. code-block:: python
-            :caption: Example
-
-            import os
-            import json
-
-            # Create some artifacts data to preserve
-            features = "rooms, zipcode, median_price, school_rating, transport"
-            data = {"state": "TX", "Available": 25, "Type": "Detached"}
-
-            # Create couple of artifact files under the local directory "data"
-            os.makedirs("data", exist_ok=True)
-            with open("data/data.json", 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
-            with open("data/features.txt", 'w') as f:
-                f.write(features)
-
-            # Create a run under the default experiment (whose id is '0'), and log
-            # all files in "data" to root artifact_uri/states
-            client = MlflowClient()
-            experiment_id = "0"
-            run = client.create_run(experiment_id)
-            client.log_artifacts(run.info.run_id, "data", artifact_path="states")
-            artifacts = client.list_artifacts(run.info.run_id)
-            for artifact in artifacts:
-                print("artifact: {}".format(artifact.path))
-                print("is_dir: {}".format(artifact.is_dir))
-            client.set_terminated(run.info.run_id)
-
-        .. code-block:: text
-            :caption: Output
-
-            artifact: states
-            is_dir: True
-        """
-        self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

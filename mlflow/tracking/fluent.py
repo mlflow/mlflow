@@ -524,32 +524,6 @@ def log_artifact(local_path, artifact_path=None):
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-def log_text(text, artifact_file):
-    """
-    Log a text as an artifact.
-
-    :param text: Text to log.
-    :param artifact_file: Path in ``artifact_uri`` to write to.
-
-    ..code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        with mlflow.start_run():
-            # Log a text in the artifact root
-            mlflow.log_text("text1", "file1.txt")
-
-            # Log a text in a subdirectory
-            mlflow.log_text("text2", "dir/file2.txt")
-
-            # Log an HTML text
-            mlflow.log_text("<h1>header</h1>", "index.html")
-    """
-    run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_text(run_id, text, artifact_file)
-
-
 def log_artifacts(local_dir, artifact_path=None):
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
@@ -581,6 +555,32 @@ def log_artifacts(local_dir, artifact_path=None):
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+
+
+def log_text(text, artifact_file):
+    """
+    Log a text as an artifact.
+
+    :param text: Text to log.
+    :param artifact_file: Artifact file path to write `text` to.
+
+    ..code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log a text in the artifact root
+            mlflow.log_text("text1", "file1.txt")
+
+            # Log a text in a subdirectory
+            mlflow.log_text("text2", "dir/file2.txt")
+
+            # Log an HTML text
+            mlflow.log_text("<h1>header</h1>", "index.html")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_text(run_id, text, artifact_file)
 
 
 def _record_logged_model(mlflow_model):
