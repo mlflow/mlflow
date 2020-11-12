@@ -76,6 +76,7 @@ def test_tf_keras_autolog_ends_auto_created_run(
 
     assert mlflow.active_run() is None
 
+
 @pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_tf_keras_autolog_log_models_configuration(
@@ -96,6 +97,7 @@ def test_tf_keras_autolog_log_models_configuration(
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert ("model" in artifacts) == log_models
+
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])

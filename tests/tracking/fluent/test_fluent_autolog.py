@@ -82,7 +82,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     args = (
         {"log_input_examples": bool, "log_model_signatures": bool, "log_models": bool}
         if library in integrations_with_config
-        else { "log_models": bool}
+        else {"log_models": bool}
     )
     params = [
         inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
@@ -104,7 +104,9 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
         # after each library is imported, its corresponding autolog function should have been called
         if library in integrations_with_config:
-            autolog_mock.assert_called_once_with(log_input_examples=True, log_model_signatures=True, log_models=True)
+            autolog_mock.assert_called_once_with(
+                log_input_examples=True, log_model_signatures=True, log_models=True
+            )
         else:
             autolog_mock.assert_called_once_with(log_models=True)
 

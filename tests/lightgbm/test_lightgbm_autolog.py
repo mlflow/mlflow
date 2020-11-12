@@ -448,6 +448,7 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
+
 @pytest.mark.large
 @pytest.mark.parametrize("log_models", [True, False])
 def test_lgb_autolog_log_models_configuration(bst_params, log_models):
@@ -464,6 +465,7 @@ def test_lgb_autolog_log_models_configuration(bst_params, log_models):
     client = mlflow.tracking.MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
+
 
 def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
     """

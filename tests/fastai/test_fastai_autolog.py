@@ -145,6 +145,7 @@ def test_fastai_autolog_log_models_configuration(log_models):
     artifacts = list(map(lambda x: x.path, artifacts))
     assert ("model" in artifacts) == log_models
 
+
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_logs_default_params(fastai_random_data_run, fit_variant):

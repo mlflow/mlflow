@@ -497,6 +497,7 @@ def test_xgb_autolog_log_models_configuration(bst_params, log_models):
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     assert ("model" in artifacts) == log_models
 
+
 def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
     """
     This test verifies that `xgboost.DMatrix(None)` doesn't fail after patching.
