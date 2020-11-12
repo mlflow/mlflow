@@ -4,10 +4,10 @@ on:
   push:
     branches:
     - master
-    - branch-*
+    - branch-1.12
   pull_request:
     - master
-    - branch-*
+    - branch-1.12
 
 env:
   CONDA_DIR: /usr/share/miniconda
