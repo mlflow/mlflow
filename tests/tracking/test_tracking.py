@@ -500,6 +500,7 @@ def test_log_text(subdir):
     filename = "file.txt"
     text = "a"
     artifact_file = posixpath.join(subdir, filename) if subdir is not None else filename
+
     with mlflow.start_run():
         mlflow.log_text(text, artifact_file)
 

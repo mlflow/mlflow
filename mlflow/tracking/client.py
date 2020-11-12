@@ -917,7 +917,7 @@ class MlflowClient(object):
     @contextlib.contextmanager
     def _log_artifact_helper(self, run_id, artifact_file):
         """
-        Yields a temporary path (absolute), and then calls `log_artifact` against that path.
+        Yields a temporary path to store a file, and then calls `log_artifact` against that path.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
