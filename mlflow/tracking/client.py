@@ -925,13 +925,13 @@ class MlflowClient(object):
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
-        artifact_path = posixpath.dirname(norm_path)
-        artifact_path = None if artifact_path == "" else artifact_path
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = os.path.join(tmp_dir, filename)
             yield tmp_path
-            self.log_artifact(run_id, tmp_path, artifact_path)
+            self.log_artifact(run_id, tmp_path, artifact_dir)
 
     def log_text(self, run_id, text, artifact_file):
         """
