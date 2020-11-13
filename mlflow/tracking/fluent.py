@@ -571,13 +571,13 @@ def log_text(text, artifact_file):
         import mlflow
 
         with mlflow.start_run():
-            # Log a text in the artifact root
+            # Log text in the artifact root
             mlflow.log_text("text1", "file1.txt")
 
-            # Log a text in a subdirectory
+            # Log text in a subdirectory
             mlflow.log_text("text2", "dir/file2.txt")
 
-            # Log an HTML text
+            # Log HTML text
             mlflow.log_text("<h1>header</h1>", "index.html")
     """
     run_id = _get_or_start_run().info.run_id
