@@ -931,7 +931,7 @@ class MlflowClient(object):
 
     def log_text(self, run_id, text, artifact_file):
         """
-        Log a text as an artifact.
+        Log text as an artifact.
 
         :param run_id: String ID of the run.
         :param text: Text to log.
