@@ -948,7 +948,7 @@ class MlflowClient(object):
             # Log text to a file under the run's root artifact directory
             client.log_text(run.info.run_id, "text1", "file1.txt")
 
-            # Log a text in a subdirectory
+            # Log text in a subdirectory of the run's root artifact directory
             client.log_text(run.info.run_id, "text2", "dir/file2.txt")
 
             # Log HTML text
