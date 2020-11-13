@@ -499,12 +499,12 @@ def test_log_artifact():
 def test_log_text(subdir):
     filename = "file.txt"
     text = "a"
-    artifact_file = posixpath.join(subdir, filename) if subdir is not None else filename
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
 
     with mlflow.start_run():
         mlflow.log_text(text, artifact_file)
 
-        artifact_path = posixpath.normpath(subdir) if subdir is not None else None
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
