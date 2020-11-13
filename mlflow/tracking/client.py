@@ -935,7 +935,8 @@ class MlflowClient(object):
 
         :param run_id: String ID of the run.
         :param text: String containing text to log.
-        :param artifact_file: The run-relative artifact file path to which the text is saved.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the text is saved (e.g. "dir/file.txt").
 
         .. code-block:: python
             :caption: Example
