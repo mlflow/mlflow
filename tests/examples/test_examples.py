@@ -77,6 +77,8 @@ def test_mlflow_run_example(directory, params, tmpdir):
     print("Used: %d GiB" % (used // (2 ** 30)))
     print("Free: %d GiB" % (free // (2 ** 30)))
 
+    process.exec_cmd("./dev/remove-conda-envs.sh")
+
 
 @pytest.mark.large
 @pytest.mark.parametrize(
