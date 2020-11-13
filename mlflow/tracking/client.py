@@ -1000,10 +1000,10 @@ class MlflowClient(object):
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             if extension == ".json":
                 with open(tmp_path, "w") as f:
-                    json.dump(dct, f)
+                    json.dump(dct, f, indent=2)
             elif extension in [".yml", ".yaml"]:
                 with open(tmp_path, "w") as f:
-                    yaml.dump(dct, f)
+                    yaml.dump(dct, f, indent=2)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
