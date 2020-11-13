@@ -495,7 +495,7 @@ def test_log_artifact():
         assert len(dir_comparison.funny_files) == 0
 
 
-@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2"])
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_text(subdir):
     filename = "file.txt"
     text = "a"
