@@ -918,6 +918,10 @@ class MlflowClient(object):
     def _log_artifact_helper(self, run_id, artifact_file):
         """
         Yields a temporary path to store a file, and then calls `log_artifact` against that path.
+
+        :param run_id: String ID of the run.
+        :param artifact_file: The run-relative artifact file path in posixpath format.
+        :return: Temporary path to store a file.
         """
         norm_path = posixpath.normpath(artifact_file)
         filename = posixpath.basename(norm_path)
