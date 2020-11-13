@@ -559,7 +559,7 @@ def log_artifacts(local_dir, artifact_path=None):
 
 def log_text(text, artifact_file):
     """
-    Log a text as an artifact.
+    Log text as an artifact.
 
     :param text: String containing text to log.
     :param artifact_file: The run-relative artifact file path to which the text is saved.
