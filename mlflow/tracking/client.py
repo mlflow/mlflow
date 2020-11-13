@@ -934,7 +934,7 @@ class MlflowClient(object):
         Log text as an artifact.
 
         :param run_id: String ID of the run.
-        :param text: Text to log.
+        :param text: String containing text to log.
         :param artifact_file: The run-relative artifact file path to which the text is saved.
 
         .. code-block:: python
