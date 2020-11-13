@@ -557,6 +557,33 @@ def log_artifacts(local_dir, artifact_path=None):
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
+def log_text(text, artifact_file):
+    """
+    Log text as an artifact.
+
+    :param text: String containing text to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the text is saved (e.g. "dir/file.txt").
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log text to a file under the run's root artifact directory
+            mlflow.log_text("text1", "file1.txt")
+
+            # Log text in a subdirectory of the run's root artifact directory
+            mlflow.log_text("text2", "dir/file2.txt")
+
+            # Log HTML text
+            mlflow.log_text("<h1>header</h1>", "index.html")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_text(run_id, text, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)

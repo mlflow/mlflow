@@ -3,7 +3,11 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+import contextlib
 import logging
+import os
+import posixpath
+import tempfile
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -909,6 +913,55 @@ class MlflowClient(object):
             is_dir: True
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
+
+    @contextlib.contextmanager
+    def _log_artifact_helper(self, run_id, artifact_file):
+        """
+        Yields a temporary path to store a file, and then calls `log_artifact` against that path.
+
+        :param run_id: String ID of the run.
+        :param artifact_file: The run-relative artifact file path in posixpath format.
+        :return: Temporary path to store a file.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, filename)
+            yield tmp_path
+            self.log_artifact(run_id, tmp_path, artifact_dir)
+
+    def log_text(self, run_id, text, artifact_file):
+        """
+        Log text as an artifact.
+
+        :param run_id: String ID of the run.
+        :param text: String containing text to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the text is saved (e.g. "dir/file.txt").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            # Log text to a file under the run's root artifact directory
+            client.log_text(run.info.run_id, "text1", "file1.txt")
+
+            # Log text in a subdirectory of the run's root artifact directory
+            client.log_text(run.info.run_id, "text2", "dir/file2.txt")
+
+            # Log HTML text
+            client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
+        """
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                f.write(text)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
