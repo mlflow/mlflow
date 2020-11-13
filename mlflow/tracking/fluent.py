@@ -584,6 +584,35 @@ def log_text(text, artifact_file):
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
+def log_dict(dct, artifact_file):
+    """
+    Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+    inferred from the extension of `artifact_file`.
+
+    :param run_id: String ID of the run.
+    :param dct: Dictionary to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                            the dictionary is saved (e.g. "dir/data.json"). The file extension
+                            must be one of [".json", ".yml", ".yaml"].
+
+    .. code-block:: python
+        :caption: Example
+
+        from mlflow.tracking import MlflowClient
+
+        client = MlflowClient()
+        run = client.create_run(experiment_id="0")
+
+        # Log a dictionary as a JSON file under the run's root artifact directory
+        client.log_dict({"key": "value"}, "data.json")
+
+        # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+        client.log_dict({"key": "value"}, "dir/data.yml")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_dict(run_id, dct, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)

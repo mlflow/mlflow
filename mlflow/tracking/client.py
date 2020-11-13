@@ -5,9 +5,11 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 import contextlib
 import logging
+import json
 import os
 import posixpath
 import tempfile
+import yaml
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -962,6 +964,46 @@ class MlflowClient(object):
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:
                 f.write(text)
+
+    def log_dict(self, run_id, dct, artifact_file):
+        """
+        Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+        inferred from the extension of `artifact_file`.
+
+        :param run_id: String ID of the run.
+        :param dct: Dictionary to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the dictionary is saved (e.g. "dir/data.json"). The file extension
+                              must be one of [".json", ".yml", ".yaml"].
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            client.log_dict(run.info.run_id, {"key": "value"}, "data.json")
+
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            client.log_dict(run.info.run_id, {"key": "value"}, "dir/data.yml")
+        """
+        extension = os.path.splitext(artifact_file)[1]
+        accepts = [".json", ".yml", ".yaml"]
+        if extension not in accepts:
+            raise TypeError(
+                "Invalid file format: '{}', expected one of {}".format(extension, accepts)
+            )
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            if extension == ".json":
+                with open(tmp_path, "w") as f:
+                    json.dump(dct, f)
+            elif extension in [".yml", ".yaml"]:
+                with open(tmp_path, "w") as f:
+                    yaml.dump(dct, f)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

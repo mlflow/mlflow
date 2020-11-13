@@ -1,10 +1,12 @@
 from collections import namedtuple
 import filecmp
+import json
 import os
 import posixpath
 import random
 import tempfile
 import time
+import yaml
 
 import pytest
 from unittest import mock
@@ -512,6 +514,36 @@ def test_log_text(subdir):
         filepath = os.path.join(run_artifact_dir, filename)
         with open(filepath) as f:
             assert f.read() == text
+
+
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+@pytest.mark.parametrize("filename", ["data.json", "data.yml", "data.yaml"])
+def test_log_dict(subdir, filename):
+    dct = {"k": "v"}
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    with mlflow.start_run():
+        mlflow.log_dict(dct, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+        filepath = os.path.join(run_artifact_dir, filename)
+        extension = os.path.splitext(filename)[1]
+        with open(filepath) as f:
+            if extension == ".json":
+                data = json.load(f)
+            elif extension in [".yml", ".yaml"]:
+                data = yaml.load(f)
+
+            assert data == dct
+
+
+def test_log_dict_raises_error_for_invalid_file_format():
+    with mlflow.start_run(), pytest.raises(TypeError, match="Invalid file format"):
+        mlflow.log_dict({"k": "v"}, "data.txt")
 
 
 def test_with_startrun():
