@@ -69,6 +69,14 @@ def test_mlflow_run_example(directory, params, tmpdir):
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
 
+    total, used, free = shutil.disk_usage("/")
+
+    print("#" * 30)
+    print("Directory", directory)
+    print("Total: %d GiB" % (total // (2 ** 30)))
+    print("Used: %d GiB" % (used // (2 ** 30)))
+    print("Free: %d GiB" % (free // (2 ** 30)))
+
 
 @pytest.mark.large
 @pytest.mark.parametrize(
@@ -116,3 +124,10 @@ def test_mlflow_run_example(directory, params, tmpdir):
 def test_command_example(directory, command):
     cwd_dir = os.path.join(EXAMPLES_DIR, directory)
     process.exec_cmd(command, cwd=cwd_dir)
+
+    total, used, free = shutil.disk_usage("/")
+    print("#" * 30)
+    print("Directory", directory)
+    print("Total: %d GiB" % (total // (2 ** 30)))
+    print("Used: %d GiB" % (used // (2 ** 30)))
+    print("Free: %d GiB" % (free // (2 ** 30)))
