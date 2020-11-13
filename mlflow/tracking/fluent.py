@@ -598,16 +598,14 @@ def log_dict(dct, artifact_file):
     .. code-block:: python
         :caption: Example
 
-        from mlflow.tracking import MlflowClient
+        import mlflow
 
-        client = MlflowClient()
-        run = client.create_run(experiment_id="0")
+        with mlflow.start_run():
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            mlflow.log_dict({"key": "value"}, "data.json")
 
-        # Log a dictionary as a JSON file under the run's root artifact directory
-        client.log_dict({"key": "value"}, "data.json")
-
-        # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
-        client.log_dict({"key": "value"}, "dir/data.yml")
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            mlflow.log_dict({"key": "value"}, "dir/data.yml")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dct, artifact_file)
