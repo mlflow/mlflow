@@ -504,7 +504,8 @@ def test_log_text(subdir):
     with mlflow.start_run():
         mlflow.log_text(text, artifact_file)
 
-        artifact_uri = mlflow.get_artifact_uri(subdir)
+        artifact_path = posixpath.normpath(subdir) if subdir is not None else None
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
