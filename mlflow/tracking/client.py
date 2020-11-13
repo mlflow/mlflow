@@ -945,7 +945,7 @@ class MlflowClient(object):
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
 
-            # Log a text in the artifact root
+            # Log text to a file under the run's root artifact directory
             client.log_text(run.info.run_id, "text1", "file1.txt")
 
             # Log a text in a subdirectory
