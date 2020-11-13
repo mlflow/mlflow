@@ -541,7 +541,7 @@ def test_log_dict(subdir, filename):
             assert data == dct
 
 
-def test_log_dict_raises_error_for_invalid_file_format():
+def test_log_dict_raises_exception_for_invalid_file_format():
     with mlflow.start_run(), pytest.raises(TypeError, match="Invalid file format"):
         mlflow.log_dict({"k": "v"}, "data.txt")
 
