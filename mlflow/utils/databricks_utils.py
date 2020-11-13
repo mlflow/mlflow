@@ -191,7 +191,7 @@ def get_browser_hostname():
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        workspace_host = get_browser_hostname()
+        workspace_host = 'https://' + get_browser_hostname()
         workspace_id = get_workspace_id()
         return workspace_host, workspace_id
     return None, None
