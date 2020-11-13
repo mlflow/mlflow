@@ -951,7 +951,7 @@ class MlflowClient(object):
             # Log a text in a subdirectory
             client.log_text(run.info.run_id, "text2", "dir/file2.txt")
 
-            # Log an HTML text
+            # Log HTML text
             client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
         """
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
