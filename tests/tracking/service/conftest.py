@@ -1,6 +1,7 @@
 import os
 import pytest
 import mlflow
+from mlflow.tracking.fluent import _active_experiment_id
 
 
 @pytest.fixture(autouse=True)
@@ -16,5 +17,7 @@ def tracking_uri_mock(tmpdir, request):
         yield tmpdir
     finally:
         mlflow.set_tracking_uri(None)
+        global _active_experiment_id
+        _active_experiment_id = None
         if "notrackingurimock" not in request.keywords:
             del os.environ["MLFLOW_TRACKING_URI"]
