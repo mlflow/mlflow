@@ -587,8 +587,8 @@ def log_text(text, artifact_file):
 def log_dict(dictionary, artifact_file):
     """
     Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
-    inferred from the extension of `artifact_file`. If the file extension doesn't match any of
-    [".json", ".yml", ".yaml"], JSON is used.
+    inferred from the extension of `artifact_file`. If the file extension doesn't exist or match
+    any of [".json", ".yml", ".yaml"], JSON format is used.
 
     :param run_id: String ID of the run.
     :param dictionary: Dictionary to log.
@@ -606,6 +606,10 @@ def log_dict(dictionary, artifact_file):
 
             # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
             mlflow.log_dict({"key": "value"}, "dir/data.yml")
+
+            # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
+            # JSON format is used.
+            mlflow.log_dict({"key": "value"}, "data")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
