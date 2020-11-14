@@ -587,7 +587,8 @@ def log_text(text, artifact_file):
 def log_dict(dictionary, artifact_file):
     """
     Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
-    inferred from the extension of `artifact_file`.
+    inferred from the extension of `artifact_file`. If the file extension doesn't match any of
+    [".json", ".yml", ".yaml"], JSON is used.
 
     :param run_id: String ID of the run.
     :param dictionary: Dictionary to log.
