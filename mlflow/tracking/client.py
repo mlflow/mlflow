@@ -973,8 +973,7 @@ class MlflowClient(object):
         :param run_id: String ID of the run.
         :param dictionary: Dictionary to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
-                              the dictionary is saved (e.g. "dir/data.json"). The file extension
-                              must be one of [".json", ".yml", ".yaml"].
+                              the dictionary is saved (e.g. "dir/data.json").
 
         .. code-block:: python
             :caption: Example
@@ -991,18 +990,18 @@ class MlflowClient(object):
             client.log_dict(run.info.run_id, {"key": "value"}, "dir/data.yml")
         """
         extension = os.path.splitext(artifact_file)[1]
-        accepts = [".json", ".yml", ".yaml"]
-        if extension not in accepts:
-            raise TypeError(
-                "Invalid file format: '{}', expected one of {}".format(extension, accepts)
-            )
+
+        if extension in [".yml", ".yaml"]:
+            fmt = "yaml"
+        else:
+            fmt = "json"
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            if extension == ".json":
+            if fmt == "json":
                 with open(tmp_path, "w") as f:
                     # TODO: Make `indent` and `sort_keys` configurable
                     json.dump(dictionary, f)
-            elif extension in [".yml", ".yaml"]:
+            elif fmt == "yaml":
                 with open(tmp_path, "w") as f:
                     yaml.dump(dictionary, f)
 

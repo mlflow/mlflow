@@ -517,7 +517,7 @@ def test_log_text(subdir):
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-@pytest.mark.parametrize("filename", ["data.json", "data.yml", "data.yaml"])
+@pytest.mark.parametrize("filename", ["data.json", "data.yml", "data.yaml", "data"])
 def test_log_dict(subdir, filename):
     dct = {"k": "v"}
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
@@ -533,17 +533,12 @@ def test_log_dict(subdir, filename):
         filepath = os.path.join(run_artifact_dir, filename)
         extension = os.path.splitext(filename)[1]
         with open(filepath) as f:
-            if extension == ".json":
-                data = json.load(f)
-            elif extension in [".yml", ".yaml"]:
+            if extension in [".yml", ".yaml"]:
                 data = yaml.load(f)
+            else:
+                data = json.load(f)
 
             assert data == dct
-
-
-def test_log_dict_raises_exception_for_invalid_file_format():
-    with mlflow.start_run(), pytest.raises(TypeError, match="Invalid file format"):
-        mlflow.log_dict({"k": "v"}, "data.txt")
 
 
 def test_with_startrun():
