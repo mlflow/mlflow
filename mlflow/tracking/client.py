@@ -965,13 +965,13 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
-    def log_dict(self, run_id, dct, artifact_file):
+    def log_dict(self, run_id, dictionary, artifact_file):
         """
         Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
         inferred from the extension of `artifact_file`.
 
         :param run_id: String ID of the run.
-        :param dct: Dictionary to log.
+        :param dictionary: Dictionary to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
                               the dictionary is saved (e.g. "dir/data.json"). The file extension
                               must be one of [".json", ".yml", ".yaml"].
@@ -1001,10 +1001,10 @@ class MlflowClient(object):
             if extension == ".json":
                 with open(tmp_path, "w") as f:
                     # TODO: Make `indent` and `sort_keys` configurable
-                    json.dump(dct, f)
+                    json.dump(dictionary, f)
             elif extension in [".yml", ".yaml"]:
                 with open(tmp_path, "w") as f:
-                    yaml.dump(dct, f)
+                    yaml.dump(dictionary, f)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
