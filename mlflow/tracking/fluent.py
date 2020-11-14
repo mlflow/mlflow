@@ -593,8 +593,7 @@ def log_dict(dictionary, artifact_file):
     :param run_id: String ID of the run.
     :param dictionary: Dictionary to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
-                            the dictionary is saved (e.g. "dir/data.json"). The file extension
-                            must be one of [".json", ".yml", ".yaml"].
+                            the dictionary is saved (e.g. "dir/data.json").
 
     .. code-block:: python
         :caption: Example
