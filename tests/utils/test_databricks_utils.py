@@ -115,6 +115,23 @@ def test_get_workspace_info_from_dbutils():
         assert workspace_id == "1111"
 
 
+def test_get_workspace_info_from_dbutils_no_browser_host_name():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.browserHostName.return_value.get.return_value = (  # noqa
+        None
+    )
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.apiUrl.return_value.get.return_value = (  # noqa
+        "https://mlflow.databricks.com"
+    )
+    mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.workspaceId.return_value.get.return_value = (  # noqa
+        "1111"
+    )
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        workspace_host, workspace_id = get_workspace_info_from_dbutils()
+        assert workspace_host == "https://mlflow.databricks.com"
+        assert workspace_id == "1111"
+
+
 def test_get_workspace_info_from_dbutils_old_runtimes():
     mock_dbutils = mock.MagicMock()
     mock_dbutils.notebook.entry_point.getDbutils.return_value.notebook.return_value.getContext.return_value.toJson.return_value = (  # noqa
