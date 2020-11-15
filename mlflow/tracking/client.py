@@ -983,17 +983,20 @@ class MlflowClient(object):
 
             client = MlflowClient()
             run = client.create_run(experiment_id="0")
+            run_id = run.info.run_id
+
+            dictionary = {"k": "v"}
 
             # Log a dictionary as a JSON file under the run's root artifact directory
-            client.log_dict(run.info.run_id, {"key": "value"}, "data.json")
+            client.log_dict(run_id, dictionary, "data.json")
 
             # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
-            client.log_dict(run.info.run_id, {"key": "value"}, "dir/data.yml")
+            client.log_dict(run_id, dictionary, "dir/data.yml")
 
             # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
             # JSON format is used.
-            mlflow.log_dict(run.info.run_id, {"key": "value"}, "data")
-            mlflow.log_dict(run.info.run_id, {"key": "value"}, "data.txt")
+            mlflow.log_dict(run_id, dictionary, "data")
+            mlflow.log_dict(run_id, dictionary, "data.txt")
         """
         extension = os.path.splitext(artifact_file)[1]
 
