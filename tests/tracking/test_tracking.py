@@ -517,7 +517,7 @@ def test_log_text(subdir):
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
-@pytest.mark.parametrize("filename", ["data.json", "data.yml", "data.yaml", "data"])
+@pytest.mark.parametrize("filename", ["data.json", "data.yml", "data.yaml", "data", "data.txt"])
 def test_log_dict(subdir, filename):
     dct = {"k": "v"}
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
