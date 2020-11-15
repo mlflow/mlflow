@@ -997,12 +997,11 @@ class MlflowClient(object):
         extension = os.path.splitext(artifact_file)[1]
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            if extension in [".yml", ".yaml"]:
-                with open(tmp_path, "w") as f:
+            with open(tmp_path, "w") as f:
+                # TODO: Make `indent` and `sort_keys` configurable by exposing them as arguments
+                if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f)
-            else:
-                with open(tmp_path, "w") as f:
-                    # TODO: Make `indent` and `sort_keys` configurable
+                else:
                     json.dump(dictionary, f)
 
     def _record_logged_model(self, run_id, mlflow_model):
