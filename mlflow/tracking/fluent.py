@@ -610,6 +610,7 @@ def log_dict(dictionary, artifact_file):
             # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
             # JSON format is used.
             mlflow.log_dict({"key": "value"}, "data")
+            mlflow.log_dict({"key": "value"}, "data.txt")
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_dict(run_id, dictionary, artifact_file)

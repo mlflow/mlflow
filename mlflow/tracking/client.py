@@ -993,6 +993,7 @@ class MlflowClient(object):
             # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
             # JSON format is used.
             mlflow.log_dict(run.info.run_id, {"key": "value"}, "data")
+            mlflow.log_dict(run.info.run_id, {"key": "value"}, "data.txt")
         """
         extension = os.path.splitext(artifact_file)[1]
 
