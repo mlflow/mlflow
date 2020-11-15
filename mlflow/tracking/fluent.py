@@ -590,7 +590,6 @@ def log_dict(dictionary, artifact_file):
     inferred from the extension of `artifact_file`. If the file extension doesn't exist or match
     any of [".json", ".yml", ".yaml"], JSON format is used.
 
-    :param run_id: String ID of the run.
     :param dictionary: Dictionary to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                             the dictionary is saved (e.g. "dir/data.json").
