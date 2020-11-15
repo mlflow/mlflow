@@ -5,9 +5,11 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 import contextlib
 import logging
+import json
 import os
 import posixpath
 import tempfile
+import yaml
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -962,6 +964,49 @@ class MlflowClient(object):
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:
                 f.write(text)
+
+    def log_dict(self, run_id, dictionary, artifact_file):
+        """
+        Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+        inferred from the extension of `artifact_file`. If the file extension doesn't exist or
+        match any of [".json", ".yml", ".yaml"], JSON format is used.
+
+        :param run_id: String ID of the run.
+        :param dictionary: Dictionary to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the dictionary is saved (e.g. "dir/data.json").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            run_id = run.info.run_id
+
+            dictionary = {"k": "v"}
+
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            client.log_dict(run_id, dictionary, "data.json")
+
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            client.log_dict(run_id, dictionary, "dir/data.yml")
+
+            # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
+            # JSON format is used.
+            mlflow.log_dict(run_id, dictionary, "data")
+            mlflow.log_dict(run_id, dictionary, "data.txt")
+        """
+        extension = os.path.splitext(artifact_file)[1]
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                # TODO: Make `indent` and `sort_keys` configurable by exposing them as arguments
+                if extension in [".yml", ".yaml"]:
+                    yaml.dump(dictionary, f)
+                else:
+                    json.dump(dictionary, f)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
