@@ -1004,7 +1004,7 @@ class MlflowClient(object):
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:
-                # TODO: Make `indent` and `sort_keys` configurable by exposing them as arguments
+                # Specify `indent` to prettify the output
                 if extension in [".yml", ".yaml"]:
                     yaml.dump(dictionary, f, indent=2)
                 else:
