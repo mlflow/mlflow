@@ -584,7 +584,7 @@ def log_text(text, artifact_file):
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary, artifact_file):
+def log_dict(dictionary, artifact_file, indent=None, sort_keys=False):
     """
     Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
     inferred from the extension of `artifact_file`. If the file extension doesn't exist or match
@@ -593,6 +593,8 @@ def log_dict(dictionary, artifact_file):
     :param dictionary: Dictionary to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                             the dictionary is saved (e.g. "dir/data.json").
+    :param indent: The length of whitespace used to indent each record (default: None).
+    :param sort_keys: If True, the output will be sorted by key (default: False).
 
     .. code-block:: python
         :caption: Example
@@ -614,7 +616,7 @@ def log_dict(dictionary, artifact_file):
             mlflow.log_dict(dictionary, "data.txt")
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_dict(run_id, dictionary, artifact_file)
+    MlflowClient().log_dict(run_id, dictionary, artifact_file, indent, sort_keys)
 
 
 def _record_logged_model(mlflow_model):

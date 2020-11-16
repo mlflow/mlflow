@@ -965,7 +965,7 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
-    def log_dict(self, run_id, dictionary, artifact_file):
+    def log_dict(self, run_id, dictionary, artifact_file, indent=None, sort_keys=False):
         """
         Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
         inferred from the extension of `artifact_file`. If the file extension doesn't exist or
@@ -975,6 +975,8 @@ class MlflowClient(object):
         :param dictionary: Dictionary to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
                               the dictionary is saved (e.g. "dir/data.json").
+        :param indent: The length of whitespace used to indent each record (default: None).
+        :param sort_keys: If True, the output will be sorted by key (default: False).
 
         .. code-block:: python
             :caption: Example
@@ -998,15 +1000,18 @@ class MlflowClient(object):
             mlflow.log_dict(run_id, dictionary, "data")
             mlflow.log_dict(run_id, dictionary, "data.txt")
         """
+        if indent is not None:
+            indent = 2
+
         extension = os.path.splitext(artifact_file)[1]
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             with open(tmp_path, "w") as f:
                 # TODO: Make `indent` and `sort_keys` configurable by exposing them as arguments
                 if extension in [".yml", ".yaml"]:
-                    yaml.dump(dictionary, f)
+                    yaml.dump(dictionary, f, indent=indent, sort_keys=sort_keys)
                 else:
-                    json.dump(dictionary, f)
+                    json.dump(dictionary, f, indent=indent, sort_keys=sort_keys)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

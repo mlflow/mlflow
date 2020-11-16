@@ -538,6 +538,56 @@ def test_log_dict(subdir, extension):
             assert loaded == dictionary
 
 
+@pytest.mark.parametrize("extension", [".json", ".yml"])
+def test_log_dict_with_indent(extension):
+    dictionary = {"a": {"b": "c"}}
+    filename = "data" + extension
+    json_expected = """
+{
+  "a": {
+    "b": "c"
+  }
+}
+"""
+
+    yml_expected = """
+a:
+  b: c
+"""
+
+    with mlflow.start_run():
+        mlflow.log_dict(dictionary, filename, indent=2)
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+        filepath = os.path.join(run_artifact_dir, filename)
+        extension = os.path.splitext(filename)[1]
+        with open(filepath) as f:
+            expected = yml_expected if (extension in [".yml", ".yaml"]) else json_expected
+            assert f.read().strip() == expected.strip()
+
+
+@pytest.mark.parametrize("extension", [".json", ".yml"])
+def test_log_dict_with_sort_keys(extension):
+    dictionary = {"c": 2, "b": 1, "a": 0}
+    filename = "data" + extension
+    json_expected = '{"a": 0, "b": 1, "c": 2}'
+    yml_expected = "a: 0\nb: 1\nc: 2"
+
+    with mlflow.start_run():
+        mlflow.log_dict(dictionary, filename, sort_keys=True)
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+        filepath = os.path.join(run_artifact_dir, filename)
+        extension = os.path.splitext(filename)[1]
+        with open(filepath) as f:
+            expected = yml_expected if (extension in [".yml", ".yaml"]) else json_expected
+            assert f.read().strip() == expected.strip()
+
+
 def test_with_startrun():
     run_id = None
     t0 = int(time.time() * 1000)
