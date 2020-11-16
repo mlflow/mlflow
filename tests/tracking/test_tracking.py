@@ -534,7 +534,13 @@ def test_log_dict(subdir, extension):
         filepath = os.path.join(run_artifact_dir, filename)
         extension = os.path.splitext(filename)[1]
         with open(filepath) as f:
-            loaded = yaml.load(f) if (extension in [".yml", ".yaml"]) else json.load(f)
+            loaded = (
+                # Specify `Loader` to suppress the following deprecation warning:
+                # https://github.com/yaml/pyyaml/wiki/PyYAML-yaml.load(input)-Deprecation
+                yaml.load(f, Loader=yaml.SafeLoader)
+                if (extension in [".yml", ".yaml"])
+                else json.load(f)
+            )
             assert loaded == dictionary
 
 
