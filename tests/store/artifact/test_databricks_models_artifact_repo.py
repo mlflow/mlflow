@@ -84,11 +84,8 @@ class TestDatabricksModelArtifactRepository(object):
         # First mock for `is_using_databricks_registry` to pass
         # Second mock to set `databricks_profile_uri` during instantiation
         with mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
-            return_value=MOCK_PROFILE,
-        ), mock.patch(
-            "mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE
-        ):
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=MOCK_PROFILE,
+        ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
             repo = DatabricksModelsArtifactRepository(MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE)
             assert repo.artifact_uri == MOCK_MODEL_ROOT_URI_WITHOUT_PROFILE
             assert repo.model_name == MOCK_MODEL_NAME
@@ -114,11 +111,8 @@ class TestDatabricksModelArtifactRepository(object):
             MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
         )
         with get_latest_versions_patch, mock.patch(
-            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri",
-            return_value=MOCK_PROFILE,
-        ), mock.patch(
-            "mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE
-        ):
+            "mlflow.store.artifact.utils.models.mlflow.get_registry_uri", return_value=MOCK_PROFILE,
+        ), mock.patch("mlflow.tracking.get_registry_uri", return_value=MOCK_PROFILE):
             repo = DatabricksModelsArtifactRepository(stage_uri_without_profile)
             assert repo.artifact_uri == stage_uri_without_profile
             assert repo.model_name == MOCK_MODEL_NAME
