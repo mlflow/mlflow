@@ -1000,9 +1000,6 @@ class MlflowClient(object):
             mlflow.log_dict(run_id, dictionary, "data")
             mlflow.log_dict(run_id, dictionary, "data.txt")
         """
-        if indent is not None:
-            indent = 2
-
         extension = os.path.splitext(artifact_file)[1]
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
