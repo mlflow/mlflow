@@ -44,6 +44,20 @@ mlflow_set_tracking_uri <- function(uri) {
 mlflow_get_tracking_uri <- function() {
   .globals$tracking_uri %||% {
     env_uri <- Sys.getenv("MLFLOW_TRACKING_URI")
-    if (nchar(env_uri)) env_uri else paste("file://", fs::path_abs("mlruns"), sep = "")
+
+    if (nchar(env_uri)) {
+      env_uri
+    } else {
+      # don't use fs::path() because of https://github.com/r-lib/fs/issues/245
+      paste(
+        "file://",
+        fs::path_abs("mlruns"),
+        sep = ifelse(is_windows(), "/", "")
+      )
+    }
   }
+}
+
+is_windows <- function() {
+  identical(.Platform$OS.type, "windows")
 }
