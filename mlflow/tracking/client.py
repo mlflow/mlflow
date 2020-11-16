@@ -33,6 +33,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -965,6 +966,7 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
+    @experimental
     def log_dict(self, run_id, dictionary, artifact_file):
         """
         Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
@@ -1004,9 +1006,9 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 # TODO: Make `indent` and `sort_keys` configurable by exposing them as arguments
                 if extension in [".yml", ".yaml"]:
-                    yaml.dump(dictionary, f)
+                    yaml.dump(dictionary, f, indent=2)
                 else:
-                    json.dump(dictionary, f)
+                    json.dump(dictionary, f, indent=2)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

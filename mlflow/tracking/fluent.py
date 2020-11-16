@@ -23,6 +23,7 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_noteboo
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
+from mlflow.utils.annotations import experimental
 
 from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai, pytorch
 
@@ -584,6 +585,7 @@ def log_text(text, artifact_file):
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
+@experimental
 def log_dict(dictionary, artifact_file):
     """
     Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
