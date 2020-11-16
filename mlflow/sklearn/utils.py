@@ -4,7 +4,6 @@ from itertools import islice
 import inspect
 import logging
 from numbers import Number
-import matplotlib.pyplot as plt
 import numpy as np
 import time
 
@@ -500,6 +499,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
                     display.ax_.set_title(artifact.title)
                     filepath = tmp_dir.path("{}.png".format(artifact.name))
                     display.figure_.savefig(filepath)
+                    import matplotlib.pyplot as plt
                     plt.close(display.figure_)
                 except Exception as e:  # pylint: disable=broad-except
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
