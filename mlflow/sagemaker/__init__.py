@@ -637,6 +637,14 @@ def _make_tarfile(output_filename, source_dir):
         for f in os.listdir(source_dir):
             tar.add(os.path.join(source_dir, f), arcname=f)
 
+def _get_s3_file_upload_extra_args():
+    import json
+
+    s3_file_upload_extra_args = os.environ.get("MLFLOW_S3_UPLOAD_EXTRA_ARGS")
+    if s3_file_upload_extra_args:
+        return json.loads(s3_file_upload_extra_args)
+    else:
+        return None
 
 def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     """
@@ -657,7 +665,10 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
         with open(model_data_file, "rb") as fobj:
             key = os.path.join(prefix, "model.tar.gz")
             obj = sess.resource("s3").Bucket(bucket).Object(key)
-            obj.upload_fileobj(fobj)
+            obj.upload_fileobj(
+                fobj,
+                ExtraArgs=_get_s3_file_upload_extra_args()
+            )
             response = s3_client.put_object_tagging(
                 Bucket=bucket, Key=key, Tagging={"TagSet": [{"Key": "SageMaker", "Value": "true"}]}
             )
