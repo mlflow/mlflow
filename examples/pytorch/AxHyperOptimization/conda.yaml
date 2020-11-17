@@ -1,0 +1,16 @@
+channels:
+- defaults
+- conda-forge
+- pytorch
+dependencies:
+- python=3.8.2
+- pytorch>=1.6.0
+- pip
+- pip:
+  - mlflow
+  - scikit-learn
+  - cloudpickle==1.6.0
+  - boto3
+  - pandas
+  - ax-platform
+
