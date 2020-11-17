@@ -498,8 +498,6 @@ def autolog(
             model_signature = infer_signature(input_example, model_output)
             return model_signature
 
-
-
         # Only log the model if the autolog() param log_models is set to True.
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
