@@ -592,8 +592,8 @@ def autolog(log_models=True):
     MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
 
-    :param log_models: If ``True``, the trained model will be logged as an artifact. If ``False``,
-                       the trained model is not logged.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     import keras
 

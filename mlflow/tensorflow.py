@@ -821,8 +821,8 @@ def autolog(every_n_iter=100, log_models=True):
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
-    :param log_models: If ``True``, the trained model will be logged as an artifact. If ``False``,
-                       the trained model is not logged.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     import tensorflow
 
