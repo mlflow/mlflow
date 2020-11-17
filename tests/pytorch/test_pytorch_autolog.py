@@ -22,6 +22,21 @@ def pytorch_model():
     return trainer, run
 
 
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_pytorch_autolog_log_models_configuration(log_models):
+    mlflow.pytorch.autolog(log_models=log_models)
+    model = IrisClassification()
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer.fit(model)
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run_id = run.info.run_id
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    assert ("model" in artifacts) == log_models
+
+
 def test_pytorch_autolog_logs_default_params(pytorch_model):
     _, run = pytorch_model
     data = run.data
