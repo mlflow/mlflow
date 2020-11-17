@@ -3,7 +3,13 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+import contextlib
 import logging
+import json
+import os
+import posixpath
+import tempfile
+import yaml
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -27,6 +33,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -909,6 +916,99 @@ class MlflowClient(object):
             is_dir: True
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
+
+    @contextlib.contextmanager
+    def _log_artifact_helper(self, run_id, artifact_file):
+        """
+        Yields a temporary path to store a file, and then calls `log_artifact` against that path.
+
+        :param run_id: String ID of the run.
+        :param artifact_file: The run-relative artifact file path in posixpath format.
+        :return: Temporary path to store a file.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, filename)
+            yield tmp_path
+            self.log_artifact(run_id, tmp_path, artifact_dir)
+
+    def log_text(self, run_id, text, artifact_file):
+        """
+        Log text as an artifact.
+
+        :param run_id: String ID of the run.
+        :param text: String containing text to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the text is saved (e.g. "dir/file.txt").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            # Log text to a file under the run's root artifact directory
+            client.log_text(run.info.run_id, "text1", "file1.txt")
+
+            # Log text in a subdirectory of the run's root artifact directory
+            client.log_text(run.info.run_id, "text2", "dir/file2.txt")
+
+            # Log HTML text
+            client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
+        """
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                f.write(text)
+
+    @experimental
+    def log_dict(self, run_id, dictionary, artifact_file):
+        """
+        Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+        inferred from the extension of `artifact_file`. If the file extension doesn't exist or
+        match any of [".json", ".yml", ".yaml"], JSON format is used.
+
+        :param run_id: String ID of the run.
+        :param dictionary: Dictionary to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the dictionary is saved (e.g. "dir/data.json").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            run_id = run.info.run_id
+
+            dictionary = {"k": "v"}
+
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            client.log_dict(run_id, dictionary, "data.json")
+
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            client.log_dict(run_id, dictionary, "dir/data.yml")
+
+            # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
+            # JSON format is used.
+            mlflow.log_dict(run_id, dictionary, "data")
+            mlflow.log_dict(run_id, dictionary, "data.txt")
+        """
+        extension = os.path.splitext(artifact_file)[1]
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                # Specify `indent` to prettify the output
+                if extension in [".yml", ".yaml"]:
+                    yaml.dump(dictionary, f, indent=2)
+                else:
+                    json.dump(dictionary, f, indent=2)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

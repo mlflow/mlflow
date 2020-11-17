@@ -10,7 +10,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import download_file_using_http_uri
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
-from mlflow.store.artifact.utils.model_utils import (
+from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
@@ -47,10 +47,10 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         from mlflow.tracking import MlflowClient
 
         self.databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
+                get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
-        self.client = MlflowClient(registry_uri=self.databricks_profile_uri)
-        self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
+        client = MlflowClient(registry_uri=self.databricks_profile_uri)
+        self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
 
     def _call_endpoint(self, json, endpoint):
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
@@ -83,9 +83,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             # same name as `path`. The list_artifacts API expects us to return an empty list in this
             # case, so we do so here.
             if (
-                len(artifact_list) == 1
-                and artifact_list[0]["path"] == path
-                and not artifact_list[0]["is_dir"]
+                    len(artifact_list) == 1
+                    and artifact_list[0]["path"] == path
+                    and not artifact_list[0]["is_dir"]
             ):
                 return []
             for output_file in artifact_list:
@@ -124,4 +124,4 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         raise MlflowException("This repository does not support logging artifacts.")
 
     def delete_artifacts(self, artifact_path=None):
-        raise NotImplementedError("Not implemented yet")
+        raise NotImplementedError("This artifact repository does not support deleting artifacts")

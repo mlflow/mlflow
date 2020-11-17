@@ -23,8 +23,9 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_noteboo
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
+from mlflow.utils.annotations import experimental
 
-from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai
+from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai, pytorch
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -557,6 +558,67 @@ def log_artifacts(local_dir, artifact_path=None):
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
+def log_text(text, artifact_file):
+    """
+    Log text as an artifact.
+
+    :param text: String containing text to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the text is saved (e.g. "dir/file.txt").
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            # Log text to a file under the run's root artifact directory
+            mlflow.log_text("text1", "file1.txt")
+
+            # Log text in a subdirectory of the run's root artifact directory
+            mlflow.log_text("text2", "dir/file2.txt")
+
+            # Log HTML text
+            mlflow.log_text("<h1>header</h1>", "index.html")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_text(run_id, text, artifact_file)
+
+
+@experimental
+def log_dict(dictionary, artifact_file):
+    """
+    Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+    inferred from the extension of `artifact_file`. If the file extension doesn't exist or match
+    any of [".json", ".yml", ".yaml"], JSON format is used.
+
+    :param dictionary: Dictionary to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                            the dictionary is saved (e.g. "dir/data.json").
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        dictionary = {"k": "v"}
+
+        with mlflow.start_run():
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            mlflow.log_dict(dictionary, "data.json")
+
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            mlflow.log_dict(dictionary, "dir/data.yml")
+
+            # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
+            # JSON format is used.
+            mlflow.log_dict(dictionary, "data")
+            mlflow.log_dict(dictionary, "data.txt")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_dict(run_id, dictionary, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)
@@ -1058,6 +1120,9 @@ def autolog(log_input_examples=False, log_model_signatures=True):  # pylint: dis
         "sklearn": sklearn.autolog,
         "fastai": fastai.autolog,
         "pyspark": spark.autolog,
+        # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
+        # Pytorch frameworks under mlflow.pytorch.autolog
+        "pytorch_lightning": pytorch.autolog,
     }
 
     def setup_autologging(module):

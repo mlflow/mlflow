@@ -1,4 +1,3 @@
-import gorilla
 import logging
 import mlflow.pytorch
 import os
@@ -9,6 +8,7 @@ from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
 from mlflow.utils.annotations import experimental
+from mlflow.utils import gorilla
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -87,37 +87,20 @@ def _autolog(log_every_n_epoch=1):
                     self.early_stopping = True
                     self._log_early_stop_params(callback)
 
+            # TODO For logging optimizer params - Following scenarios are to revisited.
+            # 1. In the current scenario, only the first optimizer details are logged.
+            #    Code to be enhanced to log params when multiple optimizers are used.
+            # 2. mlflow.log_params is used to store optimizer default values into mlflow.
+            #    The keys in default dictionary are too short, Ex: (lr - learning_rate).
+            #    Efficient mapping technique needs to be introduced
+            #    to rename the optimizer parameters based on keys in default dictionary.
+
             if hasattr(trainer, "optimizers"):
-                for optimizer in trainer.optimizers:
-                    try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
-                    optimizer_name = type(optimizer).__name__.lower() + "_optimizer"
+                optimizer = trainer.optimizers[0]
+                try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
 
-                    if hasattr(optimizer, "defaults"):
-                        optim_dict = optimizer.defaults
-
-                        if "lr" in optim_dict:
-                            try_mlflow_log(
-                                mlflow.log_param,
-                                "learning_rate_" + optimizer_name,
-                                optim_dict["lr"],
-                            )
-
-                        if "eps" in optim_dict:
-                            try_mlflow_log(
-                                mlflow.log_param, "epsilon_" + optimizer_name, optim_dict["eps"]
-                            )
-
-                        if "betas" in optim_dict:
-                            try_mlflow_log(
-                                mlflow.log_param, "betas_" + optimizer_name, optim_dict["betas"]
-                            )
-
-                        if "weight_decay" in optim_dict:
-                            try_mlflow_log(
-                                mlflow.log_param,
-                                "weight_decay_" + optimizer_name,
-                                optim_dict["weight_decay"],
-                            )
+                if hasattr(optimizer, "defaults"):
+                    try_mlflow_log(mlflow.log_params, optimizer.defaults)
 
             summary = str(ModelSummary(pl_module, mode="full"))
             tempdir = tempfile.mkdtemp()

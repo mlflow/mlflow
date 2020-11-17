@@ -85,6 +85,8 @@ set_tag = mlflow.tracking.fluent.set_tag
 delete_tag = mlflow.tracking.fluent.delete_tag
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
+log_text = mlflow.tracking.fluent.log_text
+log_dict = mlflow.tracking.fluent.log_dict
 active_run = mlflow.tracking.fluent.active_run
 get_run = mlflow.tracking.fluent.get_run
 start_run = mlflow.tracking.fluent.start_run
@@ -122,6 +124,8 @@ __all__ = [
     "delete_tag",
     "log_artifacts",
     "log_artifact",
+    "log_text",
+    "log_dict",
     "active_run",
     "start_run",
     "end_run",

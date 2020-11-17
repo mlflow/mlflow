@@ -1,9 +1,12 @@
 from collections import namedtuple
 import filecmp
+import json
 import os
+import posixpath
 import random
 import tempfile
 import time
+import yaml
 
 import pytest
 from unittest import mock
@@ -492,6 +495,47 @@ def test_log_artifact():
         assert len(dir_comparison.right_only) == 0
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
+
+
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+def test_log_text(subdir):
+    filename = "file.txt"
+    text = "a"
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    with mlflow.start_run():
+        mlflow.log_text(text, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+        filepath = os.path.join(run_artifact_dir, filename)
+        with open(filepath) as f:
+            assert f.read() == text
+
+
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+@pytest.mark.parametrize("extension", [".json", ".yml", ".yaml", ".txt", ""])
+def test_log_dict(subdir, extension):
+    dictionary = {"k": "v"}
+    filename = "data" + extension
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    with mlflow.start_run():
+        mlflow.log_dict(dictionary, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+        filepath = os.path.join(run_artifact_dir, filename)
+        extension = os.path.splitext(filename)[1]
+        with open(filepath) as f:
+            loaded = yaml.load(f) if (extension in [".yml", ".yaml"]) else json.load(f)
+            assert loaded == dictionary
 
 
 def test_with_startrun():

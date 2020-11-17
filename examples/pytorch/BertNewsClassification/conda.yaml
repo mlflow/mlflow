@@ -14,4 +14,5 @@ dependencies:
   - cloudpickle==1.6.0
   - boto3
   - transformers
-  - torchtext
+  - torchtext==0.7.0
+  - pandas
