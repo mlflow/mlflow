@@ -79,6 +79,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     requirements_file=None,
     extra_files=None,
+    save_as_state_dict=False,
     **kwargs
 ):
     """
@@ -236,8 +237,23 @@ def log_model(
         await_registration_for=await_registration_for,
         requirements_file=requirements_file,
         extra_files=extra_files,
+        save_as_state_dict=save_as_state_dict,
         **kwargs,
     )
+
+
+def save_state_dict(pytorch_model, path, **kwargs):
+    """
+    Save the model as state dict to a path on the local file system
+
+    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
+                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
+                          or ``torch.jit.trace``.
+    :param path: Local path where the model is to be saved.
+    :param kwargs: kwargs to pass to ``torch.save`` method.
+    """
+
+    save_model(pytorch_model, path, save_as_state_dict=True, **kwargs)
 
 
 def save_model(
@@ -251,6 +267,7 @@ def save_model(
     input_example: ModelInputExample = None,
     requirements_file=None,
     extra_files=None,
+    save_as_state_dict=False,
     **kwargs
 ):
     """
@@ -399,7 +416,9 @@ def save_model(
         f.write(pickle_module.__name__)
     # Save pytorch model
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
-    if isinstance(pytorch_model, torch.jit.ScriptModule):
+    if save_as_state_dict:
+        torch.save(pytorch_model.state_dict(), model_path, pickle_module=pickle_module, **kwargs)
+    elif isinstance(pytorch_model, torch.jit.ScriptModule):
         torch.jit.ScriptModule.save(pytorch_model, model_path)
     else:
         torch.save(pytorch_model, model_path, pickle_module=pickle_module, **kwargs)
@@ -454,6 +473,7 @@ def save_model(
         FLAVOR_NAME,
         model_data=model_data_subpath,
         pytorch_version=torch.__version__,
+        state_dict=save_as_state_dict,
         **torchserve_artifacts_config,
     )
     pyfunc.add_to_model(
@@ -516,7 +536,37 @@ def _load_model(path, **kwargs):
             return torch.jit.load(model_path)
 
 
-def load_model(model_uri, **kwargs):
+def load_state_dict(model_uri, model_class_obj):
+    """
+    Load a PyTorch model state dict from a local file or a run.
+
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                    - ``/Users/me/path/to/local/model``
+                    - ``relative/path/to/local/model``
+                    - ``s3://my_bucket/path/to/model``
+                    - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                    - ``models:/<model_name>/<model_version>``
+                    - ``models:/<model_name>/<stage>``
+
+                    For more information about supported URI schemes, see
+                    `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                    artifact-locations>`_.
+    :param model_class_obj: Instance of the model class
+
+    :return: A pytorch model instance
+    """
+    import torch
+
+    model_path = load_model(model_uri, load_state_dict=True)
+    model_path = os.path.join(model_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+
+    state_dict = torch.load(model_path)
+    model_class_obj.load_state_dict(state_dict)
+    return model_class_obj
+
+
+def load_model(model_uri, load_state_dict=False, **kwargs):
     """
     Load a PyTorch model from a local file or a run.
 
@@ -571,6 +621,8 @@ def load_model(model_uri, **kwargs):
             torch.__version__,
         )
     torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
+    if load_state_dict:
+        return torch_model_artifacts_path
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
@@ -614,21 +666,20 @@ class _PyTorchWrapper(object):
 
 def autolog(log_every_n_epoch=1):
     """
+    Wrapper for `mlflow.pytorch._pytorch_autolog.autolog` method.
     Automatically log metrics, params, and models from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ model training.
-    Autologging is performed when you call the `fit` method of
-    `pytorch_lightning.Trainer() \
+    Autologging is performed when you call the `fit` method of `pytorch_lightning.Trainer()
     <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
 
     **Note**: Autologging is only supported for PyTorch Lightning models,
-    i.e. models that subclass
-    `pytorch_lightning.LightningModule \
+    i.e. models that subclass `pytorch_lightning.LightningModule
     <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
     In particular, autologging support for vanilla Pytorch models that only subclass
-    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
+    `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`
     is not yet available.
 
-    :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
+    :param log_every_n_epoch: parameter to log metrics once in `n` epoch. By default, metrics
                        are logged after every epoch.
     """
     from mlflow.pytorch._pytorch_autolog import _autolog
