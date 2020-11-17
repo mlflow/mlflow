@@ -126,7 +126,11 @@ def _autolog(log_every_n_epoch=1, log_models=True):
             if self.log_models:
                 mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="model")
 
-            if self.early_stopping and trainer.checkpoint_callback.best_model_path:
+            if (
+                self.early_stopping
+                and trainer.checkpoint_callback.best_model_path
+                and self.log_models
+            ):
                 try_mlflow_log(
                     mlflow.log_artifact,
                     local_path=trainer.checkpoint_callback.best_model_path,

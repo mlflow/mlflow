@@ -132,6 +132,39 @@ def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callbac
     assert result is not None
 
 
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+@pytest.mark.parametrize("patience", [3])
+def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_models, patience):
+    mlflow.pytorch.autolog(log_models=log_models)
+    model = IrisClassification()
+    early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
+
+    with TempDir() as tmp:
+        checkpoint_callback = ModelCheckpoint(
+            filepath=tmp.path(),
+            save_top_k=1,
+            verbose=True,
+            monitor="val_loss",
+            mode="min",
+            prefix="",
+        )
+
+        trainer = pl.Trainer(
+            max_epochs=NUM_EPOCHS * 2,
+            callbacks=[early_stopping],
+            checkpoint_callback=checkpoint_callback,
+        )
+        trainer.fit(model)
+
+        client = mlflow.tracking.MlflowClient()
+        run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run_id = run.info.run_id
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    assert ("restored_model_checkpoint" in artifacts) == log_models
+
+
 @pytest.mark.parametrize("patience", [0, 1, 5])
 def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience):
     _, run = pytorch_model_with_callback
