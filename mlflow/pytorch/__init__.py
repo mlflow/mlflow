@@ -671,6 +671,7 @@ def autolog(log_every_n_epoch=1):
     Autologging is performed when you call the `fit` method of
     `pytorch_lightning.Trainer() \
     <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
+
     **Note**: Autologging is only supported for PyTorch Lightning models,
     i.e. models that subclass
     `pytorch_lightning.LightningModule \
@@ -678,6 +679,7 @@ def autolog(log_every_n_epoch=1):
     In particular, autologging support for vanilla Pytorch models that only subclass
     `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
     is not yet available.
+
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
     """
