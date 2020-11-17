@@ -164,7 +164,7 @@ def get_job_type():
 
 
 def get_webapp_url():
-    """Should only be called if is_in_databricks_notebook is true"""
+    """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
     if url is not None:
         return url
