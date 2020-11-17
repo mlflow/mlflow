@@ -47,7 +47,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         from mlflow.tracking import MlflowClient
 
         self.databricks_profile_uri = (
-                get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
+            get_databricks_profile_uri_from_artifact_uri(artifact_uri) or mlflow.get_registry_uri()
         )
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
         self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
@@ -83,9 +83,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             # same name as `path`. The list_artifacts API expects us to return an empty list in this
             # case, so we do so here.
             if (
-                    len(artifact_list) == 1
-                    and artifact_list[0]["path"] == path
-                    and not artifact_list[0]["is_dir"]
+                len(artifact_list) == 1
+                and artifact_list[0]["path"] == path
+                and not artifact_list[0]["is_dir"]
             ):
                 return []
             for output_file in artifact_list:
