@@ -538,6 +538,44 @@ def test_log_dict(subdir, extension):
             assert loaded == dictionary
 
 
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+def test_log_figure_matplotlib(subdir):
+    import matplotlib.pyplot as plt
+
+    filename = "figure.png"
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    fig, ax = plt.subplots()
+    ax.plot([0, 1], [2, 3])
+
+    with mlflow.start_run():
+        mlflow.log_figure(fig, artifact_file)
+        plt.close(fig)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+def test_log_figure_plotly(subdir):
+    from plotly import graph_objects as go
+
+    filename = "figure.html"
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+
+    with mlflow.start_run():
+        mlflow.log_figure(fig, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+
 def test_with_startrun():
     run_id = None
     t0 = int(time.time() * 1000)

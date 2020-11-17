@@ -619,6 +619,52 @@ def log_dict(dictionary, artifact_file):
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
+@experimental
+def log_figure(figure, artifact_file):
+    """
+    Log a figure as an artifact. The following figure objects are supported:
+
+    - `matplotlib.figure.Figure`_
+    - `plotly.graph_objects.Figure`_
+
+    .. _matplotlib.figure.Figure:
+        https://matplotlib.org/api/_as_gen/matplotlib.figure.Figure.html
+
+    .. _plotly.graph_objects.Figure:
+        https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
+
+    :param run_id: String ID of the run.
+    :param figure: Figure to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                            the figure is saved (e.g. "dir/file.png").
+
+    .. code-block:: python
+        :caption: Matplotlib Example
+
+        import mlflow
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [2, 3])
+
+        with mlflow.start_run():
+            mlflow.log_figure(fig, "figure.png")
+
+    .. code-block:: python
+        :caption: Plotly Example
+
+        import mlflow
+        from plotly import graph_objects as go
+
+        fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+
+        with mlflow.start_run():
+            mlflow.log_figure(fig, "figure.html")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_figure(run_id, figure, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)

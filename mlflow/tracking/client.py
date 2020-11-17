@@ -1010,6 +1010,62 @@ class MlflowClient(object):
                 else:
                     json.dump(dictionary, f, indent=2)
 
+    def log_figure(self, run_id, figure, artifact_file):
+        """
+        Log a figure as an artifact. The following figure objects are supported:
+
+        - `matplotlib.figure.Figure`_
+        - `plotly.graph_objects.Figure`_
+
+        .. _matplotlib.figure.Figure:
+            https://matplotlib.org/api/_as_gen/matplotlib.figure.Figure.html
+
+        .. _plotly.graph_objects.Figure:
+            https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
+
+        :param run_id: String ID of the run.
+        :param figure: Figure to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the figure is saved (e.g. "dir/file.png").
+
+        .. code-block:: python
+            :caption: Matplotlib Example
+
+            import mlflow
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots()
+            ax.plot([0, 1], [2, 3])
+
+            run = client.create_run(experiment_id="0")
+            client.log_figure(run.info.run_id, fig, "figure.png")
+
+        .. code-block:: python
+            :caption: Plotly Example
+
+            import mlflow
+            from plotly import graph_objects as go
+
+            fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+
+            run = client.create_run(experiment_id="0")
+            client.log_figure(run.info.run_id, fig, "figure.html")
+        """
+        try:
+            import plotly
+            from matplotlib import pyplot as plt
+            from plotly import graph_objects as go
+        except ImportError as ie:
+            print("Failed to import required libraries: {}".format(ie))
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            if isinstance(figure, plt.Figure):
+                figure.savefig(tmp_path)
+            elif isinstance(figure, go.Figure):
+                plotly.offline.plot(
+                    figure, filename=tmp_path, include_plotlyjs="cdn", auto_open=False
+                )
+
     def _record_logged_model(self, run_id, mlflow_model):
         """
         Record logged model info with the tracking server.
