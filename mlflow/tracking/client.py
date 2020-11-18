@@ -1060,8 +1060,8 @@ class MlflowClient(object):
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             # If we used `isinstance(figure, matplotlib.figure.Figure)` here, a user would need to
-            # install matplotlib to log a plotly figure. To avoid that, use string comparison and
-            # lazily import required packages.
+            # install matplotlib to log a plotly figure. To avoid that, detect the object type
+            # with class name matching.
             if qual_class_name == MATPLOTLIB_FIGURE_CLASS_NAME:
                 figure.savefig(tmp_path)
             elif qual_class_name == PLOTLY_FIGURE_CLASS_NAME:
