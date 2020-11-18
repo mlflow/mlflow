@@ -695,6 +695,48 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 @pytest.mark.large
+def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory_saved_as_state_dict(
+    module_scoped_subclassed_model, model_path, data, main_scoped_subclassed_model
+):
+
+    mlflow.pytorch.save_state_dict(
+        pytorch_model=module_scoped_subclassed_model, path=model_path, conda_env=None
+    )
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pytorch_conf = model_conf.flavors.get("pytorch")
+    assert pytorch_conf is not None
+    assert pytorch_conf["state_dict"] is True
+
+    model_class = ModuleScopedSubclassedModel()
+    model_obj = mlflow.pytorch.load_state_dict(model_path, model_class)
+    model_obj.eval()
+
+    np.testing.assert_array_almost_equal(
+        pd.DataFrame(_predict(model=model_obj, data=data)),
+        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        decimal=4,
+    )
+
+
+@pytest.mark.large
+def test_state_dict_key_set_to_false_for_full_model(
+    module_scoped_subclassed_model, model_path, data
+):
+
+    mlflow.pytorch.save_model(
+        pytorch_model=module_scoped_subclassed_model, path=model_path, conda_env=None
+    )
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    pyfunc_conf = model_conf.flavors.get("pytorch")
+    assert pyfunc_conf is not None
+    assert pyfunc_conf["state_dict"] is False
+
+
+@pytest.mark.large
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     module_scoped_subclassed_model, model_path, data
 ):
