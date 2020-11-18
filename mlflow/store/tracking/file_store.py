@@ -402,10 +402,10 @@ class FileStore(AbstractStore):
         This is used by the ``mlflow gc`` command line and is not intended to be used elsewhere.
         """
         _, run_dir = self._find_run_root(run_id)
-        try:
+        if run_dir is None:
+            print("{} not found. Continuing with gc ...".format(run_dir))
+        else:
             shutil.rmtree(run_dir)
-        except OSError as err:
-            print("{}. Failed to permanently delete run. Continuing with gc ...".format(err))
 
     def _get_deleted_runs(self):
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
