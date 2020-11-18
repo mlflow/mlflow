@@ -449,6 +449,24 @@ def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_lgb_autolog_log_models_configuration(bst_params, log_models):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_models=log_models)
+        dataset = lgb.Dataset(X, y)
+        lgb.train(bst_params, dataset)
+
+    run_id = run.info.run_id
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    assert ("model" in artifacts) == log_models
+
+
 def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
     """
     This test verifies that `lightgbm.Dataset(None)` doesn't fail after patching.
