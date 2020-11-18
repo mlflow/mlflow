@@ -1052,16 +1052,16 @@ class MlflowClient(object):
             client.log_figure(run.info.run_id, fig, "figure.html")
         """
         try:
+            import matplotlib
             import plotly
-            from matplotlib import pyplot as plt
-            from plotly import graph_objects as go
         except ImportError as ie:
-            print("Failed to import required libraries: {}".format(ie))
+            _logger.error("Failed to import required libraries: {}".format(ie))
+            return
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            if isinstance(figure, plt.Figure):
+            if isinstance(figure, matplotlib.figure.Figure):
                 figure.savefig(tmp_path)
-            elif isinstance(figure, go.Figure):
+            elif isinstance(figure, plotly.graph_objects.Figure):
                 plotly.offline.plot(
                     figure, filename=tmp_path, include_plotlyjs="cdn", auto_open=False
                 )
