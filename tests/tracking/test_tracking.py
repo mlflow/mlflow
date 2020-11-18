@@ -1,5 +1,6 @@
 from collections import namedtuple
 import filecmp
+import importlib
 import json
 import os
 import posixpath
@@ -538,6 +539,7 @@ def test_log_dict(subdir, extension):
             assert loaded == dictionary
 
 
+@pytest.mark.skipif(importlib.util.find_spec("matplotlib") is None)
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_matplotlib(subdir):
     import matplotlib.pyplot as plt
@@ -558,6 +560,7 @@ def test_log_figure_matplotlib(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
+@pytest.mark.skipif(importlib.util.find_spec("plotly") is None)
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_plotly(subdir):
     from plotly import graph_objects as go
