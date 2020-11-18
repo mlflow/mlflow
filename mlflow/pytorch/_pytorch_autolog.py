@@ -31,7 +31,7 @@ every_n_epoch = 1
 
 @rank_zero_only
 @experimental
-def _autolog(log_every_n_epoch=1):
+def _autolog(log_every_n_epoch=1, log_models=True):
     """
     Enable automatic logging from pytorch to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -43,6 +43,8 @@ def _autolog(log_every_n_epoch=1):
 
     :param log_every_n_epoch: parameter to log metrics once in `n` epoch. By default, metrics
                        are logged after every epoch.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     global every_n_epoch
     every_n_epoch = log_every_n_epoch
@@ -52,8 +54,9 @@ def _autolog(log_every_n_epoch=1):
         Callback for auto-logging metrics and parameters.
         """
 
-        def __init__(self):
+        def __init__(self, log_models):
             self.early_stopping = False
+            self.log_models = log_models
 
         def on_epoch_end(self, trainer, pl_module):
             """
@@ -120,10 +123,14 @@ def _autolog(log_every_n_epoch=1):
             :param trainer: pytorch lightning trainer instance
             :param pl_module: pytorch lightning base module
             """
+            if self.log_models:
+                mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="model")
 
-            mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="model")
-
-            if self.early_stopping and trainer.checkpoint_callback.best_model_path:
+            if (
+                self.early_stopping
+                and trainer.checkpoint_callback.best_model_path
+                and self.log_models
+            ):
                 try_mlflow_log(
                     mlflow.log_artifact,
                     local_path=trainer.checkpoint_callback.best_model_path,
@@ -201,7 +208,7 @@ def _autolog(log_every_n_epoch=1):
             auto_end_run = False
 
         if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
-            self.callbacks += [__MLflowPLCallback()]
+            self.callbacks += [__MLflowPLCallback(log_models)]
         result = original(self, *args, **kwargs)
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
