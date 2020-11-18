@@ -705,8 +705,8 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with scikit-learn model artifacts during training. If ``False``,
-                                 signatures are not logged. If ``False``, signatures are
-                                 not logged. Note: Model signatures are MLflow model attributes
+                                 signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
                                  and are only collected if ``log_models`` is also ``True``.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
