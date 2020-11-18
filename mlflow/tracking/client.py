@@ -1051,17 +1051,22 @@ class MlflowClient(object):
             run = client.create_run(experiment_id="0")
             client.log_figure(run.info.run_id, fig, "figure.html")
         """
-        try:
-            import matplotlib
-            import plotly
-        except ImportError as ie:
-            _logger.error("Failed to import required libraries: {}".format(ie))
-            return
+        MATPLOTLIB_FIGURE_CLASS_NAME = "matplotlib.figure.Figure"
+        PLOTLY_FIGURE_CLASS_NAME = "plotly.graph_objs._figure.Figure"
+
+        qual_class_name = "{}.{}".format(figure.__class__.__module__, figure.__class__.__name__)
+        if qual_class_name not in [MATPLOTLIB_FIGURE_CLASS_NAME, PLOTLY_FIGURE_CLASS_NAME]:
+            raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            if isinstance(figure, matplotlib.figure.Figure):
+            # If we used `isinstance(figure, matplotlib.figure.Figure)` here, a user would need to
+            # install matplotlib to log a plotly figure. To avoid that, use string comparison and
+            # lazily import required packages.
+            if qual_class_name == MATPLOTLIB_FIGURE_CLASS_NAME:
                 figure.savefig(tmp_path)
-            elif isinstance(figure, plotly.graph_objects.Figure):
+            elif qual_class_name == PLOTLY_FIGURE_CLASS_NAME:
+                import plotly
+
                 plotly.offline.plot(
                     figure, filename=tmp_path, include_plotlyjs="cdn", auto_open=False
                 )
