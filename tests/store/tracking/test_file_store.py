@@ -358,6 +358,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             fs.get_all_metrics(run_id)
         with self.assertRaises(MlflowException):
             fs.get_all_params(run_id)
+        fs._hard_delete_run(run_id)
 
     def test_get_deleted_runs(self):
         fs = FileStore(self.test_root)
