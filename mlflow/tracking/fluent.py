@@ -636,7 +636,7 @@ def log_figure(figure, artifact_file):
     :param run_id: String ID of the run.
     :param figure: Figure to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
-                            the figure is saved (e.g. "dir/file.png").
+                          the figure is saved (e.g. "dir/file.png").
 
     .. code-block:: python
         :caption: Matplotlib Example
