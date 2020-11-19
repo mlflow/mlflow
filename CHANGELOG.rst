@@ -2,17 +2,11 @@ Changelog
 =========
 1.12.1 (2020-11-19)
 -------------------
-MLflow 1.12.1 includes several major features and improvements:
+MLflow 1.12.1 is a patch release containing bug fixes and small changes:
 
-Features:
-
-
-
-Bug fixes and documentation updates:
-
-
-
-Small bug fixes and doc updates ()
+- Fix ``run_link`` for cross-workspace model versions (#3681, @sueann)
+- Remove hard dependency on matplotlib for sklearn autologging (#3703, @dbczumar)
+- Do not disable existing loggers when init alembic (#3653, @arthury1n)
 
 1.12.0 (2020-11-10)
 -------------------
