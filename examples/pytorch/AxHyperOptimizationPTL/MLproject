@@ -1,0 +1,16 @@
+name: axbotorch-hyperparameter-optimization
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      max_epochs: {type: int, default: 3}
+      total_trials: {type: int, default: 3}
+
+
+    command: |
+          python AxHyperOptimizationPTL.py \
+            --max_epochs {max_epochs} \
+            --total_trials {total_trials} \
+
