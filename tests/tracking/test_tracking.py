@@ -581,6 +581,11 @@ def test_log_figure_plotly(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
+def test_log_figure_raises_error_for_unsupported_figure_object_type():
+    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
+        mlflow.log_figure("not_figure", "figure.png")
+
+
 def test_with_startrun():
     run_id = None
     t0 = int(time.time() * 1000)
