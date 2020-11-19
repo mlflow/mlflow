@@ -36,7 +36,12 @@ from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    batch_metrics_logger,
+)
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -637,7 +642,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst):
+def _setup_callbacks(lst, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -717,8 +722,8 @@ def _setup_callbacks(lst):
         Records model structural information as params when training starts.
         """
 
-        def __init__(self):
-            pass
+        def __init__(self, metrics_logger):
+            self.metrics_logger = metrics_logger
 
         def __enter__(self):
             pass
@@ -745,7 +750,8 @@ def _setup_callbacks(lst):
 
         def on_epoch_end(self, epoch, logs=None):
             if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
-                try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+                #try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+                self.metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
@@ -760,7 +766,7 @@ def _setup_callbacks(lst):
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         out_list += [__MLflowTfKerasCallback()]
     else:
-        out_list += [__MLflowTfKeras2Callback()]
+        out_list += [__MLflowTfKeras2Callback(metrics_logger)]
     return out_list, log_dir
 
 
@@ -976,7 +982,7 @@ def autolog(every_n_iter=100):
                     try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
 
     def fit(self, *args, **kwargs):
-        with _manage_active_run():
+        with _manage_active_run() as run:
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit")
 
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
@@ -984,21 +990,23 @@ def autolog(every_n_iter=100):
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
             early_stop_callback = None
 
-            # Checking if the 'callback' argument of fit() is set
-            if len(args) >= 6:
-                tmp_list = list(args)
-                early_stop_callback = _early_stop_check(tmp_list[5])
-                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
-                args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
-                early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
-            else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
+            run_id = run.info.run_id
+            with batch_metrics_logger(run_id) as metrics_logger:
+                # Checking if the 'callback' argument of fit() is set
+                if len(args) >= 6:
+                    tmp_list = list(args)
+                    early_stop_callback = _early_stop_check(tmp_list[5])
+                    tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], metrics_logger)
+                    args = tuple(tmp_list)
+                elif "callbacks" in kwargs:
+                    early_stop_callback = _early_stop_check(kwargs["callbacks"])
+                    kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], metrics_logger)
+                else:
+                    kwargs["callbacks"], log_dir = _setup_callbacks([], metrics_logger)
 
-            _log_early_stop_callback_params(early_stop_callback)
+                _log_early_stop_callback_params(early_stop_callback)
 
-            history = original(self, *args, **kwargs)
+                history = original(self, *args, **kwargs)
 
             _log_early_stop_callback_metrics(early_stop_callback, history)
 
@@ -1012,23 +1020,26 @@ def autolog(every_n_iter=100):
             return history
 
     def fit_generator(self, *args, **kwargs):
-        with _manage_active_run():
+        with _manage_active_run() as run:
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
 
             unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            # Checking if the 'callback' argument of fit() is set
-            if len(args) >= 5:
-                tmp_list = list(args)
-                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
-                args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
-            else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
-            result = original(self, *args, **kwargs)
+            run_id = run.info.run_id
+            with batch_metrics_logger(run_id) as metrics_logger:
+                # Checking if the 'callback' argument of fit() is set
+                if len(args) >= 5:
+                    tmp_list = list(args)
+                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4],metrics_logger)
+                    args = tuple(tmp_list)
+                elif "callbacks" in kwargs:
+                    kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"],metrics_logger)
+                else:
+                    kwargs["callbacks"], log_dir = _setup_callbacks([],metrics_logger)
+                result = original(self, *args, **kwargs)
+
             _flush_queue()
             _log_artifacts_with_warning(
                 local_dir=log_dir.location, artifact_path="tensorboard_logs"

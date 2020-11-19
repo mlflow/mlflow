@@ -46,6 +46,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     _InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
+    batch_metrics_logger,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -333,7 +334,7 @@ def autolog(log_input_examples=False, log_model_signatures=True):
         original(self, *args, **kwargs)
 
     def train(*args, **kwargs):
-        def record_eval_results(eval_results):
+        def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
             """
@@ -343,7 +344,7 @@ def autolog(log_input_examples=False, log_model_signatures=True):
                 for data_name, eval_name, value, _ in env.evaluation_result_list:
                     key = data_name + "-" + eval_name
                     res[key] = value
-
+                metrics_logger.record_metrics(res, env.iteration)
                 eval_results.append(res)
 
             return callback
@@ -417,22 +418,20 @@ def autolog(log_input_examples=False, log_model_signatures=True):
         # adding a callback that records evaluation results.
         eval_results = []
         callbacks_index = all_arg_names.index("callbacks")
-        callback = record_eval_results(eval_results)
-        if num_pos_args >= callbacks_index + 1:
-            tmp_list = list(args)
-            tmp_list[callbacks_index] += [callback]
-            args = tuple(tmp_list)
-        elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
-            kwargs["callbacks"] += [callback]
-        else:
-            kwargs["callbacks"] = [callback]
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            callback = record_eval_results(eval_results, metrics_logger)
+            if num_pos_args >= callbacks_index + 1:
+                tmp_list = list(args)
+                tmp_list[callbacks_index] += [callback]
+                args = tuple(tmp_list)
+            elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
+                kwargs["callbacks"] += [callback]
+            else:
+                kwargs["callbacks"] = [callback]
 
-        # training model
-        model = original(*args, **kwargs)
-
-        # logging metrics on each iteration.
-        for idx, metrics in enumerate(eval_results):
-            try_mlflow_log(mlflow.log_metrics, metrics, step=idx)
+            # training model
+            model = original(*args, **kwargs)
 
         # If early_stopping_rounds is present, logging metrics at the best iteration
         # as extra metrics with the max step + 1.

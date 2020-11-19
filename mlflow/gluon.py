@@ -13,7 +13,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
+from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, batch_metrics_logger
 from mlflow.utils.environment import _mlflow_conda_env
 
 FLAVOR_NAME = "gluon"
@@ -313,8 +313,9 @@ def autolog():
     from mxnet.gluon.nn import HybridSequential
 
     class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin):
-        def __init__(self):
+        def __init__(self, metrics_logger):
             self.current_epoch = 0
+            self.metrics_logger = metrics_logger
 
         def epoch_end(self, estimator, *args, **kwargs):
             logs = {}
@@ -324,7 +325,7 @@ def autolog():
             for metric in estimator.val_metrics:
                 metric_name, metric_val = metric.get()
                 logs[metric_name] = metric_val
-            try_mlflow_log(mlflow.log_metrics, logs, step=self.current_epoch)
+            self.metrics_logger.record_metrics(logs, self.current_epoch)
             self.current_epoch += 1
 
         def train_begin(self, estimator, *args, **kwargs):
@@ -347,22 +348,28 @@ def autolog():
 
     def fit(self, *args, **kwargs):
         if not mlflow.active_run():
+            try_mlflow_log(mlflow.start_run)
             auto_end_run = True
         else:
             auto_end_run = False
 
         original = gorilla.get_original_attribute(Estimator, "fit")
-        if len(args) >= 4:
-            l = list(args)
-            l[3] += [__MLflowGluonCallback()]
-            args = tuple(l)
-        elif "event_handlers" in kwargs:
-            kwargs["event_handlers"] += [__MLflowGluonCallback()]
-        else:
-            kwargs["event_handlers"] = [__MLflowGluonCallback()]
-        result = original(self, *args, **kwargs)
+
+        # Wrap `fit` execution within a batch metrics logger context.
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            if len(args) >= 4:
+                l = list(args)
+                l[3] += [__MLflowGluonCallback(metrics_logger)]
+                args = tuple(l)
+            elif "event_handlers" in kwargs:
+                kwargs["event_handlers"] += [__MLflowGluonCallback(metrics_logger)]
+            else:
+                kwargs["event_handlers"] = [__MLflowGluonCallback(metrics_logger)]
+            result = original(self, *args, **kwargs)
+
         if auto_end_run:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run)
         return result
 
     wrap_patch(Estimator, "fit", fit)

@@ -204,7 +204,7 @@ class BatchMetricsLogger:
         self.total_log_batch_time = 0
         self.previous_training_timestamp = None
 
-    def _purge(self):
+    def _flush(self):
         self._timed_log_batch()
         self.data = []
 
@@ -219,7 +219,7 @@ class BatchMetricsLogger:
         end = time.time()
         self.total_log_batch_time += end - start
 
-    def _should_purge(self):
+    def _should_flush(self):
         target_training_to_logging_time_ratio = 10
         if (
             self.total_training_time
@@ -249,8 +249,8 @@ class BatchMetricsLogger:
         for key, value in metrics.items():
             self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
-        if self._should_purge():
-            self._purge()
+        if self._should_flush():
+            self._flush()
 
         self.previous_training_timestamp = current_timestamp
 
@@ -274,4 +274,4 @@ def batch_metrics_logger(run_id):
 
     batch_metrics_logger = BatchMetricsLogger(run_id)
     yield batch_metrics_logger
-    batch_metrics_logger._purge()
+    batch_metrics_logger._flush()

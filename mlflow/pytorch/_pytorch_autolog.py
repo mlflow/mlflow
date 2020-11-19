@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
+from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, batch_metrics_logger
 from mlflow.utils.annotations import experimental
 from mlflow.utils import gorilla
 
@@ -52,8 +52,9 @@ def _autolog(log_every_n_epoch=1):
         Callback for auto-logging metrics and parameters.
         """
 
-        def __init__(self):
+        def __init__(self, metrics_logger):
             self.early_stopping = False
+            self.metrics_logger = metrics_logger
 
         def on_epoch_end(self, trainer, pl_module):
             """
@@ -63,10 +64,10 @@ def _autolog(log_every_n_epoch=1):
             :param pl_module: pytorch lightning base module
             """
             if (pl_module.current_epoch + 1) % every_n_epoch == 0:
-                for key, value in trainer.callback_metrics.items():
-                    try_mlflow_log(
-                        mlflow.log_metric, key, float(value), step=pl_module.current_epoch
-                    )
+                cur_metrics = trainer.callback_metrics
+                # Cast metric value as  float before passing into logger.
+                metrics = dict(map(lambda x: (x[0], float(x[1])), cur_metrics.items()))
+                self.metrics_logger.record_metrics(metrics, pl_module.current_epoch)
 
             for callback in trainer.callbacks:
                 if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
@@ -200,9 +201,12 @@ def _autolog(log_every_n_epoch=1):
         else:
             auto_end_run = False
 
-        if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
-            self.callbacks += [__MLflowPLCallback()]
-        result = original(self, *args, **kwargs)
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
+                self.callbacks += [__MLflowPLCallback(metrics_logger)]
+            result = original(self, *args, **kwargs)
+
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)
         return result

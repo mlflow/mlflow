@@ -30,7 +30,12 @@ from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    batch_metrics_logger,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
@@ -299,7 +304,7 @@ def autolog():
         """
 
         def __init__(
-            self, learner,
+            self, learner, metrics_logger
         ):
             super().__init__(learner)
             self.learner = learner
@@ -307,6 +312,7 @@ def autolog():
             self.metrics_names = ["train_loss", "valid_loss"] + [
                 o.__name__ for o in learner.metrics
             ]
+            self.metrics_logger = metrics_logger
 
         def on_epoch_end(self, **kwargs):
             """
@@ -318,7 +324,7 @@ def autolog():
             metrics = [kwargs["smooth_loss"]] + kwargs["last_metrics"]
             metrics = map(float, metrics)
             metrics = dict(zip(self.metrics_names, metrics))
-            try_mlflow_log(mlflow.log_metrics, metrics, step=epoch)
+            self.metrics_logger.record_metrics(metrics, epoch)
 
         def on_train_begin(self, **kwargs):
             info = layers_info(self.learner)
@@ -395,25 +401,27 @@ def autolog():
 
         callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
 
-        # Checking if the 'callback' argument of the function is set
-        if len(args) > callback_arg_index:
-            tmp_list = list(args)
-            callbacks += list(args[callback_arg_index])
-            tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
-            args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
-            callbacks += list(kwargs["callbacks"])
-            kwargs["callbacks"] += [__MLflowFastaiCallback(self)]
-        else:
-            kwargs["callbacks"] = [__MLflowFastaiCallback(self)]
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            # Checking if the 'callback' argument of the function is set
+            if len(args) > callback_arg_index:
+                tmp_list = list(args)
+                callbacks += list(args[callback_arg_index])
+                tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self, metrics_logger)]
+                args = tuple(tmp_list)
+            elif "callbacks" in kwargs:
+                callbacks += list(kwargs["callbacks"])
+                kwargs["callbacks"] += [__MLflowFastaiCallback(self, metrics_logger)]
+            else:
+                kwargs["callbacks"] = [__MLflowFastaiCallback(self, metrics_logger)]
 
-        early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
-        one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)
+            early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
+            one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)
 
-        _log_early_stop_callback_params(early_stop_callback)
-        _log_one_cycle_callback_params(one_cycle_callback)
+            _log_early_stop_callback_params(early_stop_callback)
+            _log_one_cycle_callback_params(one_cycle_callback)
 
-        result = original(self, *args, **kwargs)
+            result = original(self, *args, **kwargs)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)

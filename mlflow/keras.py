@@ -28,7 +28,12 @@ from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    wrap_patch,
+    batch_metrics_logger,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
@@ -606,6 +611,10 @@ def autolog():
         Records model structural information as params when training begins
         """
 
+        def __init__(self, metrics_logger):
+            super().__init__()
+            self.metrics_logger = metrics_logger
+
         def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.log_param, "num_layers", len(self.model.layers))
             try_mlflow_log(mlflow.log_param, "optimizer_name", type(self.model.optimizer).__name__)
@@ -639,7 +648,7 @@ def autolog():
         def on_epoch_end(self, epoch, logs=None):
             if not logs:
                 return
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+            self.metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path="model")
@@ -719,20 +728,22 @@ def autolog():
         early_stop_callback = None
 
         # Checking if the 'callback' argument of the function is set
-        if len(args) > callback_arg_index:
-            tmp_list = list(args)
-            early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
-            tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
-            args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
-            early_stop_callback = _early_stop_check(kwargs["callbacks"])
-            kwargs["callbacks"] += [__MLflowKerasCallback()]
-        else:
-            kwargs["callbacks"] = [__MLflowKerasCallback()]
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            if len(args) > callback_arg_index:
+                tmp_list = list(args)
+                early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
+                tmp_list[callback_arg_index] += [__MLflowKerasCallback(metrics_logger)]
+                args = tuple(tmp_list)
+            elif "callbacks" in kwargs:
+                early_stop_callback = _early_stop_check(kwargs["callbacks"])
+                kwargs["callbacks"] += [__MLflowKerasCallback(metrics_logger)]
+            else:
+                kwargs["callbacks"] = [__MLflowKerasCallback(metrics_logger)]
 
-        _log_early_stop_callback_params(early_stop_callback)
+            _log_early_stop_callback_params(early_stop_callback)
 
-        history = original(self, *args, **kwargs)
+            history = original(self, *args, **kwargs)
 
         _log_early_stop_callback_metrics(early_stop_callback, history)
 
