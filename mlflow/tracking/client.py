@@ -1010,6 +1010,7 @@ class MlflowClient(object):
                 else:
                     json.dump(dictionary, f, indent=2)
 
+    @experimental
     def log_figure(self, run_id, figure, artifact_file):
         """
         Log a figure as an artifact. The following figure objects are supported:
