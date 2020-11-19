@@ -1,5 +1,19 @@
 Changelog
 =========
+1.12.1 (2020-11-19)
+-------------------
+MLflow 1.12.1 includes several major features and improvements:
+
+Features:
+
+
+
+Bug fixes and documentation updates:
+
+
+
+Small bug fixes and doc updates ()
+
 1.12.0 (2020-11-10)
 -------------------
 MLflow 1.12.0 includes several major features and improvements, in particular a number of improvements to autologging and MLflow's Pytorch integrations:
