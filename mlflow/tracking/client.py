@@ -8,6 +8,7 @@ import logging
 import json
 import os
 import posixpath
+import re
 import tempfile
 import yaml
 
@@ -1052,20 +1053,23 @@ class MlflowClient(object):
             run = client.create_run(experiment_id="0")
             client.log_figure(run.info.run_id, fig, "figure.html")
         """
-        MATPLOTLIB_FIGURE_CLASS_NAME = "matplotlib.figure.Figure"
-        PLOTLY_FIGURE_CLASS_NAME = "plotly.graph_objs._figure.Figure"
+        MATPLOTLIB_FIGURE_REGEXP = r"^matplotlib\..*Figure$"
+        PLOTLY_FIGURE_REGEXP = r"^plotly\..*Figure$"
 
-        qual_class_name = "{}.{}".format(figure.__class__.__module__, figure.__class__.__name__)
-        if qual_class_name not in [MATPLOTLIB_FIGURE_CLASS_NAME, PLOTLY_FIGURE_CLASS_NAME]:
+        qual_class_name = figure.__class__.__module__ + "." + figure.__class__.__name__
+        if not any(
+            re.search(regexp, qual_class_name)
+            for regexp in [MATPLOTLIB_FIGURE_REGEXP, PLOTLY_FIGURE_REGEXP]
+        ):
             raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             # If we used `isinstance(figure, matplotlib.figure.Figure)` here, a user would need to
             # install matplotlib to log a plotly figure. To avoid that, detect the object type
             # with class name matching.
-            if qual_class_name == MATPLOTLIB_FIGURE_CLASS_NAME:
+            if re.search(MATPLOTLIB_FIGURE_REGEXP, qual_class_name):
                 figure.savefig(tmp_path)
-            elif qual_class_name == PLOTLY_FIGURE_CLASS_NAME:
+            elif re.search(PLOTLY_FIGURE_REGEXP, qual_class_name):
                 import plotly
 
                 plotly.offline.plot(
