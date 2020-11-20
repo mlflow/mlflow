@@ -338,7 +338,9 @@ def autolog():
                     mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
                 )
                 if hasattr(estimator.trainer.optimizer, "lr"):
-                    try_mlflow_log(mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr)
+                    try_mlflow_log(
+                        mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr
+                    )
                 if hasattr(estimator.trainer.optimizer, "epsilon"):
                     try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
 

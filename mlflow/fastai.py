@@ -304,9 +304,7 @@ def autolog():
             Records model structural information as params when training begins
             """
 
-            def __init__(
-                self, learner
-            ):
+            def __init__(self, learner):
                 super().__init__(learner)
                 self.learner = learner
                 self.opt = self.learn.opt

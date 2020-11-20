@@ -1001,7 +1001,9 @@ def autolog(every_n_iter=100):
                     args = tuple(tmp_list)
                 elif "callbacks" in kwargs:
                     early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                    kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], metrics_logger)
+                    kwargs["callbacks"], log_dir = _setup_callbacks(
+                        kwargs["callbacks"], metrics_logger
+                    )
                 else:
                     kwargs["callbacks"], log_dir = _setup_callbacks([], metrics_logger)
 
@@ -1033,12 +1035,14 @@ def autolog(every_n_iter=100):
                 # Checking if the 'callback' argument of fit() is set
                 if len(args) >= 5:
                     tmp_list = list(args)
-                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4],metrics_logger)
+                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], metrics_logger)
                     args = tuple(tmp_list)
                 elif "callbacks" in kwargs:
-                    kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"],metrics_logger)
+                    kwargs["callbacks"], log_dir = _setup_callbacks(
+                        kwargs["callbacks"], metrics_logger
+                    )
                 else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([],metrics_logger)
+                    kwargs["callbacks"], log_dir = _setup_callbacks([], metrics_logger)
                 result = original(self, *args, **kwargs)
 
             _flush_queue()
