@@ -433,21 +433,21 @@ def autolog(log_input_examples=False, log_model_signatures=True):
             # training model
             model = original(*args, **kwargs)
 
-        # If early_stopping_rounds is present, logging metrics at the best iteration
-        # as extra metrics with the max step + 1.
-        early_stopping_index = all_arg_names.index("early_stopping_rounds")
-        early_stopping = (
-            num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
-        )
-        if early_stopping:
-            extra_step = len(eval_results)
-            try_mlflow_log(mlflow.log_metric, "stopped_iteration", len(eval_results))
-            # best_iteration is set even if training does not stop early.
-            try_mlflow_log(mlflow.log_metric, "best_iteration", model.best_iteration)
-            # iteration starts from 1 in LightGBM.
-            try_mlflow_log(
-                mlflow.log_metrics, eval_results[model.best_iteration - 1], step=extra_step
+            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # as extra metrics with the max step + 1.
+            early_stopping_index = all_arg_names.index("early_stopping_rounds")
+            early_stopping = (
+                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
             )
+            if early_stopping:
+                extra_step = len(eval_results)
+
+                # iteration starts from 1 in LightGBM.
+                early_stopping_metrics = eval_results[model.best_iteration - 1]
+                early_stopping_metrics["stopped_iteration"] = extra_step
+                # best_iteration is set even if training does not stop early.
+                early_stopping_metrics["best_iteration"] = model.best_iteration
+                metrics_logger.record_metrics(early_stopping_metrics, step=extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:

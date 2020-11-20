@@ -722,8 +722,8 @@ def _setup_callbacks(lst, metrics_logger):
         Records model structural information as params when training starts.
         """
 
-        def __init__(self, metrics_logger):
-            self.metrics_logger = metrics_logger
+        def __init__(self):
+            pass
 
         def __enter__(self):
             pass
@@ -750,8 +750,7 @@ def _setup_callbacks(lst, metrics_logger):
 
         def on_epoch_end(self, epoch, logs=None):
             if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
-                #try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
-                self.metrics_logger.record_metrics(logs, epoch)
+                metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
@@ -766,7 +765,7 @@ def _setup_callbacks(lst, metrics_logger):
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         out_list += [__MLflowTfKerasCallback()]
     else:
-        out_list += [__MLflowTfKeras2Callback(metrics_logger)]
+        out_list += [__MLflowTfKeras2Callback()]
     return out_list, log_dir
 
 
@@ -955,17 +954,19 @@ def autolog(every_n_iter=100):
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history):
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
         if callback:
             callback_attrs = _get_early_stop_callback_attrs(callback)
             if callback_attrs is None:
                 return
             stopped_epoch, restore_best_weights, patience = callback_attrs
-            try_mlflow_log(mlflow.log_metric, "stopped_epoch", stopped_epoch)
+            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch}, stopped_epoch)
+
             # Weights are restored only if early stopping occurs
             if stopped_epoch != 0 and restore_best_weights:
                 restored_epoch = stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
+                metrics_logger.record_metrics({"restored_epoch": restored_epoch}, restored_epoch)
+
                 restored_metrics = {
                     key: history.history[key][restored_epoch] for key in history.history.keys()
                 }
@@ -979,7 +980,7 @@ def autolog(every_n_iter=100):
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
                     last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
+                    metrics_logger.record_metrics(restored_metrics, last_epoch)
 
     def fit(self, *args, **kwargs):
         with _manage_active_run() as run:
@@ -1008,7 +1009,7 @@ def autolog(every_n_iter=100):
 
                 history = original(self, *args, **kwargs)
 
-            _log_early_stop_callback_metrics(early_stop_callback, history)
+                _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
             _flush_queue()
             _log_artifacts_with_warning(
