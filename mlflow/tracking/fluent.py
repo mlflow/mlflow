@@ -1115,6 +1115,49 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+
+    .. code-block:: python
+        :caption: Example
+
+        import numpy as np
+        import mlflow.sklearn
+        from mlflow.tracking import MlflowClient
+        from sklearn.linear_model import LinearRegression
+
+        def print_auto_logged_info(r):
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print("run_id: {}".format(r.info.run_id))
+            print("params: {}".format(r.data.params))
+            print("metrics: {}".format(r.data.metrics))
+            print("tags: {}".format(tags))
+            print("artifacts: {}".format(artifacts))
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # Auto log all the parameters, metrics, and artifacts
+        mlflow.autolog()
+        model = LinearRegression()
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+
+        # fetch the auto logged parameters and metrics for ended run
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 98a1ff588c68471ea44e8121b95cd54f
+        params: {'copy_X': 'True', 'normalize': 'False', 'fit_intercept': 'True',
+                 'n_jobs': 'None'}
+        metrics: {'training_score': 1.0, 'training_rmse': 4.440892098500626e-16,
+                  'training_r2_score': 1.0,
+                  'training_mae': 2.220446049250313e-16, 'training_mse': 1.9721522630525295e-31}
+        tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+               'estimator_name': 'LinearRegression'}
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
     """
     locals_copy = locals().items()
 
