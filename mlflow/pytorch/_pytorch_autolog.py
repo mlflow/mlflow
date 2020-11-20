@@ -174,25 +174,24 @@ def _autolog(log_every_n_epoch=1, log_models=True):
                 :param early_stop_callback: Early stopping callback object
                 """
                 if early_stop_callback.stopped_epoch != 0:
-                    early_stop_metrics = {}
-
                     if hasattr(early_stop_callback, "stopped_epoch"):
-                        early_stop_metrics["stopped_epoch"] = early_stop_callback.stopped_epoch
-
+                        metrics_logger.record_metrics(
+                            {"stopped_epoch": early_stop_callback.stopped_epoch}
+                        )
                         restored_epoch = early_stop_callback.stopped_epoch - max(
                             1, early_stop_callback.patience
                         )
-                        early_stop_metrics["restored_epoch"] = restored_epoch
+                        metrics_logger.record_metrics({"restored_epoch": restored_epoch})
 
                     if hasattr(early_stop_callback, "best_score"):
-                        early_stop_metrics["best_score"] = float(early_stop_callback.best_score)
+                        metrics_logger.record_metrics(
+                            {"best_score": float(early_stop_callback.best_score)}
+                        )
 
                     if hasattr(early_stop_callback, "wait_count"):
-                        early_stop_metrics["wait_count"] = early_stop_callback.wait_count
-
-                    if early_stop_metrics:
-                        epoch = early_stop_callback.stopped_epoch
-                        metrics_logger.record_metrics(early_stop_metrics, epoch)
+                        metrics_logger.record_metrics(
+                            {"wait_count": early_stop_callback.wait_count}
+                        )
 
         return __MLflowPLCallback
 

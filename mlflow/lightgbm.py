@@ -450,12 +450,12 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
             if early_stopping:
                 extra_step = len(eval_results)
 
-                # iteration starts from 1 in LightGBM.
-                early_stopping_metrics = eval_results[model.best_iteration - 1]
-                early_stopping_metrics["stopped_iteration"] = extra_step
+                metrics_logger.record_metrics({"stopped_iteration": extra_step})
                 # best_iteration is set even if training does not stop early.
-                early_stopping_metrics["best_iteration"] = model.best_iteration
-                metrics_logger.record_metrics(early_stopping_metrics, step=extra_step)
+                metrics_logger.record_metrics({"best_iteration": model.best_iteration})
+                # iteration starts from 1 in LightGBM.
+                results = eval_results[model.best_iteration - 1]
+                metrics_logger.record_metrics(results, step=extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:
