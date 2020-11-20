@@ -14,6 +14,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -34,9 +35,19 @@ public class ModelRegistryMlflowClientTest {
     private MlflowClient client;
 
     private String modelName;
+    private File tempDir;
     private File tempFile;
 
     private static final String content = "Hello, Worldz!";
+
+    // As only a single `.txt` is stored as a model version artifact, this filter is used to
+    // extract the written file.
+    FilenameFilter filter = new FilenameFilter() {
+        @Override
+        public boolean accept(File f, String name) {
+            return name.endsWith(".txt");
+        }
+    };
 
     @BeforeTest
     public void before() throws IOException {
@@ -49,16 +60,15 @@ public class ModelRegistryMlflowClientTest {
         RunInfo runCreated = client.createRun(expId);
         String runId = runCreated.getRunUuid();
 
-        File tempDir = Files.createTempDirectory("tempDir").toFile();
+        tempDir = Files.createTempDirectory("tempDir").toFile();
         tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
 
         FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
-
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName));
 
         client.sendPost("model-versions/create",
-                mapper.makeCreateModelVersion(modelName, runId, tempFile.getAbsolutePath()));
+                mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
     }
 
     @AfterTest
@@ -81,7 +91,7 @@ public class ModelRegistryMlflowClientTest {
         List<ModelVersion> modelVersion = client.getLatestVersions(modelName);
         Assert.assertEquals(modelVersion.size(), 0);
         client.sendPost("model-versions/transition-stage",
-                mapper.makeTransitionModelVersionStage(modelName,"1", "Staging"));
+                mapper.makeTransitionModelVersionStage(modelName, "1", "Staging"));
         modelVersion = client.getLatestVersions(modelName);
         Assert.assertEquals(modelVersion.size(), 1);
         validateDetailedModelVersion(modelVersion.get(0),
@@ -91,21 +101,25 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testGetModelVersionDownloadUri() {
         String downloadUri = client.getModelVersionDownloadUri(modelName, "1");
-        Assert.assertEquals(tempFile.getAbsolutePath(), downloadUri);
+        Assert.assertEquals(tempDir.getAbsolutePath(), downloadUri);
     }
 
     @Test
     public void testDownloadModelVersion() throws IOException {
-        File tempDownloadFile = client.downloadModelVersion(modelName, "1");
-        String downloadedContent = FileUtils.readFileToString(tempDownloadFile,
+        File tempDownloadDir = client.downloadModelVersion(modelName, "1");
+        File[] tempDownloadFile = tempDownloadDir.listFiles(filter);
+        Assert.assertEquals(tempDownloadFile.length, 1);
+        String downloadedContent = FileUtils.readFileToString(tempDownloadFile[0],
                 StandardCharsets.UTF_8);
         Assert.assertEquals(content, downloadedContent);
     }
 
     @Test
     public void testDownloadLatestModelVersion() throws IOException {
-        File tempDownloadFile = client.downloadLatestModelVersion(modelName, "None");
-        String downloadedContent = FileUtils.readFileToString(tempDownloadFile,
+        File tempDownloadDir = client.downloadLatestModelVersion(modelName, "None");
+        File[] tempDownloadFile = tempDownloadDir.listFiles(filter);
+        Assert.assertEquals(tempDownloadFile.length, 1);
+        String downloadedContent = FileUtils.readFileToString(tempDownloadFile[0],
                 StandardCharsets.UTF_8);
         Assert.assertEquals(content, downloadedContent);
     }

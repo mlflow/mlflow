@@ -612,7 +612,7 @@ class _PyTorchWrapper(object):
             return predicted
 
 
-def autolog(log_every_n_epoch=1):
+def autolog(log_every_n_epoch=1, log_models=True):
     """
     Automatically log metrics, params, and models from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ model training.
@@ -630,7 +630,9 @@ def autolog(log_every_n_epoch=1):
 
     :param log_every_n_epoch: If specified, logs metrics once every `n` epochs. By default, metrics
                        are logged after every epoch.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     from mlflow.pytorch._pytorch_autolog import _autolog
 
-    _autolog(log_every_n_epoch=log_every_n_epoch)
+    _autolog(log_every_n_epoch=log_every_n_epoch, log_models=log_models)

@@ -28,8 +28,8 @@ class LogsDataset(Dataset):
 
 
 @pytest.fixture
-def gluon_random_data_run():
-    mlflow.gluon.autolog()
+def gluon_random_data_run(log_models=True):
+    mlflow.gluon.autolog(log_models)
 
     with mlflow.start_run() as run:
         data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
@@ -79,6 +79,16 @@ def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
     ctx = mx.cpu()
     model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model", ctx)
     model(nd.array(np.random.rand(1000, 1, 32)))
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_gluon_autolog_log_models_configuration(log_models):
+    random_data_run = gluon_random_data_run(log_models)
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(random_data_run.info.run_id)
+    artifacts = list(map(lambda x: x.path, artifacts))
+    assert ("model" in artifacts) == log_models
 
 
 @pytest.mark.large

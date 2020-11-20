@@ -642,7 +642,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst, metrics_logger):
+def _setup_callbacks(lst, log_models, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -714,7 +714,8 @@ def _setup_callbacks(lst, metrics_logger):
             pass
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+            if log_models:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     class __MLflowTfKeras2Callback(Callback):
         """
@@ -753,7 +754,8 @@ def _setup_callbacks(lst, metrics_logger):
                 metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+            if log_models:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     tb = _get_tensorboard_callback(lst)
     if tb is None:
@@ -770,7 +772,7 @@ def _setup_callbacks(lst, metrics_logger):
 
 
 @experimental
-def autolog(every_n_iter=100):
+def autolog(every_n_iter=100, log_models=True):
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -824,6 +826,8 @@ def autolog(every_n_iter=100):
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     import tensorflow
 
@@ -997,15 +1001,15 @@ def autolog(every_n_iter=100):
                 if len(args) >= 6:
                     tmp_list = list(args)
                     early_stop_callback = _early_stop_check(tmp_list[5])
-                    tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], metrics_logger)
+                    tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models, metrics_logger)
                     args = tuple(tmp_list)
                 elif "callbacks" in kwargs:
                     early_stop_callback = _early_stop_check(kwargs["callbacks"])
                     kwargs["callbacks"], log_dir = _setup_callbacks(
-                        kwargs["callbacks"], metrics_logger
+                        kwargs["callbacks"], log_models, metrics_logger
                     )
                 else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([], metrics_logger)
+                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
 
                 _log_early_stop_callback_params(early_stop_callback)
 
@@ -1035,14 +1039,14 @@ def autolog(every_n_iter=100):
                 # Checking if the 'callback' argument of fit() is set
                 if len(args) >= 5:
                     tmp_list = list(args)
-                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], metrics_logger)
+                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models, metrics_logger)
                     args = tuple(tmp_list)
                 elif "callbacks" in kwargs:
                     kwargs["callbacks"], log_dir = _setup_callbacks(
-                        kwargs["callbacks"], metrics_logger
+                        kwargs["callbacks"], log_models, metrics_logger
                     )
                 else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([], metrics_logger)
+                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
                 result = original(self, *args, **kwargs)
 
             _flush_queue()

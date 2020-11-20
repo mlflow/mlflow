@@ -480,6 +480,24 @@ def test_xgb_autolog_configuration_options(bst_params, log_input_examples, log_m
     assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_xgb_autolog_log_models_configuration(bst_params, log_models):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_models=log_models)
+        dataset = xgb.DMatrix(X, y)
+        xgb.train(bst_params, dataset)
+
+    run_id = run.info.run_id
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    assert ("model" in artifacts) == log_models
+
+
 def test_xgb_autolog_does_not_break_dmatrix_instantiation_with_data_none():
     """
     This test verifies that `xgboost.DMatrix(None)` doesn't fail after patching.

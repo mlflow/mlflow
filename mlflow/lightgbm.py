@@ -282,7 +282,7 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(log_input_examples=False, log_model_signatures=True):
+def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):
     """
     Enables automatic logging from LightGBM to MLflow. Logs the following.
 
@@ -299,11 +299,19 @@ def autolog(log_input_examples=False, log_model_signatures=True):
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with LightGBM model artifacts during training. If
                                ``False``, input examples are not logged.
+                               Note: Input examples are MLflow model attributes
+                               and are only collected if ``log_models`` is also ``True``.
     :param log_model_signatures: If ``True``,
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with LightGBM model artifacts during training. If ``False``,
                                  signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
+                                 and are only collected if ``log_models`` is also ``True``.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
     """
     import lightgbm
     import numpy as np
@@ -490,21 +498,24 @@ def autolog(log_input_examples=False, log_model_signatures=True):
             model_signature = infer_signature(input_example, model_output)
             return model_signature
 
-        input_example, signature = resolve_input_example_and_signature(
-            get_input_example,
-            infer_model_signature,
-            log_input_examples,
-            log_model_signatures,
-            _logger,
-        )
+        # Whether to automatically log the trained model based on boolean flag.
+        if log_models:
+            # Will only resolve `input_example` and `signature` if `log_models` is `True`.
+            input_example, signature = resolve_input_example_and_signature(
+                get_input_example,
+                infer_model_signature,
+                log_input_examples,
+                log_model_signatures,
+                _logger,
+            )
 
-        try_mlflow_log(
-            log_model,
-            model,
-            artifact_path="model",
-            signature=signature,
-            input_example=input_example,
-        )
+            try_mlflow_log(
+                log_model,
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+            )
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)

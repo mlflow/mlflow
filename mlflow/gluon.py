@@ -301,12 +301,15 @@ def log_model(
 
 
 @experimental
-def autolog():
+def autolog(log_models=True):
     """
     Enable automatic logging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
+
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
@@ -345,7 +348,7 @@ def autolog():
                     try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
 
             def train_end(self, estimator, *args, **kwargs):
-                if isinstance(estimator.net, HybridSequential):
+                if isinstance(estimator.net, HybridSequential) and log_models:
                     try_mlflow_log(log_model, estimator.net, artifact_path="model")
 
         return __MLflowGluonCallback

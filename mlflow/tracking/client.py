@@ -1006,7 +1006,7 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 # Specify `indent` to prettify the output
                 if extension in [".yml", ".yaml"]:
-                    yaml.dump(dictionary, f, indent=2)
+                    yaml.dump(dictionary, f, indent=2, default_flow_style=False)
                 else:
                     json.dump(dictionary, f, indent=2)
 
