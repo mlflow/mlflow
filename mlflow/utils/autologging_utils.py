@@ -229,7 +229,7 @@ class BatchMetricsLogger:
 
         return False
 
-    def record_metrics(self, metrics, step):
+    def record_metrics(self, metrics, step=None):
         """
         Submit a set of metrics to be logged. The metrics may not be immediately logged, as this
         class will batch them in order to not increase execution time too much by logging
