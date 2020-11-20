@@ -1070,11 +1070,7 @@ class MlflowClient(object):
             if re.search(MATPLOTLIB_FIGURE_REGEXP, qual_class_name):
                 figure.savefig(tmp_path)
             elif re.search(PLOTLY_FIGURE_REGEXP, qual_class_name):
-                import plotly
-
-                plotly.offline.plot(
-                    figure, filename=tmp_path, include_plotlyjs="cdn", auto_open=False
-                )
+                figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
