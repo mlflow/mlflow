@@ -1125,7 +1125,7 @@ def autolog(
         from mlflow.tracking import MlflowClient
         from sklearn.linear_model import LinearRegression
 
-        def print_autologged_info(r):
+        def print_auto_logged_info(r):
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
             print("run_id: {}".format(r.info.run_id))
@@ -1153,7 +1153,7 @@ def autolog(
     .. code-block:: text
         :caption: Output
 
-        run_id: 8eda22945be1486f86a62cf7e2cf2c37
+        run_id: a0a6e835971545b19f221a7ac01de065
         artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
         params: { 'copy_X': 'True',
           'fit_intercept': 'True',
