@@ -1118,7 +1118,7 @@ def autolog(
 
     .. code-block:: python
         :caption: Example
-        
+
         from pprint import pprint
         import numpy as np
         import mlflow.sklearn
@@ -1132,9 +1132,9 @@ def autolog(
             print("artifacts: {}".format(artifacts))
             print("params: ", end='')
             pprint(r.data.params, indent=2)
-            print("metrics:", end='')
+            print("metrics: ", end='')
             pprint(r.data.metrics, indent=2)
-            print("tags:", end='')
+            print("tags: ", end='')
             pprint(tags, indent=2)
 
         # prepare training data
@@ -1159,12 +1159,12 @@ def autolog(
           'fit_intercept': 'True',
           'n_jobs': 'None',
           'normalize': 'False'}
-        metrics:{ 'training_mae': 2.220446049250313e-16,
+        metrics: { 'training_mae': 2.220446049250313e-16,
           'training_mse': 1.9721522630525295e-31,
           'training_r2_score': 1.0,
           'training_rmse': 4.440892098500626e-16,
           'training_score': 1.0}
-        tags:{ 'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+        tags: { 'estimator_class': 'sklearn.linear_model._base.LinearRegression',
           'estimator_name': 'LinearRegression'}
     """
     locals_copy = locals().items()
