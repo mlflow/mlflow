@@ -9,6 +9,7 @@ import json
 import os
 import posixpath
 import re
+import sys
 import tempfile
 import yaml
 
@@ -1053,24 +1054,24 @@ class MlflowClient(object):
             run = client.create_run(experiment_id="0")
             client.log_figure(run.info.run_id, fig, "figure.html")
         """
-        MATPLOTLIB_FIGURE_REGEXP = r"^matplotlib\..*Figure$"
-        PLOTLY_FIGURE_REGEXP = r"^plotly\..*Figure$"
 
-        qual_class_name = figure.__class__.__module__ + "." + figure.__class__.__name__
-        if not any(
-            re.search(regexp, qual_class_name)
-            for regexp in [MATPLOTLIB_FIGURE_REGEXP, PLOTLY_FIGURE_REGEXP]
-        ):
-            raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
+        def is_matplotlib_figure(fig):
+            import matplotlib
+
+            return isinstance(fig, matplotlib.figure.Figure)
+
+        def is_plotly_figure(fig):
+            import plotly
+
+            return isinstance(fig, plotly.graph_objects.Figure)
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
-            # If we used `isinstance(figure, matplotlib.figure.Figure)` here, a user would need to
-            # install matplotlib to log a plotly figure. To avoid that, detect the object type
-            # with class name matching.
-            if re.search(MATPLOTLIB_FIGURE_REGEXP, qual_class_name):
+            if "matplotlib" in sys.modules and is_matplotlib_figure(figure):
                 figure.savefig(tmp_path)
-            elif re.search(PLOTLY_FIGURE_REGEXP, qual_class_name):
+            elif "plotly" in sys.modules and is_plotly_figure(figure):
                 figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+            else:
+                raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
     def _record_logged_model(self, run_id, mlflow_model):
         """
