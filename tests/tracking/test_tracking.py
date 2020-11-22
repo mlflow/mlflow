@@ -1,6 +1,5 @@
 from collections import namedtuple
 import filecmp
-import importlib
 import json
 import os
 import posixpath
