@@ -41,8 +41,6 @@ import warnings
 
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
-# log a deprecated warning only once per function per module
-warnings.filterwarnings("module", category=DeprecationWarning)
 
 import mlflow.projects as projects  # noqa: E402
 import mlflow.tracking as tracking  # noqa: E402
