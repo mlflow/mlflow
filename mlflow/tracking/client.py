@@ -8,7 +8,6 @@ import logging
 import json
 import os
 import posixpath
-import re
 import sys
 import tempfile
 import yaml
