@@ -1065,6 +1065,9 @@ class MlflowClient(object):
             return isinstance(fig, plotly.graph_objects.Figure)
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
+            # This allows logging a `plotly` figure in an environment where `matplotlib` is not
+            # installed.
             if "matplotlib" in sys.modules and is_matplotlib_figure(figure):
                 figure.savefig(tmp_path)
             elif "plotly" in sys.modules and is_plotly_figure(figure):
