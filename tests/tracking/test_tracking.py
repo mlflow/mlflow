@@ -539,9 +539,7 @@ def test_log_dict(subdir, extension):
             assert loaded == dictionary
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("matplotlib") is None, reason="matplotlib is not installed"
-)
+@pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_matplotlib(subdir):
     import matplotlib.pyplot as plt
@@ -562,7 +560,7 @@ def test_log_figure_matplotlib(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
-@pytest.mark.skipif(importlib.util.find_spec("plotly") is None, reason="plotly is not installed")
+@pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_figure_plotly(subdir):
     from plotly import graph_objects as go
@@ -581,6 +579,7 @@ def test_log_figure_plotly(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
+@pytest.mark.large
 def test_log_figure_raises_error_for_unsupported_figure_object_type():
     with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported figure object type"):
         mlflow.log_figure("not_figure", "figure.png")
