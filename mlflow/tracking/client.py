@@ -1054,12 +1054,12 @@ class MlflowClient(object):
             client.log_figure(run.info.run_id, fig, "figure.html")
         """
 
-        def is_matplotlib_figure(fig):
+        def _is_matplotlib_figure(fig):
             import matplotlib
 
             return isinstance(fig, matplotlib.figure.Figure)
 
-        def is_plotly_figure(fig):
+        def _is_plotly_figure(fig):
             import plotly
 
             return isinstance(fig, plotly.graph_objects.Figure)
@@ -1068,9 +1068,9 @@ class MlflowClient(object):
             # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
             # This allows logging a `plotly` figure in an environment where `matplotlib` is not
             # installed.
-            if "matplotlib" in sys.modules and is_matplotlib_figure(figure):
+            if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
                 figure.savefig(tmp_path)
-            elif "plotly" in sys.modules and is_plotly_figure(figure):
+            elif "plotly" in sys.modules and _is_plotly_figure(figure):
                 figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
