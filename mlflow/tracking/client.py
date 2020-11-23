@@ -1127,24 +1127,8 @@ class MlflowClient(object):
 
             return isinstance(image, np.ndarray)
 
-        def _to_rgba(img):
-            # grayscale (2D)
-            if image.ndim == 2:
-                alpha = np.ones_like(img, dtype=np.uint8) * 255
-                return np.stack((img, img, img, alpha), axis=-1)
-
-            # grayscale (3D)
-            elif image.ndim == 3 and image.shape[2] == 1:
-                alpha = np.ones_like(img, dtype=np.uint8) * 255
-                return np.concatenate((img, img, img, alpha), axis=-1)
-
-            # RGB
-            elif img.shape[2] == 3:
-                alpha = np.ones_like(img[:, :, [0]], dtype=np.uint8) * 255
-                return np.concatenate((img, alpha), axis=-1)
-
-            # RGBA
-            return img
+        def _gray_to_rgb(img):
+            return np.stack((img if img.ndim == 2 else img[:, :, 0],) * 3, axis=-1)
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             if "PIL" in sys.modules and _is_pillow_image(image):
@@ -1180,7 +1164,11 @@ class MlflowClient(object):
                         )
                     )
 
-                Image.fromarray(_to_rgba(image)).save(tmp_path)
+                # Convert grayscale to RGB
+                if (image.ndim == 2) or (image.ndim == 3 and image.shape[2] == 1):
+                    image = _gray_to_rgb(image)
+
+                Image.fromarray(image).save(tmp_path)
 
             else:
                 raise TypeError("Unsupported image object type: '{}'".format(type(image)))
