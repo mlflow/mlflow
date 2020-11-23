@@ -665,6 +665,44 @@ def log_figure(figure, artifact_file):
     MlflowClient().log_figure(run_id, figure, artifact_file)
 
 
+def log_image(image, artifact_file):
+    """
+    Log an image as an artifact. The following image objects are supported:
+
+    - `numpy.ndarray`_
+    - `PIL.Image.Image`_
+
+    :param run_id: String ID of the run.
+    :param image: Image to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the figure is saved (e.g. "dir/image.png").
+
+    .. code-block:: python
+        :caption: Numpy Example
+
+        import mlflow
+        import numpy as np
+
+        image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+        with mlflow.start_run():
+            mlflow.log_image(image, "image.png")
+
+    .. code-block:: python
+        :caption: Pillow Example
+
+        import mlflow
+        from PIL import Image
+
+        image = Image.new("RGB", (100, 100))
+
+        with mlflow.start_run():
+            mlflow.log_image(image, "image.png")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_image(run_id, image, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)

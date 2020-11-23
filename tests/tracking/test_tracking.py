@@ -590,6 +590,89 @@ def test_log_figure_raises_error_for_unsupported_figure_object_type():
         mlflow.log_figure("not_figure", "figure.png")
 
 
+@pytest.mark.large
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+def test_log_image_numpy(subdir):
+    import numpy as np
+
+    filename = "image.png"
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
+def test_log_image_pillow(subdir):
+    from PIL import Image
+
+    filename = "image.png"
+    artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
+
+    image = Image.new("RGB", (100, 100))
+
+    with mlflow.start_run():
+        mlflow.log_image(image, artifact_file)
+
+        artifact_path = None if subdir is None else posixpath.normpath(subdir)
+        artifact_uri = mlflow.get_artifact_uri(artifact_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+
+@pytest.mark.large
+@pytest.mark.parametrize(
+    "size",
+    [
+        (100, 100),  # Grayscale (2D)
+        (100, 100, 1),  # Grayscale (3D)
+        (100, 100, 3),  # RGB
+        (100, 100, 4),  # RGBA
+    ],
+)
+def test_log_image_numpy_with_various_array_shapes(size):
+    import numpy as np
+
+    filename = "image.png"
+    image = np.random.randint(0, 256, size=size, dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, filename)
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+
+@pytest.mark.large
+def test_log_image_numpy_raises_exception_for_invalid_array_shape():
+    import numpy as np
+
+    with mlflow.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
+        mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
+
+
+@pytest.mark.large
+def test_log_image_numpy_raises_exception_for_invalid_channel_length():
+    import numpy as np
+
+    with mlflow.start_run(), pytest.raises(ValueError, match="Invalid channel length"):
+        mlflow.log_image(np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
+
+
+@pytest.mark.large
+def test_log_image_raises_exception_for_unsupported_image_object_type():
+    with mlflow.start_run(), pytest.raises(TypeError, match="Unsupported image object type"):
+        mlflow.log_image("not_image", "image.png")
+
+
 def test_with_startrun():
     run_id = None
     t0 = int(time.time() * 1000)

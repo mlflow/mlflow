@@ -1075,6 +1075,116 @@ class MlflowClient(object):
             else:
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
+    @experimental
+    def log_image(self, run_id, image, artifact_file):
+        """
+        Log an image as an artifact. The following image objects are supported:
+
+        - `numpy.ndarray`_
+        - `PIL.Image.Image`_
+
+        .. _numpy.ndarray:
+            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+        .. _PIL.Image.Image:
+            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        :param run_id: String ID of the run.
+        :param image: Image to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the figure is saved (e.g. "dir/image.png").
+
+        .. code-block:: python
+            :caption: Numpy Example
+
+            import mlflow
+            import numpy as np
+
+            image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+
+        .. code-block:: python
+            :caption: Pillow Example
+
+            import mlflow
+            from PIL import Image
+
+            image = Image.new("RGB", (100, 100))
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+        """
+
+        def _is_pillow_image(image):
+            from PIL.Image import Image
+
+            return isinstance(image, Image)
+
+        def _is_numpy_array(image):
+            import numpy as np
+
+            return isinstance(image, np.ndarray)
+
+        def _to_rgba(img):
+            # grayscale (2D)
+            if image.ndim == 2:
+                alpha = np.ones_like(img, dtype=np.uint8) * 255
+                return np.stack((img, img, img, alpha), axis=-1)
+
+            # grayscale (3D)
+            elif image.ndim == 3 and image.shape[2] == 1:
+                alpha = np.ones_like(img, dtype=np.uint8) * 255
+                return np.concatenate((img, img, img, alpha), axis=-1)
+
+            # RGB
+            elif img.shape[2] == 3:
+                alpha = np.ones_like(img[:, :, [0]], dtype=np.uint8) * 255
+                return np.concatenate((img, alpha), axis=-1)
+
+            # RGBA
+            return img
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            if "PIL" in sys.modules and _is_pillow_image(image):
+                image.save(tmp_path)
+            elif "numpy" in sys.modules and _is_numpy_array(image):
+                import numpy as np
+
+                high = 255 if np.issubdtype(image.dtype, np.integer) else 1.0
+                image = np.clip(image, 0, high)
+
+                if image.dtype.kind == "f":
+                    image *= 255
+
+                image = image.astype(np.uint8)
+
+                try:
+                    from PIL import Image
+                except ImportError as exc:
+                    raise ImportError(
+                        "`log_image` requires Pillow to serialize the array as an image."
+                        "Please install it via: pip install Pillow"
+                    ) from exc
+
+                if image.ndim not in [2, 3]:
+                    raise ValueError(
+                        "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
+                    )
+
+                if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
+                    raise ValueError(
+                        "Invalid channel length: {}. Must be one of [1, 3, 4]".format(
+                            image.shape[2]
+                        )
+                    )
+
+                Image.fromarray(_to_rgba(image)).save(tmp_path)
+
+            else:
+                raise TypeError("Unsupported image object type: '{}'".format(type(image)))
+
     def _record_logged_model(self, run_id, mlflow_model):
         """
         Record logged model info with the tracking server.
