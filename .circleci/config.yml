@@ -1,41 +1,48 @@
+# Python CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-python/ for more details
+#
 version: 2.1
-
 jobs:
-  build_doc:
-    docker:
-      - image: circleci/python:3.6
+
+  build:
+    working_directory: ~/repo
+
+    machine:
+      image: default
+      docker_layer_caching: true
+      resource_class: small
 
     steps:
       - checkout
+
       - run:
-          name: Install Java
+          name: Install dependencies
           command: |
-            sudo apt-get update
-            sudo apt-get install default-jdk -y
-            sudo apt-get install maven -y
-            java -version
+            sudo apt-get update && sudo apt-get install git
+            pip install awscli
+            pip install wheel
+
       - run:
-          name: Install Python dependencies
-          environment:
-            INSTALL_SMALL_PYTHON_DEPS: true
-            INSTALL_LARGE_PYTHON_DEPS: true
+          name: build docker image
+
           command: |
-            pip install --progress-bar off . \
-              -r ./dev/small-requirements.txt \
-              -r ./dev/large-requirements.txt \
-              sphinx==2.2.1 sphinx-click==2.3.0
-      - run:
-          name: Build documentation
-          working_directory: docs
-          environment:
-            JAVA_HOME: /usr/lib/jvm/default-java
+            aws ecr get-login --no-include-email --region us-east-1
+            cd ~/repo
+            docker build . -t mlflow
+
+      - deploy:
+          name: push docker image
+
           command: |
-            make rsthtml
-            make javadocs
-      - store_artifacts:
-          path: docs/build/html
+            echo 'Pushing image to OPS ECR'
+            aws ecr get-login --no-include-email --region us-east-1 | bash
+            docker tag mlflow:latest "${ECR_ENDPOINT}/mlflow:${CIRCLE_SHA1}"
+            docker push "${ECR_ENDPOINT}/mlflow:${CIRCLE_SHA1}"
 
 workflows:
-  build:
+  version: 2
+  test_build:
     jobs:
-      - build_doc
+      - test: {}
+      - build: {}
