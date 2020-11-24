@@ -994,7 +994,7 @@ def autolog(every_n_iter=100, log_models=True):
                 early_stop_callback = _early_stop_check(tmp_list[5])
                 tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models)
                 args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
+            elif kwargs.get("callbacks"):
                 early_stop_callback = _early_stop_check(kwargs["callbacks"])
                 kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], log_models)
             else:
@@ -1028,7 +1028,7 @@ def autolog(every_n_iter=100, log_models=True):
                 tmp_list = list(args)
                 tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models)
                 args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
+            elif kwargs.get("callbacks"):
                 kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], log_models)
             else:
                 kwargs["callbacks"], log_dir = _setup_callbacks([], log_models)
@@ -1058,11 +1058,12 @@ def autolog(every_n_iter=100, log_models=True):
         (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", fit),
-        (tensorflow.keras.Model, "fit_generator", fit_generator),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
         (FileWriter, "add_summary", add_summary),
     ]
+    if LooseVersion(tensorflow.__version__) <= LooseVersion("2.0.0"):
+        patches.append((tensorflow.keras.Model, "fit_generator", fit_generator))
 
     for p in patches:
         wrap_patch(*p)
