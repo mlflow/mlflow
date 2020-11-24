@@ -11,7 +11,7 @@ jobs:
     machine:
       image: default
       docker_layer_caching: true
-      resource_class: small
+      resource_class: medium
 
     steps:
       - checkout
