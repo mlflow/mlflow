@@ -638,7 +638,7 @@ def test_log_image_pillow(subdir):
         (100, 100, 4),  # RGBA
     ],
 )
-def test_log_image_numpy_with_various_array_shapes(size):
+def test_log_image_numpy_shape(size):
     import numpy as np
 
     filename = "image.png"
@@ -649,6 +649,31 @@ def test_log_image_numpy_with_various_array_shapes(size):
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
+
+
+@pytest.mark.large
+@pytest.mark.parametrize(
+    "dtype", ["uint8", "int", "float", "bool"],
+)
+def test_log_image_numpy_dtype(dtype):
+    import numpy as np
+
+    filename = "image.png"
+    image = np.random.randint(0, 2, size=(100, 100, 3)).astype(np.dtype(dtype))
+
+    with mlflow.start_run():
+        mlflow.log_image(image, filename)
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        assert os.listdir(run_artifact_dir) == [filename]
+
+
+@pytest.mark.large
+def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
+    import numpy as np
+
+    with mlflow.start_run(), pytest.raises(TypeError, match="Invalid array data type"):
+        mlflow.log_image(np.tile("a", (1, 1, 3)), "image.png")
 
 
 @pytest.mark.large

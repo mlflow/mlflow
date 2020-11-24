@@ -1127,22 +1127,27 @@ class MlflowClient(object):
 
             return isinstance(image, np.ndarray)
 
-        def _gray_to_rgb(img):
-            return np.stack((img if img.ndim == 2 else img[:, :, 0],) * 3, axis=-1)
+        def _normalize_to_uint8(x):
+            is_int = np.issubdtype(x.dtype, np.integer)
+            low = 0
+            high = 255 if is_int else 1
+            if x.min() < low or x.max() > high:
+                _logger.warning(
+                    "Clipping array (dtype: '{}') to [{}..{}]".format(x.dtype, low, high)
+                )
+                x = np.clip(x, low, high)
+
+            # float or bool
+            if not is_int:
+                x = x * 255
+
+            return x.astype(np.uint8)
 
         with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
             if "PIL" in sys.modules and _is_pillow_image(image):
                 image.save(tmp_path)
             elif "numpy" in sys.modules and _is_numpy_array(image):
                 import numpy as np
-
-                high = 255 if np.issubdtype(image.dtype, np.integer) else 1.0
-                image = np.clip(image, 0, high)
-
-                if image.dtype.kind == "f":
-                    image *= 255
-
-                image = image.astype(np.uint8)
 
                 try:
                     from PIL import Image
@@ -1152,11 +1157,29 @@ class MlflowClient(object):
                         "Please install it via: pip install Pillow"
                     ) from exc
 
+                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
+                valid_data_types = {
+                    "b": "bool",
+                    "i": "signed integer",
+                    "u": "unsigned integer",
+                    "f": "floating",
+                }
+
+                # validate data type
+                if image.dtype.kind not in valid_data_types.keys():
+                    raise TypeError(
+                        "Invalid array data type: '{}'. Must be one of {}".format(
+                            image.dtype, list(valid_data_types.values())
+                        )
+                    )
+
+                # validate dimension
                 if image.ndim not in [2, 3]:
                     raise ValueError(
                         "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
                     )
 
+                # validate channel length
                 if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
                     raise ValueError(
                         "Invalid channel length: {}. Must be one of [1, 3, 4]".format(
@@ -1164,9 +1187,11 @@ class MlflowClient(object):
                         )
                     )
 
-                # Convert grayscale to RGB
-                if (image.ndim == 2) or (image.ndim == 3 and image.shape[2] == 1):
-                    image = _gray_to_rgb(image)
+                # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.
+                if image.ndim == 3 and image.shape[2] == 1:
+                    image = image[:, :, 0]
+
+                image = _normalize_to_uint8(image)
 
                 Image.fromarray(image).save(tmp_path)
 
