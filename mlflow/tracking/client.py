@@ -1167,7 +1167,6 @@ class MlflowClient(object):
                     "f": "floating",
                 }
 
-                # validate data type
                 if image.dtype.kind not in valid_data_types.keys():
                     raise TypeError(
                         "Invalid array data type: '{}'. Must be one of {}".format(
@@ -1175,13 +1174,11 @@ class MlflowClient(object):
                         )
                     )
 
-                # validate dimension
                 if image.ndim not in [2, 3]:
                     raise ValueError(
                         "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
                     )
 
-                # validate channel length
                 if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
                     raise ValueError(
                         "Invalid channel length: {}. Must be one of [1, 3, 4]".format(
