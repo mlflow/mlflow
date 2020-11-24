@@ -1119,7 +1119,6 @@ def autolog(
     .. code-block:: python
         :caption: Example
 
-        from pprint import pprint
         import numpy as np
         import mlflow.sklearn
         from mlflow.tracking import MlflowClient
@@ -1130,12 +1129,9 @@ def autolog(
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
             print("run_id: {}".format(r.info.run_id))
             print("artifacts: {}".format(artifacts))
-            print("params: ", end='')
-            pprint(r.data.params, indent=2)
-            print("metrics: ", end='')
-            pprint(r.data.metrics, indent=2)
-            print("tags: ", end='')
-            pprint(tags, indent=2)
+            print("params: {}".format(r.data.params))
+            print("metrics: {}".format(r.data.metrics))
+            print("tags: {}".format(tags))
 
         # prepare training data
         X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
@@ -1153,19 +1149,19 @@ def autolog(
     .. code-block:: text
         :caption: Output
 
-        run_id: a0a6e835971545b19f221a7ac01de065
+        run_id: fd10a17d028c47399a55ab8741721ef7
         artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
-        params: { 'copy_X': 'True',
-          'fit_intercept': 'True',
-          'n_jobs': 'None',
-          'normalize': 'False'}
-        metrics: { 'training_mae': 2.220446049250313e-16,
-          'training_mse': 1.9721522630525295e-31,
-          'training_r2_score': 1.0,
-          'training_rmse': 4.440892098500626e-16,
-          'training_score': 1.0}
-        tags: { 'estimator_class': 'sklearn.linear_model._base.LinearRegression',
-          'estimator_name': 'LinearRegression'}
+        params: {'copy_X': 'True',
+                 'normalize': 'False',
+                 'fit_intercept': 'True',
+                 'n_jobs': 'None'}
+        metrics: {'training_score': 1.0,
+                  'training_rmse': 4.440892098500626e-16,
+                  'training_r2_score': 1.0,
+                  'training_mae': 2.220446049250313e-16,
+                  'training_mse': 1.9721522630525295e-31}
+        tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+               'estimator_name': 'LinearRegression'}
     """
     locals_copy = locals().items()
 
