@@ -7,7 +7,15 @@ import numpy as np
 import mlflow
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
+from mlflow.models import Model
 
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.utils.annotations import experimental
+from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.model_utils import _get_flavor_configuration
+
+FLAVOR_NAME = "shap"
 
 _MAXIMUM_BACKGROUND_DATA_SIZE = 100
 _DEFAULT_ARTIFACT_PATH = "model_explanations_shap"
@@ -15,6 +23,12 @@ _SUMMARY_BAR_PLOT_FILE_NAME = "summary_bar_plot.png"
 _BASE_VALUES_FILE_NAME = "base_values.npy"
 _SHAP_VALUES_FILE_NAME = "shap_values.npy"
 
+
+def _load_pyfunc(path):
+    """
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+    """
+    return path
 
 @contextmanager
 def _log_artifact_contextmanager(out_file, artifact_path=None):
@@ -179,3 +193,133 @@ def log_explanation(predict_function, features, artifact_path=None):
     plt.close(fig)
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
+
+
+
+@experimental
+def log_model(
+    shap_explainer,
+    artifact_path,
+    conda_env=None,
+    registered_model_name=None,
+    # signature: ModelSignature = None,
+    # input_example: ModelInputExample = None,
+    # await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+):
+    """
+    Log an ONNX model as an MLflow artifact for the current run.
+
+    :param onnx_model: ONNX model to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
+                      Conda environment yaml file. If provided, this decsribes the environment
+                      this model should be run in. At minimum, it should specify the dependencies
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
+                      The following is an *example* dictionary representation of a Conda
+                      environment::
+
+                        {
+                            'name': 'mlflow-env',
+                            'channels': ['defaults'],
+                            'dependencies': [
+                                'python=3.6.0',
+                                'onnx=1.4.1',
+                                'onnxruntime=0.3.0'
+                            ]
+                        }
+    :param registered_model_name: (Experimental) If given, create a model version under
+                                  ``registered_model_name``, also creating a registered model if one
+                                  with the given name does not exist.
+
+    :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
+                      from datasets with valid model input (e.g. the training dataset with target
+                      column omitted) and valid model output (e.g. model predictions generated on
+                      the training dataset), for example:
+
+                      .. code-block:: python
+
+                        from mlflow.models.signature import infer_signature
+                        train = df.drop_column("target_label")
+                        predictions = ... # compute model predictions
+                        signature = infer_signature(train, predictions)
+    :param input_example: (Experimental) Input example provides one or several instances of valid
+                          model input. The example can be used as a hint of what data to feed the
+                          model. The given example will be converted to a Pandas DataFrame and then
+                          serialized to json using the Pandas split-oriented format. Bytes are
+                          base64-encoded.
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
+
+    """
+    Model.log(
+        artifact_path=artifact_path,
+        flavor=mlflow.shap,
+        shap_explainer=shap_explainer,
+        conda_env=conda_env,
+        registered_model_name=registered_model_name,
+        # signature=signature,
+        # input_example=input_example,
+        # await_registration_for=await_registration_for,
+    )
+
+
+@experimental
+def save_model(
+    shap_explainer,
+    path,
+    conda_env=None,
+    mlflow_model=None,
+    # signature: ModelSignature = None,
+    # input_example: ModelInputExample = None,
+):
+    """
+    """
+    import os
+
+    if not os.path.exists(path):
+        os.mkdir(path)
+        with open(os.path.join(path,"temp"), "w") as stream:
+            stream.write("i am here")
+
+
+    mlflow_model.add_flavor(
+        FLAVOR_NAME,
+        pickled_model=model_data_subpath,
+        sklearn_version=sklearn.__version__,
+        serialization_format=serialization_format,
+    )
+
+    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+    print("Called save_model")
+
+
+@experimental
+def load_model(model_uri):
+    """
+    Load an ONNX model from a local file or a run.
+
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``models:/<model_name>/<model_version>``
+                      - ``models:/<model_name>/<stage>``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/
+                      tracking.html#artifact-stores>`_.
+
+    :return: An ONNX model instance.
+
+    """
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
+    return _load_model(model_file=onnx_model_artifacts_path)
