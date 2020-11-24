@@ -28,10 +28,10 @@ webApps:
         - analytics
     resources: # Optional: You can remove this parent if you are not using it. See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu
       limits:   # Limits describes the maximum amount of compute resources allowed.
-        cpu: 1
-        ephemeralStorage: 8Gi
-        memory: 2Gi
+        cpu: "1"
+        ephemeralStorage: "8Gi"
+        memory: "2Gi"
       requests: # Requests describes the minimum amount of compute resources required.
-        cpu: 1
-        ephemeralStorage: 8Gi
-        memory: 2Gi
+        cpu: "1"
+        ephemeralStorage: "8Gi"
+        memory: "2Gi"
