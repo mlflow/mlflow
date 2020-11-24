@@ -18,7 +18,8 @@ webApps:
     command: '/opt/mlflow/start.sh'
     healthcheckPath: /health
     env:
-      default: {}
+      default:
+        DUMMY: 'dummy'
       uat:
         JOBSERVER_RDB_URL: postgresql://cortex:cortex_history@cortex-jobserver-history.uat.grandrounds.com:5432/postgres
       production:
