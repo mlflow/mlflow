@@ -1,8 +1,6 @@
 app: mlflow
 team: datascience
 
-env:
-  default: # global default variables
 
 webApps:
   - name: mlflow
@@ -18,12 +16,10 @@ webApps:
     command: '/opt/mlflow/start.sh'
     healthcheckPath: /health
     env:
-      default:
-        DUMMY: 'dummy'
       uat:
-        JOBSERVER_RDB_URL: postgresql://cortex:cortex_history@cortex-jobserver-history.uat.grandrounds.com:5432/postgres
+        JOBSERVER_RDB_URL: "postgresql://cortex:cortex_history@cortex-jobserver-history.uat.grandrounds.com:5432/postgres"
       production:
-        JOBSERVER_RDB_URL: postgresql://cortex:cortex_history@cortex-jobserver-history.grandrounds.com:5432/postgres
+        JOBSERVER_RDB_URL: "postgresql://cortex:cortex_history@cortex-jobserver-history.grandrounds.com:5432/postgres"
     securityGroups:
       default:
         - hq
