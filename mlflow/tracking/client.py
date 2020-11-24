@@ -1769,13 +1769,13 @@ class MlflowClient(object):
             # Create two runs Log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -1942,8 +1942,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
-
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
@@ -2055,7 +2054,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2125,7 +2124,7 @@ class MlflowClient(object):
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
             desc = "A new version of the model using ensemble trees"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2189,13 +2188,13 @@ class MlflowClient(object):
             # Create two runs and log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -2258,13 +2257,13 @@ class MlflowClient(object):
             # Create two runs Log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -2313,7 +2312,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2395,7 +2394,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2445,7 +2444,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2503,7 +2502,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
