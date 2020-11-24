@@ -1,0 +1,37 @@
+app: mlflow
+team: datascience
+
+env:
+  default: # global default variables
+
+webApps:
+  - name: mlflow
+    iamRole: cortex-basic
+    accessPolicy: external                       # external or internal
+    subdomain: mlflow
+    routes:                                      # "/" for everything.
+      - /
+    replicas: 1
+    protocol: http
+    port: 5000
+    image: 311088406905.dkr.ecr.us-east-1.amazonaws.com/mlflow
+    command: '/opt/mlflow/start.sh'
+    healthcheckPath: /health
+    env:
+      uat:
+        JOBSERVER_RDB_URL: postgresql://cortex:cortex_history@cortex-jobserver-history.uat.grandrounds.com:5432/postgres
+      production:
+        JOBSERVER_RDB_URL: postgresql://cortex:cortex_history@cortex-jobserver-history.grandrounds.com:5432/postgres
+    securityGroups:
+      default:
+        - hq
+        - analytics
+    resources: # Optional: You can remove this parent if you are not using it. See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#meaning-of-cpu
+      limits:   # Limits describes the maximum amount of compute resources allowed.
+        cpu: 1
+        ephemeralStorage: 8Gi
+        memory: 2Gi
+      requests: # Requests describes the minimum amount of compute resources required.
+        cpu: 1
+        ephemeralStorage: 8Gi
+        memory: 2Gi
