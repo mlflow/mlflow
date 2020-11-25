@@ -41,23 +41,21 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     # signature & create a mapping from positional argument name to specified value
     params_to_log = {
         param_info.name: param_val
-        for param_info, param_val in zip(list(param_spec.values())[len(args):], args)
+        for param_info, param_val in zip(list(param_spec.values())[len(args) :], args)
     }
     # Add all user-specified keyword arguments to the set of parameters to log
     params_to_log.update(kwargs)
     # Add parameters that were not explicitly specified by the caller to the mapping,
     # using their default values
-    params_to_log.update({
-        param.name: param.default
-        for param in list(param_spec.values())[len(args):]
-        if param.name not in kwargs
-    })
+    params_to_log.update(
+        {
+            param.name: param.default
+            for param in list(param_spec.values())[len(args) :]
+            if param.name not in kwargs
+        }
+    )
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
-    params_to_log = {
-        key: value
-        for key, value in params_to_log.items()
-        if key not in unlogged
-    }
+    params_to_log = {key: value for key, value in params_to_log.items() if key not in unlogged}
     try_mlflow_log(mlflow.log_params, params_to_log)
 
 
