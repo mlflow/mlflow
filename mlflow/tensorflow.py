@@ -652,7 +652,7 @@ def _setup_callbacks(lst, log_models):
         """
 
         def __init__(self, log_models):
-            super(__MLflowTfKerasCallback, self).__init__()
+            super().__init__()
             self.log_models = log_models
 
         def __enter__(self):
@@ -720,7 +720,7 @@ def _setup_callbacks(lst, log_models):
         """
 
         def __init__(self, log_models):
-            super(__MLflowTfKeras2Callback, self).__init__()
+            super().__init__()
             self.log_models = log_models
 
         def __enter__(self):
