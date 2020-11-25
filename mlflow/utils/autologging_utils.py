@@ -45,7 +45,7 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     # signature & create a mapping from positional argument name to specified value
     params_to_log = {
         param_info.name: param_val
-        for param_info, param_val in zip(list(relevant_params)[:len(args)], args)
+        for param_info, param_val in zip(list(relevant_params)[: len(args)], args)
     }
     # Add all user-specified keyword arguments to the set of parameters to log
     params_to_log.update(kwargs)

@@ -190,7 +190,9 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_names_positional_parameters_correctly(random_train_data, random_one_hot_labels):
+def test_tf_keras_autolog_names_positional_parameters_correctly(
+    random_train_data, random_one_hot_labels
+):
     mlflow.tensorflow.autolog(every_n_iter=5)
 
     data = random_train_data
