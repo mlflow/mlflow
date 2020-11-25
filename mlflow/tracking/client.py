@@ -1148,7 +1148,7 @@ class MlflowClient(object):
             return isinstance(image, np.ndarray)
 
         def _normalize_to_uint8(x):
-            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684
+            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684  # noqa
 
             is_int = np.issubdtype(x.dtype, np.integer)
             low = 0
@@ -1179,7 +1179,7 @@ class MlflowClient(object):
                         "Please install it via: pip install Pillow"
                     ) from exc
 
-                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind
+                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind  # noqa
                 valid_data_types = {
                     "b": "bool",
                     "i": "signed integer",
