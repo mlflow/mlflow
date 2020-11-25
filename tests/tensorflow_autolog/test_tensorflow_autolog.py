@@ -60,12 +60,11 @@ def create_tf_keras_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit_generator", "fit"])
-# @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_ends_auto_created_run(
     random_train_data, random_one_hot_labels, fit_variant
 ):
-    # pylint: disable=uNused-argument
+    # pylint: disable=unused-argument
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -76,6 +75,28 @@ def test_tf_keras_autolog_ends_auto_created_run(
     model.fit(data, labels, epochs=10)
 
     assert mlflow.active_run() is None
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_tf_keras_autolog_log_models_configuration(
+    random_train_data, random_one_hot_labels, log_models
+):
+    # pylint: disable=unused-argument
+    mlflow.tensorflow.autolog(log_models=log_models)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    model.fit(data, labels, epochs=10)
+
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    artifacts = client.list_artifacts(run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert ("model" in artifacts) == log_models
 
 
 @pytest.mark.large
