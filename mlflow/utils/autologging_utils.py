@@ -30,15 +30,18 @@ def try_mlflow_log(fn, *args, **kwargs):
 def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
     """
     Log parameters explicitly passed to a function.
+
     :param fn: function whose parameters are to be logged
-    :param args: arguments explicitly passed into fn
+    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
+                 `self` should not be part of `args`; the caller is responsible for
+                 filtering out `self` before calling this function.
     :param kwargs: kwargs explicitly passed into fn
     :param unlogged: parameters not to be logged
     :return: None
     """
     param_spec = inspect.signature(fn).parameters
-    # Filter out `self` from the signature under the assumption that it is not specified
-    # as an explicit parameter in the call to `fn`
+    # Filter out `self` from the signature under the assumption that it is not contained
+    # within the specified `args`, as stipulated by the documentation
     relevant_params = [param for param in param_spec.values() if param.name != "self"]
 
     # Fetch the parameter names for specified positional arguments from the function

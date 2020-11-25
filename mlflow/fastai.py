@@ -395,7 +395,7 @@ def autolog(log_models=True):
         else:
             auto_end_run = False
 
-        log_fn_args_as_params(original, [self] + list(args), kwargs, unlogged_params)
+        log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
 
         callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
 
