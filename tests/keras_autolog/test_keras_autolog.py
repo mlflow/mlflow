@@ -235,10 +235,11 @@ def keras_random_data_run_with_callback(
         )
     else:
         history = model.fit(
-            data, labels,
+            data,
+            labels,
             epochs=initial_epoch + 10,
             callbacks=[callback],
-            initial_epoch=initial_epoch
+            initial_epoch=initial_epoch,
         )
 
     client = mlflow.tracking.MlflowClient()
