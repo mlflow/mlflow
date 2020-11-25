@@ -186,18 +186,18 @@ def keras_random_data_run_with_callback(
     model = create_model()
     if callback == "early":
         # min_delta is set as such to guarantee early stopping
-        callback = keras.callbacks.callbacks.EarlyStopping(
+        callback = keras.callbacks.EarlyStopping(
             monitor="loss",
             patience=patience,
             min_delta=99999999,
             restore_best_weights=restore_weights,
         )
     else:
-        if fit_variant == "fit_generator":
-            count_mode = "steps"
-        else:
-            count_mode = "samples"
-        callback = keras.callbacks.callbacks.ProgbarLogger(count_mode=count_mode)
+        class CustomCallback(keras.callbacks.Callback):
+            def on_train_end(self, logs=None):
+                print("Training completed")
+
+        callback = CustomCallback()
 
     if fit_variant == "fit_generator":
 
