@@ -6,12 +6,13 @@ ADD . /app
 
 RUN apt-get update && \
     # install prequired modules to support install of mlflow and related components
-    apt-get install -y default-libmysqlclient-dev build-essential curl \
+    apt-get install -y default-libmysqlclient-dev build-essential curl postgresql-server-dev-all \
     # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler &&  \
     # install required python packages
     pip install -r dev-requirements.txt --no-cache-dir && \
     pip install -r test-requirements.txt --no-cache-dir && \
+    pip install psycopg2 && \
     # install mlflow in editable form
     pip install --no-cache-dir -e . && \
     # mkdir required to support install openjdk-11-jre-headless
@@ -22,3 +23,5 @@ RUN apt-get update && \
     cd mlflow/server/js && \
     npm install && \
     npm run build
+
+COPY script/start.sh /opt/mlflow/start.sh
