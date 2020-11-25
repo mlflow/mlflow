@@ -665,6 +665,7 @@ def log_figure(figure, artifact_file):
     MlflowClient().log_figure(run_id, figure, artifact_file)
 
 
+@experimental
 def log_image(image, artifact_file):
     """
     Log an image as an artifact. The following image objects are supported:
@@ -679,7 +680,7 @@ def log_image(image, artifact_file):
         https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
 
     Numpy array support
-        - data type (() represents a valid value range):
+        - data type (( ) represents a valid value range):
 
             - bool
             - integer (0 ~ 255)
