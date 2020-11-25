@@ -1016,6 +1016,12 @@ def autolog(every_n_iter=100, log_models=True):
             return history
 
     def fit_generator(self, *args, **kwargs):
+        """
+        NOTE: `fit_generator()` is deprecated in TF > 2.0.0 and simply wraps `fit()`.
+        To avoid unintentional creation of nested MLflow runs caused by a patched
+        `fit_generator()` method calling a patched `fit()` method, we only patch
+        `fit_generator()` in TF <= 2.0.0.
+        """
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
 
@@ -1063,6 +1069,10 @@ def autolog(every_n_iter=100, log_models=True):
         (FileWriter, "add_summary", add_summary),
     ]
     if LooseVersion(tensorflow.__version__) <= LooseVersion("2.0.0"):
+        # `fit_generator()` is deprecated in TF > 2.0.0 and simply wraps `fit()`.
+        # To avoid unintentional creation of nested MLflow runs caused by a patched
+        # `fit_generator()` method calling a patched `fit()` method, we only patch
+        # `fit_generator()` in TF <= 2.0.0
         patches.append((tensorflow.keras.Model, "fit_generator", fit_generator))
 
     for p in patches:

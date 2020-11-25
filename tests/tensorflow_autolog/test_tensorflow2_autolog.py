@@ -221,7 +221,11 @@ def tf_keras_random_data_run_with_callback(
             restore_best_weights=restore_weights,
         )
     else:
-        callback = tf.keras.callbacks.ProgbarLogger(count_mode="samples")
+        class CustomCallback(tf.keras.callbacks.Callback):
+            def on_train_end(self, logs):
+                print("Training completed") 
+
+        callback = CustomCallback() 
 
     history = model.fit(data, labels, epochs=10, callbacks=[callback])
 
