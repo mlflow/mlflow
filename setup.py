@@ -33,7 +33,7 @@ setup(
     install_requires=[
         "alembic<=1.4.1",
         # Required
-        "azure-storage-blob",
+        "azure-storage-blob>=12.0.0",
         "click>=7.0",
         "cloudpickle",
         "databricks-cli>=0.8.7",
