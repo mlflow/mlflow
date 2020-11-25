@@ -37,11 +37,15 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     :return: None
     """
     param_spec = inspect.signature(fn).parameters
+    # Filter out `self` from the signature under the assumption that it is not specified
+    # as an explicit parameter in the call to `fn`
+    relevant_params = [param for param in param_spec.values() if param.name != "self"]
+
     # Fetch the parameter names for specified positional arguments from the function
     # signature & create a mapping from positional argument name to specified value
     params_to_log = {
         param_info.name: param_val
-        for param_info, param_val in zip(list(param_spec.values())[:len(args)], args)
+        for param_info, param_val in zip(list(relevant_params)[:len(args)], args)
     }
     # Add all user-specified keyword arguments to the set of parameters to log
     params_to_log.update(kwargs)
@@ -50,7 +54,7 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     params_to_log.update(
         {
             param.name: param.default
-            for param in list(param_spec.values())[len(args) :]
+            for param in list(relevant_params)[len(args) :]
             if param.name not in kwargs
         }
     )

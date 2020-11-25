@@ -190,6 +190,25 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
+def test_tf_keras_autolog_names_positional_parameters_correctly(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(every_n_iter=5)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run():
+        # Pass `batch_size` as a positional argument for testing purposes
+        model.fit(data, labels, 8, epochs=10, steps_per_epoch=1)
+        run_id = mlflow.active_run().info.run_id
+
+    client = mlflow.tracking.MlflowClient()
+    run_info = client.get_run(run_id)
+    assert run_info.data.params.get("batch_size") == "8"
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     client = mlflow.tracking.MlflowClient()
