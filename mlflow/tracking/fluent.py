@@ -696,8 +696,8 @@ def log_image(image, artifact_file):
 
             - H x W (Grayscale)
             - H x W x 1 (Grayscale)
-            - H x W x 3 (RGB)
-            - H x W x 4 (RGBA)
+            - H x W x 3 (an RGB channel order is assumed)
+            - H x W x 4 (an RGBA channel order is assumed)
 
     :param run_id: String ID of the run.
     :param image: Image to log.
