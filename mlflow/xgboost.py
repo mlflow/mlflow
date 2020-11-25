@@ -284,11 +284,11 @@ class _XGBModelWrapper:
 
 @experimental
 def autolog(
-    importance_types=["weight"],
+    importance_types=None,
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
-):  # pylint: disable=W0102
+):
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
@@ -302,7 +302,7 @@ def autolog(
 
     Note that the `scikit-learn API`_ is not supported.
 
-    :param importance_types: importance types to log.
+    :param importance_types: Importance types to log. If unspecified, defaults to ``["weight"]``.
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with XGBoost model artifacts during training. If
                                ``False``, input examples are not logged.
