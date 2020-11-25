@@ -98,7 +98,9 @@ def test_keras_autolog_persists_manually_created_run(
 
 
 @pytest.fixture
-def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run, initial_epoch):
+def keras_random_data_run(
+    random_train_data, fit_variant, random_one_hot_labels, manual_run, initial_epoch
+):
     # pylint: disable=unused-argument
     mlflow.keras.autolog()
 
@@ -113,9 +115,13 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
             while True:
                 yield data, labels
 
-        model.fit_generator(generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch)
+        model.fit_generator(
+            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+        )
     else:
-        model.fit(data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch)
+        model.fit(
+            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+        )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -228,7 +234,12 @@ def keras_random_data_run_with_callback(
             initial_epoch=initial_epoch,
         )
     else:
-        history = model.fit(data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch)
+        history = model.fit(
+            data, labels,
+            epochs=initial_epoch + 10,
+            callbacks=[callback],
+            initial_epoch=initial_epoch
+        )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
