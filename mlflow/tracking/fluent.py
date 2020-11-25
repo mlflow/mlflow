@@ -672,10 +672,36 @@ def log_image(image, artifact_file):
     - `numpy.ndarray`_
     - `PIL.Image.Image`_
 
+    .. _numpy.ndarray:
+        https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+    .. _PIL.Image.Image:
+        https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+    Numpy array support
+        - data type (() represents a valid value range):
+
+            - bool
+            - integer (0 ~ 255)
+            - unsigned integer (0 ~ 255)
+            - float (0.0 ~ 1.0)
+
+            .. warning::
+
+                - Out-of-range integer values will be **clipped** to [0, 255].
+                - Out-of-range float values will be **clipped** to [0.0, 1.0].
+
+        - shape (H: height, W: width):
+
+            - H x W (Gray)
+            - H x W x 1 (Gray)
+            - H x W x 3 (RGB)
+            - H x W x 4 (RGBA)
+
     :param run_id: String ID of the run.
     :param image: Image to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          the figure is saved (e.g. "dir/image.png").
+                          the image is saved (e.g. "dir/image.png").
 
     .. code-block:: python
         :caption: Numpy Example

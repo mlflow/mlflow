@@ -1089,22 +1089,20 @@ class MlflowClient(object):
         .. _PIL.Image.Image:
             https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
 
-        Numpy array support:
-            - data type:
+        Numpy array support
+            - data type (( ) represents a valid value range):
 
-                - bool (True or False)
+                - bool
                 - integer (0 ~ 255)
                 - unsigned integer (0 ~ 255)
                 - float (0.0 ~ 1.0)
-
-                () represents a valid value range.
 
                 .. warning::
 
                     - Out-of-range integer values will be **clipped** to [0, 255].
                     - Out-of-range float values will be **clipped** to [0.0, 1.0].
 
-            - shape:
+            - shape (H: height, W: width):
 
                 - H x W (Gray)
                 - H x W x 1 (Gray)
@@ -1114,7 +1112,7 @@ class MlflowClient(object):
         :param run_id: String ID of the run.
         :param image: Image to log.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
-                              the figure is saved (e.g. "dir/image.png").
+                              the image is saved (e.g. "dir/image.png").
 
         .. code-block:: python
             :caption: Numpy Example
