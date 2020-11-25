@@ -405,7 +405,7 @@ def autolog(log_models=True):
             callbacks += list(args[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
             args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
+        elif kwargs.get("callbacks"):
             callbacks += list(kwargs["callbacks"])
             kwargs["callbacks"] += [__MLflowFastaiCallback(self)]
         else:
