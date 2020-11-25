@@ -694,8 +694,8 @@ def log_image(image, artifact_file):
 
         - shape (H: height, W: width):
 
-            - H x W (Gray)
-            - H x W x 1 (Gray)
+            - H x W (Grayscale)
+            - H x W x 1 (Grayscale)
             - H x W x 3 (RGB)
             - H x W x 4 (RGBA)
 
