@@ -669,6 +669,22 @@ def test_log_image_numpy_dtype(dtype):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize(
+    "array", [[[-1, 0]], [[0, 256]], [[-0.1, 0.0]], [[0.0, 1.1]]],
+)
+def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
+    import numpy as np
+
+    image = np.array(array).astype(type(array[0][0]))
+
+    with mlflow.start_run(), mock.patch("mlflow.tracking.client._logger.warning") as warn_mock:
+        mlflow.log_image(image, "image.png")
+        range_str = "[0, 255]" if isinstance(array[0][0], int) else "[0, 1]"
+        msg = "Clipping array (dtype: '{}') to {}".format(image.dtype, range_str)
+        assert any(msg in args[0] for args in warn_mock.call_args_list)
+
+
+@pytest.mark.large
 def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
     import numpy as np
 

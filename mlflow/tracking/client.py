@@ -1100,7 +1100,7 @@ class MlflowClient(object):
                 .. warning::
 
                     - Out-of-range integer values will be **clipped** to [0, 255].
-                    - Out-of-range float values will be **clipped** to [0.0, 1.0].
+                    - Out-of-range float values will be **clipped** to [0, 1].
 
             - shape (H: height, W: width):
 
@@ -1155,7 +1155,7 @@ class MlflowClient(object):
             high = 255 if is_int else 1
             if x.min() < low or x.max() > high:
                 _logger.warning(
-                    "Clipping array (dtype: '{}') to [{}..{}]".format(x.dtype, low, high)
+                    "Clipping array (dtype: '{}') to [{}, {}]".format(x.dtype, low, high)
                 )
                 x = np.clip(x, low, high)
 
