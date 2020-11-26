@@ -594,6 +594,7 @@ def test_log_figure_raises_error_for_unsupported_figure_object_type():
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_numpy(subdir):
     import numpy as np
+    from PIL import Image
 
     filename = "image.png"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
@@ -608,11 +609,16 @@ def test_log_image_numpy(subdir):
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
 
+        logged_path = os.path.join(run_artifact_dir, filename)
+        loaded_image = np.asarray(Image.open(logged_path), dtype=np.uint8)
+        np.testing.assert_array_equal(loaded_image, image)
+
 
 @pytest.mark.large
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_pillow(subdir):
     from PIL import Image
+    from PIL import ImageChops
 
     filename = "image.png"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
@@ -626,6 +632,11 @@ def test_log_image_pillow(subdir):
         artifact_uri = mlflow.get_artifact_uri(artifact_path)
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         assert os.listdir(run_artifact_dir) == [filename]
+
+        logged_path = os.path.join(run_artifact_dir, filename)
+        loaded_image = Image.open(logged_path)
+        # How to check pillow image equality: https://stackoverflow.com/a/6204954/6943581
+        assert ImageChops.difference(loaded_image, image).getbbox() is None
 
 
 @pytest.mark.large
