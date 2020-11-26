@@ -722,9 +722,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory_saved
 
 
 @pytest.mark.large
-def test_state_dict_key_set_to_false_for_full_model(
-    module_scoped_subclassed_model, model_path
-):
+def test_state_dict_key_set_to_false_for_full_model(module_scoped_subclassed_model, model_path):
 
     mlflow.pytorch.save_model(
         pytorch_model=module_scoped_subclassed_model, path=model_path, conda_env=None
