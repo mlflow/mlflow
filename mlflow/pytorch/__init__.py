@@ -176,51 +176,88 @@ def log_model(
     .. code-block:: python
         :caption: Example
 
+        import warnings
+        import os
+
+        import numpy as np
         import torch
-        import mlflow
         import mlflow.pytorch
-        # X data
-        x_data = torch.Tensor([[1.0], [2.0], [3.0]])
-        # Y data with its expected value: labels
-        y_data = torch.Tensor([[2.0], [4.0], [6.0]])
-        # Partial Model example modified from Sung Kim
-        # https://github.com/hunkim/PyTorchZeroToAll
-        class Model(torch.nn.Module):
+
+        class LinearNNModel(torch.nn.Module):
+
             def __init__(self):
-               super().__init__()
-               self.linear = torch.nn.Linear(1, 1)  # One in and one out
+                super(LinearNNModel, self).__init__()
+                self.linear = torch.nn.Linear(1, 1)  # One in and one out
+
             def forward(self, x):
                 y_pred = self.linear(x)
-            return y_pred
-        # our model
-        model = Model()
-        criterion = torch.nn.MSELoss(size_average=False)
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-        # Training loop
-        for epoch in range(500):
-            # Forward pass: Compute predicted y by passing x to the model
-            y_pred = model(x_data)
-            # Compute and print loss
-            loss = criterion(y_pred, y_data)
-            print(epoch, loss.data.item())
-            #Zero gradients, perform a backward pass, and update the weights.
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                return y_pred
 
-        # After training
-        for hv in [4.0, 5.0, 6.0]:
-            hour_var = torch.Tensor([[hv]])
-            y_pred = model(hour_var)
-            print("predict (after training)",  hv, model(hour_var).data[0][0])
-        # log the model
-        with mlflow.start_run() as run:
-            mlflow.log_param("epochs", 500)
-            mlflow.pytorch.log_model(model, "models")
+            def gen_data():
 
-            # logging scripted module
-            scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, "models")
+                # Example linear model modified to use y = 2x
+                # from https://github.com/hunkim/PyTorchZeroToAll
+                # X training data, y labels
+                X = torch.arange(1.0, 25.0).view(-1, 1)
+                y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
+                return X, y
+
+            # Define model, loss, and optimizer
+            model = LinearNNModel()
+            criterion = torch.nn.MSELoss()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
+            # Training loop
+            epochs = 250
+            X, y = gen_data()
+            for epoch in range(epochs):
+                # Forward pass: Compute predicted y by passing X to the model
+                y_pred = model(X)
+
+                # Compute the loss
+                loss = criterion(y_pred, y)
+
+                # Zero gradients, perform a backward pass, and update the weights.
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            if (epoch + 1) % 50 == 0:
+                print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+
+            # Log the model
+            with mlflow.start_run() as run:
+                mlflow.pytorch.log_model(model, "models_pth")
+
+                # log a scripted PyTorch model
+                scripted_pytorch_model = torch.jit.script(model)
+                mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_models_pth")
+
+            # fetch the logged model artifacts
+            print("--")
+            print("run_id: {}".format(run.info.run_id))
+            for artifact_path in ["models_pth/data", "scripted_models_pth/data"]:
+                artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id, artifact_path)]
+                print("artifacts: {}".format(artifacts))
+
+    .. code-block:: text
+        :caption: Output
+
+        Epoch: 50.0/250, loss: 0.0003
+        Epoch: 100.0/250, loss: 0.0003
+        Epoch: 150.0/250, loss: 0.0002
+        Epoch: 200.0/250, loss: 0.0002
+        Epoch: 250.0/250, loss: 0.0002
+        --
+        run_id: 2e403e30a09e48bd9df8401e38affd89
+        artifacts: ['models_pth/data/model.pth',
+                    'models_pth/data/pickle_module_info.txt']
+        artifacts: ['scripted_models_pth/data/model.pth',
+                    'scripted_models_pth/data/pickle_module_info.txt']
+
+    .. figure:: ../_static/images/pytorch_logged_models.png
+
+        PyTorch logged models
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
@@ -539,14 +576,80 @@ def load_model(model_uri, **kwargs):
     .. code-block:: python
         :caption: Example
 
+        import warnings
+        import os
+
+        import numpy as np
         import torch
-        import mlflow
         import mlflow.pytorch
-        # Set values
-        model_path_dir = ...
-        run_id = "96771d893a5e46159d9f3b49bf9013e2"
-        pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
-        y_pred = pytorch_model(x_new_data)
+
+        class LinearNNModel(torch.nn.Module):
+
+            def __init__(self):
+                super(LinearNNModel, self).__init__()
+                self.linear = torch.nn.Linear(1, 1)  # One in and one out
+
+            def forward(self, x):
+                y_pred = self.linear(x)
+                return y_pred
+
+            def gen_data():
+
+                # Example linear model modified to use y = 2x
+                # from https://github.com/hunkim/PyTorchZeroToAll
+                # X training data, y labels
+                X = torch.arange(1.0, 25.0).view(-1, 1)
+                y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
+                return X, y
+
+            # Define model, loss, and optimizer
+            model = LinearNNModel()
+            criterion = torch.nn.MSELoss()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
+            # Training loop
+            epochs = 250
+            X, y = gen_data()
+            for epoch in range(epochs):
+                # Forward pass: Compute predicted y by passing X to the model
+                y_pred = model(X)
+
+                # Compute the loss
+                loss = criterion(y_pred, y)
+
+                # Zero gradients, perform a backward pass, and update the weights.
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+
+            if (epoch + 1) % 50 == 0:
+                print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+
+            # Log the model
+            with mlflow.start_run() as run:
+                mlflow.pytorch.log_model(model, "models_pth")
+
+            # Inference after loading the logged model
+            print("--")
+            model_uri = "runs:/{}/models_pth".format(run.info.run_id)
+            loaded_model = mlflow.pytorch.load_model(model_uri)
+            for hv in [4.0, 6.0, 30.0]:
+                hour_var = torch.Tensor([[hv]])
+                y_pred = loaded_model(hour_var)
+                print("predict X:{}, y_pred: {:.2f}".format(hv, y_pred.data.item()))
+
+    .. code-block:: text
+        :caption: Output
+
+        Epoch: 50.0/250, loss: 0.0917
+        Epoch: 100.0/250, loss: 0.0875
+        Epoch: 150.0/250, loss: 0.0835
+        Epoch: 200.0/250, loss: 0.0797
+        Epoch: 250.0/250, loss: 0.0760
+        --
+        predict X:4.0, y_pred: 7.57
+        predict X:6.0, y_pred: 11.64
+        predict X:30.0, y_pred: 60.48
     """
     import torch
 
