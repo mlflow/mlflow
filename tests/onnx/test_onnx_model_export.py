@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import yaml
 
-import tensorflow.compat.v1 as tf
+import tensorflow.compat.v1 as tf  # pylint: disable=import-error
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import infer_signature, Model
