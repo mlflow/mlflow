@@ -161,7 +161,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
-    run, history = keras_random_data_run
+    run, _ = keras_random_data_run
     run_id = run.info.run_id
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
