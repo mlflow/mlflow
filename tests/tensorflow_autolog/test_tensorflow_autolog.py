@@ -136,16 +136,16 @@ def tf_keras_random_data_run(
             while True:
                 yield data, labels
 
-        model.fit_generator(
+        history = model.fit_generator(
             generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
         )
     else:
-        model.fit(
+        history = model.fit(
             data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
         )
 
     client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
