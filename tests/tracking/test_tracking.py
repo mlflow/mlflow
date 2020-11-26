@@ -691,7 +691,9 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
     with mlflow.start_run(), mock.patch("mlflow.tracking.client._logger.warning") as warn_mock:
         mlflow.log_image(image, "image.png")
         range_str = "[0, 255]" if isinstance(array[0][0], int) else "[0, 1]"
-        msg = "Clipping array (dtype: '{}') to {}".format(image.dtype, range_str)
+        msg = "Out-of-range values are detected. Clipping array (dtype: '{}') to {}".format(
+            image.dtype, range_str
+        )
         assert any(msg in args[0] for args in warn_mock.call_args_list)
 
 
