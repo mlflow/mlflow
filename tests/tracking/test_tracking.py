@@ -635,7 +635,7 @@ def test_log_image_pillow(subdir):
 
         logged_path = os.path.join(run_artifact_dir, filename)
         loaded_image = Image.open(logged_path)
-        # How to check pillow image equality: https://stackoverflow.com/a/6204954/6943581
+        # How to check Pillow image equality: https://stackoverflow.com/a/6204954/6943581
         assert ImageChops.difference(loaded_image, image).getbbox() is None
 
 
