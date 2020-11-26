@@ -3,7 +3,14 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+import contextlib
 import logging
+import json
+import os
+import posixpath
+import sys
+import tempfile
+import yaml
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -18,7 +25,6 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     is_databricks_default_tracking_uri,
     is_in_databricks_job,
@@ -28,6 +34,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -142,6 +149,62 @@ class MlflowClient(object):
         :param key: Metric name within the run
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            def print_metric_info(history):
+                for m in history:
+                    print("name: {}".format(m.key))
+                    print("value: {}".format(m.value))
+                    print("step: {}".format(m.step))
+                    print("timestamp: {}".format(m.timestamp))
+                    print("--")
+
+            # Create a run under the default experiment (whose id is "0"). Since this is low-level
+            # CRUD operation, the method will create a run. To end the run, you'll have
+            # to explicitly end it.
+            client = MlflowClient()
+            experiment_id = "0"
+            run = client.create_run(experiment_id)
+            print("run_id: {}".format(run.info.run_id))
+            print("--")
+
+            # Log couple of metrics, update their initial value, and fetch each
+            # logged metrics' history.
+            for k, v in [("m1", 1.5), ("m2", 2.5)]:
+                client.log_metric(run.info.run_id, k, v, step=0)
+                client.log_metric(run.info.run_id, k, v + 1, step=1)
+                print_metric_info(client.get_metric_history(run.info.run_id, k))
+            client.set_terminated(run.info.run_id)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: c360d15714994c388b504fe09ea3c234
+            --
+            name: m1
+            value: 1.5
+            step: 0
+            timestamp: 1603423788607
+            --
+            name: m1
+            value: 2.5
+            step: 1
+            timestamp: 1603423788608
+            --
+            name: m2
+            value: 2.5
+            step: 0
+            timestamp: 1603423788609
+            --
+            name: m2
+            value: 3.5
+            step: 1
+            timestamp: 1603423788610
+            --
         """
         return self._tracking_client.get_metric_history(run_id, key)
 
@@ -196,7 +259,52 @@ class MlflowClient(object):
         order_by=None,
         page_token=None,
     ):
-        """:return: List of :py:class:`mlflow.entities.RunInfo`"""
+        """:return: List of :py:class:`mlflow.entities.RunInfo`
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import ViewType
+
+            def print_run_infos(run_infos):
+                for r in run_infos:
+                    print("- run_id: {}, lifecycle_stage: {}".format(r.run_id, r.lifecycle_stage))
+
+            # Create two runs
+            with mlflow.start_run() as run1:
+                mlflow.log_metric("click_rate", 1.55)
+
+            with mlflow.start_run() as run2:
+                mlflow.log_metric("click_rate", 2.50)
+
+            # Delete the last run
+            client = MlflowClient()
+            client.delete_run(run2.info.run_id)
+
+            # Get all runs under the default experiment (whose id is 0)
+            print("Active runs:")
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ACTIVE_ONLY))
+
+            print("Deleted runs:")
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.DELETED_ONLY))
+
+            print("All runs:")
+            print_run_infos(mlflow.list_run_infos("0", run_view_type=ViewType.ALL,
+                            order_by=["metric.click_rate DESC"]))
+
+        .. code-block:: text
+            :caption: Output
+
+            Active runs:
+            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
+            Deleted runs:
+            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
+            All runs:
+            - run_id: bc4803439bdd4a059103811267b6b2f4, lifecycle_stage: deleted
+            - run_id: 47b11b33f9364ee2b148c41375a30a68, lifecycle_stage: active
+        """
         return self._tracking_client.list_run_infos(
             experiment_id, run_view_type, max_results, order_by, page_token
         )
@@ -810,6 +918,307 @@ class MlflowClient(object):
         """
         self._tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
+    @contextlib.contextmanager
+    def _log_artifact_helper(self, run_id, artifact_file):
+        """
+        Yields a temporary path to store a file, and then calls `log_artifact` against that path.
+
+        :param run_id: String ID of the run.
+        :param artifact_file: The run-relative artifact file path in posixpath format.
+        :return: Temporary path to store a file.
+        """
+        norm_path = posixpath.normpath(artifact_file)
+        filename = posixpath.basename(norm_path)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, filename)
+            yield tmp_path
+            self.log_artifact(run_id, tmp_path, artifact_dir)
+
+    def log_text(self, run_id, text, artifact_file):
+        """
+        Log text as an artifact.
+
+        :param run_id: String ID of the run.
+        :param text: String containing text to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the text is saved (e.g. "dir/file.txt").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+
+            # Log text to a file under the run's root artifact directory
+            client.log_text(run.info.run_id, "text1", "file1.txt")
+
+            # Log text in a subdirectory of the run's root artifact directory
+            client.log_text(run.info.run_id, "text2", "dir/file2.txt")
+
+            # Log HTML text
+            client.log_text(run.info.run_id, "<h1>header</h1>", "index.html")
+        """
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                f.write(text)
+
+    @experimental
+    def log_dict(self, run_id, dictionary, artifact_file):
+        """
+        Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+        inferred from the extension of `artifact_file`. If the file extension doesn't exist or
+        match any of [".json", ".yml", ".yaml"], JSON format is used.
+
+        :param run_id: String ID of the run.
+        :param dictionary: Dictionary to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the dictionary is saved (e.g. "dir/data.json").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            run_id = run.info.run_id
+
+            dictionary = {"k": "v"}
+
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            client.log_dict(run_id, dictionary, "data.json")
+
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            client.log_dict(run_id, dictionary, "dir/data.yml")
+
+            # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
+            # JSON format is used.
+            mlflow.log_dict(run_id, dictionary, "data")
+            mlflow.log_dict(run_id, dictionary, "data.txt")
+        """
+        extension = os.path.splitext(artifact_file)[1]
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                # Specify `indent` to prettify the output
+                if extension in [".yml", ".yaml"]:
+                    yaml.dump(dictionary, f, indent=2, default_flow_style=False)
+                else:
+                    json.dump(dictionary, f, indent=2)
+
+    @experimental
+    def log_figure(self, run_id, figure, artifact_file):
+        """
+        Log a figure as an artifact. The following figure objects are supported:
+
+        - `matplotlib.figure.Figure`_
+        - `plotly.graph_objects.Figure`_
+
+        .. _matplotlib.figure.Figure:
+            https://matplotlib.org/api/_as_gen/matplotlib.figure.Figure.html
+
+        .. _plotly.graph_objects.Figure:
+            https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
+
+        :param run_id: String ID of the run.
+        :param figure: Figure to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the figure is saved (e.g. "dir/file.png").
+
+        .. code-block:: python
+            :caption: Matplotlib Example
+
+            import mlflow
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots()
+            ax.plot([0, 1], [2, 3])
+
+            run = client.create_run(experiment_id="0")
+            client.log_figure(run.info.run_id, fig, "figure.png")
+
+        .. code-block:: python
+            :caption: Plotly Example
+
+            import mlflow
+            from plotly import graph_objects as go
+
+            fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+
+            run = client.create_run(experiment_id="0")
+            client.log_figure(run.info.run_id, fig, "figure.html")
+        """
+
+        def _is_matplotlib_figure(fig):
+            import matplotlib
+
+            return isinstance(fig, matplotlib.figure.Figure)
+
+        def _is_plotly_figure(fig):
+            import plotly
+
+            return isinstance(fig, plotly.graph_objects.Figure)
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
+            # This allows logging a `plotly` figure in an environment where `matplotlib` is not
+            # installed.
+            if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
+                figure.savefig(tmp_path)
+            elif "plotly" in sys.modules and _is_plotly_figure(figure):
+                figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+            else:
+                raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
+
+    @experimental
+    def log_image(self, run_id, image, artifact_file):
+        """
+        Log an image as an artifact. The following image objects are supported:
+
+        - `numpy.ndarray`_
+        - `PIL.Image.Image`_
+
+        .. _numpy.ndarray:
+            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+        .. _PIL.Image.Image:
+            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        Numpy array support
+            - data type (( ) represents a valid value range):
+
+                - bool
+                - integer (0 ~ 255)
+                - unsigned integer (0 ~ 255)
+                - float (0.0 ~ 1.0)
+
+                .. warning::
+
+                    - Out-of-range integer values will be **clipped** to [0, 255].
+                    - Out-of-range float values will be **clipped** to [0, 1].
+
+            - shape (H: height, W: width):
+
+                - H x W (Grayscale)
+                - H x W x 1 (Grayscale)
+                - H x W x 3 (an RGB channel order is assumed)
+                - H x W x 4 (an RGBA channel order is assumed)
+
+        :param run_id: String ID of the run.
+        :param image: Image to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the image is saved (e.g. "dir/image.png").
+
+        .. code-block:: python
+            :caption: Numpy Example
+
+            import mlflow
+            import numpy as np
+
+            image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+
+        .. code-block:: python
+            :caption: Pillow Example
+
+            import mlflow
+            from PIL import Image
+
+            image = Image.new("RGB", (100, 100))
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+        """
+
+        def _is_pillow_image(image):
+            from PIL.Image import Image
+
+            return isinstance(image, Image)
+
+        def _is_numpy_array(image):
+            import numpy as np
+
+            return isinstance(image, np.ndarray)
+
+        def _normalize_to_uint8(x):
+            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684  # noqa
+
+            is_int = np.issubdtype(x.dtype, np.integer)
+            low = 0
+            high = 255 if is_int else 1
+            if x.min() < low or x.max() > high:
+                msg = (
+                    "Out-of-range values are detected. "
+                    "Clipping array (dtype: '{}') to [{}, {}]".format(x.dtype, low, high)
+                )
+                _logger.warning(msg)
+                x = np.clip(x, low, high)
+
+            # float or bool
+            if not is_int:
+                x = x * 255
+
+            return x.astype(np.uint8)
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            if "PIL" in sys.modules and _is_pillow_image(image):
+                image.save(tmp_path)
+            elif "numpy" in sys.modules and _is_numpy_array(image):
+                import numpy as np
+
+                try:
+                    from PIL import Image
+                except ImportError as exc:
+                    raise ImportError(
+                        "`log_image` requires Pillow to serialize a numpy array as an image."
+                        "Please install it via: pip install Pillow"
+                    ) from exc
+
+                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind  # noqa
+                valid_data_types = {
+                    "b": "bool",
+                    "i": "signed integer",
+                    "u": "unsigned integer",
+                    "f": "floating",
+                }
+
+                if image.dtype.kind not in valid_data_types.keys():
+                    raise TypeError(
+                        "Invalid array data type: '{}'. Must be one of {}".format(
+                            image.dtype, list(valid_data_types.values())
+                        )
+                    )
+
+                if image.ndim not in [2, 3]:
+                    raise ValueError(
+                        "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
+                    )
+
+                if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
+                    raise ValueError(
+                        "Invalid channel length: {}. Must be one of [1, 3, 4]".format(
+                            image.shape[2]
+                        )
+                    )
+
+                # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.
+                if image.ndim == 3 and image.shape[2] == 1:
+                    image = image[:, :, 0]
+
+                image = _normalize_to_uint8(image)
+
+                Image.fromarray(image).save(tmp_path)
+
+            else:
+                raise TypeError("Unsupported image object type: '{}'".format(type(image)))
+
     def _record_logged_model(self, run_id, mlflow_model):
         """
         Record logged model info with the tracking server.
@@ -883,6 +1292,36 @@ class MlflowClient(object):
                          uniquely-named directory on the local filesystem or will be returned
                          directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
+
+        .. code-block:: python
+            :caption: Example
+
+            import os
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            features = "rooms, zipcode, median_price, school_rating, transport"
+            with open("features.txt", 'w') as f:
+                f.write(features)
+
+            # Log artifacts
+            with mlflow.start_run() as run:
+                mlflow.log_artifact("features.txt", artifact_path="features")
+
+            # Download artifacts
+            client = MlflowClient()
+            local_dir = "/tmp/artifact_downloads"
+            if not os.path.exists(local_dir):
+                os.mkdir(local_dir)
+            local_path = client.download_artifacts(run.info.run_id, "features", local_dir)
+            print("Artifacts downloaded in: {}".format(local_path))
+            print("Artifacts: {}".format(os.listdir(local_path)))
+
+        .. code-block:: text
+            :caption: Output
+
+            Artifacts downloaded in: /tmp/artifact_downloads/features
+            Artifacts: ['features.txt']
         """
         return self._tracking_client.download_artifacts(run_id, path, dst_path)
 
@@ -1017,6 +1456,66 @@ class MlflowClient(object):
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. If the underlying tracking store supports pagination, the token for
             the next page may be obtained via the ``token`` attribute of the returned object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+            from mlflow.entities import ViewType
+
+            def print_run_info(runs):
+                for r in runs:
+                    print("run_id: {}".format(r.info.run_id))
+                    print("lifecycle_stage: {}".format(r.info.lifecycle_stage))
+                    print("metrics: {}".format(r.data.metrics))
+
+                    # Exclude mlflow system tags
+                    tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+                    print("tags: {}".format(tags))
+
+            # Create an experiment and log two runs with metrics and tags under the experiment
+            experiment_id = mlflow.create_experiment("Social NLP Experiments")
+            with mlflow.start_run(experiment_id=experiment_id) as run:
+                mlflow.log_metric("m", 1.55)
+                mlflow.set_tag("s.release", "1.1.0-RC")
+            with mlflow.start_run(experiment_id=experiment_id):
+                mlflow.log_metric("m", 2.50)
+                mlflow.set_tag("s.release", "1.2.0-GA")
+
+            # Search all runs under experiment id and order them by
+            # descending value of the metric 'm'
+            client = MlflowClient()
+            runs = client.search_runs(experiment_id, order_by=["metrics.m DESC"])
+            print_run_info(runs)
+            print("--")
+
+            # Delete the first run
+            client.delete_run(run_id=run.info.run_id)
+
+            # Search only deleted runs under the experiment id and use a case insensitive pattern
+            # in the filter_string for the tag.
+            filter_string = "tags.s.release ILIKE '%rc%'"
+            runs = client.search_runs(experiment_id, run_view_type=ViewType.DELETED_ONLY,
+                                        filter_string=filter_string)
+            print_run_info(runs)
+
+        .. code-block:: text
+            :caption: Output
+
+            run_id: 0efb2a68833d4ee7860a964fad31cb3f
+            lifecycle_stage: active
+            metrics: {'m': 2.5}
+            tags: {'s.release': '1.2.0-GA'}
+            run_id: 7ab027fd72ee4527a5ec5eafebb923b8
+            lifecycle_stage: active
+            metrics: {'m': 1.55}
+            tags: {'s.release': '1.1.0-RC'}
+            --
+            run_id: 7ab027fd72ee4527a5ec5eafebb923b8
+            lifecycle_stage: deleted
+            metrics: {'m': 1.55}
+            tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
             experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
@@ -1026,7 +1525,6 @@ class MlflowClient(object):
 
     # Registered Model Methods
 
-    @experimental
     def create_registered_model(self, name, tags=None, description=None):
         """
         Create a new registered model in backend store.
@@ -1037,10 +1535,36 @@ class MlflowClient(object):
         :param description: Description of the model.
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_registered_model_info(rm):
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_registered_model(name, tags, desc)
+            print_registered_model_info(client.get_registered_model(name))
+
+        .. code-block:: text
+            :caption: Output
+
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         return self._get_registry_client().create_registered_model(name, tags, description)
 
-    @experimental
     def rename_registered_model(self, name, new_name):
         """
         Update registered model name.
@@ -1049,10 +1573,47 @@ class MlflowClient(object):
         :param new_name: New proposed name for the registered model.
 
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_registered_model_info(rm):
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            # create a new registered model name
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_registered_model(name, tags, desc)
+            print_registered_model_info(client.get_registered_model(name))
+            print("--")
+
+            # rename the model
+            new_name = "SocialMediaTextAnalyzer"
+            client.rename_registered_model(name, new_name)
+            print_registered_model_info(client.get_registered_model(new_name))
+
+        .. code-block:: python
+            :caption: Output
+
+            name: SocialTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         self._get_registry_client().rename_registered_model(name, new_name)
 
-    @experimental
     def update_registered_model(self, name, description=None):
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -1061,6 +1622,40 @@ class MlflowClient(object):
         :param name: Name of the registered model to update.
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            def print_registered_model_info(rm):
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_registered_model(name, tags, desc)
+            print_registered_model_info(client.get_registered_model(name))
+            print("--")
+
+            # Update the model's description
+            desc = "This sentiment analysis model classifies tweets' tone: happy, sad, angry."
+            client.update_registered_model(name, desc)
+            print_registered_model_info(client.get_registered_model(name))
+
+        .. code-block:: text
+            :caption: Output
+
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies tweets' tone: happy, sad, angry.
         """
         if description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
@@ -1069,17 +1664,58 @@ class MlflowClient(object):
             name=name, description=description
         )
 
-    @experimental
     def delete_registered_model(self, name):
         """
         Delete registered model.
         Backend raises exception if a registered model with given name does not exist.
 
         :param name: Name of the registered model to update.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_registered_models_info(r_models):
+                print("--")
+                for rm in r_models:
+                    print("name: {}".format(rm.name))
+                    print("tags: {}".format(rm.tags))
+                    print("description: {}".format(rm.description))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Register a couple of models with respective names, tags, and descriptions
+            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
+                                     ("name2", {"t2": "t2"}, 'description2')]:
+                client.create_registered_model(name, tags, desc)
+
+            # Fetch all registered models
+            print_registered_models_info(client.list_registered_models())
+
+            # Delete one registered model and fetch again
+            client.delete_registered_model("name1")
+            print_registered_models_info(client.list_registered_models())
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            description: description1
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
+            --
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
         """
         self._get_registry_client().delete_registered_model(name)
 
-    @experimental
     def list_registered_models(
         self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
     ):
@@ -1092,10 +1728,45 @@ class MlflowClient(object):
         :return: A PagedList of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects
                  that can satisfy the search expressions. The pagination token for the next page
                  can be obtained via the ``token`` attribute of the object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(models):
+                for m in models:
+                    print("--")
+                    print("name: {}".format(m.name))
+                    print("tags: {}".format(m.tags))
+                    print("description: {}".format(m.description))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Register a couple of models with respective names, tags, and descriptions
+            for name, tags, desc in [("name1", {"t1": "t1"}, 'description1'),
+                                     ("name2", {"t2": "t2"}, 'description2')]:
+                client.create_registered_model(name, tags, desc)
+
+            # Fetch all registered models
+            print_model_info(client.list_registered_models())
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            description: description1
+            --
+            name: name2
+            tags: {'t2': 't2'}
+            description: description2
         """
         return self._get_registry_client().list_registered_models(max_results, page_token)
 
-    @experimental
     def search_registered_models(
         self,
         filter_string=None,
@@ -1175,15 +1846,44 @@ class MlflowClient(object):
             filter_string, max_results, order_by, page_token
         )
 
-    @experimental
     def get_registered_model(self, name):
         """
         :param name: Name of the registered model to update.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(rm):
+                print("--")
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+                print("description: {}".format(rm.description))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Create and fetch the registered model
+            client.create_registered_model(name, tags, desc)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
         """
         return self._get_registry_client().get_registered_model(name)
 
-    @experimental
     def get_latest_versions(self, name, stages=None):
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
@@ -1193,10 +1893,64 @@ class MlflowClient(object):
         :param stages: List of desired stages. If input list is None, return latest versions for
                        for ALL_STAGES.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_models_info(mv):
+                for m in mv:
+                    print("name: {}".format(m.name))
+                    print("latest version: {}".format(m.version))
+                    print("run_id: {}".format(m.run_id))
+                    print("current_stage: {}".format(m.current_stage))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+
+            # Create two runs Log MLflow entities
+            with mlflow.start_run() as run1:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            with mlflow.start_run() as run2:
+                params = {"n_estimators": 6, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            name = "RandomForestRegression"
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a two versions of the rfr model under the registered model name
+            for run_id in [run1.info.run_id, run2.info.run_id]:
+                model_uri = "runs:/{}/sklearn-model".format(run_id)
+                mv = client.create_model_version(name, model_uri, run_id)
+                print("model version {} created".format(mv.version))
+
+            # Fetch latest version; this will be version 2
+            print("--")
+            print_models_info(client.get_latest_versions(name, stages=["None"]))
+
+        .. code-block:: text
+            :caption: Output
+
+            model version 1 created
+            model version 2 created
+            --
+            name: RandomForestRegression
+            latest version: 2
+            run_id: 31165664be034dc698c52a4bdeb71663
+            current_stage: None
         """
         return self._get_registry_client().get_latest_versions(name, stages)
 
-    @experimental
     def set_registered_model_tag(self, name, key, value):
         """
         Set a tag for the registered model.
@@ -1205,10 +1959,45 @@ class MlflowClient(object):
         :param key: Tag key to log.
         :param value: Tag value log.
         :return: None
+
+        .. code-block:: Python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_model_info(rm):
+                print("--")
+                print("name: {}".format(rm.name))
+                print("tags: {}".format(rm.tags))
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework1": "Spark NLP"}
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Create registered model, set an additional tag, and fetch
+            # update model info
+            client.create_registered_model(name, tags, desc)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+            client.set_registered_model_tag(name, "nlp.framework2", "VADER")
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework1': 'Spark NLP'}
+            --
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
-    @experimental
     def delete_registered_model_tag(self, name, key):
         """
         Delete a tag associated with the registered model.
@@ -1216,12 +2005,51 @@ class MlflowClient(object):
         :param name: Registered model name.
         :param key: Registered model tag key.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow.tracking import MlflowClient
+
+            def print_registered_models_info(r_models):
+                print("--")
+                for rm in r_models:
+                    print("name: {}".format(rm.name))
+                    print("tags: {}".format(rm.tags))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+
+            # Register a couple of models with respective names and tags
+            for name, tags in [("name1", {"t1": "t1"}),("name2", {"t2": "t2"})]:
+                client.create_registered_model(name, tags)
+
+            # Fetch all registered models
+            print_registered_models_info(client.list_registered_models())
+
+            # Delete a tag from model `name2`
+            client.delete_registered_model_tag("name2", 't2')
+            print_registered_models_info(client.list_registered_models())
+
+        .. code-block:: text
+            :caption: Output
+
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            name: name2
+            tags: {'t2': 't2'}
+            --
+            name: name1
+            tags: {'t1': 't1'}
+            name: name2
+            tags: {}
         """
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
 
-    @experimental
     def create_model_version(
         self,
         name,
@@ -1247,6 +2075,45 @@ class MlflowClient(object):
                                     waits for five minutes. Specify 0 or None to skip waiting.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            desc = "A new version of the model"
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            print("Name: {}".format(mv.name))
+            print("Version: {}".format(mv.version))
+            print("Description: {}".format(mv.description))
+            print("Status: {}".format(mv.status))
+            print("Stage: {}".format(mv.current_stage))
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model
+            Status: READY
+            Stage: None
         """
         tracking_uri = self._tracking_client.tracking_uri
         if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
@@ -1306,7 +2173,6 @@ class MlflowClient(object):
         if workspace_host and run_id and experiment_id:
             return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
-    @experimental
     def update_model_version(self, name, version, description=None):
         """
         Update metadata associated with a model version in backend.
@@ -1316,6 +2182,54 @@ class MlflowClient(object):
         :param description: New description.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Description: {}".format(mv.description))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+            print("--")
+
+            # Update model version's description
+            desc = "A new version of the model using ensemble trees"
+            mv = client.update_model_version(name, mv.version, desc)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Description: None
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model using ensemble trees
         """
         if description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
@@ -1324,7 +2238,6 @@ class MlflowClient(object):
             name=name, version=version, description=description
         )
 
-    @experimental
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
         """
         Update model version stage.
@@ -1337,42 +2250,236 @@ class MlflowClient(object):
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Description: {}".format(mv.description))
+                print("Stage: {}".format(mv.current_stage))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            desc = "A new version of the model using ensemble trees"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+             # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+             # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id, description=desc)
+            print_model_version_info(mv)
+            print("--")
+
+            # transition model version from None -> staging
+            mv = client.transition_model_version_stage(name, mv.version, "staging")
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model using ensemble trees
+            Stage: None
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Description: A new version of the model using ensemble trees
+            Stage: Staging
         """
         return self._get_registry_client().transition_model_version_stage(
             name, version, stage, archive_existing_versions
         )
 
-    @experimental
     def delete_model_version(self, name, version):
         """
         Delete model version in backend.
 
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_models_info(mv):
+                for m in mv:
+                    print("name: {}".format(m.name))
+                    print("latest version: {}".format(m.version))
+                    print("run_id: {}".format(m.run_id))
+                    print("current_stage: {}".format(m.current_stage))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+
+            # Create two runs and log MLflow entities
+            with mlflow.start_run() as run1:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            with mlflow.start_run() as run2:
+                params = {"n_estimators": 6, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            name = "RandomForestRegression"
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a two versions of the rfr model under the registered model name
+            for run_id in [run1.info.run_id, run2.info.run_id]:
+                model_uri = "runs:/{}/sklearn-model".format(run_id)
+                mv = client.create_model_version(name, model_uri, run_id)
+                print("model version {} created".format(mv.version))
+
+            print("--")
+
+            # Fetch latest version; this will be version 2
+            models = client.get_latest_versions(name, stages=["None"])
+            print_models_info(models)
+            print("--")
+
+            # Delete the latest model version 2
+            print("Deleting model version {}".format(mv.version))
+            client.delete_model_version(name, mv.version)
+            models = client.get_latest_versions(name, stages=["None"])
+            print_models_info(models)
+
+        .. code-block:: text
+            :caption: Output
+
+            model version 1 created
+            model version 2 created
+            --
+            name: RandomForestRegression
+            latest version: 2
+            run_id: 9881172ef10f4cb08df3ed452c0c362b
+            current_stage: None
+            --
+            Deleting model version 2
+            name: RandomForestRegression
+            latest version: 1
+            run_id: 9165d4f8aa0a4d069550824bdc55caaf
+            current_stage: None
         """
         self._get_registry_client().delete_model_version(name, version)
 
-    @experimental
     def get_model_version(self, name, version):
         """
         :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
+        :param version: Version number as an integer of the model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            # Create two runs Log MLflow entities
+            with mlflow.start_run() as run1:
+                params = {"n_estimators": 3, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            with mlflow.start_run() as run2:
+                params = {"n_estimators": 6, "random_state": 42}
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            name = "RandomForestRegression"
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a two versions of the rfr model under the registered model name
+            for run_id in [run1.info.run_id, run2.info.run_id]:
+                model_uri = "runs:/{}/sklearn-model".format(run_id)
+                mv = client.create_model_version(name, model_uri, run_id)
+                print("model version {} created".format(mv.version))
+            print("--")
+
+            # Fetch the last version; this will be version 2
+            mv = client.get_model_version(name, mv.version)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            model version 1 created
+            model version 2 created
+            --
+            Name: RandomForestRegression
+            Version: 2
         """
         return self._get_registry_client().get_model_version(name, version)
 
-    @experimental
     def get_model_version_download_uri(self, name, version):
         """
         Get the download location in Model Registry for this model version.
 
         :param name: Name of the containing registered model.
-        :param version: Version number of the model version.
+        :param version: Version number as an integer of the model version.
         :return: A single URI location that allows reads for downloading.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="models/sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            artifact_uri = client.get_model_version_download_uri(name, mv.version)
+            print("Download URI: {}".format(artifact_uri))
+
+        .. code-block:: text
+            :caption: Output
+
+            Download URI: runs:/44e04097ac364cd895f2039eaccca9ac/models/sklearn-model
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
-    @experimental
     def search_model_versions(self, filter_string):
         """
         Search for model versions in backend that satisfy the filter criteria.
@@ -1417,14 +2524,45 @@ class MlflowClient(object):
         """
         return self._get_registry_client().search_model_versions(filter_string)
 
-    @experimental
     def get_model_version_stages(self, name, version):  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="models/sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            # fetch valid stages
+            model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            stages = client.get_model_version_stages(name, mv.version)
+            print("Model list of valid stages: {}".format(stages))
+
+        .. code-block:: text
+            :caption: Output
+
+            Model list of valid stages: ['None', 'Staging', 'Production', 'Archived']
         """
         return ALL_STAGES
 
-    @experimental
     def set_model_version_tag(self, name, version, key, value):
         """
         Set a tag for the model version.
@@ -1434,10 +2572,56 @@ class MlflowClient(object):
         :param key: Tag key to log.
         :param value: Tag value to log.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Tags: {}".format(mv.tags))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            # and set a tag
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+            print("--")
+            client.set_model_version_tag(name, mv.version, "t", "1")
+            mv = client.get_model_version(name, mv.version)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {}
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {'t': '1'}
         """
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    @experimental
     def delete_model_version_tag(self, name, version, key):
         """
         Delete a tag associated with the model version.
@@ -1446,5 +2630,53 @@ class MlflowClient(object):
         :param version: Registered model version.
         :param key: Tag key.
         :return: None
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow.sklearn
+            from mlflow.tracking import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_version_info(mv):
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Tags: {}".format(mv.tags))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+
+            # Create a new version of the rfr model under the registered model name
+            # and delete a tag
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            tags = {'t': "t1"}
+            mv = client.create_model_version(name, model_uri, run.info.run_id, tags=tags)
+            print_model_version_info(mv)
+            print("--")
+            client.delete_model_version_tag(name, mv.version, "t")
+            mv = client.get_model_version(name, mv.version)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {'t': 't1'}
+            --
+            Name: RandomForestRegression
+            Version: 1
+            Tags: {}
         """
         self._get_registry_client().delete_model_version_tag(name, version, key)

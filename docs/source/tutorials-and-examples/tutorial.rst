@@ -205,7 +205,7 @@ Now that you have your training code, you can package it so that other data scie
       specified in ``conda.yaml``.
 
       If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
-      which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5``.
+      which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0``.
 
     .. container:: R
 
@@ -312,7 +312,11 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
+          # On Linux and macOS
           curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
+
+          # On Windows
+          curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{\"columns\":[\"alcohol\", \"chlorides\", \"citric acid\", \"density\", \"fixed acidity\", \"free sulfur dioxide\", \"pH\", \"residual sugar\", \"sulphates\", \"total sulfur dioxide\", \"volatile acidity\"],\"data\":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
 
       the server should respond with output similar to::
 
@@ -381,6 +385,10 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
+          # On Linux and macOS
+          curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}"
+
+          # On Windows
           curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
 
       the server should respond with output similar to::

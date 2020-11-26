@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import sklearn
+import sklearn.base
 import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
@@ -745,7 +746,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
 def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
@@ -890,7 +891,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
 def test_autolog_logs_signature_and_input_example(data_type):
-    mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     X, y = get_iris()
     X = data_type(X)
@@ -943,7 +944,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 def test_autolog_logs_signature_only_when_estimator_defines_predict():
     from sklearn.cluster import AgglomerativeClustering
 
-    mlflow.sklearn.autolog(log_model_signature=True)
+    mlflow.sklearn.autolog(log_model_signatures=True)
 
     X, y = get_iris()
     model = AgglomerativeClustering()
@@ -963,7 +964,7 @@ def test_autolog_does_not_throw_when_predict_fails():
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -978,7 +979,7 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     with mlflow.start_run() as run, mock.patch(
         "mlflow.models.infer_signature", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog(log_input_example=True, log_model_signature=True)
+        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
@@ -988,28 +989,43 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("log_input_example", [True, False])
-@pytest.mark.parametrize("log_model_signature", [True, False])
-def test_autolog_configuration_options(log_input_example, log_model_signature):
+@pytest.mark.parametrize("log_input_examples", [True, False])
+@pytest.mark.parametrize("log_model_signatures", [True, False])
+def test_autolog_configuration_options(log_input_examples, log_model_signatures):
     X, y = get_iris()
 
     with mlflow.start_run() as run:
         mlflow.sklearn.autolog(
-            log_input_example=log_input_example, log_model_signature=log_model_signature
+            log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
         )
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
     model_conf = get_model_conf(run.info.artifact_uri)
-    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_example
-    assert ("signature" in model_conf.to_dict()) == log_model_signature
+    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
+    assert ("signature" in model_conf.to_dict()) == log_model_signatures
 
 
 @pytest.mark.large
-def test_autolog_does_not_capture_runs_for_preprocessing_or_imputation_estimators():
+@pytest.mark.parametrize("log_models", [True, False])
+def test_sklearn_autolog_log_models_configuration(log_models):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_models=log_models)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    run_id = run.info.run_id
+    _, _, _, artifacts = get_run_data(run_id)
+    assert (MODEL_DIR in artifacts) == log_models
+
+
+@pytest.mark.large
+def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
     """
-    Verifies that preprocessing and imputation estimators, which represent data manipulation steps
-    (e.g., normalization, label encoding) rather than ML models, do not produce runs when their
-    fit_* operations are invoked independently of an ML pipeline
+    Verifies that preprocessing and feature manipulation estimators, which represent data
+    manipulation steps (e.g., normalization, label encoding) rather than ML models, do not
+    produce runs when their fit_* operations are invoked independently of an ML pipeline
     """
     mlflow.sklearn.autolog()
 
@@ -1021,15 +1037,71 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_imputation_estimator
 
     from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
     from sklearn.impute import SimpleImputer
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.feature_selection import VarianceThreshold
 
     with mlflow.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
         LabelEncoder().fit([1, 2, 2, 6])
         MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
         SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
+        TfidfVectorizer().fit_transform(
+            [
+                "MLflow is an end-to-end machine learning platform.",
+                "MLflow enables me to systematize my ML experimentation",
+            ]
+        )
+        VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0
     assert len(metrics) == 0
     assert len(tags) == 0
     assert len(artifacts) == 0
+
+
+@pytest.mark.large
+def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
+    """
+    Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
+    """
+    mlflow.sklearn.autolog()
+
+    # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
+    # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
+    # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
+    # expected constant prediction value, guarding against regressions of
+    # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
+    # recurse or yield the incorrect prediction result set by ParentMod.fit()
+
+    class ParentMod(sklearn.base.BaseEstimator):
+        def __init__(self):
+            self.prediction = None
+
+        def get_params(self, deep=False):
+            return {}
+
+        def fit(self, X, y):  # pylint: disable=unused-argument
+            self.prediction = np.array([7])
+
+        def predict(self, X):  # pylint: disable=unused-argument
+            return self.prediction
+
+    class ChildMod(ParentMod):
+        def fit(self, X, y):
+            super().fit(X, y)
+            self.prediction = self.prediction + 1
+
+    og_all_estimators = mlflow.sklearn.utils._all_estimators()
+    new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
+
+    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
+        mlflow.sklearn.autolog()
+
+    model = ChildMod()
+    with mlflow.start_run() as run:
+        model.fit(*get_iris())
+
+    _, _, tags, _ = get_run_data(run.info.run_id)
+    assert {"estimator_name": "ChildMod"}.items() <= tags.items()
+    assert model.predict(1) == np.array([8])

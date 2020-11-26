@@ -10,7 +10,6 @@ Keras (native) format
 import importlib
 import os
 import yaml
-import gorilla
 import tempfile
 import shutil
 
@@ -25,6 +24,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
@@ -36,8 +36,9 @@ FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
+_KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 # File name to which keras model is saved
-_MODEL_SAVE_PATH = "model.h5"
+_MODEL_SAVE_PATH = "model"
 # Conda env subpath when saving/loading model
 _CONDA_ENV_SUBPATH = "conda.yaml"
 
@@ -73,6 +74,11 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         conda_deps.append("tensorflow=={}".format(tf.__version__))
     else:
         pip_deps.append("tensorflow=={}".format(tf.__version__))
+
+    # Tensorflow<2.4 does not work with h5py>=3.0.0
+    # see https://github.com/tensorflow/tensorflow/issues/44467
+    if LooseVersion(tf.__version__) < LooseVersion("2.4"):
+        pip_deps.append("h5py<3.0.0")
 
     return _mlflow_conda_env(
         additional_conda_deps=conda_deps,
@@ -215,9 +221,21 @@ def save_model(
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
         f.write(keras_module.__name__)
 
-    # save keras model to path/data/model.h5
+    # By default, Keras uses the SavedModel format -- specified by "tf"
+    # However, we choose to align with prior default of mlflow, HDF5
+    save_format = kwargs.get("save_format", "h5")
+
+    # save keras save_format to path/data/save_format.txt
+    with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
+        f.write(save_format)
+
+    # save keras model
+    # To maintain prior behavior, when the format is HDF5, we save
+    # with the h5 file extension. Otherwise, model_path is a directory
+    # where the saved_model.pb will be stored (for SavedModel format)
+    file_extension = ".h5" if save_format == "h5" else ""
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
-    model_path = os.path.join(path, model_subpath)
+    model_path = os.path.join(path, model_subpath) + file_extension
     if path.startswith("/dbfs/"):
         # The Databricks Filesystem uses a FUSE implementation that does not support
         # random writes. It causes an error.
@@ -233,6 +251,7 @@ def save_model(
         FLAVOR_NAME,
         keras_module=keras_module.__name__,
         keras_version=keras_module.__version__,
+        save_format=save_format,
         data=data_subpath,
     )
 
@@ -375,7 +394,7 @@ def _save_custom_objects(path, custom_objects):
         cloudpickle.dump(custom_objects, out_f)
 
 
-def _load_model(model_path, keras_module, **kwargs):
+def _load_model(model_path, keras_module, save_format, **kwargs):
     keras_models = importlib.import_module(keras_module.__name__ + ".models")
     custom_objects = kwargs.pop("custom_objects", {})
     custom_objects_path = None
@@ -390,9 +409,17 @@ def _load_model(model_path, keras_module, **kwargs):
             pickled_custom_objects = cloudpickle.load(in_f)
             pickled_custom_objects.update(custom_objects)
             custom_objects = pickled_custom_objects
+
+    # If the save_format is HDF5, then we save with h5 file
+    # extension to align with prior behavior of mlflow logging
+    if save_format == "h5":
+        model_path = model_path + ".h5"
+
     from distutils.version import StrictVersion
 
-    if StrictVersion(keras_module.__version__.split("-")[0]) >= StrictVersion("2.2.3"):
+    if save_format == "h5" and StrictVersion(
+        keras_module.__version__.split("-")[0]
+    ) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
@@ -439,6 +466,15 @@ def _load_pyfunc(path):
 
         keras_module = keras
 
+    # By default, we assume the save_format is h5 for backwards compatibility
+    save_format = "h5"
+    save_format_path = os.path.join(path, _KERAS_SAVE_FORMAT_PATH)
+    if os.path.isfile(save_format_path):
+        with open(save_format_path, "r") as f:
+            save_format = f.read()
+
+    # In SavedModel format, if we don't compile the model
+    should_compile = save_format == "tf"
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == "tensorflow":
         if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
@@ -450,11 +486,18 @@ def _load_pyfunc(path):
             with graph.as_default():
                 with sess.as_default():  # pylint:disable=not-context-manager
                     K.set_learning_phase(0)
-                    m = _load_model(path, keras_module=keras_module, compile=False)
+                    m = _load_model(
+                        path,
+                        keras_module=keras_module,
+                        save_format=save_format,
+                        compile=should_compile,
+                    )
                     return _KerasModelWrapper(m, graph, sess)
         else:
             K.set_learning_phase(0)
-            m = _load_model(path, keras_module=keras_module, compile=False)
+            m = _load_model(
+                path, keras_module=keras_module, save_format=save_format, compile=should_compile
+            )
             return _KerasModelWrapper(m, None, None)
 
     else:
@@ -495,11 +538,18 @@ def load_model(model_uri, **kwargs):
     keras_model_artifacts_path = os.path.join(
         local_model_path, flavor_conf.get("data", _MODEL_SAVE_PATH)
     )
-    return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
+    # For backwards compatibility, we assume h5 when the save_format is absent
+    save_format = flavor_conf.get("save_format", "h5")
+    return _load_model(
+        model_path=keras_model_artifacts_path,
+        keras_module=keras_module,
+        save_format=save_format,
+        **kwargs
+    )
 
 
 @experimental
-def autolog():
+def autolog(log_models=True):
     # pylint: disable=E0611
     """
     Enables automatic logging from Keras to MLflow. Autologging captures the following information:
@@ -546,6 +596,9 @@ def autolog():
 
     MLflow will also log the parameters of the ``EarlyStopping`` callback,
     excluding ``mode`` and ``verbose``.
+
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     import keras
 
@@ -592,7 +645,8 @@ def autolog():
             try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
         def on_train_end(self, logs=None):
-            try_mlflow_log(log_model, self.model, artifact_path="model")
+            if log_models:
+                try_mlflow_log(log_model, self.model, artifact_path="model")
 
         # As of Keras 2.4.0, Keras Callback implementations must define the following
         # methods indicating whether or not the callback overrides functions for
@@ -607,7 +661,9 @@ def autolog():
             return False
 
     def _early_stop_check(callbacks):
-        if LooseVersion(keras.__version__) < LooseVersion("2.3.0"):
+        if LooseVersion(keras.__version__) < LooseVersion("2.3.0") or LooseVersion(
+            keras.__version__
+        ) >= LooseVersion("2.4.0"):
             es_callback = keras.callbacks.EarlyStopping
         else:
             es_callback = keras.callbacks.callbacks.EarlyStopping
@@ -673,7 +729,7 @@ def autolog():
             early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
+        elif kwargs.get("callbacks"):
             early_stop_callback = _early_stop_check(kwargs["callbacks"])
             kwargs["callbacks"] += [__MLflowKerasCallback()]
         else:
@@ -696,9 +752,20 @@ def autolog():
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
 
     def fit_generator(self, *args, **kwargs):
+        """
+        NOTE: `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
+        To avoid unintentional creation of nested MLflow runs caused by a patched
+        `fit_generator()` method calling a patched `fit()` method, we only patch
+        `fit_generator()` in Keras < 2.4.0.
+        """
         original = gorilla.get_original_attribute(keras.Model, "fit_generator")
         unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
 
     wrap_patch(keras.Model, "fit", fit)
-    wrap_patch(keras.Model, "fit_generator", fit_generator)
+    # `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
+    # To avoid unintentional creation of nested MLflow runs caused by a patched
+    # `fit_generator()` method calling a patched `fit()` method, we only patch
+    # `fit_generator()` in Keras < 2.4.0.
+    if LooseVersion(keras.__version__) < LooseVersion("2.4.0"):
+        wrap_patch(keras.Model, "fit_generator", fit_generator)

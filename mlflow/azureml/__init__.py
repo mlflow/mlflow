@@ -10,7 +10,9 @@ import uuid
 
 from distutils.version import StrictVersion
 
+from mlflow import get_tracking_uri, get_registry_uri
 from mlflow import pyfunc
+from mlflow import register_model as mlflow_register_model
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -283,7 +285,8 @@ def deploy(
     :param service_name: The name to assign the Azure Machine learning webservice that will be
                          created. If unspecified, a unique name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
-                       a unique model name will be generated.
+                       a unique model name will be generated. Only used if the model is not
+                       already registered with Azure.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
                  associate with the Azure Model and Deployment that will be created.
                  These tags are added to a set of default tags that include the model uri,
@@ -380,15 +383,63 @@ def deploy(
             _copy_file_or_tree(src=absolute_model_path, dst=model_directory_path),
         )
 
-        registered_model = AzureModel.register(
-            workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags
-        )
+        registered_model = None
+        azure_model_id = None
 
-        _logger.info(
-            "Registered an Azure Model with name: `%s` and version: `%s`",
-            registered_model.name,
-            registered_model.version,
-        )
+        # If we are passed a 'models' uri, we will attempt to extract a name and version which
+        # can be used to retreive an AzureML Model. This will ignore stage based model uris,
+        # which is alright until we have full deployment plugin support.
+        #
+        # If instead we are passed a 'runs' uri while the user is using the AzureML tracking
+        # and registry stores, we will be able to register the model on their behalf using
+        # the AzureML plugin, which will maintain lineage between the model and the run that
+        # produced it. This returns an MLFlow Model object however, so we'll still need the
+        # name and ID in order to retrieve the AzureML Model object which is currently
+        # needed to deploy.
+        if model_uri.startswith("models:/"):
+            m_name = model_uri.split("/")[-2]
+            m_version = int(model_uri.split("/")[-1])
+            azure_model_id = "{}:{}".format(m_name, m_version)
+        elif (
+            model_uri.startswith("runs:/")
+            and get_tracking_uri().startswith("azureml")
+            and get_registry_uri().startswith("azureml")
+        ):
+            mlflow_model = mlflow_register_model(model_uri, model_name)
+            azure_model_id = "{}:{}".format(mlflow_model.name, mlflow_model.version)
+
+            _logger.info(
+                "Registered an Azure Model with name: `%s` and version: `%s`",
+                registered_model.name,
+                registered_model.version,
+            )
+
+        # Attempt to retrieve an AzureML Model object which we intend to deploy
+        if azure_model_id:
+            try:
+                registered_model = AzureModel(workspace, id=azure_model_id)
+                _logger.info("Found registered model in AzureML with ID '%s'", azure_model_id)
+            except Exception as e:  # pylint: disable=broad-except
+                _logger.info(
+                    "Unable to find model in AzureML with ID '%s', will register the model.\n"
+                    "Exception was: %s",
+                    azure_model_id,
+                    e,
+                )
+
+        # If we have not found a registered model by this point, we will register it on the users'
+        # behalf. It is required for a Model to be registered in some way with Azure in order to
+        # deploy to Azure, so this is expected for Azure users.
+        if not registered_model:
+            registered_model = AzureModel.register(
+                workspace=workspace, model_path=tmp_model_path, model_name=model_name, tags=tags
+            )
+
+            _logger.info(
+                "Registered an Azure Model with name: `%s` and version: `%s`",
+                registered_model.name,
+                registered_model.version,
+            )
 
         # Create an execution script (entry point) for the image's model server. Azure ML requires
         # the container's execution script to be located in the current working directory during
@@ -437,6 +488,7 @@ def deploy(
         else:
             deployment_config = AciWebservice.deploy_configuration(tags=tags)
 
+        # Finally, deploy the AzureML Model object to a webservice, and return back
         webservice = AzureModel.deploy(
             workspace=workspace,
             name=service_name,
@@ -546,7 +598,7 @@ def _load_pyfunc_conf_with_model(model_path):
         raise MlflowException(
             message=(
                 "The specified model does not contain the `python_function` flavor. This "
-                " flavor is required for model deployment required for model deployment."
+                " flavor is required for model deployment."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )

@@ -11,7 +11,6 @@ import os
 import shutil
 import yaml
 import logging
-import gorilla
 import concurrent.futures
 import warnings
 import atexit
@@ -32,6 +31,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
@@ -637,7 +637,7 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst):
+def _setup_callbacks(lst, log_models):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -651,8 +651,9 @@ def _setup_callbacks(lst):
         Records model structural information as params after training finishes.
         """
 
-        def __init__(self):
-            pass
+        def __init__(self, log_models):
+            super().__init__()
+            self.log_models = log_models
 
         def __enter__(self):
             pass
@@ -709,7 +710,8 @@ def _setup_callbacks(lst):
             pass
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+            if self.log_models:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     class __MLflowTfKeras2Callback(Callback):
         """
@@ -717,8 +719,9 @@ def _setup_callbacks(lst):
         Records model structural information as params when training starts.
         """
 
-        def __init__(self):
-            pass
+        def __init__(self, log_models):
+            super().__init__()
+            self.log_models = log_models
 
         def __enter__(self):
             pass
@@ -748,7 +751,8 @@ def _setup_callbacks(lst):
                 try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+            if self.log_models:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
     tb = _get_tensorboard_callback(lst)
     if tb is None:
@@ -758,14 +762,14 @@ def _setup_callbacks(lst):
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
-        out_list += [__MLflowTfKerasCallback()]
+        out_list += [__MLflowTfKerasCallback(log_models)]
     else:
-        out_list += [__MLflowTfKeras2Callback()]
+        out_list += [__MLflowTfKeras2Callback(log_models)]
     return out_list, log_dir
 
 
 @experimental
-def autolog(every_n_iter=100):
+def autolog(every_n_iter=100, log_models=True):
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -819,6 +823,8 @@ def autolog(every_n_iter=100):
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     import tensorflow
 
@@ -989,13 +995,13 @@ def autolog(every_n_iter=100):
             if len(args) >= 6:
                 tmp_list = list(args)
                 early_stop_callback = _early_stop_check(tmp_list[5])
-                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
+                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models)
                 args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
+            elif kwargs.get("callbacks"):
                 early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
+                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], log_models)
             else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
+                kwargs["callbacks"], log_dir = _setup_callbacks([], log_models)
 
             _log_early_stop_callback_params(early_stop_callback)
 
@@ -1013,6 +1019,12 @@ def autolog(every_n_iter=100):
             return history
 
     def fit_generator(self, *args, **kwargs):
+        """
+        NOTE: `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
+        To avoid unintentional creation of nested MLflow runs caused by a patched
+        `fit_generator()` method calling a patched `fit()` method, we only patch
+        `fit_generator()` in TF < 2.1.0.
+        """
         with _manage_active_run():
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
 
@@ -1023,12 +1035,12 @@ def autolog(every_n_iter=100):
             # Checking if the 'callback' argument of fit() is set
             if len(args) >= 5:
                 tmp_list = list(args)
-                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
+                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models)
                 args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
+            elif kwargs.get("callbacks"):
+                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"], log_models)
             else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
+                kwargs["callbacks"], log_dir = _setup_callbacks([], log_models)
             result = original(self, *args, **kwargs)
             _flush_queue()
             _log_artifacts_with_warning(
@@ -1055,11 +1067,16 @@ def autolog(every_n_iter=100):
         (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", fit),
-        (tensorflow.keras.Model, "fit_generator", fit_generator),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
         (FileWriter, "add_summary", add_summary),
     ]
+    if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
+        # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
+        # To avoid unintentional creation of nested MLflow runs caused by a patched
+        # `fit_generator()` method calling a patched `fit()` method, we only patch
+        # `fit_generator()` in TF < 2.1.0
+        patches.append((tensorflow.keras.Model, "fit_generator", fit_generator))
 
     for p in patches:
         wrap_patch(*p)

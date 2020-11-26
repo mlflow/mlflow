@@ -14,7 +14,6 @@ fastai (native) format
 """
 import os
 import yaml
-import gorilla
 import tempfile
 import shutil
 import pandas as pd
@@ -27,6 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
@@ -277,7 +277,7 @@ def load_model(model_uri):
 
 
 @experimental
-def autolog():
+def autolog(log_models=True):
     """
     Enable automatic logging from Fastai to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -287,6 +287,9 @@ def autolog():
     MLflow will also log the parameters of the
     `EarlyStoppingCallback <https://docs.fast.ai/callbacks.html#EarlyStoppingCallback>`_
     and `OneCycleScheduler <https://docs.fast.ai/callbacks.html#OneCycleScheduler>`_ callbacks
+
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info
@@ -347,7 +350,8 @@ def autolog():
                 shutil.rmtree(tempdir)
 
         def on_train_end(self, **kwargs):
-            try_mlflow_log(log_model, self.learner, artifact_path="model")
+            if log_models:
+                try_mlflow_log(log_model, self.learner, artifact_path="model")
 
     def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
@@ -391,7 +395,7 @@ def autolog():
         else:
             auto_end_run = False
 
-        log_fn_args_as_params(original, [self] + list(args), kwargs, unlogged_params)
+        log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
 
         callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
 
@@ -401,7 +405,7 @@ def autolog():
             callbacks += list(args[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
             args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
+        elif kwargs.get("callbacks"):
             callbacks += list(kwargs["callbacks"])
             kwargs["callbacks"] += [__MLflowFastaiCallback(self)]
         else:

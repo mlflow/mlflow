@@ -83,6 +83,28 @@ def test_tf_keras_autolog_ends_auto_created_run(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_tf_keras_autolog_log_models_configuration(
+    random_train_data, random_one_hot_labels, log_models
+):
+    # pylint: disable=unused-argument
+    mlflow.tensorflow.autolog(log_models=log_models)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    model.fit(data, labels, epochs=10)
+
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    artifacts = client.list_artifacts(run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert ("model" in artifacts) == log_models
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_persists_manually_created_run(
     random_train_data, random_one_hot_labels, fit_variant
@@ -176,6 +198,27 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
+def test_tf_keras_autolog_names_positional_parameters_correctly(
+    random_train_data, random_one_hot_labels
+):
+    mlflow.tensorflow.autolog(every_n_iter=5)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    with mlflow.start_run():
+        # Pass `batch_size` as a positional argument for testing purposes
+        model.fit(data, labels, 8, epochs=10, steps_per_epoch=1)
+        run_id = mlflow.active_run().info.run_id
+
+    client = mlflow.tracking.MlflowClient()
+    run_info = client.get_run(run_id)
+    assert run_info.data.params.get("batch_size") == "8"
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
@@ -216,7 +259,12 @@ def tf_keras_random_data_run_with_callback(
             restore_best_weights=restore_weights,
         )
     else:
-        callback = tf.keras.callbacks.ProgbarLogger(count_mode="samples")
+
+        class CustomCallback(tf.keras.callbacks.Callback):
+            def on_train_end(self, logs=None):
+                print("Training completed")
+
+        callback = CustomCallback()
 
     history = model.fit(
         data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch
