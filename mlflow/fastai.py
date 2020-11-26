@@ -395,7 +395,7 @@ def autolog(log_models=True):
         else:
             auto_end_run = False
 
-        log_fn_args_as_params(original, [self] + list(args), kwargs, unlogged_params)
+        log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
 
         callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
 
@@ -405,7 +405,7 @@ def autolog(log_models=True):
             callbacks += list(args[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
             args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
+        elif kwargs.get("callbacks"):
             callbacks += list(kwargs["callbacks"])
             kwargs["callbacks"] += [__MLflowFastaiCallback(self)]
         else:
