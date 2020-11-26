@@ -1154,11 +1154,11 @@ class MlflowClient(object):
             low = 0
             high = 255 if is_int else 1
             if x.min() < low or x.max() > high:
-                _logger.warning(
-                    "Out-of-range values are detected. Clipping array (dtype: '{}') to [{}, {}]".format(
-                        x.dtype, low, high
-                    )
+                msg = (
+                    "Out-of-range values are detected. "
+                    "Clipping array (dtype: '{}') to [{}, {}]".format(x.dtype, low, high)
                 )
+                _logger.warning(msg)
                 x = np.clip(x, low, high)
 
             # float or bool
