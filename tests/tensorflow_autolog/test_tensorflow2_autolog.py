@@ -302,7 +302,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     # Check that MLflow has logged the metrics of the "best" model
     assert len(metric_history) == num_of_epochs + 1
     # Check that MLflow has logged the correct data
-    assert history.history["loss"][restored_epoch] == metric_history[-1].value
+    assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
 
 
 @pytest.mark.large
