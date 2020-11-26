@@ -109,7 +109,9 @@ def test_tf_keras_autolog_persists_manually_created_run(
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run, fit_variant):
+def tf_keras_random_data_run(
+    random_train_data, random_one_hot_labels, manual_run, fit_variant, initial_epoch
+):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=5)
 
@@ -124,28 +126,34 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
             while True:
                 yield data, labels
 
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
+        history = model.fit_generator(
+            generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+        )
     else:
-        model.fit(data, labels, epochs=10, steps_per_epoch=1)
+        history = model.fit(
+            data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
+        )
 
     client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
-    data = tf_keras_random_data_run.data
+    run, history = tf_keras_random_data_run
+    data = run.data
     assert "accuracy" in data.metrics
     assert "loss" in data.metrics
     # Testing explicitly passed parameters are logged correctly
     assert "epochs" in data.params
-    assert data.params["epochs"] == "10"
+    assert data.params["epochs"] == str(history.epoch[-1] + 1)
     assert "steps_per_epoch" in data.params
     assert data.params["steps_per_epoch"] == "1"
     # Testing default parameters are logged correctly
     assert "initial_epoch" in data.params
-    assert data.params["initial_epoch"] == "0"
+    assert data.params["initial_epoch"] == str(history.epoch[0])
     # Testing unwanted parameters are not logged
     assert "callbacks" not in data.params
     assert "validation_data" not in data.params
@@ -160,28 +168,37 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert "opt_amsgrad" in data.params
     assert data.params["opt_amsgrad"] == "False"
     client = mlflow.tracking.MlflowClient()
-    all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, "accuracy")
+    all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
-    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
+    artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
+    run, history = tf_keras_random_data_run
+
     client = mlflow.tracking.MlflowClient()
-    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
+    artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
     assert "tensorboard_logs" in artifacts
-    model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id + "/model")
+    model = mlflow.keras.load_model("runs:/" + run.info.run_id + "/model")
     model.predict(random_train_data)
 
 
 @pytest.fixture
 def tf_keras_random_data_run_with_callback(
-    random_train_data, random_one_hot_labels, manual_run, callback, restore_weights, patience
+    random_train_data,
+    random_one_hot_labels,
+    manual_run,
+    callback,
+    restore_weights,
+    patience,
+    initial_epoch,
 ):
     # pylint: disable=unused-argument
     mlflow.tensorflow.autolog(every_n_iter=1)
@@ -201,7 +218,9 @@ def tf_keras_random_data_run_with_callback(
     else:
         callback = tf.keras.callbacks.ProgbarLogger(count_mode="samples")
 
-    history = model.fit(data, labels, epochs=10, callbacks=[callback])
+    history = model.fit(
+        data, labels, epochs=initial_epoch + 10, callbacks=[callback], initial_epoch=initial_epoch
+    )
 
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history, callback
@@ -211,6 +230,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
@@ -241,6 +261,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [11])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
@@ -267,6 +288,7 @@ def test_tf_keras_autolog_early_stop_no_stop_does_not_log(tf_keras_random_data_r
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [5])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
     metrics = run.data.metrics
@@ -292,6 +314,7 @@ def test_tf_keras_autolog_early_stop_no_restore_doesnt_log(tf_keras_random_data_
 @pytest.mark.parametrize("restore_weights", [False])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_run_with_callback):
     run, history = tf_keras_random_data_run_with_callback[:-1]
     metrics = run.data.metrics

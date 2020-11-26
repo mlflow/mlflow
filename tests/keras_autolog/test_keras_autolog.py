@@ -115,30 +115,34 @@ def keras_random_data_run(
             while True:
                 yield data, labels
 
-        model.fit_generator(
+        history = model.fit_generator(
             generator(), epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
         )
     else:
-        model.fit(
+        history = model.fit(
             data, labels, epochs=initial_epoch + 10, steps_per_epoch=1, initial_epoch=initial_epoch
         )
 
     client = mlflow.tracking.MlflowClient()
-    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id), history
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-@pytest.mark.parametrize("initial_epoch", [0])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_logs_expected_data(keras_random_data_run):
-    data = keras_random_data_run.data
+    run, history = keras_random_data_run
+    data = run.data
     assert "accuracy" in data.metrics
     assert "loss" in data.metrics
     # Testing explicitly passed parameters are logged correctly
     assert "epochs" in data.params
-    assert data.params["epochs"] == "10"
+    assert data.params["epochs"] == str(history.epoch[-1] + 1)
     assert "steps_per_epoch" in data.params
     assert data.params["steps_per_epoch"] == "1"
+    # Testing default parameters are logged correctly
+    assert "initial_epoch" in data.params
+    assert data.params["initial_epoch"] == str(history.epoch[0])
     # Testing unwanted parameters are not logged
     assert "callbacks" not in data.params
     assert "validation_data" not in data.params
@@ -148,36 +152,17 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     assert "epsilon" in data.params
     assert data.params["epsilon"] == "1e-07"
     client = mlflow.tracking.MlflowClient()
-    artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
+    artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit"])
-@pytest.mark.parametrize("initial_epoch", [0])
-def test_keras_autolog_logs_default_params(keras_random_data_run):
-    # Logging default parameters does not work with keras.Model.fit_generator
-    data = keras_random_data_run.data
-    assert "initial_epoch" in data.params
-    assert data.params["initial_epoch"] == "0"
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit"])
-@pytest.mark.parametrize("initial_epoch", [10])
-def test_keras_autolog_logs_custom_initial_epoch(keras_random_data_run):
-    # Logging default parameters does not work with keras.Model.fit_generator
-    data = keras_random_data_run.data
-    assert "initial_epoch" in data.params
-    assert data.params["initial_epoch"] == "10"
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
-    run_id = keras_random_data_run.info.run_id
+    run, history = keras_random_data_run
+    run_id = run.info.run_id
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
