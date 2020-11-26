@@ -696,7 +696,7 @@ def test_log_image_numpy_dtype(dtype):
 
 @pytest.mark.large
 @pytest.mark.parametrize(
-    # 1 pixel images
+    # 1 pixel images with out-of-range values
     "array", [[[-1]], [[256]], [[-0.1]], [[1.1]]],
 )
 def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
