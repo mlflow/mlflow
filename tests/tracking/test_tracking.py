@@ -664,7 +664,22 @@ def test_log_image_numpy_shape(size):
 
 @pytest.mark.large
 @pytest.mark.parametrize(
-    "dtype", ["uint8", "int", "float", "bool"],
+    "dtype",
+    [
+        # Ref.: https://numpy.org/doc/stable/user/basics.types.html#array-types-and-conversions-between-types
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "uint8",
+        "uint16",
+        "uint32",
+        "uint64",
+        "float16",
+        "float32",
+        "float64",
+        "bool",
+    ],
 )
 def test_log_image_numpy_dtype(dtype):
     import numpy as np
