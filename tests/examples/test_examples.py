@@ -60,10 +60,10 @@ def replace_mlflow_with_dev_version(yml_path):
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
         (os.path.join("pytorch", "MNIST/example1"), ["-P", "max_epochs=1"]),
         (os.path.join("pytorch", "MNIST/example2"), ["-P", "max_epochs=1"]),
-        # (
-        #     os.path.join("pytorch", "BertNewsClassification"),
-        #     ["-P", "max_epochs=1", "-P", "num_samples=100"],
-        # ),
+        (
+            os.path.join("pytorch", "BertNewsClassification"),
+            ["-P", "max_epochs=1", "-P", "num_samples=100"],
+        ),
     ],
 )
 def test_mlflow_run_example(directory, params, tmpdir):
@@ -126,10 +126,10 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "multiclass_classification.py"]),
         ("pytorch/MNIST/example1", ["python", "mnist_autolog_example1.py", "--max_epochs", "1"]),
         ("pytorch/MNIST/example2", ["python", "mnist_autolog_example2.py", "--max_epochs", "1"]),
-        # (
-        #     "pytorch/BertNewsClassification",
-        #     ["python", "bert_classification.py", "--max_epochs", "1", "--num_samples", "100"],
-        # ),
+        (
+            "pytorch/BertNewsClassification",
+            ["python", "bert_classification.py", "--max_epochs", "1", "--num_samples", "100"],
+        ),
     ],
 )
 def test_command_example(directory, command):
