@@ -728,7 +728,7 @@ def autolog(log_models=True):
             early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
             tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
             args = tuple(tmp_list)
-        elif "callbacks" in kwargs:
+        elif kwargs.get("callbacks"):
             early_stop_callback = _early_stop_check(kwargs["callbacks"])
             kwargs["callbacks"] += [__MLflowKerasCallback()]
         else:
@@ -751,9 +751,20 @@ def autolog(log_models=True):
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
 
     def fit_generator(self, *args, **kwargs):
+        """
+        NOTE: `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
+        To avoid unintentional creation of nested MLflow runs caused by a patched
+        `fit_generator()` method calling a patched `fit()` method, we only patch
+        `fit_generator()` in Keras < 2.4.0.
+        """
         original = gorilla.get_original_attribute(keras.Model, "fit_generator")
         unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
 
     wrap_patch(keras.Model, "fit", fit)
-    wrap_patch(keras.Model, "fit_generator", fit_generator)
+    # `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
+    # To avoid unintentional creation of nested MLflow runs caused by a patched
+    # `fit_generator()` method calling a patched `fit()` method, we only patch
+    # `fit_generator()` in Keras < 2.4.0.
+    if LooseVersion(keras.__version__) < LooseVersion("2.4.0"):
+        wrap_patch(keras.Model, "fit_generator", fit_generator)

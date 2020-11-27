@@ -42,7 +42,7 @@ def create_model():
     model.compile(
         optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
         loss="categorical_crossentropy",
-        metrics=["accuracy"],
+        metrics=["acc"],
     )
     return model
 
@@ -125,7 +125,7 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_keras_autolog_logs_expected_data(keras_random_data_run):
     data = keras_random_data_run.data
-    assert "accuracy" in data.metrics
+    assert "acc" in data.metrics
     assert "loss" in data.metrics
     # Testing explicitly passed parameters are logged correctly
     assert "epochs" in data.params
@@ -186,18 +186,19 @@ def keras_random_data_run_with_callback(
     model = create_model()
     if callback == "early":
         # min_delta is set as such to guarantee early stopping
-        callback = keras.callbacks.callbacks.EarlyStopping(
+        callback = keras.callbacks.EarlyStopping(
             monitor="loss",
             patience=patience,
             min_delta=99999999,
             restore_best_weights=restore_weights,
         )
     else:
-        if fit_variant == "fit_generator":
-            count_mode = "steps"
-        else:
-            count_mode = "samples"
-        callback = keras.callbacks.callbacks.ProgbarLogger(count_mode=count_mode)
+
+        class CustomCallback(keras.callbacks.Callback):
+            def on_train_end(self, logs=None):
+                print("Training completed")
+
+        callback = CustomCallback()
 
     if fit_variant == "fit_generator":
 

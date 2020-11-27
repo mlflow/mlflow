@@ -85,6 +85,7 @@ log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 log_text = mlflow.tracking.fluent.log_text
 log_dict = mlflow.tracking.fluent.log_dict
+log_image = mlflow.tracking.fluent.log_image
 log_figure = mlflow.tracking.fluent.log_figure
 active_run = mlflow.tracking.fluent.active_run
 get_run = mlflow.tracking.fluent.get_run
@@ -126,6 +127,7 @@ __all__ = [
     "log_text",
     "log_dict",
     "log_figure",
+    "log_image",
     "active_run",
     "start_run",
     "end_run",
