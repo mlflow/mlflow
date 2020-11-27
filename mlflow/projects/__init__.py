@@ -142,20 +142,25 @@ def _run(
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "kubernetes"
         )
-        validate_docker_env(project)
-        validate_docker_installation()
+
         kube_config = _parse_kubernetes_config(backend_config)
-        image = build_docker_image(
-            work_dir=work_dir,
-            repository_uri=kube_config["repository-uri"],
-            base_image=project.docker_env.get("image"),
-            run_id=active_run.info.run_id,
-        )
-        image_digest = kb.push_image_to_registry(image.tags[0])
+        if os.environ.get('SKIP_DOCKER_IMAGE_BUILD') is None:
+            validate_docker_env(project)
+            validate_docker_installation()
+            image = build_docker_image(
+                work_dir=work_dir,
+                repository_uri=kube_config["repository-uri"],
+                base_image=project.docker_env.get("image"),
+                run_id=active_run.info.run_id,
+            )
+            image_digest = kb.push_image_to_registry(image.tags[0])
+        else:
+            image_digest = kube_config["image-digest"]
+
         submitted_run = kb.run_kubernetes_job(
             project.name,
             active_run,
-            image.tags[0],
+            kube_config["repository-uri"],
             image_digest,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
             get_run_env_vars(
