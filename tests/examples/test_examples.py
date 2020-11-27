@@ -11,6 +11,8 @@ import pytest
 
 EXAMPLES_DIR = "examples"
 
+TEST_CASE_COUNTER = 0
+
 
 def is_conda_yaml(path):
     return bool(re.search("conda.ya?ml$", path))
@@ -65,6 +67,8 @@ def replace_mlflow_with_dev_version(yml_path):
     ],
 )
 def test_mlflow_run_example(directory, params, tmpdir):
+    global TEST_CASE_COUNTER
+    TEST_CASE_COUNTER += 1
     example_dir = os.path.join(EXAMPLES_DIR, directory)
     tmp_example_dir = os.path.join(tmpdir.strpath, directory)
 
@@ -74,7 +78,9 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
-    process.exec_cmd(cmd="./dev/remove-conda-envs.sh", shell=True)
+    # to avoid space issues, clearing conda env after every 5 test cases
+    if TEST_CASE_COUNTER % 5 == 0:
+        process.exec_cmd(cmd="./dev/remove-conda-envs.sh", shell=True)
 
 
 @pytest.mark.large
@@ -118,11 +124,11 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "regression.py"]),
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
-        # ("pytorch/MNIST/example1", ["python", "mnist_autolog_example1.py", "--max_epochs", "1"]),
-        # ("pytorch/MNIST/example2", ["python", "mnist_autolog_example2.py", "--max_epochs", "1"]),
+        ("pytorch/MNIST/example1", ["python", "mnist_autolog_example1.py", "--max_epochs", "1"]),
+        ("pytorch/MNIST/example2", ["python", "mnist_autolog_example2.py", "--max_epochs", "1"]),
         # (
         #     "pytorch/BertNewsClassification",
-        #     ["python", "bert_classification.py", "--max_    epochs", "1", "--num-samples", "100"],
+        #     ["python", "bert_classification.py", "--max_epochs", "1", "--num_samples", "100"],
         # ),
     ],
 )
