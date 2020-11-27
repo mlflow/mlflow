@@ -56,8 +56,8 @@ def replace_mlflow_with_dev_version(yml_path):
             ["-P", "learning_rate=0.3", "-P", "colsample_bytree=0.8", "-P", "subsample=0.9"],
         ),
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
-        # (os.path.join("pytorch", "MNIST/example1"), ["-P", "max_epochs=1"]),
-        # (os.path.join("pytorch", "MNIST/example2"), ["-P", "max_epochs=1"]),
+        (os.path.join("pytorch", "MNIST/example1"), ["-P", "max_epochs=1"]),
+        (os.path.join("pytorch", "MNIST/example2"), ["-P", "max_epochs=1"]),
         # (
         #     os.path.join("pytorch", "BertNewsClassification"),
         #     ["-P", "max_epochs=1", "-P", "num_samples=100"],
@@ -74,11 +74,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
-    print("List of conda environmentst")
-    print("***********************************************************************")
-    res = process.exec_cmd(cmd="conda env list", shell=True)
-    print(res)
-    print("***********************************************************************")
+    process.exec_cmd(cmd="./dev/remove-conda-envs.sh", shell=True)
 
 
 @pytest.mark.large
