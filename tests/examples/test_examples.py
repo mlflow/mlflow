@@ -43,7 +43,7 @@ def remove_conda_env(env_name):
 
 def get_free_disk_space():
     # https://stackoverflow.com/a/48929832/6943581
-    return shutil.disk_usage("/")[-1] // (2 ** 30)
+    return shutil.disk_usage("/")[-1] / (2 ** 30)
 
 
 def replace_mlflow_with_dev_version(yml_path):
@@ -61,7 +61,7 @@ def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
-        print(" | Free disk space: {} GiB".format(get_free_disk_space()), end="")
+        print(" | Free disk space: {:.1} GiB".format(get_free_disk_space()), end="")
 
 
 @pytest.mark.large
