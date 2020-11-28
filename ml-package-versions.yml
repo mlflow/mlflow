@@ -1,0 +1,101 @@
+sklearn:
+  package_info:
+    pip_release: "scikit-learn"
+    pip_dev: |
+      pip install git+https://github.com/scikit-learn/scikit-learn.git@master
+
+  models:
+    minimum: "0.23.2"
+    maximum: "0.23.2"
+    run: |
+      pytest tests/sklearn/test_sklearn_model_export.py --large
+
+  autologging:
+    minimum: "0.23.2"
+    maximum: "0.23.2"
+    requirements: ["matplotlib"]
+    run: |
+      pytest tests/sklearn/test_sklearn_autolog.py --large
+
+pytorch:
+  package_info:
+    pip_release: "torch"
+    pip_dev: |
+      pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+
+  models:
+    minimum: "1.7.0"
+    maximum: "1.7.0"
+    requirements: ["scikit-learn", "torchvision"]
+    run: |
+      pytest tests/pytorch/test_pytorch_model_export.py --large
+
+  autologging:
+    minimum: "1.7.0"
+    maximum: "1.7.0"
+    requirements: ["scikit-learn", "torchvision", "pytorch-lightning"]
+    run: |
+      pytest tests/pytorch/test_pytorch_model_export.py --large
+
+tensorflow:
+  package_info:
+    pip_release: "tensorflow"
+    pip_dev: |
+      pip install tf-nightly
+
+  models:
+    minimum: "2.3.1"
+    maximum: "2.3.1"
+    run: |
+      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+
+  autologging:
+    minimum: "2.3.1"
+    maximum: "2.3.1"
+    run: |
+      pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+
+xgboost:
+  package_info:
+    pip_release: "xgboost"
+    pip_dev: |
+      git clone --recursive https://github.com/dmlc/xgboost
+      cd xgboost/python-package
+      python setup.py install
+
+  models:
+    minimum: "1.2.1"
+    maximum: "1.2.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/xgboost/test_xgboost_model_export.py --large
+
+  autologging:
+    minimum: "1.2.1"
+    maximum: "1.2.1"
+    requirements: ["scikit-learn", "matplotlib"]
+    run: |
+      pytest tests/xgboost/test_xgboost_autolog.py --large
+
+lightgbm:
+  package_info:
+    pip_release: "lightgbm"
+    pip_dev: |
+      git clone --recursive https://github.com/microsoft/LightGBM.git
+      cd LightGBM/python-package
+      pip install wheel
+      python setup.py install
+
+  models:
+    minimum: "3.1.0"
+    maximum: "3.1.0"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_model_export.py --large
+
+  autologging:
+    minimum: "3.1.0"
+    maximum: "3.1.0"
+    requirements: ["scikit-learn", "matplotlib"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_autolog.py --large

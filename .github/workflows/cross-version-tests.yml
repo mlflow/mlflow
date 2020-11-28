@@ -1,0 +1,67 @@
+name: Cross version tests
+
+on:
+  schedule:
+    # Run this workflow daily at 7:00 UTC
+    - cron: "0 7 * * *"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install dependencies
+        run: |
+          pip install pyyaml pytest
+      - name: Test set_matrix.py
+        run: |
+          pytest dev/set_matrix.py --doctest-modules --verbose
+      - id: set-matrix
+        name: Set matrix
+        run: |
+          if [ ! "$(git branch --show-current)" == "master" ]; then
+            git fetch origin master:master
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED_FILES=$(git diff --name-only master..HEAD)
+            python dev/set_matrix.py --diff-only --changed-files "$CHANGED_FILES"
+          else
+            python dev/set_matrix.py
+          fi
+  test:
+    needs: set-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install -r dev/small-requirements.txt
+
+          if [ ! -z "${{ matrix.requirements }}" ]; then
+            pip install ${{ join(matrix.requirements, ' ') }}
+          fi
+      - name: Update package
+        run: |
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          pip freeze
+      - name: Run tests
+        run: |
+          ${{ matrix.run }}
