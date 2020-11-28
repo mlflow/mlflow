@@ -1,6 +1,9 @@
+import logging
+import json
 import os
 import os.path
 import re
+import hashlib
 import shutil
 
 import mlflow
@@ -12,6 +15,9 @@ import pytest
 EXAMPLES_DIR = "examples"
 
 
+logger = logging.getLogger(__name__)
+
+
 def is_conda_yaml(path):
     return bool(re.search("conda.ya?ml$", path))
 
@@ -19,6 +25,33 @@ def is_conda_yaml(path):
 def find_conda_yaml(directory):
     conda_yaml = list(filter(is_conda_yaml, os.listdir(directory)))[0]
     return os.path.join(directory, conda_yaml)
+
+
+def hash_conda_env(conda_env_path):
+    # use the same hashing logic as `_get_conda_env_name` in mlflow/utils/conda.py
+    return hashlib.sha1(open(conda_env_path).read().encode("utf-8")).hexdigest()
+
+
+def get_conda_envs():
+    stdout = process.exec_cmd(["conda", "env", "list", "--json"])[1]
+    return [os.path.basename(env) for env in json.loads(stdout)["envs"]]
+
+
+def is_mlflow_conda_env(env_name):
+    return re.search(r"^mlflow-\w{40}$", env_name) is not None
+
+
+def remove_conda_env(env_name):
+    process.exec_cmd(["conda", "remove", "--name", env_name, "--yes", "--all"])
+
+
+def report_disk_usage():
+    # https://stackoverflow.com/a/48929832/6943581
+
+    logger.info(
+        "Total: %d GiB | Used: %d GiB | Free: %d GiB",
+        *[x // (2 ** 30) for x in shutil.disk_usage("/")]
+    )
 
 
 def replace_mlflow_with_dev_version(yml_path):
@@ -65,6 +98,16 @@ def test_mlflow_run_example(directory, params, tmpdir):
     shutil.copytree(example_dir, tmp_example_dir)
     conda_yml_path = find_conda_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(conda_yml_path)
+
+    # remove conda environments to save disk space
+    envs = list(filter(is_mlflow_conda_env, get_conda_envs()))
+    logger.info(envs)
+    env_name = "mlflow-" + hash_conda_env(conda_yml_path)
+    envs_to_remove = list(filter(lambda e: e != env_name, envs))
+    logger.info(envs_to_remove)
+    for env in envs_to_remove:
+        remove_conda_env(env)
+    report_disk_usage()
 
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
