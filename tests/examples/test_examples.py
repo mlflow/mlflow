@@ -45,11 +45,9 @@ def remove_conda_env(env_name):
     process.exec_cmd(["conda", "remove", "--name", env_name, "--yes", "--all"])
 
 
-def report_disk_usage():
+def get_disk_usage():
     # https://stackoverflow.com/a/48929832/6943581
-
-    print(
-        "Total: %d GiB | Used: %d GiB | Free: %d GiB",
+    return "Disk usage [ Total: {:d} GiB, Used: {:d} GiB, Free: {:d} GiB ]".format(
         *[x // (2 ** 30) for x in shutil.disk_usage("/")]
     )
 
@@ -62,6 +60,14 @@ def replace_mlflow_with_dev_version(yml_path):
 
     with open(yml_path, "w") as f:
         f.write(new_src)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def report_disk_usage(capsys):
+    yield
+
+    with capsys.disabled():
+        print(" |", get_disk_usage(), end="")
 
 
 @pytest.mark.large
@@ -91,7 +97,7 @@ def replace_mlflow_with_dev_version(yml_path):
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
     ],
 )
-def test_mlflow_run_example(directory, params, tmpdir):
+def test_mlflow_run_example(directory, params, tmpdir, capsys):
     example_dir = os.path.join(EXAMPLES_DIR, directory)
     tmp_example_dir = os.path.join(tmpdir.strpath, directory)
 
@@ -99,16 +105,12 @@ def test_mlflow_run_example(directory, params, tmpdir):
     conda_yml_path = find_conda_yaml(tmp_example_dir)
     replace_mlflow_with_dev_version(conda_yml_path)
 
-    # remove conda environments to save disk space
+    # remove old conda environments to free disk space
     envs = list(filter(is_mlflow_conda_env, get_conda_envs()))
-    print(envs)
-    env_name = "mlflow-" + hash_conda_env(conda_yml_path)
-    print(env_name)
-    envs_to_remove = list(filter(lambda e: e != env_name, envs))
-    print(envs_to_remove)
+    current_env_name = "mlflow-" + hash_conda_env(conda_yml_path)
+    envs_to_remove = list(filter(lambda e: e != current_env_name, envs))
     for env in envs_to_remove:
         remove_conda_env(env)
-    report_disk_usage()
 
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
