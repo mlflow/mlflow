@@ -48,7 +48,7 @@ def remove_conda_env(env_name):
 def report_disk_usage():
     # https://stackoverflow.com/a/48929832/6943581
 
-    logger.info(
+    print(
         "Total: %d GiB | Used: %d GiB | Free: %d GiB",
         *[x // (2 ** 30) for x in shutil.disk_usage("/")]
     )
@@ -101,10 +101,11 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
     # remove conda environments to save disk space
     envs = list(filter(is_mlflow_conda_env, get_conda_envs()))
-    logger.info(envs)
+    print(envs)
     env_name = "mlflow-" + hash_conda_env(conda_yml_path)
+    print(env_name)
     envs_to_remove = list(filter(lambda e: e != env_name, envs))
-    logger.info(envs_to_remove)
+    print(envs_to_remove)
     for env in envs_to_remove:
         remove_conda_env(env)
     report_disk_usage()

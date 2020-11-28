@@ -40,7 +40,7 @@ jobs:
       run: |
         source ./dev/install-common-deps.sh
         source activate test-environment
-        pytest --verbose tests/examples --durations=0 --log-cli-level INFO --large
+        pytest --verbose tests/examples --durations=0 --large -s
     - name: Remove conda environments
       run: |
         ./dev/remove-conda-envs.sh
