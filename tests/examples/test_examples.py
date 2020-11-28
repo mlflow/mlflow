@@ -41,11 +41,9 @@ def remove_conda_env(env_name):
     process.exec_cmd(["conda", "remove", "--name", env_name, "--yes", "--all"])
 
 
-def get_disk_usage():
+def get_free_disk_space():
     # https://stackoverflow.com/a/48929832/6943581
-    return "Disk usage [ Total: {:d} GiB, Used: {:d} GiB, Free: {:d} GiB ]".format(
-        *[x // (2 ** 30) for x in shutil.disk_usage("/")]
-    )
+    return shutil.disk_usage("/")[-1] // (2 ** 30)
 
 
 def replace_mlflow_with_dev_version(yml_path):
@@ -59,11 +57,11 @@ def replace_mlflow_with_dev_version(yml_path):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def report_disk_usage(capsys):
+def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
-        print(" |", get_disk_usage(), end="")
+        print(" | Free disk space: {} GiB".format(get_free_disk_space()), end="")
 
 
 @pytest.mark.large
