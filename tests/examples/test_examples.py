@@ -1,4 +1,3 @@
-import logging
 import json
 import os
 import os.path
@@ -13,9 +12,6 @@ from tests.integration.utils import invoke_cli_runner
 import pytest
 
 EXAMPLES_DIR = "examples"
-
-
-logger = logging.getLogger(__name__)
 
 
 def is_conda_yaml(path):
@@ -97,7 +93,7 @@ def report_disk_usage(capsys):
         ("fastai", ["-P", "lr=0.02", "-P", "epochs=3"]),
     ],
 )
-def test_mlflow_run_example(directory, params, tmpdir, capsys):
+def test_mlflow_run_example(directory, params, tmpdir):
     example_dir = os.path.join(EXAMPLES_DIR, directory)
     tmp_example_dir = os.path.join(tmpdir.strpath, directory)
 
