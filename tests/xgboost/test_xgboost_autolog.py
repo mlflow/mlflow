@@ -215,6 +215,7 @@ def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_dat
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(metrics, *args):
+            # pylint: disable=unused-argument
             patched_metrics_data.extend(metrics.items())
 
         record_metrics_mock.side_effect = record_metrics_side_effect
@@ -284,6 +285,7 @@ def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_early_stopping(bst_p
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(metrics, *args):
+            # pylint: disable=unused-argument
             patched_metrics_data.extend(metrics.items())
 
         record_metrics_mock.side_effect = record_metrics_side_effect

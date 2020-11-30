@@ -79,6 +79,7 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics():
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(metrics, *args):
+            # pylint: disable=unused-argument
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
@@ -225,6 +226,7 @@ def test_pyrorch_autolog_batch_metrics_logger_logs_early_stopping_metrics(patien
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(metrics, *args):
+            # pylint: disable=unused-argument
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect

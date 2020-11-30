@@ -159,6 +159,7 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(metrics, *args):
+            # pylint: disable=unused-argument
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
@@ -304,6 +305,7 @@ def test_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(metrics, *args):
+            # pylint: disable=unused-argument
             patched_metrics_data.extend(metrics.items())
 
         record_metrics_mock.side_effect = record_metrics_side_effect
