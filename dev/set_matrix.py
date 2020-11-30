@@ -258,6 +258,12 @@ def main():
                 or (key not in config_ref[flavor])
                 or (cfg != config_ref[flavor][key])
             ):
+                requirements = (
+                    ["'{}'".format(x) for x in cfg["requirements"]]
+                    if "requirements" in cfg
+                    else None
+                )
+                run = cfg["run"].strip()
 
                 # released versions
                 min_ver = cfg["minimum"]
@@ -271,11 +277,11 @@ def main():
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": ["'{}'".format(x) for x in cfg.get("requirements")],
+                            "requirements": requirements,
                             "install": "pip install -U '{}=={}'".format(
                                 package_info["pip_release"], ver
                             ),
-                            "run": cfg["run"].strip(),
+                            "run": run,
                         }
                     )
 
@@ -286,9 +292,9 @@ def main():
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": ["'{}'".format(x) for x in cfg.get("requirements")],
+                            "requirements": requirements,
                             "install": package_info["pip_dev"].strip(),
-                            "run": cfg["run"].strip(),
+                            "run": run,
                         }
                     )
 
