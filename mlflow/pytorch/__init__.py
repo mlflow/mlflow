@@ -269,52 +269,53 @@ def log_model(
                 y_pred = self.linear(x)
                 return y_pred
 
-            def gen_data():
+        def gen_data():
 
-                # Example linear model modified to use y = 2x
-                # from https://github.com/hunkim/PyTorchZeroToAll
-                # X training data, y labels
-                X = torch.arange(1.0, 25.0).view(-1, 1)
-                y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-                return X, y
+            # Example linear model modified to use y = 2x
+            # from https://github.com/hunkim/PyTorchZeroToAll
+            # X training data, y labels
+            X = torch.arange(1.0, 25.0).view(-1, 1)
+            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
+            return X, y
 
-            # Define model, loss, and optimizer
-            model = LinearNNModel()
-            criterion = torch.nn.MSELoss()
-            optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        # Define model, loss, and optimizer
+        model = LinearNNModel()
+        criterion = torch.nn.MSELoss()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
-            # Training loop
-            epochs = 250
-            X, y = gen_data()
-            for epoch in range(epochs):
-                # Forward pass: Compute predicted y by passing X to the model
-                y_pred = model(X)
+        # Training loop
+        epochs = 250
+        X, y = gen_data()
+        for epoch in range(epochs):
+            # Forward pass: Compute predicted y by passing X to the model
+            y_pred = model(X)
 
-                # Compute the loss
-                loss = criterion(y_pred, y)
+            # Compute the loss
+            loss = criterion(y_pred, y)
 
-                # Zero gradients, perform a backward pass, and update the weights.
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-            if (epoch + 1) % 50 == 0:
-                print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+        if (epoch + 1) % 50 == 0:
+            print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
 
-            # Log the model
-            with mlflow.start_run() as run:
-                mlflow.pytorch.log_model(model, "models_pth")
+        # Log the model
+        with mlflow.start_run() as run:
+            mlflow.pytorch.log_model(model, "models_pth")
 
-                # convert to scripted model and log the model
-                scripted_pytorch_model = torch.jit.script(model)
-                mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_models_pth")
+            # convert to scripted model and log the model
+            scripted_pytorch_model = torch.jit.script(model)
+            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_models_pth")
 
-            # fetch the logged model artifacts
-            print("--")
-            print("run_id: {}".format(run.info.run_id))
-            for artifact_path in ["models_pth/data", "scripted_models_pth/data"]:
-                artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id, artifact_path)]
-                print("artifacts: {}".format(artifacts))
+        # fetch the logged model artifacts
+        print("--")
+        print("run_id: {}".format(run.info.run_id))
+        for artifact_path in ["models_pth/data", "scripted_models_pth/data"]:
+            artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id,
+                        artifact_path)]
+            print("artifacts: {}".format(artifacts))
 
     .. code-block:: text
         :caption: Output
@@ -474,7 +475,6 @@ def save_model(
 
         def gen_data():
             # X training data, y labels
-
             X = torch.arange(1.0, 25.0).view(-1, 1)
             y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
             return X, y
@@ -739,50 +739,50 @@ def load_model(model_uri, **kwargs):
                 y_pred = self.linear(x)
                 return y_pred
 
-            def gen_data():
+        def gen_data():
 
-                # Example linear model modified to use y = 2x
-                # from https://github.com/hunkim/PyTorchZeroToAll
-                # X training data, y labels
-                X = torch.arange(1.0, 25.0).view(-1, 1)
-                y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-                return X, y
+            # Example linear model modified to use y = 2x
+            # from https://github.com/hunkim/PyTorchZeroToAll
+            # X training data, y labels
+            X = torch.arange(1.0, 25.0).view(-1, 1)
+            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
+            return X, y
 
-            # Define model, loss, and optimizer
-            model = LinearNNModel()
-            criterion = torch.nn.MSELoss()
-            optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        # Define model, loss, and optimizer
+        model = LinearNNModel()
+        criterion = torch.nn.MSELoss()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
-            # Training loop
-            epochs = 250
-            X, y = gen_data()
-            for epoch in range(epochs):
-                # Forward pass: Compute predicted y by passing X to the model
-                y_pred = model(X)
+        # Training loop
+        epochs = 250
+        X, y = gen_data()
+        for epoch in range(epochs):
+            # Forward pass: Compute predicted y by passing X to the model
+            y_pred = model(X)
 
-                # Compute the loss
-                loss = criterion(y_pred, y)
+            # Compute the loss
+            loss = criterion(y_pred, y)
 
-                # Zero gradients, perform a backward pass, and update the weights.
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-            if (epoch + 1) % 50 == 0:
-                print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+        if (epoch + 1) % 50 == 0:
+            print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
 
-            # Log the model
-            with mlflow.start_run() as run:
-                mlflow.pytorch.log_model(model, "models_pth")
+        # Log the model
+        with mlflow.start_run() as run:
+            mlflow.pytorch.log_model(model, "models_pth")
 
-            # Inference after loading the logged model
-            print("--")
-            model_uri = "runs:/{}/models_pth".format(run.info.run_id)
-            loaded_model = mlflow.pytorch.load_model(model_uri)
-            for hv in [4.0, 6.0, 30.0]:
-                hour_var = torch.Tensor([[hv]])
-                y_pred = loaded_model(hour_var)
-                print("predict X:{}, y_pred: {:.2f}".format(hv, y_pred.data.item()))
+        # Inference after loading the logged model
+        print("--")
+        model_uri = "runs:/{}/models_pth".format(run.info.run_id)
+        loaded_model = mlflow.pytorch.load_model(model_uri)
+        for hv in [4.0, 6.0, 30.0]:
+            hour_var = torch.Tensor([[hv]])
+            y_pred = loaded_model(hour_var)
+            print("predict X:{}, y_pred: {:.2f}".format(hv, y_pred.data.item()))
 
     .. code-block:: text
         :caption: Output
@@ -869,15 +869,15 @@ def autolog(log_every_n_epoch=1, log_models=True):
     `pytorch_lightning.Trainer() \
     <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
 
-    Explore the `PyTorch MNIST \
+    Explore the complete `PyTorch MNIST \
     <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST/example1>`_ for
     an expansive example with implementation of additional lightening steps.
 
     **Note**: Autologging is only supported for PyTorch Lightning models,
-    i.e. models that subclass
+    i.e., models that subclass
     `pytorch_lightning.LightningModule \
     <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
-    In particular, autologging support for vanilla Pytorch models that only subclass
+    In particular, autologging support for vanilla PyTorch models that only subclass
     `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
     is not yet available.
 
@@ -938,26 +938,26 @@ def autolog(log_every_n_epoch=1, log_models=True):
             print("metrics: {}".format(r.data.metrics))
             print("tags: {}".format(tags))
 
-            # Initialize our model
-            mnist_model = MNISTModel()
+        # Initialize our model
+        mnist_model = MNISTModel()
 
-            # Initialize DataLoader from MNIST Dataset
-            train_ds = MNIST(os.getcwd(), train=True,
-                download=True, transform=transforms.ToTensor())
-            train_loader = DataLoader(train_ds, batch_size=32)
+        # Initialize DataLoader from MNIST Dataset
+        train_ds = MNIST(os.getcwd(), train=True,
+            download=True, transform=transforms.ToTensor())
+        train_loader = DataLoader(train_ds, batch_size=32)
 
-            # Initialize a trainer
-            trainer = pl.Trainer(max_epochs=20, progress_bar_refresh_rate=20)
+        # Initialize a trainer
+        trainer = pl.Trainer(max_epochs=20, progress_bar_refresh_rate=20)
 
-            # Auto log all MLflow entities
-            mlflow.pytorch.autolog()
+        # Auto log all MLflow entities
+        mlflow.pytorch.autolog()
 
-            # Train the model
-            with mlflow.start_run() as run:
-                trainer.fit(mnist_model, train_loader)
+        # Train the model
+        with mlflow.start_run() as run:
+            trainer.fit(mnist_model, train_loader)
 
-            # fetch the auto logged parameters and metrics
-            print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+        # fetch the auto logged parameters and metrics
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
 
     .. code-block:: text
         :caption: Output
