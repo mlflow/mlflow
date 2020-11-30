@@ -8,8 +8,7 @@ import keras.layers as layers  # noqa
 
 import mlflow  # noqa
 import mlflow.keras  # noqa
-from mlflow.utils.autologging_utils import BatchMetricsLogger
-from unittest.mock import patch
+from unittest.mock import patch # noqa
 
 
 @pytest.fixture
@@ -308,7 +307,7 @@ def test_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
             patched_metrics_data.extend(metrics.items())
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        run, history, callback = keras_random_data_run_with_callback(
+        _, _, callback = keras_random_data_run_with_callback(
             random_train_data(),
             fit_variant,
             random_one_hot_labels(),

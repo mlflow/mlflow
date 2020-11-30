@@ -12,7 +12,6 @@ import mlflow
 import mlflow.xgboost
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
 mpl.use("Agg")

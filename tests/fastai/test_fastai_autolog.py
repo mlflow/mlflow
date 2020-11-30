@@ -9,7 +9,6 @@ from fastai.metrics import accuracy
 import mlflow
 import mlflow.fastai
 from fastai.callbacks import EarlyStoppingCallback
-from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
 np.random.seed(1337)
@@ -108,7 +107,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        model, run = fastai_random_data_run(iris_data(), fit_variant, manual_run)
+        model, _ = fastai_random_data_run(iris_data(), fit_variant, manual_run)
 
     assert "train_loss" in patched_metrics_data
     assert "valid_loss" in patched_metrics_data
@@ -309,7 +308,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_early_stopping_metrics(
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        model, run = fastai_random_data_run_with_callback(
+        model, _ = fastai_random_data_run_with_callback(
             iris_data(), fit_variant, manual_run, callback, patience
         )
 

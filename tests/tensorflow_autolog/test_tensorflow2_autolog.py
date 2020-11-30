@@ -11,7 +11,6 @@ from tensorflow.python.keras import layers  # pylint: disable=import-error
 import mlflow
 import mlflow.tensorflow
 import mlflow.keras
-from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
 import os
@@ -303,7 +302,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
             patched_metrics_data.extend(metrics.items())
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        run, history, callback = tf_keras_random_data_run_with_callback(
+        _, _, callback = tf_keras_random_data_run_with_callback(
             random_train_data(),
             random_one_hot_labels(),
             manual_run,
