@@ -22,8 +22,6 @@ tensorflow==1.15.2
 torch
 torchvision
 pytorch_lightning>=1.0.2
-transformers
-torchtext
 # Required by mlflow.xgboost
 xgboost>=0.82
 # Required by mlflow.lightgbm
