@@ -24,14 +24,14 @@ pytorch:
       pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "1.7.0"
+    minimum: "1.3.0"
     maximum: "1.7.0"
     requirements: ["scikit-learn", "torchvision"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
   autologging:
-    minimum: "1.7.0"
+    minimum: "1.3.0"
     maximum: "1.7.0"
     requirements: ["scikit-learn", "torchvision", "pytorch-lightning"]
     run: |
