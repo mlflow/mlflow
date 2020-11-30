@@ -45,9 +45,13 @@ jobs:
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: "3.6"
+      - name: Enable conda
+        run: |
+          echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+      - name: Update python
+        run: |
+          conda install python=3.6
+          python --version
       - name: Install dependencies
         run: |
           pip install -e .
