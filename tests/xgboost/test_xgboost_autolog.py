@@ -463,6 +463,7 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
 @pytest.mark.parametrize("log_input_examples", [True, False])
 @pytest.mark.parametrize("log_model_signatures", [True, False])
 def test_xgb_autolog_configuration_options(bst_params, log_input_examples, log_model_signatures):
+    raise Exception
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = iris.target
