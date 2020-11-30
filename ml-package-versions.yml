@@ -62,7 +62,7 @@ keras:
   models:
     minimum: "2.4.3"
     maximum: "2.4.3"
-    requirements: ["tensorflow", "packaging"]
+    requirements: ["tensorflow", "packaging", "scikit-learn"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
