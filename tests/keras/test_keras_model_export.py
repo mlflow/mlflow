@@ -242,6 +242,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     print(scoring_response.content)
     actual_scoring_response = pd.read_json(
@@ -289,6 +290,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
