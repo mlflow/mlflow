@@ -5,13 +5,13 @@ sklearn:
       pip install git+https://github.com/scikit-learn/scikit-learn.git@master
 
   models:
-    minimum: "0.23.2"
+    minimum: "0.20.4"
     maximum: "0.23.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
-    minimum: "0.23.2"
+    minimum: "0.20.4"
     maximum: "0.23.2"
     requirements: ["matplotlib"]
     run: |
@@ -106,14 +106,14 @@ xgboost:
       python setup.py install
 
   models:
-    minimum: "1.2.1"
+    minimum: "0.90"
     maximum: "1.2.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
-    minimum: "1.2.1"
+    minimum: "0.90"
     maximum: "1.2.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
@@ -128,14 +128,14 @@ lightgbm:
       python setup.py install
 
   models:
-    minimum: "3.1.0"
+    minimum: "2.3.1"
     maximum: "3.1.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py --large
 
   autologging:
-    minimum: "3.1.0"
+    minimum: "2.3.1"
     maximum: "3.1.0"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
