@@ -61,7 +61,14 @@ tensorflow:
     # `until_latest` and `includes_dev` default to True if unspecified
     until_latest: False
     includes_dev: False
-    requirements: ["keras==2.2.5", "scikit-learn", "h5py<3.0.0", "pyspark==2.4.0"]
+    requirements:
+      [
+        "keras==2.2.5",
+        "scikit-learn",
+        "h5py<3.0.0",
+        "pyspark==2.4.0",
+        "pyarrow",
+      ]
     run: |
       pytest tests/tensorflow/test_tensorflow_model_export.py --large
       pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
@@ -79,7 +86,7 @@ keras:
   models:
     minimum: "2.4.3"
     maximum: "2.4.3"
-    requirements: ["tensorflow", "scikit-learn", "pyspark==2.4.0"]
+    requirements: ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
