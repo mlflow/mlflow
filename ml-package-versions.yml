@@ -101,7 +101,6 @@ lightgbm:
     pip_dev: |
       git clone --recursive https://github.com/microsoft/LightGBM.git
       cd LightGBM/python-package
-      pip install wheel
       python setup.py install
 
   models:
