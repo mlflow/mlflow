@@ -61,7 +61,7 @@ tensorflow:
     # `until_latest` and `includes_dev` default to True if unspecified
     until_latest: False
     includes_dev: False
-    requirements: ["keras==2.2.5", "scikit-learn", "h5py<3.0.0", "pyspark"]
+    requirements: ["keras==2.2.5", "scikit-learn", "h5py<3.0.0", "pyspark==2.4.0"]
     run: |
       pytest tests/tensorflow/test_tensorflow_model_export.py --large
       pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
@@ -79,10 +79,8 @@ keras:
   models:
     minimum: "2.4.3"
     maximum: "2.4.3"
-    requirements: ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
+    requirements: ["tensorflow", "scikit-learn", "pyspark==2.4.0"]
     run: |
-      # https://spark.apache.org/docs/latest/sql-pyspark-pandas-with-arrow.html#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
-      export ARROW_PRE_0_15_IPC_FORMAT=0
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
