@@ -455,7 +455,7 @@ def autolog(
                 extra_step = len(eval_results)
                 metrics_logger.record_metrics({"stopped_iteration": extra_step - 1})
                 metrics_logger.record_metrics({"best_iteration": model.best_iteration})
-                metrics_logger.record_metrics(eval_results[model.best_iteration], step=extra_step)
+                metrics_logger.record_metrics(eval_results[model.best_iteration], extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:

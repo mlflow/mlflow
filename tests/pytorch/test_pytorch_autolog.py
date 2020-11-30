@@ -7,6 +7,9 @@ import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
+
 
 NUM_EPOCHS = 20
 
@@ -64,6 +67,23 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
+
+
+@pytest.mark.large
+def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics():
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to insure that expected metrics are being logged.
+    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+        def record_metrics_side_effect(metrics, *args):
+            patched_metrics_data.extend(metrics)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        pytorch_model()
+
+    assert "loss" in patched_metrics_data
+    assert "val_loss" in patched_metrics_data
 
 
 # pylint: disable=unused-argument
@@ -190,6 +210,23 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     assert "stopped_epoch" in data.metrics
     assert "wait_count" in data.metrics
     assert "restored_epoch" in data.metrics
+
+@pytest.mark.parametrize("patience", [3])
+def test_pyrorch_autolog_batch_metrics_logger_logs_early_stopping_metrics(patience):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to insure that expected metrics are being logged.
+    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+        def record_metrics_side_effect(metrics, *args):
+            patched_metrics_data.extend(metrics)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        pytorch_model_with_callback(patience)
+
+    assert "stopped_epoch" in patched_metrics_data
+    assert "wait_count" in patched_metrics_data
+    assert "restored_epoch" in patched_metrics_data
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):

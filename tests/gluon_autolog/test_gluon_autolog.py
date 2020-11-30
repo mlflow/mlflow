@@ -11,6 +11,9 @@ from mxnet.gluon.data import Dataset, DataLoader
 from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 from mxnet.metric import Accuracy
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
+
 
 import mlflow
 import mlflow.gluon
@@ -68,6 +71,25 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     assert data.params["optimizer_name"] == "Adam"
     assert "epsilon" in data.params
     assert data.params["epsilon"] == "1e-07"
+
+
+@pytest.mark.large
+def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to insure that expected metrics are being logged.
+    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+        def record_metrics_side_effect(metrics, *args):
+            patched_metrics_data.extend(metrics)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        run = gluon_random_data_run()
+
+    assert "train accuracy" in patched_metrics_data
+    assert "validation accuracy" in patched_metrics_data
+    assert "train softmaxcrossentropyloss" in patched_metrics_data
+    assert "validation softmaxcrossentropyloss" in patched_metrics_data
 
 
 @pytest.mark.large

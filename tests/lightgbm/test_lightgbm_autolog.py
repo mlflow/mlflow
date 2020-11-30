@@ -12,6 +12,8 @@ import mlflow
 import mlflow.lightgbm
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 mpl.use("Agg")
 
@@ -233,6 +235,43 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
                 x.value for x in client.get_metric_history(run.info.run_id, metric_key)
             ]
             assert metric_key in data.metrics
+            assert len(metric_history) == 10
+            assert metric_history == evals_result[valid_name][metric_name]
+
+
+@pytest.mark.large
+def test_lgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_data_and_metrics(bst_params, train_set):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to insure that expected metrics are being logged.
+    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+        def record_metrics_side_effect(metrics, *args):
+            patched_metrics_data.extend(metrics.items())
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+
+        mlflow.lightgbm.autolog()
+        evals_result = {}
+        params = {"metric": ["multi_error", "multi_logloss"]}
+        params.update(bst_params)
+        valid_sets = [train_set, lgb.Dataset(train_set.data)]
+        valid_names = ["train", "valid"]
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+
+    for valid_name in valid_names:
+        for metric_name in params["metric"]:
+            metric_key = "{}-{}".format(valid_name, metric_name)
+            metric_history = [x[1] for x in patched_metrics_data if x[0] == metric_key]
+
+            assert metric_key in dict(patched_metrics_data)
             assert len(metric_history) == 10
             assert metric_history == evals_result[valid_name][metric_name]
 

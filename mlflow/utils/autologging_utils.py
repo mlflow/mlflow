@@ -246,7 +246,12 @@ class BatchMetricsLogger:
 
         self.total_training_time += training_time
 
+        # log_batch() requires step to be defined. Therefore will set step to 0 if not defined.
+        if step is None:
+            step = 0
+
         for key, value in metrics.items():
+
             self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
         if self._should_flush():

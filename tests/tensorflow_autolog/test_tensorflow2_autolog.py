@@ -11,6 +11,8 @@ from tensorflow.python.keras import layers  # pylint: disable=import-error
 import mlflow
 import mlflow.tensorflow
 import mlflow.keras
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 import os
 
@@ -156,6 +158,24 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+def test_tf_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to insure that expected metrics are being logged.
+    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+        def record_metrics_side_effect(metrics, *args):
+            patched_metrics_data.extend(metrics)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        tf_keras_random_data_run(random_train_data(), random_one_hot_labels(), manual_run, fit_variant)
+
+    assert "accuracy" in patched_metrics_data
+    assert "loss" in patched_metrics_data
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
     assert "accuracy" in data.metrics
@@ -257,6 +277,35 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert len(metric_history) == num_of_epochs + 1
     # Check that MLflow has logged the correct data
     assert history.history["loss"][restored_epoch] == metric_history[-1].value
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("restore_weights", [True])
+@pytest.mark.parametrize("callback", ["early"])
+@pytest.mark.parametrize("patience", [0, 1, 5])
+def test_tf_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(callback, restore_weights, patience):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to insure that expected metrics are being logged.
+    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+        def record_metrics_side_effect(metrics, *args):
+            patched_metrics_data.extend(metrics.items())
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        run, history, callback = tf_keras_random_data_run_with_callback(
+            random_train_data(),
+            random_one_hot_labels(),
+            manual_run,
+            callback,
+            restore_weights,
+            patience,
+        )
+    patched_metrics_data = dict(patched_metrics_data)
+    restored_epoch = int(patched_metrics_data["restored_epoch"])
+    assert "stopped_epoch" in patched_metrics_data
+    assert "restored_epoch" in patched_metrics_data
+    assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
 
 
 @pytest.mark.large
