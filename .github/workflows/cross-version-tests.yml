@@ -39,7 +39,6 @@ jobs:
           fi
   test:
     needs: set-matrix
-    continue-on-error: true
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
