@@ -459,9 +459,9 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     dataset = xgb.DMatrix(X, y)
 
     xgb.train(bst_params, dataset)
-
-    dataset.save_binary(tmpdir.join("dataset_serialization_test"))  # serialization should not throw
-    xgb.DMatrix(tmpdir.join("dataset_serialization_test"))  # deserialization also should not throw
+    save_path = tmpdir.join("dataset_serialization_test").strpath
+    dataset.save_binary(save_path)  # serialization should not throw
+    xgb.DMatrix(save_path)  # deserialization also should not throw
 
 
 @pytest.mark.large
