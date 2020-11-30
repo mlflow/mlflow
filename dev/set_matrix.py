@@ -266,7 +266,7 @@ def main():
                     )
 
                 # development version
-                if "pip_dev" in package_info:
+                if "pip_dev" in package_info and cfg.get("includes_dev", True):
                     job_name = "-".join([flavor, "dev", key])
                     job_names.append(job_name)
                     includes.append(
