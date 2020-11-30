@@ -31,6 +31,7 @@ def bst_params():
     return {
         "objective": "multi:softprob",
         "num_class": 3,
+        "eval_metric": "mlogloss",
     }
 
 
@@ -134,12 +135,12 @@ def test_xgb_autolog_logs_metrics_with_validation_data(bst_params, dtrain):
     )
     run = get_latest_run()
     data = run.data
-    metric_key = "train-merror"
+    metric_key = "train-mlogloss"
     client = mlflow.tracking.MlflowClient()
     metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
     assert metric_key in data.metrics
     assert len(metric_history) == 20
-    assert metric_history == evals_result["train"]["merror"]
+    assert metric_history == evals_result["train"]["mlogloss"]
 
 
 @pytest.mark.large
@@ -152,19 +153,18 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data(bst_params, dtrain)
     data = run.data
     client = mlflow.tracking.MlflowClient()
     for eval_name in [e[1] for e in evals]:
-        metric_key = "{}-merror".format(eval_name)
+        metric_key = "{}-mlogloss".format(eval_name)
         metric_history = [x.value for x in client.get_metric_history(run.info.run_id, metric_key)]
         assert metric_key in data.metrics
         assert len(metric_history) == 20
-        assert metric_history == evals_result[eval_name]["merror"]
+        assert metric_history == evals_result[eval_name]["mlogloss"]
 
 
 @pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
-    params = {"eval_metric": ["merror", "mlogloss"]}
-    params.update(bst_params)
+    params = {**bst_params, **{"eval_metric": ["merror", "mlogloss"]}}
     xgb.train(
         params, dtrain, num_boost_round=20, evals=[(dtrain, "train")], evals_result=evals_result
     )
@@ -183,8 +183,7 @@ def test_xgb_autolog_logs_metrics_with_multi_metrics(bst_params, dtrain):
 def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
-    params = {"eval_metric": ["merror", "mlogloss"]}
-    params.update(bst_params)
+    params = {**bst_params, "eval_metric": ["merror", "mlogloss"]}
     evals = [(dtrain, "train"), (dtrain, "valid")]
     xgb.train(params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
     run = get_latest_run()
@@ -205,8 +204,7 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
-    params = {"eval_metric": ["merror", "mlogloss"]}
-    params.update(bst_params)
+    params = {**bst_params, "eval_metric": ["merror", "mlogloss"]}
     evals = [(dtrain, "train"), (dtrain, "valid")]
     model = xgb.train(
         params,
