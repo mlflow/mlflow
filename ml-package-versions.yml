@@ -72,7 +72,7 @@ keras:
   package_info:
     pip_release: "keras"
     pip_dev: |
-      pip install tf-nightly
+      pip install tf-nightly 'keras>=2.4.0'
 
   models:
     minimum: "2.4.3"
