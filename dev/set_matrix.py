@@ -119,29 +119,41 @@ def select_latest_micro_versions(versions):
     return res
 
 
-def get_latest_micro_versions(package_name, min_ver, excludes=None):
+def get_latest_micro_versions(package_name, min_ver=None, max_ver=None, excludes=None):
     """
     Fetches the latest micro version in each minor version for the specified Python package.
 
     Examples
     --------
-    >>> get_latest_micro_versions("scikit-learn", "0.19.2")
-    ['0.19.2', '0.20.4', '0.21.3', '0.22.2', ...]
+    >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2")
+    ['0.19.2', ...]
 
-    >>> get_latest_micro_versions("scikit-learn", "0.19.2", ["0.21.3"])
+    >>> get_latest_micro_versions("scikit-learn", max_ver="0.19.2")
+    [..., '0.19.2']
+
+    >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2", max_ver="0.22.2")
+    ['0.19.2', '0.20.4', '0.21.3', '0.22.2']
+
+    >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2", excludes=["0.21.3"])
     ['0.19.2', '0.20.4', '0.21.2', '0.22.2', ...]
     """
     if excludes is None:
         excludes = []
 
-    versions = get_released_versions(package_name)
+    all_versions = get_released_versions(package_name)
     # prevent specifying non-existent versions
-    assert min_ver in versions
-    assert all(v in versions for v in excludes)
+    assert all(v in all_versions for v in excludes)
 
-    versions = {v: t for v, t in versions.items() if v not in excludes}
+    versions = {v: t for v, t in all_versions.items() if v not in excludes}
     versions = {v: t for v, t in versions.items() if is_final_release(v)}
-    versions = {v: t for v, t in versions.items() if LooseVersion(v) >= LooseVersion(min_ver)}
+
+    if min_ver:
+        assert min_ver in all_versions
+        versions = {v: t for v, t in versions.items() if LooseVersion(v) >= LooseVersion(min_ver)}
+
+    if max_ver:
+        assert max_ver in all_versions
+        versions = {v: t for v, t in versions.items() if LooseVersion(v) <= LooseVersion(max_ver)}
 
     return select_latest_micro_versions(versions)
 
@@ -248,8 +260,10 @@ def main():
             ):
 
                 # released versions
+                min_ver = cfg["minimum"]
+                max_ver = None if cfg.get("until_latest", True) else cfg["maximum"]
                 versions = get_latest_micro_versions(
-                    package_info["pip_release"], cfg["minimum"], cfg.get("unsupported")
+                    package_info["pip_release"], min_ver, max_ver, cfg.get("unsupported")
                 )
                 for ver in versions:
                     job_name = "-".join([flavor, ver, key])
