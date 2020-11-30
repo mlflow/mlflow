@@ -165,7 +165,7 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
         record_metrics_mock.side_effect = record_metrics_side_effect
         keras_random_data_run(random_train_data(), fit_variant, random_one_hot_labels(), manual_run)
 
-    assert "accuracy" in patched_metrics_data
+    assert "acc" in patched_metrics_data
     assert "loss" in patched_metrics_data
 
 
