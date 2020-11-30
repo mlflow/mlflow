@@ -271,7 +271,7 @@ def main():
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": cfg.get("requirements"),
+                            "requirements": ["'{}'".format(x) for x in cfg.get("requirements")],
                             "install": "pip install -U '{}=={}'".format(
                                 package_info["pip_release"], ver
                             ),
@@ -286,7 +286,7 @@ def main():
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": cfg.get("requirements"),
+                            "requirements": ["'{}'".format(x) for x in cfg.get("requirements")],
                             "install": package_info["pip_dev"].strip(),
                             "run": cfg["run"].strip(),
                         }
