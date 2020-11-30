@@ -64,6 +64,8 @@ keras:
     maximum: "2.4.3"
     requirements: ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
     run: |
+      # https://spark.apache.org/docs/latest/sql-pyspark-pandas-with-arrow.html#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
+      export ARROW_PRE_0_15_IPC_FORMAT=1
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
