@@ -58,9 +58,10 @@ tensorflow:
   tf1:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    requirements: ["keras==2.2.5"]
-    includes_dev: False
+    # `until_latest` and `includes_dev` default to True if unspecified
     until_latest: False
+    includes_dev: False
+    requirements: ["keras==2.2.5", "scikit-learn"]
     run: |
       pytest tests/tensorflow/test_tensorflow_model_export.py --large
       pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
