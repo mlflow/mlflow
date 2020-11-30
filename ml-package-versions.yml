@@ -72,6 +72,8 @@ keras:
   package_info:
     pip_release: "keras"
     pip_dev: |
+      # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
+      # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
       pip install tf-nightly 'keras>=2.4.0'
 
   models:
