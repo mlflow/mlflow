@@ -53,7 +53,7 @@ tensorflow:
     minimum: "2.3.1"
     maximum: "2.3.1"
     run: |
-      pytest --verbose tests/tensorflow_autolog/test_keras_autolog.py --large
+      pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
 keras:
   package_info:
@@ -62,7 +62,7 @@ keras:
   models:
     minimum: "2.4.3"
     maximum: "2.4.3"
-    requirements: ["tensorflow"]
+    requirements: ["tensorflow", "packaging"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -71,7 +71,7 @@ keras:
     maximum: "2.4.3."
     requirements: ["tensorflow"]
     run: |
-      pytest --verbose tests/keras_autolog/test_tensorflow2_autolog.py --large
+      pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
 
 xgboost:
   package_info:
