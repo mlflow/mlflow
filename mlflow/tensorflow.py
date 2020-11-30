@@ -656,9 +656,6 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         Records model structural information as params after training finishes.
         """
 
-        def __init__(self):
-            super().__init__()
-
         def __enter__(self):
             pass
 
@@ -722,9 +719,6 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
         Records model structural information as params when training starts.
         """
-
-        def __init__(self):
-            super().__init__()
 
         def __enter__(self):
             pass
