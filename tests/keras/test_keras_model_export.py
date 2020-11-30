@@ -1,5 +1,6 @@
 # pep8: disable=E501
 
+from distutils.version import LooseVersion
 import h5py
 import os
 import json
@@ -7,7 +8,6 @@ import pytest
 import shutil
 import importlib
 import random
-from packaging import version
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential as TfSequential
@@ -50,7 +50,7 @@ def fix_random_seed():
     random.seed(SEED)
     np.random.seed(SEED)
 
-    if version.parse(tf.__version__) >= version.parse("2.0.0"):
+    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
         tf.random.set_seed(SEED)
     else:
         tf.set_random_seed(SEED)
