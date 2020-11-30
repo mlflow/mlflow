@@ -127,15 +127,12 @@ def get_latest_micro_versions(package_name, min_ver=None, max_ver=None, excludes
     --------
     >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2")
     ['0.19.2', ...]
-
     >>> get_latest_micro_versions("scikit-learn", max_ver="0.19.2")
     [..., '0.19.2']
-
-    >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2", max_ver="0.22.2")
-    ['0.19.2', '0.20.4', '0.21.3', '0.22.2']
-
-    >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2", excludes=["0.21.3"])
-    ['0.19.2', '0.20.4', '0.21.2', '0.22.2', ...]
+    >>> get_latest_micro_versions("scikit-learn", min_ver="0.20.4", max_ver="0.22.2")
+    ['0.20.4', '0.21.3', '0.22.2']
+    >>> get_latest_micro_versions("scikit-learn", excludes=["0.21.3"])
+    [..., '0.20.4', '0.21.2', '0.22.2', ...]
     """
     if excludes is None:
         excludes = []
