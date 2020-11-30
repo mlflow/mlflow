@@ -71,6 +71,8 @@ tensorflow:
 keras:
   package_info:
     pip_release: "keras"
+    pip_dev: |
+      pip install tf-nightly
 
   models:
     minimum: "2.4.3"
@@ -78,7 +80,7 @@ keras:
     requirements: ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
     run: |
       # https://spark.apache.org/docs/latest/sql-pyspark-pandas-with-arrow.html#compatibility-setting-for-pyarrow--0150-and-spark-23x-24x
-      export ARROW_PRE_0_15_IPC_FORMAT=1
+      export ARROW_PRE_0_15_IPC_FORMAT=0
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
