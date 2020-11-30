@@ -202,13 +202,19 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert len(metric_history) == 20
             assert metric_history == evals_result[eval_name][metric_name]
 
+
 @pytest.mark.large
-def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_data_and_metrics(bst_params, dtrain):
+def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_data_and_metrics(
+    bst_params, dtrain
+):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics.items())
 
@@ -274,7 +280,10 @@ def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_early_stopping(bst_p
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics.items())
 

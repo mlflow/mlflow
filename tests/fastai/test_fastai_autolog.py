@@ -100,7 +100,10 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics)
 
@@ -291,17 +294,24 @@ def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
-def test_fastai_autolog_batch_metrics_logger_logs_early_stopping_metrics(fit_variant, callback, patience):
+def test_fastai_autolog_batch_metrics_logger_logs_early_stopping_metrics(
+    fit_variant, callback, patience
+):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        model, run = fastai_random_data_run_with_callback(iris_data(), fit_variant, manual_run, callback, patience)
+        model, run = fastai_random_data_run_with_callback(
+            iris_data(), fit_variant, manual_run, callback, patience
+        )
 
     num_of_epochs = len(model.recorder.val_losses)
     assert "stopped_epoch" not in patched_metrics_data

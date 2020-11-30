@@ -75,7 +75,10 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics():
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics)
 
@@ -211,13 +214,17 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     assert "wait_count" in data.metrics
     assert "restored_epoch" in data.metrics
 
+
 @pytest.mark.parametrize("patience", [3])
 def test_pyrorch_autolog_batch_metrics_logger_logs_early_stopping_metrics(patience):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics)
 

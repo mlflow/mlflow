@@ -163,12 +163,17 @@ def test_tf_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        tf_keras_random_data_run(random_train_data(), random_one_hot_labels(), manual_run, fit_variant)
+        tf_keras_random_data_run(
+            random_train_data(), random_one_hot_labels(), manual_run, fit_variant
+        )
 
     assert "accuracy" in patched_metrics_data
     assert "loss" in patched_metrics_data
@@ -283,12 +288,17 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
-def test_tf_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(callback, restore_weights, patience):
+def test_tf_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
+    callback, restore_weights, patience
+):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics.items())
 

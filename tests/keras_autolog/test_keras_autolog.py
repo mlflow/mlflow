@@ -147,6 +147,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
 
+
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
@@ -154,7 +155,10 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics)
 
@@ -289,12 +293,17 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
-def test_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(fit_variant, callback, restore_weights, patience):
+def test_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
+    fit_variant, callback, restore_weights, patience
+):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
     # to insure that expected metrics are being logged.
-    with patch("mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics") as record_metrics_mock:
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+    ) as record_metrics_mock:
+
         def record_metrics_side_effect(metrics, *args):
             patched_metrics_data.extend(metrics.items())
 
