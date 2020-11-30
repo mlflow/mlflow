@@ -60,7 +60,7 @@ tensorflow:
     maximum: "1.15.4"
     # `until_latest` and `includes_dev` default to True if unspecified
     until_latest: False
-    includes_dev: False
+    include_dev: False
     requirements:
       [
         "keras==2.2.5",
