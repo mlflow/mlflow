@@ -9,7 +9,6 @@ import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
-    get_unspecified_default_args,
     log_fn_args_as_params,
     wrap_patch,
     resolve_input_example_and_signature,
@@ -41,21 +40,6 @@ two_default_test_args = [
 ]
 
 
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "user_args,user_kwargs,all_param_names,all_default_values,expected", two_default_test_args
-)
-def test_get_two_unspecified_default_args(
-    user_args, user_kwargs, all_param_names, all_default_values, expected
-):
-
-    default_dict = get_unspecified_default_args(
-        user_args, user_kwargs, all_param_names, all_default_values
-    )
-
-    assert default_dict == expected
-
-
 # Test function signature for the following tests
 # def fn_default_default(default1=1, default2=2, default3=3):
 #     pass
@@ -77,21 +61,6 @@ three_default_test_args = [
         {"default1": 1, "default3": 3},
     ),
 ]
-
-
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "user_args,user_kwargs,all_param_names,all_default_values,expected", three_default_test_args
-)
-def test_get_three_unspecified_default_args(
-    user_args, user_kwargs, all_param_names, all_default_values, expected
-):
-
-    default_dict = get_unspecified_default_args(
-        user_args, user_kwargs, all_param_names, all_default_values
-    )
-
-    assert default_dict == expected
 
 
 @pytest.fixture

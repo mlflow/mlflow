@@ -657,7 +657,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         """
 
         def __init__(self):
-            pass
+            super().__init__()
 
         def __enter__(self):
             pass
@@ -724,7 +724,8 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         """
 
         def __init__(self):
-            pass
+            super().__init__()
+
 
         def __enter__(self):
             pass
@@ -1003,7 +1004,7 @@ def autolog(every_n_iter=100, log_models=True):
                     early_stop_callback = _early_stop_check(tmp_list[5])
                     tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models, metrics_logger)
                     args = tuple(tmp_list)
-                elif "callbacks" in kwargs:
+                elif kwargs.get("callbacks"):
                     early_stop_callback = _early_stop_check(kwargs["callbacks"])
                     kwargs["callbacks"], log_dir = _setup_callbacks(
                         kwargs["callbacks"], log_models, metrics_logger
@@ -1027,6 +1028,12 @@ def autolog(every_n_iter=100, log_models=True):
             return history
 
     def fit_generator(self, *args, **kwargs):
+        """
+        NOTE: `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
+        To avoid unintentional creation of nested MLflow runs caused by a patched
+        `fit_generator()` method calling a patched `fit()` method, we only patch
+        `fit_generator()` in TF < 2.1.0.
+        """
         with _manage_active_run() as run:
             original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
 
@@ -1041,7 +1048,7 @@ def autolog(every_n_iter=100, log_models=True):
                     tmp_list = list(args)
                     tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models, metrics_logger)
                     args = tuple(tmp_list)
-                elif "callbacks" in kwargs:
+                elif kwargs.get("callbacks"):
                     kwargs["callbacks"], log_dir = _setup_callbacks(
                         kwargs["callbacks"], log_models, metrics_logger
                     )
@@ -1074,11 +1081,16 @@ def autolog(every_n_iter=100, log_models=True):
         (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", fit),
-        (tensorflow.keras.Model, "fit_generator", fit_generator),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
         (FileWriter, "add_summary", add_summary),
     ]
+    if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
+        # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
+        # To avoid unintentional creation of nested MLflow runs caused by a patched
+        # `fit_generator()` method calling a patched `fit()` method, we only patch
+        # `fit_generator()` in TF < 2.1.0
+        patches.append((tensorflow.keras.Model, "fit_generator", fit_generator))
 
     for p in patches:
         wrap_patch(*p)

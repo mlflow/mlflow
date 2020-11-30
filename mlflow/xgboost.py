@@ -284,11 +284,8 @@ class _XGBModelWrapper:
 
 @experimental
 def autolog(
-    importance_types=["weight"],
-    log_input_examples=False,
-    log_model_signatures=True,
-    log_models=True,
-):  # pylint: disable=W0102
+    importance_types=None, log_input_examples=False, log_model_signatures=True, log_models=True,
+):
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
@@ -302,7 +299,7 @@ def autolog(
 
     Note that the `scikit-learn API`_ is not supported.
 
-    :param importance_types: importance types to log.
+    :param importance_types: Importance types to log. If unspecified, defaults to ``["weight"]``.
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with XGBoost model artifacts during training. If
                                ``False``, input examples are not logged.
@@ -322,6 +319,9 @@ def autolog(
     """
     import xgboost
     import numpy as np
+
+    if importance_types is None:
+        importance_types = ["weight"]
 
     # Patching this function so we can get a copy of the data given to DMatrix.__init__
     #   to use as an input example and for inferring the model signature.

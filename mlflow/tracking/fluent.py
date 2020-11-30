@@ -619,6 +619,117 @@ def log_dict(dictionary, artifact_file):
     MlflowClient().log_dict(run_id, dictionary, artifact_file)
 
 
+@experimental
+def log_figure(figure, artifact_file):
+    """
+    Log a figure as an artifact. The following figure objects are supported:
+
+    - `matplotlib.figure.Figure`_
+    - `plotly.graph_objects.Figure`_
+
+    .. _matplotlib.figure.Figure:
+        https://matplotlib.org/api/_as_gen/matplotlib.figure.Figure.html
+
+    .. _plotly.graph_objects.Figure:
+        https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
+
+    :param run_id: String ID of the run.
+    :param figure: Figure to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the figure is saved (e.g. "dir/file.png").
+
+    .. code-block:: python
+        :caption: Matplotlib Example
+
+        import mlflow
+        import matplotlib.pyplot as plt
+
+        fig, ax = plt.subplots()
+        ax.plot([0, 1], [2, 3])
+
+        with mlflow.start_run():
+            mlflow.log_figure(fig, "figure.png")
+
+    .. code-block:: python
+        :caption: Plotly Example
+
+        import mlflow
+        from plotly import graph_objects as go
+
+        fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+
+        with mlflow.start_run():
+            mlflow.log_figure(fig, "figure.html")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_figure(run_id, figure, artifact_file)
+
+
+@experimental
+def log_image(image, artifact_file):
+    """
+    Log an image as an artifact. The following image objects are supported:
+
+    - `numpy.ndarray`_
+    - `PIL.Image.Image`_
+
+    .. _numpy.ndarray:
+        https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+    .. _PIL.Image.Image:
+        https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+    Numpy array support
+        - data type (( ) represents a valid value range):
+
+            - bool
+            - integer (0 ~ 255)
+            - unsigned integer (0 ~ 255)
+            - float (0.0 ~ 1.0)
+
+            .. warning::
+
+                - Out-of-range integer values will be **clipped** to [0, 255].
+                - Out-of-range float values will be **clipped** to [0, 1].
+
+        - shape (H: height, W: width):
+
+            - H x W (Grayscale)
+            - H x W x 1 (Grayscale)
+            - H x W x 3 (an RGB channel order is assumed)
+            - H x W x 4 (an RGBA channel order is assumed)
+
+    :param run_id: String ID of the run.
+    :param image: Image to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the image is saved (e.g. "dir/image.png").
+
+    .. code-block:: python
+        :caption: Numpy Example
+
+        import mlflow
+        import numpy as np
+
+        image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+        with mlflow.start_run():
+            mlflow.log_image(image, "image.png")
+
+    .. code-block:: python
+        :caption: Pillow Example
+
+        import mlflow
+        from PIL import Image
+
+        image = Image.new("RGB", (100, 100))
+
+        with mlflow.start_run():
+            mlflow.log_image(image, "image.png")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_image(run_id, image, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)
@@ -1115,6 +1226,53 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+
+    .. code-block:: python
+        :caption: Example
+
+        import numpy as np
+        import mlflow.sklearn
+        from mlflow.tracking import MlflowClient
+        from sklearn.linear_model import LinearRegression
+
+        def print_auto_logged_info(r):
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print("run_id: {}".format(r.info.run_id))
+            print("artifacts: {}".format(artifacts))
+            print("params: {}".format(r.data.params))
+            print("metrics: {}".format(r.data.metrics))
+            print("tags: {}".format(tags))
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # Auto log all the parameters, metrics, and artifacts
+        mlflow.autolog()
+        model = LinearRegression()
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+
+        # fetch the auto logged parameters and metrics for ended run
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: fd10a17d028c47399a55ab8741721ef7
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.pkl']
+        params: {'copy_X': 'True',
+                 'normalize': 'False',
+                 'fit_intercept': 'True',
+                 'n_jobs': 'None'}
+        metrics: {'training_score': 1.0,
+                  'training_rmse': 4.440892098500626e-16,
+                  'training_r2_score': 1.0,
+                  'training_mae': 2.220446049250313e-16,
+                  'training_mse': 1.9721522630525295e-31}
+        tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
+               'estimator_name': 'LinearRegression'}
     """
     locals_copy = locals().items()
 
