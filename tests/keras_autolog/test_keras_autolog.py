@@ -8,7 +8,7 @@ import keras.layers as layers  # noqa
 
 import mlflow  # noqa
 import mlflow.keras  # noqa
-from unittest.mock import patch # noqa
+from unittest.mock import patch  # noqa
 
 
 @pytest.fixture
