@@ -68,7 +68,7 @@ keras:
 
   autologging:
     minimum: "2.4.3"
-    maximum: "2.4.3."
+    maximum: "2.4.3"
     requirements: ["tensorflow"]
     run: |
       pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
