@@ -188,6 +188,7 @@ jobs:
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
+          pip install git+https://github.com/harupy/pytest.git@use-group
           ./dev/run-python-flavor-tests.sh;
 
   import:
