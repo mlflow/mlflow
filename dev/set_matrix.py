@@ -282,7 +282,6 @@ def process_requirements(requirements, ver=None):
         ver = dev_numeric
 
     if isinstance(requirements, dict):
-
         for conditions, reqs in requirements.items():
             should_return = all(
                 op(LooseVersion(ver), LooseVersion(dev_numeric if v == "dev" else v))
