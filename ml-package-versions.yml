@@ -15,6 +15,7 @@ sklearn:
     maximum: "0.23.2"
     requirements: ["matplotlib"]
     run: |
+      pytest tests/sklearn/test_sklearn_training_session.py.py --large
       pytest tests/sklearn/test_sklearn_autolog.py --large
 
 pytorch:
