@@ -72,7 +72,7 @@ tensorflow:
   tf1:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    # Avoid fetching version up until the latest
+    # Avoid fetching versions up until the latest
     until_latest: False
     # Avoid running tests using `tf-nightly`
     include_dev: False
