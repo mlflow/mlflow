@@ -94,14 +94,14 @@ keras-tf1.x:
   models:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    requirements: ["keras=2.2.5", "h5py<3.0"]
+    requirements: ["keras==2.2.5", "h5py<3.0"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    requirements: ["keras=2.2.5", "h5py<3.0"]
+    requirements: ["keras==2.2.5", "h5py<3.0"]
     run: |
       pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
 
