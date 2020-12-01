@@ -15,6 +15,7 @@ pytest dev/set_matrix.py --doctest-modules --verbose
 import argparse
 from distutils.version import LooseVersion
 import json
+import operator
 import os
 import re
 import shutil
@@ -220,6 +221,81 @@ def divider(title):
     return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
 
 
+def str_to_operator(s):
+    return {
+        # https://docs.python.org/3/library/operator.html#mapping-operators-to-functions
+        "<": operator.lt,
+        "<=": operator.le,
+        "==": operator.eq,
+        "!=": operator.ne,
+        ">=": operator.ge,
+        ">": operator.gt,
+    }[s]
+
+
+def get_operator_and_version(condition):
+    """
+    >>> get_operator_and_version("< 3")
+    (<built-in function lt>, '3')
+    >>> get_operator_and_version("!= dev")
+    (<built-in function ne>, 'dev')
+    """
+    m = re.search(r"([<>=!]+)([\w.]+)", condition.replace(" ", ""))
+
+    if m is None:
+        raise ValueError("Invalid `condition`: '{}'".format(condition))
+    return str_to_operator(m.group(1)), m.group(2)
+
+
+def process_requirements(requirements, ver=None):
+    """
+    >>> process_requirements(None)
+    []
+    >>> process_requirements(["foo"])
+    ['foo']
+    >>> process_requirements({"== 0.1": ["foo"]}, "0.1")
+    ['foo']
+    >>> process_requirements({"< 0.2": ["foo"]}, "0.1")
+    ['foo']
+    >>> process_requirements({"> 0.1, != 0.2": ["foo"]}, "0.3")
+    ['foo']
+    >>> process_requirements({"== dev": ["foo"]}, "0.1")
+    []
+    >>> process_requirements({"< dev": ["foo"]}, "0.1")
+    ['foo']
+    >>> process_requirements({"> 0.1": ["foo"]}, "dev")
+    ['foo']
+    >>> process_requirements({"== dev": ["foo"]}, "dev")
+    ['foo']
+    >>> process_requirements({"> 0.1, != dev": ["foo"]}, "dev")
+    []
+    """
+    if requirements is None:
+        return []
+
+    if isinstance(requirements, list):
+        return requirements
+
+    dev_numeric = "9999.9999.9999"
+
+    if ver == "dev":
+        ver = dev_numeric
+
+    if isinstance(requirements, dict):
+
+        for conditions, reqs in requirements.items():
+            should_return = all(
+                op(LooseVersion(ver), LooseVersion(dev_numeric if v == "dev" else v))
+                for op, v in map(get_operator_and_version, conditions.split(","))
+            )
+            if should_return:
+                return reqs
+        else:
+            return []
+
+    raise TypeError("Should not reach here")
+
+
 def main():
     args = parse_args()
 
@@ -255,13 +331,6 @@ def main():
                 or (key not in config_ref[flavor])
                 or (cfg != config_ref[flavor][key])
             ):
-                requirements = (
-                    ["'{}'".format(x) for x in cfg["requirements"]]
-                    if "requirements" in cfg
-                    else None
-                )
-                run = cfg["run"].strip()
-
                 # released versions
                 min_ver = cfg["minimum"]
                 max_ver = None if cfg.get("until_latest", True) else cfg["maximum"]
@@ -271,14 +340,15 @@ def main():
                 for ver in versions:
                     job_name = "-".join([flavor, ver, key])
                     job_names.append(job_name)
+                    reqs = process_requirements(cfg.get("requirements"), ver)
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": requirements,
+                            "requirements": ["'{}'".format(x) for x in reqs] or None,
                             "install": "pip install -U '{}=={}'".format(
                                 package_info["pip_release"], ver
                             ),
-                            "run": run,
+                            "run": cfg["run"].strip(),
                         }
                     )
 
@@ -286,12 +356,13 @@ def main():
                 if "pip_dev" in package_info and cfg.get("include_dev", True):
                     job_name = "-".join([flavor, "dev", key])
                     job_names.append(job_name)
+                    reqs = process_requirements(cfg.get("requirements"), "dev")
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": requirements,
+                            "requirements": ["'{}'".format(x) for x in reqs] or None,
                             "install": package_info["pip_dev"].strip(),
-                            "run": run,
+                            "run": cfg["run"].strip(),
                         }
                     )
 

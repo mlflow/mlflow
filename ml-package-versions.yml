@@ -52,6 +52,8 @@ tensorflow:
   autologging:
     minimum: "2.0.0"
     maximum: "2.3.1"
+    requirements:
+      "< 2.2": ["h5py<3.0"]
     run: |
       pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
