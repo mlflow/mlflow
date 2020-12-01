@@ -16,6 +16,8 @@ from unittest.mock import patch
 
 import mlflow
 import mlflow.gluon
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+
 
 
 class LogsDataset(Dataset):
@@ -77,22 +79,25 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
-            patched_metrics_data.extend(metrics)
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        gluon_random_data_run()
+        run  = gluon_random_data_run()
 
-    assert "train accuracy" in patched_metrics_data
-    assert "validation accuracy" in patched_metrics_data
-    assert "train softmaxcrossentropyloss" in patched_metrics_data
-    assert "validation softmaxcrossentropyloss" in patched_metrics_data
+    patched_metrics_data = dict(patched_metrics_data)
+    original_metrics = run.data.metrics
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
 
 @pytest.mark.large

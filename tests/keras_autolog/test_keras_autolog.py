@@ -8,6 +8,7 @@ import keras.layers as layers  # noqa
 
 import mlflow  # noqa
 import mlflow.keras  # noqa
+from mlflow.utils.autologging_utils import BatchMetricsLogger  # noqa
 from unittest.mock import patch  # noqa
 
 
@@ -148,28 +149,6 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant):
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
-            patched_metrics_data.extend(metrics)
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-        keras_random_data_run(random_train_data(), fit_variant, random_one_hot_labels(), manual_run)
-
-    assert "acc" in patched_metrics_data
-    assert "loss" in patched_metrics_data
-
-
-@pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit"])
 def test_keras_autolog_logs_default_params(keras_random_data_run):
     # Logging default parameters does not work with keras.Model.fit_generator
@@ -294,23 +273,25 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
-def test_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
+def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     fit_variant, callback, restore_weights, patience
 ):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
+        def record_metrics_side_effect(self, metrics, step=None):
             patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        _, _, callback = keras_random_data_run_with_callback(
+        run, _, callback = keras_random_data_run_with_callback(
             random_train_data(),
             fit_variant,
             random_one_hot_labels(),
@@ -319,10 +300,14 @@ def test_keras_autolog_batch_metrics_logger_logs_early_stopping_metrics(
             restore_weights,
             patience,
         )
+
     patched_metrics_data = dict(patched_metrics_data)
+    original_metrics = run.data.metrics
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
     restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert "stopped_epoch" in patched_metrics_data
-    assert "restored_epoch" in patched_metrics_data
     assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
 
 

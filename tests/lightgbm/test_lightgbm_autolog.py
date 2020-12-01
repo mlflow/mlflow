@@ -12,6 +12,7 @@ import mlflow
 import mlflow.lightgbm
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
 mpl.use("Agg")
@@ -239,20 +240,22 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 
 
 @pytest.mark.large
-def test_lgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_data_and_metrics(
+def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(
     bst_params, train_set
 ):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
+        def record_metrics_side_effect(self, metrics, step=None):
             patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
 
@@ -271,14 +274,14 @@ def test_lgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_dat
             evals_result=evals_result,
         )
 
+    run = get_latest_run()
+    metrics = run.data.metrics
+    patched_metrics_data = dict(patched_metrics_data)
     for valid_name in valid_names:
         for metric_name in params["metric"]:
             metric_key = "{}-{}".format(valid_name, metric_name)
-            metric_history = [x[1] for x in patched_metrics_data if x[0] == metric_key]
-
-            assert metric_key in dict(patched_metrics_data)
-            assert len(metric_history) == 10
-            assert metric_history == evals_result[valid_name][metric_name]
+            assert metric_key in patched_metrics_data
+            assert metric_key in metrics
 
 
 @pytest.mark.large

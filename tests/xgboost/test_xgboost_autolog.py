@@ -12,6 +12,7 @@ import mlflow
 import mlflow.xgboost
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
 mpl.use("Agg")
@@ -203,41 +204,6 @@ def test_xgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 
 
 @pytest.mark.large
-def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_multi_validation_data_and_metrics(
-    bst_params, dtrain
-):
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
-            patched_metrics_data.extend(metrics.items())
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-
-        mlflow.xgboost.autolog()
-        evals_result = {}
-        params = {"eval_metric": ["merror", "mlogloss"]}
-        params.update(bst_params)
-        evals = [(dtrain, "train"), (dtrain, "valid")]
-        xgb.train(params, dtrain, num_boost_round=20, evals=evals, evals_result=evals_result)
-
-    for eval_name in [e[1] for e in evals]:
-        for metric_name in params["eval_metric"]:
-            metric_key = "{}-{}".format(eval_name, metric_name)
-            metric_history = [x[1] for x in patched_metrics_data if x[0] == metric_key]
-
-            assert metric_key in dict(patched_metrics_data)
-            assert len(metric_history) == 20
-            assert metric_history == evals_result[eval_name][metric_name]
-
-
-@pytest.mark.large
 def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
     mlflow.xgboost.autolog()
     evals_result = {}
@@ -279,14 +245,16 @@ def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_early_stopping(bst_p
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
+        def record_metrics_side_effect(self, metrics, step=None):
             patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
 
@@ -303,22 +271,17 @@ def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_early_stopping(bst_p
             evals=evals,
             evals_result=evals_result,
         )
-    metric_dict = dict(patched_metrics_data)
-    assert "best_iteration" in metric_dict
-    assert int(metric_dict["best_iteration"]) == model.best_iteration
-    assert "stopped_iteration" in metric_dict
-    assert int(metric_dict["stopped_iteration"]) == len(evals_result["train"]["merror"]) - 1
 
-    for eval_name in [e[1] for e in evals]:
-        for metric_name in params["eval_metric"]:
-            metric_key = "{}-{}".format(eval_name, metric_name)
-            metric_history = [x[1] for x in patched_metrics_data if x[0] == metric_key]
 
-            assert metric_key in metric_dict
-            assert len(metric_history) == 20 + 1
+    patched_metrics_data = dict(patched_metrics_data)
+    run = get_latest_run()
+    original_metrics = run.data.metrics
 
-            best_metrics = evals_result[eval_name][metric_name][model.best_iteration]
-            assert metric_history == evals_result[eval_name][metric_name] + [best_metrics]
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert int(patched_metrics_data["best_iteration"]) == model.best_iteration
 
 
 @pytest.mark.large

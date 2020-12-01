@@ -4,6 +4,7 @@ import torch
 from iris import IrisClassification
 import mlflow
 import mlflow.pytorch
+from mlflow.utils.autologging_utils import BatchMetricsLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
@@ -66,27 +67,6 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
-
-
-@pytest.mark.large
-def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics():
-    patched_metrics_data = []
-
-    # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
-    with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
-    ) as record_metrics_mock:
-
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
-            patched_metrics_data.extend(metrics)
-
-        record_metrics_mock.side_effect = record_metrics_side_effect
-        pytorch_model()
-
-    assert "loss" in patched_metrics_data
-    assert "val_loss" in patched_metrics_data
 
 
 # pylint: disable=unused-argument
@@ -216,25 +196,30 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
 
 
 @pytest.mark.parametrize("patience", [3])
-def test_pyrorch_autolog_batch_metrics_logger_logs_early_stopping_metrics(patience):
+def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()
-    # to insure that expected metrics are being logged.
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics"
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
-        def record_metrics_side_effect(metrics, *args):
-            # pylint: disable=unused-argument
-            patched_metrics_data.extend(metrics)
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        pytorch_model_with_callback(patience)
+        _, run = pytorch_model_with_callback(patience)
 
-    assert "stopped_epoch" in patched_metrics_data
-    assert "wait_count" in patched_metrics_data
-    assert "restored_epoch" in patched_metrics_data
+    patched_metrics_data = dict(patched_metrics_data)
+    original_metrics = run.data.metrics
+
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
