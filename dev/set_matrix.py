@@ -349,13 +349,12 @@ def main():
                     job_name = "-".join([flavor, ver, key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), ver)
+                    install = "pip install -U '{}=={}'".format(package_info["pip_release"], ver)
                     includes.append(
                         {
                             "job_name": job_name,
                             "requirements": requirements or None,
-                            "install": "pip install -U '{}=={}'".format(
-                                package_info["pip_release"], ver
-                            ),
+                            "install": install,
                             "run": cfg["run"].strip(),
                         }
                     )
