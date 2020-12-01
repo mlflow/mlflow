@@ -245,10 +245,15 @@ def get_operator_and_version(ver_spec):
     >>> get_operator_and_version("!= dev")
     (<built-in function ne>, 'dev')
     """
-    m = re.search(r"([<>=!]+)([\w.]+)", ver_spec.replace(" ", ""))
+    regexp = r"([<>=!]+)([\w\.]+)"
+    m = re.search(regexp, ver_spec.replace(" ", ""))
 
     if m is None:
-        raise ValueError("Invalid value for `condition`: '{}'".format(ver_spec))
+        raise ValueError(
+            "Invalid value for `ver_spec`: '{}'. Must match this regular expression: '{}'".format(
+                ver_spec, regexp,
+            )
+        )
 
     return str_to_operator(m.group(1)), m.group(2)
 
