@@ -58,7 +58,7 @@ jobs:
           pip install -r dev/small-requirements.txt
 
           if [ ! -z "${{ matrix.requirements }}" ]; then
-            pip install '${{ join(matrix.requirements, ''', ''') }}'
+            pip install '${{ join(matrix.requirements, ''' ''') }}'
           fi
       - name: Update package
         run: |
