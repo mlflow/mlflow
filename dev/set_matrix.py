@@ -126,7 +126,7 @@ def get_major_version(ver):
 
 def filter_versions(versions, min_ver, max_ver, excludes=None):
     """
-    Filter versions that satisfy the following condtions:
+    Filter versions that satisfy the following conditions:
 
     1. is newer than `min_ver`
     2. shares the same major version as `max_ver`
