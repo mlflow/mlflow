@@ -26,14 +26,14 @@ pytorch:
   models:
     minimum: "1.3.0"
     maximum: "1.7.0"
-    requirements: ["scikit-learn", "torchvision==0.4.0"]
+    requirements: ["scikit-learn", "torchvision==0.6.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
   autologging:
     minimum: "1.3.0"
     maximum: "1.7.0"
-    requirements: ["scikit-learn", "torchvision==0.4.0", "pytorch-lightning"]
+    requirements: ["scikit-learn", "torchvision==0.6.0", "pytorch-lightning"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
