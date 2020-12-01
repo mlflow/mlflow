@@ -74,7 +74,7 @@ tensorflow:
     maximum: "1.15.4"
     # Avoid fetching versions up until the latest
     until_latest: False
-    # Avoid running tests using `tf-nightly`
+    # Avoid running tests on `tf-nightly`
     include_dev: False
     requirements:
       [
