@@ -97,14 +97,14 @@ keras:
       pip install tf-nightly 'keras>=2.4.0'
 
   models:
-    minimum: "2.4.3"
+    minimum: "2.3.0"
     maximum: "2.4.3"
     requirements: ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
-    minimum: "2.4.3"
+    minimum: "2.3.0"
     maximum: "2.4.3"
     requirements: ["tensorflow"]
     run: |
