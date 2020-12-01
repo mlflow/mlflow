@@ -233,21 +233,22 @@ def str_to_operator(s):
     }[s]
 
 
-def get_operator_and_version(condition):
+def get_operator_and_version(condition_str):
     """
     >>> get_operator_and_version("< 3")
     (<built-in function lt>, '3')
     >>> get_operator_and_version("!= dev")
     (<built-in function ne>, 'dev')
     """
-    m = re.search(r"([<>=!]+)([\w.]+)", condition.replace(" ", ""))
+    m = re.search(r"([<>=!]+)([\w.]+)", condition_str.replace(" ", ""))
 
     if m is None:
-        raise ValueError("Invalid `condition`: '{}'".format(condition))
+        raise ValueError("Invalid value for `condition`: '{}'".format(condition_str))
+
     return str_to_operator(m.group(1)), m.group(2)
 
 
-def process_requirements(requirements, ver=None):
+def process_requirements(requirements, version=None):
     """
     >>> process_requirements(None)
     []
@@ -278,16 +279,17 @@ def process_requirements(requirements, ver=None):
 
     dev_numeric = "9999.9999.9999"
 
-    if ver == "dev":
-        ver = dev_numeric
+    if version == "dev":
+        version = dev_numeric
 
     if isinstance(requirements, dict):
-        for conditions, reqs in requirements.items():
-            should_return = all(
-                op(LooseVersion(ver), LooseVersion(dev_numeric if v == "dev" else v))
-                for op, v in map(get_operator_and_version, conditions.split(","))
+        for condition, reqs in requirements.items():
+            op_and_ver_pairs = map(get_operator_and_version, condition.split(",")
+            match_all = all(
+                op(LooseVersion(version), LooseVersion(dev_numeric if ver == "dev" else ver))
+                for op, ver in op_and_ver_pairs
             )
-            if should_return:
+            if match_all:
                 return reqs
         else:
             return []
@@ -340,10 +342,11 @@ def main():
                     job_name = "-".join([flavor, ver, key])
                     job_names.append(job_name)
                     reqs = process_requirements(cfg.get("requirements"), ver)
+                    reqs = ["'{}'".format(x) for x in reqs] or None
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": ["'{}'".format(x) for x in reqs] or None,
+                            "requirements": reqs,
                             "install": "pip install -U '{}=={}'".format(
                                 package_info["pip_release"], ver
                             ),
@@ -356,10 +359,11 @@ def main():
                     job_name = "-".join([flavor, "dev", key])
                     job_names.append(job_name)
                     reqs = process_requirements(cfg.get("requirements"), "dev")
+                    reqs = ["'{}'".format(x) for x in reqs] or None
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": ["'{}'".format(x) for x in reqs] or None,
+                            "requirements": reqs,
                             "install": package_info["pip_dev"].strip(),
                             "run": cfg["run"].strip(),
                         }
