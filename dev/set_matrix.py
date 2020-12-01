@@ -124,38 +124,45 @@ def get_major_version(ver):
     return LooseVersion(ver).version[0]
 
 
-def get_latest_micro_versions(package_name, min_ver, max_ver, excludes=None):
+def filter_versions(versions, min_ver, max_ver, excludes=None):
     """
-    For maximum version x.a.b, we'll fetch up to x.y.z, where x.y.z is the latest minor version that
-    shares the same major version as the configured maximum.
+    Filter versions that satisfy the following condtions:
+
+    1. is newer than `min_ver`
+    2. shares the same major version as `max_ver`
+    3. (Optional) is not in `excludes`
 
     Examples
     --------
-    >>> get_latest_micro_versions("lightgbm", "2.2.3", "3.1.0")
-    ['2.2.3', '2.3.1', '3.0.0', '3.1.0']
-    >>> get_latest_micro_versions("lightgbm", "2.2.3", "2.3.1")
-    ['2.2.3', '2.3.1']
-    >>> get_latest_micro_versions("lightgbm", "2.2.3", "3.1.0", excludes=["2.3.1"])
-    ['2.2.3', '2.3.0', '3.0.0', '3.1.0']
+    >>> versions = {
+    ...     "0.1.0": "2020-01-01T00:00:01",
+    ...     "0.2.0": "2020-01-01T00:00:02",
+    ...     "1.0.0": "2020-01-01T00:00:00",
+    ...     "1.1.0": "2020-01-01T00:01:00",
+    ... }
+    >>> filter_versions(versions, "0.1.0", "0.2.0")  # fetch up to the latest in 0.x.y
+    {'0.1.0': ..., '0.2.0': ...}
+    >>> filter_versions(versions, "0.1.0", "1.0.0")  # fetch up to the latest in 1.x.y
+    {'0.1.0': ..., '0.2.0': ..., '1.0.0': ..., '1.1.0': ...}
+    >>> filter_versions(versions, "0.1.0", "1.0.0", excludes=["0.2.0"])
+    {'0.1.0': ..., '1.0.0': ..., '1.1.0': ...}
     """
     if excludes is None:
         excludes = []
 
-    all_versions = get_released_versions(package_name)
     # prevent specifying non-existent versions
-    assert all(v in all_versions for v in excludes)
-    assert min_ver in all_versions
-    assert max_ver in all_versions
+    assert all(v in versions for v in excludes)
+    assert min_ver in versions
+    assert max_ver in versions
 
-    versions = {v: t for v, t in all_versions.items() if v not in excludes}
+    versions = {v: t for v, t in versions.items() if v not in excludes}
     versions = {v: t for v, t in versions.items() if is_final_release(v)}
 
     max_major = get_major_version(max_ver)
     versions = {v: t for v, t in versions.items() if get_major_version(v) <= max_major}
     versions = {v: t for v, t in versions.items() if LooseVersion(v) >= LooseVersion(min_ver)}
-    versions = {v: t for v, t in versions.items() if LooseVersion(v) <= LooseVersion(max_ver)}
 
-    return select_latest_micro_versions(versions)
+    return versions
 
 
 def get_changed_flavors(changed_files, flavors):
@@ -354,12 +361,11 @@ def main():
             ):
                 print("Processing {}.{}".format(flavor, key))
                 # released versions
-                versions = get_latest_micro_versions(
-                    package_info["pip_release"],
-                    cfg["minimum"],
-                    cfg["maximum"],
-                    cfg.get("unsupported"),
+                all_versions = get_released_versions(package_info["pip_release"])
+                versions = filter_versions(
+                    all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
                 )
+                versions = select_latest_micro_versions(versions)
                 for ver in versions:
                     job_name = " / ".join([flavor, ver, key])
                     job_names.append(job_name)
