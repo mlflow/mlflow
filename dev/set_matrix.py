@@ -290,14 +290,14 @@ def process_requirements(requirements, version=None):
         version = dev_numeric
 
     if isinstance(requirements, dict):
-        for ver_spec, reqs in requirements.items():
+        for ver_spec, packages in requirements.items():
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 op(LooseVersion(version), LooseVersion(dev_numeric if ver == "dev" else ver))
                 for op, ver in op_and_ver_pairs
             )
             if match_all:
-                return reqs
+                return packages
         else:
             return []
 
