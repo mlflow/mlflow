@@ -29,15 +29,6 @@ CONFIG_PATH = "ml-package-versions.yml"
 def read_yaml(location):
     """
     Reads a YAML file. `location` can be a URL or local file path.
-
-    Examples
-    --------
-    >>> path = ".github/workflows/master.yml"
-    >>> read_yaml(path)
-    {...}
-    >>> url = "https://raw.githubusercontent.com/mlflow/mlflow/master/" + path
-    >>> read_yaml(url)
-    {...}
     """
     if re.search("^https?://", location):
         with urllib.request.urlopen(location) as f:
@@ -50,14 +41,7 @@ def read_yaml(location):
 def get_released_versions(package_name):
     """
     Fetches the released versions & datetimes of the specified Python package.
-
-    Examples
-    --------
-    >>> get_released_versions("scikit-learn")
-    {'0.10': '2012-01-11T14:42:25', '0.11': '2012-05-08T00:40:14', ...}
     """
-    # Ref.: https://stackoverflow.com/a/27239645/6943581
-
     url = "https://pypi.python.org/pypi/{}/json".format(package_name)
     data = json.load(urllib.request.urlopen(url))
 
@@ -65,6 +49,16 @@ def get_released_versions(package_name):
         ver: files[0]["upload_time"] for ver, files in data["releases"].items() if len(files) > 0
     }
     return versions
+
+
+def get_major_version(ver):
+    """
+    Examples
+    --------
+    >>> get_major_version("1.2.3")
+    1
+    """
+    return LooseVersion(ver).version[0]
 
 
 def is_final_release(ver):
@@ -118,10 +112,6 @@ def select_latest_micro_versions(versions):
             res.insert(0, ver)
 
     return res
-
-
-def get_major_version(ver):
-    return LooseVersion(ver).version[0]
 
 
 def filter_versions(versions, min_ver, max_ver, excludes=None):
@@ -191,41 +181,15 @@ def get_changed_flavors(changed_files, flavors):
     return changed_flavors
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--diff-only",
-        action="store_true",
-        help="If specified, ignore unchanged flavors or configs.",
-    )
-    # make `--ref-config` and `--diff-files` configurable to make it easier to test this script.
-    parser.add_argument(
-        "--ref-config",
-        default="https://raw.githubusercontent.com/mlflow/mlflow/master/{}".format(CONFIG_PATH),
-        help=(
-            "URL or local file path of the reference config. "
-            "Valid only when `--diff-only` is specified."
-        ),
-    )
-    parser.add_argument(
-        "--changed-files",
-        type=lambda x: [] if x.strip() == "" else x.strip().split("\n"),
-        default="",
-        help=(
-            "A string that represents a list of changed files in a pull request. "
-            "Valid only when `--diff-only` is specified."
-        ),
-    )
-
-    return parser.parse_args()
-
-
-def divider(title):
+def divider(title, length=None):
+    r"""
+    Examples
+    --------
+    >>> divider("1234", 20)
+    '\n======= 1234 ======='
     """
-    Generates a divider (e.g. '=== title ===').
-    """
-    width = shutil.get_terminal_size(fallback=(80, 24))[0]
-    rest = width - len(title) - 2
+    length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
+    rest = length - len(title) - 2
     left = rest // 2 if rest % 2 else (rest + 1) // 2
     return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
 
@@ -233,6 +197,11 @@ def divider(title):
 def str_to_operator(s):
     """
     Turns a string into the corresponding operator.
+
+    Examples
+    --------
+    >>> str_to_operator("<")(1, 2)  # equivalent to '1 < 2'
+    True
     """
     return {
         # https://docs.python.org/3/library/operator.html#mapping-operators-to-functions
@@ -249,6 +218,8 @@ def get_operator_and_version(ver_spec):
     """
     Converts a version specifier (e.g. "< 3") to a tuple of (operator, version).
 
+    Examples
+    --------
     >>> get_operator_and_version("< 3")
     (<built-in function lt>, '3')
     >>> get_operator_and_version("!= dev")
@@ -269,6 +240,8 @@ def get_operator_and_version(ver_spec):
 
 def process_requirements(requirements, version=None):
     """
+    Examples
+    --------
     >>> process_requirements(None)
     []
     >>> process_requirements(["foo"])
@@ -319,7 +292,47 @@ def process_requirements(requirements, version=None):
 
 
 def remove_comments(s):
+    """
+    Examples
+    --------
+    >>> code = '''
+    ... # comment 1
+    ...  # comment 2
+    ... echo foo
+    ... '''
+    >>> remove_comments(code)
+    'echo foo'
+    """
     return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--diff-only",
+        action="store_true",
+        help="If specified, ignore unchanged flavors or configs.",
+    )
+    # make `--ref-config` and `--diff-files` configurable to make it easier to test this script.
+    parser.add_argument(
+        "--ref-config",
+        default="https://raw.githubusercontent.com/mlflow/mlflow/master/{}".format(CONFIG_PATH),
+        help=(
+            "URL or local file path of the reference config. "
+            "Valid only when `--diff-only` is specified."
+        ),
+    )
+    parser.add_argument(
+        "--changed-files",
+        type=lambda x: [] if x.strip() == "" else x.strip().split("\n"),
+        default="",
+        help=(
+            "A string that represents a list of changed files in a pull request. "
+            "Valid only when `--diff-only` is specified."
+        ),
+    )
+
+    return parser.parse_args()
 
 
 def main():
