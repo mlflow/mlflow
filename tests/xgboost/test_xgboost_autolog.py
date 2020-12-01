@@ -241,7 +241,7 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
 
 
 @pytest.mark.large
-def test_xgb_autolog_batch_metrics_logger_logs_metrics_with_early_stopping(bst_params, dtrain):
+def test_xgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, dtrain):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()

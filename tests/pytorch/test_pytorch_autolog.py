@@ -4,12 +4,11 @@ import torch
 from iris import IrisClassification
 import mlflow
 import mlflow.pytorch
-from mlflow.utils.autologging_utils import BatchMetricsLogger
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
-
 
 NUM_EPOCHS = 20
 

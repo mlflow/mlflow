@@ -11,13 +11,11 @@ from mxnet.gluon.data import Dataset, DataLoader
 from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 from mxnet.metric import Accuracy
-from unittest.mock import patch
-
 
 import mlflow
 import mlflow.gluon
 from mlflow.utils.autologging_utils import BatchMetricsLogger
-
+from unittest.mock import patch
 
 
 class LogsDataset(Dataset):
