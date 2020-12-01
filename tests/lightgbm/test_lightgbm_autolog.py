@@ -275,13 +275,11 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(
         )
 
     run = get_latest_run()
-    metrics = run.data.metrics
+    original_metrics = run.data.metrics
     patched_metrics_data = dict(patched_metrics_data)
-    for valid_name in valid_names:
-        for metric_name in params["metric"]:
-            metric_key = "{}-{}".format(valid_name, metric_name)
-            assert metric_key in patched_metrics_data
-            assert metric_key in metrics
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
 
 @pytest.mark.large
