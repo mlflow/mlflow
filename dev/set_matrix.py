@@ -383,11 +383,11 @@ def main():
                     )
 
                 # development version
-                if "pip_dev" in package_info:
+                if "install_dev" in package_info:
                     job_name = " / ".join([flavor, "dev", key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
-                    install = remove_comments(package_info["pip_dev"])
+                    install = remove_comments(package_info["install_dev"])
                     run = remove_comments(cfg["run"])
                     includes.append(
                         {
