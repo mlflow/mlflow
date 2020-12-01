@@ -89,19 +89,19 @@ tensorflow-2.x:
 
 keras-tf1.x:
   package_info:
-    pip_release: "keras"
+    pip_release: "tensorflow"
 
   models:
-    minimum: "2.2.5"
-    maximum: "2.2.5"
-    requirements: ["tensorflow==1.15.4", "h5py<3.0"]
+    minimum: "1.15.4"
+    maximum: "1.15.4"
+    requirements: ["keras=2.2.5", "h5py<3.0"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
-    minimum: "2.2.5"
-    maximum: "2.2.5"
-    requirements: ["tensorflow==1.15.4", "h5py<3.0"]
+    minimum: "1.15.4"
+    maximum: "1.15.4"
+    requirements: ["keras=2.2.5", "h5py<3.0"]
     run: |
       pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
 
