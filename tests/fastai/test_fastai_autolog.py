@@ -286,7 +286,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant, 
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        model, run = fastai_random_data_run_with_callback(
+        _, run = fastai_random_data_run_with_callback(
             iris_data(), fit_variant, manual_run, callback, patience
         )
 

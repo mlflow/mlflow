@@ -272,7 +272,6 @@ def test_xgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, dtra
             evals_result=evals_result,
         )
 
-
     patched_metrics_data = dict(patched_metrics_data)
     run = get_latest_run()
     original_metrics = run.data.metrics

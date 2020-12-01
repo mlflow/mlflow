@@ -240,9 +240,7 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 
 
 @pytest.mark.large
-def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(
-    bst_params, train_set
-):
+def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, train_set):
     patched_metrics_data = []
 
     # Mock patching BatchMetricsLogger.record_metrics()

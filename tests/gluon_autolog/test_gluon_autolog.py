@@ -89,7 +89,7 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
             original(self, metrics, step)
 
         record_metrics_mock.side_effect = record_metrics_side_effect
-        run  = gluon_random_data_run()
+        run = gluon_random_data_run()
 
     patched_metrics_data = dict(patched_metrics_data)
     original_metrics = run.data.metrics
