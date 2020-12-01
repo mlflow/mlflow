@@ -49,7 +49,25 @@ pytorch:
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
-tensorflow:
+tensorflow-1.x:
+  package_info:
+    pip_release: "tensorflow"
+
+  models:
+    minimum: "1.15.4"
+    maximum: "1.15.4"
+    requirements: ["h5py<3.0"]
+    run: |
+      pytest tests/tensorflow/test_tensorflow_model_export.py --large
+
+  models:
+    minimum: "1.15.4"
+    maximum: "1.15.4"
+    requirements: ["h5py<3.0"]
+    run: |
+      pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
+
+tensorflow-2.x:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
@@ -69,28 +87,25 @@ tensorflow:
     run: |
       pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
-  tf1:
-    minimum: "1.15.4"
-    maximum: "1.15.4"
-    # Avoid fetching versions up until the latest
-    until_latest: False
-    # Avoid running tests on `tf-nightly`
-    include_dev: False
-    requirements:
-      [
-        "keras==2.2.5",
-        "scikit-learn",
-        "h5py<3.0.0",
-        "pyspark==2.4.0",
-        "pyarrow",
-      ]
-    run: |
-      pytest tests/tensorflow/test_tensorflow_model_export.py --large
-      pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-      pytest tests/keras --large
-      pytest tests/keras_autolog --large
+keras-tf1.x:
+  package_info:
+    pip_release: "keras"
 
-keras:
+  models:
+    minimum: "2.2.5"
+    maximum: "2.2.5"
+    requirements: ["tensorflow==1.15.4"]
+    run: |
+      pytest tests/keras/test_keras_model_export.py --large
+
+  autologging:
+    minimum: "2.2.5"
+    maximum: "2.2.5"
+    requirements: ["tensorflow==1.15.4"]
+    run: |
+      pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
+
+keras-tf2.x:
   package_info:
     pip_release: "keras"
     install_dev: |

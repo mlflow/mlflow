@@ -120,20 +120,23 @@ def select_latest_micro_versions(versions):
     return res
 
 
-def get_latest_micro_versions(package_name, min_ver=None, max_ver=None, excludes=None):
+def get_major_version(ver):
+    return LooseVersion(ver).version[0]
+
+
+def get_latest_micro_versions(package_name, min_ver, max_ver, excludes=None):
     """
-    Fetches the latest micro version in each minor version for the specified Python package.
+    For maximum version x.a.b, we'll fetch up to x.y.z, where x.y.z is the latest minor version that
+    shares the same major version as the configured maximum.
 
     Examples
     --------
-    >>> get_latest_micro_versions("scikit-learn", min_ver="0.19.2")
-    ['0.19.2', ...]
-    >>> get_latest_micro_versions("scikit-learn", max_ver="0.19.2")
-    [..., '0.19.2']
-    >>> get_latest_micro_versions("scikit-learn", min_ver="0.20.4", max_ver="0.22.2")
-    ['0.20.4', '0.21.3', '0.22.2']
-    >>> get_latest_micro_versions("scikit-learn", excludes=["0.21.3"])
-    [..., '0.20.4', '0.21.2', '0.22.2', ...]
+    >>> get_latest_micro_versions("lightgbm", "2.2.3", "3.1.0")
+    ['2.2.3', '2.3.1', '3.0.0', '3.1.0']
+    >>> get_latest_micro_versions("lightgbm", "2.2.3", "2.3.1")
+    ['2.2.3', '2.3.1']
+    >>> get_latest_micro_versions("lightgbm", "2.2.3", "3.1.0", excludes=["2.3.1"])
+    ['2.2.3', '2.3.0', '3.0.0', '3.1.0']
     """
     if excludes is None:
         excludes = []
@@ -141,17 +144,16 @@ def get_latest_micro_versions(package_name, min_ver=None, max_ver=None, excludes
     all_versions = get_released_versions(package_name)
     # prevent specifying non-existent versions
     assert all(v in all_versions for v in excludes)
+    assert min_ver in all_versions
+    assert max_ver in all_versions
 
     versions = {v: t for v, t in all_versions.items() if v not in excludes}
     versions = {v: t for v, t in versions.items() if is_final_release(v)}
 
-    if min_ver:
-        assert min_ver in all_versions
-        versions = {v: t for v, t in versions.items() if LooseVersion(v) >= LooseVersion(min_ver)}
-
-    if max_ver:
-        assert max_ver in all_versions
-        versions = {v: t for v, t in versions.items() if LooseVersion(v) <= LooseVersion(max_ver)}
+    max_major = get_major_version(max_ver)
+    versions = {v: t for v, t in versions.items() if get_major_version(v) <= max_major}
+    versions = {v: t for v, t in versions.items() if LooseVersion(v) >= LooseVersion(min_ver)}
+    versions = {v: t for v, t in versions.items() if LooseVersion(v) <= LooseVersion(max_ver)}
 
     return select_latest_micro_versions(versions)
 
@@ -327,7 +329,8 @@ def main():
         print("Failed to read '{}' due to: '{}'".format(args.ref_config, e))
         config_ref = {}
 
-    changed_flavors = get_changed_flavors(args.changed_files, config.keys())
+    flavors = set(x.split("-")[0] for x in config.keys())
+    changed_flavors = get_changed_flavors(args.changed_files, flavors)
 
     job_names = []
     includes = []
@@ -338,26 +341,27 @@ def main():
 
         should_include_all_items_in_this_flavor = (
             should_include_all_items
-            or (flavor in changed_flavors)
+            or any(flavor.startswith(x) for x in changed_flavors)
             or (flavor not in config_ref)
             or (package_info != config_ref[flavor]["package_info"])
         )
 
         for key, cfg in cfgs.items():
-            print("Processing {}.{}".format(flavor, key))
             if (
                 should_include_all_items_in_this_flavor
                 or (key not in config_ref[flavor])
                 or (cfg != config_ref[flavor][key])
             ):
+                print("Processing {}.{}".format(flavor, key))
                 # released versions
-                min_ver = cfg["minimum"]
-                max_ver = None if cfg.get("until_latest", True) else cfg["maximum"]
                 versions = get_latest_micro_versions(
-                    package_info["pip_release"], min_ver, max_ver, cfg.get("unsupported")
+                    package_info["pip_release"],
+                    cfg["minimum"],
+                    cfg["maximum"],
+                    cfg.get("unsupported"),
                 )
                 for ver in versions:
-                    job_name = "-".join([flavor, ver, key])
+                    job_name = " / ".join([flavor, ver, key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), ver)
                     install = "pip install -U '{}=={}'".format(package_info["pip_release"], ver)
@@ -373,7 +377,7 @@ def main():
 
                 # development version
                 if "pip_dev" in package_info and cfg.get("include_dev", True):
-                    job_name = "-".join([flavor, "dev", key])
+                    job_name = " / ".join([flavor, "dev", key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
                     install = remove_comments(package_info["pip_dev"])
