@@ -360,6 +360,7 @@ def main():
                 or (cfg != config_ref[flavor][key])
             ):
                 print("Processing {}.{}".format(flavor, key))
+
                 # released versions
                 all_versions = get_released_versions(package_info["pip_release"])
                 versions = filter_versions(
@@ -382,7 +383,7 @@ def main():
                     )
 
                 # development version
-                if "pip_dev" in package_info and cfg.get("include_dev", True):
+                if "pip_dev" in package_info:
                     job_name = " / ".join([flavor, "dev", key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
