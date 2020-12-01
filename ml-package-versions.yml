@@ -1,7 +1,7 @@
 sklearn:
   package_info:
     pip_release: "scikit-learn"
-    pip_dev: |
+    install_dev: |
       pip install git+https://github.com/scikit-learn/scikit-learn.git@master
 
   models:
@@ -21,7 +21,7 @@ sklearn:
 pytorch:
   package_info:
     pip_release: "torch"
-    pip_dev: |
+    install_dev: |
       pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
@@ -52,7 +52,7 @@ pytorch:
 tensorflow:
   package_info:
     pip_release: "tensorflow"
-    pip_dev: |
+    install_dev: |
       pip install tf-nightly
 
   models:
@@ -93,7 +93,7 @@ tensorflow:
 keras:
   package_info:
     pip_release: "keras"
-    pip_dev: |
+    install_dev: |
       # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
       # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
       pip install tf-nightly 'keras>=2.4.0'
@@ -120,7 +120,7 @@ keras:
 xgboost:
   package_info:
     pip_release: "xgboost"
-    pip_dev: |
+    install_dev: |
       git clone --recursive https://github.com/dmlc/xgboost
       cd xgboost/python-package
       python setup.py install
@@ -142,7 +142,7 @@ xgboost:
 lightgbm:
   package_info:
     pip_release: "lightgbm"
-    pip_dev: |
+    install_dev: |
       git clone --recursive https://github.com/microsoft/LightGBM.git
       cd LightGBM/python-package
       python setup.py install
