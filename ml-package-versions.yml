@@ -94,7 +94,7 @@ keras-tf1.x:
   models:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    requirements: ["keras==2.2.5", "h5py<3.0"]
+    requirements: ["keras==2.2.5", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -102,7 +102,7 @@ keras-tf1.x:
     minimum: "1.15.4"
     maximum: "1.15.4"
     requirements: ["keras==2.2.5", "h5py<3.0"]
-    run: |
+    run: |gs
       pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
 
 keras-tf2.x:
