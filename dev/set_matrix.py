@@ -284,7 +284,7 @@ def process_requirements(requirements, version=None):
 
     if isinstance(requirements, dict):
         for condition, reqs in requirements.items():
-            op_and_ver_pairs = map(get_operator_and_version, condition.split(",")
+            op_and_ver_pairs = map(get_operator_and_version, condition.split(","))
             match_all = all(
                 op(LooseVersion(version), LooseVersion(dev_numeric if ver == "dev" else ver))
                 for op, ver in op_and_ver_pairs
