@@ -305,7 +305,7 @@ def process_requirements(requirements, version=None):
 
 
 def remove_comments(s):
-    return "\n".join(l for l in s.strip().split("\n") if not s.strip().startswith("#"))
+    return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
 
 
 def main():
@@ -356,12 +356,13 @@ def main():
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), ver)
                     install = "pip install -U '{}=={}'".format(package_info["pip_release"], ver)
+                    run = remove_comments(package_info["run"])
                     includes.append(
                         {
                             "job_name": job_name,
                             "requirements": requirements or None,
                             "install": install,
-                            "run": cfg["run"].strip(),
+                            "run": run,
                         }
                     )
 
@@ -370,13 +371,14 @@ def main():
                     job_name = "-".join([flavor, "dev", key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
-                    install = remove_comments(package_info["pip_dev"].strip())
+                    install = remove_comments(package_info["pip_dev"])
+                    run = remove_comments(package_info["run"])
                     includes.append(
                         {
                             "job_name": job_name,
                             "requirements": requirements or None,
                             "install": install,
-                            "run": cfg["run"].strip(),
+                            "run": run,
                         }
                     )
 
