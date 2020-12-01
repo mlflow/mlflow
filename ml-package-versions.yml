@@ -72,8 +72,9 @@ tensorflow:
   tf1:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    # `until_latest` and `includes_dev` default to True if unspecified
+    # Avoid fetching version up until the latest
     until_latest: False
+    # Avoid running tests using `tf-nightly`
     include_dev: False
     requirements:
       [
@@ -101,7 +102,8 @@ keras:
     minimum: "2.3.1"
     maximum: "2.4.3"
     requirements:
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "== 2.3.1":
+        ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
       "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
