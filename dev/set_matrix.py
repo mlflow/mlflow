@@ -304,6 +304,10 @@ def process_requirements(requirements, version=None):
     raise TypeError("Should not reach here")
 
 
+def remove_comments(s):
+    return "\n".join(l for l in s.strip().split("\n") if not s.strip().startswith("#"))
+
+
 def main():
     args = parse_args()
 
@@ -366,11 +370,12 @@ def main():
                     job_name = "-".join([flavor, "dev", key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
+                    install = remove_comments(package_info["pip_dev"].strip())
                     includes.append(
                         {
                             "job_name": job_name,
                             "requirements": requirements or None,
-                            "install": package_info["pip_dev"].strip(),
+                            "install": install,
                             "run": cfg["run"].strip(),
                         }
                     )
