@@ -44,13 +44,13 @@ tensorflow:
       pip install tf-nightly
 
   models:
-    minimum: "2.3.1"
+    minimum: "2.0.0"
     maximum: "2.3.1"
     run: |
       pytest tests/tensorflow/test_tensorflow2_model_export.py --large
 
   autologging:
-    minimum: "2.3.1"
+    minimum: "2.0.0"
     maximum: "2.3.1"
     run: |
       pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
