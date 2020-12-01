@@ -322,11 +322,13 @@ def main():
 
     job_names = []
     includes = []
+    should_include_all_items = not args.diff_only
+
     for flavor, cfgs in config.items():
         package_info = cfgs.pop("package_info")
 
         should_include_all_items_in_this_flavor = (
-            not args.diff_only
+            should_include_all_items
             or (flavor in changed_flavors)
             or (flavor not in config_ref)
             or (package_info != config_ref[flavor]["package_info"])
