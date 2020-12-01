@@ -356,7 +356,7 @@ def main():
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), ver)
                     install = "pip install -U '{}=={}'".format(package_info["pip_release"], ver)
-                    run = remove_comments(package_info["run"])
+                    run = remove_comments(cfg["run"])
                     includes.append(
                         {
                             "job_name": job_name,
@@ -372,7 +372,7 @@ def main():
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
                     install = remove_comments(package_info["pip_dev"])
-                    run = remove_comments(package_info["run"])
+                    run = remove_comments(cfg["run"])
                     includes.append(
                         {
                             "job_name": job_name,
