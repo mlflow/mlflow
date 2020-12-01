@@ -222,6 +222,9 @@ def divider(title):
 
 
 def str_to_operator(s):
+    """
+    Turns a string into the corresponding operator.
+    """
     return {
         # https://docs.python.org/3/library/operator.html#mapping-operators-to-functions
         "<": operator.lt,
@@ -233,17 +236,19 @@ def str_to_operator(s):
     }[s]
 
 
-def get_operator_and_version(condition_str):
+def get_operator_and_version(ver_spec):
     """
+    Converts a version specifier (e.g. "< 3") to a tuple of (operator, version).
+
     >>> get_operator_and_version("< 3")
     (<built-in function lt>, '3')
     >>> get_operator_and_version("!= dev")
     (<built-in function ne>, 'dev')
     """
-    m = re.search(r"([<>=!]+)([\w.]+)", condition_str.replace(" ", ""))
+    m = re.search(r"([<>=!]+)([\w.]+)", ver_spec.replace(" ", ""))
 
     if m is None:
-        raise ValueError("Invalid value for `condition`: '{}'".format(condition_str))
+        raise ValueError("Invalid value for `condition`: '{}'".format(ver_spec))
 
     return str_to_operator(m.group(1)), m.group(2)
 
@@ -260,6 +265,8 @@ def process_requirements(requirements, version=None):
     ['foo']
     >>> process_requirements({"> 0.1, != 0.2": ["foo"]}, "0.3")
     ['foo']
+    >>> process_requirements({"== 0.1": ["foo"], "== 0.2": ["bar"]}, "0.2")
+    ['bar']
     >>> process_requirements({"== dev": ["foo"]}, "0.1")
     []
     >>> process_requirements({"< dev": ["foo"]}, "0.1")
@@ -283,8 +290,8 @@ def process_requirements(requirements, version=None):
         version = dev_numeric
 
     if isinstance(requirements, dict):
-        for condition, reqs in requirements.items():
-            op_and_ver_pairs = map(get_operator_and_version, condition.split(","))
+        for ver_spec, reqs in requirements.items():
+            op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 op(LooseVersion(version), LooseVersion(dev_numeric if ver == "dev" else ver))
                 for op, ver in op_and_ver_pairs
@@ -341,12 +348,11 @@ def main():
                 for ver in versions:
                     job_name = "-".join([flavor, ver, key])
                     job_names.append(job_name)
-                    reqs = process_requirements(cfg.get("requirements"), ver)
-                    reqs = ["'{}'".format(x) for x in reqs] or None
+                    requirements = process_requirements(cfg.get("requirements"), ver)
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": reqs,
+                            "requirements": requirements or None,
                             "install": "pip install -U '{}=={}'".format(
                                 package_info["pip_release"], ver
                             ),
@@ -358,12 +364,11 @@ def main():
                 if "pip_dev" in package_info and cfg.get("include_dev", True):
                     job_name = "-".join([flavor, "dev", key])
                     job_names.append(job_name)
-                    reqs = process_requirements(cfg.get("requirements"), "dev")
-                    reqs = ["'{}'".format(x) for x in reqs] or None
+                    requirements = process_requirements(cfg.get("requirements"), "dev")
                     includes.append(
                         {
                             "job_name": job_name,
-                            "requirements": reqs,
+                            "requirements": requirements or None,
                             "install": package_info["pip_dev"].strip(),
                             "run": cfg["run"].strip(),
                         }
