@@ -128,8 +128,8 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
     """
     Filter versions that satisfy the following conditions:
 
-    1. is newer than `min_ver`
-    2. shares the same major version as `max_ver`
+    1. is newer than or equal to `min_ver`
+    2. shares the same major version as `max_ver` or `min_ver`
     3. (Optional) is not in `excludes`
 
     Examples
