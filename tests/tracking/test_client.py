@@ -318,7 +318,7 @@ def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store
     assert model_version.name == "name"
     assert model_version.source == "source"
     assert model_version.run_id is None
-    # verify that the store was not provided a run link
+    # verify that the store was not provided a run id
     mock_registry_store.create_model_version.assert_called_once_with(
         "name", "source", None, [], None, None
     )
