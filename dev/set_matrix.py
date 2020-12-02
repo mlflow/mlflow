@@ -325,7 +325,7 @@ def parse_args():
     parser.add_argument(
         "--diff-only",
         action="store_true",
-        help="If specified, ignore unchanged flavors or configs.",
+        help="If specified, include only changed items in the matrix.",
     )
     # make `--ref-config` and `--diff-files` configurable to make it easier to test this script.
     parser.add_argument(
