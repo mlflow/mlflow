@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, batch_metrics_logger
+from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, BatchMetricsLogger
 from mlflow.utils.annotations import experimental
 from mlflow.utils import gorilla
 
