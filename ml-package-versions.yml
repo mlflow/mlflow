@@ -136,8 +136,9 @@ xgboost:
   package_info:
     pip_release: "xgboost"
     install_dev: |
-      git clone --recursive https://github.com/dmlc/xgboost
-      cd xgboost/python-package
+      temp_dir=$(mktemp -d)
+      git clone --recursive https://github.com/dmlc/xgboost $temp_dir
+      cd $temp_dir/python-package
       python setup.py install
 
   models:
@@ -158,8 +159,9 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      git clone --recursive https://github.com/microsoft/LightGBM.git
-      cd LightGBM/python-package
+      temp_dir=$(mktemp -d)
+      git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
+      cd $temp_dir/python-package
       python setup.py install
 
   models:
