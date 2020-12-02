@@ -167,10 +167,17 @@ def save_model(
 
         def _is_plain_keras(model):
             try:
-                # NB: Network is the first parent with save method
-                import keras.engine.network
+                import keras
 
-                return isinstance(model, keras.engine.network.Network)
+                if LooseVersion(keras.__version__) < LooseVersion("2.2.0"):
+                    import keras.engine
+
+                    return isinstance(model, keras.engine.Model)
+                else:
+                    # NB: Network is the first parent with save method
+                    import keras.engine.network
+
+                    return isinstance(model, keras.engine.network.Network)
             except ImportError:
                 return False
 
