@@ -50,6 +50,22 @@ test_that("mlflow_end_run() works properly", {
   expect_true(!anyNA(run[run_info_names]))
 })
 
+test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs", {
+  mlflow_clear_test_dir("mlruns")
+  runs <- list(
+    mlflow_start_run(),
+    mlflow_start_run(nested = TRUE),
+    mlflow_start_run(nested = TRUE)
+  )
+  client <- mlflow_client()
+  for (i in seq(3, 1, -1)) {
+    expect_equal(mlflow:::mlflow_get_active_run_id(), runs[[i]]$run_uuid)
+    run <- mlflow_end_run(client = client, run_id = runs[[i]]$run_uuid)
+    expect_identical(run$run_uuid, runs[[i]]$run_uuid)
+  }
+  expect_null(mlflow:::mlflow_get_active_run_id())
+})
+
 test_that("mlflow_set_tag() should return NULL invisibly", {
   mlflow_clear_test_dir("mlruns")
   value <- mlflow_set_tag("foo", "bar")
