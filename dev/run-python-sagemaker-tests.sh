@@ -15,11 +15,11 @@ else
   cat $SAGEMAKER_OUT;
 fi
 
-pytest --verbose tests/sagemaker --large
-pytest --verbose tests/sagemaker/mock --large
+pytest tests/sagemaker --large
+pytest tests/sagemaker/mock --large
 
 # Added here due to dependency on sagemaker
 # TODO: split out sagemaker tests and move other spark tests to run-python-flavor-tests.sh
-pytest --verbose tests/spark --large
+pytest tests/spark --large
 
 test $err = 0

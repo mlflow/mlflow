@@ -351,7 +351,7 @@ run tests annotated with @pytest.mark.large. For example, to run all pyfunc test
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
 process), so simply invoking ``pytest`` or ``pytest tests`` may not work. If you'd like to
 run multiple model tests, we recommend doing so via separate ``pytest`` invocations, e.g.
-``pytest --verbose tests/sklearn --large && pytest --verbose tests/tensorflow --large``
+``pytest tests/sklearn --large && pytest tests/tensorflow --large``
 
 If opening a PR that changes or adds new APIs, please update or add Python documentation as
 described in `Writing Docs`_ and commit the docs to your PR branch.

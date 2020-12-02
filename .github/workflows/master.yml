@@ -256,4 +256,4 @@ jobs:
           pip install -e .[extras]
       - name: Run tests
         run: |
-          pytest --verbose --ignore-flavors --ignore=tests/projects tests
+          pytest --ignore-flavors --ignore=tests/projects tests

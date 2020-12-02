@@ -52,7 +52,7 @@ jobs:
           print(sklearn.__version__)
       - name: Run tests
         run: |
-          pytest --verbose --large tests/sklearn/test_sklearn_autolog.py
+          pytest --large tests/sklearn/test_sklearn_autolog.py
       - name: Run examples
         working-directory: examples/sklearn_autolog
         run: |
