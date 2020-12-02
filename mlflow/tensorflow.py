@@ -966,8 +966,9 @@ def autolog(every_n_iter=100, log_models=True):
             if stopped_epoch != 0 and restore_best_weights:
                 restored_epoch = stopped_epoch - max(1, patience)
                 try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
+                restored_index = history.epoch.index(restored_epoch)
                 restored_metrics = {
-                    key: history.history[key][restored_epoch] for key in history.history.keys()
+                    key: history.history[key][restored_index] for key in history.history.keys()
                 }
                 # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
                 if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
