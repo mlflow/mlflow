@@ -320,7 +320,8 @@ def parse_args():
             VERSIONS_YAML_PATH
         ),
         help=(
-            "URL or local file path of the reference config. "
+            "URL or local file path of the reference config which will be compared with the config "
+            "on the branch where this script is running in order to identify version YAML udpates. "
             "Valid only when `--diff-only` is specified."
         ),
     )
