@@ -337,6 +337,10 @@ def parse_args():
     return parser.parse_args()
 
 
+def make_pip_install_command(packages):
+    return "pip install " + " ".join("'{}'".format(x) for x in packages)
+
+
 def main():
     args = parse_args()
 
@@ -346,9 +350,9 @@ def main():
     print(divider("Log"))
     config = read_yaml(VERSIONS_YAML_PATH)
     try:
-        config_ref = read_yaml(args.ref_config)
+        config_ref = read_yaml(args.ref_versions_yaml)
     except Exception as e:
-        print("Failed to read '{}' due to: '{}'".format(args.ref_config, e))
+        print("Failed to read '{}' due to: '{}'".format(args.ref_versions_yaml, e))
         config_ref = {}
 
     # assuming that the top-level keys in `ml-package-versions.yml` have the format:
@@ -387,33 +391,26 @@ def main():
                 for ver in versions:
                     job_name = " / ".join([flavor, ver, key])
                     job_names.append(job_name)
-                    requirements = process_requirements(cfg.get("requirements"), ver)
-                    install = "pip install -U '{}=={}'".format(package_info["pip_release"], ver)
+
+                    requirements = ["{}=={}".format(package_info["pip_release"], ver)]
+                    requirements.extend(process_requirements(cfg.get("requirements"), ver))
+                    install = make_pip_install_command(requirements)
                     run = remove_comments(cfg["run"])
-                    includes.append(
-                        {
-                            "job_name": job_name,
-                            "requirements": requirements or None,
-                            "install": install,
-                            "run": run,
-                        }
-                    )
+
+                    includes.append({"job_name": job_name, "install": install, "run": run})
 
                 # development version
                 if "install_dev" in package_info:
                     job_name = " / ".join([flavor, "dev", key])
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
-                    install = remove_comments(package_info["install_dev"])
-                    run = remove_comments(cfg["run"])
-                    includes.append(
-                        {
-                            "job_name": job_name,
-                            "requirements": requirements or None,
-                            "install": install,
-                            "run": run,
-                        }
+                    install = (
+                        make_pip_install_command(requirements)
+                        + "\n"
+                        + remove_comments(package_info["install_dev"])
                     )
+                    run = remove_comments(cfg["run"])
+                    includes.append({"job_name": job_name, "install": install, "run": run})
 
     matrix = {"job_name": job_names, "include": includes}
     print(divider("Result"))
