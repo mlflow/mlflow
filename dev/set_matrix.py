@@ -405,9 +405,9 @@ def main():
                     job_names.append(job_name)
                     requirements = process_requirements(cfg.get("requirements"), "dev")
                     install = (
-                        make_pip_install_command(requirements)
-                        if requirements
-                        else "" + "\n" + remove_comments(package_info["install_dev"])
+                        (make_pip_install_command(requirements) if requirements else "")
+                        + "\n"
+                        + remove_comments(package_info["install_dev"])
                     )
                     run = remove_comments(cfg["run"])
                     includes.append({"job_name": job_name, "install": install, "run": run})
