@@ -9,7 +9,8 @@ mlflow_start_run(
   experiment_id = NULL,
   start_time = NULL,
   tags = NULL,
-  client = NULL
+  client = NULL,
+  nested = FALSE
 )
 }
 \arguments{
@@ -29,6 +30,8 @@ a new experiment with a randomly generated name.}
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
+
+\item{nested}{Controls whether the run to be started is nested in a parent run. `TRUE` creates a nest run.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as
