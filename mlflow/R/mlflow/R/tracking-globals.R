@@ -1,13 +1,21 @@
 #' @include tracking-observer.R
 NULL
 
-mlflow_set_active_run_id <- function(run_id) {
-  .globals$active_run_id <- run_id
+mlflow_push_active_run_id <- function(run_id) {
+  .globals$active_run_stack <- c(.globals$active_run_stack, run_id)
   mlflow_register_tracking_event("active_run_id", list(run_id = run_id))
 }
 
+mlflow_pop_active_run_id <- function() {
+  .globals$active_run_stack <- .globals$active_run_stack[1:length(.globals$active_run_stack) - 1]
+}
+
 mlflow_get_active_run_id <- function() {
-  .globals$active_run_id
+  if (length(.globals$active_run_stack) == 0) {
+    NULL
+  } else {
+    .globals$active_run_stack[length(.globals$active_run_stack)]
+  }
 }
 
 mlflow_set_active_experiment_id <- function(experiment_id) {
