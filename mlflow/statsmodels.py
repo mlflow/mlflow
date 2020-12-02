@@ -281,6 +281,14 @@ class _StatsmodelsModelWrapper:
             # Assume the inference dataframe has columns "start" and "end", and just one row
             # TODO: move this to a specific mlflow.statsmodels.tsa flavor? Time series models
             # often expect slightly different arguments to make predictions
+            if dataframe.shape[0] != 1 or not (
+                "start" in dataframe.columns and "end" in dataframe.columns
+            ):
+                raise MlflowException(
+                    "prediction dataframes for a TimeSeriesModel must have exactly one row"
+                    + " and include columns called start and end"
+                )
+
             start_date = dataframe["start"][0]
             end_date = dataframe["end"][0]
             return self.statsmodels_model.predict(start=start_date, end=end_date)
@@ -506,14 +514,9 @@ def autolog():
                         # This may generate warnings due to collisions in already-logged param names
                         log_fn_args_as_params(original_method, args, kwargs)
 
-                    AutologHelpers.should_autolog = True
-
-                if auto_end_run:
-                    try_mlflow_log(mlflow.end_run)
-
                 return model
 
-            except Exception as e:
+            finally:
                 # Clean the shared flag for future calls in case it had been set here ...
                 if should_autolog:
                     AutologHelpers.should_autolog = True
@@ -521,9 +524,6 @@ def autolog():
                 # End current run if it had been created here ...
                 if auto_end_run:
                     try_mlflow_log(mlflow.end_run)
-
-                # ... and propagate the exception
-                raise e
 
         return fit
 
