@@ -335,7 +335,7 @@ def parse_args():
         ),
         help=(
             "URL or local file path of the reference config which will be compared with the config "
-            "on the branch where this script is running in order to identify version YAML udpates. "
+            "on the branch where this script is running in order to identify version YAML updates. "
             "Valid only when `--diff-only` is specified."
         ),
     )
