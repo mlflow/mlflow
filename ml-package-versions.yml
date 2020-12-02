@@ -76,25 +76,7 @@ tensorflow-2.x:
     run: |
       pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
-keras-tf1.x:
-  package_info:
-    pip_release: "tensorflow"
-
-  models:
-    minimum: "1.15.4"
-    maximum: "1.15.4"
-    requirements: ["keras==2.2.5", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-    run: |
-      pytest tests/keras/test_keras_model_export.py --large
-
-  autologging:
-    minimum: "1.15.4"
-    maximum: "1.15.4"
-    requirements: ["keras==2.2.5", "h5py<3.0"]
-    run: |
-      pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
-
-keras-tf2.x:
+keras:
   package_info:
     pip_release: "keras"
     install_dev: |
@@ -103,11 +85,11 @@ keras-tf2.x:
       pip install tf-nightly 'keras>=2.4.0'
 
   models:
-    minimum: "2.3.1"
+    minimum: "2.0.0"
     maximum: "2.4.3"
     requirements:
-      "== 2.3.1":
-        ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
       "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
@@ -116,6 +98,7 @@ keras-tf2.x:
     minimum: "2.3.1"
     maximum: "2.4.3"
     requirements:
+      "< 2.3.1": ["tensorflow==1.15.4"]
       "== 2.3.1": ["tensorflow==2.2.1"]
       "> 2.3.1, != dev": ["tensorflow"]
     run: |
