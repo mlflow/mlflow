@@ -602,6 +602,10 @@ test_that("mlflow observers receive tracking event callbacks", {
   expect_equal(length(tracking_events), num_observers)
   for (idx in seq(num_observers)) {
     expect_equal(
+      tracking_events[[idx]]$create_run[[1]]$run_id,
+      run$run_id
+    )
+    expect_equal(
       tracking_events[[idx]]$create_run[[1]]$experiment_id,
       experiment_id
     )
