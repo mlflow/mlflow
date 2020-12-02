@@ -45,9 +45,9 @@ pytorch:
       "== 1.5.0": ["torchvision==0.6.0", "pytorch-lightning", "scikit-learn"]
       "== 1.5.1": ["torchvision==0.6.1", "pytorch-lightning", "scikit-learn"]
       "== 1.6.0": ["torchvision==0.7.0", "pytorch-lightning", "scikit-learn"]
-      "> 1.6.0": ["torchvision", "scikit-learn"]
+      "> 1.6.0": ["torchvision", "pytorch-lightning", "scikit-learn"]
     run: |
-      pytest tests/pytorch/test_pytorch_model_export.py --large
+      pytest tests/pytorch/test_pytorch_autolog.py --large
 
 tensorflow-1.x:
   package_info:
