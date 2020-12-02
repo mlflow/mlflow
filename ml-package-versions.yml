@@ -95,7 +95,7 @@ keras:
       pytest tests/keras/test_keras_model_export.py --large
 
   autologging:
-    minimum: "2.3.1"
+    minimum: "2.0.0"
     maximum: "2.4.3"
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4"]
