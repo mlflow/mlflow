@@ -300,7 +300,7 @@ def autolog(log_models=True):
     from fastai.callbacks.hooks import model_summary, layers_info
     from fastai.callbacks import EarlyStoppingCallback, OneCycleScheduler
 
-    def getFastaiCallback(metrics_logger):
+    def getFastaiCallback(metrics_logger, learner):
         class __MLflowFastaiCallback(LearnerCallback):
             """
             Callback for auto-logging metrics and parameters.
@@ -357,7 +357,7 @@ def autolog(log_models=True):
                 if log_models:
                     try_mlflow_log(log_model, self.learner, artifact_path="model")
 
-        return __MLflowFastaiCallback
+        return __MLflowFastaiCallback(learner)
 
     def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
@@ -407,19 +407,19 @@ def autolog(log_models=True):
 
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
-            __MLflowFastaiCallback = getFastaiCallback(metrics_logger)
+            mlflowFastaiCallback = getFastaiCallback(metrics_logger, self)
 
             # Checking if the 'callback' argument of the function is set
             if len(args) > callback_arg_index:
                 tmp_list = list(args)
                 callbacks += list(args[callback_arg_index])
-                tmp_list[callback_arg_index] += [__MLflowFastaiCallback(self)]
+                tmp_list[callback_arg_index] += [mlflowFastaiCallback]
                 args = tuple(tmp_list)
             elif kwargs.get("callbacks"):
                 callbacks += list(kwargs["callbacks"])
-                kwargs["callbacks"] += [__MLflowFastaiCallback(self)]
+                kwargs["callbacks"] += [mlflowFastaiCallback]
             else:
-                kwargs["callbacks"] = [__MLflowFastaiCallback(self)]
+                kwargs["callbacks"] = [mlflowFastaiCallback]
 
             early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, callbacks)
             one_cycle_callback = _find_callback_of_type(OneCycleScheduler, callbacks)

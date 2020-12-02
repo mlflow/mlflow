@@ -351,7 +351,7 @@ def autolog(log_models=True):
                 if isinstance(estimator.net, HybridSequential) and log_models:
                     try_mlflow_log(log_model, estimator.net, artifact_path="model")
 
-        return __MLflowGluonCallback
+        return __MLflowGluonCallback()
 
     def fit(self, *args, **kwargs):
         if not mlflow.active_run():
@@ -365,15 +365,15 @@ def autolog(log_models=True):
         # Wrap `fit` execution within a batch metrics logger context.
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
-            __MLflowGluonCallback = getGluonCallback(metrics_logger)
+            mlflowGluonCallback = getGluonCallback(metrics_logger)
             if len(args) >= 4:
                 l = list(args)
-                l[3] += [__MLflowGluonCallback()]
+                l[3] += [mlflowGluonCallback]
                 args = tuple(l)
             elif "event_handlers" in kwargs:
-                kwargs["event_handlers"] += [__MLflowGluonCallback()]
+                kwargs["event_handlers"] += [mlflowGluonCallback]
             else:
-                kwargs["event_handlers"] = [__MLflowGluonCallback()]
+                kwargs["event_handlers"] = [mlflowGluonCallback]
             result = original(self, *args, **kwargs)
 
         if auto_end_run:

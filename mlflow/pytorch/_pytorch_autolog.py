@@ -49,6 +49,10 @@ def _autolog(log_every_n_epoch=1, log_models=True):
     global every_n_epoch
     every_n_epoch = log_every_n_epoch
 
+    # There may be no run defined so no run_id is passed to logger
+    metrics_logger = BatchMetricsLogger()
+
+
     def getPLCallback(metrics_logger, log_models):
         class __MLflowPLCallback(pl.Callback):
             """
@@ -123,6 +127,9 @@ def _autolog(log_every_n_epoch=1, log_models=True):
                 :param trainer: pytorch lightning trainer instance
                 :param pl_module: pytorch lightning base module
                 """
+                # manually flushing any remaining metrics from training.
+                metrics_logger._flush()
+
                 if log_models:
                     mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="model")
 
@@ -207,11 +214,13 @@ def _autolog(log_every_n_epoch=1, log_models=True):
             auto_end_run = False
 
         run_id = mlflow.active_run().info.run_id
-        with batch_metrics_logger(run_id) as metrics_logger:
-            __MLflowPLCallback = getPLCallback(metrics_logger, log_models)
-            if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
-                self.callbacks += [__MLflowPLCallback()]
-            result = original(self, *args, **kwargs)
+
+        # Setting run_id on BatchMetricsLogger instance
+        metrics_logger.run_id = run_id
+        __MLflowPLCallback = getPLCallback(metrics_logger, log_models)
+        if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
+            self.callbacks += [__MLflowPLCallback]
+        result = original(self, *args, **kwargs)
 
         if auto_end_run:
             try_mlflow_log(mlflow.end_run)

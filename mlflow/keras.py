@@ -668,7 +668,7 @@ def autolog(log_models=True):
             def _implements_predict_batch_hooks(self):
                 return False
 
-        return __MLflowKerasCallback
+        return __MLflowKerasCallback()
 
     def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion("2.3.0") or LooseVersion(
@@ -735,17 +735,17 @@ def autolog(log_models=True):
         # Checking if the 'callback' argument of the function is set
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
-            __MLflowKerasCallback = getKerasCallback(metrics_logger)
+            mlflowKerasCallback = getKerasCallback(metrics_logger)
             if len(args) > callback_arg_index:
                 tmp_list = list(args)
                 early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
-                tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
+                tmp_list[callback_arg_index] += [mlflowKerasCallback]
                 args = tuple(tmp_list)
             elif kwargs.get("callbacks"):
                 early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                kwargs["callbacks"] += [__MLflowKerasCallback()]
+                kwargs["callbacks"] += [mlflowKerasCallback]
             else:
-                kwargs["callbacks"] = [__MLflowKerasCallback()]
+                kwargs["callbacks"] = [mlflowKerasCallback]
 
             _log_early_stop_callback_params(early_stop_callback)
 

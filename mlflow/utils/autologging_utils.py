@@ -156,7 +156,7 @@ def resolve_input_example_and_signature(
 
 
 class BatchMetricsLogger:
-    def __init__(self, run_id):
+    def __init__(self, run_id=None):
         self.run_id = run_id
 
         # data is an array of Metric objects
