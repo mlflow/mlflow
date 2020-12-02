@@ -75,9 +75,11 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
   response <- mlflow_rest(
     "runs", "create", client = client, verb = "POST", data = data
   )
+  run_id <- response$run$info$run_uuid
+  data$run_id <- run_id
   mlflow_register_tracking_event("create_run", data)
 
-  mlflow_get_run(run_id = response$run$info$run_uuid, client = client)
+  mlflow_get_run(run_id = run_id, client = client)
 }
 
 #' Delete a Run
