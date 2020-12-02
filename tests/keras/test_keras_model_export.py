@@ -14,7 +14,7 @@ from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
 from keras.models import Sequential
-from keras.layers import InputLayer, Layer, Dense
+from keras.layers import Layer, Dense
 from keras import backend as K
 from keras.optimizers import SGD
 import sklearn.datasets as datasets
@@ -130,9 +130,8 @@ def custom_layer():
 def custom_model(data, custom_layer):
     x, y = data
     model = Sequential()
-    model.add(InputLayer(input_shape=(4,)))
-    model.add(custom_layer(6))
-    model.add(Dense(1))
+    model.add(Dense(6, input_dim=4))
+    model.add(custom_layer(1))
     model.compile(loss="mean_squared_error", optimizer="SGD")
     model.fit(x.values, y.values, epochs=1)
     return model
@@ -222,7 +221,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
         model_path = os.path.join(model_path, "tf")
     else:
         model_path = os.path.join(model_path, "plain")
-    expected = keras_model.predict(x)
+    expected = keras_model.predict(x.values)
     kwargs = {"save_format": save_format} if save_format else {}
     mlflow.keras.save_model(keras_model, model_path, **kwargs)
     # Loading Keras model
