@@ -406,8 +406,8 @@ def main():
                     requirements = process_requirements(cfg.get("requirements"), "dev")
                     install = (
                         make_pip_install_command(requirements)
-                        + "\n"
-                        + remove_comments(package_info["install_dev"])
+                        if requirements
+                        else "" + "\n" + remove_comments(package_info["install_dev"])
                     )
                     run = remove_comments(cfg["run"])
                     includes.append({"job_name": job_name, "install": install, "run": run})
