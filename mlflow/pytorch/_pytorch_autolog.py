@@ -218,7 +218,7 @@ def _autolog(log_every_n_epoch=1, log_models=True):
         metrics_logger.run_id = run_id
         __MLflowPLCallback = getPLCallback(metrics_logger, log_models)
         if not any(isinstance(callbacks, __MLflowPLCallback) for callbacks in self.callbacks):
-            self.callbacks += [__MLflowPLCallback]
+            self.callbacks += [__MLflowPLCallback()]
         result = original(self, *args, **kwargs)
 
         if auto_end_run:
