@@ -46,7 +46,16 @@ def get_released_versions(package_name):
     data = json.load(urllib.request.urlopen(url))
 
     versions = {
-        ver: files[0]["upload_time"] for ver, files in data["releases"].items() if len(files) > 0
+        # We can actually select any element in `dist_files` because all the distribution files
+        # should have almost the same upload time.
+        version: dist_files[0]["upload_time"]
+        for version, dist_files in data["releases"].items()
+        # If len(dist_files) = 0, this release is unavailable.
+        # Example: https://pypi.org/project/xgboost/0.7
+        #
+        # > pip install 'xgboost==0.7'
+        # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
+        if len(dist_files) > 0
     }
     return versions
 
