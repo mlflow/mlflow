@@ -2054,7 +2054,7 @@ class MlflowClient(object):
         self,
         name,
         source,
-        run_id,
+        run_id=None,
         tags=None,
         run_link=None,
         description=None,
@@ -2116,7 +2116,12 @@ class MlflowClient(object):
             Stage: None
         """
         tracking_uri = self._tracking_client.tracking_uri
-        if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
+        if (
+            not run_link
+            and run_id
+            and is_databricks_uri(tracking_uri)
+            and tracking_uri != self._registry_uri
+        ):
             run_link = self._get_run_link(tracking_uri, run_id)
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
