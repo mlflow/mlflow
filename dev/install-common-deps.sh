@@ -12,8 +12,10 @@ function retry-with-backoff() {
     return 1
 }
 
-# Cleanup apt repository to make room for tests.
-sudo apt clean
+# Cleanup apt repository to make room for tests
+# (NOTE: this will likely fail for bash running on Windows, so non-zero exit
+#  code is ignored here)
+sudo apt clean || :
 df -h
 
 # Miniconda is pre-installed in the virtual-environments for GitHub Actions.
@@ -25,10 +27,19 @@ conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
 conda info -a
 conda create -q -n test-environment python=3.6
-source activate test-environment
+if [[ "${OSTYPE}" == linux* || "${OSTYPE}" == darwin* ]]; then
+  source activate test-environment
+else
+  # win32 or msys or cygwin, etc -- the possibilities are endless
+  conda activate test-environment
+fi
 
 python --version
-pip install --upgrade pip==19.3.1
+if [[ "${OSTYPE}" == linux* || "${OSTYPE}" == darwin* ]]; then
+  pip install --upgrade pip==19.3.1
+else
+  pip install --upgrade 'pip==20.3.1' --user
+fi
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
   pip install . --upgrade

@@ -510,7 +510,7 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
                               messages will be emitted.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+    model_meta = Model.load(os.path.normpath(os.path.join(local_path, MLMODEL_FILE_NAME)))
 
     conf = model_meta.flavors.get(FLAVOR_NAME)
     if conf is None:
@@ -522,9 +522,11 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
-        code_path = os.path.join(local_path, conf[CODE])
+        code_path = os.path.normpath(os.path.join(local_path, conf[CODE]))
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
-    data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
+    data_path = (
+        os.path.normpath(os.path.join(local_path, conf[DATA])) if (DATA in conf) else local_path
+    )
     model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
@@ -1088,13 +1090,13 @@ def _save_model_with_loader_module_and_data_path(
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.normpath(os.path.join(path, conda_env_subpath)), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     mlflow.pyfunc.add_to_model(
         mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath
     )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+    mlflow_model.save(os.path.normpath(os.path.join(path, MLMODEL_FILE_NAME)))
     return mlflow_model
 
 

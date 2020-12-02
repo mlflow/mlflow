@@ -40,7 +40,7 @@ Imports:
     xml2,
     yaml,
     zeallot
-Suggests: 
+Suggests:
   covr,
   carrier,
   keras,
@@ -50,7 +50,7 @@ Suggests:
   xgboost,
   h2o
 RoxygenNote: 7.1.1
-Collate: 
+Collate:
     'cli.R'
     'databricks-utils.R'
     'globals.R'
@@ -66,6 +66,7 @@ Collate:
     'model-serve.R'
     'model-swagger.R'
     'model-xgboost.R'
+    'utils.R'
     'model.R'
     'project-param.R'
     'project-run.R'

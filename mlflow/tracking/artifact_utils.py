@@ -2,6 +2,7 @@
 Utilities for dealing with artifacts in the context of a Run.
 """
 import pathlib
+import platform
 import posixpath
 import shutil
 import tempfile
@@ -61,8 +62,9 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     parsed_uri = urllib.parse.urlparse(str(artifact_uri))
     prefix = ""
-    if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
-        # relative path is a special case, urllib does not reconstruct it properly
+
+    if platform.system() != "Windows" and parsed_uri.scheme and not parsed_uri.path.startswith("/"):
+        # UNIX relative path is a special case, urllib does not reconstruct it properly
         prefix = parsed_uri.scheme + ":"
         parsed_uri = parsed_uri._replace(scheme="")
 

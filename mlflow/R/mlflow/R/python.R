@@ -33,7 +33,12 @@ python_mlflow_bin <- function() {
     return(in_env)
   }
   python_bin_dir <- dirname(python_bin())
-  file.path(python_bin_dir, "mlflow")
+
+  if (.Platform$OS.type == "windows") {
+    file.path(python_bin_dir, "Scripts", "mlflow.exe")
+  } else {
+    file.path(python_bin_dir, "mlflow")
+  }
 }
 
 # Return path to conda home directory, such that the `conda` executable can be found

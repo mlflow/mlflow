@@ -112,7 +112,9 @@ class _Example(object):
 
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
-        with open(os.path.join(parent_dir_path, self.info["artifact_path"]), "w") as f:
+        with open(
+            os.path.normpath(os.path.join(parent_dir_path, self.info["artifact_path"])), "w",
+        ) as f:
             json.dump(self.data, f, cls=NumpyEncoder)
 
 
@@ -151,5 +153,7 @@ def _read_example(mlflow_model: Model, path: str):
             "This version of mlflow can not load example of type {}".format(example_type)
         )
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
-    path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
+    path = os.path.normpath(
+        os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
+    )
     return _dataframe_from_json(path, schema=input_schema, precise_float=True)

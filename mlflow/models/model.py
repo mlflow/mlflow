@@ -108,7 +108,7 @@ class Model(object):
     def load(cls, path):
         """Load a model from its YAML representation."""
         if os.path.isdir(path):
-            path = os.path.join(path, MLMODEL_FILE_NAME)
+            path = os.path.normpath(os.path.join(path, MLMODEL_FILE_NAME))
         with open(path) as f:
             return cls.from_dict(yaml.safe_load(f.read()))
 

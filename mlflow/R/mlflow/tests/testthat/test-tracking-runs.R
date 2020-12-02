@@ -358,7 +358,14 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
       paste("artifact_subdirectory", "a-my-file", sep = "/"), ]
     expect_equal(nrow(logged_file2), 1)
     expect_equal(logged_file2$is_dir, FALSE)
-    expect_equal(strtoi(logged_file2$file_size), nchar(contents))
+    expect_equal(
+      strtoi(logged_file2$file_size),
+      if (identical(.Platform$OS.type, "windows")) {
+        nchar(contents) + 1
+      } else {
+        nchar(contents)
+      }
+    )
     # Verify contents of file logged under directory
     artifact_list2 <- mlflow_list_artifacts("directory_for_file")
     expect_equal(nrow(artifact_list2), 1)
@@ -366,7 +373,14 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     paste("directory_for_file", "a-my-file", sep = "/"), ]
     expect_equal(nrow(logged_file3), 1)
     expect_equal(logged_file3$is_dir, FALSE)
-    expect_equal(strtoi(logged_file3$file_size), nchar(contents))
+    expect_equal(
+      strtoi(logged_file3$file_size),
+      if (identical(.Platform$OS.type, "windows")) {
+        nchar(contents) + 1
+      } else {
+        nchar(contents)
+      }
+    )
   })
 })
 

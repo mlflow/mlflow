@@ -3,8 +3,8 @@ context("Serve")
 library("carrier")
 
 wait_for_server_to_start <- function(server_process, port) {
-  status_code <- 500
-  for (i in 1:5) {
+  status_code <- 0
+  for (i in 1:12) {
     tryCatch(
       {
         status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
@@ -47,7 +47,8 @@ test_that("mlflow can serve a model function", {
     c(
       "-e",
       sprintf(
-        "mlflow::mlflow_rfunc_serve('model', port = %d, browse = FALSE)",
+        "mlflow::mlflow_rfunc_serve('file://%s', port = %d, browse = FALSE)",
+        normalizePath("model", winslash = "/"),
         port
       )
     ),
@@ -55,7 +56,23 @@ test_that("mlflow can serve a model function", {
     stdout = "|",
     stderr = "|"
   )
-  Sys.sleep(10)
+
+  status_code <- 0
+  for (t in seq(6)) {
+    tryCatch(
+      {
+        status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
+      },
+      error = function(e) {
+      }
+    )
+    if (status_code != 200) {
+      Sys.sleep(10)
+    } else {
+      break
+    }
+  }
+
   tryCatch(
     {
       status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
@@ -90,6 +107,8 @@ test_that("mlflow can serve a model function", {
 })
 
 test_that("mlflow models server api works with R model function", {
+  skip_on_windows("ValueError: close_fds is not supported on Windows platforms if you redirect stdin/stdout/stderr")
+
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, path = "model")
