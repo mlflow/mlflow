@@ -416,7 +416,9 @@ def main():
     print(json.dumps(matrix, indent=2))
 
     if "GITHUB_ACTIONS" in os.environ:
-        # this line prints out nothing in the console on github actions
+        # `::set-output` is a special syntax for GitHub Actions to set an action's output parameter.
+        # https://docs.github.com/en/free-pro-team@latest/actions/reference/workflow-commands-for-github-actions#setting-an-output-parameter # noqa
+        # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 
 
