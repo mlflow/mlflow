@@ -205,8 +205,10 @@ with mlflow.start_run():
 
     # Create a SummaryWriter to write TensorBoard events locally
     output_dir = dirpath = tempfile.mkdtemp()
-    writer = SummaryWriter(output_dir)
-    print("Writing TensorBoard events locally to %s\n" % output_dir)
+    ### NOTE(sid): We comment out tensorboardx calls as they introduce unpicklable thread.Lock
+    ### objects that cause pickling the Pytorch model to fail during torch.save()
+    # writer = SummaryWriter(output_dir)
+    # print("Writing TensorBoard events locally to %s\n" % output_dir)
 
     # Perform the training
     for epoch in range(1, args.epochs + 1):
@@ -214,16 +216,18 @@ with mlflow.start_run():
         test(epoch)
 
     # Upload the TensorBoard event logs as a run artifact
-    print("Uploading TensorBoard events as a run artifact...")
-    mlflow.log_artifacts(output_dir, artifact_path="events")
-    print(
-        "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
-        % os.path.join(mlflow.get_artifact_uri(), "events")
-    )
+    # print("Uploading TensorBoard events as a run artifact...")
+    # mlflow.log_artifacts(output_dir, artifact_path="events")
+    # print(
+    #     "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
+    #     % os.path.join(mlflow.get_artifact_uri(), "events")
+    # )
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
-    mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
+    # Log model using the default serialization format (cloudpickle). This succeeds only when the
+    # tensorboardX usage above is commented-out or otherwise disabled.
+    mlflow.pytorch.log_model(model, artifact_path="pytorch-model")
     print(
         "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
     )
