@@ -377,9 +377,9 @@ def main():
                 print("Processing {}.{}".format(flavor, key))
 
                 # released versions
-                all_versions = get_released_versions(package_info["pip_release"])
+                versions = get_released_versions(package_info["pip_release"])
                 versions = filter_versions(
-                    all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
+                    versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
                 )
                 versions = select_latest_micro_versions(versions)
                 for ver in versions:
