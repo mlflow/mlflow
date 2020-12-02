@@ -576,9 +576,6 @@ def test_tf_autolog_batch_metrics_logger_logs_expected_metrics(tmpdir, manual_ru
         assert metric_name in patched_metrics_data
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
-    restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
-
     assert "loss" in original_metrics
     assert "loss" in patched_metrics_data
 
