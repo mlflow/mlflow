@@ -349,6 +349,8 @@ def main():
         print("Failed to read '{}' due to: '{}'".format(args.ref_config, e))
         config_ref = {}
 
+    # assuming that the top-level keys in `ml-package-versions.yml` have the format:
+    # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
     flavors = set(x.split("-")[0] for x in config.keys())
     changed_flavors = get_changed_flavors(args.changed_files, flavors)
 
