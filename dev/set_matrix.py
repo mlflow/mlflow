@@ -141,9 +141,9 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
         excludes = []
 
     # prevent specifying non-existent versions
-    assert all(v in versions for v in excludes)
     assert min_ver in versions
     assert max_ver in versions
+    assert all(v in versions for v in excludes)
 
     versions = {v: t for v, t in versions.items() if v not in excludes}
     versions = {v: t for v, t in versions.items() if is_final_release(v)}
