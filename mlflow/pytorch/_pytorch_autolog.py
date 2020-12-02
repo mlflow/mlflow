@@ -52,7 +52,6 @@ def _autolog(log_every_n_epoch=1, log_models=True):
     # There may be no run defined so no run_id is passed to logger
     metrics_logger = BatchMetricsLogger()
 
-
     def getPLCallback(metrics_logger, log_models):
         class __MLflowPLCallback(pl.Callback):
             """

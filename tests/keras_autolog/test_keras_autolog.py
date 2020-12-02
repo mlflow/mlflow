@@ -309,6 +309,8 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
 
     restored_epoch = int(patched_metrics_data["restored_epoch"])
     assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    restored_epoch = int(original_metrics["restored_epoch"])
+    assert int(original_metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
 
 
 @pytest.mark.large

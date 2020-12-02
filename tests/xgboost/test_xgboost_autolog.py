@@ -281,6 +281,7 @@ def test_xgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, dtra
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
     assert int(patched_metrics_data["best_iteration"]) == model.best_iteration
+    assert int(original_metrics["best_iteration"]) == model.best_iteration
 
 
 @pytest.mark.large

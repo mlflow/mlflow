@@ -97,6 +97,9 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
         assert metric_name in patched_metrics_data
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
+    assert "train accuracy" in original_metrics
+    assert "train accuracy" in patched_metrics_data
+
 
 @pytest.mark.large
 def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):

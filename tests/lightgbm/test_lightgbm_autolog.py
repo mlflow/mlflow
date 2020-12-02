@@ -279,6 +279,9 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
         assert metric_name in patched_metrics_data
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
+    assert "train-multi_logloss" in original_metrics
+    assert "train-multi_logloss" in patched_metrics_data
+
 
 @pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
@@ -315,6 +318,8 @@ def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
 
             best_metrics = evals_result[valid_name][metric_name][model.best_iteration - 1]
             assert metric_history == evals_result[valid_name][metric_name] + [best_metrics]
+    assert "train_loss" in original_metrics
+    assert "train_loss" in patched_metrics_data
 
 
 @pytest.mark.large

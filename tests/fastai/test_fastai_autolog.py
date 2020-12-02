@@ -295,3 +295,6 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant, 
     for metric_name in original_metrics:
         assert metric_name in patched_metrics_data
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert "train_loss" in original_metrics
+    assert "train_loss" in patched_metrics_data

@@ -220,6 +220,9 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
         assert metric_name in patched_metrics_data
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
+    assert "loss" in original_metrics
+    assert "loss" in patched_metrics_data
+
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     trainer, run = pytorch_model
