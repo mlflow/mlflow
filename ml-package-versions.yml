@@ -117,7 +117,7 @@ keras-tf2.x:
     maximum: "2.4.3"
     requirements:
       "== 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1": ["tensorflow"]
+      "> 2.3.1, != dev": ["tensorflow"]
     run: |
       pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
 
