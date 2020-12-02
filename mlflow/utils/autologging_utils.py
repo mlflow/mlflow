@@ -165,7 +165,10 @@ class BatchMetricsLogger:
         self.total_log_batch_time = 0
         self.previous_training_timestamp = None
 
-    def _flush(self):
+    def flush(self):
+        """
+        The metrics accumulated by BatchMetricsLogger will be batch logged to MLFlow.
+        """
         self._timed_log_batch()
         self.data = []
 
@@ -216,7 +219,7 @@ class BatchMetricsLogger:
             self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
         if self._should_flush():
-            self._flush()
+            self.flush()
 
         self.previous_training_timestamp = current_timestamp
 
@@ -240,4 +243,4 @@ def batch_metrics_logger(run_id):
 
     batch_metrics_logger = BatchMetricsLogger(run_id)
     yield batch_metrics_logger
-    batch_metrics_logger._flush()
+    batch_metrics_logger.flush()

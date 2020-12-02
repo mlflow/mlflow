@@ -127,7 +127,7 @@ def _autolog(log_every_n_epoch=1, log_models=True):
                 :param pl_module: pytorch lightning base module
                 """
                 # manually flushing any remaining metrics from training.
-                metrics_logger._flush()
+                metrics_logger.flush()
 
                 if log_models:
                     mlflow.pytorch.log_model(pytorch_model=trainer.model, artifact_path="model")
