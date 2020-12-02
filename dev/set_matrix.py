@@ -23,7 +23,7 @@ import urllib.request
 
 import yaml
 
-CONFIG_PATH = "ml-package-versions.yml"
+VERSIONS_YAML_PATH = "ml-package-versions.yml"
 
 
 def read_yaml(location):
@@ -315,8 +315,10 @@ def parse_args():
     )
     # make `--ref-config` and `--diff-files` configurable to make it easier to test this script.
     parser.add_argument(
-        "--ref-config",
-        default="https://raw.githubusercontent.com/mlflow/mlflow/master/{}".format(CONFIG_PATH),
+        "--ref-versions-yaml",
+        default="https://raw.githubusercontent.com/mlflow/mlflow/master/{}".format(
+            VERSIONS_YAML_PATH
+        ),
         help=(
             "URL or local file path of the reference config. "
             "Valid only when `--diff-only` is specified."
@@ -342,7 +344,7 @@ def main():
     print(json.dumps(vars(args), indent=2))
 
     print(divider("Log"))
-    config = read_yaml(CONFIG_PATH)
+    config = read_yaml(VERSIONS_YAML_PATH)
     try:
         config_ref = read_yaml(args.ref_config)
     except Exception as e:
