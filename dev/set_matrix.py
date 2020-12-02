@@ -24,6 +24,7 @@ import urllib.request
 import yaml
 
 VERSIONS_YAML_PATH = "ml-package-versions.yml"
+DEV_VERSION = "dev"
 
 
 def read_yaml(location):
@@ -280,24 +281,28 @@ def process_requirements(requirements, version=None):
     if isinstance(requirements, list):
         return requirements
 
-    dev_numeric = "9999.9999.9999"
-
-    if version == "dev":
-        version = dev_numeric
-
     if isinstance(requirements, dict):
+        # The version "dev" should always compare as greater than any exisiting versions.
+        dev_numeric = "9999.9999.9999"
+
+        if version == DEV_VERSION:
+            version = dev_numeric
+
         for ver_spec, packages in requirements.items():
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
-                op(LooseVersion(version), LooseVersion(dev_numeric if ver == "dev" else ver))
-                for op, ver in op_and_ver_pairs
+                comp_op(
+                    LooseVersion(version),
+                    LooseVersion(dev_numeric if req_ver == DEV_VERSION else req_ver),
+                )
+                for comp_op, req_ver in op_and_ver_pairs
             )
             if match_all:
                 return packages
         else:
             return []
 
-    raise TypeError("Should not reach here")
+    raise TypeError("Invalid object type for `requirements`: '{}'")
 
 
 def remove_comments(s):
@@ -411,9 +416,9 @@ def main():
 
                 # development version
                 if "install_dev" in package_info:
-                    job_name = " / ".join([flavor, "dev", key])
+                    job_name = " / ".join([flavor, DEV_VERSION, key])
                     job_names.append(job_name)
-                    requirements = process_requirements(cfg.get("requirements"), "dev")
+                    requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
                     install = (
                         make_pip_install_command(requirements) + "\n" if requirements else ""
                     ) + remove_comments(package_info["install_dev"])
