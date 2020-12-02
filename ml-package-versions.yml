@@ -2,7 +2,12 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git@master
+      temp_dir=$(mktemp -d)
+      git clone --depth 1 git://github.com/scikit-learn/scikit-learn.git $temp_dir
+      cd $temp_dir
+      pip install cython
+      pip install --verbose --no-build-isolation --editable .
+      # pip install git+https://github.com/scikit-learn/scikit-learn.git@master
 
   models:
     minimum: "0.20.4"
