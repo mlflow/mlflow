@@ -14,7 +14,7 @@ from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
 from keras.models import Sequential
-from keras.layers import Layer, Dense
+from keras.layers import InputLayer, Layer, Dense
 from keras import backend as K
 from keras.optimizers import SGD
 import sklearn.datasets as datasets
@@ -76,7 +76,7 @@ def model(data):
     # Use a small learning rate to prevent exploding gradients which may produce
     # infinite prediction values
     model.compile(loss="mean_squared_error", optimizer=SGD())
-    model.fit(x, y)
+    model.fit(x.values, y.values)
     return model
 
 
@@ -87,7 +87,7 @@ def tf_keras_model(data):
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
     model.compile(loss="mean_squared_error", optimizer=TfSGD())
-    model.fit(x, y)
+    model.fit(x.values, y.values)
     return model
 
 
@@ -129,12 +129,12 @@ def custom_layer():
 @pytest.fixture(scope="module")
 def custom_model(data, custom_layer):
     x, y = data
-    x, y = x.values, y.values
     model = Sequential()
+    model.add(InputLayer(input_shape=(4,)))
     model.add(custom_layer(6))
     model.add(Dense(1))
     model.compile(loss="mean_squared_error", optimizer="SGD")
-    model.fit(x, y, epochs=1)
+    model.fit(x.values, y.values, epochs=1)
     return model
 
 
@@ -232,7 +232,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
     # exactly the same.
     if save_format != "tf":
         assert type(keras_model) == type(model_loaded)
-    np.testing.assert_allclose(model_loaded.predict(x), expected, rtol=1e-5)
+    np.testing.assert_allclose(model_loaded.predict(x.values), expected, rtol=1e-5)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     np.testing.assert_allclose(pyfunc_loaded.predict(x).values, expected, rtol=1e-5)
