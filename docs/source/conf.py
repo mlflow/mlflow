@@ -315,12 +315,11 @@ nitpick_ignore = [
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
-    ("py:class", "mlflow.models.signature.ModelSignature"),
-    ("py:class", "pandas.core.frame.DataFrame"),
-    ("py:class", "numpy.ndarray"),
 ]
 
 linkcheck_ignore = [
     # Ignore local URLs when validating external links
     r"http://localhost:\d+/?",
 ]
+
+autodoc_typehints = "none"
