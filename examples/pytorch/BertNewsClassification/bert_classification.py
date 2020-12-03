@@ -252,8 +252,8 @@ class BertNewsClassifier(pl.LightningModule):
 
         :return: output - Type of news for the given news snippet
         """
-        _, pooled_output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
-        output = F.relu(self.fc1(pooled_output))
+        output = self.bert_model(input_ids=input_ids, attention_mask=attention_mask)
+        output = F.relu(self.fc1(output.pooler_output))
         output = self.drop(output)
         output = self.out(output)
         return output
