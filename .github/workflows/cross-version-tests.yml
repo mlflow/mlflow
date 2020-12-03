@@ -32,8 +32,9 @@ jobs:
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED_FILES=$(git diff --name-only master..HEAD)
-            python dev/set_matrix.py --diff-only --changed-files "$CHANGED_FILES"
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master"
+            CHANGED_FILES="$(git diff --name-only master..HEAD)"
+            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES"
           else
             python dev/set_matrix.py
           fi

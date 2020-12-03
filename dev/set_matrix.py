@@ -1,15 +1,42 @@
 """
 A script to set a matrix for the cross version tests for MLflow Models / autologging integrations.
 
-# How to run:
+# Usage:
 
-python dev/set_matrix.py --diff-only \
-    --ref-config <URL or local file path> \
-    --changed-files mlflow/sklearn/__init__.py
+```
+usage: set_matrix.py [-h] [--ref-versions-yaml REF_VERSIONS_YAML] [--changed-files CHANGED_FILES]
+```
+
+# Example:
+
+```
+# ===== Include all items =====
+
+python dev/set_matrix.py
+
+# ===== Include only config updates =====
+
+REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master"
+python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
+
+# ===== Include only flavor updates =====
+
+CHANGED_FILES="
+mlflow/keras.py
+mlflow/tensorlfow/__init__.py"
+
+python dev/set_matrix.py --changed-files $CHANGED_FILES
+
+# ===== Include both config & flavor updates =====
+
+python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files $CHANGED_FILES
+```
 
 # How to run doctests:
 
+```
 pytest dev/set_matrix.py --doctest-modules --verbose
+```
 """
 
 import argparse
@@ -27,16 +54,23 @@ VERSIONS_YAML_PATH = "ml-package-versions.yml"
 DEV_VERSION = "dev"
 
 
-def read_yaml(location):
+def read_yaml(location, if_error=None):
     """
     Reads a YAML file. `location` can be a URL or local file path.
     """
-    if re.search("^https?://", location):
-        with urllib.request.urlopen(location) as f:
-            return yaml.load(f, Loader=yaml.SafeLoader)
-    else:
-        with open(location) as f:
-            return yaml.load(f, Loader=yaml.SafeLoader)
+    try:
+        if re.search("^https?://", location):
+            with urllib.request.urlopen(location) as f:
+                return yaml.load(f, Loader=yaml.SafeLoader)
+        else:
+            with open(location) as f:
+                return yaml.load(f, Loader=yaml.SafeLoader)
+    except Exception as e:
+        if if_error is not None:
+            print("Failed to read '{}' due to: '{}'".format(location, e))
+            return if_error
+
+        raise
 
 
 def get_released_versions(package_name):
@@ -323,30 +357,20 @@ def remove_comments(s):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--diff-only",
-        action="store_true",
-        help="If specified, include only changed items in the matrix.",
-    )
-    # make `--ref-config` and `--diff-files` configurable to make it easier to test this script.
-    parser.add_argument(
         "--ref-versions-yaml",
-        default="https://raw.githubusercontent.com/mlflow/mlflow/master/{}".format(
-            VERSIONS_YAML_PATH
-        ),
+        required=False,
+        default=None,
         help=(
             "URL or local file path of the reference config which will be compared with the config "
             "on the branch where this script is running in order to identify version YAML updates. "
-            "Valid only when `--diff-only` is specified."
         ),
     )
     parser.add_argument(
         "--changed-files",
         type=lambda x: [] if x.strip() == "" else x.strip().split("\n"),
-        default="",
-        help=(
-            "A string that represents a list of changed files in a pull request. "
-            "Valid only when `--diff-only` is specified."
-        ),
+        required=False,
+        default=None,
+        help=("A string that represents a list of changed files in a pull request. "),
     )
 
     return parser.parse_args()
@@ -362,22 +386,23 @@ def main():
     print(divider("Parameters"))
     print(json.dumps(vars(args), indent=2))
 
+    should_include_all_items = (args.ref_versions_yaml is None) and (args.changed_files is None)
+    ref_versions_yaml = (
+        VERSIONS_YAML_PATH if (args.ref_versions_yaml is None) else args.ref_versions_yaml
+    )
+    changed_files = [] if (args.changed_files is None) else args.changed_files
+
     print(divider("Log"))
     config = read_yaml(VERSIONS_YAML_PATH)
-    try:
-        config_ref = read_yaml(args.ref_versions_yaml)
-    except Exception as e:
-        print("Failed to read '{}' due to: '{}'".format(args.ref_versions_yaml, e))
-        config_ref = {}
+    config_ref = read_yaml(ref_versions_yaml, if_error={})
 
     # assuming that the top-level keys in `ml-package-versions.yml` have the format:
     # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
     flavors = set(x.split("-")[0] for x in config.keys())
-    changed_flavors = get_changed_flavors(args.changed_files, flavors)
+    changed_flavors = get_changed_flavors(changed_files, flavors)
 
     job_names = []
     includes = []
-    should_include_all_items = not args.diff_only
 
     for flavor, cfgs in config.items():
         package_info = cfgs.pop("package_info")
