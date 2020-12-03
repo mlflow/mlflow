@@ -2,11 +2,25 @@
 
 ## Files & Roles
 
-| File (relative path from the root)          | Role                                                                                                                |
-| :------------------------------------------ | :------------------------------------------------------------------------------------------------------------------ |
-| `ml-package-versions.yml`                   | Define package versions to test and dependencies required to run tests for each flavor                              |
-| `dev/set_matrix.py`                         | Read `ml-package-versions.yml` and set a test matrix                                                                |
-| `.github/workflows/cross-version-tests.yml` | Run tests across multiple combinations of packages and versions based on the test matrix set by `dev/set_matrix.py` |
+### `ml-package-versions.yml`
+
+Define package versions to test and dependencies required to run the tests for each flavor.
+
+### `dev/set_matrix.py`
+
+Read `ml-package-versions.yml` and set a test matrix.
+
+### `cross-versions-tests.yml`
+
+Run the following two jobs.
+
+- `set-matrix`: Run `set_matrix.py` to set a test matrix.
+- `test`: Sweep the test matrix set by `set-matrix`.
+
+## When do we run the cross version tests?
+
+1. On a pull request: Run tests affected by the PR
+2. On a daily scheduled job (at 7:00 UTC): Run all tests
 
 ## How to run `dev/set_matrix.py`
 
