@@ -75,7 +75,7 @@ def model(data):
     model.add(Dense(1))
     # Use a small learning rate to prevent exploding gradients which may produce
     # infinite prediction values
-    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
+    model.compile(loss="mean_squared_error", optimizer=SGD())
     model.fit(x.values, y.values)
     return model
 
@@ -86,7 +86,7 @@ def tf_keras_model(data):
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
+    model.compile(loss="mean_squared_error", optimizer=TfSGD())
     model.fit(x.values, y.values)
     return model
 
