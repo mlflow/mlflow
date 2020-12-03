@@ -13,6 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
+import keras
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
@@ -75,7 +76,13 @@ def model(data):
     model.add(Dense(1))
     # Use a small learning rate to prevent exploding gradients which may produce
     # infinite prediction values
-    model.compile(loss="mean_squared_error", optimizer=SGD())
+    lr = 0.001
+    kwargs = (
+        {"lr": lr}
+        if LooseVersion(keras.__version__) < LooseVersion("2.3.0")
+        else {"learning_rate": lr}
+    )
+    model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
     model.fit(x.values, y.values)
     return model
 
@@ -86,7 +93,7 @@ def tf_keras_model(data):
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss="mean_squared_error", optimizer=TfSGD())
+    model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
     model.fit(x.values, y.values)
     return model
 
