@@ -13,6 +13,8 @@ import mlflow
 import mlflow.xgboost
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 mpl.use("Agg")
 
@@ -239,6 +241,49 @@ def test_xgb_autolog_logs_metrics_with_early_stopping(bst_params, dtrain):
 
             best_metrics = evals_result[eval_name][metric_name][model.best_iteration]
             assert metric_history == evals_result[eval_name][metric_name] + [best_metrics]
+
+
+@pytest.mark.large
+def test_xgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, dtrain):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+
+        mlflow.xgboost.autolog()
+        evals_result = {}
+        params = {**bst_params, "eval_metric": ["merror", "mlogloss"]}
+        evals = [(dtrain, "train"), (dtrain, "valid")]
+        model = xgb.train(
+            params,
+            dtrain,
+            num_boost_round=20,
+            early_stopping_rounds=5,
+            evals=evals,
+            evals_result=evals_result,
+        )
+
+    patched_metrics_data = dict(patched_metrics_data)
+    run = get_latest_run()
+    original_metrics = run.data.metrics
+
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert int(patched_metrics_data["best_iteration"]) == model.best_iteration
+    assert int(original_metrics["best_iteration"]) == model.best_iteration
 
 
 @pytest.mark.large

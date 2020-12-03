@@ -156,7 +156,17 @@ def resolve_input_example_and_signature(
 
 
 class BatchMetricsLogger:
-    def __init__(self, run_id):
+    """
+    The BatchMetricsLogger will log metrics in batch against an mlflow run.
+    If run_id is passed to to constructor then all recording and logging will
+    happen against that run_id.
+    If no run_id is passed into constructor, then the run ID will be fetched
+    from `mlflow.active_run()` each time `record_metrics()` or `flush()` is called; in this
+    case, callers must ensure that an active run is present before invoking
+    `record_metrics()` or `flush()`.
+    """
+
+    def __init__(self, run_id=None):
         self.run_id = run_id
 
         # data is an array of Metric objects
@@ -165,22 +175,31 @@ class BatchMetricsLogger:
         self.total_log_batch_time = 0
         self.previous_training_timestamp = None
 
-    def _purge(self):
+    def flush(self):
+        """
+        The metrics accumulated by BatchMetricsLogger will be batch logged to an MLFlow run.
+        """
         self._timed_log_batch()
         self.data = []
 
     def _timed_log_batch(self):
+        if self.run_id is None:
+            # Retrieving run_id from active mlflow run.
+            current_run_id = mlflow.active_run().info.run_id
+        else:
+            current_run_id = self.run_id
+
         start = time.time()
         metrics_slices = [
             self.data[i : i + MAX_METRICS_PER_BATCH]
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            try_mlflow_log(MlflowClient().log_batch, run_id=self.run_id, metrics=metrics_slice)
+            try_mlflow_log(MlflowClient().log_batch, run_id=current_run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
 
-    def _should_purge(self):
+    def _should_flush(self):
         target_training_to_logging_time_ratio = 10
         if (
             self.total_training_time
@@ -190,7 +209,7 @@ class BatchMetricsLogger:
 
         return False
 
-    def record_metrics(self, metrics, step):
+    def record_metrics(self, metrics, step=None):
         """
         Submit a set of metrics to be logged. The metrics may not be immediately logged, as this
         class will batch them in order to not increase execution time too much by logging
@@ -207,11 +226,16 @@ class BatchMetricsLogger:
 
         self.total_training_time += training_time
 
+        # log_batch() requires step to be defined. Therefore will set step to 0 if not defined.
+        if step is None:
+            step = 0
+
         for key, value in metrics.items():
+
             self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
-        if self._should_purge():
-            self._purge()
+        if self._should_flush():
+            self.flush()
 
         self.previous_training_timestamp = current_timestamp
 
@@ -235,4 +259,4 @@ def batch_metrics_logger(run_id):
 
     batch_metrics_logger = BatchMetricsLogger(run_id)
     yield batch_metrics_logger
-    batch_metrics_logger._purge()
+    batch_metrics_logger.flush()
