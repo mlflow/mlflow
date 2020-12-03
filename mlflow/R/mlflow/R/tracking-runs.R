@@ -1,4 +1,4 @@
-#' @include tracking-observer.R
+#' @include tracking-globals.R
 NULL
 
 # Translate metric to value to safe format for REST.
@@ -75,9 +75,11 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
   response <- mlflow_rest(
     "runs", "create", client = client, verb = "POST", data = data
   )
+  run_id <- response$run$info$run_uuid
+  data$run_id <- run_id
   mlflow_register_tracking_event("create_run", data)
 
-  mlflow_get_run(run_id = response$run$info$run_uuid, client = client)
+  mlflow_get_run(run_id = run_id, client = client)
 }
 
 #' Delete a Run
@@ -526,6 +528,7 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
 #'   a new experiment with a randomly generated name.
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
+#' @param nested Controls whether the run to be started is nested in a parent run. `TRUE` creates a nest run.
 #' @template roxlate-client
 #'
 #' @examples
@@ -536,7 +539,7 @@ mlflow_record_logged_model <- function(model_spec, run_id = NULL, client = NULL)
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = NULL, tags = NULL, client = NULL) {
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = NULL, tags = NULL, client = NULL, nested = FALSE) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
@@ -553,8 +556,10 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
   if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
 
   active_run_id <- mlflow_get_active_run_id()
-  if (!is.null(active_run_id)) {
-    stop("Run with UUID ", active_run_id, " is already active.",
+  if (!is.null(active_run_id) && !nested) {
+    stop("Run with UUID ",
+         active_run_id,
+         " is already active. To start a nested run, Call `mlflow_start_run()` with `nested = TRUE`.",
          call. = FALSE
     )
   }
@@ -579,7 +584,7 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = N
     )
     do.call(mlflow_create_run, args)
   }
-  mlflow_set_active_run_id(mlflow_id(run))
+  mlflow_push_active_run_id(mlflow_id(run))
   mlflow_set_experiment(experiment_id = args$experiment_id)
   run
 }
@@ -636,7 +641,7 @@ mlflow_end_run <- function(status = c("FINISHED", "FAILED", "KILLED"),
                           end_time = end_time)
   }
 
-  if (identical(run_id, active_run_id)) mlflow_set_active_run_id(NULL)
+  if (identical(run_id, active_run_id)) mlflow_pop_active_run_id()
   run
 }
 
