@@ -1,13 +1,7 @@
 """
 A script to set a matrix for the cross version tests for MLflow Models / autologging integrations.
 
-# Usage:
-
-```
-usage: set_matrix.py [-h] [--ref-versions-yaml REF_VERSIONS_YAML] [--changed-files CHANGED_FILES]
-```
-
-# Example:
+# How to run:
 
 ```
 # ===== Include all items =====
@@ -56,7 +50,17 @@ DEV_VERSION = "dev"
 
 def read_yaml(location, if_error=None):
     """
-    Reads a YAML file. `location` can be a URL or local file path.
+    Reads a YAML file.
+
+    Examples
+    --------
+    >>> read_yaml("https://raw.githubusercontent.com/mlflow/mlflow/master/.circleci/config.yml")
+    {...}
+    >>> read_yaml(".circleci/config.yml")
+    {...}
+    >>> read_yaml("non_existent.yml", if_error={})
+    Failed to read ...
+    {}
     """
     try:
         if re.search("^https?://", location):
@@ -67,7 +71,7 @@ def read_yaml(location, if_error=None):
                 return yaml.load(f, Loader=yaml.SafeLoader)
     except Exception as e:
         if if_error is not None:
-            print("Failed to read '{}' due to: '{}'".format(location, e))
+            print("Failed to read '{}' due to: `{}`".format(location, e))
             return if_error
 
         raise
@@ -76,6 +80,11 @@ def read_yaml(location, if_error=None):
 def get_released_versions(package_name):
     """
     Fetches the released versions & datetimes of the specified Python package.
+
+    Examples
+    --------
+    >>> get_released_versions("scikit-learn")
+    {'0.10': '2012-01-11T14:42:25', '0.11': '2012-05-08T00:40:14', ...}
     """
     url = "https://pypi.python.org/pypi/{}/json".format(package_name)
     data = json.load(urllib.request.urlopen(url))
@@ -338,7 +347,7 @@ def process_requirements(requirements, version=None):
         else:
             return []
 
-    raise TypeError("Invalid object type for `requirements`: '{}'")
+    raise TypeError("Invalid object type for `requirements`: '{}'".format(type(requirements)))
 
 
 def remove_comments(s):
@@ -354,6 +363,16 @@ def remove_comments(s):
     'echo foo'
     """
     return "\n".join(l for l in s.strip().split("\n") if not l.strip().startswith("#"))
+
+
+def make_pip_install_command(packages):
+    """
+    Examples
+    --------
+    >>> make_pip_install_command(["foo", "bar"])
+    "pip install 'foo' 'bar'"
+    """
+    return "pip install " + " ".join("'{}'".format(x) for x in packages)
 
 
 def parse_args():
@@ -376,10 +395,6 @@ def parse_args():
     )
 
     return parser.parse_args()
-
-
-def make_pip_install_command(packages):
-    return "pip install " + " ".join("'{}'".format(x) for x in packages)
 
 
 def main():
