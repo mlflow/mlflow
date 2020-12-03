@@ -21,8 +21,6 @@ jobs:
             INSTALL_LARGE_PYTHON_DEPS: true
           command: |
             pip --version
-            # Exclude 20.3 to avoid this issue: https://github.com/mlflow/mlflow/issues/3772
-            pip install --upgrade 'pip!=20.3'
             pip install --progress-bar off . \
               -r ./dev/large-requirements.txt \
               sphinx sphinx-click
