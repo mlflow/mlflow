@@ -388,6 +388,24 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
+Statsmodels (experimental)
+--------------------------
+Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+| Framework    | Metrics                | Parameters                                     | Tags          | Artifacts                                                                   |
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+| Statsmodels  | user-specified metrics | `statsmodels.base.model.Model.fit`_ parameters | --            | `MLflow Model`_ (`statsmodels.base.wrapper.ResultsWrapper`) on training end |
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - Each model subclass that overrides `fit` expects and logs its own parameters.
+
+.. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
+
 Spark (experimental)
 --------------------
 
