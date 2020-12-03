@@ -14,20 +14,20 @@ usage: set_matrix.py [-h] [--ref-versions-yaml REF_VERSIONS_YAML] [--changed-fil
 
 python dev/set_matrix.py
 
-# ===== Include only config updates =====
+# ===== Include only `ml-package-versions.yml` updates =====
 
-REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master"
+REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
 python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML
 
-# ===== Include only flavor updates =====
+# ===== Include only flavor file updates =====
 
 CHANGED_FILES="
 mlflow/keras.py
-mlflow/tensorlfow/__init__.py"
-
+mlflow/tensorlfow/__init__.py
+"
 python dev/set_matrix.py --changed-files $CHANGED_FILES
 
-# ===== Include both config & flavor updates =====
+# ===== Include both `ml-package-versions.yml` & flavor file updates =====
 
 python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files $CHANGED_FILES
 ```
@@ -210,6 +210,8 @@ def get_changed_flavors(changed_files, flavors):
     ['pytorch', 'xgboost']
     >>> get_changed_flavors(["mlflow/xgboost.py"], flavors)
     ['xgboost']
+    >>> get_changed_flavors(["tests/xgboost/test_xgboost_autolog.py"], flavors)
+    ['xgboost']
     >>> get_changed_flavors(["README.rst"], flavors)
     []
     >>> get_changed_flavors([], flavors)
@@ -217,10 +219,10 @@ def get_changed_flavors(changed_files, flavors):
     """
     changed_flavors = []
     for f in changed_files:
-        match = re.search(r"^mlflow/(.+?)(\.py|/)", f)
+        match = re.search(r"^(mlflow|tests)/(.+?)(\.py|/)", f)
 
-        if (match is not None) and (match.group(1) in flavors):
-            changed_flavors.append(match.group(1))
+        if (match is not None) and (match.group(2) in flavors):
+            changed_flavors.append(match.group(2))
 
     return changed_flavors
 
@@ -355,14 +357,14 @@ def remove_comments(s):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
     parser.add_argument(
         "--ref-versions-yaml",
         required=False,
         default=None,
         help=(
             "URL or local file path of the reference config which will be compared with the config "
-            "on the branch where this script is running in order to identify version YAML updates. "
+            "on the branch where this script is running in order to identify version YAML updatesE"
         ),
     )
     parser.add_argument(
@@ -370,7 +372,7 @@ def parse_args():
         type=lambda x: [] if x.strip() == "" else x.strip().split("\n"),
         required=False,
         default=None,
-        help=("A string that represents a list of changed files in a pull request. "),
+        help=("A string that represents a list of changed files"),
     )
 
     return parser.parse_args()
