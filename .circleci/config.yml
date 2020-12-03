@@ -16,9 +16,6 @@ jobs:
             java -version
       - run:
           name: Install Python dependencies
-          environment:
-            INSTALL_SMALL_PYTHON_DEPS: true
-            INSTALL_LARGE_PYTHON_DEPS: true
           command: |
             pip --version
             pip install --progress-bar off . \
