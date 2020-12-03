@@ -2119,7 +2119,8 @@ class MlflowClient(object):
         if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
             if not run_id:
                 eprint(
-                    "Warning: no run_link will be recorded with the model version because no run_id was given"
+                    "Warning: no run_link will be recorded with the model version "
+                    "because no run_id was given"
                 )
             else:
                 run_link = self._get_run_link(tracking_uri, run_id)
