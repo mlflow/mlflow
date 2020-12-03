@@ -139,7 +139,7 @@ def custom_model(data, custom_layer):
 
 @pytest.fixture(scope="module")
 def custom_predicted(custom_model, data):
-    return custom_model.predict(data[0])
+    return custom_model.predict(data[0].values)
 
 
 @pytest.fixture
