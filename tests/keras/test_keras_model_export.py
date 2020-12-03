@@ -93,7 +93,7 @@ def tf_keras_model(data):
 
 @pytest.fixture(scope="module")
 def predicted(model, data):
-    return model.predict(data[0])
+    return model.predict(data[0].values)
 
 
 @pytest.fixture(scope="module")
@@ -283,7 +283,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
 
     # Loading Keras model
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(x) == custom_predicted)
+    assert all(model_loaded.predict(x.values) == custom_predicted)
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
@@ -497,7 +497,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(data[0]) == predicted)
+    assert all(model_loaded.predict(data[0].values) == predicted)
 
 
 @pytest.mark.release
