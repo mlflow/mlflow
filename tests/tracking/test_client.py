@@ -309,6 +309,21 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     )
 
 
+def test_create_model_version_nondatabricks_source_no_run_id(mock_registry_store):
+    client = MlflowClient(tracking_uri="http://10.123.1231.11")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name", 1, 0, 1, source="source"
+    )
+    model_version = client.create_model_version("name", "source")
+    assert model_version.name == "name"
+    assert model_version.source == "source"
+    assert model_version.run_id is None
+    # verify that the store was not provided a run id
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "name", "source", None, [], None, None
+    )
+
+
 def test_create_model_version_explicitly_set_run_link(mock_registry_store):
     run_id = "runid"
     run_link = "my-run-link"

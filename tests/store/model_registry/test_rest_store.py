@@ -203,15 +203,15 @@ class TestRestStore(unittest.TestCase):
 
     @mock.patch("mlflow.utils.rest_utils.http_request")
     def test_create_model_version(self, mock_http):
-        run_id = uuid.uuid4().hex
-        self.store.create_model_version("model_1", "path/to/source", run_id)
+        self.store.create_model_version("model_1", "path/to/source")
         self._verify_requests(
             mock_http,
             "model-versions/create",
             "POST",
-            CreateModelVersion(name="model_1", source="path/to/source", run_id=run_id),
+            CreateModelVersion(name="model_1", source="path/to/source"),
         )
         # test optional fields
+        run_id = uuid.uuid4().hex
         tags = [
             ModelVersionTag(key="key", value="value"),
             ModelVersionTag(key="anotherKey", value="some other value"),
