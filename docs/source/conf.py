@@ -315,6 +315,9 @@ nitpick_ignore = [
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
+    ("py:class", "mlflow"),
+    ("py:class", "numpy"),
+    ("py:class", "pandas"),
 ]
 
 linkcheck_ignore = [
