@@ -21,7 +21,7 @@ jobs:
             INSTALL_LARGE_PYTHON_DEPS: true
           command: |
             pip --version
-            pip install --upgrade 'pip<20.3'
+            pip install --upgrade 'pip!=20.3'
             pip install --progress-bar off . \
               -r ./dev/small-requirements.txt \
               -r ./dev/large-requirements.txt \
