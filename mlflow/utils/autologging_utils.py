@@ -160,9 +160,10 @@ class BatchMetricsLogger:
     The BatchMetricsLogger will log metrics in batch against an mlflow run.
     If run_id is passed to to constructor then all recording and logging will
     happen against that run_id.
-    If no run_id is passed into constructor, then it is assumed that there is
-    an active mlflow run when there is a need to log_batch metrics. The id of that active run
-    will be retrieved from mlflow.
+    If no run_id is passed into constructor, then the run ID will be fetched
+    from `mlflow.active_run()` each time `record_metrics()` or `flush()` is called; in this
+    case, callers must ensure that an active run is present before invoking
+    `record_metrics()` or `flush()`.
     """
 
     def __init__(self, run_id=None):
