@@ -25,7 +25,7 @@ jobs:
             pip install --upgrade 'pip!=20.3'
             pip install --progress-bar off . \
               -r ./dev/large-requirements.txt \
-              sphinx==2.2.1 sphinx-click==2.3.0
+              sphinx sphinx-click
       - run:
           name: Build documentation
           working_directory: docs
