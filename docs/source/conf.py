@@ -314,6 +314,7 @@ nitpick_ignore = [
     ("py:class", "object"),
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
+    ("py:class", "bytearray"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
     ("py:class", "pandas.core.frame.DataFrame"),
     ("py:class", "numpy.ndarray"),
