@@ -13,6 +13,6 @@ dependencies:
   - sklearn
   - cloudpickle==1.6.0
   - boto3
-  - transformers<4.0.0
+  - transformers
   - torchtext==0.7.0
   - pandas
