@@ -78,6 +78,8 @@ def model(data):
     # infinite prediction values
     lr = 0.001
     kwargs = (
+        # `lr` was renamed to `learning_rate` in keras 2.3.0:
+        # https://github.com/keras-team/keras/releases/tag/2.3.0
         {"lr": lr}
         if LooseVersion(keras.__version__) < LooseVersion("2.3.0")
         else {"learning_rate": lr}
