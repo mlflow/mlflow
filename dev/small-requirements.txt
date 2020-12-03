@@ -1,3 +1,5 @@
+## Small test reqs
+scipy
 ## Test-only dependencies
 pytest==3.2.1
 pytest-cov==2.6.0

@@ -11,6 +11,7 @@ import sklearn
 import sklearn.base
 import sklearn.datasets
 import sklearn.model_selection
+from scipy.stats import uniform
 
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
@@ -740,7 +741,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
     "cv_class, search_space",
     [
         (sklearn.model_selection.GridSearchCV, {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}),
-        (sklearn.model_selection.RandomizedSearchCV, {"C": list(range(0, 5))}),
+        (sklearn.model_selection.RandomizedSearchCV, {"C": uniform(loc=0, scale=4)}),
     ],
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
