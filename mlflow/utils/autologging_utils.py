@@ -167,7 +167,7 @@ class BatchMetricsLogger:
 
     def flush(self):
         """
-        The metrics accumulated by BatchMetricsLogger will be batch logged to MLFlow.
+        The metrics accumulated by BatchMetricsLogger will be batch logged to an MLFlow run.
         """
         self._timed_log_batch()
         self.data = []
