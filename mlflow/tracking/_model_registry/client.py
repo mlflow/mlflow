@@ -168,7 +168,7 @@ class ModelRegistryClient(object):
         self,
         name,
         source,
-        run_id,
+        run_id=None,
         tags=None,
         run_link=None,
         description=None,
