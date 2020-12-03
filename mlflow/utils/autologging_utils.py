@@ -156,7 +156,16 @@ def resolve_input_example_and_signature(
 
 
 class BatchMetricsLogger:
-    def __init__(self, run_id):
+    """
+    The BatchMetricsLogger will log metrics in batch against an mlflow run.
+    If run_id is passed to to constructor then all recording and logging will
+    happen against that run_id.
+    If no run_id is passed into constructor, then it is assumed that there is
+    an active mlflow run when there is a need to log_batch metrics. The id of that active run
+    will be retrieved from mlflow.
+    """
+
+    def __init__(self, run_id=None):
         self.run_id = run_id
 
         # data is an array of Metric objects
@@ -173,13 +182,19 @@ class BatchMetricsLogger:
         self.data = []
 
     def _timed_log_batch(self):
+        if self.run_id is None:
+            # Retrieving run_id from active mlflow run.
+            current_run_id = mlflow.active_run().info.run_id
+        else:
+            current_run_id = self.run_id
+
         start = time.time()
         metrics_slices = [
             self.data[i : i + MAX_METRICS_PER_BATCH]
             for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
         ]
         for metrics_slice in metrics_slices:
-            try_mlflow_log(MlflowClient().log_batch, run_id=self.run_id, metrics=metrics_slice)
+            try_mlflow_log(MlflowClient().log_batch, run_id=current_run_id, metrics=metrics_slice)
         end = time.time()
         self.total_log_batch_time += end - start
 
