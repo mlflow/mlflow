@@ -75,7 +75,7 @@ def model(data):
     model.add(Dense(1))
     # Use a small learning rate to prevent exploding gradients which may produce
     # infinite prediction values
-    model.compile(loss="mean_squared_error", optimizer=SGD())
+    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
     model.fit(x.values, y.values)
     return model
 
@@ -86,7 +86,7 @@ def tf_keras_model(data):
     model = TfSequential()
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
-    model.compile(loss="mean_squared_error", optimizer=TfSGD())
+    model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
     model.fit(x.values, y.values)
     return model
 
@@ -338,7 +338,7 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
 
     model_uri = artifact_root + "/" + artifact_path
     model_loaded = mlflow.keras.load_model(model_uri=model_uri)
-    assert all(model_loaded.predict(x) == predicted)
+    assert all(model_loaded.predict(x.values) == predicted)
 
 
 @pytest.mark.large
@@ -357,7 +357,7 @@ def test_model_log(model, data, predicted):
 
             # Load model
             model_loaded = mlflow.keras.load_model(model_uri=model_uri)
-            assert all(model_loaded.predict(x) == predicted)
+            assert all(model_loaded.predict(x.values) == predicted)
 
             # Loading pyfunc model
             pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
