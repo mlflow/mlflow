@@ -236,19 +236,6 @@ def get_changed_flavors(changed_files, flavors):
     return changed_flavors
 
 
-def divider(title, length=None):
-    r"""
-    Examples
-    --------
-    >>> divider("1234", 20)
-    '\n======= 1234 ======='
-    """
-    length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
-    rest = length - len(title) - 2
-    left = rest // 2 if rest % 2 else (rest + 1) // 2
-    return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
-
-
 def str_to_operator(s):
     """
     Turns a string into the corresponding operator.
@@ -375,6 +362,19 @@ def make_pip_install_command(packages):
     return "pip install " + " ".join("'{}'".format(x) for x in packages)
 
 
+def divider(title, length=None):
+    r"""
+    Examples
+    --------
+    >>> divider("1234", 20)
+    '\n======= 1234 ======='
+    """
+    length = shutil.get_terminal_size(fallback=(80, 24))[0] if length is None else length
+    rest = length - len(title) - 2
+    left = rest // 2 if rest % 2 else (rest + 1) // 2
+    return "\n{} {} {}".format("=" * left, title, "=" * (rest - left))
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Set a test matrix for the cross version tests")
     parser.add_argument(
@@ -383,7 +383,7 @@ def parse_args():
         default=None,
         help=(
             "URL or local file path of the reference config which will be compared with the config "
-            "on the branch where this script is running in order to identify version YAML updatesE"
+            "on the branch where this script is running in order to identify version YAML updates"
         ),
     )
     parser.add_argument(
@@ -403,7 +403,6 @@ def main():
     print(divider("Parameters"))
     print(json.dumps(vars(args), indent=2))
 
-    should_include_all_items = (args.ref_versions_yaml is None) and (args.changed_files is None)
     ref_versions_yaml = (
         VERSIONS_YAML_PATH if (args.ref_versions_yaml is None) else args.ref_versions_yaml
     )
@@ -417,6 +416,11 @@ def main():
     # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
     flavors = set(x.split("-")[0] for x in config.keys())
     changed_flavors = get_changed_flavors(changed_files, flavors)
+
+    # If both `--ref-versions-yaml` and `--changed-files` are unspecified, include all items.
+    # Otherwise, include only updated items by inspecting `config`, `config_ref`, and
+    # `changed_flavors`.
+    should_include_all_items = (args.ref_versions_yaml is None) and (args.changed_files is None)
 
     job_names = []
     includes = []
