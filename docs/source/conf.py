@@ -245,7 +245,7 @@ latex_documents = [
 
 # Mock torch & fastai imports as per suggestion in
 # https://github.com/sphinx-doc/sphinx/issues/6521#issuecomment-505765893
-autodoc_mock_imports = ["torch", "fastai", "numpy", "pandas"]
+autodoc_mock_imports = ["torch", "fastai"]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -314,7 +314,9 @@ nitpick_ignore = [
     ("py:class", "object"),
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
-    ("py:class", "bytearray"),
+    ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "pandas.core.frame.DataFrame"),
+    ("py:class", "numpy.ndarray"),
 ]
 
 linkcheck_ignore = [
