@@ -16,17 +16,11 @@ jobs:
             java -version
       - run:
           name: Install Python dependencies
-          environment:
-            INSTALL_SMALL_PYTHON_DEPS: true
-            INSTALL_LARGE_PYTHON_DEPS: true
           command: |
             pip --version
-            # Exclude 20.3 to avoid this issue: https://github.com/mlflow/mlflow/issues/3772
-            pip install --upgrade 'pip!=20.3'
             pip install --progress-bar off . \
-              -r ./dev/small-requirements.txt \
               -r ./dev/large-requirements.txt \
-              sphinx==2.2.1 sphinx-click==2.3.0
+              sphinx sphinx-click
       - run:
           name: Build documentation
           working_directory: docs
