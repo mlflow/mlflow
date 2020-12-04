@@ -8,6 +8,8 @@ import keras.layers as layers  # noqa
 
 import mlflow  # noqa
 import mlflow.keras  # noqa
+from mlflow.utils.autologging_utils import BatchMetricsLogger  # noqa
+from unittest.mock import patch  # noqa
 
 
 @pytest.fixture
@@ -281,6 +283,52 @@ def test_keras_autolog_early_stop_logs(keras_random_data_run_with_callback):
     assert len(metric_history) == num_of_epochs + 1
     # Check that MLflow has logged the correct data
     assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("restore_weights", [True])
+@pytest.mark.parametrize("callback", ["early"])
+@pytest.mark.parametrize("patience", [0, 1, 5])
+@pytest.mark.parametrize("initial_epoch", [0, 10])
+def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
+    fit_variant, callback, restore_weights, patience, initial_epoch
+):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        run, _, callback = keras_random_data_run_with_callback(
+            random_train_data(),
+            fit_variant,
+            random_one_hot_labels(),
+            manual_run,
+            callback,
+            restore_weights,
+            patience,
+            initial_epoch,
+        )
+
+    patched_metrics_data = dict(patched_metrics_data)
+    original_metrics = run.data.metrics
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+
+    restored_epoch = int(patched_metrics_data["restored_epoch"])
+    assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    restored_epoch = int(original_metrics["restored_epoch"])
+    assert int(original_metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
 
 
 @pytest.mark.large

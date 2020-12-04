@@ -486,6 +486,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd5.version, 5)
         self.assertEqual(mvd5.description, description)
 
+        # create model version without runId
+        mv6 = self._mv_maker(name, run_id=None)
+        mvd6 = self.store.get_model_version(name, mv6.version)
+        self.assertEqual(mv6.version, 6)
+        self.assertEqual(mv6.run_id, None)
+        self.assertEqual(mvd6.version, 6)
+        self.assertEqual(mvd6.run_id, None)
+
     def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
