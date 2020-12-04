@@ -315,6 +315,7 @@ nitpick_ignore = [
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
+    # Suppress warnings that stem from type annotations for model signature
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
     ("py:class", "pandas.core.series.Series"),
