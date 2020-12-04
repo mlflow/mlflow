@@ -6,6 +6,40 @@ import mlflow
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 
+from _pytest.terminal import TerminalReporter
+
+
+class NewTerminalReporter(TerminalReporter):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.is_is_failure = False
+
+    def summary_errors(self, *args, **kwargs):
+        print("::group::ERRORS")
+        super().summary_errors(*args, **kwargs)
+        print("::endgroup::")
+
+    def summary_failures(self, *args, **kwargs):
+        print("::group::FAILURES")
+        super().summary_errors(*args, **kwargs)
+        print("::endgroup::")
+
+    def summary_warnings(self, *args, **kwargs):
+        print("::group::WARNINGS")
+        super().summary_warnings(*args, **kwargs)
+        print("::endgroup::")
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_configure(config):
+    import sys
+
+    old_reporter = config.pluginmanager.getplugin("terminalreporter")
+    config.pluginmanager.unregister(old_reporter)
+    new_reporter = NewTerminalReporter(config, sys.stdout)
+    config.pluginmanager.register(new_reporter, "terminalreporter")
+
+
 @pytest.fixture
 def reset_mock():
     cache = []
