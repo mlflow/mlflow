@@ -1,28 +1,8 @@
-.outer-container {
-  display: flex;
+#experiment-page-container {
+  width: calc(100% - 36px);
 }
-.HomePage-experiment-list-container {
-  flex: 0 0 312px;
-}
-.experiment-view-container {
-  /*
-   * Allow experiment view container to be smaller than its content (i.e. a large-width runs table)
-   * by overriding min-width as described in https://stackoverflow.com/a/38383437 and
-   * https://developer.mozilla.org/en-US/docs/Web/CSS/flex
-   */
-  min-width: 0px;
-  flex: 1 1;
-  padding: 0 64px 0 32px;
-}
-
-
-/* BEGIN css for when experiment list collapsed */
-.experiment-page-container {
-  width: 100%;
-  padding: 0 64px 0 32px;
-}
-.collapsed-expander-container {
-  float: left;
+#collapsed-expander-container {
+  width: 36px;
 }
 
 .expander {
@@ -37,4 +17,3 @@
   vertical-align: bottom;
   cursor: pointer;
 }
-/* END css for when experiment list collapsed */

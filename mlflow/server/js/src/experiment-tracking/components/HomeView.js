@@ -46,9 +46,9 @@ class HomeView extends Component {
     }
     if (this.state.listExperimentsExpanded) {
       return (
-        <div className='outer-container container-fluid' style={{ height: containerHeight }}>
-          <div class="row">
-            <div className='HomePage-experiment-list-container col-md-4'>
+        <div className='container-fluid' style={{ height: containerHeight }}>
+          <div className="row">
+            <div className='col-md-3'>
               <div className='collapsed-expander-container'>
                 <ExperimentListView
                   activeExperimentId={this.props.experimentId}
@@ -56,7 +56,7 @@ class HomeView extends Component {
                 />
               </div>
             </div>
-            <div className='experiment-view-container col-md-8'>
+            <div className='col-md-9'>
               {this.props.experimentId !== undefined ? (
                 <ExperimentPage experimentId={this.props.experimentId} />
               ) : (
@@ -68,21 +68,23 @@ class HomeView extends Component {
       );
     } else {
       return (
-        <div className='outer-container container-fluid' style={{ height: containerHeight }}>
-          <div className='collapsed-expander-container'>
-            <i
-              onClick={this.onClickListExperiments}
-              title='Show experiment list'
-              style={styles.showExperimentListExpander}
-              className='expander fa fa-chevron-right login-icon'
-            />
-          </div>
-          <div className='experiment-page-container'>
-            {this.props.experimentId !== undefined ? (
-              <ExperimentPage experimentId={this.props.experimentId} />
-            ) : (
-              <NoExperimentView />
-            )}
+        <div className='container-fluid' style={{ height: containerHeight }}>
+          <div className='row'>
+            <div id='collapsed-expander-container'>
+              <i
+                onClick={this.onClickListExperiments}
+                title='Show experiment list'
+                style={styles.showExperimentListExpander}
+                className='expander fa fa-chevron-right login-icon'
+              />
+            </div>
+            <div id='experiment-page-container'>
+              {this.props.experimentId !== undefined ? (
+                <ExperimentPage experimentId={this.props.experimentId} />
+              ) : (
+                <NoExperimentView />
+              )}
+            </div>
           </div>
         </div>
       );
