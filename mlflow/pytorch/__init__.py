@@ -801,25 +801,25 @@ def autolog(log_every_n_epoch=1, log_models=True):
 
         class MNISTModel(pl.LightningModule):
 
-        def __init__(self):
-            super(MNISTModel, self).__init__()
-            self.l1 = torch.nn.Linear(28 * 28, 10)
+            def __init__(self):
+                super(MNISTModel, self).__init__()
+                self.l1 = torch.nn.Linear(28 * 28, 10)
 
-        def forward(self, x):
-            return torch.relu(self.l1(x.view(x.size(0), -1)))
+            def forward(self, x):
+                return torch.relu(self.l1(x.view(x.size(0), -1)))
 
-        def training_step(self, batch, batch_nb):
-            x, y = batch
-            loss = F.cross_entropy(self(x), y)
-            acc = accuracy(loss, y)
+            def training_step(self, batch, batch_nb):
+                x, y = batch
+                loss = F.cross_entropy(self(x), y)
+                acc = accuracy(loss, y)
 
-            # Use the current of PyTorch logger
-            self.log("train_loss", loss, on_epoch=True)
-            self.log("acc", acc, on_epoch=True)
-            return loss
+                # Use the current of PyTorch logger
+                self.log("train_loss", loss, on_epoch=True)
+                self.log("acc", acc, on_epoch=True)
+                return loss
 
-        def configure_optimizers(self):
-            return torch.optim.Adam(self.parameters(), lr=0.02)
+            def configure_optimizers(self):
+                return torch.optim.Adam(self.parameters(), lr=0.02)
 
         def print_auto_logged_info(r):
 
