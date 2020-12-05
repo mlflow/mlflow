@@ -48,19 +48,30 @@ a:hover, a:focus {
   opacity: 0.4;
 }
 
+/*-------------------------------------------
+  Nav link related styles
+-------------------------------------------*/
 .App-header {
   background-color: #082142;
-  height: 60px;
   color: white;
-  display: block;
-  margin-bottom: 24px;
+  min-height: 40px;
+  padding: 0;
+}
+.nav-link{
+  color: white;
+  font-size: 16px;
+}
+.navbar-brand {
+  padding: 10px 0px 10px 64px;
 }
 
-.App-header-text {
-  position: relative;
-  top: 40%;
+img.mlflow-logo {
+  height: 40px;
 }
 
+/*-------------------------------------------
+  Main body styles
+-------------------------------------------*/
 .App-experiments {
   width: 200px;
 }
@@ -70,58 +81,6 @@ a:hover, a:focus {
   margin: 0 64px 0 64px;
 }
 
-div.mlflow-logo {
-  display: flex;
-  float: left;
-}
-
-img.mlflow-logo {
-  height: 40px;
-  margin-left: 64px;
-  margin-top: 10px;
-  margin-bottom: 10px;
-}
-
-div.github {
-  padding-right: 24px;
-  color: #ffffff;
-}
-
-div.docs {
-  color: #ffffff;
-}
-
-.header-nav-link {
-  height: 40px;
-}
-
-.header-nav-link:link {
-  text-decoration: none;
-}
-
-.header-nav-link-models {
-  margin-left: 24px;
-}
-
-div.experiments, div.models {
-  color: #ffffff;
-}
-
-div.header-links {
-  display: flex;
-  float: right;
-  padding-top: 20px;
-  margin-right: 64px;
-  font-size: 16px;
-}
-
-div.header-route-links {
-  display: flex;
-  float: left;
-  padding-top: 20px;
-  margin-left: 40px;
-  font-size: 16px;
-}
 
 h1 {
   font-size: 18px;

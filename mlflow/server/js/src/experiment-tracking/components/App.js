@@ -34,47 +34,45 @@ class App extends Component {
         <div style={{ height: '100vh' }}>
           <ErrorModal />
           {process.env.HIDE_HEADER === 'true' ? null : (
-            <header className='App-header'>
-              <div className='mlflow-logo'>
-                <Link to={Routes.rootRoute} className='App-mlflow'>
-                  <img className='mlflow-logo' alt='MLflow' src={logo} />
-                </Link>
-              </div>
-              <div className='header-route-links'>
-                <NavLink
-                  strict
-                  to={Routes.rootRoute}
-                  activeStyle={classNames.activeNavLink}
-                  isActive={(match, location) => match && !location.pathname.includes('models')}
-                  className='header-nav-link'
-                >
-                  <div className='experiments'>
-                    <span>Experiments</span>
-                  </div>
-                </NavLink>
-                <NavLink
-                  strict
-                  to={modelListPageRoute}
-                  activeStyle={classNames.activeNavLink}
-                  className='header-nav-link header-nav-link-models'
-                >
-                  <div className='models'>
-                    <span>Models</span>
-                  </div>
-                </NavLink>
-              </div>
-              <div className='header-links'>
-                <a href={'https://github.com/mlflow/mlflow'}>
-                  <div className='github'>
-                    <span>GitHub</span>
-                  </div>
-                </a>
-                <a href={'https://mlflow.org/docs/latest/index.html'}>
-                  <div className='docs'>
-                    <span>Docs</span>
-                  </div>
-                </a>
-              </div>
+            <header className='navbar navbar-expand flex-row App-header bd-navbar mb-4'>
+              <Link to={Routes.rootRoute} className='navbar-brand'>
+                <img className='mlflow-logo' alt='MLflow' src={logo} />
+              </Link>
+              <ul className='navbar-nav ml-3 mt-3'>
+                <li className='nav-item'>
+                  <NavLink
+                    strict
+                    to={Routes.rootRoute}
+                    activeStyle={classNames.activeNavLink}
+                    isActive={(match, location) => match && !location.pathname.includes('models')}
+                    className='nav-link'
+                  >
+                    Experiments
+                  </NavLink>
+                </li>
+                <li className='nav-item ml-1'>
+                  <NavLink
+                    strict
+                    to={modelListPageRoute}
+                    activeStyle={classNames.activeNavLink}
+                    className='nav-link'
+                  >
+                    Models
+                  </NavLink>
+                </li>
+              </ul>
+              <ul className='navbar-nav ml-auto mr-5 mt-3'>
+                <li className='nav-item'>
+                  <a href={'https://github.com/mlflow/mlflow'} className='nav-link'>
+                    GitHub
+                  </a>
+                </li>
+                <li className='nav-item'>
+                  <a href={'https://mlflow.org/docs/latest/index.html'} className='nav-link'>
+                    Docs
+                  </a>
+                </li>
+              </ul>
             </header>
           )}
           <AppErrorBoundary>

@@ -46,27 +46,29 @@ class HomeView extends Component {
     }
     if (this.state.listExperimentsExpanded) {
       return (
-        <div className='outer-container' style={{ height: containerHeight }}>
-          <div className='HomePage-experiment-list-container'>
-            <div className='collapsed-expander-container'>
-              <ExperimentListView
-                activeExperimentId={this.props.experimentId}
-                onClickListExperiments={this.onClickListExperiments}
-              />
+        <div className='outer-container container-fluid' style={{ height: containerHeight }}>
+          <div class="row">
+            <div className='HomePage-experiment-list-container col-md-4'>
+              <div className='collapsed-expander-container'>
+                <ExperimentListView
+                  activeExperimentId={this.props.experimentId}
+                  onClickListExperiments={this.onClickListExperiments}
+                />
+              </div>
             </div>
-          </div>
-          <div className='experiment-view-container'>
-            {this.props.experimentId !== undefined ? (
-              <ExperimentPage experimentId={this.props.experimentId} />
-            ) : (
-              <NoExperimentView />
-            )}
+            <div className='experiment-view-container col-md-8'>
+              {this.props.experimentId !== undefined ? (
+                <ExperimentPage experimentId={this.props.experimentId} />
+              ) : (
+                <NoExperimentView />
+              )}
+            </div>
           </div>
         </div>
       );
     } else {
       return (
-        <div className='outer-container' style={{ height: containerHeight }}>
+        <div className='outer-container container-fluid' style={{ height: containerHeight }}>
           <div className='collapsed-expander-container'>
             <i
               onClick={this.onClickListExperiments}
