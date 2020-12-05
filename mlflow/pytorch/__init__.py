@@ -56,48 +56,16 @@ def get_default_conda_env():
         import torch
         import mlflow.pytorch
 
+        # Class defined here
         class LinearNNModel(torch.nn.Module):
+        ...
 
-        def __init__(self):
-           super(LinearNNModel, self).__init__()
-           self.linear = torch.nn.Linear(1, 1)  # One in and one out
-
-        def forward(self, x):
-            y_pred = self.linear(x)
-            return y_pred
-
-        def gen_data():
-
-            # Example linear model modified to use y = 2x
-            # from https://github.com/hunkim/PyTorchZeroToAll/blob/master/05_linear_regression.py
-            # X training data, y labels
-            X = torch.arange(1.0, 25.0).view(-1, 1)
-            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-            return X, y
-
-        # Initialize our model
+        # Initialize our model, criterion and optimizer
         model = LinearNNModel()
-        criterion = torch.nn.MSELoss()
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        ...
 
         # Training loop
-        epochs = 250
-        X, y = gen_data()
-        for epoch in range(epochs):
-
-            # Forward pass: Compute predicted y by passing X to the model
-            y_pred = model(X)
-
-            # Compute the loss
-            loss = criterion(y_pred, y)
-
-            # Zero gradients, perform a backward pass, and update the weights.
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            if (epoch + 1) % 50 == 0:
-                print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+        ...
 
         # Log PyTorch model
         with mlflow.start_run() as run:
@@ -112,11 +80,6 @@ def get_default_conda_env():
     .. code-block:: text
         :caption: Output
 
-        Epoch: 50.0/250, loss: 0.0972
-        Epoch: 100.0/250, loss: 0.0927
-        Epoch: 150.0/250, loss: 0.0885
-        Epoch: 200.0/250, loss: 0.0844
-        Epoch: 250.0/250, loss: 0.0806
         --
         run_id: 943cac535c67466db40f8159e2fc3f86
         conda env {'name': 'mlflow-env',
@@ -463,45 +426,16 @@ def save_model(
         import torch
         import mlflow.pytorch
 
+        # Class defined here
         class LinearNNModel(torch.nn.Module):
+        ...
 
-            def __init__(self):
-               super(LinearNNModel, self).__init__()
-               self.linear = torch.nn.Linear(1, 1)  # One in and one out
-
-            def forward(self, x):
-                y_pred = self.linear(x)
-                return y_pred
-
-        def gen_data():
-            # X training data, y labels
-            X = torch.arange(1.0, 25.0).view(-1, 1)
-            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-            return X, y
-
-        # our model
+        # Initialize our model, criterion and optimizer
         model = LinearNNModel()
-        criterion = torch.nn.MSELoss()
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        ...
 
         # Training loop
-        epochs = 250
-        X, y = gen_data()
-        for epoch in range(epochs):
-
-            # Forward pass: Compute predicted y by passing X to the model
-            y_pred = model(X)
-
-            # Compute the loss
-            loss = criterion(y_pred, y)
-
-            # Zero gradients, perform a backward pass, and update the weights.
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            if (epoch + 1) % 50 == 0:
-                print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+        ...
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
@@ -526,11 +460,6 @@ def save_model(
     .. code-block:: text
         :caption: Output
 
-        Epoch: 50.0/250, loss: 0.2328
-        Epoch: 100.0/250, loss: 0.2221
-        Epoch: 150.0/250, loss: 0.2120
-        Epoch: 200.0/250, loss: 0.2023
-        Epoch: 250.0/250, loss: 0.1930
         --
         model: models_pth
         predict X:6.0, y_pred: 12.57
@@ -729,47 +658,16 @@ def load_model(model_uri, **kwargs):
         import torch
         import mlflow.pytorch
 
+        # Class defined here
         class LinearNNModel(torch.nn.Module):
+        ...
 
-            def __init__(self):
-                super(LinearNNModel, self).__init__()
-                self.linear = torch.nn.Linear(1, 1)  # One in and one out
-
-            def forward(self, x):
-                y_pred = self.linear(x)
-                return y_pred
-
-        def gen_data():
-
-            # Example linear model modified to use y = 2x
-            # from https://github.com/hunkim/PyTorchZeroToAll
-            # X training data, y labels
-            X = torch.arange(1.0, 25.0).view(-1, 1)
-            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-            return X, y
-
-        # Define model, loss, and optimizer
+        # Initialize our model, criterion and optimizer
         model = LinearNNModel()
-        criterion = torch.nn.MSELoss()
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+        ...
 
         # Training loop
-        epochs = 250
-        X, y = gen_data()
-        for epoch in range(epochs):
-            # Forward pass: Compute predicted y by passing X to the model
-            y_pred = model(X)
-
-            # Compute the loss
-            loss = criterion(y_pred, y)
-
-            # Zero gradients, perform a backward pass, and update the weights.
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        if (epoch + 1) % 50 == 0:
-            print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
+        ...
 
         # Log the model
         with mlflow.start_run() as run:
@@ -787,11 +685,6 @@ def load_model(model_uri, **kwargs):
     .. code-block:: text
         :caption: Output
 
-        Epoch: 50.0/250, loss: 0.0917
-        Epoch: 100.0/250, loss: 0.0875
-        Epoch: 150.0/250, loss: 0.0835
-        Epoch: 200.0/250, loss: 0.0797
-        Epoch: 250.0/250, loss: 0.0760
         --
         predict X:4.0, y_pred: 7.57
         predict X:6.0, y_pred: 11.64
