@@ -88,7 +88,7 @@ class SqlAlchemyStore(AbstractStore):
         super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         Base.metadata.create_all(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
