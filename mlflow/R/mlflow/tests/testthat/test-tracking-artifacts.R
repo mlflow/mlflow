@@ -2,8 +2,8 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
   with(mlflow_start_run(), {
     # List artifacts for run without artifacts, result should be empty
     empty_artifact_list <- mlflow_list_artifacts()
-    # Create some dummy artifact files/directories
     expect_equal(nrow(empty_artifact_list), 0)
+    # Create some dummy artifact files/directories
     source_dir <- file.path(tempdir(), "temp-directory")
     dir.create(source_dir)
     ## file 1
@@ -44,9 +44,20 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     artifact_list2 <- mlflow_list_artifacts("directory_for_file")
     expect_equal(nrow(artifact_list2), 1)
     logged_file3 <- artifact_list2[artifact_list2$path ==
-    paste("directory_for_file", "a-my-file", sep = "/"), ]
+      paste("directory_for_file", "a-my-file", sep = "/"), ]
     expect_equal(nrow(logged_file3), 1)
     expect_equal(logged_file3$is_dir, FALSE)
     expect_equal(strtoi(logged_file3$file_size), nchar(contents))
+  })
+})
+
+test_that("text can be logged directly", {
+  with(mlflow_start_run(), {
+    mlflow_log_text("hi", "there.txt")
+    expected_artifacts <- tibble::tibble(
+      path = "there.txt", is_dir = FALSE
+    )
+    actual_artifacts <- mlflow_list_artifacts()[, c("path", "is_dir")]
+    expect_equal(expected_artifacts, actual_artifacts)
   })
 })

@@ -12,7 +12,7 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
   run_id <- resolve_run_id(run_id)
   client <- resolve_client(client)
 
-  response <-   mlflow_rest(
+  response <- mlflow_rest(
     "artifacts", "list",
     client = client, verb = "GET",
     query = list(
@@ -106,15 +106,66 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
   }
 
   mlflow_cli("artifacts",
-             command,
-             local_param,
-             path,
-             artifact_param,
-             artifact_path,
-             "--run-id",
-             run_id,
-             client = client
+    command,
+    local_param,
+    path,
+    artifact_param,
+    artifact_path,
+    "--run-id",
+    run_id,
+    client = client
   )
 
   invisible(mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client))
+}
+
+#' Log an artifact with a transformer
+#'
+#' These helper functions provide a mechanism to log artifacts in the run by fist
+#' copying artifacts into a temp dir and then logging them to mlflow with
+#' \code{\link[=mlflow_log_artifact]{mlflow_log_artifact()}}.
+#' @param transformer A function that writes an object to disk.
+#' @param artifact_file The run-relative artifact file path in
+#'   posixpath format to which the text is saved (e.g. "dir/file.txt").
+#' @param ... Passed to \code{transformer}. Must include a named argument
+#'   that specifies the R object to write. Because the name is not the same
+#'   for every transformer, this is passed through \code{...} and is not
+#'   a hardcoded argument in this function.
+#' @export
+log_artifact_template <- function(transformer,
+                                  artifact_file,
+                                  ...
+                                  ) {
+  temp_dir <- tempdir()
+  artifact_file <- fs::path_norm(artifact_file)
+  temp_file <- fs::path(temp_dir, artifact_file)
+  fs::dir_create(fs::path_dir(temp_file))
+  withr::defer(fs::file_delete(temp_file))
+  transformer(temp_file, ...)
+  if (fs::path_dir(artifact_file) != ".") {
+    artifact_file <- fs::path_dir(artifact_file)
+  } else {
+    artifact_file <- NULL
+  }
+  mlflow::mlflow_log_artifact(temp_file, artifact_path = artifact_file)
+}
+
+#' Log text as an artifact.
+#'
+#' @param text String containing text to log.
+#' @inheritParams log_artifact_template
+#' @examples
+#' mlflow_create_run(id = "0")
+#' # Log text to a file under the run's root artifact directory
+#' mlflow_log_text("text1", "file1.txt")
+#' # Log text in a subdirectory of the run's root artifact directory
+#' mlflow_log_text("text2", "dir/file2.txt")
+#' # Log HTML text
+#' mlflow_log_text("<h1>header</h1>", "index.html")
+#' @export
+mlflow_log_text <- function(text, artifact_file) {
+  log_artifact_template(
+    writeLines, artifact_file,
+    text = text
+  )
 }
