@@ -278,7 +278,7 @@ def _get_cluster_mlflow_run_cmd(project_dir, run_id, entry_point, parameters):
         map(shlex_quote, ["mlflow", "run", project_dir, "--entry-point", entry_point])
     )
     if run_id:
-        mlflow_run_arr.extend(["-c", json.dumps({MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG: run_id})])
+        mlflow_run_arr.extend(["--run-id", run_id])
     if parameters:
         for key, value in parameters.items():
             mlflow_run_arr.extend(["-P", "%s=%s" % (key, value)])
