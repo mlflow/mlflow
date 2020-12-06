@@ -223,7 +223,6 @@ def log_model(
         import mlflow.pytorch
 
         class LinearNNModel(torch.nn.Module):
-
             def __init__(self):
                 super(LinearNNModel, self).__init__()
                 self.linear = torch.nn.Linear(1, 1)  # One in and one out
@@ -233,7 +232,6 @@ def log_model(
                 return y_pred
 
         def gen_data():
-
             # Example linear model modified to use y = 2x
             # from https://github.com/hunkim/PyTorchZeroToAll
             # X training data, y labels
@@ -445,7 +443,7 @@ def save_model(
             scripted_pytorch_model = torch.jit.script(model)
             mlflow.pytorch.save_model(scripted_pytorch_model, "scripted_models_pth")
 
-        # Load each saved model and inference
+        # Load each saved model for inference
         print("--")
         for model_path in ["models_pth", "scripted_models_pth"]:
             model_uri = "{}/{}".format(os.getcwd(), model_path)
@@ -800,7 +798,6 @@ def autolog(log_every_n_epoch=1, log_models=True):
         # to auto log parameters, metrics, and models.
 
         class MNISTModel(pl.LightningModule):
-
             def __init__(self):
                 super(MNISTModel, self).__init__()
                 self.l1 = torch.nn.Linear(28 * 28, 10)
