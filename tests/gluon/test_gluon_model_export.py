@@ -217,6 +217,7 @@ def test_gluon_model_serving_and_scoring_as_pyfunc(gluon_model, model_data):
         model_uri=model_uri,
         data=pd.DataFrame(test_data.asnumpy()),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     response_values = pd.read_json(scoring_response.content, orient="records").values.astype(
         np.float32
