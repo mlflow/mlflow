@@ -14,7 +14,6 @@ from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
