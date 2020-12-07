@@ -59,6 +59,5 @@ class IrisClassification(pl.LightningModule):
         self.log("test_acc", self.test_acc.compute())
 
 
-
 if __name__ == "__main__":
     pass

@@ -1,4 +1,5 @@
 # pylint: disable=E0102
+# pylint: disable=W291
 
 import pytest
 import pytorch_lightning as pl
@@ -84,7 +85,7 @@ def test_pytorch_autolog_persists_manually_created_run():
         model = IrisClassification()
         dm = IrisDataModule()
         dm.prepare_data()
-        dm.setup(stage="fit") 
+        dm.setup(stage="fit")
         trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
         trainer.fit(model, dm)
         trainer.test()
@@ -262,7 +263,6 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
 
     assert "loss" in original_metrics
     assert "loss" in patched_metrics_data
-
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
