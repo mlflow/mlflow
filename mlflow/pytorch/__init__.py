@@ -61,7 +61,6 @@ def get_default_conda_env():
             ...
 
         # Initialize our model, criterion and optimizer
-        model = LinearNNModel()
         ...
 
         # Training loop
@@ -413,7 +412,6 @@ def save_model(
             ...
 
         # Initialize our model, criterion and optimizer
-        model = LinearNNModel()
         ...
 
         # Training loop
@@ -639,7 +637,6 @@ def load_model(model_uri, **kwargs):
             ...
 
         # Initialize our model, criterion and optimizer
-        model = LinearNNModel()
         ...
 
         # Training loop
