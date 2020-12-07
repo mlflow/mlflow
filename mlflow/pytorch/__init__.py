@@ -72,16 +72,12 @@ def get_default_conda_env():
             mlflow.pytorch.log_model(model, "models_pth")
 
         # Fetch the associated conda environment
-        print("--")
-        print("run_id: {}".format(run.info.run_id))
         env = mlflow.pytorch.get_default_conda_env()
         print("conda env: {}".format(env))
 
     .. code-block:: text
         :caption: Output
 
-        --
-        run_id: 943cac535c67466db40f8159e2fc3f86
         conda env {'name': 'mlflow-env',
                    'channels': ['defaults', 'conda-forge', 'pytorch'],
                    'dependencies': ['python=3.7.5', 'pytorch=1.5.1',
@@ -215,9 +211,6 @@ def log_model(
     .. code-block:: python
         :caption: Example
 
-        import warnings
-        import os
-
         import numpy as np
         import torch
         import mlflow.pytorch
@@ -281,12 +274,6 @@ def log_model(
     .. code-block:: text
         :caption: Output
 
-        Epoch: 50.0/250, loss: 0.0003
-        Epoch: 100.0/250, loss: 0.0003
-        Epoch: 150.0/250, loss: 0.0002
-        Epoch: 200.0/250, loss: 0.0002
-        Epoch: 250.0/250, loss: 0.0002
-        --
         run_id: 2e403e30a09e48bd9df8401e38affd89
         artifacts: ['models_pth/data/model.pth',
                     'models_pth/data/pickle_module_info.txt']
@@ -426,7 +413,7 @@ def save_model(
 
         # Class defined here
         class LinearNNModel(torch.nn.Module):
-        ...
+            ...
 
         # Initialize our model, criterion and optimizer
         model = LinearNNModel()
@@ -672,7 +659,6 @@ def load_model(model_uri, **kwargs):
             mlflow.pytorch.log_model(model, "models_pth")
 
         # Inference after loading the logged model
-        print("--")
         model_uri = "runs:/{}/models_pth".format(run.info.run_id)
         loaded_model = mlflow.pytorch.load_model(model_uri)
         for hv in [4.0, 6.0, 30.0]:
