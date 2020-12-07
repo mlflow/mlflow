@@ -1,3 +1,5 @@
+# pylint: disable=E0102
+
 import pytest
 import pytorch_lightning as pl
 import torch
@@ -22,7 +24,7 @@ def pytorch_model():
     dm.prepare_data()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model,dm)
+    trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run
@@ -37,7 +39,7 @@ def test_pytorch_autolog_log_models_configuration(log_models):
     dm.prepare_data()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model,dm)
+    trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
@@ -84,7 +86,7 @@ def test_pytorch_autolog_persists_manually_created_run():
         dm.prepare_data()
         dm.setup(stage="fit") 
         trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-        trainer.fit(model,dm)
+        trainer.fit(model, dm)
         trainer.test()
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
@@ -124,7 +126,7 @@ def pytorch_model_with_callback(patience):
             callbacks=[early_stopping],
             checkpoint_callback=checkpoint_callback,
         )
-        trainer.fit(model,dm)
+        trainer.fit(model, dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -180,7 +182,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
             callbacks=[early_stopping],
             checkpoint_callback=checkpoint_callback,
         )
-        trainer.fit(model,dm)
+        trainer.fit(model, dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -209,7 +211,6 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     assert "stopped_epoch" in data.metrics
     assert "wait_count" in data.metrics
     assert "restored_epoch" in data.metrics
-
 
 
 @pytest.mark.parametrize("patience", [0, 1, 5])
@@ -279,7 +280,7 @@ def pytorch_model_tests():
     dm.prepare_data()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model,dm)
+    trainer.fit(model, dm)
     trainer.test()
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
