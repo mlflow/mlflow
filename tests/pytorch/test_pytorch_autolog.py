@@ -1,5 +1,4 @@
 # pylint: disable=E0102
-# pylint: disable=W291
 
 import pytest
 import pytorch_lightning as pl
