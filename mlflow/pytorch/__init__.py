@@ -58,7 +58,7 @@ def get_default_conda_env():
 
         # Class defined here
         class LinearNNModel(torch.nn.Module):
-        ...
+            ...
 
         # Initialize our model, criterion and optimizer
         model = LinearNNModel()
@@ -431,7 +431,6 @@ def save_model(
             mlflow.pytorch.save_model(scripted_pytorch_model, "scripted_models_pth")
 
         # Load each saved model for inference
-        print("--")
         for model_path in ["models_pth", "scripted_models_pth"]:
             model_uri = "{}/{}".format(os.getcwd(), model_path)
             loaded_model = mlflow.pytorch.load_model(model_uri)
@@ -445,7 +444,6 @@ def save_model(
     .. code-block:: text
         :caption: Output
 
-        --
         model: models_pth
         predict X:6.0, y_pred: 12.57
         predict X:8.0, y_pred: 16.46
@@ -457,7 +455,6 @@ def save_model(
         predict X:8.0, y_pred: 16.46
         predict X:12.0, y_pred: 24.24
         predict X:30.0, y_pred: 59.24
-        --
     """
     import torch
 
@@ -636,16 +633,13 @@ def load_model(model_uri, **kwargs):
     .. code-block:: python
         :caption: Example
 
-        import warnings
-        import os
-
         import numpy as np
         import torch
         import mlflow.pytorch
 
         # Class defined here
         class LinearNNModel(torch.nn.Module):
-        ...
+            ...
 
         # Initialize our model, criterion and optimizer
         model = LinearNNModel()
@@ -669,7 +663,6 @@ def load_model(model_uri, **kwargs):
     .. code-block:: text
         :caption: Output
 
-        --
         predict X:4.0, y_pred: 7.57
         predict X:6.0, y_pred: 11.64
         predict X:30.0, y_pred: 60.48
