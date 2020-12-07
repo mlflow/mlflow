@@ -7,6 +7,9 @@ import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
+from iris_data_module import IrisDataModule
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 NUM_EPOCHS = 20
 
@@ -15,8 +18,11 @@ NUM_EPOCHS = 20
 def pytorch_model():
     mlflow.pytorch.autolog()
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model,dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run
@@ -27,8 +33,11 @@ def pytorch_model():
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model,dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
@@ -71,8 +80,12 @@ def test_pytorch_autolog_persists_manually_created_run():
     with mlflow.start_run() as manual_run:
         mlflow.pytorch.autolog()
         model = IrisClassification()
+        dm = IrisDataModule()
+        dm.prepare_data()
+        dm.setup(stage="fit") 
         trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-        trainer.fit(model)
+        trainer.fit(model,dm)
+        trainer.test()
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
@@ -85,6 +98,9 @@ def test_pytorch_autolog_ends_auto_created_run(pytorch_model):
 def pytorch_model_with_callback(patience):
     mlflow.pytorch.autolog()
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     early_stopping = EarlyStopping(
         monitor="val_loss",
         mode="min",
@@ -108,7 +124,7 @@ def pytorch_model_with_callback(patience):
             callbacks=[early_stopping],
             checkpoint_callback=checkpoint_callback,
         )
-        trainer.fit(model)
+        trainer.fit(model,dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -144,6 +160,9 @@ def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callbac
 def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_models, patience):
     mlflow.pytorch.autolog(log_models=log_models)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
 
     with TempDir() as tmp:
@@ -161,7 +180,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
             callbacks=[early_stopping],
             checkpoint_callback=checkpoint_callback,
         )
-        trainer.fit(model)
+        trainer.fit(model,dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -192,6 +211,55 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     assert "restored_epoch" in data.metrics
 
 
+@pytest.mark.parametrize("patience", [0, 1, 5])
+def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience):
+    _, run = pytorch_model_with_callback
+    data = run.data
+    assert "monitor" in data.params
+    assert "mode" in data.params
+    assert "patience" in data.params
+    assert float(data.params["patience"]) == patience
+    assert "min_delta" in data.params
+    assert "stopped_epoch" in data.params
+
+
+@pytest.mark.parametrize("patience", [3])
+def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
+    _, run = pytorch_model_with_callback
+    data = run.data
+    assert "stopped_epoch" in data.metrics
+    assert "wait_count" in data.metrics
+    assert "restored_epoch" in data.metrics
+
+
+@pytest.mark.parametrize("patience", [3])
+def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        _, run = pytorch_model_with_callback(patience)
+
+    patched_metrics_data = dict(patched_metrics_data)
+    original_metrics = run.data.metrics
+
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert "loss" in original_metrics
+    assert "loss" in patched_metrics_data
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     trainer, run = pytorch_model
     client = mlflow.tracking.MlflowClient()
@@ -203,9 +271,11 @@ def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
 @pytest.fixture
 def pytorch_model_tests():
     model = IrisClassification()
-
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model,dm)
     trainer.test()
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
