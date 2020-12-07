@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import os
 import warnings
 import yaml
@@ -65,8 +66,11 @@ def gluon_model(model_data):
     trainer = Trainer(
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
+
+    # `metrics` was renmaed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
+    arg_name = "metrics" if LooseVersion(mx.__version) < LooseVersion("1.6.0") else "train_metrics"
     est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **{arg_name: Accuracy()}
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

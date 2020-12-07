@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import random
 import warnings
 
@@ -29,6 +30,12 @@ class LogsDataset(Dataset):
         return self.len
 
 
+def get_metrics():
+    # `metrics` was renmaed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
+    arg_name = "metrics" if LooseVersion(mx.__version) < LooseVersion("1.6.0") else "train_metrics"
+    return {arg_name: Accuracy()}
+
+
 @pytest.fixture
 def gluon_random_data_run(log_models=True):
     mlflow.gluon.autolog(log_models)
@@ -49,7 +56,7 @@ def gluon_random_data_run(log_models=True):
             optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
         )
         est = estimator.Estimator(
-            net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+            net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
         )
 
         with warnings.catch_warnings():
@@ -139,7 +146,7 @@ def test_autolog_ends_auto_created_run():
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
     est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
     )
 
     with warnings.catch_warnings():
@@ -169,7 +176,7 @@ def test_autolog_persists_manually_created_run():
             optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
         )
         est = estimator.Estimator(
-            net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+            net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
         )
 
         with warnings.catch_warnings():
