@@ -45,7 +45,7 @@ tensorflow-1.x:
   models:
     minimum: "1.15.4"
     maximum: "1.15.4"
-    requirements: ["h5py<3.0"]
+    requirements: ["h5py<3.0", "scikit-learn"]
     run: |
       pytest tests/tensorflow/test_tensorflow_model_export.py --large
 
