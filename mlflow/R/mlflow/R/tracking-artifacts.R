@@ -131,8 +131,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #'   that specifies the R object to write. Because the name is not the same
 #'   for every transformer, this is passed through \code{...} and is not
 #'   a hardcoded argument in this function.
-#' @export
-#' @noRd 
+#' @noRd
 log_artifact_template <- function(transformer,
                                   artifact_file,
                                   ...
