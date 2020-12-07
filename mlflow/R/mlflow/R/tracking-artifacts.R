@@ -147,7 +147,7 @@ log_artifact_template <- function(transformer,
   } else {
     artifact_file <- NULL
   }
-  mlflow::mlflow_log_artifact(temp_file, artifact_path = artifact_file)
+  mlflow_log_artifact(temp_file, artifact_path = artifact_file)
 }
 
 #' Log text as an artifact.
@@ -155,13 +155,17 @@ log_artifact_template <- function(transformer,
 #' @param text String containing text to log.
 #' @inheritParams log_artifact_template
 #' @examples
-#' mlflow_create_run(id = "0")
-#' # Log text to a file under the run's root artifact directory
-#' mlflow_log_text("text1", "file1.txt")
-#' # Log text in a subdirectory of the run's root artifact directory
-#' mlflow_log_text("text2", "dir/file2.txt")
-#' # Log HTML text
-#' mlflow_log_text("<h1>header</h1>", "index.html")
+#' \dontrun{
+#' library(mlflow)
+#' with(mlflow_start_run(), {
+#'   # Log text to a file under the run's root artifact directory
+#'   mlflow_log_text("text1", "file1.txt")
+#'   # Log text in a subdirectory of the run's root artifact directory
+#'   mlflow_log_text("text2", "dir/file2.txt")
+#'   # Log HTML text
+#'   mlflow_log_text("<h1>header</h1>", "index.html")
+#' })
+#' }
 #' @export
 mlflow_log_text <- function(text, artifact_file) {
   log_artifact_template(
