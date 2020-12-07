@@ -5,13 +5,13 @@ sklearn:
       pip install git+https://github.com/scikit-learn/scikit-learn.git@master
 
   models:
-    minimum: "0.20.4"
+    minimum: "0.20.3"
     maximum: "0.23.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
-    minimum: "0.20.4"
+    minimum: "0.20.3"
     maximum: "0.23.2"
     requirements: ["matplotlib"]
     run: |
