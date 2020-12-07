@@ -417,6 +417,8 @@ def expand_config(config):
                 versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
             )
             versions = select_latest_micro_versions(versions)
+            versions.append(cfg["minimum"])
+
             for ver in versions:
                 job_name = " / ".join([flavor_key, ver, key])
                 requirements = ["{}=={}".format(package_info["pip_release"], ver)]
