@@ -83,8 +83,17 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     train_prefix = get_train_prefix()
     assert "{} accuracy".format(train_prefix) in data.metrics
     assert "validation accuracy" in data.metrics
-    assert "{} softmaxcrossentropyloss".format(train_prefix) in data.metrics
-    assert "validation softmaxcrossentropyloss" in data.metrics
+
+    # In mxnet >= 1.6.0, `Estimator` doesn't monitor `loss` if it's instantiated with
+    # `train_metrics`.
+    #
+    # ```
+    # Estimator(loss=SomeLoss()) -> monitors `loss`
+    # Estimator(loss=SomeLoss(), train_metrics=SomeMetrics()) -> doesn't monitor `loss`
+    # ```
+    if LooseVersion(mx.__version__) < LooseVersion("1.6.0"):
+        assert "{} softmaxcrossentropyloss".format(train_prefix) in data.metrics
+        assert "validation softmaxcrossentropyloss" in data.metrics
     assert "optimizer_name" in data.params
     assert data.params["optimizer_name"] == "Adam"
     assert "epsilon" in data.params
