@@ -35,7 +35,6 @@ pytest dev/set_matrix.py --doctest-modules --verbose
 
 import argparse
 from distutils.version import LooseVersion
-import functools
 import json
 import operator
 import os
@@ -78,7 +77,6 @@ def read_yaml(location, if_error=None):
         raise
 
 
-@functools.lru_cache(maxsize=None)
 def get_released_versions(package_name):
     """
     Fetches the released versions & datetimes of the specified Python package.
@@ -409,12 +407,12 @@ def expand_config(config):
     for flavor_key, cfgs in config.items():
         flavor = flavor_key.split("-")[0]
         package_info = cfgs.pop("package_info")
+        all_versions = get_released_versions(package_info["pip_release"])
 
         for key, cfg in cfgs.items():
             # Released versions
-            versions = get_released_versions(package_info["pip_release"])
             versions = filter_versions(
-                versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
+                all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
             )
             versions = select_latest_micro_versions(versions)
             versions.append(cfg["minimum"])
