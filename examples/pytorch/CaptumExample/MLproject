@@ -1,0 +1,11 @@
+name: bert-sentiment-captum
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      epochs: {type: int, default: 5}
+
+    command: |
+          python bert_imdb_sentiment.py
