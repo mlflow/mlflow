@@ -58,6 +58,7 @@ import mlflow.pytorch as pytorch  # noqa: E402
 import mlflow.sklearn as sklearn  # noqa: E402
 import mlflow.spacy as spacy  # noqa: E402
 import mlflow.spark as spark  # noqa: E402
+import mlflow.statsmodels as statsmodels  # noqa: E402
 import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
 import mlflow.shap as shap  # noqa: E402
@@ -85,6 +86,7 @@ log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 log_text = mlflow.tracking.fluent.log_text
 log_dict = mlflow.tracking.fluent.log_dict
+log_image = mlflow.tracking.fluent.log_image
 log_figure = mlflow.tracking.fluent.log_figure
 active_run = mlflow.tracking.fluent.active_run
 get_run = mlflow.tracking.fluent.get_run
@@ -126,6 +128,7 @@ __all__ = [
     "log_text",
     "log_dict",
     "log_figure",
+    "log_image",
     "active_run",
     "start_run",
     "end_run",
@@ -159,6 +162,7 @@ __all__ = [
     "sklearn",
     "spacy",
     "spark",
+    "statsmodels",
     "tensorflow",
     "xgboost",
     "shap",

@@ -9,11 +9,11 @@ import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
-    get_unspecified_default_args,
     log_fn_args_as_params,
     wrap_patch,
     resolve_input_example_and_signature,
     batch_metrics_logger,
+    BatchMetricsLogger,
 )
 
 # Example function signature we are testing on
@@ -41,21 +41,6 @@ two_default_test_args = [
 ]
 
 
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "user_args,user_kwargs,all_param_names,all_default_values,expected", two_default_test_args
-)
-def test_get_two_unspecified_default_args(
-    user_args, user_kwargs, all_param_names, all_default_values, expected
-):
-
-    default_dict = get_unspecified_default_args(
-        user_args, user_kwargs, all_param_names, all_default_values
-    )
-
-    assert default_dict == expected
-
-
 # Test function signature for the following tests
 # def fn_default_default(default1=1, default2=2, default3=3):
 #     pass
@@ -77,21 +62,6 @@ three_default_test_args = [
         {"default1": 1, "default3": 3},
     ),
 ]
-
-
-@pytest.mark.large
-@pytest.mark.parametrize(
-    "user_args,user_kwargs,all_param_names,all_default_values,expected", three_default_test_args
-)
-def test_get_three_unspecified_default_args(
-    user_args, user_kwargs, all_param_names, all_default_values, expected
-):
-
-    default_dict = get_unspecified_default_args(
-        user_args, user_kwargs, all_param_names, all_default_values
-    )
-
-    assert default_dict == expected
 
 
 @pytest.fixture
@@ -281,6 +251,28 @@ def test_batch_metrics_logger_logs_all_metrics(start_run,):  # pylint: disable=u
     for i in range(100):
         assert hex(i) in metrics_on_run
         assert metrics_on_run[hex(i)] == i
+
+
+def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):  # pylint: disable=unused-argument
+    run_id = mlflow.active_run().info.run_id
+
+    # Need to patch _should_flush() to return False, so that we can manually flush the logger
+    with mock.patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger._should_flush", return_value=False
+    ):
+        metrics_logger = BatchMetricsLogger(run_id)
+        metrics_logger.record_metrics({"my_metric": 10}, 5)
+
+        # Recorded metrics should not be logged to mlflow run before flushing BatchMetricsLogger
+        metrics_on_run = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+        assert "my_metric" not in metrics_on_run
+
+        metrics_logger.flush()
+
+        # Recorded metric should be logged to mlflow run after flushing BatchMetricsLogger
+        metrics_on_run = mlflow.tracking.MlflowClient().get_run(run_id).data.metrics
+        assert "my_metric" in metrics_on_run
+        assert metrics_on_run["my_metric"] == 10
 
 
 def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(

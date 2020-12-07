@@ -25,7 +25,18 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
-from mlflow import tensorflow, keras, gluon, xgboost, lightgbm, spark, sklearn, fastai, pytorch
+from mlflow import (
+    tensorflow,
+    keras,
+    gluon,
+    xgboost,
+    lightgbm,
+    statsmodels,
+    spark,
+    sklearn,
+    fastai,
+    pytorch,
+)
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -665,6 +676,71 @@ def log_figure(figure, artifact_file):
     MlflowClient().log_figure(run_id, figure, artifact_file)
 
 
+@experimental
+def log_image(image, artifact_file):
+    """
+    Log an image as an artifact. The following image objects are supported:
+
+    - `numpy.ndarray`_
+    - `PIL.Image.Image`_
+
+    .. _numpy.ndarray:
+        https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+    .. _PIL.Image.Image:
+        https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+    Numpy array support
+        - data type (( ) represents a valid value range):
+
+            - bool
+            - integer (0 ~ 255)
+            - unsigned integer (0 ~ 255)
+            - float (0.0 ~ 1.0)
+
+            .. warning::
+
+                - Out-of-range integer values will be **clipped** to [0, 255].
+                - Out-of-range float values will be **clipped** to [0, 1].
+
+        - shape (H: height, W: width):
+
+            - H x W (Grayscale)
+            - H x W x 1 (Grayscale)
+            - H x W x 3 (an RGB channel order is assumed)
+            - H x W x 4 (an RGBA channel order is assumed)
+
+    :param run_id: String ID of the run.
+    :param image: Image to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the image is saved (e.g. "dir/image.png").
+
+    .. code-block:: python
+        :caption: Numpy Example
+
+        import mlflow
+        import numpy as np
+
+        image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+        with mlflow.start_run():
+            mlflow.log_image(image, "image.png")
+
+    .. code-block:: python
+        :caption: Pillow Example
+
+        import mlflow
+        from PIL import Image
+
+        image = Image.new("RGB", (100, 100))
+
+        with mlflow.start_run():
+            mlflow.log_image(image, "image.png")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_image(run_id, image, artifact_file)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)
@@ -1219,6 +1295,7 @@ def autolog(
         "mxnet.gluon": gluon.autolog,
         "xgboost": xgboost.autolog,
         "lightgbm": lightgbm.autolog,
+        "statsmodels": statsmodels.autolog,
         "sklearn": sklearn.autolog,
         "fastai": fastai.autolog,
         "pyspark": spark.autolog,

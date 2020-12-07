@@ -82,6 +82,7 @@ def pytest_ignore_collect(path, config):
             "tests/gluon_autolog",
             "tests/xgboost",
             "tests/lightgbm",
+            "tests/statsmodels",
             "tests/spacy",
             "tests/spark_autologging",
             "tests/fastai",
