@@ -89,7 +89,7 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     #
     # ```
     # Estimator(loss=SomeLoss()) -> monitors `loss`
-    # Estimator(loss=SomeLoss(), train_metrics=SomeMetrics()) -> doesn't monitor `loss`
+    # Estimator(loss=SomeLoss(), train_metrics=SomeMetric()) -> doesn't monitor `loss`
     # ```
     if LooseVersion(mx.__version__) < LooseVersion("1.6.0"):
         assert "{} softmaxcrossentropyloss".format(train_prefix) in data.metrics
