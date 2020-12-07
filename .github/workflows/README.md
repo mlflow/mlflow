@@ -19,8 +19,8 @@ Run the following two jobs.
 
 ## When is `cross-versions-tests.yml` triggered?
 
-1. When a pull request is created: run tests affected by the PR
-2. Everyday at 7:00 UTC: run all tests
+1. When a pull request is created (run tests affected by the PR)
+2. Everyday at 7:00 UTC (run all tests)
 
 ## How to run `dev/set_matrix.py`
 
@@ -49,6 +49,6 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files 
 
 ## How to run doctests in `dev/set_matrix.py`
 
-```
+```sh
 pytest dev/set_matrix.py --doctest-modules --verbose
 ```
