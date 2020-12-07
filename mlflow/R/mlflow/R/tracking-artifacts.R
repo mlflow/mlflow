@@ -136,7 +136,7 @@ log_artifact_template <- function(transformer,
                                   artifact_file,
                                   ...
                                   ) {
-  temp_dir <- tempdir()
+  temp_dir <- tempfile('mlflow')
   artifact_file <- fs::path_norm(artifact_file)
   temp_file <- fs::path(temp_dir, artifact_file)
   fs::dir_create(fs::path_dir(temp_file))
