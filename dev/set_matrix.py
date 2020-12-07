@@ -464,7 +464,11 @@ def main():
     matrix = set(expand_config(config))
     matrix_ref = set(expand_config(config_ref))
 
-    diff_config = matrix.difference(matrix_ref) if (args.changed_files is None) else set()
+    diff_config = (
+        set()
+        if (args.changed_files is not None and args.ref_versions_yaml is None)
+        else matrix.difference(matrix_ref)
+    )
     diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
 
     include = sorted(diff_config.union(diff_flavor), key=lambda x: x["job_name"])
