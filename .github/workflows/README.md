@@ -4,7 +4,7 @@
 
 ### `ml-package-versions.yml`
 
-Define package versions to test and dependencies required to run the tests for each flavor.
+Define package versions to test for each flavor.
 
 ### `dev/set_matrix.py`
 
@@ -17,10 +17,10 @@ Run the following two jobs.
 - `set-matrix`: Run `set_matrix.py` to set a test matrix.
 - `test`: Sweep the test matrix set by `set-matrix`.
 
-## When do we run the cross version tests?
+## When is `cross-versions-tests.yml` triggered?
 
-1. On a pull request: Run tests affected by the PR
-2. On a daily scheduled job (at 7:00 UTC): Run all tests
+1. When a pull request is created: run tests affected by the PR
+2. Everyday at 7:00 UTC: run all tests
 
 ## How to run `dev/set_matrix.py`
 
