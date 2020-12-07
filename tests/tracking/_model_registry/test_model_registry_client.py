@@ -262,6 +262,34 @@ def test_create_model_version(mock_store):
     assert result.tags == tags_dict
 
 
+def test_create_model_version_no_run_id(mock_store):
+    name = "Model 1"
+    version = "1"
+    tags_dict = {"key": "value", "another key": "some other value"}
+    tags = [ModelVersionTag(key, value) for key, value in tags_dict.items()]
+    description = "best model ever"
+
+    mock_store.create_model_version.return_value = ModelVersion(
+        name=name,
+        version=version,
+        creation_timestamp=123,
+        tags=tags,
+        run_link=None,
+        description=description,
+    )
+    result = newModelRegistryClient().create_model_version(
+        name, "uri:/for/source", tags=tags_dict, run_link=None, description=description
+    )
+    mock_store.create_model_version.assert_called_once_with(
+        name, "uri:/for/source", None, tags, None, description
+    )
+
+    assert result.name == name
+    assert result.version == version
+    assert result.tags == tags_dict
+    assert result.run_id is None
+
+
 def test_update_model_version(mock_store):
     name = "Model 1"
     version = "12"

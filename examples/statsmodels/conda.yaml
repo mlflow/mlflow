@@ -1,0 +1,12 @@
+name: statsmodels-example
+channels:
+  - defaults
+  - anaconda
+  - conda-forge
+dependencies:
+  - python=3.6
+  - statsmodels=0.11.1
+  - scikit-learn=0.22.1
+  - pip
+  - pip:
+      - mlflow>=1.6.0

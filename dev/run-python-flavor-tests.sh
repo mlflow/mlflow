@@ -17,6 +17,7 @@ pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
 pytest --verbose tests/xgboost --large
 pytest --verbose tests/lightgbm --large
+pytest --verbose tests/statsmodels --large
 pytest --verbose tests/gluon --large
 pytest --verbose tests/gluon_autolog --large
 pytest --verbose tests/spacy --large

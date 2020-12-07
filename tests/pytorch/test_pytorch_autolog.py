@@ -211,6 +211,7 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     assert "restored_epoch" in data.metrics
 
 
+
 @pytest.mark.parametrize("patience", [0, 1, 5])
 def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience):
     _, run = pytorch_model_with_callback
@@ -260,6 +261,9 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
 
     assert "loss" in original_metrics
     assert "loss" in patched_metrics_data
+
+
+
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     trainer, run = pytorch_model
     client = mlflow.tracking.MlflowClient()
