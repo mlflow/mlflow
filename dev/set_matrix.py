@@ -156,7 +156,7 @@ def select_latest_micro_versions(versions):
 
     for ver, _ in sorted(
         versions.items(),
-        # sort by (minor_version, upload_time) in descending order
+        # Sort by (minor_version, upload_time) in descending order
         key=lambda x: (LooseVersion(x[0]).version[:2], x[1]),
         reverse=True,
     ):
@@ -195,7 +195,7 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
     if excludes is None:
         excludes = []
 
-    # prevent specifying non-existent versions
+    # Prevent specifying non-existent versions
     assert min_ver in versions
     assert max_ver in versions
     assert all(v in versions for v in excludes)
@@ -411,7 +411,7 @@ def expand_config(config):
         package_info = cfgs.pop("package_info")
 
         for key, cfg in cfgs.items():
-            # released versions
+            # Released versions
             versions = get_released_versions(package_info["pip_release"])
             versions = filter_versions(
                 versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
@@ -428,7 +428,7 @@ def expand_config(config):
                     Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
                 )
 
-            # development version
+            # Development version
             if "install_dev" in package_info:
                 job_name = " / ".join([flavor_key, DEV_VERSION, key])
                 requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
@@ -456,7 +456,7 @@ def main():
         {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
     )
 
-    # assuming that the top-level keys in `ml-package-versions.yml` have the format:
+    # Assuming that the top-level keys in `ml-package-versions.yml` have the format:
     # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
     flavors = set(x.split("-")[0] for x in config.keys())
     changed_flavors = get_changed_flavors(changed_files, flavors)
