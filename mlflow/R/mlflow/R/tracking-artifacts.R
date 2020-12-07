@@ -132,6 +132,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #'   for every transformer, this is passed through \code{...} and is not
 #'   a hardcoded argument in this function.
 #' @export
+#' @noRd 
 log_artifact_template <- function(transformer,
                                   artifact_file,
                                   ...
@@ -153,7 +154,8 @@ log_artifact_template <- function(transformer,
 #' Log text as an artifact.
 #'
 #' @param text String containing text to log.
-#' @inheritParams log_artifact_template
+#' @param artifact_file The run-relative artifact file path in
+#'   posixpath format to which the text is saved (e.g. "dir/file.txt").
 #' @examples
 #' \dontrun{
 #' library(mlflow)
