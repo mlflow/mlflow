@@ -397,81 +397,81 @@ def parse_args():
     return parser.parse_args()
 
 
+class Hashabledict(dict):
+    def __hash__(self):
+        return hash(frozenset(self))
+
+
+def expand_config(config):
+    matrix = []
+    for flavor, cfgs in config.items():
+        package_info = cfgs.pop("package_info")
+
+        for key, cfg in cfgs.items():
+            # released versions
+            versions = get_released_versions(package_info["pip_release"])
+            versions = filter_versions(
+                versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
+            )
+            versions = select_latest_micro_versions(versions)
+            for ver in versions:
+                job_name = " / ".join([flavor, ver, key])
+                requirements = ["{}=={}".format(package_info["pip_release"], ver)]
+                requirements.extend(process_requirements(cfg.get("requirements"), ver))
+                install = make_pip_install_command(requirements)
+                run = remove_comments(cfg["run"])
+
+                matrix.append(
+                    Hashabledict(
+                        flavor=flavor.split("-")[0], job_name=job_name, install=install, run=run,
+                    )
+                )
+
+            # development version
+            if "install_dev" in package_info:
+                job_name = " / ".join([flavor, DEV_VERSION, key])
+                requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
+                install = (
+                    make_pip_install_command(requirements) + "\n" if requirements else ""
+                ) + remove_comments(package_info["install_dev"])
+                run = remove_comments(cfg["run"])
+                matrix.append(
+                    Hashabledict(
+                        flavor=flavor.split("-")[0], job_name=job_name, install=install, run=run,
+                    )
+                )
+    return matrix
+
+
 def main():
     args = parse_args()
 
     print(divider("Parameters"))
     print(json.dumps(vars(args), indent=2))
 
-    ref_versions_yaml = (
-        VERSIONS_YAML_PATH if (args.ref_versions_yaml is None) else args.ref_versions_yaml
-    )
     changed_files = [] if (args.changed_files is None) else args.changed_files
 
     print(divider("Log"))
     config = read_yaml(VERSIONS_YAML_PATH)
-    config_ref = read_yaml(ref_versions_yaml, if_error={})
+    config_ref = (
+        {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
+    )
 
     # assuming that the top-level keys in `ml-package-versions.yml` have the format:
     # <flavor name>(-<suffix>) (e.g. sklearn, tensorflow-1.x, keras-tf1.x)
     flavors = set(x.split("-")[0] for x in config.keys())
     changed_flavors = get_changed_flavors(changed_files, flavors)
 
-    # If both `--ref-versions-yaml` and `--changed-files` are unspecified, include all items.
-    # Otherwise, include only updated items by inspecting `config`, `config_ref`, and
-    # `changed_flavors`.
-    should_include_all_items = (args.ref_versions_yaml is None) and (args.changed_files is None)
+    matrix = set(expand_config(config))
+    matrix_ref = set(expand_config(config_ref))
 
-    job_names = []
-    includes = []
+    diff_config = matrix.difference(matrix_ref)
+    diff_flavor = set(x["flavor"] for x in matrix if x in changed_flavors)
 
-    for flavor, cfgs in config.items():
-        package_info = cfgs.pop("package_info")
+    include = sorted(diff_config.union(diff_flavor), key=lambda x: x["job_name"])
+    job_names = [x["job_name"] for x in include]
 
-        should_include_all_items_in_this_flavor = (
-            should_include_all_items
-            or any(flavor.startswith(x) for x in changed_flavors)
-            or (flavor not in config_ref)
-            or (package_info != config_ref[flavor]["package_info"])
-        )
-
-        for key, cfg in cfgs.items():
-            if (
-                should_include_all_items_in_this_flavor
-                or (key not in config_ref[flavor])
-                or (cfg != config_ref[flavor][key])
-            ):
-                print("Processing {}.{}".format(flavor, key))
-
-                # released versions
-                versions = get_released_versions(package_info["pip_release"])
-                versions = filter_versions(
-                    versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
-                )
-                versions = select_latest_micro_versions(versions)
-                for ver in versions:
-                    job_name = " / ".join([flavor, ver, key])
-                    job_names.append(job_name)
-
-                    requirements = ["{}=={}".format(package_info["pip_release"], ver)]
-                    requirements.extend(process_requirements(cfg.get("requirements"), ver))
-                    install = make_pip_install_command(requirements)
-                    run = remove_comments(cfg["run"])
-
-                    includes.append({"job_name": job_name, "install": install, "run": run})
-
-                # development version
-                if "install_dev" in package_info:
-                    job_name = " / ".join([flavor, DEV_VERSION, key])
-                    job_names.append(job_name)
-                    requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
-                    install = (
-                        make_pip_install_command(requirements) + "\n" if requirements else ""
-                    ) + remove_comments(package_info["install_dev"])
-                    run = remove_comments(cfg["run"])
-                    includes.append({"job_name": job_name, "install": install, "run": run})
-
-    matrix = {"job_name": job_names, "include": includes}
+    matrix = {"job_name": job_names, "include": include}
     print(divider("Result"))
     # specify `indent` to prettify the output
     print(json.dumps(matrix, indent=2))

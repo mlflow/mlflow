@@ -49,7 +49,7 @@ tensorflow-1.x:
     run: |
       pytest tests/tensorflow/test_tensorflow_model_export.py --large
 
-  models:
+  autologging:
     minimum: "1.15.4"
     maximum: "1.15.4"
     requirements: ["h5py<3.0"]
