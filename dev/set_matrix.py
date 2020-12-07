@@ -35,6 +35,7 @@ pytest dev/set_matrix.py --doctest-modules --verbose
 
 import argparse
 from distutils.version import LooseVersion
+import functools
 import json
 import operator
 import os
@@ -77,6 +78,7 @@ def read_yaml(location, if_error=None):
         raise
 
 
+@functools.lru_cache(maxsize=None)
 def get_released_versions(package_name):
     """
     Fetches the released versions & datetimes of the specified Python package.
@@ -404,7 +406,8 @@ class Hashabledict(dict):
 
 def expand_config(config):
     matrix = []
-    for flavor, cfgs in config.items():
+    for flavor_key, cfgs in config.items():
+        flavor = flavor_key.split("-")[0]
         package_info = cfgs.pop("package_info")
 
         for key, cfg in cfgs.items():
@@ -415,30 +418,27 @@ def expand_config(config):
             )
             versions = select_latest_micro_versions(versions)
             for ver in versions:
-                job_name = " / ".join([flavor, ver, key])
+                job_name = " / ".join([flavor_key, ver, key])
                 requirements = ["{}=={}".format(package_info["pip_release"], ver)]
                 requirements.extend(process_requirements(cfg.get("requirements"), ver))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(
-                        flavor=flavor.split("-")[0], job_name=job_name, install=install, run=run,
-                    )
+                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
                 )
 
             # development version
             if "install_dev" in package_info:
-                job_name = " / ".join([flavor, DEV_VERSION, key])
+                job_name = " / ".join([flavor_key, DEV_VERSION, key])
                 requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
                 install = (
                     make_pip_install_command(requirements) + "\n" if requirements else ""
                 ) + remove_comments(package_info["install_dev"])
                 run = remove_comments(cfg["run"])
+
                 matrix.append(
-                    Hashabledict(
-                        flavor=flavor.split("-")[0], job_name=job_name, install=install, run=run,
-                    )
+                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
                 )
     return matrix
 
@@ -451,7 +451,6 @@ def main():
 
     changed_files = [] if (args.changed_files is None) else args.changed_files
 
-    print(divider("Log"))
     config = read_yaml(VERSIONS_YAML_PATH)
     config_ref = (
         {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
@@ -465,8 +464,8 @@ def main():
     matrix = set(expand_config(config))
     matrix_ref = set(expand_config(config_ref))
 
-    diff_config = matrix.difference(matrix_ref)
-    diff_flavor = set(x["flavor"] for x in matrix if x in changed_flavors)
+    diff_config = matrix.difference(matrix_ref) if matrix_ref else set()
+    diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
 
     include = sorted(diff_config.union(diff_flavor), key=lambda x: x["job_name"])
     job_names = [x["job_name"] for x in include]
