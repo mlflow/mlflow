@@ -67,8 +67,10 @@ def gluon_model(model_data):
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
 
-    # `metrics` was renmaed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if LooseVersion(mx.__version__) < LooseVersion("1.6.0") else "train_metrics"
+    # `metrics` was renamed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
+    arg_name = (
+        "metrics" if LooseVersion(mx.__version__) < LooseVersion("1.6.0") else "train_metrics"
+    )
     est = estimator.Estimator(
         net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **{arg_name: Accuracy()}
     )
