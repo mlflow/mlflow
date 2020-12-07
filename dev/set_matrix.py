@@ -472,7 +472,6 @@ def main():
 
     matrix = {"job_name": job_names, "include": include}
     print(divider("Result"))
-    # specify `indent` to prettify the output
     print(json.dumps(matrix, indent=2))
 
     if "GITHUB_ACTIONS" in os.environ:
