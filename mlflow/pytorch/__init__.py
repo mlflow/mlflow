@@ -252,9 +252,6 @@ def log_model(
             loss.backward()
             optimizer.step()
 
-        if (epoch + 1) % 50 == 0:
-            print('Epoch: {}/{}, loss: {:.4f}'.format(epoch + 1., epochs, loss.data.item()))
-
         # Log the model
         with mlflow.start_run() as run:
             mlflow.pytorch.log_model(model, "models_pth")
@@ -831,7 +828,6 @@ def autolog(log_every_n_epoch=1, log_models=True):
     .. code-block:: text
         :caption: Output
 
-        Epoch 19:  99%|█████████▉| 1860/1875 [00:09<00:00, 203.86it/s, loss=0.990, v_num=1]
         run_id: 42caa17b60cb489c8083900fb52506a7
         artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/data']
         params: {'betas': '(0.9, 0.999)',
