@@ -32,7 +32,7 @@ class LogsDataset(Dataset):
 
 def get_metrics():
     # `metrics` was renmaed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if LooseVersion(mx.__version) < LooseVersion("1.6.0") else "train_metrics"
+    arg_name = "metrics" if LooseVersion(mx.__version__) < LooseVersion("1.6.0") else "train_metrics"
     return {arg_name: Accuracy()}
 
 
