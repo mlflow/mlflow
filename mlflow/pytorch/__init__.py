@@ -52,19 +52,7 @@ def get_default_conda_env():
     .. code-block:: python
         :caption: Example
 
-        import numpy as np
-        import torch
         import mlflow.pytorch
-
-        # Class defined here
-        class LinearNNModel(torch.nn.Module):
-            ...
-
-        # Initialize our model, criterion and optimizer
-        ...
-
-        # Training loop
-        ...
 
         # Log PyTorch model
         with mlflow.start_run() as run:
@@ -430,10 +418,10 @@ def save_model(
             model_uri = "{}/{}".format(os.getcwd(), model_path)
             loaded_model = mlflow.pytorch.load_model(model_uri)
             print("model: {}".format(model_path))
-            for hv in [6.0, 8.0, 12.0, 30.0]:
-                hour_var = torch.Tensor([[hv]])
-                y_pred = loaded_model(hour_var)
-                print("predict X:{}, y_pred: {:.2f}".format(hv, y_pred.data.item()))
+            for x in [6.0, 8.0, 12.0, 30.0]:
+                X = torch.Tensor([[x]])
+                y_pred = loaded_model(X)
+                print("predict X: {}, y_pred: {:.2f}".format(x, y_pred.data.item()))
             print("--")
 
     .. code-block:: text
@@ -649,10 +637,10 @@ def load_model(model_uri, **kwargs):
         # Inference after loading the logged model
         model_uri = "runs:/{}/models_pth".format(run.info.run_id)
         loaded_model = mlflow.pytorch.load_model(model_uri)
-        for hv in [4.0, 6.0, 30.0]:
-            hour_var = torch.Tensor([[hv]])
-            y_pred = loaded_model(hour_var)
-            print("predict X:{}, y_pred: {:.2f}".format(hv, y_pred.data.item()))
+        for x in [4.0, 6.0, 30.0]:
+            X = torch.Tensor([[x]])
+            y_pred = loaded_model(X)
+            print("predict X: {}, y_pred: {:.2f}".format(x, y_pred.data.item()))
 
     .. code-block:: text
         :caption: Output
