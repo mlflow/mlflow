@@ -30,21 +30,21 @@ class LogsDataset(Dataset):
         return self.len
 
 
-def is_older_than_1_6_0():
+def is_mxnet_older_than_1_6_0():
     return LooseVersion(mx.__version__) < LooseVersion("1.6.0")
 
 
 def get_metrics():
     # `metrics` argument was split into `train_metrics` and `val_metrics` in mxnet 1.6.0:
     # https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = "metrics" if is_older_than_1_6_0() else "train_metrics"
+    arg_name = "metrics" if is_mxnet_older_than_1_6_0() else "train_metrics"
     return {arg_name: Accuracy()}
 
 
 def get_train_prefix():
     # training prefix was renamed to `training` in mxnet 1.6.0:
     # https://github.com/apache/incubator-mxnet/pull/17048
-    return "train" if is_older_than_1_6_0() else "training"
+    return "train" if is_mxnet_older_than_1_6_0() else "training"
 
 
 @pytest.fixture
@@ -88,7 +88,7 @@ def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     #
     # estimator.Estimator(loss=SomeLoss())  # monitors `loss`
     # estimator.Estimator(loss=SomeLoss(), train_metrics=SomeMetric()) # doesn't monitor `loss`
-    if LooseVersion(mx.__version__) < LooseVersion("1.6.0"):
+    if is_mxnet_older_than_1_6_0():
         assert "{} softmaxcrossentropyloss".format(train_prefix) in data.metrics
         assert "validation softmaxcrossentropyloss" in data.metrics
     assert "optimizer_name" in data.params
