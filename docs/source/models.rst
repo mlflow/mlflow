@@ -158,8 +158,8 @@ training data did not have any missing values for integer column c, its type wil
 default schema inference applied to the training data will return an integer type for this column.
 However, when you attempt to score a sample of the data that does include a missing value,
 MLflow will raise a TypeError since it can not convert float to int. The best way to avoid this
-problem is to declare integer columns as floats (float32) or doubles (float64) whenever there is a
-possibility of missing values.
+problem is to declare integer columns as doubles (float64) whenever there is a possibility of
+missing values.
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
