@@ -326,8 +326,8 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         is_upcast = values.dtype.itemsize <= numpy_type.itemsize
     elif values.dtype.kind == "u" and numpy_type.kind == "i":
         is_upcast = values.dtype.itemsize < numpy_type.itemsize
-    elif values.dtype.kind == "i" and numpy_type == np.float64:
-        # allow int32 => float64 conversion
+    elif values.dtype.kind in ("i", "u") and numpy_type == np.float64:
+        # allow (u)int => double conversion
         is_upcast = values.dtype.itemsize <= 6
     else:
         is_upcast = False
@@ -357,7 +357,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
                 "encoded as floats. Remove any missing values from {0} or, if your input can "
                 "be safely represented as float64, update your model signature. See MLflow "
                 "documentation for more details."
-            )
+            ).format(name)
 
         raise MlflowException(
             "Incompatible input types for column {0}. "
