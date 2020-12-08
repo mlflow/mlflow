@@ -247,8 +247,7 @@ def log_model(
             scripted_pytorch_model = torch.jit.script(model)
             mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_models_pth")
 
-        # fetch the logged model artifacts
-        print("--")
+        # Fetch the logged model artifacts
         print("run_id: {}".format(run.info.run_id))
         for artifact_path in ["models_pth/data", "scripted_models_pth/data"]:
             artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id,
