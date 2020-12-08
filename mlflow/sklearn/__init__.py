@@ -532,7 +532,9 @@ class _SklearnTrainingSession(object):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_input_examples=False, log_model_signatures=True, log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(
+    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+):  # pylint: disable=unused-argument
 
     """
     Enables autologging for scikit-learn estimators.

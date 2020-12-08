@@ -14,8 +14,8 @@ Test suite intended to test the following:
     - `safe_patch` catches exceptions raised by patch code outside of test mode
     - `safe_patch` invokes the underlying / original function when patch code terminates without
       doing so (due to an exception in patch code or due to omission of an original function call)
-    - `safe_patch` does not invoke the underlying / original function again when a patch code failure
-      occurs during or after the underlying function call
+    - `safe_patch` does not invoke the underlying / original function again when a patch code
+      failure occurs during or after the underlying function call
     - `safe_patch` propagates exceptions raised by original function calls
     - `safe_patch` does not perform argument consistency / exception safety validation outside
       of test mode
