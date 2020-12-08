@@ -347,7 +347,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         hint = ""
         if (
             values.dtype == np.float64
-            and numpy_type.kind == "i"
+            and numpy_type.kind in ("i", "u")
             and values.hasnans
             and all_ints(values)
         ):
