@@ -524,3 +524,4 @@ def autolog(
 
     wrap_patch(xgboost, "train", train)
     wrap_patch(xgboost.DMatrix, "__init__", __init__)
+

@@ -9,6 +9,7 @@ sklearn:
     maximum: "0.23.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
+      pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
@@ -152,3 +153,14 @@ lightgbm:
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+unknown:
+  package_info:
+    pip_release: "lightgbm"
+
+  models:
+    minimum: "2.3.1"
+    maximum: "2.3.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_model_export.py --large
