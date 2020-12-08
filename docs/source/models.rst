@@ -149,6 +149,19 @@ The input column types are checked against the signature. MLflow will perform sa
 if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) are considered to be
 safe. If the types cannot be made compatible, MLflow will raise an error.
 
+Handling Integers With Missing Values
+"""""""""""""""""""""""""""""""""""""
+Some platforms represent integer data with missing values as floats. The data types on such
+platforms can vary depending on the current data sample. This type variance can cause schema
+enforcement errors at runtime as integer and float are not compatible types. For example, if your
+training data did not have any missing values for integer column c, its type will be integer and the
+default schema inference applied to the training data will return an integer type for this column.
+However, when you attempt to score a sample of the data that does include a missing value,
+MLflow will raise a TypeError since it can not convert float to int. The best way to avoid this
+problem is to declare integer columns as floats (float32) or doubles (float64) whenever there is a
+possibility of missing values.
+
+
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include a signature with your model, pass :py:class:`signature object
