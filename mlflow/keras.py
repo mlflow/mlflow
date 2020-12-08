@@ -760,7 +760,7 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
         unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
 
-    def fit_generator(original, *args, **kwargs):
+    def fit_generator(original, self, *args, **kwargs):
         """
         NOTE: `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
         To avoid unintentional creation of nested MLflow runs caused by a patched

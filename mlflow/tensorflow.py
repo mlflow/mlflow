@@ -1029,8 +1029,8 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
             _log_artifacts_with_warning(
                 local_dir=self.log_dir.location, artifact_path="tensorboard_logs",
             )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+            if self.log_dir.is_temp:
+                shutil.rmtree(self.log_dir.location)
 
             return history
 
