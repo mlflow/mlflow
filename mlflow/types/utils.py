@@ -15,7 +15,7 @@ class TensorsNotSupportedException(MlflowException):
         )
 
 
-def _infer_schema(data: Any) -> Schema:
+def _infer_schema(data: Any, infer_ints_as_doubles=False) -> Schema:
     """
     Infer an MLflow schema from a dataset.
 
@@ -48,7 +48,7 @@ def _infer_schema(data: Any) -> Schema:
                 raise TypeError("Data in the dictionary must be of type numpy.ndarray")
             dims = len(ary.shape)
             if dims == 1:
-                res.append(ColSpec(type=_infer_numpy_array(ary), name=col))
+                res.append(ColSpec(type=_infer_numpy_array(ary, infer_ints_as_doubles), name=col))
             else:
                 raise TensorsNotSupportedException(
                     "Data in the dictionary must be 1-dimensional, "
@@ -56,10 +56,10 @@ def _infer_schema(data: Any) -> Schema:
                 )
         return Schema(res)
     elif isinstance(data, pd.Series):
-        return Schema([ColSpec(type=_infer_numpy_array(data.values))])
+        return Schema([ColSpec(type=_infer_numpy_array(data.values, infer_ints_as_doubles))])
     elif isinstance(data, pd.DataFrame):
         return Schema(
-            [ColSpec(type=_infer_numpy_array(data[col].values), name=col) for col in data.columns]
+            [ColSpec(type=_infer_numpy_array(data[col].values, infer_ints_as_doubles), name=col) for col in data.columns]
         )
     elif isinstance(data, np.ndarray):
         if len(data.shape) > 2:
@@ -117,7 +117,7 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
 
-def _infer_numpy_array(col: np.ndarray) -> DataType:
+def _infer_numpy_array(col: np.ndarray, infer_ints_as_doubles) -> DataType:
     if not isinstance(col, np.ndarray):
         raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(col)))
     if len(col.shape) > 1:
@@ -139,21 +139,22 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
 
     if col.dtype.kind == "O":
         is_binary_test = IsInstanceOrNone(bytes, bytearray)
-        if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
-            return DataType.binary
         is_string_test = IsInstanceOrNone(str)
-        if all(map(is_string_test, col)) and is_string_test.seen_instances > 0:
-            return DataType.string
-        # NB: bool is also instance of int => boolean test must precede integer test.
         is_boolean_test = IsInstanceOrNone(bool)
-        if all(map(is_boolean_test, col)) and is_boolean_test.seen_instances > 0:
-            return DataType.boolean
         is_long_test = IsInstanceOrNone(int)
-        if all(map(is_long_test, col)) and is_long_test.seen_instances > 0:
-            return DataType.long
         is_double_test = IsInstanceOrNone(float)
-        if all(map(is_double_test, col)) and is_double_test.seen_instances > 0:
-            return DataType.double
+
+        if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
+            dt = DataType.binary
+        elif all(map(is_string_test, col)) and is_string_test.seen_instances > 0:
+            dt = DataType.string
+        # NB: bool is also instance of int => boolean test must precede integer test.
+        elif all(map(is_boolean_test, col)) and is_boolean_test.seen_instances > 0:
+            dt = DataType.boolean
+        elif all(map(is_long_test, col)) and is_long_test.seen_instances > 0:
+            dt = DataType.long
+        elif all(map(is_double_test, col)) and is_double_test.seen_instances > 0:
+            dt = DataType.double
         else:
             raise MlflowException(
                 "Unable to map 'np.object' type to MLflow DataType. np.object can"
@@ -161,7 +162,14 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
                 "of (string, (bytes or byterray),  int, float)."
             )
     else:
-        return _infer_numpy_dtype(col.dtype)
+        dt = _infer_numpy_dtype(col.dtype)
+
+    if infer_ints_as_doubles:
+        if dt == DataType.integer:
+            return DataType.double
+        if dt == DataType.long and all((col <= 2147483647) & (col >= -2147483648)):
+            return DataType.double
+    return dt
 
 
 def _infer_spark_type(x) -> DataType:

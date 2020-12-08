@@ -456,13 +456,13 @@ class PyFuncModel(object):
         following checks are performed:
 
           1. Enforce data shape:  Check that there are no missing inputs (columns) and ignore any
-        extra inputs. If the inputs in the schema are named, match the input by name, otherwise
-        match by index.
+             extra inputs. If the inputs in the schema are named, match the input by name, otherwise
+             match by index.
 
           2. Enforce data types:  The input data types must match the schema exactly or be safely
-        convertible to the type declared in the schema. TypeError is raised otherwise. Only
-        conversions that are  guaranteed to be lossless are allowed. For example, int -> long or
-        int -> double are allowed conversions, long -> int or int -> float are not allowed.
+             convertible to the type declared in the schema. TypeError is raised otherwise. Only
+             conversions that are  guaranteed to be lossless are allowed. For example, int -> long
+             or int -> double are allowed conversions, long -> int or int -> float are not allowed.
 
         NOTE:
 
