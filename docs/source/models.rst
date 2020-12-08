@@ -161,7 +161,6 @@ MLflow will raise a TypeError since it can not convert float to int. The best wa
 problem is to declare integer columns as floats (float32) or doubles (float64) whenever there is a
 possibility of missing values.
 
-
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include a signature with your model, pass :py:class:`signature object
