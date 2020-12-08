@@ -12,6 +12,8 @@ import mlflow
 import mlflow.lightgbm
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 mpl.use("Agg")
 
@@ -235,6 +237,50 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
             assert metric_key in data.metrics
             assert len(metric_history) == 10
             assert metric_history == evals_result[valid_name][metric_name]
+
+
+@pytest.mark.large
+def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, train_set):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+
+        mlflow.lightgbm.autolog()
+        evals_result = {}
+        params = {"metric": ["multi_error", "multi_logloss"]}
+        params.update(bst_params)
+        valid_sets = [train_set, lgb.Dataset(train_set.data)]
+        valid_names = ["train", "valid"]
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+
+    run = get_latest_run()
+    original_metrics = run.data.metrics
+    patched_metrics_data = dict(patched_metrics_data)
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert "train-multi_logloss" in original_metrics
+    assert "train-multi_logloss" in patched_metrics_data
 
 
 @pytest.mark.large

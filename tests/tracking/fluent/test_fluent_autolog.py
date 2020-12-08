@@ -10,6 +10,7 @@ import fastai
 import sklearn
 import xgboost
 import lightgbm
+import statsmodels
 import mxnet.gluon
 import pyspark
 import pytorch_lightning
@@ -21,6 +22,7 @@ library_to_mlflow_module_without_pyspark = {
     sklearn: "sklearn",
     xgboost: "xgboost",
     lightgbm: "lightgbm",
+    statsmodels: "statsmodels",
     mxnet.gluon: "gluon",
     pytorch_lightning: "pytorch",
 }
@@ -78,7 +80,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, ml
 @pytest.mark.large
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module_without_pyspark.items())
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
-    integrations_with_config = [xgboost, lightgbm, sklearn]
+    integrations_with_config = [xgboost, lightgbm, statsmodels, sklearn]
 
     # modify the __signature__ of the mock to contain the needed parameters
     args = (

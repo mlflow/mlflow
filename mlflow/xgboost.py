@@ -445,17 +445,17 @@ def autolog(
             # training model
             model = original(*args, **kwargs)
 
-        # If early_stopping_rounds is present, logging metrics at the best iteration
-        # as extra metrics with the max step + 1.
-        early_stopping_index = all_arg_names.index("early_stopping_rounds")
-        early_stopping = (
-            num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
-        )
-        if early_stopping:
-            extra_step = len(eval_results)
-            try_mlflow_log(mlflow.log_metric, "stopped_iteration", len(eval_results) - 1)
-            try_mlflow_log(mlflow.log_metric, "best_iteration", model.best_iteration)
-            try_mlflow_log(mlflow.log_metrics, eval_results[model.best_iteration], step=extra_step)
+            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # as extra metrics with the max step + 1.
+            early_stopping_index = all_arg_names.index("early_stopping_rounds")
+            early_stopping = (
+                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+            )
+            if early_stopping:
+                extra_step = len(eval_results)
+                metrics_logger.record_metrics({"stopped_iteration": extra_step - 1})
+                metrics_logger.record_metrics({"best_iteration": model.best_iteration})
+                metrics_logger.record_metrics(eval_results[model.best_iteration], extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:

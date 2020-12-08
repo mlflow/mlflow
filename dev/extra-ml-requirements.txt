@@ -26,6 +26,8 @@ pytorch_lightning>=1.0.2
 xgboost>=0.82
 # Required by mlflow.lightgbm
 lightgbm
+# Required by mlflow.statsmodels
+statsmodels
 # Required by mlflow.h2o
 h2o
 # Required by mlflow.onnx
