@@ -122,6 +122,7 @@ xgboost:
     maximum: "1.2.1"
     requirements: ["scikit-learn"]
     run: |
+      # just a comment (should not re-run this item)
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
