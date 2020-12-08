@@ -24,7 +24,7 @@ hash -r
 conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
 conda info -a
-conda create -q -n test-environment python=3.6
+conda create -q -n test-environment python=3.8
 source activate test-environment
 
 python --version
