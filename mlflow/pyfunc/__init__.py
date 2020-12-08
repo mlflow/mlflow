@@ -345,13 +345,19 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
             return True
 
         hint = ""
-        if (values.dtype == np.float64 and numpy_type.kind == "i" and values.hasnans
-                and all_ints(values)):
-            hint = (" Hint: the type mismatch is likely caused by missing values. "
-                    "Integer columns in python can not represent missing values and are therefore "
-                    "encoded as floats. Remove any missing values from {0} or, if your input can "
-                    "be safely represented as float64, update your model signature. See MLflow "
-                    "documentation for more details.")
+        if (
+            values.dtype == np.float64
+            and numpy_type.kind == "i"
+            and values.hasnans
+            and all_ints(values)
+        ):
+            hint = (
+                " Hint: the type mismatch is likely caused by missing values. "
+                "Integer columns in python can not represent missing values and are therefore "
+                "encoded as floats. Remove any missing values from {0} or, if your input can "
+                "be safely represented as float64, update your model signature. See MLflow "
+                "documentation for more details."
+            )
 
         raise MlflowException(
             "Incompatible input types for column {0}. "
@@ -444,29 +450,28 @@ class PyFuncModel(object):
         underlying model with the sanitized input. If the model does not include model schema, the
         input is passed to the model as is.
 
-        Schema enforcement
-        ******************
-        Check that the shape and types of the input data match the model expectations and perform
-        safe type conversions when necessary. Error is raised ff the schema can not be matched,
-        either due to missing input or incompatible data types. The following checks are performed:
+        Schema enforcement checks that the shape and types of the input data match the model
+        expectations and performs safe type conversions when necessary. Error is raised if the
+        schema can not be matched, either due to missing input or incompatible data types. The
+        following checks are performed:
 
-        1. Enforce data shape:  Check that there are no missing inputs (columns) and ignore any
+          1. Enforce data shape:  Check that there are no missing inputs (columns) and ignore any
         extra inputs. If the inputs in the schema are named, match the input by name, otherwise
         match by index.
 
-        2. Enforce data types:  The input data types must match the schema exactly or be safely
+          2. Enforce data types:  The input data types must match the schema exactly or be safely
         convertible to the type declared in the schema. TypeError is raised otherwise. Only
         conversions that are  guaranteed to be lossless are allowed. For example, int -> long or
         int -> double are allowed conversions, long -> int or int -> float are not allowed.
 
-        Handling integer missing values
-        -------------------------------
-        Integers in python can not encode missing values. Therefore, integer input that contains
-        missing values is typically encoded as floats. This can lead to type enforcement errors at
-        runtime since the actual data type for the given sampel may change depending on whether or
-        not does the sample include missing values. The best way to avoid this problem is to declare
-        integer columns as floats (float32) or doubles (float64) whenever these columns can have
-        missing values.
+        NOTE:
+
+             Integers in python can not encode missing values. Therefore, integer input that
+             contains missing values is typically encoded as floats. This can lead to type
+             enforcement errors at runtime since the actual data type for the given sampel may
+             change depending on whether or not does the sample include missing values. The best
+             way to avoid this problem is to declare integer columns as floats (float32) or doubles
+             (float64) whenever these columns can have missing values.
 
         :param data: Model input as pandas.DataFrame.
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.

@@ -99,8 +99,8 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
     data = iris_data
     signature_ = infer_signature(*data)
     example_ = data[0][
-               :3,
-               ]
+        :3,
+    ]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
@@ -280,11 +280,7 @@ def test_missing_value_hint_is_displayed_when_it_should():
         pyfunc_model.predict(pdf)
     assert "Incompatible input types" in str(ex)
     assert hint not in str(ex.value.message)
-    pdf = pd.DataFrame(
-        data=[[1], [2]],
-        columns=["a"],
-        dtype=np.float64
-    )
+    pdf = pd.DataFrame(data=[[1], [2]], columns=["a"], dtype=np.float64)
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
     assert "Incompatible input types" in str(ex.value.message)
@@ -405,7 +401,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
 
 @pytest.mark.large
 def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
-        sklearn_knn_model, tmpdir, pyfunc_custom_env_file
+    sklearn_knn_model, tmpdir, pyfunc_custom_env_file
 ):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -442,7 +438,7 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
-        sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
+    sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
 ):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -476,7 +472,7 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        sklearn_knn_model, tmpdir
+    sklearn_knn_model, tmpdir
 ):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
