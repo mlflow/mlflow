@@ -410,6 +410,7 @@ def expand_config(config):
         all_versions = get_released_versions(package_info["pip_release"])
 
         for key, cfg in cfgs.items():
+            print("Processing", flavor_key, key)
             # Released versions
             versions = filter_versions(
                 all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
@@ -452,8 +453,8 @@ def main():
     print(divider("Parameters"))
     print(json.dumps(vars(args), indent=2))
 
+    print(divider("Logs"))
     changed_files = [] if (args.changed_files is None) else args.changed_files
-
     config = read_yaml(VERSIONS_YAML_PATH)
     config_ref = (
         {} if args.ref_versions_yaml is None else read_yaml(args.ref_versions_yaml, if_error={})
