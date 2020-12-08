@@ -290,6 +290,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
     1. np.object -> string
     2. int -> long (upcast)
     3. float -> double (upcast)
+    4. int -> double (safe conversion)
 
     Any other type mismatch will raise error.
     """
@@ -310,7 +311,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
             )
 
-    if values.dtype in (t.to_pandas(), t.to_numpy()):
+    if t.to_pandas() == values.dtype or t.to_numpy() == values.dtype:
         # The types are already compatible => conversion is not necessary.
         return values
 
@@ -321,17 +322,37 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         return values
 
     numpy_type = t.to_numpy()
-    is_compatible_type = values.dtype.kind == numpy_type.kind
-    is_upcast = values.dtype.itemsize <= numpy_type.itemsize
-    if is_compatible_type and is_upcast:
+    if values.dtype.kind == numpy_type.kind:
+        is_upcast = values.dtype.itemsize <= numpy_type.itemsize
+    elif values.dtype.kind == "u" and numpy_type.kind == "i":
+        is_upcast = values.dtype.itemsize < numpy_type.itemsize
+    elif values.dtype.kind == "i" and numpy_type == np.float64:
+        # allow int32 => float64 conversion
+        is_upcast = values.dtype.itemsize <= 6
+    else:
+        is_upcast = False
+
+    if is_upcast:
         return values.astype(numpy_type, errors="raise")
     else:
         # NB: conversion between incompatible types (e.g. floats -> ints or
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
+        def all_ints(xs):
+            return not xs.any(lambda x: not pandas.isnull(x) and int(x) != x)
+
+        hint = ""
+        if (values.dtype == np.float64 and numpy_type.kind == "i" and values.hasnans
+                and all_ints(values)):
+            hint = (" Hint: the type mismatch is likely caused by missing values. "
+                    "Integer columns in python can not represent missing values and are therefore "
+                    "encoded as floats. Remove any missing values from {0} or, if your input can "
+                    "be safely represented as float64, update your model signature. See MLflow "
+                    "documentation for more details.")
+
         raise MlflowException(
             "Incompatible input types for column {0}. "
-            "Can not safely convert {1} to {2}.".format(name, values.dtype, numpy_type)
+            "Can not safely convert {1} to {2}.{3}".format(name, values.dtype, numpy_type, hint)
         )
 
 
@@ -399,7 +420,7 @@ class PyFuncModel(object):
 
     ``model_impl`` can be any Python object that implements the `Pyfunc interface
     <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#pyfunc-inference-api>`_, and is
-    by invoking the model's ``loader_module``.
+    returned by invoking the model's ``loader_module``.
 
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
@@ -415,6 +436,35 @@ class PyFuncModel(object):
     def predict(self, data: pandas.DataFrame) -> PyFuncOutput:
         """
         Generate model predictions.
+
+        If the model contains  model signature enforce the input schema first before calling the
+        underlying model with the sanitized input. If the model does not include model schema, the
+        input is passed to the model as is.
+
+        Schema enforcement
+        ******************
+        Check that the shape and types of the input data match the model expectations and perform
+        safe type conversions when necessary. Error is raised ff the schema can not be matched,
+        either due to missing input or incompatible data types. The following checks are performed:
+
+        1. Enforce data shape:  Check that there are no missing inputs (columns) and ignore any
+        extra inputs. If the inputs in the schema are named, match the input by name, otherwise
+        match by index.
+
+        2. Enforce data types:  The input data types must match the schema exactly or be safely
+        convertible to the type declared in the schema. TypeError is raised otherwise. Only
+        conversions that are  guaranteed to be lossless are allowed. For example, int -> long or
+        int -> double are allowed conversions, long -> int or int -> float are not allowed.
+
+        Handling integer missing values
+        -------------------------------
+        Integers in python can not encode missing values. Therefore, integer input that contains
+        missing values is typically encoded as floats. This can lead to type enforcement errors at
+        runtime since the actual data type for the given sampel may change depending on whether or
+        not does the sample include missing values. The best way to avoid this problem is to declare
+        integer columns as floats (float32) or doubles (float64) whenever these columns can have
+        missing values.
+
         :param data: Model input as pandas.DataFrame.
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
