@@ -339,7 +339,10 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
         def all_ints(xs):
-            return not xs.any(lambda x: not pandas.isnull(x) and int(x) != x)
+            for x in xs:
+                if not pandas.isnull(x) and int(x) != x:
+                    return False
+            return True
 
         hint = ""
         if (values.dtype == np.float64 and numpy_type.kind == "i" and values.hasnans

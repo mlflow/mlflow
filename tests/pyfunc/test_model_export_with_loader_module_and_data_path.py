@@ -270,8 +270,8 @@ def test_missing_value_hint_is_displayed_when_it_should():
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
     hint = "Hint: the type mismatch is likely caused by missing values."
-    assert "Incompatible input types" in str(ex)
-    assert hint in str(ex)
+    assert "Incompatible input types" in str(ex.value.message)
+    assert hint in str(ex.value.message)
     pdf = pd.DataFrame(
         data=[[1.5], [None]],
         columns=["a"],
@@ -279,7 +279,7 @@ def test_missing_value_hint_is_displayed_when_it_should():
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
     assert "Incompatible input types" in str(ex)
-    assert hint not in str(ex)
+    assert hint not in str(ex.value.message)
     pdf = pd.DataFrame(
         data=[[1], [2]],
         columns=["a"],
@@ -287,8 +287,8 @@ def test_missing_value_hint_is_displayed_when_it_should():
     )
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
-    assert "Incompatible input types" in str(ex)
-    assert hint not in str(ex)
+    assert "Incompatible input types" in str(ex.value.message)
+    assert hint not in str(ex.value.message)
 
 
 def test_schema_enforcement_no_col_names():
