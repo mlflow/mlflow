@@ -398,7 +398,7 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
 
     # we cannot use dtrain fixture, as the dataset must be constructed
     #   after the call to autolog() in order to get the input example
-    dataset = xgb.DMatrix(*get_iris([0, 1]))
+    dataset = xgb.DMatrix(*get_iris(usecols=[0, 1]))
 
     xgb.train(bst_params, dataset)
     run = get_latest_run()
