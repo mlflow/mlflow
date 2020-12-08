@@ -24,7 +24,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
@@ -564,7 +563,7 @@ def load_model(model_uri, **kwargs):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False):
+def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables automatic logging from Keras to MLflow. Autologging captures the following information:
@@ -694,17 +693,14 @@ def autolog(log_models=True, disable=False):
 
     def _log_early_stop_callback_params(callback):
         if callback:
-            try:
-                earlystopping_params = {
-                    "monitor": callback.monitor,
-                    "min_delta": callback.min_delta,
-                    "patience": callback.patience,
-                    "baseline": callback.baseline,
-                    "restore_best_weights": callback.restore_best_weights,
-                }
-                try_mlflow_log(mlflow.log_params, earlystopping_params)
-            except Exception:  # pylint: disable=W0703
-                return
+            earlystopping_params = {
+                "monitor": callback.monitor,
+                "min_delta": callback.min_delta,
+                "patience": callback.patience,
+                "baseline": callback.baseline,
+                "restore_best_weights": callback.restore_best_weights,
+            }
+            try_mlflow_log(mlflow.log_params, earlystopping_params)
 
     def _get_early_stop_callback_attrs(callback):
         try:
@@ -752,7 +748,7 @@ def autolog(log_models=True, disable=False):
             else:
                 kwargs["callbacks"] = [mlflowKerasCallback]
 
-            _log_early_stop_callback_params(early_stop_callback)
+            try_mlflow_log(_log_early_stop_callback_params, early_stop_callback)
 
             history = original(self, *args, **kwargs)
 

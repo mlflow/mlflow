@@ -32,7 +32,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -292,7 +291,7 @@ def autolog(
     log_model_signatures=True,
     log_models=True,
     disable=False,
-):  # pylint: disable=W0102
+):  # pylint: disable=W0102,unused-argument
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 

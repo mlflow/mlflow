@@ -90,7 +90,7 @@ def _update_wrapper_extended(wrapper, wrapped):
     try:
         updated_wrapper.__signature__ = inspect.signature(wrapped)
     except Exception:  # pylint: disable=broad-except
-        _logger.debug("Failed to restore original signature for wrapper around {}".format(wrapped))
+        _logger.debug("Failed to restore original signature for wrapper around %s", wrapped)
     return updated_wrapper
 
 
@@ -306,7 +306,7 @@ def autologging_integration(name):
     AUTOLOGGING_INTEGRATIONS[name] = {}
 
     def wrapper(_autolog):
-        def autolog(*args, **kwargs):
+        def autolog(**kwargs):
             AUTOLOGGING_INTEGRATIONS[name] = kwargs
             _autolog(**kwargs)
 
@@ -349,7 +349,7 @@ def exception_safe_function(function):
 
         try:
             return function(*args, **kwargs)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             if _is_testing():
                 raise
             else:
@@ -579,7 +579,7 @@ def safe_patch(
                     nonlocal original_result
                     original_result = original(*og_args, **og_kwargs)
                     return original_result
-                except Exception:
+                except Exception:  # pylint: disable=broad-except
                     nonlocal failed_during_original
                     failed_during_original = True
                     raise
@@ -594,7 +594,7 @@ def safe_patch(
             else:
                 patch_function(call_original, *args, **kwargs)
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             # Exceptions thrown during execution of the original function should be propagated
             # to the caller. Additionally, exceptions encountered during test mode should be
             # reraised to detect bugs in autologging implementations
@@ -672,7 +672,7 @@ def _validate_args(
         if type(autologging_call_input) == list:
             length_difference = len(autologging_call_input) - len(user_call_input)
             assert length_difference >= 0, (
-                "%d expected args / kwargs are missing from the call"
+                "{} expected args / kwargs are missing from the call"
                 " to the original function.".format(length_difference)
             )
             user_call_input = user_call_input + ([None] * (length_difference))
