@@ -390,7 +390,6 @@ def save_model(
 
         import os
 
-        import numpy as np
         import torch
         import mlflow.pytorch
 
@@ -406,17 +405,17 @@ def save_model(
 
         # Save PyTorch models to current working directory
         with mlflow.start_run() as run:
-            mlflow.pytorch.save_model(model, "models_pth")
+            mlflow.pytorch.save_model(model, "model")
 
             # Convert to a scripted model and save it
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.save_model(scripted_pytorch_model, "scripted_models_pth")
+            mlflow.pytorch.save_model(scripted_pytorch_model, "scripted_model")
 
         # Load each saved model for inference
-        for model_path in ["models_pth", "scripted_models_pth"]:
+        for model_path in ["model", "scripted_model"]:
             model_uri = "{}/{}".format(os.getcwd(), model_path)
             loaded_model = mlflow.pytorch.load_model(model_uri)
-            print("model: {}".format(model_path))
+            print("Loaded {}:".format(model_path))
             for x in [6.0, 8.0, 12.0, 30.0]:
                 X = torch.Tensor([[x]])
                 y_pred = loaded_model(X)
@@ -426,17 +425,17 @@ def save_model(
     .. code-block:: text
         :caption: Output
 
-        model: models_pth
-        predict X:6.0, y_pred: 12.57
-        predict X:8.0, y_pred: 16.46
-        predict X:12.0, y_pred: 24.24
-        predict X:30.0, y_pred: 59.24
+        Loaded model:
+        predict X: 6.0, y_pred: 11.90
+        predict X: 8.0, y_pred: 15.92
+        predict X: 12.0, y_pred: 23.96
+        predict X: 30.0, y_pred: 60.13
         --
-        model: scripted_models_pth
-        predict X:6.0, y_pred: 12.57
-        predict X:8.0, y_pred: 16.46
-        predict X:12.0, y_pred: 24.24
-        predict X:30.0, y_pred: 59.24
+        Loaded scripted_model:
+        predict X: 6.0, y_pred: 11.90
+        predict X: 8.0, y_pred: 15.92
+        predict X: 12.0, y_pred: 23.96
+        predict X: 30.0, y_pred: 60.13
     """
     import torch
 
