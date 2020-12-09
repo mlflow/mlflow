@@ -19,7 +19,7 @@ mlflow_save_model.xgb.Booster <- function(model,
   )
 
   conda_env <- create_default_conda_env_if_absent(
-    path, conda_env, default_pip_deps = list("mlflow", paste("xgboost>=", version, sep = ""))
+    path, conda_env, default_pip_deps = list("mlflow", paste("xgboost==", version, sep = ""))
   )
   xgboost_conf <- list(
     xgboost = list(xgb_version = version, data = model_data_subpath)
