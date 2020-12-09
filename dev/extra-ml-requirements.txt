@@ -23,7 +23,8 @@ torch
 torchvision
 pytorch_lightning>=1.0.2
 # Required by mlflow.xgboost
-xgboost>=0.82
+# Exclude 1.3.0 to avoid this issue: https://github.com/dmlc/xgboost/issues/6481
+xgboost>=0.82,!=1.3.0
 # Required by mlflow.lightgbm
 lightgbm
 # Required by mlflow.statsmodels
