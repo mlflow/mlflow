@@ -159,8 +159,8 @@ example, if your training data did not have any missing values for integer colum
 be integer. However, when you attempt to score a sample of the data that does include a missing
 value in column c, its type will be float. If your model signature specified c to have integer type,
 MLflow will raise an error since it can not convert float to int. Note that MLflow uses python to
-serve models and to deploy models so this can affect most model deployments. The best way to avoid
-this problem is to declare integer columns as doubles (float64) whenever there is a possibility of
+serve models and to deploy models to Spark, so this can affect most model deployments. The best way
+to avoid this problem is to declare integer columns as doubles (float64) whenever there can be
 missing values.
 
 How To Log Models With Signatures
