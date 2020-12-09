@@ -358,7 +358,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
                 "columns as doubles (float64) whenever these columns can have missing values. See "
                 "`Handling Integers With Missing Values <https://www.mlflow.org/"
                 "docs/latest/models.html#handling-integers-with-missing-values>`_ for more details."
-            ).format(name)
+            )
 
         raise MlflowException(
             "Incompatible input types for column {0}. "
