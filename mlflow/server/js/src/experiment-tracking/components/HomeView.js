@@ -48,15 +48,13 @@ class HomeView extends Component {
       return (
         <div className='container-fluid' style={{ height: containerHeight }}>
           <div className="row">
-            <div className='col-md-3'>
-              <div className='collapsed-expander-container'>
-                <ExperimentListView
-                  activeExperimentId={this.props.experimentId}
-                  onClickListExperiments={this.onClickListExperiments}
-                />
-              </div>
+            <div className='col-md-3 col-lg-2'>
+              <ExperimentListView
+                activeExperimentId={this.props.experimentId}
+                onClickListExperiments={this.onClickListExperiments}
+              />
             </div>
-            <div className='col-md-9'>
+            <div className='col-md-9 col-lg-10'>
               {this.props.experimentId !== undefined ? (
                 <ExperimentPage experimentId={this.props.experimentId} />
               ) : (
