@@ -490,7 +490,7 @@ def main():
 
         # Set a flag that represents whether or not the matrix is empty. If this flag is 'false',
         # skip the subsequent jobs.
-        print("::set-output name=is_matrix_empty::{}".format("false" if job_names else "true")
+        print("::set-output name=is_matrix_empty::{}".format("false" if job_names else "true"))
 
 
 if __name__ == "__main__":
