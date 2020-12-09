@@ -56,7 +56,7 @@ def get_default_conda_env():
 
         # Log PyTorch model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "models_pth")
+            mlflow.pytorch.log_model(model, "model")
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
@@ -241,15 +241,15 @@ def log_model(
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "models_pth")
+            mlflow.pytorch.log_model(model, "model")
 
             # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_models_pth")
+            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_model")
 
         # Fetch the logged model artifacts
         print("run_id: {}".format(run.info.run_id))
-        for artifact_path in ["models_pth/data", "scripted_models_pth/data"]:
+        for artifact_path in ["model/data", "scripted_model/data"]:
             artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id,
                         artifact_path)]
             print("artifacts: {}".format(artifacts))
@@ -257,11 +257,11 @@ def log_model(
     .. code-block:: text
         :caption: Output
 
-        run_id: 2e403e30a09e48bd9df8401e38affd89
-        artifacts: ['models_pth/data/model.pth',
-                    'models_pth/data/pickle_module_info.txt']
-        artifacts: ['scripted_models_pth/data/model.pth',
-                    'scripted_models_pth/data/pickle_module_info.txt']
+        run_id: 1a1ec9e413ce48e9abf9aec20efd6f71
+        artifacts: ['model/data/model.pth',
+                    'model/data/pickle_module_info.txt']
+        artifacts: ['scripted_model/data/model.pth',
+                    'scripted_model/data/pickle_module_info.txt']
 
     .. figure:: ../_static/images/pytorch_logged_models.png
 
@@ -614,7 +614,6 @@ def load_model(model_uri, **kwargs):
     .. code-block:: python
         :caption: Example
 
-        import numpy as np
         import torch
         import mlflow.pytorch
 
@@ -630,10 +629,10 @@ def load_model(model_uri, **kwargs):
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "models_pth")
+            mlflow.pytorch.log_model(model, "model")
 
         # Inference after loading the logged model
-        model_uri = "runs:/{}/models_pth".format(run.info.run_id)
+        model_uri = "runs:/{}/model".format(run.info.run_id)
         loaded_model = mlflow.pytorch.load_model(model_uri)
         for x in [4.0, 6.0, 30.0]:
             X = torch.Tensor([[x]])
@@ -643,9 +642,9 @@ def load_model(model_uri, **kwargs):
     .. code-block:: text
         :caption: Output
 
-        predict X:4.0, y_pred: 7.57
-        predict X:6.0, y_pred: 11.64
-        predict X:30.0, y_pred: 60.48
+        predict X: 4.0, y_pred: 7.57
+        predict X: 6.0, y_pred: 11.64
+        predict X: 30.0, y_pred: 60.48
     """
     import torch
 
