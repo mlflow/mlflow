@@ -354,9 +354,10 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
             hint = (
                 " Hint: the type mismatch is likely caused by missing values. "
                 "Integer columns in python can not represent missing values and are therefore "
-                "encoded as floats. Remove any missing values from {0} or, if your input can "
-                "be safely represented as float64, update your model signature. See MLflow "
-                "documentation for more details."
+                "encoded as floats. The best way to avoid this problem is to declare integer "
+                "columns as doubles (float64) whenever these columns can have missing values. See "
+                "`Handling Integers With Missing Values <https://www.mlflow.org/"
+                "docs/latest/models.html#handling-integers-with-missing-values>`_ for more details."
             ).format(name)
 
         raise MlflowException(
@@ -446,37 +447,15 @@ class PyFuncModel(object):
         """
         Generate model predictions.
 
-        If the model contains  model signature enforce the input schema first before calling the
-        underlying model with the sanitized input. If the model does not include model schema, the
-        input is passed to the model as is.
-
-        Schema enforcement checks that the shape and types of the input data match the model
-        expectations and performs safe type conversions when necessary. Error is raised if the
-        schema can not be matched, either due to missing input or incompatible data types. The
-        following checks are performed:
-
-          1. Enforce data shape:  Check that there are no missing inputs (columns) and ignore any
-             extra inputs. If the inputs in the schema are named, match the input by name, otherwise
-             match by index.
-
-          2. Enforce data types:  The input data types must match the schema exactly or be safely
-             convertible to the type declared in the schema. TypeError is raised otherwise. Only
-             conversions that are  guaranteed to be lossless are allowed. For example, int -> long
-             or int -> double are allowed conversions, long -> int or int -> float are not allowed.
-
-        NOTE:
-
-             Integers in python can not encode missing values. Therefore, integer input that
-             contains missing values is typically encoded as floats. This can lead to type
-             enforcement errors at runtime since the actual data type for the given sampel may
-             change depending on whether or not does the sample include missing values. The best
-             way to avoid this problem is to declare integer columns as floats (float32) or doubles
-             (float64) whenever these columns can have missing values.
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
         :param data: Model input as pandas.DataFrame.
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        input_schema = self._model_meta.get_input_schema()
+        input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
         return self._model_impl.predict(data)
