@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-set -ex
+set -x
 # Set err=1 if any commands exit with non-zero status as described in
 # https://stackoverflow.com/a/42219754
-# err=0
-# trap 'err=1' ERR
-# export MLFLOW_HOME=$(pwd)
+err=0
+trap 'err=1' ERR
+export MLFLOW_HOME=$(pwd)
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
@@ -26,5 +26,6 @@ pytest --verbose tests/shap --large
 pytest --verbose tests/utils/test_model_utils.py --large
 pytest --verbose tests/tracking/fluent/test_fluent_autolog.py --large
 
+sleep 5
 
-# test $err = 0
+test $err = 0
