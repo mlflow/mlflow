@@ -1,3 +1,6 @@
+#' @include tracking-globals.R
+NULL
+
 #' Create Experiment
 #'
 #' Creates an MLflow experiment and returns its id.
@@ -18,6 +21,8 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
       artifact_location = artifact_location
     )
   )
+  mlflow_register_tracking_event("create_experiment", response)
+
   response$experiment_id
 }
 
@@ -115,12 +120,14 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
     stop("Cannot delete an active experiment.", call. = FALSE)
 
   client <- resolve_client(client)
+  data <- list(experiment_id = experiment_id)
   mlflow_rest(
     "experiments", "delete",
     verb = "POST", client = client,
-    data = list(experiment_id = experiment_id)
-
+    data = data
   )
+  mlflow_register_tracking_event("delete_experiment", data)
+
   invisible(NULL)
 }
 
@@ -139,11 +146,14 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
 #' @export
 mlflow_restore_experiment <- function(experiment_id, client = NULL) {
   client <- resolve_client(client)
+  data <- list(experiment_id = experiment_id)
   mlflow_rest(
     "experiments", "restore",
     client = client, verb = "POST",
-    data = list(experiment_id = experiment_id)
+    data = data
   )
+  mlflow_register_tracking_event("restore_experiment", data)
+
   invisible(NULL)
 }
 

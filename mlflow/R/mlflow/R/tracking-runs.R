@@ -75,11 +75,10 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
   response <- mlflow_rest(
     "runs", "create", client = client, verb = "POST", data = data
   )
-  run_id <- response$run$info$run_uuid
-  data$run_id <- run_id
-  mlflow_register_tracking_event("create_run", data)
+  run <- mlflow_get_run(run_id = response$run$info$run_uuid, client = client)
+  mlflow_register_tracking_event("create_run", run)
 
-  mlflow_get_run(run_id = run_id, client = client)
+  run
 }
 
 #' Delete a Run
@@ -389,9 +388,10 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
     end_time = end_time
   )
   response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = data)
-  mlflow_register_tracking_event("set_terminated", data)
+  run <- mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
+  mlflow_register_tracking_event("set_terminated", run)
 
-  mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
+  run
 }
 
 #' Download Artifacts
