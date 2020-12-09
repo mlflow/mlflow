@@ -270,6 +270,46 @@ def test_schema_enforcement_no_col_names():
     assert "Expected input to be DataFrame or list. Found: set" in str(ex)
 
 
+def test_supported_tensor_inputs():
+    class TestModel(object):
+        @staticmethod
+        def predict(pdf):
+            return pdf
+
+    test_data = np.array([1, 2, 3])
+    test_dict = {1: test_data, 2: test_data}
+    test_3d_data = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])
+
+    m = Model()
+    pyfunc_model_no_tensor_support = PyFuncModel(model_meta=m, model_impl=TestModel())
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model_no_tensor_support.predict(test_data)
+    assert "Provided input data is not of a supported type" in str(ex)
+
+    pyfunc_model_w_tensor_support = PyFuncModel(
+        model_meta=m, model_impl=TestModel(), supports_tensor_input=True
+    )
+
+    # Can call with a 1D numpy array
+    assert np.array_equal(pyfunc_model_w_tensor_support.predict(test_data), test_data)
+
+    # and a 3D numpy array
+    assert np.array_equal(pyfunc_model_w_tensor_support.predict(test_3d_data), test_3d_data)
+
+    # and a dictionary of numpy arrays
+    assert pyfunc_model_w_tensor_support.predict(test_dict) == test_dict
+
+    # Only lists of np arrays are allowed
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model_w_tensor_support.predict([1, 2, 3])
+    assert "Provided input data is not of a supported type" in str(ex)
+
+    # Only dict of np arrays are allowed
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model_w_tensor_support.predict({1: 2, 3: 4})
+    assert "Provided input data is not of a supported type" in str(ex)
+
+
 @pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")

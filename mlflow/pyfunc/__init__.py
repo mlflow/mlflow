@@ -386,6 +386,23 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     return new_pdf
 
 
+def _is_supported_tensor(data: Any):
+    """
+    Returns if input is of a supported tensor type.ndarray
+
+    Supported tensor types are pandas DataFrames or numpy array based tensors.
+    """
+    if data is pandas.DataFrame:
+        return True
+    elif isinstance(data, np.ndarray):
+        return True
+    elif isinstance(data, list) and all(isinstance(x, np.ndarray) for x in data):
+        return True
+    elif isinstance(data, dict) and all(isinstance(x, np.ndarray) for x in data.values()):
+        return True
+    return False
+
+
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
@@ -404,24 +421,29 @@ class PyFuncModel(object):
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any):
+    def __init__(self, model_meta: Model, model_impl: Any, supports_tensor_input: bool = False):
         if not hasattr(model_impl, "predict"):
             raise MlflowException("Model implementation is missing required predict method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
         self._model_impl = model_impl
+        self._supports_tensor_input = supports_tensor_input
 
-    def predict(self, data: pandas.DataFrame) -> PyFuncOutput:
+    def predict(self, data: Any) -> PyFuncOutput:
         """
         Generate model predictions.
-        :param data: Model input as pandas.DataFrame.
+        :param data: Model input
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self._model_meta.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        return self._model_impl.predict(data)
+        if isinstance(data, pandas.DataFrame) or (
+            self._supports_tensor_input and _is_supported_tensor(data)
+        ):
+            return self._model_impl.predict(data)
+        raise MlflowException("Provided input data is not of a supported type")
 
     @property
     def metadata(self):
@@ -480,8 +502,12 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
         code_path = os.path.join(local_path, conf[CODE])
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
-    return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
+    model_module = importlib.import_module(conf[MAIN])
+    model_impl = model_module._load_pyfunc(data_path)
+    supports_tensor_input = getattr(model_module, "SUPPORTS_TENSOR_INPUTS", False)
+    return PyFuncModel(
+        model_meta=model_meta, model_impl=model_impl, supports_tensor_input=supports_tensor_input
+    )
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)

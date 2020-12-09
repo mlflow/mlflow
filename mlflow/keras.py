@@ -38,6 +38,8 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 FLAVOR_NAME = "keras"
+SUPPORTS_TENSOR_INPUTS = True
+
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
 _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
@@ -449,15 +451,18 @@ class _KerasModelWrapper:
         self._graph = graph
         self._sess = sess
 
-    def predict(self, dataframe):
+    def predict(self, data):
         # In TensorFlow < 2.0, we use a graph and session to predict
+        input_data = data
+        if isinstance(data, pd.DataFrame):
+            input_data = data.values
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
-                    predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
+                    predicted = pd.DataFrame(self.keras_model.predict(input_data))
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
-            predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
+            predicted = pd.DataFrame(self.keras_model.predict(input_data))
         predicted.index = dataframe.index
         return predicted
 
