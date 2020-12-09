@@ -303,14 +303,38 @@ def autologging_integration(name):
     requiring specific logic to be present in each autologging integration.
     """
 
-    AUTOLOGGING_INTEGRATIONS[name] = {}
+    def validate_param_spec(param_spec):
+        if "disable" not in param_spec or param_spec["disable"].default is not False:
+            raise Exception(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
+                " must specify a 'disable' argument with default value 'False'".format(name)
+            )
+
+        params_without_defaults = [param for param in param_spec.values() if param.default == inspect.Parameter.empty]
+        if not all([param.kind == inspect.Parameter.KEYWORD_ONLY for param in params_without_defaults]):
+            raise Exception(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
+                " must use keyword configuration arguments. Positional arguments are not allowed.".format(name)
+            )
 
     def wrapper(_autolog):
-        def autolog(**kwargs):
-            AUTOLOGGING_INTEGRATIONS[name] = kwargs
-            _autolog(**kwargs)
+        param_spec = inspect.signature(_autolog).parameters
+        validate_param_spec(param_spec)
 
-        wrapped_autolog = functools.wraps(_autolog)(autolog)
+        AUTOLOGGING_INTEGRATIONS[name] = {}
+
+        default_params = {
+            param.name: param.default
+            for param in param_spec.values()
+        }
+
+        def autolog(**kwargs):
+            config_to_store = dict(default_params)
+            config_to_store.update(kwargs)
+            AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+            return _autolog(**kwargs)
+
+        wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
         return wrapped_autolog
 
     return wrapper
@@ -346,7 +370,6 @@ def exception_safe_function(function):
         setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
 
     def safe_function(*args, **kwargs):
-
         try:
             return function(*args, **kwargs)
         except Exception as e:  # pylint: disable=broad-except
@@ -369,11 +392,13 @@ class ExceptionSafeClass(type):
     a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`. To prevent errors
     encountered during method execution within such classes from disrupting model training,
     this metaclass wraps all class functions in a broad try / catch statement.
-    """
 
+    Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
+    as these are not always Python callables and are difficult to wrap
+    """
     def __new__(cls, name, bases, dct):
         for m in dct:
-            if hasattr(dct[m], "__call__"):
+            if callable(dct[m]):
                 dct[m] = exception_safe_function(dct[m])
         return type.__new__(cls, name, bases, dct)
 
@@ -645,17 +670,12 @@ def _validate_args(
                 "New function argument '{}' passed to original function is not exception-safe."
                 " Please decorate the function with `exception_safe_function`.".format(inp)
             )
-        elif inspect.isclass(type(inp)):
-            assert type(inp.__class__) == ExceptionSafeClass, (
-                "New class argument '{}' passed to original function is not exception-safe."
-                " Please specify the `ExceptionSafeClass` metaclass"
-                " in the class definition.".format(inp)
-            )
         else:
-            raise Exception(
+            assert hasattr(inp, "__class__") and type(inp.__class__) == ExceptionSafeClass, (
                 "Invalid new input '{}'. New args / kwargs introduced to `original` function"
-                " calls by patched code must either be exception safe functions, exception safe"
-                " classes, or lists of exceptions safe functions / classes.".format(inp)
+                " calls by patched code must either be functions decorated with"
+                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass`"
+                " metaclass safe or lists of such exception safe functions / classes.".format(inp)
             )
 
     def _validate(autologging_call_input, user_call_input=None):
@@ -672,7 +692,7 @@ def _validate_args(
         if type(autologging_call_input) == list:
             length_difference = len(autologging_call_input) - len(user_call_input)
             assert length_difference >= 0, (
-                "{} expected args / kwargs are missing from the call"
+                "{} expected inputs are missing from the call"
                 " to the original function.".format(length_difference)
             )
             user_call_input = user_call_input + ([None] * (length_difference))
