@@ -11,6 +11,7 @@ keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(
 # TODO: unpin after we use tensorflow >= 2.4
 reticulate::conda_install("'h5py<3.0.0'", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
+# Exclude xgboost 1.3.0 to avoid this issue: https://github.com/dmlc/xgboost/issues/6481
 reticulate::conda_install("xgboost!=1.3.0", envname = mlflow:::mlflow_conda_env_name())
 # Pin h2o to prevent version-mismatch between python and R
 reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
