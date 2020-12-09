@@ -19,7 +19,7 @@ jobs:
         python-version: '3.6'
     - name: Install
       run: |
-        pip install pyspark mleap
+        pip install 'pyspark<3.0.0' mleap
         pip freeze
     - name: Check spark version
       run: |
