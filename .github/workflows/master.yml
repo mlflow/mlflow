@@ -10,6 +10,21 @@ env:
   CONDA_DIR: /usr/share/miniconda
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.6'
+    - name: Install
+      run: |
+        pip install pyspark mleap
+        pip freeze
+    - name: Check spark version
+      run: |
+        spark-submit --version
+
   lint:
     runs-on: ubuntu-latest
     steps:
