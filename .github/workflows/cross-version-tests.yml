@@ -40,6 +40,8 @@ jobs:
           fi
   test:
     needs: set-matrix
+    # Skip this job if the matrix is empty.
+    if: ${{ matrix.version != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
