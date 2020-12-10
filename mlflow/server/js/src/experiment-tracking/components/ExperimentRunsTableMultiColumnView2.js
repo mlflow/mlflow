@@ -426,28 +426,30 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     } = ExperimentRunsTableMultiColumnView2;
 
     return (
-      <div className='ag-theme-balham multi-column-view'>
-        <AgGridReact
-          defaultColDef={defaultColDef}
-          columnDefs={columnDefs}
-          rowData={this.getRowData()}
-          modules={[Grid, ClientSideRowModelModule]}
-          rowSelection='multiple'
-          onGridReady={this.handleGridReady}
-          onSelectionChanged={this.handleSelectionChange}
-          onColumnGroupOpened={this.persistGridState}
-          suppressRowClickSelection
-          suppressScrollOnNewData // retain scroll position after nested run toggling operations
-          suppressFieldDotNotation
-          enableCellTextSelection
-          frameworkComponents={frameworkComponents}
-          fullWidthCellRendererFramework={FullWidthCellRenderer}
-          fullWidthCellRendererParams={{ handleLoadMoreRuns, loadingMore }}
-          loadingOverlayComponent='loadingOverlayComponent'
-          loadingOverlayComponentParams={{ showImmediately: true }}
-          isFullWidthCell={isFullWidthCell}
-          isRowSelectable={this.isRowSelectable}
-        />
+      <div className='ExperimentView row'>
+        <div className='ag-theme-balham multi-column-view col-12'>
+          <AgGridReact
+            defaultColDef={defaultColDef}
+            columnDefs={columnDefs}
+            rowData={this.getRowData()}
+            modules={[Grid, ClientSideRowModelModule]}
+            rowSelection='multiple'
+            onGridReady={this.handleGridReady}
+            onSelectionChanged={this.handleSelectionChange}
+            onColumnGroupOpened={this.persistGridState}
+            suppressRowClickSelection
+            suppressScrollOnNewData // retain scroll position after nested run toggling operations
+            suppressFieldDotNotation
+            enableCellTextSelection
+            frameworkComponents={frameworkComponents}
+            fullWidthCellRendererFramework={FullWidthCellRenderer}
+            fullWidthCellRendererParams={{ handleLoadMoreRuns, loadingMore }}
+            loadingOverlayComponent='loadingOverlayComponent'
+            loadingOverlayComponentParams={{ showImmediately: true }}
+            isFullWidthCell={isFullWidthCell}
+            isRowSelectable={this.isRowSelectable}
+          />
+        </div>
       </div>
     );
   }

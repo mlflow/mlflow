@@ -483,53 +483,55 @@ export class ExperimentView extends Component {
             </div>
           </div>
         </form>
-        <div className='ExperimentView-run-buttons'>
-          <span className='run-count'>
-            Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
-          </span>
-          <Button className='btn-primary' disabled={compareDisabled} onClick={this.onCompare}>
-            Compare
-          </Button>
-          {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
-            <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
-              Delete
+        <div className='row'>
+          <div className='ExperimentView-run-buttons col-12'>
+            <span className='run-count'>
+              Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+            </span>
+            <Button className='btn-primary' disabled={compareDisabled} onClick={this.onCompare}>
+              Compare
             </Button>
-          ) : null}
-          {this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
-            <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
-              Restore
+            {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
+              <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
+                Delete
+              </Button>
+            ) : null}
+            {this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
+              <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
+                Restore
+              </Button>
+            ) : null}
+            <Button onClick={this.onDownloadCsv}>
+              Download CSV <i className='fas fa-download' />
             </Button>
-          ) : null}
-          <Button onClick={this.onDownloadCsv}>
-            Download CSV <i className='fas fa-download' />
-          </Button>
-          <span style={{ float: 'right', marginLeft: 16 }}>
-            <RunsTableColumnSelectionDropdown
-              paramKeyList={paramKeyList}
-              metricKeyList={metricKeyList}
-              visibleTagKeyList={visibleTagKeyList}
-              categorizedUncheckedKeys={categorizedUncheckedKeys}
-              onCheck={this.handleColumnSelectionCheck}
-            />
-          </span>
-          <span style={{ cursor: 'pointer', float: 'right' }}>
-            <ButtonGroup style={styles.tableToggleButtonGroup}>
-              <Button
-                onClick={() => this.setShowMultiColumns(false)}
-                title='Compact view'
-                className={classNames({ active: !this.state.persistedState.showMultiColumns })}
-              >
-                <i className={'fas fa-list'} />
-              </Button>
-              <Button
-                onClick={() => this.setShowMultiColumns(true)}
-                title='Grid view'
-                className={classNames({ active: this.state.persistedState.showMultiColumns })}
-              >
-                <i className={'fas fa-table'} />
-              </Button>
-            </ButtonGroup>
-          </span>
+            <span style={{ float: 'right', marginLeft: 16 }}>
+              <RunsTableColumnSelectionDropdown
+                paramKeyList={paramKeyList}
+                metricKeyList={metricKeyList}
+                visibleTagKeyList={visibleTagKeyList}
+                categorizedUncheckedKeys={categorizedUncheckedKeys}
+                onCheck={this.handleColumnSelectionCheck}
+              />
+            </span>
+            <span style={{ cursor: 'pointer', float: 'right' }}>
+              <ButtonGroup style={styles.tableToggleButtonGroup}>
+                <Button
+                  onClick={() => this.setShowMultiColumns(false)}
+                  title='Compact view'
+                  className={classNames({ active: !this.state.persistedState.showMultiColumns })}
+                >
+                  <i className={'fas fa-list'} />
+                </Button>
+                <Button
+                  onClick={() => this.setShowMultiColumns(true)}
+                  title='Grid view'
+                  className={classNames({ active: this.state.persistedState.showMultiColumns })}
+                >
+                  <i className={'fas fa-table'} />
+                </Button>
+              </ButtonGroup>
+            </span>
+          </div>
         </div>
         {this.state.persistedState.showMultiColumns ? (
           <ExperimentRunsTableMultiColumnView2
