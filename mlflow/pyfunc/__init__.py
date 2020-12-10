@@ -206,7 +206,7 @@ import yaml
 from copy import deepcopy
 import logging
 
-from typing import Any, Union
+from typing import Any, Union, List, Dict
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
@@ -404,6 +404,7 @@ def _is_supported_tensor(data: Any):
 
 
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
+SupportedTensorType = Union[pandas.DataFrame, np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]
 
 
 class PyFuncModel(object):
@@ -430,7 +431,7 @@ class PyFuncModel(object):
         self._model_impl = model_impl
         self._supports_tensor_input = supports_tensor_input
 
-    def predict(self, data: Any) -> PyFuncOutput:
+    def predict(self, data: SupportedTensorType) -> PyFuncOutput:
         """
         Generate model predictions.
         :param data: Model input
@@ -439,11 +440,21 @@ class PyFuncModel(object):
         input_schema = self._model_meta.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        if isinstance(data, pandas.DataFrame) or (
-            self._supports_tensor_input and _is_supported_tensor(data)
-        ):
+        if isinstance(data, pandas.DataFrame):
             return self._model_impl.predict(data)
-        raise MlflowException("Provided input data is not of a supported type")
+        elif self._supports_tensor_input:
+            if _is_supported_tensor(data):
+                return self._model_impl.predict(data)
+            else:
+                raise MlflowException(
+                    "MLflow PyFunc interface supports the following tensor input "
+                    "data types: pandas.DataFrame, numpy.ndarray, List[numpy.ndarray], or a "
+                    "Dict[str, numpy.ndarray].\nIf you are trying to score other data types "
+                    "understood by your model, please load your model via the appropriate model "
+                    "flavor e.g. mlflow.pytorch.load_model"
+                )
+        else:
+            raise MlflowException("This model flavor does not support tensor input types.")
 
     @property
     def metadata(self):

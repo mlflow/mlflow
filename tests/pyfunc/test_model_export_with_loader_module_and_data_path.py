@@ -284,7 +284,7 @@ def test_supported_tensor_inputs():
     pyfunc_model_no_tensor_support = PyFuncModel(model_meta=m, model_impl=TestModel())
     with pytest.raises(MlflowException) as ex:
         pyfunc_model_no_tensor_support.predict(test_data)
-    assert "Provided input data is not of a supported type" in str(ex)
+    assert "This model flavor does not support tensor input types" in str(ex)
 
     pyfunc_model_w_tensor_support = PyFuncModel(
         model_meta=m, model_impl=TestModel(), supports_tensor_input=True
@@ -302,12 +302,12 @@ def test_supported_tensor_inputs():
     # Only lists of np arrays are allowed
     with pytest.raises(MlflowException) as ex:
         pyfunc_model_w_tensor_support.predict([1, 2, 3])
-    assert "Provided input data is not of a supported type" in str(ex)
+    assert "MLflow PyFunc interface supports the following tensor input data types" in str(ex)
 
     # Only dict of np arrays are allowed
     with pytest.raises(MlflowException) as ex:
         pyfunc_model_w_tensor_support.predict({1: 2, 3: 4})
-    assert "Provided input data is not of a supported type" in str(ex)
+    assert "MLflow PyFunc interface supports the following tensor input data types" in str(ex)
 
 
 @pytest.mark.large
