@@ -139,6 +139,8 @@ def is_post_release(ver):
 
     Examples
     --------
+    >>> is_post_release("0.1-2")
+    True
     >>> is_post_release("0.1.post")
     True
     >>> is_post_release("0.1.post0")
