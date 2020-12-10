@@ -340,6 +340,30 @@ def autologging_integration(name):
     return wrapper
 
 
+def autologging_integration_config(flavor_name, config_key, default_value=None):
+    """
+    Returns a desired config value for a specified autologging integration.
+    Returns `None` if specified `flavor_name` has no recorded configs.
+    If `config_key` is not set on the config object, default vlaue is returned.
+
+    :param flavor_name: An autologging integration flavor name.
+    :param config_key: The key for the desired config value.
+    :param default_value: The default_value to return
+    """
+    config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
+    if config is not None:
+        return config.get(config_key, default_value)
+
+
+def autologging_is_disabled(flavor_name):
+    """
+    Returns a boolean flag of whether the autologging integration is disabled.
+
+    :param flavor_name: An autologging integration flavor name.
+    """
+    return autologging_integration_config(flavor_name, "disable", False)
+
+
 def _is_testing():
     """
     Indicates whether or not autologging functionality is running in test mode (as determined
@@ -575,10 +599,9 @@ def safe_patch(
         """
         original = gorilla.get_original_attribute(destination, function_name)
 
-        config = AUTOLOGGING_INTEGRATIONS.get(autologging_integration)
         # If the autologging integration associated with this patch is disabled,
         # call the original function and return
-        if config is not None and config.get("disable", False):
+        if autologging_is_disabled(autologging_integration):
             return original(*args, **kwargs)
 
         # Whether or not the original / underlying function has been called during the
