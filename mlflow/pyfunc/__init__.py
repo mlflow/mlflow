@@ -237,6 +237,7 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
+SupportedTensorType = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
@@ -335,7 +336,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         )
 
 
-def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
+def _enforce_schema(pdf: SupportedTensorType, input_schema: Schema):
     """
     Enforce column names and types match the input schema.
 
@@ -345,8 +346,11 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    if isinstance(pdf, list):
+    if isinstance(pdf, list) or isinstance(pdf, np.ndarray):
         pdf = pandas.DataFrame(pdf)
+    elif isinstance(pdf, dict):
+        pdf.update((k, list(v)) for k, v in pdf.items() if not isinstance(v, list))
+        pdf = pandas.DataFrame.from_dict(pdf)
     if not isinstance(pdf, pandas.DataFrame):
         message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
@@ -386,25 +390,7 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     return new_pdf
 
 
-def _is_supported_tensor(data: Any):
-    """
-    Returns if input is of a supported tensor type.ndarray
-
-    Supported tensor types are pandas DataFrames or numpy array based tensors.
-    """
-    if data is pandas.DataFrame:
-        return True
-    elif isinstance(data, np.ndarray):
-        return True
-    elif isinstance(data, list) and all(isinstance(x, np.ndarray) for x in data):
-        return True
-    elif isinstance(data, dict) and all(isinstance(x, np.ndarray) for x in data.values()):
-        return True
-    return False
-
-
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
-SupportedTensorType = Union[pandas.DataFrame, np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]
 
 
 class PyFuncModel(object):
@@ -422,14 +408,13 @@ class PyFuncModel(object):
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
 
-    def __init__(self, model_meta: Model, model_impl: Any, supports_tensor_input: bool = False):
+    def __init__(self, model_meta: Model, model_impl: Any):
         if not hasattr(model_impl, "predict"):
             raise MlflowException("Model implementation is missing required predict method.")
         if not model_meta:
             raise MlflowException("Model is missing metadata.")
         self._model_meta = model_meta
         self._model_impl = model_impl
-        self._supports_tensor_input = supports_tensor_input
 
     def predict(self, data: SupportedTensorType) -> PyFuncOutput:
         """
@@ -440,21 +425,7 @@ class PyFuncModel(object):
         input_schema = self._model_meta.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        if isinstance(data, pandas.DataFrame):
-            return self._model_impl.predict(data)
-        elif self._supports_tensor_input:
-            if _is_supported_tensor(data):
-                return self._model_impl.predict(data)
-            else:
-                raise MlflowException(
-                    "MLflow PyFunc interface supports the following tensor input "
-                    "data types: pandas.DataFrame, numpy.ndarray, List[numpy.ndarray], or a "
-                    "Dict[str, numpy.ndarray].\nIf you are trying to score other data types "
-                    "understood by your model, please load your model via the appropriate model "
-                    "flavor e.g. mlflow.pytorch.load_model"
-                )
-        else:
-            raise MlflowException("This model flavor does not support tensor input types.")
+        return self._model_impl.predict(data)
 
     @property
     def metadata(self):
@@ -513,12 +484,8 @@ def load_model(model_uri: str, suppress_warnings: bool = True) -> PyFuncModel:
         code_path = os.path.join(local_path, conf[CODE])
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_module = importlib.import_module(conf[MAIN])
-    model_impl = model_module._load_pyfunc(data_path)
-    supports_tensor_input = getattr(model_module, "SUPPORTS_TENSOR_INPUTS", False)
-    return PyFuncModel(
-        model_meta=model_meta, model_impl=model_impl, supports_tensor_input=supports_tensor_input
-    )
+    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    return PyFuncModel(model_meta=model_meta, model_impl=model_impl)
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
