@@ -10,7 +10,8 @@ from mlflow.entities import RunStatus
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     safe_patch, autologging_integration, exception_safe_function, ExceptionSafeClass,
-    PatchFunction, with_managed_run, _validate_args,
+    PatchFunction, with_managed_run, _validate_args, get_autologging_config,
+    autologging_is_disabled,
 )
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
@@ -26,7 +27,7 @@ def test_mode_on():
 @pytest.fixture
 def test_mode_off():
     with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = False 
+        testing_mock.return_value = False
         assert not autologging_utils._is_testing()
         yield
 
@@ -54,6 +55,8 @@ def test_autologging_integration():
     @autologging_integration(integration_name)
     def autolog(disable=False):
         pass
+
+    autolog()
 
     return integration_name
 
@@ -437,6 +440,51 @@ def test_autologging_integration_validates_structure_of_autolog_function():
     # Failure to apply the @autologging_integration decorator should not create a
     # placeholder for configuration state
     assert "test" not in AUTOLOGGING_INTEGRATIONS
+
+
+def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
+
+    assert get_autologging_config("nonexistent_integration", "foo") == None
+
+    @autologging_integration("test_integration_for_config")
+    def autolog(foo="bar", t=7, disable=False):
+        pass
+
+    # Before `autolog()` has been invoked, config values should not be available
+    assert get_autologging_config("test_integration_for_config", "foo") == None
+    assert get_autologging_config("test_integration_for_config", "disable") == None
+    assert get_autologging_config("test_integration_for_config", "t", 10) == 10
+
+    autolog()
+
+    assert get_autologging_config("test_integration_for_config", "foo") == "bar"
+    assert get_autologging_config("test_integration_for_config", "disable") == False
+    assert get_autologging_config("test_integration_for_config", "t", 10) == 7
+    assert get_autologging_config("test_integration_for_config", "nonexistent") == None
+
+    autolog(foo="baz")
+
+    assert get_autologging_config("test_integration_for_config", "foo") == "baz"
+
+
+def test_autologging_is_disabled_returns_expected_values():
+
+    assert autologging_is_disabled("nonexistent_integration") is True
+
+    @autologging_integration("test_integration_for_disable_check")
+    def autolog(disable=False):
+        pass
+
+    # Before `autolog()` has been invoked, `autologging_is_disabled` should return False
+    assert autologging_is_disabled("test_integration_for_disable_check") is True
+
+    autolog(disable=True)
+
+    assert autologging_is_disabled("test_integration_for_disable_check") is True
+
+    autolog(disable=False)
+
+    assert autologging_is_disabled("test_integration_for_disable_check") is False
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():

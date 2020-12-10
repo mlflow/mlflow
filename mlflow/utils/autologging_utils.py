@@ -340,7 +340,7 @@ def autologging_integration(name):
     return wrapper
 
 
-def autologging_integration_config(flavor_name, config_key, default_value=None):
+def get_autologging_config(flavor_name, config_key, default_value=None):
     """
     Returns a desired config value for a specified autologging integration.
     Returns `None` if specified `flavor_name` has no recorded configs.
@@ -353,6 +353,8 @@ def autologging_integration_config(flavor_name, config_key, default_value=None):
     config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
     if config is not None:
         return config.get(config_key, default_value)
+    else:
+        return default_value
 
 
 def autologging_is_disabled(flavor_name):
@@ -361,7 +363,7 @@ def autologging_is_disabled(flavor_name):
 
     :param flavor_name: An autologging integration flavor name.
     """
-    return autologging_integration_config(flavor_name, "disable", False)
+    return get_autologging_config(flavor_name, "disable", True)
 
 
 def _is_testing():
