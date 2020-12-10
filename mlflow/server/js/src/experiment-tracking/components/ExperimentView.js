@@ -391,7 +391,7 @@ export class ExperimentView extends Component {
       </div>
     );
     return (
-      <div className='ExperimentView runs-table-flex-container'>
+      <div>
         <DeleteRunModal
           isOpen={this.state.showDeleteRunModal}
           onClose={this.onCloseDeleteRunModal}
@@ -408,183 +408,183 @@ export class ExperimentView extends Component {
           {this.renderArtifactLocation()}
         </Descriptions>
         <div className='ExperimentView-info'>{this.renderNoteSection(noteInfo)}</div>
-        <div className='ExperimentView-runs runs-table-flex-container'>
+        <div className='row'>
           {this.props.searchRunsError ? (
             <div className='error-message'>
               <span className='error-message'>{this.props.searchRunsError}</span>
             </div>
           ) : null}
-          <form className='ExperimentView-search-controls' onSubmit={this.onSearch}>
-            <div className='ExperimentView-search-inputs'>
-              <div className='ExperimentView-search'>
-                <div className='ExperimentView-search-input'>
-                  <label className='filter-label'>Search Runs:</label>
-                  <div className='filter-wrapper'>
-                    <input
-                      className='ExperimentView-searchInput'
-                      aria-label='search runs'
-                      type='text'
-                      placeholder={
-                        'metrics.rmse < 1 and params.model = "tree" and ' +
-                        'tags.mlflow.source.type = "LOCAL"'
-                      }
-                      value={this.state.searchInput}
-                      onChange={this.onSearchInput}
-                    />
-                  </div>
-                </div>
-                <Popover
-                  overlayClassName='search-input-tooltip'
-                  content={searchInputHelpTooltipContent}
-                  placement='bottom'
+        </div>
+        <form onSubmit={this.onSearch}>
+          <div className='row'>
+            <div className='form-group col-md-8 row'>
+              <label className='col-sm-2 col-form-label'>Search Runs:</label>
+              <div className='col-sm-9'>
+                <input
+                  className='form-control'
+                  aria-label='search runs'
+                  type='text'
+                  placeholder={
+                    'metrics.rmse < 1 and params.model = "tree" and ' +
+                    'tags.mlflow.source.type = "LOCAL"'
+                  }
+                  value={this.state.searchInput}
+                  onChange={this.onSearchInput}
+                />
+              </div>
+              <Popover
+                overlayClassName='search-input-tooltip'
+                content={searchInputHelpTooltipContent}
+                placement='bottom'
+              >
+                <Icon
+                  type='question-circle'
+                  className='ExperimentView-search-help'
+                  theme='filled'
+                />
+              </Popover>
+            </div>
+            <div className='form-group col-md-2 row'>
+              <label className='col-sm-4 col-form-label'>
+                State:
+              </label>
+              <div className='col-sm-8'>
+                <DropdownButton
+                  id={'ExperimentView-lifecycle-button-id'}
+                  className='ExperimentView-lifecycle-button'
+                  key={this.state.lifecycleFilterInput}
+                  bsStyle='default'
+                  title={this.state.lifecycleFilterInput}
                 >
-                  <Icon
-                    type='question-circle'
-                    className='ExperimentView-search-help'
-                    theme='filled'
-                  />
-                </Popover>
-                <div className='ExperimentView-lifecycle-input'>
-                  <label className='filter-label' style={styles.lifecycleButtonLabel}>
-                    State:
-                  </label>
-                  <div className='filter-wrapper' style={styles.lifecycleButtonFilterWrapper}>
-                    <DropdownButton
-                      id={'ExperimentView-lifecycle-button-id'}
-                      className='ExperimentView-lifecycle-button'
-                      key={this.state.lifecycleFilterInput}
-                      bsStyle='default'
-                      title={this.state.lifecycleFilterInput}
-                    >
-                      <MenuItem
-                        active={this.state.lifecycleFilterInput === LIFECYCLE_FILTER.ACTIVE}
-                        onSelect={this.onLifecycleFilterInput}
-                        eventKey={LIFECYCLE_FILTER.ACTIVE}
-                      >
-                        {LIFECYCLE_FILTER.ACTIVE}
-                      </MenuItem>
-                      <MenuItem
-                        active={this.state.lifecycleFilterInput === LIFECYCLE_FILTER.DELETED}
-                        onSelect={this.onLifecycleFilterInput}
-                        eventKey={LIFECYCLE_FILTER.DELETED}
-                      >
-                        {LIFECYCLE_FILTER.DELETED}
-                      </MenuItem>
-                    </DropdownButton>
-                  </div>
-                </div>
-                <button className='btn btn-primary search-button' onClick={this.onSearch}>
-                  Search
-                </button>
-                <button className='btn clear-button' onClick={this.onClear}>
-                  Clear
-                </button>
+                  <MenuItem
+                    active={this.state.lifecycleFilterInput === LIFECYCLE_FILTER.ACTIVE}
+                    onSelect={this.onLifecycleFilterInput}
+                    eventKey={LIFECYCLE_FILTER.ACTIVE}
+                  >
+                    {LIFECYCLE_FILTER.ACTIVE}
+                  </MenuItem>
+                  <MenuItem
+                    active={this.state.lifecycleFilterInput === LIFECYCLE_FILTER.DELETED}
+                    onSelect={this.onLifecycleFilterInput}
+                    eventKey={LIFECYCLE_FILTER.DELETED}
+                  >
+                    {LIFECYCLE_FILTER.DELETED}
+                  </MenuItem>
+                </DropdownButton>
               </div>
             </div>
-          </form>
-          <div className='ExperimentView-run-buttons'>
-            <span className='run-count'>
-              Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
-            </span>
-            <Button className='btn-primary' disabled={compareDisabled} onClick={this.onCompare}>
-              Compare
-            </Button>
-            {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
-              <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
-                Delete
-              </Button>
-            ) : null}
-            {this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
-              <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
-                Restore
-              </Button>
-            ) : null}
-            <Button onClick={this.onDownloadCsv}>
-              Download CSV <i className='fas fa-download' />
-            </Button>
-            <span style={{ float: 'right', marginLeft: 16 }}>
-              <RunsTableColumnSelectionDropdown
-                paramKeyList={paramKeyList}
-                metricKeyList={metricKeyList}
-                visibleTagKeyList={visibleTagKeyList}
-                categorizedUncheckedKeys={categorizedUncheckedKeys}
-                onCheck={this.handleColumnSelectionCheck}
-              />
-            </span>
-            <span style={{ cursor: 'pointer', float: 'right' }}>
-              <ButtonGroup style={styles.tableToggleButtonGroup}>
-                <Button
-                  onClick={() => this.setShowMultiColumns(false)}
-                  title='Compact view'
-                  className={classNames({ active: !this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={'fas fa-list'} />
-                </Button>
-                <Button
-                  onClick={() => this.setShowMultiColumns(true)}
-                  title='Grid view'
-                  className={classNames({ active: this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={'fas fa-table'} />
-                </Button>
-              </ButtonGroup>
-            </span>
+            <div className='col-md-2'>
+              <button className='btn btn-primary search-button' onClick={this.onSearch}>
+                Search
+              </button>
+              <button className='btn clear-button' onClick={this.onClear}>
+                Clear
+              </button>
+            </div>
           </div>
-          {this.state.persistedState.showMultiColumns ? (
-            <ExperimentRunsTableMultiColumnView2
-              experimentId={experiment.experiment_id}
-              onSelectionChange={this.handleMultiColumnViewSelectionChange}
-              runInfos={this.props.runInfos}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
-              paramKeyList={filteredParamKeys}
-              metricKeyList={filteredMetricKeys}
-              visibleTagKeyList={filteredVisibleTagKeyList}
+        </form>
+        <div className='ExperimentView-run-buttons'>
+          <span className='run-count'>
+            Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+          </span>
+          <Button className='btn-primary' disabled={compareDisabled} onClick={this.onCompare}>
+            Compare
+          </Button>
+          {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
+            <Button disabled={deleteDisabled} onClick={this.onDeleteRun}>
+              Delete
+            </Button>
+          ) : null}
+          {this.props.lifecycleFilter === LIFECYCLE_FILTER.DELETED ? (
+            <Button disabled={restoreDisabled} onClick={this.onRestoreRun}>
+              Restore
+            </Button>
+          ) : null}
+          <Button onClick={this.onDownloadCsv}>
+            Download CSV <i className='fas fa-download' />
+          </Button>
+          <span style={{ float: 'right', marginLeft: 16 }}>
+            <RunsTableColumnSelectionDropdown
+              paramKeyList={paramKeyList}
+              metricKeyList={metricKeyList}
+              visibleTagKeyList={visibleTagKeyList}
               categorizedUncheckedKeys={categorizedUncheckedKeys}
-              isAllChecked={this.isAllChecked()}
-              onSortBy={this.onSortBy}
-              orderByKey={this.props.orderByKey}
-              orderByAsc={this.props.orderByAsc}
-              runsSelected={this.state.runsSelected}
-              runsExpanded={this.state.persistedState.runsExpanded}
-              onExpand={this.onExpand}
-              nextPageToken={nextPageToken}
-              handleLoadMoreRuns={handleLoadMoreRuns}
-              loadingMore={loadingMore}
-              isLoading={isLoading}
+              onCheck={this.handleColumnSelectionCheck}
             />
-          ) : isLoading ? (
-            <Spinner showImmediately />
-          ) : (
-            <ExperimentRunsTableCompactView
-              onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
-              // Bagged param and metric keys
-              paramKeyList={filteredParamKeys}
-              metricKeyList={filteredMetricKeys}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
-              categorizedUncheckedKeys={categorizedUncheckedKeys}
-              onCheckAll={this.onCheckAll}
-              isAllChecked={this.isAllChecked()}
-              onSortBy={this.onSortBy}
-              orderByKey={this.props.orderByKey}
-              orderByAsc={this.props.orderByAsc}
-              runsSelected={this.state.runsSelected}
-              runsExpanded={this.state.persistedState.runsExpanded}
-              onExpand={this.onExpand}
-              unbaggedMetrics={filteredUnbaggedMetricKeys}
-              unbaggedParams={filteredUnbaggedParamKeys}
-              onAddBagged={this.addBagged}
-              onRemoveBagged={this.removeBagged}
-              nextPageToken={nextPageToken}
-              handleLoadMoreRuns={handleLoadMoreRuns}
-              loadingMore={loadingMore}
-            />
-          )}
+          </span>
+          <span style={{ cursor: 'pointer', float: 'right' }}>
+            <ButtonGroup style={styles.tableToggleButtonGroup}>
+              <Button
+                onClick={() => this.setShowMultiColumns(false)}
+                title='Compact view'
+                className={classNames({ active: !this.state.persistedState.showMultiColumns })}
+              >
+                <i className={'fas fa-list'} />
+              </Button>
+              <Button
+                onClick={() => this.setShowMultiColumns(true)}
+                title='Grid view'
+                className={classNames({ active: this.state.persistedState.showMultiColumns })}
+              >
+                <i className={'fas fa-table'} />
+              </Button>
+            </ButtonGroup>
+          </span>
         </div>
+        {this.state.persistedState.showMultiColumns ? (
+          <ExperimentRunsTableMultiColumnView2
+            experimentId={experiment.experiment_id}
+            onSelectionChange={this.handleMultiColumnViewSelectionChange}
+            runInfos={this.props.runInfos}
+            paramsList={this.props.paramsList}
+            metricsList={this.props.metricsList}
+            tagsList={this.props.tagsList}
+            paramKeyList={filteredParamKeys}
+            metricKeyList={filteredMetricKeys}
+            visibleTagKeyList={filteredVisibleTagKeyList}
+            categorizedUncheckedKeys={categorizedUncheckedKeys}
+            isAllChecked={this.isAllChecked()}
+            onSortBy={this.onSortBy}
+            orderByKey={this.props.orderByKey}
+            orderByAsc={this.props.orderByAsc}
+            runsSelected={this.state.runsSelected}
+            runsExpanded={this.state.persistedState.runsExpanded}
+            onExpand={this.onExpand}
+            nextPageToken={nextPageToken}
+            handleLoadMoreRuns={handleLoadMoreRuns}
+            loadingMore={loadingMore}
+            isLoading={isLoading}
+          />
+        ) : isLoading ? (
+          <Spinner showImmediately />
+        ) : (
+          <ExperimentRunsTableCompactView
+            onCheckbox={this.onCheckbox}
+            runInfos={this.props.runInfos}
+            // Bagged param and metric keys
+            paramKeyList={filteredParamKeys}
+            metricKeyList={filteredMetricKeys}
+            paramsList={this.props.paramsList}
+            metricsList={this.props.metricsList}
+            tagsList={this.props.tagsList}
+            categorizedUncheckedKeys={categorizedUncheckedKeys}
+            onCheckAll={this.onCheckAll}
+            isAllChecked={this.isAllChecked()}
+            onSortBy={this.onSortBy}
+            orderByKey={this.props.orderByKey}
+            orderByAsc={this.props.orderByAsc}
+            runsSelected={this.state.runsSelected}
+            runsExpanded={this.state.persistedState.runsExpanded}
+            onExpand={this.onExpand}
+            unbaggedMetrics={filteredUnbaggedMetricKeys}
+            unbaggedParams={filteredUnbaggedParamKeys}
+            onAddBagged={this.addBagged}
+            onRemoveBagged={this.removeBagged}
+            nextPageToken={nextPageToken}
+            handleLoadMoreRuns={handleLoadMoreRuns}
+            loadingMore={loadingMore}
+          />
+        )}
       </div>
     );
   }

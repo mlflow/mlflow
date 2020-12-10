@@ -268,11 +268,9 @@ export class ExperimentPage extends Component {
 
   render() {
     return (
-      <div className='ExperimentPage runs-table-flex-container' style={{ height: '100%' }}>
-        <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
-          {this.renderExperimentView}
-        </RequestStateWrapper>
-      </div>
+      <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
+        {this.renderExperimentView}
+      </RequestStateWrapper>
     );
   }
 
