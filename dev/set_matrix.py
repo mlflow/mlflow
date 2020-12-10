@@ -157,7 +157,7 @@ def is_post_release(ver):
     False
     """
     # Ref.: https://www.python.org/dev/peps/pep-0440/#post-releases
-    return re.search(r"^\d+(\.\d+)+(\.|-|_)(post|r|rev)(\d+)?$", ver) is not None
+    return re.search(r"(-[0-9]+$)|([-_\.]?(post|rev|r)[-_\.]?[0-9]*$)", ver) is not None
 
 
 def select_latest_micro_versions(versions):
