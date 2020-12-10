@@ -11,7 +11,7 @@ import {
   parseMlModelFile,
 } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
-import CompareModelVersionsView from './CompareModelVersionsView';
+import { CompareModelVersionsView } from './CompareModelVersionsView';
 import _ from 'lodash';
 
 // TODO: Write integration tests for this component
@@ -106,7 +106,7 @@ class CompareModelVersionsPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const modelName = JSON.parse(searchValues['?name']);
+  const modelName = decodeURIComponent(JSON.parse(searchValues['?name']));
   const versionsToRuns = JSON.parse(searchValues['runs']);
   return { modelName, versionsToRuns };
 };

@@ -1,7 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Table, Input } from 'antd';
+import { Table, Input, Alert } from 'antd';
 import { Link } from 'react-router-dom';
+import './ModelListView.css';
 import { getModelPageRoute, getModelVersionPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import {
@@ -13,9 +14,13 @@ import {
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
   REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD,
 } from '../constants';
-import { ModelRegistryDocUrl } from '../../common/constants';
+import { ModelRegistryDocUrl, onboarding } from '../../common/constants';
 import { SimplePagination } from './SimplePagination';
 import { Spinner } from '../../common/components/Spinner';
+import { CreateModelButton } from './CreateModelButton';
+import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
+import { css } from 'emotion';
+import { spacingMedium } from '../../common/styles/spacing';
 
 const NAME_COLUMN = 'Name';
 const NAME_COLUMN_INDEX = 'name';
@@ -43,10 +48,13 @@ export class ModelListView extends React.Component {
     // To know if there is a next page. If null, there is no next page. If undefined, we haven't
     // gotten an answer from the backend yet.
     nextPageToken: PropTypes.string,
+    loading: PropTypes.bool,
     onSearch: PropTypes.func.isRequired,
     onClickNext: PropTypes.func.isRequired,
     onClickPrev: PropTypes.func.isRequired,
     onClickSortableColumn: PropTypes.func.isRequired,
+    onSetMaxResult: PropTypes.func.isRequired,
+    getMaxResultValue: PropTypes.func.isRequired,
   };
 
   static defaultProps = {
@@ -56,7 +64,27 @@ export class ModelListView extends React.Component {
   state = {
     loading: false,
     lastNavigationActionWasClickPrev: false,
+    maxResultsSelection: REGISTERED_MODELS_PER_PAGE,
+    showOnboardingHelper: this.showOnboardingHelper(),
   };
+
+  showOnboardingHelper() {
+    const onboardingInformationStore = ModelListView.getLocalStore(onboarding);
+    return onboardingInformationStore.getItem('showRegistryHelper') === null;
+  }
+
+  disableOnboardingHelper() {
+    const onboardingInformationStore = ModelListView.getLocalStore(onboarding);
+    onboardingInformationStore.setItem('showRegistryHelper', 'false');
+  }
+
+  /**
+   * Returns a LocalStorageStore instance that can be used to persist data associated with the
+   * ModelRegistry component.
+   */
+  static getLocalStore(key) {
+    return LocalStorageUtils.getStoreForComponent('ModelListView', key);
+  }
 
   componentDidMount() {
     const pageTitle = 'MLflow Models';
@@ -72,7 +100,7 @@ export class ModelListView extends React.Component {
   };
 
   getColumns = () => {
-    return [
+    const columns = [
       {
         title: NAME_COLUMN,
         className: 'model-name',
@@ -127,12 +155,14 @@ export class ModelListView extends React.Component {
       },
       {
         title: LAST_MODIFIED_COLUMN,
+        className: 'last-modified',
         dataIndex: LAST_MODIFIED_COLUMN_INDEX,
         render: (text, row) => <span>{Utils.formatTimestamp(row.last_updated_timestamp)}</span>,
         sorter: true,
         ...this.getSortOrder(REGISTERED_MODELS_SEARCH_TIMESTAMP_FIELD),
       },
     ];
+    return columns;
   };
 
   getRowKey = (record) => record.name;
@@ -167,6 +197,29 @@ export class ModelListView extends React.Component {
     );
   };
 
+  renderOnboardingContent() {
+    const learnMoreLinkUrl = ModelListView.getLearnMoreLinkUrl();
+    const content = (
+      <div>
+        Share and serve machine learning models.{' '}
+        <a href={learnMoreLinkUrl} target='_blank' rel='noopener noreferrer' className='LinkColor'>
+          Learn more
+        </a>
+      </div>
+    );
+
+    return this.state.showOnboardingHelper ? (
+      <Alert
+        className='onboarding-information'
+        description={content}
+        type='info'
+        showIcon
+        closable
+        onClose={() => this.disableOnboardingHelper()}
+      />
+    ) : null;
+  }
+
   getEmptyTextComponent() {
     const { searchInput } = this.props;
     const { lastNavigationActionWasClickPrev } = this.state;
@@ -181,19 +234,12 @@ export class ModelListView extends React.Component {
         return 'No models found.';
       }
     }
-    // Handle the case when emptiness is caused by no registered model
-    const learnMoreLinkUrl = ModelListView.getLearnMoreLinkUrl();
     return (
       <div>
-        <div>No models yet.</div>
-        <div>
-          MLflow Model Registry is a centralized model store that enables you to manage the full
-          lifecycle of MLflow Models.{' '}
-          <a target='_blank' href={learnMoreLinkUrl}>
-            Learn more
-          </a>
-          {'.'}
-        </div>
+        <span>
+          No models yet. <CreateModelButton buttonType='link' buttonText='Create a model' /> to get
+          started.
+        </span>
       </div>
     );
   }
@@ -210,15 +256,21 @@ export class ModelListView extends React.Component {
     this.props.onClickPrev(this.setLoadingFalse, this.setLoadingFalse);
   };
 
+  handleSetMaxResult = ({ item, key, keyPath, domEvent }) => {
+    this.setState({ loading: true });
+    this.props.onSetMaxResult(key, this.setLoadingFalse, this.setLoadingFalse);
+  };
+
   render() {
     const { models, searchInput, currentPage, nextPageToken } = this.props;
     const { loading } = this.state;
-    const emptyText = this.getEmptyTextComponent();
 
     return (
-      <div>
+      <div className='model-list-view'>
+        <h1 className={`breadcrumb-header ${classNames.wrapper}`}>Registered Models</h1>
+        {this.renderOnboardingContent()}
         <div style={{ display: 'flex' }}>
-          <h1>Registered Models</h1>
+          <CreateModelButton />
           <Search
             className='model-list-search'
             aria-label='search model name'
@@ -236,18 +288,33 @@ export class ModelListView extends React.Component {
           className='model-version-table'
           dataSource={models}
           columns={this.getColumns()}
-          locale={{ emptyText }}
-          pagination={{ hideOnSinglePage: true, defaultPageSize: REGISTERED_MODELS_PER_PAGE }}
+          locale={{ emptyText: this.getEmptyTextComponent() }}
+          pagination={{
+            hideOnSinglePage: true,
+            pageSize: this.props.getMaxResultValue(),
+          }}
           loading={loading && { indicator: <Spinner /> }}
           onChange={this.handleTableChange}
         />
-        <SimplePagination
-          currentPage={currentPage}
-          isLastPage={nextPageToken === null}
-          onClickNext={this.handleClickNext}
-          onClickPrev={this.handleClickPrev}
-        />
+        <div>
+          <SimplePagination
+            currentPage={currentPage}
+            loading={this.props.loading}
+            isLastPage={nextPageToken === null}
+            onClickNext={this.handleClickNext}
+            onClickPrev={this.handleClickPrev}
+            handleSetMaxResult={this.handleSetMaxResult}
+            maxResultOptions={[REGISTERED_MODELS_PER_PAGE, 25, 50, 100]}
+            getSelectedPerPageSelection={this.props.getMaxResultValue}
+          />
+        </div>
       </div>
     );
   }
 }
+
+const classNames = {
+  wrapper: css({
+    marginTop: spacingMedium,
+  }),
+};
