@@ -1,19 +1,27 @@
 from contextlib import contextmanager
 import os
 import tempfile
+import pickle
+import yaml
+import shap
 
 import numpy as np
 
 import mlflow
+from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.models import Model
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.utils.annotations import experimental
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "shap"
 
@@ -24,11 +32,24 @@ _BASE_VALUES_FILE_NAME = "base_values.npy"
 _SHAP_VALUES_FILE_NAME = "shap_values.npy"
 
 
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    pip_deps = ["shap=={}".format(shap.__version__)]
+
+    return _mlflow_conda_env(
+        additional_conda_deps=[],
+        additional_pip_deps=pip_deps,
+        additional_conda_channels=None,
+    )
+
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
     """
-    return path
+    return _SHAPWrapper(path)
 
 @contextmanager
 def _log_artifact_contextmanager(out_file, artifact_path=None):
@@ -197,14 +218,14 @@ def log_explanation(predict_function, features, artifact_path=None):
 
 
 @experimental
-def log_model(
-    shap_explainer,
+def log_explainer(
+    explainer,
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    # signature: ModelSignature = None,
-    # input_example: ModelInputExample = None,
-    # await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -258,68 +279,105 @@ def log_model(
     Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.shap,
-        shap_explainer=shap_explainer,
+        explainer=explainer,
         conda_env=conda_env,
         registered_model_name=registered_model_name,
-        # signature=signature,
-        # input_example=input_example,
-        # await_registration_for=await_registration_for,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
     )
 
 
 @experimental
 def save_model(
-    shap_explainer,
+    explainer,
     path,
     conda_env=None,
     mlflow_model=None,
-    # signature: ModelSignature = None,
-    # input_example: ModelInputExample = None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     """
-    import os
 
-    if not os.path.exists(path):
-        os.mkdir(path)
-        with open(os.path.join(path,"temp"), "w") as stream:
-            stream.write("i am here")
+    if os.path.exists(path):
+        raise MlflowException(
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
+        )
 
+    os.makedirs(path)
+    if mlflow_model is None:
+        mlflow_model = Model()
+    if signature is not None:
+        mlflow_model.signature = signature
+    if input_example is not None:
+        _save_example(mlflow_model, input_example, path)
+    
+    explainer_data_subpath = "explainer.shap"
+    _save_model(
+        explainer=explainer,
+        output_path=os.path.join(path, explainer_data_subpath)
+    )
+
+    conda_env_subpath = "conda.yaml"
+    if conda_env is None:
+        conda_env = get_default_conda_env()
+    elif not isinstance(conda_env, dict):
+        with open(conda_env, "r") as f:
+            conda_env = yaml.safe_load(f)
+    with open(os.path.join(path, conda_env_subpath), "w") as f:
+        yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.shap",
+        model_path=explainer_data_subpath,
+        env=conda_env_subpath
+    )
 
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        pickled_model=model_data_subpath,
-        sklearn_version=sklearn.__version__,
-        serialization_format=serialization_format,
+        shap_version=shap.__version__,
+        serialized_explainer=explainer_data_subpath
     )
 
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    print("Called save_model")
+@experimental
+def _save_model(explainer, output_path):
+    """
+    :param sk_model: The scikit-learn model to serialize.
+    :param output_path: The file path to which to write the serialized model.
+    :param serialization_format: The format in which to serialize the model. This should be one of
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    """
+    with open(output_path, "wb") as out:
+        explainer.save(out)
 
 
 @experimental
-def load_model(model_uri):
+def load_explainer(model_uri):
     """
-    Load an ONNX model from a local file or a run.
-
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/
-                      tracking.html#artifact-stores>`_.
-
-    :return: An ONNX model instance.
-
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
-    return _load_model(model_file=onnx_model_artifacts_path)
+    local_explainer_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_explainer_path, flavor_name=FLAVOR_NAME)
+    shap_explainer_artifacts_path = os.path.join(local_explainer_path, flavor_conf["serialized_explainer"])
+    return _load_explainer(explainer_file=shap_explainer_artifacts_path)
+
+
+@experimental
+def _load_explainer(explainer_file):
+    """
+    """
+    with open(explainer_file, "rb") as explainer:
+        return shap.Explainer.load(explainer)
+
+class _SHAPWrapper:
+    def __init__(self, path):
+        flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+        shap_explainer_artifacts_path = os.path.join(path, flavor_conf["serialized_explainer"])
+        self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path)
+
+    def predict(self, dataframe):
+        return np.array(self.explainer(dataframe.values).values)
