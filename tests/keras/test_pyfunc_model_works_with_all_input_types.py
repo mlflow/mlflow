@@ -19,24 +19,6 @@ from mlflow.types import Schema, ColSpec
 from mlflow.pyfunc import PyFuncModel
 from mlflow.models import Model, infer_signature, ModelSignature
 
-import mlflow.keras
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
-from mlflow.models.utils import _read_example
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
-from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.helper_functions import score_model_in_sagemaker_docker_container
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.pyfunc.test_spark import score_model_as_udf
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
 
 @pytest.fixture
 def model_path(tmpdir):
