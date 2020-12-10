@@ -119,6 +119,8 @@ xgboost:
   models:
     minimum: "0.90"
     maximum: "1.2.1"
+    # Exclude 1.3.0 because it contains a bug: https://github.com/dmlc/xgboost/issues/6480
+    unsupported: ["1.3.0"]
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
@@ -126,6 +128,7 @@ xgboost:
   autologging:
     minimum: "0.90"
     maximum: "1.2.1"
+    unsupported: ["1.3.0"]
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large

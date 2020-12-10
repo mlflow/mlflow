@@ -133,6 +133,33 @@ def is_final_release(ver):
     return re.search(r"^\d+(\.\d+)+$", ver) is not None
 
 
+def is_post_release(ver):
+    """
+    Returns True if the given version matches PEP440's post release scheme.
+
+    Examples
+    --------
+    >>> is_post_release("0.1.post")
+    True
+    >>> is_post_release("0.1.post0")
+    True
+    >>> is_post_release("0.1.0.post10")
+    True
+    >>> is_post_release("0.1.0.r0")
+    True
+    >>> is_post_release("0.1.0.rev0")
+    True
+    >>> is_post_release("0.1.0-post0")
+    True
+    >>> is_post_release("0.1.0_post0")
+    True
+    >>> is_post_release("0.4.0")
+    False
+    """
+    # Ref.: https://www.python.org/dev/peps/pep-0440/#post-releases
+    return re.search(r"^\d+(\.\d+)+(\.|-|_)(post|r|rev)(\d+)?$", ver) is not None
+
+
 def select_latest_micro_versions(versions):
     """
     Selects the latest micro version in each minor version.
@@ -199,7 +226,7 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
     assert all(v in versions for v in excludes)
 
     versions = {v: t for v, t in versions.items() if v not in excludes}
-    versions = {v: t for v, t in versions.items() if is_final_release(v)}
+    versions = {v: t for v, t in versions.items() if is_final_release(v) or is_post_release(v)}
 
     max_major = get_major_version(max_ver)
     versions = {v: t for v, t in versions.items() if get_major_version(v) <= max_major}
