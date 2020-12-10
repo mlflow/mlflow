@@ -502,7 +502,9 @@ def main():
     )
     diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
 
-    include = sorted(diff_config.union(diff_flavor), key=lambda x: x["job_name"])
+    # If this file contains changes, re-run all the tests, otherwise, re-run the affected tests.
+    include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
+    include = sorted(include, key=lambda x: x["job_name"])
     job_names = [x["job_name"] for x in include]
 
     matrix = {"job_name": job_names, "include": include}
