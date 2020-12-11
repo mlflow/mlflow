@@ -106,7 +106,13 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model()
+    path,
+    python_model,
+    artifacts=None,
+    conda_env=None,
+    code_paths=None,
+    mlflow_model=Model(),
+    protocol=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -128,6 +134,8 @@ def _save_model_with_class_artifacts_params(
                        containing file dependencies). These files are *prepended* to the system
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
+    :param protocol: The pickle protocol version. If ``None``, the default protocol version
+                     from cloudpickle will be used.
     """
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
@@ -135,7 +143,7 @@ def _save_model_with_class_artifacts_params(
     if isinstance(python_model, PythonModel):
         saved_python_model_subpath = "python_model.pkl"
         with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
-            cloudpickle.dump(python_model, out)
+            cloudpickle.dump(python_model, out, protocol)
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
     else:
         raise MlflowException(

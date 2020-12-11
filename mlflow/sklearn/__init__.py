@@ -393,13 +393,15 @@ def _load_pyfunc(path):
     return _load_model_from_local_file(path=path, serialization_format=serialization_format)
 
 
-def _save_model(sk_model, output_path, serialization_format):
+def _save_model(sk_model, output_path, serialization_format, protocol=None):
     """
     :param sk_model: The scikit-learn model to serialize.
     :param output_path: The file path to which to write the serialized model.
     :param serialization_format: The format in which to serialize the model. This should be one of
                                  the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
                                  ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+    :param protocol: The pickle protocol version. If ``None``, the default protocol version
+                     from cloudpickle will be used.
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
@@ -407,7 +409,7 @@ def _save_model(sk_model, output_path, serialization_format):
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
 
-            cloudpickle.dump(sk_model, out)
+            cloudpickle.dump(sk_model, out, protocol)
         else:
             raise MlflowException(
                 message="Unrecognized serialization format: {serialization_format}".format(

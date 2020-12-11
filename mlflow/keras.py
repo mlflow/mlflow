@@ -387,7 +387,7 @@ def log_model(
     )
 
 
-def _save_custom_objects(path, custom_objects):
+def _save_custom_objects(path, custom_objects, protocol=None):
     """
     Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
@@ -398,12 +398,14 @@ def _save_custom_objects(path, custom_objects):
                            CloudPickle and restores them automatically when the model is
                            loaded with :py:func:`mlflow.keras.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
+    :param protocol: The pickle protocol version. If ``None``, the default protocol version
+                     from cloudpickle will be used.
     """
     import cloudpickle
 
     custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
     with open(custom_objects_path, "wb") as out_f:
-        cloudpickle.dump(custom_objects, out_f)
+        cloudpickle.dump(custom_objects, out_f, protocol)
 
 
 def _load_model(model_path, keras_module, save_format, **kwargs):

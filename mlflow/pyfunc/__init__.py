@@ -707,6 +707,7 @@ def save_model(
     mlflow_model=None,
     python_model=None,
     artifacts=None,
+    protocol=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     **kwargs
@@ -788,6 +789,9 @@ def save_model(
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
+
+    :param protocol: The pickle protocol version. If ``None``, the default protocol version
+                     from cloudpickle will be used.
 
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -875,6 +879,7 @@ def save_model(
             conda_env=conda_env,
             code_paths=code_path,
             mlflow_model=mlflow_model,
+            protocol=protocol,
         )
 
 
