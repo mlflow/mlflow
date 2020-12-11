@@ -487,7 +487,7 @@ def main():
         # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 
-        # Set a flag that indicates whether or not the matrix is empty. If this flag is 'true',
+        # Set a flag that indicates whether or not the matrix is empty. If this flag is 'false',
         # skip the subsequent jobs.
         print("::set-output name=is_matrix_empty::{}".format("false" if job_names else "true"))
 
