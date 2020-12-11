@@ -34,23 +34,14 @@ test_that("a run can be started properly if MLFLOW_RUN_ID is set", {
   # Typical use case: Invoke an R script that interacts with the MLflow API from
   # outside of R, e.g. MLproject, Python, CLI
   start_get_id_stop <- function() {
-    tryCatch(
-      mlflow_id(mlflow_start_run()),
-      finally = {
-        mlflow_end_run()
-      }
-    )
+    tryCatch(mlflow_id(mlflow_start_run()), finally = {
+      mlflow_end_run()
+    })
   }
   id <- start_get_id_stop()
-  withr::with_envvar(list(
-    MLFLOW_RUN_ID = id
-    ), {
-      expect_equal(
-        start_get_id_stop(),
-        id
-      )
-    }
-  )
+  withr::with_envvar(list(MLFLOW_RUN_ID = id), {
+    expect_equal(start_get_id_stop(), id)
+  })
 })
 
 test_that("mlflow_end_run() works properly", {
