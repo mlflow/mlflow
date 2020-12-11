@@ -317,8 +317,8 @@ def autologging_integration(name):
             [param.kind == inspect.Parameter.KEYWORD_ONLY for param in params_without_defaults]
         ):
             raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
-                " must use keyword configuration arguments. Positional arguments are not allowed.".format(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions must use"
+                " keyword configuration arguments. Positional arguments are not allowed.".format(
                     name
                 )
             )
