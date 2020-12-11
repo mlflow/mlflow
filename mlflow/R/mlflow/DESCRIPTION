@@ -40,17 +40,20 @@ Imports:
     xml2,
     yaml,
     zeallot
-Suggests: 
-  covr,
-  carrier,
-  keras,
-  lintr,
-  testthat (>= 2.0.0),
-  stringi (< 1.4.4),
-  xgboost,
-  h2o
+Suggests:
+    carrier,
+    covr,
+    h2o,
+    keras,
+    lintr,
+    mleap,
+    sparklyr,
+    stringi (< 1.4.4),
+    testthat (>= 2.0.0),
+    xgboost
+Encoding: UTF-8
 RoxygenNote: 7.1.1
-Collate: 
+Collate:
     'cli.R'
     'databricks-utils.R'
     'globals.R'
@@ -60,13 +63,14 @@ Collate:
     'mlflow-package.R'
     'model-crate.R'
     'model-python.R'
+    'model.R'
     'model-utils.R'
     'model-h2o.R'
     'model-keras.R'
+    'model-mleap.R'
     'model-serve.R'
     'model-swagger.R'
     'model-xgboost.R'
-    'model.R'
     'project-param.R'
     'project-run.R'
     'project-source.R'
