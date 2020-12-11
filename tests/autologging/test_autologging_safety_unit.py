@@ -309,7 +309,7 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     patch_destination, test_autologging_integration, test_mode_on
 ):
     def patch_impl(original, *args, **kwargs):
-        return original(1, 2, 3)
+        return original("1", "2", "3")
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
@@ -641,7 +641,7 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
 
 def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_mode_on,):
-    args = [1, "b", ["c"]]
+    args = (1, "b", ["c"])
     kwargs = {
         "foo": ["bar"],
         "biz": {"baz": 5},
@@ -660,7 +660,7 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_m
 
 
 def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(test_mode_on,):
-    user_call_args = [1, "b", ["c"]]
+    user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
         "biz": {"baz": 5},
@@ -683,7 +683,7 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
 
 
 def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_on,):
-    user_call_args = [1, "b", ["c"]]
+    user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
         "biz": {"baz": 5},
@@ -693,7 +693,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_o
         pass
 
     unsafe_autologging_call_args = copy.deepcopy(user_call_args)
-    unsafe_autologging_call_args.append(lambda: "foo")
+    unsafe_autologging_call_args += (lambda: "foo",)
     unsafe_autologging_call_kwargs1 = copy.deepcopy(user_call_kwargs)
     unsafe_autologging_call_kwargs1["foo"].append(Unsafe())
 
@@ -719,7 +719,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_o
 def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
     test_mode_on,
 ):
-    user_call_args = [1, "b", ["c"]]
+    user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
     }
@@ -729,7 +729,7 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
 
     autologging_call_args = copy.deepcopy(user_call_args)
     autologging_call_args[2].append(Safe())
-    autologging_call_args.append(exception_safe_function(lambda: "foo"))
+    autologging_call_args += (exception_safe_function(lambda: "foo"),)
 
     autologging_call_kwargs = copy.deepcopy(user_call_kwargs)
     autologging_call_kwargs["foo"].append(exception_safe_function(lambda: "foo"))
@@ -739,7 +739,7 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
 
 
 def test_validate_args_throws_when_args_are_omitted(test_mode_on,):
-    user_call_args = [1, "b", ["c"], {"d": "e"}]
+    user_call_args = (1, "b", ["c"], {"d": "e"})
     user_call_kwargs = {
         "foo": ["bar"],
         "biz": {"baz": 4, "fuzz": 5},
@@ -791,13 +791,13 @@ def test_validate_args_throws_when_args_are_omitted(test_mode_on,):
 
 
 def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on,):
-    user_call_args = [1, "b", ["c"]]
+    user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
     }
 
     invalid_autologging_call_args_1 = copy.deepcopy(user_call_args)
-    invalid_autologging_call_args_1[0] = 2
+    invalid_autologging_call_args_1 = (2,) + invalid_autologging_call_args_1[1:]
     invalid_autologging_call_kwargs_1 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_1["foo"] = ["biz"]
 
@@ -811,8 +811,8 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on,
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
         )
 
-    invalid_autologging_call_args_2 = copy.deepcopy(user_call_args)
-    invalid_autologging_call_args_2[1] = {"7": 1}
+    call_arg_1, call_arg_2, _ = copy.deepcopy(user_call_args)
+    invalid_autologging_call_args_2 = ({"7": 1}, call_arg_1, call_arg_2)
     invalid_autologging_call_kwargs_2 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_2["foo"] = 8
 
