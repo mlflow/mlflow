@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import random
 import warnings
 
@@ -29,6 +30,23 @@ class LogsDataset(Dataset):
         return self.len
 
 
+def is_mxnet_older_than_1_6_0():
+    return LooseVersion(mx.__version__) < LooseVersion("1.6.0")
+
+
+def get_metrics():
+    # `metrics` argument was split into `train_metrics` and `val_metrics` in mxnet 1.6.0:
+    # https://github.com/apache/incubator-mxnet/pull/17048
+    arg_name = "metrics" if is_mxnet_older_than_1_6_0() else "train_metrics"
+    return {arg_name: Accuracy()}
+
+
+def get_train_prefix():
+    # training prefix was renamed to `training` in mxnet 1.6.0:
+    # https://github.com/apache/incubator-mxnet/pull/17048
+    return "train" if is_mxnet_older_than_1_6_0() else "training"
+
+
 @pytest.fixture
 def gluon_random_data_run(log_models=True):
     mlflow.gluon.autolog(log_models)
@@ -49,7 +67,7 @@ def gluon_random_data_run(log_models=True):
             optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
         )
         est = estimator.Estimator(
-            net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+            net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
         )
 
         with warnings.catch_warnings():
@@ -62,10 +80,17 @@ def gluon_random_data_run(log_models=True):
 @pytest.mark.large
 def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     data = gluon_random_data_run.data
-    assert "train accuracy" in data.metrics
+    train_prefix = get_train_prefix()
+    assert "{} accuracy".format(train_prefix) in data.metrics
     assert "validation accuracy" in data.metrics
-    assert "train softmaxcrossentropyloss" in data.metrics
-    assert "validation softmaxcrossentropyloss" in data.metrics
+
+    # In mxnet >= 1.6.0, `Estimator` monitors `loss` only when `train_metrics` is specified.
+    #
+    # estimator.Estimator(loss=SomeLoss())  # monitors `loss`
+    # estimator.Estimator(loss=SomeLoss(), train_metrics=SomeMetric()) # doesn't monitor `loss`
+    if is_mxnet_older_than_1_6_0():
+        assert "{} softmaxcrossentropyloss".format(train_prefix) in data.metrics
+        assert "validation softmaxcrossentropyloss" in data.metrics
     assert "optimizer_name" in data.params
     assert data.params["optimizer_name"] == "Adam"
     assert "epsilon" in data.params
@@ -97,8 +122,9 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
         assert metric_name in patched_metrics_data
         assert original_metrics[metric_name] == patched_metrics_data[metric_name]
 
-    assert "train accuracy" in original_metrics
-    assert "train accuracy" in patched_metrics_data
+    train_prefix = get_train_prefix()
+    assert "{} accuracy".format(train_prefix) in original_metrics
+    assert "{} accuracy".format(train_prefix) in patched_metrics_data
 
 
 @pytest.mark.large
@@ -139,7 +165,7 @@ def test_autolog_ends_auto_created_run():
         model.collect_params(), "adam", optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07}
     )
     est = estimator.Estimator(
-        net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+        net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
     )
 
     with warnings.catch_warnings():
@@ -169,7 +195,7 @@ def test_autolog_persists_manually_created_run():
             optimizer_params={"learning_rate": 0.001, "epsilon": 1e-07},
         )
         est = estimator.Estimator(
-            net=model, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+            net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **get_metrics()
         )
 
         with warnings.catch_warnings():

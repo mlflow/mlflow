@@ -303,24 +303,41 @@ def autologging_integration(name):
     requiring specific logic to be present in each autologging integration.
     """
 
-    AUTOLOGGING_INTEGRATIONS[name] = {}
+    def validate_param_spec(param_spec):
+        if "disable" not in param_spec or param_spec["disable"].default is not False:
+            raise Exception(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
+                " must specify a 'disable' argument with default value 'False'".format(name)
+            )
 
     def wrapper(_autolog):
-        def autolog(**kwargs):
-            AUTOLOGGING_INTEGRATIONS[name] = kwargs
-            _autolog(**kwargs)
+        param_spec = inspect.signature(_autolog).parameters
+        validate_param_spec(param_spec)
 
-        wrapped_autolog = functools.wraps(_autolog)(autolog)
+        AUTOLOGGING_INTEGRATIONS[name] = {}
+        default_params = {param.name: param.default for param in param_spec.values()}
+
+        def autolog(*args, **kwargs):
+            config_to_store = dict(default_params)
+            config_to_store.update(
+                {param.name: arg for arg, param in zip(args, param_spec.values())}
+            )
+            config_to_store.update(kwargs)
+            AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+
+            return _autolog(*args, **kwargs)
+
+        wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
         return wrapped_autolog
 
     return wrapper
 
 
-def autologging_integration_config(flavor_name, config_key, default_value=None):
+def get_autologging_config(flavor_name, config_key, default_value=None):
     """
     Returns a desired config value for a specified autologging integration.
     Returns `None` if specified `flavor_name` has no recorded configs.
-    If `config_key` is not set on the config object, default vlaue is returned.
+    If `config_key` is not set on the config object, default value is returned.
 
     :param flavor_name: An autologging integration flavor name.
     :param config_key: The key for the desired config value.
@@ -329,6 +346,8 @@ def autologging_integration_config(flavor_name, config_key, default_value=None):
     config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
     if config is not None:
         return config.get(config_key, default_value)
+    else:
+        return default_value
 
 
 def autologging_is_disabled(flavor_name):
@@ -337,7 +356,7 @@ def autologging_is_disabled(flavor_name):
 
     :param flavor_name: An autologging integration flavor name.
     """
-    return autologging_integration_config(flavor_name, "disable", False)
+    return get_autologging_config(flavor_name, "disable", True)
 
 
 def _is_testing():
@@ -370,7 +389,6 @@ def exception_safe_function(function):
         setattr(function, _ATTRIBUTE_EXCEPTION_SAFE, True)
 
     def safe_function(*args, **kwargs):
-
         try:
             return function(*args, **kwargs)
         except Exception as e:  # pylint: disable=broad-except
@@ -393,11 +411,14 @@ class ExceptionSafeClass(type):
     a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`. To prevent errors
     encountered during method execution within such classes from disrupting model training,
     this metaclass wraps all class functions in a broad try / catch statement.
+
+    Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
+    as these are not always Python callables and are difficult to wrap
     """
 
     def __new__(cls, name, bases, dct):
         for m in dct:
-            if hasattr(dct[m], "__call__"):
+            if callable(dct[m]):
                 dct[m] = exception_safe_function(dct[m])
         return type.__new__(cls, name, bases, dct)
 
@@ -538,11 +559,11 @@ def safe_patch(
                                     patch.
     :param destination: The Python class on which the patch is being defined.
     :param function_name: The name of the function to patch on the specified `destination` class.
-    :param function: The patched function code to apply. This is either a `PatchFunction` class
-                     definition or a function object. If it is a function object, the first argument
-                     should be reserved for an `original` method argument representing the
-                     underlying / original function. Subsequent arguments should be identical to
-                     those of the original function being patched.
+    :param patch_function: The patched function code to apply. This is either a `PatchFunction`
+                           class definition or a function object. If it is a function object, the
+                           first argument should be reserved for an `original` method argument
+                           representing the underlying / original function. Subsequent arguments
+                           should be identical to those of the original function being patched.
     :param manage_run: If `True`, applies the `with_managed_run` wrapper to the specified
                        `patch_function`, which automatically creates & terminates an MLflow
                        active run during patch code execution if necessary. If `False`,
@@ -668,17 +689,12 @@ def _validate_args(
                 "New function argument '{}' passed to original function is not exception-safe."
                 " Please decorate the function with `exception_safe_function`.".format(inp)
             )
-        elif inspect.isclass(type(inp)):
-            assert type(inp.__class__) == ExceptionSafeClass, (
-                "New class argument '{}' passed to original function is not exception-safe."
-                " Please specify the `ExceptionSafeClass` metaclass"
-                " in the class definition.".format(inp)
-            )
         else:
-            raise Exception(
+            assert hasattr(inp, "__class__") and type(inp.__class__) == ExceptionSafeClass, (
                 "Invalid new input '{}'. New args / kwargs introduced to `original` function"
-                " calls by patched code must either be exception safe functions, exception safe"
-                " classes, or lists of exceptions safe functions / classes.".format(inp)
+                " calls by patched code must either be functions decorated with"
+                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass`"
+                " metaclass safe or lists of such exception safe functions / classes.".format(inp)
             )
 
     def _validate(autologging_call_input, user_call_input=None):
@@ -695,7 +711,7 @@ def _validate_args(
         if type(autologging_call_input) == list:
             length_difference = len(autologging_call_input) - len(user_call_input)
             assert length_difference >= 0, (
-                "{} expected args / kwargs are missing from the call"
+                "{} expected inputs are missing from the call"
                 " to the original function.".format(length_difference)
             )
             user_call_input = user_call_input + ([None] * (length_difference))

@@ -41,10 +41,6 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     wrap_patch,
     batch_metrics_logger,
-    autologging_integration,
-    safe_patch,
-    PatchFunction,
-    ExceptionSafeClass,
 )
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -654,10 +650,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
 
-    class SafeTensorboardCallback(TensorBoard, metaclass=ExceptionSafeClass):
-        pass
-
-    class __MLflowTfKerasCallback(Callback, metaclass=ExceptionSafeClass):
+    class __MLflowTfKerasCallback(Callback):
         """
         Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
         Records model structural information as params after training finishes.
@@ -721,7 +714,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
             if log_models:
                 try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
-    class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
+    class __MLflowTfKeras2Callback(Callback):
         """
         Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
         Records model structural information as params when training starts.
@@ -761,7 +754,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
-        out_list = lst + [SafeTensorboardCallback(log_dir.location)]
+        out_list = lst + [TensorBoard(log_dir.location)]
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
@@ -773,8 +766,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
 
 @experimental
-@autologging_integration(FLAVOR_NAME)
-def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(every_n_iter=100, log_models=True):
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -989,64 +981,45 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
                     last_epoch = len(history.history[metric_key])
                     metrics_logger.record_metrics(restored_metrics, last_epoch)
 
-    class FitPatch(PatchFunction):
-        def __init__(self):
-            self.log_dir = None
+    def fit(self, *args, **kwargs):
+        with _manage_active_run() as run:
+            original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit")
 
-        def _patch_implementation(
-            self, original, inst, *args, **kwargs
-        ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
             early_stop_callback = None
 
-            run_id = mlflow.active_run().info.run_id
+            run_id = run.info.run_id
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Checking if the 'callback' argument of fit() is set
                 if len(args) >= 6:
                     tmp_list = list(args)
                     early_stop_callback = _early_stop_check(tmp_list[5])
-                    tmp_list[5], self.log_dir = _setup_callbacks(
-                        tmp_list[5], log_models, metrics_logger
-                    )
+                    tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models, metrics_logger)
                     args = tuple(tmp_list)
                 elif kwargs.get("callbacks"):
                     early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                    kwargs["callbacks"], log_dir = _setup_callbacks(
                         kwargs["callbacks"], log_models, metrics_logger
                     )
                 else:
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        [], log_models, metrics_logger
-                    )
+                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
 
                 _log_early_stop_callback_params(early_stop_callback)
 
-                history = original(inst, *args, **kwargs)
+                history = original(self, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
             _flush_queue()
             _log_artifacts_with_warning(
-                local_dir=self.log_dir.location, artifact_path="tensorboard_logs",
+                local_dir=log_dir.location, artifact_path="tensorboard_logs"
             )
-            if self.log_dir.is_temp:
-                shutil.rmtree(self.log_dir.location)
+            if log_dir.is_temp:
+                shutil.rmtree(log_dir.location)
 
             return history
-
-        def _on_exception(self, exception):
-            if (
-                self.log_dir is not None
-                and self.log_dir.is_temp
-                and os.path.exists(self.log_dir.location)
-            ):
-                shutil.rmtree(self.log_dir.location)
-
-    safe_patch(
-        FLAVOR_NAME, tensorflow.keras.Model, "fit", FitPatch, manage_run=True,
-    )
 
     def fit_generator(self, *args, **kwargs):
         """
@@ -1101,6 +1074,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
         (EventFileWriter, "add_event", add_event),
         (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
+        (tensorflow.keras.Model, "fit", fit),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
         (FileWriter, "add_summary", add_summary),
