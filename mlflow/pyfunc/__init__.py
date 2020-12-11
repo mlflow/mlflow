@@ -237,7 +237,8 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-SupportedTensorType = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
+PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
+PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
@@ -336,7 +337,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         )
 
 
-def _enforce_schema(pdf: SupportedTensorType, input_schema: Schema):
+def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
     """
     Enforce column names and types match the input schema.
 
@@ -349,8 +350,11 @@ def _enforce_schema(pdf: SupportedTensorType, input_schema: Schema):
     if isinstance(pdf, list) or isinstance(pdf, np.ndarray) or isinstance(pdf, dict):
         try:
             pdf = pandas.DataFrame(pdf)
-        except Exception:
-            message = "The input type provided could not be converted into a pandas DataFrame."
+        except Exception as e:
+            message = (
+                "This model contains a model signature, which suggests a DataFrame input."
+                f"There was an error casting the input data to a DataFrame: {str(e)}"
+            )
             raise MlflowException(message)
     if not isinstance(pdf, pandas.DataFrame):
         message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
@@ -391,9 +395,6 @@ def _enforce_schema(pdf: SupportedTensorType, input_schema: Schema):
     return new_pdf
 
 
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
-
-
 class PyFuncModel(object):
     """
     MLflow 'python function' model.
@@ -417,7 +418,7 @@ class PyFuncModel(object):
         self._model_meta = model_meta
         self._model_impl = model_impl
 
-    def predict(self, data: SupportedTensorType) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput) -> PyFuncOutput:
         """
         Generate model predictions.
         :param data: Model input
@@ -714,7 +715,7 @@ def save_model(
     artifacts=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    **kwargs
+    **kwargs,
 ):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\

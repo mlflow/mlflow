@@ -272,7 +272,7 @@ def test_schema_enforcement():
     }
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(d)
-    assert "The input type provided could not be converted into a pandas DataFrame." in str(ex)
+    assert "This model contains a model signature, which suggests a DataFrame input." in str(ex)
 
 
 def test_schema_enforcement_no_col_names():
