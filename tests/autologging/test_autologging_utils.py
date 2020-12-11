@@ -14,7 +14,11 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     batch_metrics_logger,
     BatchMetricsLogger,
+    autologging_integration,
+    get_autologging_config,
+    autologging_is_disabled,
 )
+from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
 # Example function signature we are testing on
 # def fn(arg1, default1=1, default2=2):
@@ -396,3 +400,100 @@ def test_batch_metrics_logger_continues_if_log_batch_fails(
         assert metric.key == "y"
         assert metric.value == 2
         assert metric.step == 1
+
+
+def test_autologging_integration_calls_underlying_function_correctly():
+
+    @autologging_integration("test_integration")
+    def autolog(foo=7, disable=False):
+        return foo
+
+    assert autolog(foo=10) == 10
+
+
+def test_autologging_integration_stores_and_updates_config():
+
+    @autologging_integration("test_integration")
+    def autolog(foo=7, bar=10, disable=False):
+        return foo
+
+    autolog()
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
+    autolog(bar=11)
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
+    autolog(foo=6, disable=True)
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
+
+
+def test_autologging_integration_validates_structure_of_autolog_function():
+
+    def fn_missing_disable_conf():
+        pass
+
+    def fn_bad_disable_conf_1(disable=True):
+        pass
+
+    # Try to use a falsy value that isn't "false"
+    def fn_bad_disable_conf_2(disable=0):
+        pass
+
+    for fn in [fn_missing_disable_conf, fn_bad_disable_conf_1, fn_bad_disable_conf_2]:
+        with pytest.raises(Exception) as exc:
+            autologging_integration("test")(fn)
+        assert "must specify a 'disable' argument" in str(exc)
+
+    def fn_positional_args(positional, disable=False):
+        pass
+
+    with pytest.raises(Exception) as exc:
+        autologging_integration("test")(fn_positional_args)
+        assert "Positional arguments are not allowed" in str(exc)
+
+    # Failure to apply the @autologging_integration decorator should not create a
+    # placeholder for configuration state
+    assert "test" not in AUTOLOGGING_INTEGRATIONS
+
+
+def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
+
+    assert get_autologging_config("nonexistent_integration", "foo") == None
+
+    @autologging_integration("test_integration_for_config")
+    def autolog(foo="bar", t=7, disable=False):
+        pass
+
+    # Before `autolog()` has been invoked, config values should not be available
+    assert get_autologging_config("test_integration_for_config", "foo") == None
+    assert get_autologging_config("test_integration_for_config", "disable") == None
+    assert get_autologging_config("test_integration_for_config", "t", 10) == 10
+
+    autolog()
+
+    assert get_autologging_config("test_integration_for_config", "foo") == "bar"
+    assert get_autologging_config("test_integration_for_config", "disable") == False
+    assert get_autologging_config("test_integration_for_config", "t", 10) == 7
+    assert get_autologging_config("test_integration_for_config", "nonexistent") == None
+
+    autolog(foo="baz")
+
+    assert get_autologging_config("test_integration_for_config", "foo") == "baz"
+
+
+def test_autologging_is_disabled_returns_expected_values():
+
+    assert autologging_is_disabled("nonexistent_integration") is True
+
+    @autologging_integration("test_integration_for_disable_check")
+    def autolog(disable=False):
+        pass
+
+    # Before `autolog()` has been invoked, `autologging_is_disabled` should return False
+    assert autologging_is_disabled("test_integration_for_disable_check") is True
+
+    autolog(disable=True)
+
+    assert autologging_is_disabled("test_integration_for_disable_check") is True
+
+    autolog(disable=False)
+
+    assert autologging_is_disabled("test_integration_for_disable_check") is False

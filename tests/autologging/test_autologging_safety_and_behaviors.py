@@ -10,10 +10,16 @@ from mlflow.entities import RunStatus
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
     safe_patch, autologging_integration, exception_safe_function, ExceptionSafeClass,
-    PatchFunction, with_managed_run, _validate_args, get_autologging_config,
-    autologging_is_disabled,
+    PatchFunction, with_managed_run, _validate_args, _is_testing,
 )
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+
+@pytest.fixture(scope="function", autouse=True)
+def test_mode_off():
+    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
+        testing_mock.return_value = False
+        assert not autologging_utils._is_testing()
+        yield
 
 
 @pytest.fixture
@@ -21,14 +27,6 @@ def test_mode_on():
     with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
         testing_mock.return_value = True
         assert autologging_utils._is_testing()
-        yield
-
-
-@pytest.fixture
-def test_mode_off():
-    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = False
-        assert not autologging_utils._is_testing()
         yield
 
 
@@ -64,13 +62,13 @@ def test_autologging_integration():
 def test_is_testing_respects_environment_variable():
     try:
         prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
-        assert not autologging_utils._is_testing()
+        assert not _is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "false"
-        assert not autologging_utils._is_testing()
+        assert not _is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "true"
-        assert autologging_utils._is_testing()
+        assert _is_testing()
     finally:
         if prev_env_var_value:
             os.environ["MLFLOW_AUTOLOGGING_TESTING"] = prev_env_var_value
@@ -381,110 +379,13 @@ def test_safe_patch_provides_original_function_with_expected_signature(patch_des
     original_signature = False
 
     def patch_impl(original, *args, **kwargs):
-        nonlocal original_signature 
+        nonlocal original_signature
         original_signature = inspect.signature(original)
         return original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     patch_destination.fn(1, 2)
     assert original_signature == inspect.signature(original)
-
-
-def test_autologging_integration_calls_underlying_function_correctly():
-
-    @autologging_integration("test_integration")
-    def autolog(foo=7, disable=False):
-        return foo
-
-    assert autolog(foo=10) == 10
-
-
-def test_autologging_integration_stores_and_updates_config():
-
-    @autologging_integration("test_integration")
-    def autolog(foo=7, bar=10, disable=False):
-        return foo
-
-    autolog()
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
-    autolog(bar=11)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
-    autolog(foo=6, disable=True)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
-
-
-def test_autologging_integration_validates_structure_of_autolog_function():
-
-    def fn_missing_disable_conf():
-        pass
-
-    def fn_bad_disable_conf_1(disable=True):
-        pass
-
-    # Try to use a falsy value that isn't "false"
-    def fn_bad_disable_conf_2(disable=0):
-        pass
-
-    for fn in [fn_missing_disable_conf, fn_bad_disable_conf_1, fn_bad_disable_conf_2]:
-        with pytest.raises(Exception) as exc:
-            autologging_integration("test")(fn)
-        assert "must specify a 'disable' argument" in str(exc)
-
-    def fn_positional_args(positional, disable=False):
-        pass
-
-    with pytest.raises(Exception) as exc:
-        autologging_integration("test")(fn_positional_args)
-        assert "Positional arguments are not allowed" in str(exc)
-
-    # Failure to apply the @autologging_integration decorator should not create a
-    # placeholder for configuration state
-    assert "test" not in AUTOLOGGING_INTEGRATIONS
-
-
-def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
-
-    assert get_autologging_config("nonexistent_integration", "foo") == None
-
-    @autologging_integration("test_integration_for_config")
-    def autolog(foo="bar", t=7, disable=False):
-        pass
-
-    # Before `autolog()` has been invoked, config values should not be available
-    assert get_autologging_config("test_integration_for_config", "foo") == None
-    assert get_autologging_config("test_integration_for_config", "disable") == None
-    assert get_autologging_config("test_integration_for_config", "t", 10) == 10
-
-    autolog()
-
-    assert get_autologging_config("test_integration_for_config", "foo") == "bar"
-    assert get_autologging_config("test_integration_for_config", "disable") == False
-    assert get_autologging_config("test_integration_for_config", "t", 10) == 7
-    assert get_autologging_config("test_integration_for_config", "nonexistent") == None
-
-    autolog(foo="baz")
-
-    assert get_autologging_config("test_integration_for_config", "foo") == "baz"
-
-
-def test_autologging_is_disabled_returns_expected_values():
-
-    assert autologging_is_disabled("nonexistent_integration") is True
-
-    @autologging_integration("test_integration_for_disable_check")
-    def autolog(disable=False):
-        pass
-
-    # Before `autolog()` has been invoked, `autologging_is_disabled` should return False
-    assert autologging_is_disabled("test_integration_for_disable_check") is True
-
-    autolog(disable=True)
-
-    assert autologging_is_disabled("test_integration_for_disable_check") is True
-
-    autolog(disable=False)
-
-    assert autologging_is_disabled("test_integration_for_disable_check") is False
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
