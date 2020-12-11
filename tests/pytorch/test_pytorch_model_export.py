@@ -700,7 +700,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory_saved
 ):
 
     mlflow.pytorch.save_state_dict(
-        pytorch_model=module_scoped_subclassed_model, path=model_path, conda_env=None
+        state_dict=module_scoped_subclassed_model.state_dict(), path=model_path
     )
 
     model_conf_path = os.path.join(model_path, "MLmodel")
@@ -792,9 +792,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_state_dict(
-            artifact_path=artifact_path,
-            pytorch_model=module_scoped_subclassed_model,
-            conda_env=None,
+            artifact_path=artifact_path, state_dict=module_scoped_subclassed_model.state_dict()
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
