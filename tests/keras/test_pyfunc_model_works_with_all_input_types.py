@@ -1,11 +1,9 @@
 # pep8: disable=E501
 
 
-from distutils.version import LooseVersion
 import os
 import pytest
 
-import keras
 from keras.models import Sequential, Model
 from keras.layers import Dense, Input, Concatenate
 from keras.optimizers import SGD
@@ -77,7 +75,7 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
 
 def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
     x, _ = data
-    test_input = [x.values[:, :2], x.values[:, :-2]]
+    test_input = [x.values[:, :2], x.values[:, -2:]]
 
     model_path = os.path.join(model_path, "plain")
     expected = multi_tensor_input_model.predict(test_input)
@@ -92,6 +90,10 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
     # Calling predict with a dict should return a np.ndarray output
+    test_input = {
+        "a": x.values[:, :2],
+        "b": x.values[:, -2:],
+    }
     actual = model_loaded.predict(test_input)
     assert type(actual) == np.ndarray
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
