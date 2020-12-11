@@ -105,7 +105,7 @@ export class ExperimentListView extends Component {
     const height = this.state.height || window.innerHeight;
     // 60 pixels for the height of the top bar.
     // 100 for the experiments header and some for bottom padding.
-    const experimentListHeight = height - 60 - 100;
+    // const experimentListHeight = height - 60 - 100;
     // get searchInput from state
     const { searchInput } = this.state;
     return (
@@ -177,15 +177,19 @@ export class ExperimentListView extends Component {
                     this.props.activeExperimentId !== undefined
                       ? experiment_id === this.props.activeExperimentId
                       : idx === 0;
-                  const className = `${ active ? 'list-group-item-info' : '' }`;
+                  const className = `${active ? 'list-group-item-info' : ''}`;
                   return (
-                    <li key={experiment_id} title={name} className={`list-group-item header-container ${className} py-0`}>
+                    <li key={experiment_id} title={name} 
+                      className={`list-group-item header-container ${className} py-0`}>
                       <Link
                         style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
                         to={Routes.getExperimentPageRoute(experiment_id)}
                         onClick={active ? (ev) => ev.preventDefault() : (ev) => ev}
                       >
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }} className='my-2'>{name}</div>
+                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+                          className='my-2'>
+                           {name}
+                        </div>
                       </Link>
                       {/* Edit/Rename Experiment Option */}
                       <IconButton

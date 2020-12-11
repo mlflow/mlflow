@@ -47,7 +47,7 @@ class HomeView extends Component {
     if (this.state.listExperimentsExpanded) {
       return (
         <div className='container-fluid' style={{ height: containerHeight }}>
-          <div className="row">
+          <div className='row'>
             <div className='col-md-3 col-lg-2'>
               <ExperimentListView
                 activeExperimentId={this.props.experimentId}

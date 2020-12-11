@@ -445,9 +445,7 @@ export class ExperimentView extends Component {
               </Popover>
             </div>
             <div className='form-group col-md-2 row'>
-              <label className='col-sm-4 col-form-label'>
-                State:
-              </label>
+              <label className='col-sm-4 col-form-label'>State:</label>
               <div className='col-sm-8'>
                 <DropdownButton
                   id={'ExperimentView-lifecycle-button-id'}
