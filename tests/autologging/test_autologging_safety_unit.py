@@ -2,9 +2,9 @@
 
 import copy
 import inspect
-import mock
 import os
 import pytest
+from unittest import mock
 
 import mlflow
 import mlflow.utils.autologging_utils as autologging_utils
