@@ -1,4 +1,3 @@
-
 # pylint: disable=E0102
 
 from distutils.version import LooseVersion

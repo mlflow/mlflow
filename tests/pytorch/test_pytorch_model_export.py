@@ -86,7 +86,7 @@ def train_model(model, data):
 
 @pytest.fixture
 def sequential_model(data, scripted_model):
-    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1))
     if scripted_model:
         model = torch.jit.script(model)
 
@@ -751,9 +751,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
 
     mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.Unpickler
 
-    pickle_call_results = {
-        "mlflow_torch_pickle_load_called": False,
-    }
+    pickle_call_results = {"mlflow_torch_pickle_load_called": False}
 
     def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
         pickle_call_results["mlflow_torch_pickle_load_called"] = True
@@ -876,7 +874,7 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
     with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file,
+            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file
         )
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
