@@ -310,31 +310,22 @@ def autologging_integration(name):
                 " must specify a 'disable' argument with default value 'False'".format(name)
             )
 
-        params_without_defaults = [
-            param for param in param_spec.values() if param.default == inspect.Parameter.empty
-        ]
-        if not all(
-            [param.kind == inspect.Parameter.KEYWORD_ONLY for param in params_without_defaults]
-        ):
-            raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions must use"
-                " keyword configuration arguments. Positional arguments are not allowed.".format(
-                    name
-                )
-            )
-
     def wrapper(_autolog):
         param_spec = inspect.signature(_autolog).parameters
         validate_param_spec(param_spec)
 
         AUTOLOGGING_INTEGRATIONS[name] = {}
-
         default_params = {param.name: param.default for param in param_spec.values()}
 
-        def autolog(**kwargs):
+        def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
+            config_to_store.update({
+                param.name: arg
+                for arg, param in zip(args, param_spec.values())
+            })
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+
             return _autolog(**kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)

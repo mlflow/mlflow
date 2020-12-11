@@ -413,8 +413,10 @@ def test_autologging_integration_stores_and_updates_config():
     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
     autolog(bar=11)
     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
-    autolog(foo=6, disable=True)
+    autolog(6, disable=True)
     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
+    autolog(1, 2, False)
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 1, "bar": 2, "disable": False}
 
 
 def test_autologging_integration_validates_structure_of_autolog_function():
@@ -432,13 +434,6 @@ def test_autologging_integration_validates_structure_of_autolog_function():
         with pytest.raises(Exception) as exc:
             autologging_integration("test")(fn)
         assert "must specify a 'disable' argument" in str(exc)
-
-    def fn_positional_args(positional, disable=False):
-        pass
-
-    with pytest.raises(Exception) as exc:
-        autologging_integration("test")(fn_positional_args)
-        assert "Positional arguments are not allowed" in str(exc)
 
     # Failure to apply the @autologging_integration decorator should not create a
     # placeholder for configuration state
