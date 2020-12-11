@@ -9,8 +9,14 @@ import mlflow.utils.autologging_utils as autologging_utils
 from mlflow.entities import RunStatus
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
-    safe_patch, autologging_integration, exception_safe_function, ExceptionSafeClass,
-    PatchFunction, with_managed_run, _validate_args, _is_testing,
+    safe_patch,
+    autologging_integration,
+    exception_safe_function,
+    ExceptionSafeClass,
+    PatchFunction,
+    with_managed_run,
+    _validate_args,
+    _is_testing,
 )
 
 
@@ -79,7 +85,9 @@ def test_is_testing_respects_environment_variable():
             del os.environ["MLFLOW_AUTOLOGGING_TESTING"]
 
 
-def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implementation(patch_destination, test_autologging_integration):
+def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implementation(
+    patch_destination, test_autologging_integration
+):
 
     foo_val = None
     bar_val = None
@@ -96,13 +104,14 @@ def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implemen
     assert bar_val == 11
 
 
-def test_safe_patch_forwards_expected_arguments_to_class_based_patch(patch_destination, test_autologging_integration):
+def test_safe_patch_forwards_expected_arguments_to_class_based_patch(
+    patch_destination, test_autologging_integration
+):
 
     foo_val = None
     bar_val = None
 
     class TestPatch(PatchFunction):
-
         def _patch_implementation(self, original, foo, bar=10):
             nonlocal foo_val
             nonlocal bar_val
@@ -113,14 +122,18 @@ def test_safe_patch_forwards_expected_arguments_to_class_based_patch(patch_desti
             pass
 
     safe_patch(test_autologging_integration, patch_destination, "fn", TestPatch)
-    with mock.patch("mlflow.utils.autologging_utils.PatchFunction.call", wraps=TestPatch.call) as call_mock:
+    with mock.patch(
+        "mlflow.utils.autologging_utils.PatchFunction.call", wraps=TestPatch.call
+    ) as call_mock:
         patch_destination.fn(foo=7, bar=11)
         assert call_mock.call_count == 1
         assert foo_val == 7
         assert bar_val == 11
 
 
-def test_safe_patch_provides_expected_original_function(patch_destination, test_autologging_integration):
+def test_safe_patch_provides_expected_original_function(
+    patch_destination, test_autologging_integration
+):
     def original_fn(foo, bar=10):
         return {
             "foo": foo,
@@ -136,7 +149,9 @@ def test_safe_patch_provides_expected_original_function(patch_destination, test_
     assert patch_destination.fn(1, 2) == {"foo": 2, "bar": 4}
 
 
-def test_safe_patch_provides_expected_original_function(patch_destination, test_autologging_integration):
+def test_safe_patch_provides_expected_original_function(
+    patch_destination, test_autologging_integration
+):
     def original_fn(foo, bar=10):
         return {
             "foo": foo,
@@ -153,7 +168,8 @@ def test_safe_patch_provides_expected_original_function(patch_destination, test_
 
 
 def test_safe_patch_provides_expected_original_function_to_class_based_patch(
-        patch_destination, test_autologging_integration):
+    patch_destination, test_autologging_integration
+):
     def original_fn(foo, bar=10):
         return {
             "foo": foo,
@@ -163,7 +179,6 @@ def test_safe_patch_provides_expected_original_function_to_class_based_patch(
     patch_destination.fn = original_fn
 
     class TestPatch(PatchFunction):
-
         def _patch_implementation(self, original, foo, bar=10):
             return original(foo + 1, bar + 2)
 
@@ -171,13 +186,16 @@ def test_safe_patch_provides_expected_original_function_to_class_based_patch(
             pass
 
     safe_patch(test_autologging_integration, patch_destination, "fn", TestPatch)
-    with mock.patch("mlflow.utils.autologging_utils.PatchFunction.call", wraps=TestPatch.call) as call_mock:
+    with mock.patch(
+        "mlflow.utils.autologging_utils.PatchFunction.call", wraps=TestPatch.call
+    ) as call_mock:
         assert patch_destination.fn(1, 2) == {"foo": 2, "bar": 4}
         assert call_mock.call_count == 1
 
 
 def test_safe_patch_propagates_exceptions_raised_from_original_function(
-        patch_destination, test_autologging_integration):
+    patch_destination, test_autologging_integration
+):
 
     exc_to_throw = Exception("Bad original function")
 
@@ -203,7 +221,8 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
 
 
 def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warnings(
-        patch_destination, test_autologging_integration):
+    patch_destination, test_autologging_integration
+):
 
     exc_to_throw = Exception("Bad patch implementation")
 
@@ -221,7 +240,8 @@ def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warni
 
 
 def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in_test_mode(
-        patch_destination, test_autologging_integration, test_mode_on):
+    patch_destination, test_autologging_integration, test_mode_on
+):
 
     exc_to_throw = Exception("Bad patch implementation")
 
@@ -236,7 +256,8 @@ def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in
 
 
 def test_safe_patch_calls_original_function_when_patch_preamble_throws(
-        patch_destination, test_autologging_integration):
+    patch_destination, test_autologging_integration
+):
 
     patch_impl_called = False
 
@@ -252,7 +273,8 @@ def test_safe_patch_calls_original_function_when_patch_preamble_throws(
 
 
 def test_safe_patch_returns_original_result_without_second_call_when_patch_postamble_throws(
-        patch_destination, test_autologging_integration):
+    patch_destination, test_autologging_integration
+):
 
     patch_impl_called = False
 
@@ -274,7 +296,6 @@ def test_safe_patch_respects_disable_flag(patch_destination):
 
     @autologging_integration("test_respects_disable")
     def autolog(disable=False):
-
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -291,7 +312,9 @@ def test_safe_patch_respects_disable_flag(patch_destination):
     assert patch_impl_call_count == 1
 
 
-def test_safe_patch_returns_original_result_and_ignores_patch_return_value(patch_destination, test_autologging_integration):
+def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
+    patch_destination, test_autologging_integration
+):
 
     patch_impl_called = False
 
@@ -306,14 +329,17 @@ def test_safe_patch_returns_original_result_and_ignores_patch_return_value(patch
     assert patch_impl_called
 
 
-def test_safe_patch_validates_arguments_to_original_function_in_test_mode(patch_destination, test_autologging_integration, test_mode_on):
-
+def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
+    patch_destination, test_autologging_integration, test_mode_on
+):
     def patch_impl(original, *args, **kwargs):
         return original(1, 2, 3)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    with pytest.raises(Exception) as exc, mock.patch("mlflow.utils.autologging_utils._validate_args", wraps=autologging_utils._validate_args) as validate_mock:
+    with pytest.raises(Exception) as exc, mock.patch(
+        "mlflow.utils.autologging_utils._validate_args", wraps=autologging_utils._validate_args
+    ) as validate_mock:
         patch_destination.fn("a", "b", "c")
 
     assert "does not match expected input" in str(exc)
@@ -329,15 +355,21 @@ def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging
         active_run = mlflow.active_run()
         return original(*args, **kwargs)
 
-    with mock.patch("mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run) as managed_run_mock:
-        safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True)
+    with mock.patch(
+        "mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run
+    ) as managed_run_mock:
+        safe_patch(
+            test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True
+        )
         patch_destination.fn()
         assert managed_run_mock.call_count == 1
         assert active_run is not None
         assert active_run.info.run_id is not None
 
 
-def test_safe_patch_does_not_manage_run_if_unspecified(patch_destination, test_autologging_integration):
+def test_safe_patch_does_not_manage_run_if_unspecified(
+    patch_destination, test_autologging_integration
+):
 
     active_run = None
 
@@ -346,14 +378,20 @@ def test_safe_patch_does_not_manage_run_if_unspecified(patch_destination, test_a
         active_run = mlflow.active_run()
         return original(*args, **kwargs)
 
-    with mock.patch("mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run) as managed_run_mock:
-        safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=False)
+    with mock.patch(
+        "mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run
+    ) as managed_run_mock:
+        safe_patch(
+            test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=False
+        )
         patch_destination.fn()
         assert managed_run_mock.call_count == 0
         assert active_run is None
 
-def test_safe_patch_preserves_signature_of_patched_function(patch_destination, test_autologging_integration):
 
+def test_safe_patch_preserves_signature_of_patched_function(
+    patch_destination, test_autologging_integration
+):
     def original(a, b, c=10, *, d=11):
         return 10
 
@@ -372,8 +410,9 @@ def test_safe_patch_preserves_signature_of_patched_function(patch_destination, t
     assert inspect.signature(patch_destination.fn) == inspect.signature(original)
 
 
-def test_safe_patch_provides_original_function_with_expected_signature(patch_destination, test_autologging_integration):
-
+def test_safe_patch_provides_original_function_with_expected_signature(
+    patch_destination, test_autologging_integration
+):
     def original(a, b, c=10, *, d=11):
         return 10
 
@@ -414,7 +453,9 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
         assert formatting_arg == exc_to_throw
 
 
-def test_exception_safe_function_exhibits_expected_behavior_in_test_mode(test_mode_on):  # pylint: disable=unused-argument
+def test_exception_safe_function_exhibits_expected_behavior_in_test_mode(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     assert autologging_utils._is_testing()
 
     @exception_safe_function
@@ -460,7 +501,9 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
         assert formatting_arg == exc_to_throw
 
 
-def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(test_mode_on):  # pylint: disable=unused-argument
+def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     assert autologging_utils._is_testing()
 
     class NonThrowingClass(metaclass=ExceptionSafeClass):
@@ -482,23 +525,26 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(test_mode_
 
 
 def test_patch_function_class_call_invokes_implementation_and_returns_result():
-
     class TestPatchFunction(PatchFunction):
-
-        def _patch_implementation(self, original, *args, **kwargs):  # pylint: disable=unused-argument
+        def _patch_implementation(
+            self, original, *args, **kwargs
+        ):  # pylint: disable=unused-argument
             return 10
+
         def _on_exception(self, exception):  # pylint: disable=unused-argument
             pass
 
     assert TestPatchFunction.call("foo", lambda: "foo") == 10
+
 
 def test_patch_function_class_call_handles_exceptions_properly():
 
     called_on_exception = False
 
     class TestPatchFunction(PatchFunction):
-
-        def _patch_implementation(self, original, *args, **kwargs):  # pylint: disable=unused-argument
+        def _patch_implementation(
+            self, original, *args, **kwargs
+        ):  # pylint: disable=unused-argument
             raise Exception("implementation exception")
 
         def _on_exception(self, exception):  # pylint: disable=unused-argument
@@ -520,8 +566,11 @@ def test_with_managed_runs_yields_functions_and_classes_as_expected():
         pass
 
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):  # pylint: disable=unused-argument
+        def _patch_implementation(
+            self, original, *args, **kwargs
+        ):  # pylint: disable=unused-argument
             pass
+
         def _on_exception(self, exception):  # pylint: disable=unused-argument
             pass
 
@@ -573,13 +622,17 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
         status2 = client.get_run(active_run.info.run_id).info.status
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
+
 def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
     client = MlflowClient()
 
     @with_managed_run
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):  # pylint: disable=unused-argument
+        def _patch_implementation(
+            self, original, *args, **kwargs
+        ):  # pylint: disable=unused-argument
             return mlflow.active_run()
+
         def _on_exception(self, exception):  # pylint: disable=unused-argument
             pass
 
@@ -601,10 +654,13 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
     @with_managed_run
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):  # pylint: disable=unused-argument
+        def _patch_implementation(
+            self, original, *args, **kwargs
+        ):  # pylint: disable=unused-argument
             nonlocal patch_function_active_run
             patch_function_active_run = mlflow.active_run()
             raise Exception("bad implementation")
+
         def _on_exception(self, exception):  # pylint: disable=unused-argument
             pass
 
@@ -624,7 +680,9 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
-def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_mode_on):  # pylint: disable=unused-argument
+def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     args = [1, "b", ["c"]]
     kwargs = {
         "foo": ["bar"],
@@ -643,7 +701,9 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_m
     _validate_args(None, kwargs, None, kwargs_copy)
 
 
-def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(test_mode_on):  # pylint: disable=unused-argument
+def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -656,15 +716,21 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
     invalid_type_autologging_call_kwargs["new"] = {}
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, invalid_type_autologging_call_args, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, invalid_type_autologging_call_args, user_call_kwargs
+        )
     assert "Invalid new input" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, invalid_type_autologging_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, invalid_type_autologging_call_kwargs
+        )
     assert "Invalid new input" in str(exc)
 
 
-def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_on):  # pylint: disable=unused-argument
+def test_validate_args_throws_when_extra_args_are_not_exception_safe(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -680,22 +746,30 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_o
     unsafe_autologging_call_kwargs1["foo"].append(Unsafe())
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, unsafe_autologging_call_args, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, unsafe_autologging_call_args, user_call_kwargs
+        )
     assert "not exception-safe" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs1)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs1
+        )
     assert "Invalid new input" in str(exc)
 
     unsafe_autologging_call_kwargs2 = copy.deepcopy(user_call_kwargs)
     unsafe_autologging_call_kwargs2["biz"]["new"] = Unsafe()
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs2)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs2
+        )
     assert "Invalid new input" in str(exc)
 
 
-def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(test_mode_on):  # pylint: disable=unused-argument
+def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -715,7 +789,9 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
     _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
 
 
-def test_validate_args_throws_when_args_are_omitted(test_mode_on):  # pylint: disable=unused-argument
+def test_validate_args_throws_when_args_are_omitted(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     user_call_args = [1, "b", ["c"], {"d": "e"}]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -728,11 +804,15 @@ def test_validate_args_throws_when_args_are_omitted(test_mode_on):  # pylint: di
     invalid_autologging_call_kwargs_1["foo"].pop()
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs
+        )
     assert "missing from the call" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
+        )
     assert "missing from the call" in str(exc)
 
     invalid_autologging_call_args_2 = copy.deepcopy(user_call_args)[1:]
@@ -740,13 +820,16 @@ def test_validate_args_throws_when_args_are_omitted(test_mode_on):  # pylint: di
     invalid_autologging_call_kwargs_2.pop("foo")
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs
+        )
     assert "missing from the call" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
+        )
     assert "omit one or more expected keys" in str(exc)
-
 
     invalid_autologging_call_args_3 = copy.deepcopy(user_call_args)
     invalid_autologging_call_args_3[3].pop("d")
@@ -754,15 +837,21 @@ def test_validate_args_throws_when_args_are_omitted(test_mode_on):  # pylint: di
     invalid_autologging_call_kwargs_3["biz"].pop("baz")
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, invalid_autologging_call_args_3, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, invalid_autologging_call_args_3, user_call_kwargs
+        )
     assert "omit one or more expected keys" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_3)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_3
+        )
     assert "omit one or more expected keys" in str(exc)
 
 
-def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on):  # pylint: disable=unused-argument
+def test_validate_args_throws_when_arg_types_or_values_are_changed(
+    test_mode_on,
+):  # pylint: disable=unused-argument
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -774,11 +863,15 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on)
     invalid_autologging_call_kwargs_1["foo"] = ["biz"]
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs
+        )
     assert "does not match expected input" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
+        )
     assert "does not match expected input" in str(exc)
 
     invalid_autologging_call_args_2 = copy.deepcopy(user_call_args)
@@ -787,9 +880,13 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on)
     invalid_autologging_call_kwargs_2["foo"] = 8
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs)
+        _validate_args(
+            user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs
+        )
     assert "does not match expected type" in str(exc)
 
     with pytest.raises(Exception) as exc:
-        _validate_args(user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2)
+        _validate_args(
+            user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
+        )
     assert "does not match expected type" in str(exc)

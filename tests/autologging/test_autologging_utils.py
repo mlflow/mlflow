@@ -403,7 +403,6 @@ def test_batch_metrics_logger_continues_if_log_batch_fails(
 
 
 def test_autologging_integration_calls_underlying_function_correctly():
-
     @autologging_integration("test_integration")
     def autolog(foo=7, disable=False):
         return foo
@@ -412,7 +411,6 @@ def test_autologging_integration_calls_underlying_function_correctly():
 
 
 def test_autologging_integration_stores_and_updates_config():
-
     @autologging_integration("test_integration")
     def autolog(foo=7, bar=10, disable=False):
         return foo
@@ -426,7 +424,6 @@ def test_autologging_integration_stores_and_updates_config():
 
 
 def test_autologging_integration_validates_structure_of_autolog_function():
-
     def fn_missing_disable_conf():
         pass
 

@@ -310,11 +310,17 @@ def autologging_integration(name):
                 " must specify a 'disable' argument with default value 'False'".format(name)
             )
 
-        params_without_defaults = [param for param in param_spec.values() if param.default == inspect.Parameter.empty]
-        if not all([param.kind == inspect.Parameter.KEYWORD_ONLY for param in params_without_defaults]):
+        params_without_defaults = [
+            param for param in param_spec.values() if param.default == inspect.Parameter.empty
+        ]
+        if not all(
+            [param.kind == inspect.Parameter.KEYWORD_ONLY for param in params_without_defaults]
+        ):
             raise Exception(
                 "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
-                " must use keyword configuration arguments. Positional arguments are not allowed.".format(name)
+                " must use keyword configuration arguments. Positional arguments are not allowed.".format(
+                    name
+                )
             )
 
     def wrapper(_autolog):
@@ -323,10 +329,7 @@ def autologging_integration(name):
 
         AUTOLOGGING_INTEGRATIONS[name] = {}
 
-        default_params = {
-            param.name: param.default
-            for param in param_spec.values()
-        }
+        default_params = {param.name: param.default for param in param_spec.values()}
 
         def autolog(**kwargs):
             config_to_store = dict(default_params)
@@ -422,6 +425,7 @@ class ExceptionSafeClass(type):
     Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
     as these are not always Python callables and are difficult to wrap
     """
+
     def __new__(cls, name, bases, dct):
         for m in dct:
             if callable(dct[m]):
