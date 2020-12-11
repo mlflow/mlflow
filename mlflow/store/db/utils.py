@@ -1,4 +1,5 @@
 import os
+import time
 
 from contextlib import contextmanager
 import logging
@@ -17,6 +18,7 @@ _logger = logging.getLogger(__name__)
 
 MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
 MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW"
+MAX_RETRY_COUNT = 15
 
 
 def _get_package_dir():
@@ -182,6 +184,28 @@ def _upgrade_db_initialized_before_mlflow_1(engine):
     # add metric steps, do not need to depend on this one. This allows us to eventually remove this
     # method and the associated migration e.g. in MLflow 1.1.
     command.stamp(config, "base")
+
+
+def create_sqlalchemy_engine_with_retry(db_uri):
+    attempts = 0
+    while True:
+        attempts += 1
+        engine = create_sqlalchemy_engine(db_uri)
+        try:
+            sqlalchemy.inspect(engine)
+            return engine
+        except Exception as e:
+            if attempts < MAX_RETRY_COUNT:
+                sleep_duration = 0.1 * ((2 ** attempts) - 1)
+                _logger.warning(
+                    "SQLAlchemy engine could not be created. The following exception is caught.\n"
+                    "%s\nOperation will be retried in %.1f seconds",
+                    e,
+                    sleep_duration,
+                )
+                time.sleep(sleep_duration)
+                continue
+            raise
 
 
 def create_sqlalchemy_engine(db_uri):
