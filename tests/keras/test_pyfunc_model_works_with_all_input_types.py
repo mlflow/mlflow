@@ -14,7 +14,6 @@ import pandas as pd
 import numpy as np
 
 import mlflow
-from mlflow.types import Schema, ColSpec
 
 
 @pytest.fixture
@@ -57,8 +56,8 @@ def single_tensor_input_model(data):
 @pytest.fixture(scope="module")
 def multi_tensor_input_model_list(data):
     x, y = data
-    input_a = Input(4,)
-    input_b = Input(4,)
+    input_a = Input(shape=(4,))
+    input_b = Input(shape=(4,))
     output = Dense(1)(Concatenate()([input_a, input_b]))
     model = Model(inputs=[input_a, input_b], outputs=output)
     lr = 0.001
@@ -75,8 +74,8 @@ def multi_tensor_input_model_list(data):
 @pytest.fixture(scope="module")
 def multi_tensor_input_model_dict(data):
     x, y = data
-    input_a = Input(4,)
-    input_b = Input(4,)
+    input_a = Input(shape=(4,))
+    input_b = Input(shape=(4,))
     output = Dense(1)(Concatenate()([input_a, input_b]))
     model = Model(inputs={"a": input_a, "b": input_b}, outputs=output)
     lr = 0.001
