@@ -1,3 +1,5 @@
+# pylint: disable=unused-argument
+
 import inspect
 import time
 import pytest
@@ -244,7 +246,7 @@ def test_avoids_inferring_signature_if_not_needed(logger):
     logger.warning.assert_not_called()
 
 
-def test_batch_metrics_logger_logs_all_metrics(start_run,):  # pylint: disable=unused-argument
+def test_batch_metrics_logger_logs_all_metrics(start_run,):
     run_id = mlflow.active_run().info.run_id
     with batch_metrics_logger(run_id) as metrics_logger:
         for i in range(100):
@@ -257,7 +259,7 @@ def test_batch_metrics_logger_logs_all_metrics(start_run,):  # pylint: disable=u
         assert metrics_on_run[hex(i)] == i
 
 
-def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):  # pylint: disable=unused-argument
+def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):
     run_id = mlflow.active_run().info.run_id
 
     # Need to patch _should_flush() to return False, so that we can manually flush the logger
@@ -281,7 +283,7 @@ def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):  # pylint: disabl
 
 def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
     start_run,
-):  # pylint: disable=unused-argument
+):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -325,7 +327,7 @@ def test_batch_metrics_logger_runs_training_and_logging_in_correct_ratio(
 
 def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
     start_run,
-):  # pylint: disable=unused-argument
+):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -343,7 +345,7 @@ def test_batch_metrics_logger_chunks_metrics_when_batch_logging(
                     assert metric.step == 0
 
 
-def test_batch_metrics_logger_records_time_correctly(start_run,):  # pylint: disable=unused-argument
+def test_batch_metrics_logger_records_time_correctly(start_run,):
     with mock.patch.object(MlflowClient, "log_batch", wraps=lambda *args, **kwargs: time.sleep(1)):
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
@@ -360,7 +362,7 @@ def test_batch_metrics_logger_records_time_correctly(start_run,):  # pylint: dis
 
 def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(
     start_run,
-):  # pylint: disable=unused-argument
+):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock, mock.patch(
         "time.time", return_value=123.45678901234567890
     ):
@@ -377,7 +379,7 @@ def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(
 
 def test_batch_metrics_logger_continues_if_log_batch_fails(
     start_run,
-):  # pylint: disable=unused-argument
+):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         log_batch_mock.side_effect = [Exception("asdf"), None]
 
@@ -460,16 +462,16 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
         pass
 
     # Before `autolog()` has been invoked, config values should not be available
-    assert get_autologging_config("test_integration_for_config", "foo") == None
-    assert get_autologging_config("test_integration_for_config", "disable") == None
-    assert get_autologging_config("test_integration_for_config", "t", 10) == 10
+    assert get_autologging_config("test_integration_for_config", "foo") is None
+    assert get_autologging_config("test_integration_for_config", "disable") is None
+    assert get_autologging_config("test_integration_for_config", "t", 10) is 10
 
     autolog()
 
     assert get_autologging_config("test_integration_for_config", "foo") == "bar"
-    assert get_autologging_config("test_integration_for_config", "disable") == False
-    assert get_autologging_config("test_integration_for_config", "t", 10) == 7
-    assert get_autologging_config("test_integration_for_config", "nonexistent") == None
+    assert get_autologging_config("test_integration_for_config", "disable") is False
+    assert get_autologging_config("test_integration_for_config", "t", 10) is 7
+    assert get_autologging_config("test_integration_for_config", "nonexistent") is None
 
     autolog(foo="baz")
 

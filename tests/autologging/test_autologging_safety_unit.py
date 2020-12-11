@@ -1,3 +1,5 @@
+# pylint: disable=unused-argument
+
 import copy
 import inspect
 import mock
@@ -112,13 +114,13 @@ def test_safe_patch_forwards_expected_arguments_to_class_based_patch(
     bar_val = None
 
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, foo, bar=10):
+        def _patch_implementation(self, original, foo, bar=10):  # pylint: disable=arguments-differ
             nonlocal foo_val
             nonlocal bar_val
             foo_val = foo
             bar_val = bar
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             pass
 
     safe_patch(test_autologging_integration, patch_destination, "fn", TestPatch)
@@ -129,24 +131,6 @@ def test_safe_patch_forwards_expected_arguments_to_class_based_patch(
         assert call_mock.call_count == 1
         assert foo_val == 7
         assert bar_val == 11
-
-
-def test_safe_patch_provides_expected_original_function(
-    patch_destination, test_autologging_integration
-):
-    def original_fn(foo, bar=10):
-        return {
-            "foo": foo,
-            "bar": bar,
-        }
-
-    patch_destination.fn = original_fn
-
-    def patch_impl(original, foo, bar):
-        return original(foo + 1, bar + 2)
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    assert patch_destination.fn(1, 2) == {"foo": 2, "bar": 4}
 
 
 def test_safe_patch_provides_expected_original_function(
@@ -179,10 +163,10 @@ def test_safe_patch_provides_expected_original_function_to_class_based_patch(
     patch_destination.fn = original_fn
 
     class TestPatch(PatchFunction):
-        def _patch_implementation(self, original, foo, bar=10):
+        def _patch_implementation(self, original, foo, bar=10):  # pylint: disable=arguments-differ
             return original(foo + 1, bar + 2)
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             pass
 
     safe_patch(test_autologging_integration, patch_destination, "fn", TestPatch)
@@ -455,7 +439,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
 def test_exception_safe_function_exhibits_expected_behavior_in_test_mode(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     assert autologging_utils._is_testing()
 
     @exception_safe_function
@@ -503,7 +487,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
 
 def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     assert autologging_utils._is_testing()
 
     class NonThrowingClass(metaclass=ExceptionSafeClass):
@@ -528,10 +512,10 @@ def test_patch_function_class_call_invokes_implementation_and_returns_result():
     class TestPatchFunction(PatchFunction):
         def _patch_implementation(
             self, original, *args, **kwargs
-        ):  # pylint: disable=unused-argument
+        ):
             return 10
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             pass
 
     assert TestPatchFunction.call("foo", lambda: "foo") == 10
@@ -544,10 +528,10 @@ def test_patch_function_class_call_handles_exceptions_properly():
     class TestPatchFunction(PatchFunction):
         def _patch_implementation(
             self, original, *args, **kwargs
-        ):  # pylint: disable=unused-argument
+        ):
             raise Exception("implementation exception")
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             nonlocal called_on_exception
             called_on_exception = True
             raise Exception("on_exception exception")
@@ -562,16 +546,16 @@ def test_patch_function_class_call_handles_exceptions_properly():
 
 
 def test_with_managed_runs_yields_functions_and_classes_as_expected():
-    def patch_function(original, *args, **kwargs):  # pylint: disable=unused-argument
+    def patch_function(original, *args, **kwargs):
         pass
 
     class TestPatch(PatchFunction):
         def _patch_implementation(
             self, original, *args, **kwargs
-        ):  # pylint: disable=unused-argument
+        ):
             pass
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             pass
 
     assert callable(with_managed_run(patch_function))
@@ -582,7 +566,7 @@ def test_with_managed_run_with_non_throwing_function_exhibits_expected_behavior(
     client = MlflowClient()
 
     @with_managed_run
-    def patch_function(original, *args, **kwargs):  # pylint: disable=unused-argument
+    def patch_function(original, *args, **kwargs):
         return mlflow.active_run()
 
     run1 = patch_function(lambda: "foo")
@@ -602,7 +586,7 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
     patch_function_active_run = None
 
     @with_managed_run
-    def patch_function(original, *args, **kwargs):  # pylint: disable=unused-argument
+    def patch_function(original, *args, **kwargs):
         nonlocal patch_function_active_run
         patch_function_active_run = mlflow.active_run()
         raise Exception("bad implementation")
@@ -630,10 +614,10 @@ def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
     class TestPatch(PatchFunction):
         def _patch_implementation(
             self, original, *args, **kwargs
-        ):  # pylint: disable=unused-argument
+        ):
             return mlflow.active_run()
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             pass
 
     run1 = TestPatch.call(lambda: "foo")
@@ -656,12 +640,12 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
     class TestPatch(PatchFunction):
         def _patch_implementation(
             self, original, *args, **kwargs
-        ):  # pylint: disable=unused-argument
+        ):
             nonlocal patch_function_active_run
             patch_function_active_run = mlflow.active_run()
             raise Exception("bad implementation")
 
-        def _on_exception(self, exception):  # pylint: disable=unused-argument
+        def _on_exception(self, exception):
             pass
 
     with pytest.raises(Exception):
@@ -682,7 +666,7 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
 def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     args = [1, "b", ["c"]]
     kwargs = {
         "foo": ["bar"],
@@ -703,7 +687,7 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(
 
 def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -730,7 +714,7 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
 
 def test_validate_args_throws_when_extra_args_are_not_exception_safe(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -769,7 +753,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe(
 
 def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -791,7 +775,7 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
 
 def test_validate_args_throws_when_args_are_omitted(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     user_call_args = [1, "b", ["c"], {"d": "e"}]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -851,7 +835,7 @@ def test_validate_args_throws_when_args_are_omitted(
 
 def test_validate_args_throws_when_arg_types_or_values_are_changed(
     test_mode_on,
-):  # pylint: disable=unused-argument
+):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
