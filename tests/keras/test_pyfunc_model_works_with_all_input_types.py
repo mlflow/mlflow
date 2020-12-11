@@ -6,9 +6,8 @@ import os
 import pytest
 
 import keras
-from keras.models import Sequential, Model as KerasModel
-from keras.layers import Layer, Dense, Input, Concatenate
-from keras import backend as K
+from keras.models import Sequential, Model
+from keras.layers import Dense, Input, Concatenate
 from keras.optimizers import SGD
 import sklearn.datasets as datasets
 import pandas as pd
@@ -16,8 +15,6 @@ import numpy as np
 
 import mlflow
 from mlflow.types import Schema, ColSpec
-from mlflow.pyfunc import PyFuncModel
-from mlflow.models import Model, infer_signature, ModelSignature
 
 
 @pytest.fixture
@@ -63,7 +60,7 @@ def multi_tensor_input_model_list(data):
     input_a = Input(4,)
     input_b = Input(4,)
     output = Dense(1)(Concatenate()([input_a, input_b]))
-    model = KerasModel(inputs=[input_a, input_b], outputs=output)
+    model = Model(inputs=[input_a, input_b], outputs=output)
     lr = 0.001
     kwargs = (
         {"lr": lr}
@@ -81,7 +78,7 @@ def multi_tensor_input_model_dict(data):
     input_a = Input(4,)
     input_b = Input(4,)
     output = Dense(1)(Concatenate()([input_a, input_b]))
-    model = KerasModel(inputs={"a": input_a, "b": input_b,}, outputs=output)
+    model = Model(inputs={"a": input_a, "b": input_b}, outputs=output)
     lr = 0.001
     kwargs = (
         {"lr": lr}
@@ -89,7 +86,7 @@ def multi_tensor_input_model_dict(data):
         else {"learning_rate": lr}
     )
     model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
-    model.fit({"a": x.values, "b": x.values,}, y)
+    model.fit({"a": x.values, "b": x.values}, y)
     return model
 
 
@@ -114,9 +111,7 @@ def test_model_single_tensor_input(single_tensor_input_model, model_path, data):
 
     # Calling predict with a dict should make keras raise an error
     with pytest.raises(Exception):
-        model_loaded.predict(
-            {"a": [1, 2, 3], "b": [2, 3, 4],}
-        )
+        model_loaded.predict({"a": [1, 2, 3], "b": [2, 3, 4]})
 
 
 def test_model_multi_tensor_input_list(multi_tensor_input_model_list, model_path, data):
@@ -146,18 +141,6 @@ def test_model_multi_tensor_input_dict(multi_tensor_input_model_dict, model_path
         "a": x.values,
         "b": x.values,
     }
-
-    # test that input schema works with dictionaries
-    # m = Model()
-    # input_schema = Schema(
-    #     [
-    #         ColSpec("float", "a"),
-    #         ColSpec("float", "b"),
-    #     ]
-    # )
-    # m.signature = ModelSignature(inputs = input_schema)
-    # pyfunc_model = PyFuncModel(model_meta=m, model_impl=multi_tensor_input_model_dict)
-    # expected = pyfunc_model.predict(test_input)
 
     model_path = os.path.join(model_path, "plain")
     expected = multi_tensor_input_model_dict.predict(test_input)

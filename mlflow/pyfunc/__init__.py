@@ -346,11 +346,12 @@ def _enforce_schema(pdf: SupportedTensorType, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    if isinstance(pdf, list) or isinstance(pdf, np.ndarray):
-        pdf = pandas.DataFrame(pdf)
-    elif isinstance(pdf, dict):
-        pdf.update((k, list(v)) for k, v in pdf.items() if not isinstance(v, list))
-        pdf = pandas.DataFrame.from_dict(pdf)
+    if isinstance(pdf, list) or isinstance(pdf, np.ndarray) or isinstance(pdf, dict):
+        try:
+            pdf = pandas.DataFrame(pdf)
+        except Exception:
+            message = "The input type provided could not be converted into a pandas DataFrame."
+            raise MlflowException(message)
     if not isinstance(pdf, pandas.DataFrame):
         message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
