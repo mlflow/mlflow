@@ -34,7 +34,7 @@ pytest dev/set_matrix.py --doctest-modules --verbose
 """
 
 import argparse
-from distutils.version import LooseVersion
+from packaging.version import Version
 import json
 import operator
 import os
@@ -104,35 +104,6 @@ def get_released_versions(package_name):
     return versions
 
 
-def get_major_version(ver):
-    """
-    Examples
-    --------
-    >>> get_major_version("1.2.3")
-    1
-    """
-    return LooseVersion(ver).version[0]
-
-
-def is_final_release(ver):
-    """
-    Returns True if the given version matches PEP440's final release scheme.
-
-    Examples
-    --------
-    >>> is_final_release("0.1")
-    True
-    >>> is_final_release("0.23.0")
-    True
-    >>> is_final_release("0.4.0a1")
-    False
-    >>> is_final_release("0.5.0rc")
-    False
-    """
-    # Ref.: https://www.python.org/dev/peps/pep-0440/#final-releases
-    return re.search(r"^\d+(\.\d+)+$", ver) is not None
-
-
 def select_latest_micro_versions(versions):
     """
     Selects the latest micro version in each minor version.
@@ -155,10 +126,10 @@ def select_latest_micro_versions(versions):
     for ver, _ in sorted(
         versions.items(),
         # Sort by (minor_version, upload_time) in descending order
-        key=lambda x: (LooseVersion(x[0]).version[:2], x[1]),
+        key=lambda x: (Version(x[0]).release[:2], x[1]),
         reverse=True,
     ):
-        minor_ver = tuple(LooseVersion(ver).version[:2])  # A set doesn't accept a list
+        minor_ver = Version(ver).release[:2]
 
         if minor_ver not in seen_minors:
             seen_minors.add(minor_ver)
@@ -171,9 +142,10 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
     """
     Filter versions that satisfy the following conditions:
 
-    1. is newer than or equal to `min_ver`
-    2. shares the same major version as `max_ver` or `min_ver`
-    3. (Optional) is not in `excludes`
+    1. is a final or post release that PEP 440 defines
+    2. is newer than or equal to `min_ver`
+    3. shares the same major version as `max_ver` or `min_ver`
+    4. (Optional) is not in `excludes`
 
     Examples
     --------
@@ -198,12 +170,16 @@ def filter_versions(versions, min_ver, max_ver, excludes=None):
     assert max_ver in versions
     assert all(v in versions for v in excludes)
 
-    versions = {v: t for v, t in versions.items() if v not in excludes}
-    versions = {v: t for v, t in versions.items() if is_final_release(v)}
+    versions = {Version(v): t for v, t in versions.items() if v not in excludes}
 
-    max_major = get_major_version(max_ver)
-    versions = {v: t for v, t in versions.items() if get_major_version(v) <= max_major}
-    versions = {v: t for v, t in versions.items() if LooseVersion(v) >= LooseVersion(min_ver)}
+    def _is_final_or_post_release(v):
+        # final release: https://www.python.org/dev/peps/pep-0440/#final-releases
+        # post release: https://www.python.org/dev/peps/pep-0440/#post-releases
+        return (v.base_version == v.public) or (v.is_postrelease)
+
+    versions = {v: t for v, t in versions.items() if _is_final_or_post_release(v)}
+    versions = {v: t for v, t in versions.items() if v.major <= Version(max_ver).major}
+    versions = {str(v): t for v, t in versions.items() if v >= Version(min_ver)}
 
     return versions
 
@@ -324,8 +300,7 @@ def process_requirements(requirements, version=None):
             op_and_ver_pairs = map(get_operator_and_version, ver_spec.split(","))
             match_all = all(
                 comp_op(
-                    LooseVersion(version),
-                    LooseVersion(dev_numeric if req_ver == DEV_VERSION else req_ver),
+                    Version(version), Version(dev_numeric if req_ver == DEV_VERSION else req_ver),
                 )
                 for comp_op, req_ver in op_and_ver_pairs
             )
@@ -475,7 +450,9 @@ def main():
     )
     diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
 
-    include = sorted(diff_config.union(diff_flavor), key=lambda x: x["job_name"])
+    # If this file contains changes, re-run all the tests, otherwise re-run the affected tests.
+    include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
+    include = sorted(include, key=lambda x: x["job_name"])
     job_names = [x["job_name"] for x in include]
 
     matrix = {"job_name": job_names, "include": include}
@@ -488,7 +465,7 @@ def main():
         # Note that this actually doesn't print anything to the console.
         print("::set-output name=matrix::{}".format(json.dumps(matrix)))
 
-        # Set a flag that indicates whether or not the matrix is empty. If this flag is 'false',
+        # Set a flag that indicates whether or not the matrix is empty. If this flag is 'true',
         # skip the subsequent jobs.
         print("::set-output name=is_matrix_empty::{}".format("false" if job_names else "true"))
 
