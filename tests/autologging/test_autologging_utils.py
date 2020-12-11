@@ -419,6 +419,15 @@ def test_autologging_integration_stores_and_updates_config():
     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 1, "bar": 2, "disable": False}
 
 
+def test_autologging_integration_forwards_positional_and_keyword_arguments_as_expected():
+
+    @autologging_integration("test_integration")
+    def autolog(foo=7, bar=10, disable=False):
+        return foo, bar, disable
+
+    assert autolog(1, bar=2, disable=True) == (1, 2, True)
+
+
 def test_autologging_integration_validates_structure_of_autolog_function():
     def fn_missing_disable_conf():
         pass
