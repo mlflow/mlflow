@@ -431,9 +431,8 @@ def test_autologging_integration_validates_structure_of_autolog_function():
         pass
 
     for fn in [fn_missing_disable_conf, fn_bad_disable_conf_1, fn_bad_disable_conf_2]:
-        with pytest.raises(Exception) as exc:
+        with pytest.raises(Exception, match="must specify a 'disable' argument"):
             autologging_integration("test")(fn)
-        assert "must specify a 'disable' argument" in str(exc)
 
     # Failure to apply the @autologging_integration decorator should not create a
     # placeholder for configuration state
@@ -442,7 +441,7 @@ def test_autologging_integration_validates_structure_of_autolog_function():
 
 def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
 
-    assert get_autologging_config("nonexistent_integration", "foo") == None
+    assert get_autologging_config("nonexistent_integration", "foo") is None
 
     @autologging_integration("test_integration_for_config")
     def autolog(foo="bar", t=7, disable=False):

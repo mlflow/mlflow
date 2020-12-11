@@ -313,12 +313,11 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    with pytest.raises(Exception) as exc, mock.patch(
+    with pytest.raises(Exception, match="does not match expected input"), mock.patch(
         "mlflow.utils.autologging_utils._validate_args", wraps=autologging_utils._validate_args
     ) as validate_mock:
         patch_destination.fn("a", "b", "c")
 
-    assert "does not match expected input" in str(exc)
     assert validate_mock.call_count == 1
 
 
@@ -520,13 +519,12 @@ def test_patch_function_class_call_handles_exceptions_properly():
             called_on_exception = True
             raise Exception("on_exception exception")
 
-    with pytest.raises(Exception) as exc:
+    # Even if an exception is thrown from `_on_exception`, we expect the original
+    # exception from the implementation to be surfaced to the caller
+    with pytest.raises(Exception, match="implementation exception") as exc:
         TestPatchFunction.call("foo", lambda: "foo")
 
     assert called_on_exception == True
-    # Even if an exception is thrown from `_on_exception`, we expect the original
-    # exception from the implementation to be surfaced to the caller
-    assert "implementation exception" in str(exc)
 
 
 def test_with_managed_runs_yields_functions_and_classes_as_expected():
@@ -673,17 +671,15 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
     invalid_type_autologging_call_kwargs = copy.deepcopy(user_call_kwargs)
     invalid_type_autologging_call_kwargs["new"] = {}
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
             user_call_args, user_call_kwargs, invalid_type_autologging_call_args, user_call_kwargs
         )
-    assert "Invalid new input" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_type_autologging_call_kwargs
         )
-    assert "Invalid new input" in str(exc)
 
 
 def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_on,):
@@ -701,26 +697,23 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_o
     unsafe_autologging_call_kwargs1 = copy.deepcopy(user_call_kwargs)
     unsafe_autologging_call_kwargs1["foo"].append(Unsafe())
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="not exception-safe"):
         _validate_args(
             user_call_args, user_call_kwargs, unsafe_autologging_call_args, user_call_kwargs
         )
-    assert "not exception-safe" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs1
         )
-    assert "Invalid new input" in str(exc)
 
     unsafe_autologging_call_kwargs2 = copy.deepcopy(user_call_kwargs)
     unsafe_autologging_call_kwargs2["biz"]["new"] = Unsafe()
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="Invalid new input"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, unsafe_autologging_call_kwargs2
         )
-    assert "Invalid new input" in str(exc)
 
 
 def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
@@ -757,50 +750,44 @@ def test_validate_args_throws_when_args_are_omitted(test_mode_on,):
     invalid_autologging_call_kwargs_1 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_1["foo"].pop()
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
             user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs
         )
-    assert "missing from the call" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
         )
-    assert "missing from the call" in str(exc)
 
     invalid_autologging_call_args_2 = copy.deepcopy(user_call_args)[1:]
     invalid_autologging_call_kwargs_2 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_2.pop("foo")
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="missing from the call"):
         _validate_args(
             user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs
         )
-    assert "missing from the call" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
         )
-    assert "omit one or more expected keys" in str(exc)
 
     invalid_autologging_call_args_3 = copy.deepcopy(user_call_args)
     invalid_autologging_call_args_3[3].pop("d")
     invalid_autologging_call_kwargs_3 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_3["biz"].pop("baz")
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
             user_call_args, user_call_kwargs, invalid_autologging_call_args_3, user_call_kwargs
         )
-    assert "omit one or more expected keys" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="omit one or more expected keys"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_3
         )
-    assert "omit one or more expected keys" in str(exc)
 
 
 def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on,):
@@ -814,31 +801,27 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on,
     invalid_autologging_call_kwargs_1 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_1["foo"] = ["biz"]
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="does not match expected input"):
         _validate_args(
             user_call_args, user_call_kwargs, invalid_autologging_call_args_1, user_call_kwargs
         )
-    assert "does not match expected input" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="does not match expected input"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_1
         )
-    assert "does not match expected input" in str(exc)
 
     invalid_autologging_call_args_2 = copy.deepcopy(user_call_args)
     invalid_autologging_call_args_2[1] = {"7": 1}
     invalid_autologging_call_kwargs_2 = copy.deepcopy(user_call_kwargs)
     invalid_autologging_call_kwargs_2["foo"] = 8
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="does not match expected type"):
         _validate_args(
             user_call_args, user_call_kwargs, invalid_autologging_call_args_2, user_call_kwargs
         )
-    assert "does not match expected type" in str(exc)
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="does not match expected type"):
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
         )
-    assert "does not match expected type" in str(exc)
