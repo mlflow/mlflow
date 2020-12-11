@@ -41,6 +41,7 @@ from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.autologging_utils import autologging_integration
 
 
 FLAVOR_NAME = "spark"
@@ -627,7 +628,8 @@ class _PyFuncModelWrapper(object):
 
 
 @experimental
-def autolog():
+@autologging_integration(FLAVOR_NAME)
+def autolog(disable=False):  # pylint: disable=unused-argument
     """
     Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
     when they are read. This method is not threadsafe and assumes a
@@ -682,6 +684,8 @@ def autolog():
         # next-created MLflow run if no run is currently active
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
+
+        :param disable: Whether to enable or disable autologging.
     """
     from mlflow import _spark_autologging
 
