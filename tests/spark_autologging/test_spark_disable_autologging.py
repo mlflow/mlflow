@@ -34,15 +34,6 @@ def http_tracking_uri_mock():
     mlflow.set_tracking_uri(None)
 
 
-def _get_expected_table_info_row(path, data_format, version=None):
-    expected_path = "file:%s" % path
-    if version is None:
-        return "path={path},format={format}".format(path=expected_path, format=data_format)
-    return "path={path},version={version},format={format}".format(
-        path=expected_path, version=version, format=data_format
-    )
-
-
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
 #   (it is not reset between tests)
 
