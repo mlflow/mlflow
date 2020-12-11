@@ -18,22 +18,6 @@ from tests.spark_autologging.utils import data_format  # pylint: disable=unused-
 from tests.spark_autologging.utils import file_path  # pylint: disable=unused-import
 
 
-def pytest_generate_tests(metafunc):
-    """
-    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
-    list of backend store URIs.
-    """
-    if "backend_store_uri" in metafunc.fixturenames:
-        metafunc.parametrize("backend_store_uri", BACKEND_URIS)
-
-
-@pytest.fixture()
-def http_tracking_uri_mock():
-    mlflow.set_tracking_uri("http://some-cool-uri")
-    yield
-    mlflow.set_tracking_uri(None)
-
-
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
 #   (it is not reset between tests)
 
