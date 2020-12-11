@@ -310,32 +310,22 @@ def autologging_integration(name):
                 " must specify a 'disable' argument with default value 'False'".format(name)
             )
 
-        params_without_defaults = [
-            param for param in param_spec.values() if param.default == inspect.Parameter.empty
-        ]
-        if not all(
-            [param.kind == inspect.Parameter.KEYWORD_ONLY for param in params_without_defaults]
-        ):
-            raise Exception(
-                "Invalid `autolog()` function for integration '{}'. `autolog()` functions must use"
-                " keyword configuration arguments. Positional arguments are not allowed.".format(
-                    name
-                )
-            )
-
     def wrapper(_autolog):
         param_spec = inspect.signature(_autolog).parameters
         validate_param_spec(param_spec)
 
         AUTOLOGGING_INTEGRATIONS[name] = {}
-
         default_params = {param.name: param.default for param in param_spec.values()}
 
-        def autolog(**kwargs):
+        def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
+            config_to_store.update(
+                {param.name: arg for arg, param in zip(args, param_spec.values())}
+            )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
-            return _autolog(**kwargs)
+
+            return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
         return wrapped_autolog
@@ -347,7 +337,7 @@ def get_autologging_config(flavor_name, config_key, default_value=None):
     """
     Returns a desired config value for a specified autologging integration.
     Returns `None` if specified `flavor_name` has no recorded configs.
-    If `config_key` is not set on the config object, default vlaue is returned.
+    If `config_key` is not set on the config object, default value is returned.
 
     :param flavor_name: An autologging integration flavor name.
     :param config_key: The key for the desired config value.
@@ -569,11 +559,11 @@ def safe_patch(
                                     patch.
     :param destination: The Python class on which the patch is being defined.
     :param function_name: The name of the function to patch on the specified `destination` class.
-    :param function: The patched function code to apply. This is either a `PatchFunction` class
-                     definition or a function object. If it is a function object, the first argument
-                     should be reserved for an `original` method argument representing the
-                     underlying / original function. Subsequent arguments should be identical to
-                     those of the original function being patched.
+    :param patch_function: The patched function code to apply. This is either a `PatchFunction`
+                           class definition or a function object. If it is a function object, the
+                           first argument should be reserved for an `original` method argument
+                           representing the underlying / original function. Subsequent arguments
+                           should be identical to those of the original function being patched.
     :param manage_run: If `True`, applies the `with_managed_run` wrapper to the specified
                        `patch_function`, which automatically creates & terminates an MLflow
                        active run during patch code execution if necessary. If `False`,
