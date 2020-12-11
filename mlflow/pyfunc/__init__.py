@@ -353,7 +353,7 @@ def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
         except Exception as e:
             message = (
                 "This model contains a model signature, which suggests a DataFrame input."
-                f"There was an error casting the input data to a DataFrame: {str(e)}"
+                "There was an error casting the input data to a DataFrame: {0}".format(str(e))
             )
             raise MlflowException(message)
     if not isinstance(pdf, pandas.DataFrame):
