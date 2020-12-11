@@ -1212,7 +1212,7 @@ def _get_experiment_id():
 
 
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True
+    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
 ):  # pylint: disable=unused-argument
     """
     Enable autologging for all supported integrations.
