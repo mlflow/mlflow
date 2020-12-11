@@ -179,10 +179,11 @@ export class ExperimentListView extends Component {
                       : idx === 0;
                   const className = `${active ? 'list-group-item-info' : ''}`;
                   return (
-                    <li 
+                    <li
                       key={experiment_id}
-                      title={name} 
-                      className={`list-group-item header-container ${className} py-0`}>
+                      title={name}
+                      className={`list-group-item header-container ${className} py-0`}
+                    >
                       <Link
                         style={{ textDecoration: 'none', color: 'unset', width: '80%' }}
                         to={Routes.getExperimentPageRoute(experiment_id)}
@@ -190,8 +191,9 @@ export class ExperimentListView extends Component {
                       >
                         <div 
                           style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
-                          className='my-2'>
-                           {name}
+                          className='my-2'
+                        >
+                          {name}
                         </div>
                       </Link>
                       {/* Edit/Rename Experiment Option */}
