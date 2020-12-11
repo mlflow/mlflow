@@ -396,97 +396,97 @@ def test_batch_metrics_logger_continues_if_log_batch_fails(start_run,):
         assert metric.step == 1
 
 
-def test_autologging_integration_calls_underlying_function_correctly():
-    @autologging_integration("test_integration")
-    def autolog(foo=7, disable=False):
-        return foo
-
-    assert autolog(foo=10) == 10
-
-
-def test_autologging_integration_stores_and_updates_config():
-    @autologging_integration("test_integration")
-    def autolog(foo=7, bar=10, disable=False):
-        return foo
-
-    autolog()
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
-    autolog(bar=11)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
-    autolog(6, disable=True)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
-    autolog(1, 2, False)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 1, "bar": 2, "disable": False}
-
-
-def test_autologging_integration_forwards_positional_and_keyword_arguments_as_expected():
-    @autologging_integration("test_integration")
-    def autolog(foo=7, bar=10, disable=False):
-        return foo, bar, disable
-
-    assert autolog(1, bar=2, disable=True) == (1, 2, True)
-
-
-def test_autologging_integration_validates_structure_of_autolog_function():
-    def fn_missing_disable_conf():
-        pass
-
-    def fn_bad_disable_conf_1(disable=True):
-        pass
-
-    # Try to use a falsy value that isn't "false"
-    def fn_bad_disable_conf_2(disable=0):
-        pass
-
-    for fn in [fn_missing_disable_conf, fn_bad_disable_conf_1, fn_bad_disable_conf_2]:
-        with pytest.raises(Exception, match="must specify a 'disable' argument"):
-            autologging_integration("test")(fn)
-
-    # Failure to apply the @autologging_integration decorator should not create a
-    # placeholder for configuration state
-    assert "test" not in AUTOLOGGING_INTEGRATIONS
-
-
-def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
-
-    assert get_autologging_config("nonexistent_integration", "foo") is None
-
-    @autologging_integration("test_integration_for_config")
-    def autolog(foo="bar", t=7, disable=False):
-        pass
-
-    # Before `autolog()` has been invoked, config values should not be available
-    assert get_autologging_config("test_integration_for_config", "foo") is None
-    assert get_autologging_config("test_integration_for_config", "disable") is None
-    assert get_autologging_config("test_integration_for_config", "t", 10) == 10
-
-    autolog()
-
-    assert get_autologging_config("test_integration_for_config", "foo") == "bar"
-    assert get_autologging_config("test_integration_for_config", "disable") is False
-    assert get_autologging_config("test_integration_for_config", "t", 10) == 7
-    assert get_autologging_config("test_integration_for_config", "nonexistent") is None
-
-    autolog(foo="baz")
-
-    assert get_autologging_config("test_integration_for_config", "foo") == "baz"
-
-
-def test_autologging_is_disabled_returns_expected_values():
-
-    assert autologging_is_disabled("nonexistent_integration") is True
-
-    @autologging_integration("test_integration_for_disable_check")
-    def autolog(disable=False):
-        pass
-
-    # Before `autolog()` has been invoked, `autologging_is_disabled` should return False
-    assert autologging_is_disabled("test_integration_for_disable_check") is True
-
-    autolog(disable=True)
-
-    assert autologging_is_disabled("test_integration_for_disable_check") is True
-
-    autolog(disable=False)
-
-    assert autologging_is_disabled("test_integration_for_disable_check") is False
+# def test_autologging_integration_calls_underlying_function_correctly():
+#     @autologging_integration("test_integration")
+#     def autolog(foo=7, disable=False):
+#         return foo
+#
+#     assert autolog(foo=10) == 10
+#
+#
+# def test_autologging_integration_stores_and_updates_config():
+#     @autologging_integration("test_integration")
+#     def autolog(foo=7, bar=10, disable=False):
+#         return foo
+#
+#     autolog()
+#     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
+#     autolog(bar=11)
+#     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
+#     autolog(6, disable=True)
+#     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
+#     autolog(1, 2, False)
+#     assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 1, "bar": 2, "disable": False}
+#
+#
+# def test_autologging_integration_forwards_positional_and_keyword_arguments_as_expected():
+#     @autologging_integration("test_integration")
+#     def autolog(foo=7, bar=10, disable=False):
+#         return foo, bar, disable
+#
+#     assert autolog(1, bar=2, disable=True) == (1, 2, True)
+#
+#
+# def test_autologging_integration_validates_structure_of_autolog_function():
+#     def fn_missing_disable_conf():
+#         pass
+#
+#     def fn_bad_disable_conf_1(disable=True):
+#         pass
+#
+#     # Try to use a falsy value that isn't "false"
+#     def fn_bad_disable_conf_2(disable=0):
+#         pass
+#
+#     for fn in [fn_missing_disable_conf, fn_bad_disable_conf_1, fn_bad_disable_conf_2]:
+#         with pytest.raises(Exception, match="must specify a 'disable' argument"):
+#             autologging_integration("test")(fn)
+#
+#     # Failure to apply the @autologging_integration decorator should not create a
+#     # placeholder for configuration state
+#     assert "test" not in AUTOLOGGING_INTEGRATIONS
+#
+#
+# def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
+#
+#     assert get_autologging_config("nonexistent_integration", "foo") is None
+#
+#     @autologging_integration("test_integration_for_config")
+#     def autolog(foo="bar", t=7, disable=False):
+#         pass
+#
+#     # Before `autolog()` has been invoked, config values should not be available
+#     assert get_autologging_config("test_integration_for_config", "foo") is None
+#     assert get_autologging_config("test_integration_for_config", "disable") is None
+#     assert get_autologging_config("test_integration_for_config", "t", 10) == 10
+#
+#     autolog()
+#
+#     assert get_autologging_config("test_integration_for_config", "foo") == "bar"
+#     assert get_autologging_config("test_integration_for_config", "disable") is False
+#     assert get_autologging_config("test_integration_for_config", "t", 10) == 7
+#     assert get_autologging_config("test_integration_for_config", "nonexistent") is None
+#
+#     autolog(foo="baz")
+#
+#     assert get_autologging_config("test_integration_for_config", "foo") == "baz"
+#
+#
+# def test_autologging_is_disabled_returns_expected_values():
+#
+#     assert autologging_is_disabled("nonexistent_integration") is True
+#
+#     @autologging_integration("test_integration_for_disable_check")
+#     def autolog(disable=False):
+#         pass
+#
+#     # Before `autolog()` has been invoked, `autologging_is_disabled` should return False
+#     assert autologging_is_disabled("test_integration_for_disable_check") is True
+#
+#     autolog(disable=True)
+#
+#     assert autologging_is_disabled("test_integration_for_disable_check") is True
+#
+#     autolog(disable=False)
+#
+#     assert autologging_is_disabled("test_integration_for_disable_check") is False
