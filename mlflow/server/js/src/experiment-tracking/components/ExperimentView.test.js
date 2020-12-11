@@ -71,7 +71,7 @@ test('Entering search input updates component state', () => {
   wrapper.instance().setState = jest.fn();
   // Test entering search input
   wrapper
-    .find('.ExperimentView-search-input input')
+    .find('#experiment-search-input')
     .first()
     .simulate('change', { target: { value: 'search input string' } });
   expect(wrapper.instance().setState).toBeCalledWith({ searchInput: 'search input string' });

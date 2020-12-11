@@ -16,7 +16,7 @@ test('If activeExperimentId is defined then choose that one', () => {
   );
   expect(
     wrapper
-      .find('.active-experiment-list-item')
+      .find('.list-group-item-info')
       .first()
       .prop('title'),
   ).toEqual('Test');
@@ -28,7 +28,7 @@ test('If activeExperimentId is undefined then choose first experiment', () => {
   );
   expect(
     wrapper
-      .find('.active-experiment-list-item')
+      .find('.list-group-item-info')
       .first()
       .prop('title'),
   ).toEqual('Default');
@@ -42,7 +42,7 @@ test('If searchInput is set to "Test" then first shown element in experiment lis
   wrapper.setState({ searchInput: 'Test' });
   expect(
     wrapper
-      .find('.experiment-list-item')
+      .find('.list-group-item')
       .first()
       .prop('title'),
   ).toEqual('Test');
@@ -58,7 +58,7 @@ test('If searchInput is set to "Test" and default experiment is active then no a
   );
 
   wrapper.setState({ searchInput: 'Test' });
-  expect(wrapper.find('.active-experiment-list-item')).toHaveLength(0);
+  expect(wrapper.find('.list-group-item-info')).toHaveLength(0);
 });
 
 test('If button to create experiment is pressed then open CreateExperimentModal', () => {
@@ -79,7 +79,7 @@ test('If button to delete experiment is pressed then open DeleteExperimentModal'
   );
   // find delete experiment link
   const deleteLink = wrapper
-    .find('.active-experiment-list-item')
+    .find('.list-group-item-info')
     .children()
     .at(2);
   // mock event that is passed when clicking the link
@@ -104,7 +104,7 @@ test('If button to edit experiment is pressed then open RenameExperimentModal', 
 
   // find edit experiment link
   const editLink = wrapper
-    .find('.active-experiment-list-item')
+    .find('.list-group-item-info')
     .children()
     .at(1);
   // mock event that is passed when clicking the link
