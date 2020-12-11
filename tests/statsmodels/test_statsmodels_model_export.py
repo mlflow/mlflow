@@ -1,11 +1,11 @@
 import pytest
 import numpy as np
 import pandas as pd
+import mock
 import os
 import yaml
 import json
 import pandas.testing
-from unittest import mock
 
 import mlflow.statsmodels
 import mlflow.utils
