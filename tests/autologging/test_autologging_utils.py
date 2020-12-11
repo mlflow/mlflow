@@ -420,7 +420,6 @@ def test_autologging_integration_stores_and_updates_config():
 
 
 def test_autologging_integration_forwards_positional_and_keyword_arguments_as_expected():
-
     @autologging_integration("test_integration")
     def autolog(foo=7, bar=10, disable=False):
         return foo, bar, disable
