@@ -14,6 +14,9 @@ from mlflow.utils.autologging_utils import (
 )
 
 
+pytestmark = pytest.mark.large
+
+
 @pytest.fixture(scope="function", autouse=True)
 def test_mode_off():
     with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:

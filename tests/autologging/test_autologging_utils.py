@@ -20,6 +20,10 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
+
+pytestmark = pytest.mark.large
+
+
 # Example function signature we are testing on
 # def fn(arg1, default1=1, default2=2):
 #     pass
@@ -93,7 +97,6 @@ log_test_args = [
 ]
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("args,kwargs,expected", log_test_args)
 def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
     log_fn_args_as_params(dummy_fn, args, kwargs)
@@ -104,7 +107,6 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: di
         assert params[arg] == value
 
 
-@pytest.mark.large
 def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint: disable=W0613
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
@@ -119,7 +121,6 @@ def get_func_attrs(f):
     return (f.__name__, f.__doc__, f.__module__, inspect.signature(f))
 
 
-@pytest.mark.large
 def test_wrap_patch_with_class():
     class Math:
         def add(self, a, b):
@@ -139,7 +140,6 @@ def test_wrap_patch_with_class():
     assert Math().add(1, 2) == 6
 
 
-@pytest.mark.large
 def test_wrap_patch_with_module():
     def new_log_param(key, value):
         """new mlflow.log_param"""
