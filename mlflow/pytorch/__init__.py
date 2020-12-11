@@ -46,8 +46,30 @@ _logger = logging.getLogger(__name__)
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
+    :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.pytorch
+
+        # Log PyTorch model
+        with mlflow.start_run() as run:
+            mlflow.pytorch.log_model(model, "model")
+
+        # Fetch the associated conda environment
+        env = mlflow.pytorch.get_default_conda_env()
+        print("conda env: {}".format(env))
+
+    .. code-block:: text
+        :caption: Output
+
+        conda env {'name': 'mlflow-env',
+                   'channels': ['defaults', 'conda-forge', 'pytorch'],
+                   'dependencies': ['python=3.7.5', 'pytorch=1.5.1',
+                                    'torchvision=0.6.1',
+                                    'pip', {'pip': ['mlflow', 'cloudpickle==1.6.0']}]}
     """
     import torch
     import torchvision
@@ -176,51 +198,74 @@ def log_model(
     .. code-block:: python
         :caption: Example
 
+        import numpy as np
         import torch
-        import mlflow
         import mlflow.pytorch
-        # X data
-        x_data = torch.Tensor([[1.0], [2.0], [3.0]])
-        # Y data with its expected value: labels
-        y_data = torch.Tensor([[2.0], [4.0], [6.0]])
-        # Partial Model example modified from Sung Kim
-        # https://github.com/hunkim/PyTorchZeroToAll
-        class Model(torch.nn.Module):
+
+        class LinearNNModel(torch.nn.Module):
             def __init__(self):
-               super().__init__()
-               self.linear = torch.nn.Linear(1, 1)  # One in and one out
+                super(LinearNNModel, self).__init__()
+                self.linear = torch.nn.Linear(1, 1)  # One in and one out
+
             def forward(self, x):
                 y_pred = self.linear(x)
-            return y_pred
-        # our model
-        model = Model()
-        criterion = torch.nn.MSELoss(size_average=False)
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+                return y_pred
+
+        def gen_data():
+            # Example linear model modified to use y = 2x
+            # from https://github.com/hunkim/PyTorchZeroToAll
+            # X training data, y labels
+            X = torch.arange(1.0, 25.0).view(-1, 1)
+            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
+            return X, y
+
+        # Define model, loss, and optimizer
+        model = LinearNNModel()
+        criterion = torch.nn.MSELoss()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
+
         # Training loop
-        for epoch in range(500):
-            # Forward pass: Compute predicted y by passing x to the model
-            y_pred = model(x_data)
-            # Compute and print loss
-            loss = criterion(y_pred, y_data)
-            print(epoch, loss.data.item())
-            #Zero gradients, perform a backward pass, and update the weights.
+        epochs = 250
+        X, y = gen_data()
+        for epoch in range(epochs):
+            # Forward pass: Compute predicted y by passing X to the model
+            y_pred = model(X)
+
+            # Compute the loss
+            loss = criterion(y_pred, y)
+
+            # Zero gradients, perform a backward pass, and update the weights.
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        # After training
-        for hv in [4.0, 5.0, 6.0]:
-            hour_var = torch.Tensor([[hv]])
-            y_pred = model(hour_var)
-            print("predict (after training)",  hv, model(hour_var).data[0][0])
-        # log the model
+        # Log the model
         with mlflow.start_run() as run:
-            mlflow.log_param("epochs", 500)
-            mlflow.pytorch.log_model(model, "models")
+            mlflow.pytorch.log_model(model, "model")
 
-            # logging scripted module
+            # convert to scripted model and log the model
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_model(scripted_pytorch_model, "models")
+            mlflow.pytorch.log_model(scripted_pytorch_model, "scripted_model")
+
+        # Fetch the logged model artifacts
+        print("run_id: {}".format(run.info.run_id))
+        for artifact_path in ["model/data", "scripted_model/data"]:
+            artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id,
+                        artifact_path)]
+            print("artifacts: {}".format(artifacts))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 1a1ec9e413ce48e9abf9aec20efd6f71
+        artifacts: ['model/data/model.pth',
+                    'model/data/pickle_module_info.txt']
+        artifacts: ['scripted_model/data/model.pth',
+                    'scripted_model/data/pickle_module_info.txt']
+
+    .. figure:: ../_static/images/pytorch_logged_models.png
+
+        PyTorch logged models
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(
@@ -343,24 +388,54 @@ def save_model(
     .. code-block:: python
         :caption: Example
 
-        import torch
-        import mlflow
-        import mlflow.pytorch
-        # Create model and set values
-        pytorch_model = Model()
-        pytorch_model_path = ...
-        # train our model
-        for epoch in range(500):
-            y_pred = pytorch_model(x_data)
-            ...
-        # Save the model
-        with mlflow.start_run() as run:
-            mlflow.log_param("epochs", 500)
-            mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
+        import os
 
-            # Saving scripted model
+        import torch
+        import mlflow.pytorch
+
+        # Class defined here
+        class LinearNNModel(torch.nn.Module):
+            ...
+
+        # Initialize our model, criterion and optimizer
+        ...
+
+        # Training loop
+        ...
+
+        # Save PyTorch models to current working directory
+        with mlflow.start_run() as run:
+            mlflow.pytorch.save_model(model, "model")
+
+            # Convert to a scripted model and save it
             scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.save_model(scripted_pytorch_model, pytorch_model_path)
+            mlflow.pytorch.save_model(scripted_pytorch_model, "scripted_model")
+
+        # Load each saved model for inference
+        for model_path in ["model", "scripted_model"]:
+            model_uri = "{}/{}".format(os.getcwd(), model_path)
+            loaded_model = mlflow.pytorch.load_model(model_uri)
+            print("Loaded {}:".format(model_path))
+            for x in [6.0, 8.0, 12.0, 30.0]:
+                X = torch.Tensor([[x]])
+                y_pred = loaded_model(X)
+                print("predict X: {}, y_pred: {:.2f}".format(x, y_pred.data.item()))
+            print("--")
+
+    .. code-block:: text
+        :caption: Output
+
+        Loaded model:
+        predict X: 6.0, y_pred: 11.90
+        predict X: 8.0, y_pred: 15.92
+        predict X: 12.0, y_pred: 23.96
+        predict X: 30.0, y_pred: 60.13
+        --
+        Loaded scripted_model:
+        predict X: 6.0, y_pred: 11.90
+        predict X: 8.0, y_pred: 15.92
+        predict X: 12.0, y_pred: 23.96
+        predict X: 30.0, y_pred: 60.13
     """
     import torch
 
@@ -540,13 +615,36 @@ def load_model(model_uri, **kwargs):
         :caption: Example
 
         import torch
-        import mlflow
         import mlflow.pytorch
-        # Set values
-        model_path_dir = ...
-        run_id = "96771d893a5e46159d9f3b49bf9013e2"
-        pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
-        y_pred = pytorch_model(x_new_data)
+
+        # Class defined here
+        class LinearNNModel(torch.nn.Module):
+            ...
+
+        # Initialize our model, criterion and optimizer
+        ...
+
+        # Training loop
+        ...
+
+        # Log the model
+        with mlflow.start_run() as run:
+            mlflow.pytorch.log_model(model, "model")
+
+        # Inference after loading the logged model
+        model_uri = "runs:/{}/model".format(run.info.run_id)
+        loaded_model = mlflow.pytorch.load_model(model_uri)
+        for x in [4.0, 6.0, 30.0]:
+            X = torch.Tensor([[x]])
+            y_pred = loaded_model(X)
+            print("predict X: {}, y_pred: {:.2f}".format(x, y_pred.data.item()))
+
+    .. code-block:: text
+        :caption: Output
+
+        predict X: 4.0, y_pred: 7.57
+        predict X: 6.0, y_pred: 11.64
+        predict X: 30.0, y_pred: 60.48
     """
     import torch
 
@@ -620,11 +718,15 @@ def autolog(log_every_n_epoch=1, log_models=True):
     `pytorch_lightning.Trainer() \
     <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
 
+    Explore the complete `PyTorch MNIST \
+    <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST/example1>`_ for
+    an expansive example with implementation of additional lightening steps.
+
     **Note**: Autologging is only supported for PyTorch Lightning models,
-    i.e. models that subclass
+    i.e., models that subclass
     `pytorch_lightning.LightningModule \
     <https://pytorch-lightning.readthedocs.io/en/latest/lightning_module.html>`_.
-    In particular, autologging support for vanilla Pytorch models that only subclass
+    In particular, autologging support for vanilla PyTorch models that only subclass
     `torch.nn.Module <https://pytorch.org/docs/stable/generated/torch.nn.Module.html>`_
     is not yet available.
 
@@ -632,6 +734,102 @@ def autolog(log_every_n_epoch=1, log_models=True):
                        are logged after every epoch.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+
+    .. code-block:: python
+        :caption: Example
+
+        import os
+
+        import pytorch_lightning as pl
+        import torch
+        from torch.nn import functional as F
+        from torch.utils.data import DataLoader
+        from torchvision import transforms
+        from torchvision.datasets import MNIST
+        from pytorch_lightning.metrics.functional import accuracy
+
+        import mlflow.pytorch
+        from mlflow.tracking import MlflowClient
+
+        # For brevity, here is the simplest most minimal example with just a training
+        # loop step, (no validation, no testing). It illustrates how you can use MLflow
+        # to auto log parameters, metrics, and models.
+
+        class MNISTModel(pl.LightningModule):
+            def __init__(self):
+                super(MNISTModel, self).__init__()
+                self.l1 = torch.nn.Linear(28 * 28, 10)
+
+            def forward(self, x):
+                return torch.relu(self.l1(x.view(x.size(0), -1)))
+
+            def training_step(self, batch, batch_nb):
+                x, y = batch
+                loss = F.cross_entropy(self(x), y)
+                acc = accuracy(loss, y)
+
+                # Use the current of PyTorch logger
+                self.log("train_loss", loss, on_epoch=True)
+                self.log("acc", acc, on_epoch=True)
+                return loss
+
+            def configure_optimizers(self):
+                return torch.optim.Adam(self.parameters(), lr=0.02)
+
+        def print_auto_logged_info(r):
+
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print("run_id: {}".format(r.info.run_id))
+            print("artifacts: {}".format(artifacts))
+            print("params: {}".format(r.data.params))
+            print("metrics: {}".format(r.data.metrics))
+            print("tags: {}".format(tags))
+
+        # Initialize our model
+        mnist_model = MNISTModel()
+
+        # Initialize DataLoader from MNIST Dataset
+        train_ds = MNIST(os.getcwd(), train=True,
+            download=True, transform=transforms.ToTensor())
+        train_loader = DataLoader(train_ds, batch_size=32)
+
+        # Initialize a trainer
+        trainer = pl.Trainer(max_epochs=20, progress_bar_refresh_rate=20)
+
+        # Auto log all MLflow entities
+        mlflow.pytorch.autolog()
+
+        # Train the model
+        with mlflow.start_run() as run:
+            trainer.fit(mnist_model, train_loader)
+
+        # fetch the auto logged parameters and metrics
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        run_id: 42caa17b60cb489c8083900fb52506a7
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/data']
+        params: {'betas': '(0.9, 0.999)',
+                 'weight_decay': '0',
+                 'epochs': '20',
+                 'eps': '1e-08',
+                 'lr': '0.02',
+                 'optimizer_name': 'Adam', '
+                 amsgrad': 'False'}
+        metrics: {'acc_step': 0.0,
+                  'train_loss_epoch': 1.0917967557907104,
+                  'train_loss_step': 1.0794280767440796,
+                  'train_loss': 1.0794280767440796,
+                  'acc_epoch': 0.0033333334140479565,
+                  'acc': 0.0}
+        tags: {'Mode': 'training'}
+
+    .. figure:: ../_static/images/pytorch_lightening_autolog.png
+
+        PyTorch autologged MLflow entities
     """
     from mlflow.pytorch._pytorch_autolog import _autolog
 

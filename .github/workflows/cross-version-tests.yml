@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -40,6 +41,7 @@ jobs:
           fi
   test:
     needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
