@@ -430,7 +430,7 @@ export class ExperimentView extends Component {
                   }
                   value={this.state.searchInput}
                   onChange={this.onSearchInput}
-                  id="experiment-search-input"
+                  id='experiment-search-input'
                 />
               </div>
               <Popover
