@@ -319,10 +319,9 @@ def autologging_integration(name):
 
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
-            config_to_store.update({
-                param.name: arg
-                for arg, param in zip(args, param_spec.values())
-            })
+            config_to_store.update(
+                {param.name: arg for arg, param in zip(args, param_spec.values())}
+            )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
