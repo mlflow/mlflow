@@ -35,7 +35,7 @@ def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLE
 
         # Log MLflow entities
         with mlflow.start_run() as run:
-           rfr = RandomForestRegressor(**params)
+           rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
            mlflow.log_params(params)
            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 

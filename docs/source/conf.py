@@ -315,6 +315,17 @@ nitpick_ignore = [
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
+    # Suppress warnings that stem from type annotations for model signature
+    ("py:class", "numpy.dtype"),
+    ("py:class", "numpy.ndarray"),
+    ("py:class", "pandas.core.series.Series"),
+    ("py:class", "pandas.core.frame.DataFrame"),
+    ("py:class", "pyspark.sql.dataframe.DataFrame"),
+    ("py:class", "mlflow.types.schema.DataType"),
+    ("py:class", "mlflow.types.schema.ColSpec"),
+    ("py:class", "mlflow.types.schema.Schema"),
+    ("py:class", "mlflow.models.model.Model"),
+    ("py:class", "mlflow.models.signature.ModelSignature"),
 ]
 
 linkcheck_ignore = [

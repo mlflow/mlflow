@@ -258,7 +258,7 @@ def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
     custom_tf_context = tf_graph.device("/cpu:0")
-    with custom_tf_context:
+    with custom_tf_context:  # pylint: disable=not-context-manager
         signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
         for _, input_signature in signature_def.inputs.items():
@@ -286,7 +286,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
 
     tf_graph_2 = tf.Graph()
     tf_sess_2 = tf.Session(graph=tf_graph_2)
-    with tf_graph_1.device("/cpu:0"):
+    with tf_graph_1.device("/cpu:0"):  # pylint: disable=not-context-manager
         load_and_evaluate(model_path=model_path, tf_sess=tf_sess_2, tf_graph=tf_graph_2)
 
 

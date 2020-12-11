@@ -10,6 +10,7 @@ import fastai
 import sklearn
 import xgboost
 import lightgbm
+import statsmodels
 import mxnet.gluon
 import pyspark
 import pytorch_lightning
@@ -21,6 +22,7 @@ library_to_mlflow_module_without_pyspark = {
     sklearn: "sklearn",
     xgboost: "xgboost",
     lightgbm: "lightgbm",
+    statsmodels: "statsmodels",
     mxnet.gluon: "gluon",
     pytorch_lightning: "pytorch",
 }
@@ -78,13 +80,13 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, ml
 @pytest.mark.large
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module_without_pyspark.items())
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
-    integrations_with_config = [xgboost, lightgbm, sklearn]
+    integrations_with_config = [xgboost, lightgbm, statsmodels, sklearn]
 
     # modify the __signature__ of the mock to contain the needed parameters
     args = (
-        {"log_input_examples": bool, "log_model_signatures": bool}
+        {"log_input_examples": bool, "log_model_signatures": bool, "log_models": bool}
         if library in integrations_with_config
-        else {}
+        else {"log_models": bool}
     )
     params = [
         inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
@@ -98,7 +100,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         autolog_mock.assert_not_called()
 
         # this should attach import hooks to each library
-        mlflow.autolog(log_input_examples=True, log_model_signatures=True)
+        mlflow.autolog(log_input_examples=True, log_model_signatures=True, log_models=True)
 
         autolog_mock.assert_not_called()
 
@@ -106,9 +108,11 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
         # after each library is imported, its corresponding autolog function should have been called
         if library in integrations_with_config:
-            autolog_mock.assert_called_once_with(log_input_examples=True, log_model_signatures=True)
+            autolog_mock.assert_called_once_with(
+                log_input_examples=True, log_model_signatures=True, log_models=True
+            )
         else:
-            autolog_mock.assert_called_once_with()
+            autolog_mock.assert_called_once_with(log_models=True)
 
 
 @pytest.mark.large

@@ -44,7 +44,7 @@ CREATE TABLE model_versions (
 	user_id VARCHAR(256),
 	current_stage VARCHAR(20),
 	source VARCHAR(500),
-	run_id VARCHAR(32) NOT NULL,
+	run_id VARCHAR(32),
 	status VARCHAR(20),
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
