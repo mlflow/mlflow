@@ -69,7 +69,7 @@ def _validate_metric(key, value, timestamp, step):
     it isn't.
     """
     _validate_metric_name(key)
-    if not isinstance(value, numbers.Number):
+    if isinstance(value, bool) or not isinstance(value, numbers.Number):
         raise MlflowException(
             "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
             "double (64-bit floating point)" % (value, key, timestamp),
