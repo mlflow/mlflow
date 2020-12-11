@@ -437,9 +437,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
         assert formatting_arg == exc_to_throw
 
 
-def test_exception_safe_function_exhibits_expected_behavior_in_test_mode(
-    test_mode_on,
-):
+def test_exception_safe_function_exhibits_expected_behavior_in_test_mode(test_mode_on,):
     assert autologging_utils._is_testing()
 
     @exception_safe_function
@@ -485,9 +483,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
         assert formatting_arg == exc_to_throw
 
 
-def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(
-    test_mode_on,
-):
+def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(test_mode_on,):
     assert autologging_utils._is_testing()
 
     class NonThrowingClass(metaclass=ExceptionSafeClass):
@@ -510,9 +506,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(
 
 def test_patch_function_class_call_invokes_implementation_and_returns_result():
     class TestPatchFunction(PatchFunction):
-        def _patch_implementation(
-            self, original, *args, **kwargs
-        ):
+        def _patch_implementation(self, original, *args, **kwargs):
             return 10
 
         def _on_exception(self, exception):
@@ -526,9 +520,7 @@ def test_patch_function_class_call_handles_exceptions_properly():
     called_on_exception = False
 
     class TestPatchFunction(PatchFunction):
-        def _patch_implementation(
-            self, original, *args, **kwargs
-        ):
+        def _patch_implementation(self, original, *args, **kwargs):
             raise Exception("implementation exception")
 
         def _on_exception(self, exception):
@@ -550,9 +542,7 @@ def test_with_managed_runs_yields_functions_and_classes_as_expected():
         pass
 
     class TestPatch(PatchFunction):
-        def _patch_implementation(
-            self, original, *args, **kwargs
-        ):
+        def _patch_implementation(self, original, *args, **kwargs):
             pass
 
         def _on_exception(self, exception):
@@ -612,9 +602,7 @@ def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
 
     @with_managed_run
     class TestPatch(PatchFunction):
-        def _patch_implementation(
-            self, original, *args, **kwargs
-        ):
+        def _patch_implementation(self, original, *args, **kwargs):
             return mlflow.active_run()
 
         def _on_exception(self, exception):
@@ -638,9 +626,7 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
     @with_managed_run
     class TestPatch(PatchFunction):
-        def _patch_implementation(
-            self, original, *args, **kwargs
-        ):
+        def _patch_implementation(self, original, *args, **kwargs):
             nonlocal patch_function_active_run
             patch_function_active_run = mlflow.active_run()
             raise Exception("bad implementation")
@@ -664,9 +650,7 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
-def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(
-    test_mode_on,
-):
+def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_mode_on,):
     args = [1, "b", ["c"]]
     kwargs = {
         "foo": ["bar"],
@@ -685,9 +669,7 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(
     _validate_args(None, kwargs, None, kwargs_copy)
 
 
-def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(
-    test_mode_on,
-):
+def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(test_mode_on,):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -712,9 +694,7 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
     assert "Invalid new input" in str(exc)
 
 
-def test_validate_args_throws_when_extra_args_are_not_exception_safe(
-    test_mode_on,
-):
+def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_on,):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -773,9 +753,7 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
     _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
 
 
-def test_validate_args_throws_when_args_are_omitted(
-    test_mode_on,
-):
+def test_validate_args_throws_when_args_are_omitted(test_mode_on,):
     user_call_args = [1, "b", ["c"], {"d": "e"}]
     user_call_kwargs = {
         "foo": ["bar"],
@@ -833,9 +811,7 @@ def test_validate_args_throws_when_args_are_omitted(
     assert "omit one or more expected keys" in str(exc)
 
 
-def test_validate_args_throws_when_arg_types_or_values_are_changed(
-    test_mode_on,
-):
+def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on,):
     user_call_args = [1, "b", ["c"]]
     user_call_kwargs = {
         "foo": ["bar"],
