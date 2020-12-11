@@ -128,7 +128,7 @@ def test_safe_patch_provides_expected_original_function(patch_destination, test_
         }
 
     patch_destination.fn = original_fn
-    
+
     def patch_impl(original, foo, bar):
         return original(foo + 1, bar + 2)
 
@@ -144,7 +144,7 @@ def test_safe_patch_provides_expected_original_function(patch_destination, test_
         }
 
     patch_destination.fn = original_fn
-    
+
     def patch_impl(original, foo, bar):
         return original(foo + 1, bar + 2)
 
@@ -161,7 +161,7 @@ def test_safe_patch_provides_expected_original_function_to_class_based_patch(
         }
 
     patch_destination.fn = original_fn
-    
+
     class TestPatch(PatchFunction):
 
         def _patch_implementation(self, original, foo, bar=10):
@@ -212,7 +212,7 @@ def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warni
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     with mock.patch("mlflow.utils.autologging_utils._logger.warning") as logger_mock:
-        assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT 
+        assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
         assert logger_mock.call_count == 1
         message, formatting_arg1, formatting_arg2 = logger_mock.call_args[0]
         assert "Encountered unexpected error" in message
@@ -246,8 +246,8 @@ def test_safe_patch_calls_original_function_when_patch_preamble_throws(
         raise Exception("Bad patch preamble")
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT 
-    assert patch_destination.fn_call_count == 1 
+    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_destination.fn_call_count == 1
     assert patch_impl_called
 
 
@@ -255,7 +255,7 @@ def test_safe_patch_returns_original_result_without_second_call_when_patch_posta
         patch_destination, test_autologging_integration):
 
     patch_impl_called = False
-    
+
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
@@ -294,7 +294,7 @@ def test_safe_patch_respects_disable_flag(patch_destination):
 def test_safe_patch_returns_original_result_and_ignores_patch_return_value(patch_destination, test_autologging_integration):
 
     patch_impl_called = False
-    
+
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_impl_called
         patch_impl_called = True
@@ -315,7 +315,7 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(patch_
 
     with pytest.raises(Exception) as exc, mock.patch("mlflow.utils.autologging_utils._validate_args", wraps=autologging_utils._validate_args) as validate_mock:
         patch_destination.fn("a", "b", "c")
-        
+
     assert "does not match expected input" in str(exc)
     assert validate_mock.call_count == 1
 
@@ -328,7 +328,7 @@ def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging
         nonlocal active_run
         active_run = mlflow.active_run()
         return original(*args, **kwargs)
-    
+
     with mock.patch("mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run) as managed_run_mock:
         safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True)
         patch_destination.fn()
@@ -349,7 +349,7 @@ def test_safe_patch_does_not_manage_run_if_unspecified(patch_destination, test_a
     with mock.patch("mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run) as managed_run_mock:
         safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=False)
         patch_destination.fn()
-        assert managed_run_mock.call_count == 0 
+        assert managed_run_mock.call_count == 0
         assert active_run is None
 
 def test_safe_patch_preserves_signature_of_patched_function(patch_destination, test_autologging_integration):
