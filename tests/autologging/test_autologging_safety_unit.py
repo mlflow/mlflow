@@ -215,8 +215,9 @@ def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warni
         assert formatting_arg2 == exc_to_throw
 
 
+@pytest.mark.usefixtures(test_mode_on.__name__)
 def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in_test_mode(
-    patch_destination, test_autologging_integration, test_mode_on
+    patch_destination, test_autologging_integration
 ):
 
     exc_to_throw = Exception("Bad patch implementation")
@@ -305,8 +306,9 @@ def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
     assert patch_impl_called
 
 
+@pytest.mark.usefixtures(test_mode_on.__name__)
 def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
-    patch_destination, test_autologging_integration, test_mode_on
+    patch_destination, test_autologging_integration
 ):
     def patch_impl(original, *args, **kwargs):
         return original("1", "2", "3")
@@ -428,7 +430,8 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
         assert formatting_arg == exc_to_throw
 
 
-def test_exception_safe_function_exhibits_expected_behavior_in_test_mode(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     assert autologging_utils._is_testing()
 
     @exception_safe_function
@@ -474,7 +477,8 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
         assert formatting_arg == exc_to_throw
 
 
-def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_exception_safe_class_exhibits_expected_behavior_in_test_mode():
     assert autologging_utils._is_testing()
 
     class NonThrowingClass(metaclass=ExceptionSafeClass):
@@ -640,7 +644,8 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
-def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
     args = (1, "b", ["c"])
     kwargs = {
         "foo": ["bar"],
@@ -659,7 +664,8 @@ def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical(test_m
     _validate_args(None, kwargs, None, kwargs_copy)
 
 
-def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists():
     user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
@@ -682,7 +688,8 @@ def test_validate_args_throws_when_extra_args_are_not_functions_classes_or_lists
         )
 
 
-def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_validate_args_throws_when_extra_args_are_not_exception_safe():
     user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
@@ -716,9 +723,8 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe(test_mode_o
         )
 
 
-def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
-    test_mode_on,
-):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes():
     user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
@@ -738,7 +744,8 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
     _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
 
 
-def test_validate_args_throws_when_args_are_omitted(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_validate_args_throws_when_args_are_omitted():
     user_call_args = (1, "b", ["c"], {"d": "e"})
     user_call_kwargs = {
         "foo": ["bar"],
@@ -790,7 +797,8 @@ def test_validate_args_throws_when_args_are_omitted(test_mode_on,):
         )
 
 
-def test_validate_args_throws_when_arg_types_or_values_are_changed(test_mode_on,):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_validate_args_throws_when_arg_types_or_values_are_changed():
     user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],

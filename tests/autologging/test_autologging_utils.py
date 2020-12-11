@@ -458,13 +458,13 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
     # Before `autolog()` has been invoked, config values should not be available
     assert get_autologging_config("test_integration_for_config", "foo") is None
     assert get_autologging_config("test_integration_for_config", "disable") is None
-    assert get_autologging_config("test_integration_for_config", "t", 10) is 10
+    assert get_autologging_config("test_integration_for_config", "t", 10) == 10
 
     autolog()
 
     assert get_autologging_config("test_integration_for_config", "foo") == "bar"
     assert get_autologging_config("test_integration_for_config", "disable") is False
-    assert get_autologging_config("test_integration_for_config", "t", 10) is 7
+    assert get_autologging_config("test_integration_for_config", "t", 10) == 7
     assert get_autologging_config("test_integration_for_config", "nonexistent") is None
 
     autolog(foo="baz")
