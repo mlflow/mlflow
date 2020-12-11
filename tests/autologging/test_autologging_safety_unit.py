@@ -521,10 +521,10 @@ def test_patch_function_class_call_handles_exceptions_properly():
 
     # Even if an exception is thrown from `_on_exception`, we expect the original
     # exception from the implementation to be surfaced to the caller
-    with pytest.raises(Exception, match="implementation exception") as exc:
+    with pytest.raises(Exception, match="implementation exception"):
         TestPatchFunction.call("foo", lambda: "foo")
 
-    assert called_on_exception == True
+    assert called_on_exception
 
 
 def test_with_managed_runs_yields_functions_and_classes_as_expected():
