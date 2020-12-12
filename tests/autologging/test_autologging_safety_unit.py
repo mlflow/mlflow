@@ -21,27 +21,18 @@ from mlflow.utils.autologging_utils import (
     _is_testing,
 )
 
+from tests.autologging.fixtures import test_mode_off, test_mode_on
+
 
 pytestmark = pytest.mark.large
 
 
-@pytest.fixture(autouse=True)
-def test_mode_off():
-    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = False
-        assert not autologging_utils._is_testing()
-        yield
-
-
-@pytest.fixture
-def test_mode_on():
-    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = True
-        assert autologging_utils._is_testing()
-        yield
-
-
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
+
+
+@pytest.fixture(autouse=True)
+def turn_test_mode_off_by_default(test_mode_off):
+    pass
 
 
 @pytest.fixture

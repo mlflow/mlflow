@@ -23,6 +23,9 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
 
+from tests.autologging.fixtures import test_mode_off
+
+
 pytestmark = pytest.mark.large
 
 
@@ -380,6 +383,7 @@ def test_batch_metrics_logger_logs_timestamps_as_int_milliseconds(start_run,):
         assert logged_metric.timestamp == 123456
 
 
+@pytest.mark.usefixtures(test_mode_off.__name__)
 def test_batch_metrics_logger_continues_if_log_batch_fails(start_run,):
     with mock.patch.object(MlflowClient, "log_batch") as log_batch_mock:
         log_batch_mock.side_effect = [Exception("asdf"), None]
