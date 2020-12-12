@@ -92,14 +92,18 @@ def _infer_schema(data: Any) -> Schema:
         )
     for t in schema.column_types():
         if t == DataType.integer or t == DataType.long:
-            warnings.warn("Hint: Inferred schema contains integer column(s). Integer columns in "
-                          "Python can  not represent missing values. If your input data can contain"
-                          "missing values, it may be encoded as floats at inference time and cause "
-                          "a schema enforcement error. The best way to avoid this problem is to "
-                          "use float64 instead of integer whenever there can be missing values. "
-                          "See `Handling Integers With Missing Values "
-                          "<https://www.mlflow.org/docs/latest/models.html#"
-                          "handling-integers-with-missing-values>`_ for more details.")
+            warnings.warn(
+                "Hint: Inferred schema contains integer column(s). Integer columns in "
+                "Python can  not represent missing values. If your input data contains"
+                "missing values at inference time, it will be encoded as floats and will "
+                "cause a schema enforcement error. The best way to avoid this problem is "
+                "to infer the model schema based on a realistic data sample (training "
+                "dataset) that includes missing values. Alternatively, you can declare "
+                "integer columns as doubles (float64) whenever these columns may have "
+                "missing values. See `Handling Integers With Missing Values "
+                "<https://www.mlflow.org/docs/latest/models.html#"
+                "handling-integers-with-missing-values>`_ for more details."
+            )
 
 
 def _infer_numpy_dtype(dtype: np.dtype) -> DataType:

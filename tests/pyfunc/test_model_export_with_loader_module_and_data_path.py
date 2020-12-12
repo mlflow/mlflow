@@ -203,12 +203,17 @@ def test_schema_enforcement():
     assert "Incompatible input types" in str(ex)
     pdf["c"] = pdf["c"].astype(np.float32)
 
-    # 6. float -> double works
+    # 6. float -> double works, double -> float does not
     pdf["d"] = pdf["d"].astype(np.float32)
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
     assert "Incompatible input types" in str(ex)
-    pdf["d"] = pdf["d"].astype(np.int64)
+    pdf["d"] = pdf["d"].astype(np.float64)
+    pdf["c"] = pdf["c"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["c"] = pdf["c"].astype(np.float32)
 
     # 7. int -> float raises
     pdf["c"] = pdf["c"].astype(np.int32)
@@ -235,7 +240,17 @@ def test_schema_enforcement():
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf)
     assert "Incompatible input types" in str(ex)
+    # 10. any float -> any int raises
+    pdf["a"] = pdf["a"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
     pdf["a"] = pdf["a"].astype(np.int32)
+    pdf["b"] = pdf["b"].astype(np.float64)
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(pdf)
+    assert "Incompatible input types" in str(ex)
+    pdf["b"] = pdf["b"].astype(np.int64)
 
     pdf["b"] = pdf["b"].astype(np.float64)
     with pytest.raises(MlflowException) as ex:

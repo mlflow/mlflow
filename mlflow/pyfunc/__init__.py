@@ -311,6 +311,9 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
             )
 
+    # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
+    # side of the comparison operator. It works, however, if pandas type is on the left hand side.
+    # That is because pandas is aware of numpy.
     if t.to_pandas() == values.dtype or t.to_numpy() == values.dtype:
         # The types are already compatible => conversion is not necessary.
         return values
@@ -339,10 +342,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
         def all_ints(xs):
-            for x in xs:
-                if not pandas.isnull(x) and int(x) != x:
-                    return False
-            return True
+            return all([pandas.isnull(x) or int(x) == x for x in xs])
 
         hint = ""
         if (
@@ -354,10 +354,12 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
             hint = (
                 " Hint: the type mismatch is likely caused by missing values. "
                 "Integer columns in python can not represent missing values and are therefore "
-                "encoded as floats. The best way to avoid this problem is to declare integer "
-                "columns as doubles (float64) whenever these columns can have missing values. See "
-                "`Handling Integers With Missing Values <https://www.mlflow.org/"
-                "docs/latest/models.html#handling-integers-with-missing-values>`_ for more details."
+                "encoded as floats. The best way to avoid this problem is to infer the model "
+                "schema based on a realistic data sample (training dataset) that includes missing "
+                "values. Alternatively, you can declare integer columns as doubles (float64) "
+                "whenever these columns may have missing values. See `Handling Integers With "
+                "Missing Values <https://www.mlflow.org/docs/latest/models.html#"
+                "handling-integers-with-missing-values>`_ for more details."
             )
 
         raise MlflowException(
