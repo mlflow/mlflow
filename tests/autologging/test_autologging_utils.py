@@ -142,17 +142,26 @@ def test_wrap_patch_with_class():
     assert Math().add(1, 2) == 6
 
 
+def sample_function_to_patch(a, b):
+    return a + b
+
+
 def test_wrap_patch_with_module():
-    def new_log_param(key, value):
+    import sys
+
+    this_module = sys.modules[__name__]
+
+    def new_sample_function(a, b):
         """new mlflow.log_param"""
-        return (key, value)
+        return a - b
 
-    before = get_func_attrs(mlflow.log_param)
-    wrap_patch(mlflow, mlflow.log_param.__name__, new_log_param)
-    after = get_func_attrs(mlflow.log_param)
+    before_attrs = get_func_attrs(mlflow.log_param)
+    assert sample_function_to_patch(10, 5) == 15
 
-    assert after == before
-    assert mlflow.log_param("foo", "bar") == ("foo", "bar")
+    wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
+    after_attrs = get_func_attrs(mlflow.log_param)
+    assert after_attrs == before_attrs
+    assert sample_function_to_patch(10, 5) == 5
 
 
 @pytest.fixture()
