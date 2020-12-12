@@ -694,17 +694,14 @@ def autolog(log_models=True, disable=False):
 
     def _log_early_stop_callback_params(callback):
         if callback:
-            try:
-                earlystopping_params = {
-                    "monitor": callback.monitor,
-                    "min_delta": callback.min_delta,
-                    "patience": callback.patience,
-                    "baseline": callback.baseline,
-                    "restore_best_weights": callback.restore_best_weights,
-                }
-                try_mlflow_log(mlflow.log_params, earlystopping_params)
-            except Exception:  # pylint: disable=W0703
-                return
+            earlystopping_params = {
+                "monitor": callback.monitor,
+                "min_delta": callback.min_delta,
+                "patience": callback.patience,
+                "baseline": callback.baseline,
+                "restore_best_weights": callback.restore_best_weights,
+            }
+            try_mlflow_log(mlflow.log_params, earlystopping_params)
 
     def _get_early_stop_callback_attrs(callback):
         try:
@@ -752,11 +749,13 @@ def autolog(log_models=True, disable=False):
             else:
                 kwargs["callbacks"] = [mlflowKerasCallback]
 
-            _log_early_stop_callback_params(early_stop_callback)
+            try_mlflow_log(_log_early_stop_callback_params, early_stop_callback)
 
             history = original(self, *args, **kwargs)
 
-            _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
+            try_mlflow_log(
+                _log_early_stop_callback_metrics, early_stop_callback, history, metrics_logger
+            )
 
         return history
 
