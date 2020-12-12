@@ -347,7 +347,7 @@ def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    if isinstance(pdf, list) or isinstance(pdf, np.ndarray) or isinstance(pdf, dict):
+    if isinstance(pdf, (list, np.ndarray, dict)):
         try:
             pdf = pandas.DataFrame(pdf)
         except Exception as e:
@@ -715,7 +715,7 @@ def save_model(
     artifacts=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
-    **kwargs,
+    **kwargs
 ):
     """
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
