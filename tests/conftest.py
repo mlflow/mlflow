@@ -36,10 +36,11 @@ def tracking_uri_mock(tmpdir, request):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def autologging_integration_test_mode():
+def enable_test_mode_by_default_for_autologging_integrations():
     """
-    Run all MLflow tests in autologging test mode, ensuring that errors in
-    patched code are raised and detected
+    Run all MLflow tests in autologging test mode, ensuring that errors in autologging patch code
+    are raised and detected. For more information about autologging test mode, see the docstring
+    for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
     try:
         prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)

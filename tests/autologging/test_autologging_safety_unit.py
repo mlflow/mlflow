@@ -33,6 +33,15 @@ PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
 
 @pytest.fixture(autouse=True)
 def turn_test_mode_off_by_default(test_mode_off):
+    """
+    Most of the unit test cases in this module assume that autologging APIs are operating in a
+    standard execution mode (i.e. where test mode is disabled). Accordingly, we turn off autologging
+    test mode for this test module by default. Test cases that verify behaviors specific to test
+    mode enable test mode explicitly by specifying the `test_mode_on` fixture.
+
+    For more information about autologging test mode, see the docstring for
+    :py:func:`mlflow.utils.autologging_utils._is_testing()`.
+    """
     pass
 
 
