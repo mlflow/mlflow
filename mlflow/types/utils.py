@@ -58,7 +58,7 @@ def _infer_schema(data: Any) -> Schema:
                 )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        return Schema([ColSpec(type=_infer_numpy_array(data.values))])
+        schema = Schema([ColSpec(type=_infer_numpy_array(data.values))])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
             [ColSpec(type=_infer_numpy_array(data[col].values), name=col) for col in data.columns]
@@ -70,15 +70,15 @@ def _infer_schema(data: Any) -> Schema:
             )
         if data.dtype == np.object:
             data = pd.DataFrame(data).infer_objects()
-            return Schema(
+            schema = Schema(
                 [ColSpec(type=_infer_numpy_array(data[col].values)) for col in data.columns]
             )
-        if len(data.shape) == 1:
-            return Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
+        elif len(data.shape) == 1:
+            schema = Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
         elif len(data.shape) == 2:
             schema = Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))] * data.shape[1])
     elif _is_spark_df(data):
-        return Schema(
+        schema = Schema(
             [
                 ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
                 for field in data.schema.fields
@@ -90,20 +90,20 @@ def _infer_schema(data: Any) -> Schema:
             "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
             "but got '{}'".format(type(data))
         )
-    for t in schema.column_types():
-        if t == DataType.integer or t == DataType.long:
-            warnings.warn(
-                "Hint: Inferred schema contains integer column(s). Integer columns in "
-                "Python can  not represent missing values. If your input data contains"
-                "missing values at inference time, it will be encoded as floats and will "
-                "cause a schema enforcement error. The best way to avoid this problem is "
-                "to infer the model schema based on a realistic data sample (training "
-                "dataset) that includes missing values. Alternatively, you can declare "
-                "integer columns as doubles (float64) whenever these columns may have "
-                "missing values. See `Handling Integers With Missing Values "
-                "<https://www.mlflow.org/docs/latest/models.html#"
-                "handling-integers-with-missing-values>`_ for more details."
-            )
+    if any([t in (DataType.integer, DataType.long) for t in schema.column_types()]):
+        warnings.warn(
+            "Hint: Inferred schema contains integer column(s). Integer columns in "
+            "Python can  not represent missing values. If your input data contains"
+            "missing values at inference time, it will be encoded as floats and will "
+            "cause a schema enforcement error. The best way to avoid this problem is "
+            "to infer the model schema based on a realistic data sample (training "
+            "dataset) that includes missing values. Alternatively, you can declare "
+            "integer columns as doubles (float64) whenever these columns may have "
+            "missing values. See `Handling Integers With Missing Values "
+            "<https://www.mlflow.org/docs/latest/models.html#"
+            "handling-integers-with-missing-values>`_ for more details."
+        )
+    return schema
 
 
 def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
