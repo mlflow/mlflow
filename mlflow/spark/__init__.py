@@ -683,6 +683,6 @@ def autolog():
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
     """
-    from mlflow import _spark_autologging
+    from mlflow.spark import _spark_autologging
 
     _spark_autologging.autolog()
