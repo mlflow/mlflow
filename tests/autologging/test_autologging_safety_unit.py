@@ -1,6 +1,5 @@
 # pylint: disable=unused-argument
 
-import abc
 import copy
 import inspect
 import os
@@ -18,7 +17,6 @@ from mlflow.utils.autologging_utils import (
     exception_safe_function,
     AutologgingEventLogger,
     ExceptionSafeClass,
-    ExceptionSafeAbstractClass,
     PatchFunction,
     with_managed_run,
     is_testing,
@@ -27,31 +25,22 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.autologging_utils.safety import (
     _AutologgingSessionManager,
     _validate_args,
-    _validate_autologging_run,
+    _is_testing,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
-
-from tests.autologging.fixtures import test_mode_off, test_mode_on
-from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
 
 
+@pytest.fixture
+def test_mode_on():
+    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
+        testing_mock.return_value = True
+        assert autologging_utils._is_testing()
+        yield
+
+
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
-
-
-@pytest.fixture(autouse=True)
-def turn_test_mode_off_by_default(test_mode_off):
-    """
-    Most of the unit test cases in this module assume that autologging APIs are operating in a
-    standard execution mode (i.e. where test mode is disabled). Accordingly, we turn off autologging
-    test mode for this test module by default. Test cases that verify behaviors specific to test
-    mode enable test mode explicitly by specifying the `test_mode_on` fixture.
-
-    For more information about autologging test mode, see the docstring for
-    :py:func:`mlflow.utils.autologging_utils._is_testing()`.
-    """
 
 
 @pytest.fixture
@@ -65,95 +54,6 @@ def test_autologging_integration():
     autolog()
 
     return integration_name
-
-
-class MockEventLogger(AutologgingEventLogger):
-
-    LoggerCall = namedtuple(
-        "LoggerCall",
-        [
-            "method",
-            "session",
-            "patch_obj",
-            "function_name",
-            "call_args",
-            "call_kwargs",
-            "exception",
-        ],
-    )
-
-    def __init__(self):
-        self.calls = []
-
-    def reset(self):
-        self.calls = []
-
-    def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
-        self.calls.append(
-            MockEventLogger.LoggerCall(
-                "patch_start", session, patch_obj, function_name, call_args, call_kwargs, None
-            )
-        )
-
-    def log_patch_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
-        self.calls.append(
-            MockEventLogger.LoggerCall(
-                "patch_success", session, patch_obj, function_name, call_args, call_kwargs, None
-            )
-        )
-
-    def log_patch_function_error(
-        self, session, patch_obj, function_name, call_args, call_kwargs, exception
-    ):
-        self.calls.append(
-            MockEventLogger.LoggerCall(
-                "patch_error", session, patch_obj, function_name, call_args, call_kwargs, exception
-            )
-        )
-
-    def log_original_function_start(
-        self, session, patch_obj, function_name, call_args, call_kwargs
-    ):
-        self.calls.append(
-            MockEventLogger.LoggerCall(
-                "original_start", session, patch_obj, function_name, call_args, call_kwargs, None
-            )
-        )
-
-    def log_original_function_success(
-        self, session, patch_obj, function_name, call_args, call_kwargs
-    ):
-        self.calls.append(
-            MockEventLogger.LoggerCall(
-                "original_success", session, patch_obj, function_name, call_args, call_kwargs, None
-            )
-        )
-
-    def log_original_function_error(
-        self, session, patch_obj, function_name, call_args, call_kwargs, exception
-    ):
-        self.calls.append(
-            MockEventLogger.LoggerCall(
-                "original_error",
-                session,
-                patch_obj,
-                function_name,
-                call_args,
-                call_kwargs,
-                exception,
-            )
-        )
-
-
-@pytest.fixture
-def mock_event_logger():
-    try:
-        prev_logger = AutologgingEventLogger.get_logger()
-        logger = MockEventLogger()
-        AutologgingEventLogger.set_logger(logger)
-        yield logger
-    finally:
-        AutologgingEventLogger.set_logger(prev_logger)
 
 
 def test_is_testing_respects_environment_variable():
@@ -418,112 +318,8 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     assert validate_mock.call_count == 1
 
 
-@pytest.mark.usefixtures(test_mode_on.__name__)
-def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
-    patch_destination, test_autologging_integration
-):
-    assert autologging_utils.is_testing()
+def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging_integration):
 
-    def leak_run_patch_impl(original, *args, **kwargs):
-        mlflow.start_run(nested=True)
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", leak_run_patch_impl)
-    with pytest.raises(AssertionError, match="leaked an active run"):
-        patch_destination.fn()
-
-    # End the leaked run
-    mlflow.end_run()
-
-    with mlflow.start_run():
-        # If a user-generated run existed prior to the autologged training session, we expect
-        # that safe patch will not throw a leaked run exception
-        patch_destination.fn()
-        # End the leaked nested run
-        mlflow.end_run()
-
-    assert not mlflow.active_run()
-
-
-def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_mode(
-    patch_destination, test_autologging_integration
-):
-    assert not autologging_utils.is_testing()
-
-    def leak_run_patch_impl(original, *args, **kwargs):
-        mlflow.start_run(nested=True)
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", leak_run_patch_impl)
-    patch_destination.fn()
-    assert mlflow.active_run()
-
-    # End the leaked run
-    mlflow.end_run()
-
-    assert not mlflow.active_run()
-
-
-@pytest.mark.usefixtures(test_mode_on.__name__)
-def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
-    patch_destination, test_autologging_integration
-):
-    assert autologging_utils.is_testing()
-
-    def no_tag_run_patch_impl(original, *args, **kwargs):
-        with mlflow.start_run(nested=True):
-            return original(*args, **kwargs)
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
-
-    with mock.patch(
-        "mlflow.utils.autologging_utils.safety._validate_autologging_run",
-        wraps=_validate_autologging_run,
-    ) as validate_run_mock:
-
-        with pytest.raises(
-            AssertionError, match="failed to set autologging tag with expected value"
-        ):
-            patch_destination.fn()
-            assert validate_run_mock.call_count == 1
-
-        validate_run_mock.reset_mock()
-
-        with mlflow.start_run(nested=True):
-            # If a user-generated run existed prior to the autologged training session, we expect
-            # that safe patch will not attempt to validate it
-            patch_destination.fn()
-            assert not validate_run_mock.called
-
-
-def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
-    patch_destination, test_autologging_integration
-):
-    assert not autologging_utils.is_testing()
-
-    def no_tag_run_patch_impl(original, *args, **kwargs):
-        with mlflow.start_run(nested=True):
-            return original(*args, **kwargs)
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
-
-    with mock.patch(
-        "mlflow.utils.autologging_utils.safety._validate_autologging_run",
-        wraps=_validate_autologging_run,
-    ) as validate_run_mock:
-
-        patch_destination.fn()
-
-        with mlflow.start_run(nested=True):
-            # If a user-generated run existed prior to the autologged training session, we expect
-            # that safe patch will not attempt to validate it
-            patch_destination.fn()
-
-        assert not validate_run_mock.called
-
-
-def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
-    patch_destination, test_autologging_integration
-):
-    client = MlflowClient()
     active_run = None
 
     def patch_impl(original, *args, **kwargs):
@@ -541,10 +337,6 @@ def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
         assert managed_run_mock.call_count == 1
         assert active_run is not None
         assert active_run.info.run_id is not None
-        assert (
-            client.get_run(active_run.info.run_id).data.tags[MLFLOW_AUTOLOGGING]
-            == "test_integration"
-        )
 
 
 def test_safe_patch_does_not_manage_run_if_unspecified(
@@ -831,13 +623,10 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     assert exc.value == exc_to_throw
 
 
-@pytest.mark.parametrize(
-    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
-)
-def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(baseclass, metaclass):
-    assert not autologging_utils.is_testing()
+def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
+    assert not autologging_utils._is_testing()
 
-    class NonThrowingClass(baseclass, metaclass=metaclass):
+    class NonThrowingClass(metaclass=ExceptionSafeClass):
         def function(self):
             return 10
 
@@ -845,7 +634,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(basecl
 
     exc_to_throw = Exception("function error")
 
-    class ThrowingClass(baseclass, metaclass=metaclass):
+    class ThrowingClass(metaclass=ExceptionSafeClass):
         def function(self):
             raise exc_to_throw
 
@@ -860,13 +649,10 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(basecl
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-@pytest.mark.parametrize(
-    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
-)
-def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass, metaclass):
-    assert autologging_utils.is_testing()
+def test_exception_safe_class_exhibits_expected_behavior_in_test_mode():
+    assert autologging_utils._is_testing()
 
-    class NonThrowingClass(baseclass, metaclass=metaclass):
+    class NonThrowingClass(metaclass=ExceptionSafeClass):
         def function(self):
             return 10
 
@@ -874,7 +660,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass,
 
     exc_to_throw = Exception("function error")
 
-    class ThrowingClass(baseclass, metaclass=metaclass):
+    class ThrowingClass(metaclass=ExceptionSafeClass):
         def function(self):
             raise exc_to_throw
 
@@ -1034,31 +820,6 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
-def test_with_managed_run_sets_specified_run_tags():
-    client = MlflowClient()
-    tags_to_set = {
-        "foo": "bar",
-        "num_layers": "7",
-    }
-
-    patch_function_1 = with_managed_run(
-        "test_integration", lambda original, *args, **kwargs: mlflow.active_run(), tags=tags_to_set
-    )
-    run1 = patch_function_1(lambda: "foo")
-    assert tags_to_set.items() <= client.get_run(run1.info.run_id).data.tags.items()
-
-    class PatchFunction2(PatchFunction):
-        def _patch_implementation(self, original, *args, **kwargs):
-            return mlflow.active_run()
-
-        def _on_exception(self, exception):
-            pass
-
-    patch_function_2 = with_managed_run("test_integration", PatchFunction2, tags=tags_to_set)
-    run2 = patch_function_2.call(lambda: "foo")
-    assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
-
-
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_with_managed_run_ends_run_on_keyboard_interrupt():
     client = MlflowClient()
@@ -1178,18 +939,13 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-@pytest.mark.parametrize(
-    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
-)
-def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
-    baseclass, metaclass
-):
+def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes():
     user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
     }
 
-    class Safe(baseclass, metaclass=metaclass):
+    class Safe(metaclass=ExceptionSafeClass):
         pass
 
     autologging_call_args = copy.deepcopy(user_call_args)
@@ -1292,231 +1048,3 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
         )
-
-
-def test_validate_autologging_run_validates_autologging_tag_correctly():
-    with mlflow.start_run():
-        run_id_1 = mlflow.active_run().info.run_id
-
-    with pytest.raises(AssertionError, match="failed to set autologging tag with expected value"):
-        _validate_autologging_run("test_integration", run_id_1)
-
-    with mlflow.start_run(tags={MLFLOW_AUTOLOGGING: "wrong_value"}):
-        run_id_2 = mlflow.active_run().info.run_id
-
-    with pytest.raises(
-        AssertionError, match="failed to set autologging tag with expected value.*wrong_value"
-    ):
-        _validate_autologging_run("test_integration", run_id_2)
-
-    with mlflow.start_run(tags={MLFLOW_AUTOLOGGING: "test_integration"}):
-        run_id_3 = mlflow.active_run().info.run_id
-
-    _validate_autologging_run("test_integration", run_id_3)
-
-
-def test_validate_autologging_run_validates_run_status_correctly():
-    valid_autologging_tags = {
-        MLFLOW_AUTOLOGGING: "test_integration",
-    }
-
-    with mlflow.start_run(tags=valid_autologging_tags) as run_finished:
-        run_id_finished = run_finished.info.run_id
-
-    assert (
-        RunStatus.from_string(MlflowClient().get_run(run_id_finished).info.status)
-        == RunStatus.FINISHED
-    )
-    _validate_autologging_run("test_integration", run_id_finished)
-
-    with mlflow.start_run(tags=valid_autologging_tags) as run_failed:
-        run_id_failed = run_failed.info.run_id
-
-    MlflowClient().set_terminated(run_id_failed, status=RunStatus.to_string(RunStatus.FAILED))
-    assert (
-        RunStatus.from_string(MlflowClient().get_run(run_id_failed).info.status) == RunStatus.FAILED
-    )
-    _validate_autologging_run("test_integration", run_id_finished)
-
-    run_non_terminal = MlflowClient().create_run(
-        experiment_id=run_finished.info.experiment_id, tags=valid_autologging_tags
-    )
-    run_id_non_terminal = run_non_terminal.info.run_id
-    assert (
-        RunStatus.from_string(MlflowClient().get_run(run_id_non_terminal).info.status)
-        == RunStatus.RUNNING
-    )
-    with pytest.raises(AssertionError, match="has a non-terminal status"):
-        _validate_autologging_run("test_integration", run_id_non_terminal)
-
-
-def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
-    assert not autologging_utils.is_testing()
-
-    def throwing_function():
-        raise Exception("bad implementation")
-
-    with pytest.warns(UserWarning, match="bad implementation"):
-        try_mlflow_log(throwing_function)
-
-
-@pytest.mark.usefixtures(test_mode_on.__name__)
-def test_try_mlflow_log_propagates_exceptions_in_test_mode():
-    assert autologging_utils.is_testing()
-
-    def throwing_function():
-        raise Exception("bad implementation")
-
-    with pytest.raises(Exception, match="bad implementation"):
-        try_mlflow_log(throwing_function)
-
-
-def test_session_manager_creates_session_before_patch_executes(
-    patch_destination, test_autologging_integration
-):
-    is_session_active = None
-
-    def check_session_manager_status(original):
-        nonlocal is_session_active
-        is_session_active = _AutologgingSessionManager.active_session()
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", check_session_manager_status)
-    patch_destination.fn()
-    assert is_session_active is not None
-
-
-def test_session_manager_exits_session_after_patch_executes(
-    patch_destination, test_autologging_integration
-):
-    def patch_fn(original):
-        assert _AutologgingSessionManager.active_session() is not None
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", patch_fn)
-    patch_destination.fn()
-    assert _AutologgingSessionManager.active_session() is None
-
-
-def test_session_manager_exits_session_if_error_in_patch(
-    patch_destination, test_autologging_integration
-):
-    def patch_fn(original):
-        raise Exception("Exception that should stop autologging session")
-
-    # If use safe_patch to patch, exception would not come from original fn and so would be logged
-    patch_destination.fn = patch_fn
-    with pytest.raises(Exception):
-        patch_destination.fn()
-
-    assert _AutologgingSessionManager.active_session() is None
-
-
-def test_session_manager_terminates_session_when_appropriate():
-    with _AutologgingSessionManager.start_session("test_integration") as outer_sess:
-        assert outer_sess
-
-        with _AutologgingSessionManager.start_session("test_integration") as inner_sess:
-            assert _AutologgingSessionManager.active_session() == inner_sess == outer_sess
-
-        assert _AutologgingSessionManager.active_session() == outer_sess
-
-    assert not _AutologgingSessionManager.active_session()
-
-
-def test_original_fn_runs_if_patch_should_not_be_applied(patch_destination):
-    patch_impl_call_count = 0
-
-    @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False, silent=False):
-        def patch_impl(original, *args, **kwargs):
-            nonlocal patch_impl_call_count
-            patch_impl_call_count += 1
-            return original(*args, **kwargs)
-
-        safe_patch("test_respects_exclusive", patch_destination, "fn", patch_impl)
-
-    autolog(exclusive=True)
-    with mlflow.start_run():
-        patch_destination.fn()
-    assert patch_impl_call_count == 0
-    assert patch_destination.fn_call_count == 1
-
-
-def test_patch_runs_if_patch_should_be_applied():
-    patch_impl_call_count = 0
-
-    class TestPatchWithNewFnObj:
-        def __init__(self):
-            self.fn_call_count = 0
-
-        def fn(self, *args, **kwargs):
-            self.fn_call_count += 1
-            return PATCH_DESTINATION_FN_DEFAULT_RESULT
-
-        def new_fn(self, *args, **kwargs):
-            with mlflow.start_run():
-                self.fn()
-
-    patch_obj = TestPatchWithNewFnObj()
-
-    @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False, silent=False):
-        def patch_impl(original, *args, **kwargs):
-            nonlocal patch_impl_call_count
-            patch_impl_call_count += 1
-
-        def new_fn_patch(original, *args, **kwargs):
-            pass
-
-        safe_patch("test_respects_exclusive", patch_obj, "fn", patch_impl)
-        safe_patch("test_respects_exclusive", patch_obj, "new_fn", new_fn_patch)
-
-    # Should patch if no active run
-    autolog()
-    patch_obj.fn()
-    assert patch_impl_call_count == 1
-
-    # Should patch if active run, but not exclusive
-    autolog(exclusive=False)
-    with mlflow.start_run():
-        patch_obj.fn()
-    assert patch_impl_call_count == 2
-
-    # Should patch if active run and exclusive, but active autologging session
-    autolog(exclusive=True)
-    patch_obj.new_fn()
-    assert patch_impl_call_count == 3
-
-
-def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed(patch_destination):
-    patch_impl_call_count = 0
-
-    @autologging_integration(
-        "test_nested_call_autologging_disabled_when_top_level_call_autologging_failed"
-    )
-    def autolog(disable=False, exclusive=False, silent=False):
-        def patch_impl(original, *args, **kwargs):
-            nonlocal patch_impl_call_count
-            patch_impl_call_count += 1
-
-            level = kwargs["level"]
-
-            if level == 0:
-                raise RuntimeError("analog top level call autologging failure.")
-
-            return original(*args, **kwargs)
-
-        safe_patch(
-            "test_nested_call_autologging_disabled_when_top_level_call_autologging_failed",
-            patch_destination,
-            "recursive_fn",
-            patch_impl,
-        )
-
-    autolog()
-    for max_depth in [1, 2, 3]:
-        patch_impl_call_count = 0
-        patch_destination.recurse_fn_call_count = 0
-        with mlflow.start_run():
-            patch_destination.recursive_fn(level=0, max_depth=max_depth)
-        assert patch_impl_call_count == 1
-        assert patch_destination.recurse_fn_call_count == max_depth + 1

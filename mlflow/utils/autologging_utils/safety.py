@@ -5,11 +5,16 @@ import functools
 import os
 import uuid
 import warnings
+import logging
+import time
+import contextlib
 from abc import abstractmethod
 from contextlib import contextmanager
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
+from mlflow.utils import gorilla
+from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import _logger
@@ -21,6 +26,16 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
+
+# Dict mapping integration name to its config.
+AUTOLOGGING_INTEGRATIONS = {}
+
+_logger = logging.getLogger(__name__)
+
+# Dict mapping integration name to its config.
+AUTOLOGGING_INTEGRATIONS = {}
+
+_logger = logging.getLogger(__name__)
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -34,6 +49,346 @@ def try_mlflow_log(fn, *args, **kwargs):
             raise
         else:
             warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
+
+
+def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
+    """
+    Log parameters explicitly passed to a function.
+
+    :param fn: function whose parameters are to be logged
+    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
+                 `self` should not be part of `args`; the caller is responsible for
+                 filtering out `self` before calling this function.
+    :param kwargs: kwargs explicitly passed into fn
+    :param unlogged: parameters not to be logged
+    :return: None
+    """
+    param_spec = inspect.signature(fn).parameters
+    # Filter out `self` from the signature under the assumption that it is not contained
+    # within the specified `args`, as stipulated by the documentation
+    relevant_params = [param for param in param_spec.values() if param.name != "self"]
+
+    # Fetch the parameter names for specified positional arguments from the function
+    # signature & create a mapping from positional argument name to specified value
+    params_to_log = {
+        param_info.name: param_val
+        for param_info, param_val in zip(list(relevant_params)[: len(args)], args)
+    }
+    # Add all user-specified keyword arguments to the set of parameters to log
+    params_to_log.update(kwargs)
+    # Add parameters that were not explicitly specified by the caller to the mapping,
+    # using their default values
+    params_to_log.update(
+        {
+            param.name: param.default
+            for param in list(relevant_params)[len(args) :]
+            if param.name not in kwargs
+        }
+    )
+    # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
+    params_to_log = {key: value for key, value in params_to_log.items() if key not in unlogged}
+    try_mlflow_log(mlflow.log_params, params_to_log)
+
+
+def _update_wrapper_extended(wrapper, wrapped):
+    """
+    Update a `wrapper` function to look like the `wrapped` function. This is an extension of
+    `functools.update_wrapper` that applies the docstring *and* signature of `wrapped` to
+    `wrapper`, producing a new function.
+
+    :return: A new function with the same implementation as `wrapper` and the same docstring
+             & signature as `wrapped`.
+    """
+    updated_wrapper = functools.update_wrapper(wrapper, wrapped)
+    # Assign the signature of the `wrapped` function to the updated wrapper function.
+    # Certain frameworks may disallow signature inspection, causing `inspect.signature()` to throw.
+    # One such example is the `tensorflow.estimator.Estimator.export_savedmodel()` function
+    try:
+        updated_wrapper.__signature__ = inspect.signature(wrapped)
+    except Exception:  # pylint: disable=broad-except
+        _logger.debug("Failed to restore original signature for wrapper around %s", wrapped)
+    return updated_wrapper
+
+
+def wrap_patch(destination, name, patch, settings=None):
+    """
+    Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
+
+    TODO(dbczumar): Convert this to an internal method once existing `wrap_patch` calls
+                    outside of `autologging_utils` have been converted to `safe_patch`
+
+    :param destination: Patch destination
+    :param name: Name of the attribute at the destination
+    :param patch: Patch function
+    :param settings: Settings for gorilla.Patch
+    """
+    if settings is None:
+        settings = gorilla.Settings(allow_hit=True, store_hit=True)
+
+    original = getattr(destination, name)
+    wrapped = _update_wrapper_extended(patch, original)
+
+    patch = gorilla.Patch(destination, name, wrapped, settings=settings)
+    gorilla.apply(patch)
+
+
+class _InputExampleInfo:
+    """
+    Stores info about the input example collection before it is needed.
+
+    For example, in xgboost and lightgbm, an InputExampleInfo object is attached to the dataset,
+    where its value is read later by the train method.
+
+    Exactly one of input_example or error_msg should be populated.
+    """
+
+    def __init__(self, input_example=None, error_msg=None):
+        self.input_example = input_example
+        self.error_msg = error_msg
+
+
+def resolve_input_example_and_signature(
+    get_input_example, infer_model_signature, log_input_example, log_model_signature, logger
+):
+    """
+    Handles the logic of calling functions to gather the input example and infer the model
+    signature.
+
+    :param get_input_example: function which returns an input example, usually sliced from a
+                              dataset. This function can raise an exception, its message will be
+                              shown to the user in a warning in the logs.
+    :param infer_model_signature: function which takes an input example and returns the signature
+                                  of the inputs and outputs of the model. This function can raise
+                                  an exception, its message will be shown to the user in a warning
+                                  in the logs.
+    :param log_input_example: whether to log errors while collecting the input example, and if it
+                              succeeds, whether to return the input example to the user. We collect
+                              it even if this parameter is False because it is needed for inferring
+                              the model signature.
+    :param log_model_signature: whether to infer and return the model signature.
+    :param logger: the logger instance used to log warnings to the user during input example
+                   collection and model signature inference.
+
+    :return: A tuple of input_example and signature. Either or both could be None based on the
+             values of log_input_example and log_model_signature.
+    """
+
+    input_example = None
+    input_example_user_msg = None
+    input_example_failure_msg = None
+    if log_input_example or log_model_signature:
+        try:
+            input_example = get_input_example()
+        except Exception as e:  # pylint: disable=broad-except
+            input_example_failure_msg = str(e)
+            input_example_user_msg = "Failed to gather input example: " + str(e)
+
+    model_signature = None
+    model_signature_user_msg = None
+    if log_model_signature:
+        try:
+            if input_example is None:
+                raise Exception(
+                    "could not sample data to infer model signature: " + input_example_failure_msg
+                )
+            model_signature = infer_model_signature(input_example)
+        except Exception as e:  # pylint: disable=broad-except
+            model_signature_user_msg = "Failed to infer model signature: " + str(e)
+
+    if log_input_example and input_example_user_msg is not None:
+        logger.warning(input_example_user_msg)
+    if log_model_signature and model_signature_user_msg is not None:
+        logger.warning(model_signature_user_msg)
+
+    return input_example if log_input_example else None, model_signature
+
+
+class BatchMetricsLogger:
+    """
+    The BatchMetricsLogger will log metrics in batch against an mlflow run.
+    If run_id is passed to to constructor then all recording and logging will
+    happen against that run_id.
+    If no run_id is passed into constructor, then the run ID will be fetched
+    from `mlflow.active_run()` each time `record_metrics()` or `flush()` is called; in this
+    case, callers must ensure that an active run is present before invoking
+    `record_metrics()` or `flush()`.
+    """
+
+    def __init__(self, run_id=None):
+        self.run_id = run_id
+
+        # data is an array of Metric objects
+        self.data = []
+        self.total_training_time = 0
+        self.total_log_batch_time = 0
+        self.previous_training_timestamp = None
+
+    def flush(self):
+        """
+        The metrics accumulated by BatchMetricsLogger will be batch logged to an MLFlow run.
+        """
+        self._timed_log_batch()
+        self.data = []
+
+    def _timed_log_batch(self):
+        if self.run_id is None:
+            # Retrieving run_id from active mlflow run.
+            current_run_id = mlflow.active_run().info.run_id
+        else:
+            current_run_id = self.run_id
+
+        start = time.time()
+        metrics_slices = [
+            self.data[i : i + MAX_METRICS_PER_BATCH]
+            for i in range(0, len(self.data), MAX_METRICS_PER_BATCH)
+        ]
+        for metrics_slice in metrics_slices:
+            try_mlflow_log(MlflowClient().log_batch, run_id=current_run_id, metrics=metrics_slice)
+        end = time.time()
+        self.total_log_batch_time += end - start
+
+    def _should_flush(self):
+        target_training_to_logging_time_ratio = 10
+        if (
+            self.total_training_time
+            >= self.total_log_batch_time * target_training_to_logging_time_ratio
+        ):
+            return True
+
+        return False
+
+    def record_metrics(self, metrics, step=None):
+        """
+        Submit a set of metrics to be logged. The metrics may not be immediately logged, as this
+        class will batch them in order to not increase execution time too much by logging
+        frequently.
+
+        :param metrics: dictionary containing key, value pairs of metrics to be logged.
+        :param step: the training step that the metrics correspond to.
+        """
+        current_timestamp = time.time()
+        if self.previous_training_timestamp is None:
+            self.previous_training_timestamp = current_timestamp
+
+        training_time = current_timestamp - self.previous_training_timestamp
+
+        self.total_training_time += training_time
+
+        # log_batch() requires step to be defined. Therefore will set step to 0 if not defined.
+        if step is None:
+            step = 0
+
+        for key, value in metrics.items():
+
+            self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
+
+        if self._should_flush():
+            self.flush()
+
+        self.previous_training_timestamp = current_timestamp
+
+
+@contextlib.contextmanager
+def batch_metrics_logger(run_id):
+    """
+    Context manager that yields a BatchMetricsLogger object, which metrics can be logged against.
+    The BatchMetricsLogger keeps metrics in a list until it decides they should be logged, at
+    which point the accumulated metrics will be batch logged. The BatchMetricsLogger ensures
+    that logging imposes no more than a 10% overhead on the training, where the training is
+    measured by adding up the time elapsed between consecutive calls to record_metrics.
+
+    If logging a batch fails, a warning will be emitted and subsequent metrics will continue to
+    be collected.
+
+    Once the context is closed, any metrics that have yet to be logged will be logged.
+
+    :param run_id: ID of the run that the metrics will be logged to.
+    """
+
+    batch_metrics_logger = BatchMetricsLogger(run_id)
+    yield batch_metrics_logger
+    batch_metrics_logger.flush()
+
+
+def autologging_integration(name):
+    """
+    **All autologging integrations should be decorated with this wrapper.**
+
+    Wraps an autologging function in order to store its configuration arguments. This enables
+    patch functions to broadly obey certain configurations (e.g., disable=True) without
+    requiring specific logic to be present in each autologging integration.
+    """
+
+    def validate_param_spec(param_spec):
+        if "disable" not in param_spec or param_spec["disable"].default is not False:
+            raise Exception(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
+                " must specify a 'disable' argument with default value 'False'".format(name)
+            )
+
+    def wrapper(_autolog):
+        param_spec = inspect.signature(_autolog).parameters
+        validate_param_spec(param_spec)
+
+        AUTOLOGGING_INTEGRATIONS[name] = {}
+        default_params = {param.name: param.default for param in param_spec.values()}
+
+        def autolog(*args, **kwargs):
+            config_to_store = dict(default_params)
+            config_to_store.update(
+                {param.name: arg for arg, param in zip(args, param_spec.values())}
+            )
+            config_to_store.update(kwargs)
+            AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+
+            return _autolog(*args, **kwargs)
+
+        wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
+        return wrapped_autolog
+
+    return wrapper
+
+
+def get_autologging_config(flavor_name, config_key, default_value=None):
+    """
+    Returns a desired config value for a specified autologging integration.
+    Returns `None` if specified `flavor_name` has no recorded configs.
+    If `config_key` is not set on the config object, default value is returned.
+
+    :param flavor_name: An autologging integration flavor name.
+    :param config_key: The key for the desired config value.
+    :param default_value: The default_value to return
+    """
+    config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
+    if config is not None:
+        return config.get(config_key, default_value)
+    else:
+        return default_value
+
+
+def autologging_is_disabled(flavor_name):
+    """
+    Returns a boolean flag of whether the autologging integration is disabled.
+
+    :param flavor_name: An autologging integration flavor name.
+    """
+    return get_autologging_config(flavor_name, "disable", True)
+
+
+def _is_testing():
+    """
+    Indicates whether or not autologging functionality is running in test mode (as determined
+    by the `MLFLOW_AUTOLOGGING_TESTING` environment variable). Test mode performs additional
+    validation during autologging, including:
+
+        - Checks for the exception safety of arguments passed to model training functions
+          (i.e. all additional arguments should be "exception safe" functions or classes)
+        - Disables exception handling for patched function logic, ensuring that patch code
+          executes without errors during testing
+    """
+    import os
+
+    return os.environ.get("MLFLOW_AUTOLOGGING_TESTING", "false") == "true"
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -62,57 +417,26 @@ def exception_safe_function(function):
     return safe_function
 
 
-def _exception_safe_class_factory(base_class):
+class ExceptionSafeClass(type):
     """
-    Creates an exception safe metaclass that inherits from `base_class`.
+    Metaclass that wraps all functions defined on the specified class with broad error handling
+    logic to guard against unexpected errors during autlogging.
+
+    Rationale: Patched autologging functions commonly pass additional class instances as arguments
+    to their underlying original training routines; for example, Keras autologging constructs
+    a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`. To prevent errors
+    encountered during method execution within such classes from disrupting model training,
+    this metaclass wraps all class functions in a broad try / catch statement.
+
+    Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
+    as these are not always Python callables and are difficult to wrap
     """
 
-    class _ExceptionSafeClass(base_class):
-        """
-        Metaclass that wraps all functions defined on the specified class with broad error handling
-        logic to guard against unexpected errors during autlogging.
-
-        Rationale: Patched autologging functions commonly pass additional class instances as
-        arguments to their underlying original training routines; for example, Keras autologging
-        constructs a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`.
-        To prevent errors encountered during method execution within such classes from disrupting
-        model training, this metaclass wraps all class functions in a broad try / catch statement.
-
-        Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
-        as these are not always Python callables and are difficult to wrap
-        """
-
-        def __new__(cls, name, bases, dct):
-            for m in dct:
-                # class methods or static methods are not callable.
-                if callable(dct[m]):
-                    dct[m] = exception_safe_function(dct[m])
-            return base_class.__new__(cls, name, bases, dct)
-
-    return _ExceptionSafeClass
-
-
-ExceptionSafeClass = _exception_safe_class_factory(type)
-
-# `ExceptionSafeClass` causes an error when used with an abstract class.
-#
-# ```
-# class AbstractClass(abc.ABC):
-#    ...
-#
-# class DerivedClass(AbstractClass, metaclass=ExceptionSafeClass):
-#    ...
-# ```
-#
-# This raises:
-#
-# ```
-# TypeError: metaclass conflict: the metaclass of a derived class must be
-#            a (non-strict) subclass of the metaclasses of all its bases.
-# ```
-#
-# To avoid this error, create `ExceptionSafeAbstractClass` that is based on `abc.ABCMeta`.
-ExceptionSafeAbstractClass = _exception_safe_class_factory(abc.ABCMeta)
+    def __new__(cls, name, bases, dct):
+        for m in dct:
+            if callable(dct[m]):
+                dct[m] = exception_safe_function(dct[m])
+        return type.__new__(cls, name, bases, dct)
 
 
 class PatchFunction:
@@ -164,7 +488,7 @@ class PatchFunction:
                 raise e
 
 
-def with_managed_run(autologging_integration, patch_function, tags=None):
+def with_managed_run(patch_function):
     """
     Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
@@ -185,22 +509,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
                                     with the `patch_function`.
     :param patch_function: A `PatchFunction` class definition or a function object
                            compatible with `safe_patch`.
-    :param tags: A dictionary of string tags to set on each managed run created during the
-                 execution of `patch_function`.
     """
-
-    def create_managed_run():
-        managed_run = mlflow.start_run()
-        if tags:
-            try_mlflow_log(mlflow.set_tags, tags)
-        _logger.info(
-            "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
-            " performance metrics, model artifacts, and lineage information for the"
-            " current %s workflow",
-            managed_run.info.run_id,
-            autologging_integration,
-        )
-        return managed_run
 
     if inspect.isclass(patch_function):
 
@@ -211,7 +520,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(create_managed_run)
+                    self.managed_run = try_mlflow_log(mlflow.start_run)
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
@@ -234,7 +543,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(create_managed_run)
+                managed_run = try_mlflow_log(mlflow.start_run)
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -272,8 +581,9 @@ def safe_patch(
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging
-    purposes, preceding its implementation with an error-safe copy of the specified patch
-    `patch_function` with the following error handling behavior:
+    purposes, replacing its implementation with an error-safe copy of the specified patch
+    `function` with the following error handling behavior:
+
         - Exceptions thrown from the underlying / original function
           (`<destination>.<function_name>`) are propagated to the caller.
         - Exceptions thrown from other parts of the patched implementation (`patch_function`)
@@ -296,11 +606,7 @@ def safe_patch(
     from mlflow.utils.autologging_utils import get_autologging_config, autologging_is_disabled
 
     if manage_run:
-        patch_function = with_managed_run(
-            autologging_integration,
-            patch_function,
-            tags={MLFLOW_AUTOLOGGING: autologging_integration},
-        )
+        patch_function = with_managed_run(patch_function)
 
     patch_is_class = inspect.isclass(patch_function)
     if patch_is_class:
@@ -321,323 +627,68 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
-        # Reroute warnings encountered during the patch function implementation to an MLflow event
-        # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
-        # integration was called with `silent=True`), hiding MLflow event logging statements and
-        # hiding all warnings in the autologging preamble and postamble (i.e. the code surrounding
-        # the user's original / underlying ML function). Non-MLflow warnings are enabled during the
-        # execution of the original / underlying ML function
-        #
-        # Note that we've opted *not* to apply this context manager as a decorator on
-        # `safe_patch_function` because the context-manager-as-decorator pattern uses
-        # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
-        # during model serialization by ML frameworks such as scikit-learn
-        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
-        with set_mlflow_events_and_warnings_behavior_globally(
-            # MLflow warnings emitted during autologging training sessions are likely not actionable
-            # and result from the autologging implementation invoking another MLflow API.
-            # Accordingly, we reroute these warnings to the MLflow event logger with level WARNING
-            # For reference, see recommended warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_event_logs=is_silent_mode,
-            disable_warnings=is_silent_mode,
-        ), set_non_mlflow_warnings_behavior_for_current_thread(
-            # non-MLflow Warnings emitted during the autologging preamble (before the original /
-            # underlying ML function is called) and postamble (after the original / underlying ML
-            # function is called) are likely not actionable and result from the autologging
-            # implementation invoking an API from a dependent library. Accordingly, we reroute these
-            # warnings to the MLflow event logger with level WARNING. For reference, see recommended
-            # warning and event logging behaviors from
-            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
-            reroute_warnings=True,
-            disable_warnings=is_silent_mode,
-        ):
+        original = gorilla.get_original_attribute(destination, function_name)
 
-            if is_testing():
-                preexisting_run_for_testing = mlflow.active_run()
+        # If the autologging integration associated with this patch is disabled,
+        # call the original function and return
+        if autologging_is_disabled(autologging_integration):
+            return original(*args, **kwargs)
 
-            original = gorilla.get_original_attribute(destination, function_name)
+        # Whether or not the original / underlying function has been called during the
+        # execution of patched code
+        original_has_been_called = False
+        # The value returned by the call to the original / underlying function during
+        # the execution of patched code
+        original_result = None
+        # Whether or not an exception was raised from within the original / underlying function
+        # during the execution of patched code
+        failed_during_original = False
 
-            # Whether or not to exclude autologged content from user-created fluent runs
-            # (i.e. runs created manually via `mlflow.start_run()`)
-            exclusive = get_autologging_config(autologging_integration, "exclusive", False)
-            user_created_fluent_run_is_active = (
-                mlflow.active_run() and not _AutologgingSessionManager.active_session()
-            )
-            active_session_failed = (
-                _AutologgingSessionManager.active_session() is not None
-                and _AutologgingSessionManager.active_session().state == "failed"
-            )
-
-            if (
-                active_session_failed
-                or autologging_is_disabled(autologging_integration)
-                or (user_created_fluent_run_is_active and exclusive)
-            ):
-                # If the autologging integration associated with this patch is disabled,
-                # or if the current autologging integration is in exclusive mode and a user-created
-                # fluent run is active, call the original function and return. Restore the original
-                # warning behavior during original function execution, since autologging is being
-                # skipped
-                with set_non_mlflow_warnings_behavior_for_current_thread(
-                    disable_warnings=False, reroute_warnings=False,
-                ):
-                    return original(*args, **kwargs)
-
-            # Whether or not the original / underlying function has been called during the
-            # execution of patched code
-            original_has_been_called = False
-            # The value returned by the call to the original / underlying function during
-            # the execution of patched code
-            original_result = None
-            # Whether or not an exception was raised from within the original / underlying function
-            # during the execution of patched code
-            failed_during_original = False
-            # The active MLflow run (if any) associated with patch code execution
-            patch_function_run_for_testing = None
-
-            def try_log_autologging_event(log_fn, *args):
-                try:
-                    log_fn(*args)
-                except Exception as e:
-                    _logger.debug(
-                        "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
-                    )
-
-            with _AutologgingSessionManager.start_session(autologging_integration) as session:
-                try:
-
-                    def call_original(*og_args, **og_kwargs):
-                        try:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_start,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                            )
-
-                            if is_testing():
-                                _validate_args(args, kwargs, og_args, og_kwargs)
-                                # By the time `original` is called by the patch implementation, we
-                                # assume that either: 1. the patch implementation has already
-                                # created an MLflow run or 2. the patch code will not create an
-                                # MLflow run during the current execution. Here, we capture a
-                                # reference to the active run, which we will use later on to
-                                # determine whether or not the patch implementation created
-                                # a run and perform validation if necessary
-                                nonlocal patch_function_run_for_testing
-                                patch_function_run_for_testing = mlflow.active_run()
-
-                            nonlocal original_has_been_called
-                            original_has_been_called = True
-
-                            nonlocal original_result
-                            # Show all non-MLflow warnings as normal (i.e. not as event logs) during
-                            # original function execution, even if silent mode is enabled
-                            # (`silent=True`), since these warnings originate from the ML framework
-                            # or one of its dependencies and are likely relevant to the caller
-                            with set_non_mlflow_warnings_behavior_for_current_thread(
-                                disable_warnings=False, reroute_warnings=False,
-                            ):
-                                original_result = original(*og_args, **og_kwargs)
-
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_success,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                            )
-
-                            return original_result
-                        except Exception as e:
-                            try_log_autologging_event(
-                                AutologgingEventLogger.get_logger().log_original_function_error,
-                                session,
-                                destination,
-                                function_name,
-                                og_args,
-                                og_kwargs,
-                                e,
-                            )
-
-                            nonlocal failed_during_original
-                            failed_during_original = True
-                            raise
-
-                    # Apply the name, docstring, and signature of `original` to `call_original`.
-                    # This is important because several autologging patch implementations inspect
-                    # the signature of the `original` argument during execution
-                    call_original = update_wrapper_extended(call_original, original)
-
-                    try_log_autologging_event(
-                        AutologgingEventLogger.get_logger().log_patch_function_start,
-                        session,
-                        destination,
-                        function_name,
-                        args,
-                        kwargs,
-                    )
-
-                    if patch_is_class:
-                        patch_function.call(call_original, *args, **kwargs)
-                    else:
-                        patch_function(call_original, *args, **kwargs)
-
-                    session.state = "succeeded"
-
-                    try_log_autologging_event(
-                        AutologgingEventLogger.get_logger().log_patch_function_success,
-                        session,
-                        destination,
-                        function_name,
-                        args,
-                        kwargs,
-                    )
-                except Exception as e:
-                    session.state = "failed"
-
-                    # Exceptions thrown during execution of the original function should be
-                    # propagated to the caller. Additionally, exceptions encountered during test
-                    # mode should be reraised to detect bugs in autologging implementations
-                    if failed_during_original or is_testing():
-                        raise
-
-                    try_log_autologging_event(
-                        AutologgingEventLogger.get_logger().log_patch_function_error,
-                        session,
-                        destination,
-                        function_name,
-                        args,
-                        kwargs,
-                        e,
-                    )
-
-                    _logger.warning(
-                        "Encountered unexpected error during %s autologging: %s",
-                        autologging_integration,
-                        e,
-                    )
-
-                if is_testing() and not preexisting_run_for_testing:
-                    # If an MLflow run was created during the execution of patch code, verify that
-                    # it is no longer active and that it contains expected autologging tags
-                    assert not mlflow.active_run(), (
-                        "Autologging integration %s leaked an active run" % autologging_integration
-                    )
-                    if patch_function_run_for_testing:
-                        _validate_autologging_run(
-                            autologging_integration, patch_function_run_for_testing.info.run_id
-                        )
-
-                if original_has_been_called:
-                    return original_result
-                else:
-                    return original(*args, **kwargs)
-
-    _wrap_patch(destination, function_name, safe_patch_function)
-
-
-# Represents an active autologging session using two fields:
-# - integration: the name of the autologging integration corresponding to the session
-# - id: a unique session identifier (e.g., a UUID)
-# - state: the state of AutologgingSession, will be one of running/succeeded/failed
-class AutologgingSession:
-    def __init__(self, integration, id_):
-        self.integration = integration
-        self.id = id_
-        self.state = "running"
-
-
-class _AutologgingSessionManager:
-    _session = None
-
-    @classmethod
-    @contextmanager
-    def start_session(cls, integration):
         try:
-            prev_session = cls._session
-            if prev_session is None:
-                session_id = uuid.uuid4().hex
-                cls._session = AutologgingSession(integration, session_id)
-            yield cls._session
-        finally:
-            # Only end the session upon termination of the context if we created
-            # the session; otherwise, leave the session open for later termination
-            # by its creator
-            if prev_session is None:
-                cls._end_session()
 
-    @classmethod
-    def active_session(cls):
-        return cls._session
+            def call_original(*og_args, **og_kwargs):
+                try:
+                    if _is_testing():
+                        _validate_args(args, kwargs, og_args, og_kwargs)
 
-    @classmethod
-    def _end_session(cls):
-        cls._session = None
+                    nonlocal original_has_been_called
+                    original_has_been_called = True
 
+                    nonlocal original_result
+                    original_result = original(*og_args, **og_kwargs)
+                    return original_result
+                except Exception:  # pylint: disable=broad-except
+                    nonlocal failed_during_original
+                    failed_during_original = True
+                    raise
 
-def update_wrapper_extended(wrapper, wrapped):
-    """
-    Update a `wrapper` function to look like the `wrapped` function. This is an extension of
-    `functools.update_wrapper` that applies the docstring *and* signature of `wrapped` to
-    `wrapper`, producing a new function.
+            # Apply the name, docstring, and signature of `original` to `call_original`.
+            # This is important because several autologging patch implementations inspect
+            # the signature of the `original` argument during execution
+            call_original = _update_wrapper_extended(call_original, original)
 
-    :return: A new function with the same implementation as `wrapper` and the same docstring
-             & signature as `wrapped`.
-    """
-    updated_wrapper = functools.update_wrapper(wrapper, wrapped)
-    # Assign the signature of the `wrapped` function to the updated wrapper function.
-    # Certain frameworks may disallow signature inspection, causing `inspect.signature()` to throw.
-    # One such example is the `tensorflow.estimator.Estimator.export_savedmodel()` function
-    try:
-        updated_wrapper.__signature__ = inspect.signature(wrapped)
-    except Exception:
-        _logger.debug("Failed to restore original signature for wrapper around %s", wrapped)
-    return updated_wrapper
+            if patch_is_class:
+                patch_function.call(call_original, *args, **kwargs)
+            else:
+                patch_function(call_original, *args, **kwargs)
 
+        except Exception as e:  # pylint: disable=broad-except
+            # Exceptions thrown during execution of the original function should be propagated
+            # to the caller. Additionally, exceptions encountered during test mode should be
+            # reraised to detect bugs in autologging implementations
+            if failed_during_original or _is_testing():
+                raise
 
-def _wrap_patch(destination, name, patch, settings=None):
-    """
-    Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
+            _logger.warning(
+                "Encountered unexpected error during %s autologging: %s", autologging_integration, e
+            )
 
-    :param destination: Patch destination
-    :param name: Name of the attribute at the destination
-    :param patch: Patch function
-    :param settings: Settings for gorilla.Patch
-    """
-    if settings is None:
-        settings = gorilla.Settings(allow_hit=True, store_hit=True)
+        if original_has_been_called:
+            return original_result
+        else:
+            return original(*args, **kwargs)
 
-    original = getattr(destination, name)
-    wrapped = update_wrapper_extended(patch, original)
-
-    patch = gorilla.Patch(destination, name, wrapped, settings=settings)
-    gorilla.apply(patch)
-
-
-def _validate_autologging_run(autologging_integration, run_id):
-    """
-    For testing purposes, verifies that an MLflow run produced by an `autologging_integration`
-    satisfies the following properties:
-
-        - The run has an autologging tag whose value is the name of the autologging integration
-        - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
-    """
-    client = MlflowClient()
-    run = client.get_run(run_id)
-    autologging_tag_value = run.data.tags.get(MLFLOW_AUTOLOGGING)
-    assert autologging_tag_value == autologging_integration, (
-        "Autologging run with id {} failed to set autologging tag with expected value. Expected: "
-        "'{}', Actual: '{}'".format(run_id, autologging_integration, autologging_tag_value)
-    )
-    assert RunStatus.is_terminated(
-        RunStatus.from_string(run.info.status)
-    ), "Autologging run with id {} has a non-terminal status '{}'".format(run_id, run.info.status)
+    wrap_patch(destination, function_name, safe_patch_function)
 
 
 def _validate_args(
@@ -673,15 +724,11 @@ def _validate_args(
                 " Please decorate the function with `exception_safe_function`.".format(inp)
             )
         else:
-            assert hasattr(inp, "__class__") and type(inp.__class__) in [
-                ExceptionSafeClass,
-                ExceptionSafeAbstractClass,
-            ], (
-                "Invalid new input '{}'. New args / kwargs introduced to `original` function "
-                "calls by patched code must either be functions decorated with "
-                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass` "
-                "or `ExceptionSafeAbstractClass` metaclass safe or lists of such exception safe "
-                "functions / classes.".format(inp)
+            assert hasattr(inp, "__class__") and type(inp.__class__) == ExceptionSafeClass, (
+                "Invalid new input '{}'. New args / kwargs introduced to `original` function"
+                " calls by patched code must either be functions decorated with"
+                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass`"
+                " metaclass safe or lists of such exception safe functions / classes.".format(inp)
             )
 
     def _validate(autologging_call_input, user_call_input=None):
