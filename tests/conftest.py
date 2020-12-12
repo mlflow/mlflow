@@ -3,6 +3,7 @@ import os
 import pytest
 
 import mlflow
+from mlflow.utils.autologging_utils import _is_testing
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 
@@ -45,6 +46,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
     try:
         prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "true"
+        assert _is_testing()
         yield
     finally:
         if prev_env_var_value:
