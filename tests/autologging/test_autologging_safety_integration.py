@@ -6,7 +6,9 @@ from unittest import mock
 
 import mlflow
 from mlflow.utils.autologging_utils import (
-    safe_patch, get_autologging_config, autologging_is_disabled,
+    safe_patch,
+    get_autologging_config,
+    autologging_is_disabled,
 )
 
 
@@ -46,8 +48,11 @@ def test_autologging_integrations_use_safe_patch_for_monkey_patching():
     from mlflow.utils import gorilla
 
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
-        with mock.patch("mlflow.utils.gorilla.apply", wraps=gorilla.apply) as gorilla_mock,\
-                mock.patch(integration.__name__ + ".safe_patch", wraps=safe_patch) as safe_patch_mock:
+        with mock.patch(
+            "mlflow.utils.gorilla.apply", wraps=gorilla.apply
+        ) as gorilla_mock, mock.patch(
+            integration.__name__ + ".safe_patch", wraps=safe_patch
+        ) as safe_patch_mock:
             integration.autolog(disable=False)
             assert safe_patch_mock.call_count > 0
             assert safe_patch_mock.call_count == gorilla_mock.call_count
