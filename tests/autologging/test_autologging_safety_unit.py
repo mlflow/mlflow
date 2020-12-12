@@ -19,6 +19,7 @@ from mlflow.utils.autologging_utils import (
     with_managed_run,
     _validate_args,
     _is_testing,
+    try_mlflow_log,
 )
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
@@ -832,3 +833,30 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
         )
+
+
+def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
+    assert not autologging_utils._is_testing()
+
+    exc_to_throw = Exception("bad implementation")
+
+    def throwing_function():
+        raise exc_to_throw
+
+    with pytest.warns(UserWarning, match="bad implementation"):
+        try_mlflow_log(throwing_function)
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_try_mlflow_log_propagates_exceptions_in_test_mode():
+    assert autologging_utils._is_testing()
+
+    exc_to_throw = Exception("bad implementation")
+
+    def throwing_function():
+        raise exc_to_throw
+
+    with pytest.raises(Exception) as exc:
+        try_mlflow_log(throwing_function)
+
+    assert exc.value == exc_to_throw
