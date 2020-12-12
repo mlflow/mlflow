@@ -38,9 +38,11 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    exception_safe_function,
     try_mlflow_log,
     log_fn_args_as_params,
-    wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _InputExampleInfo,
@@ -283,9 +285,14 @@ class _XGBModelWrapper:
 
 
 @experimental
+@autologging_integration(FLAVOR_NAME)
 def autolog(
-    importance_types=None, log_input_examples=False, log_model_signatures=True, log_models=True,
-):
+    importance_types=None,
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+):  # pylint: disable=W0102
     """
     Enables automatic logging from XGBoost to MLflow. Logs the following.
 
@@ -327,9 +334,8 @@ def autolog(
     #   to use as an input example and for inferring the model signature.
     #   (there is no way to get the data back from a DMatrix object)
     # We store it on the DMatrix object so the train function is able to read it.
-    def __init__(self, *args, **kwargs):
+    def __init__(original, self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
-        original = gorilla.get_original_attribute(xgboost.DMatrix, "__init__")
 
         if data is not None:
             try:
@@ -348,23 +354,18 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train(*args, **kwargs):
+    def train(original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
             """
 
+            @exception_safe_function
             def callback(env):
                 metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
                 eval_results.append(dict(env.evaluation_result_list))
 
             return callback
-
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
@@ -402,8 +403,6 @@ def autolog(
             finally:
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
-
-        original = gorilla.get_original_attribute(xgboost, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
@@ -518,9 +517,7 @@ def autolog(
                 input_example=input_example,
             )
 
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
         return model
 
-    wrap_patch(xgboost, "train", train)
-    wrap_patch(xgboost.DMatrix, "__init__", __init__)
+    safe_patch(FLAVOR_NAME, xgboost, "train", train, manage_run=True)
+    safe_patch(FLAVOR_NAME, xgboost.DMatrix, "__init__", __init__)
