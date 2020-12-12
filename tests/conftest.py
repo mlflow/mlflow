@@ -33,3 +33,16 @@ def tracking_uri_mock(tmpdir, request):
         mlflow.set_tracking_uri(None)
         if "notrackingurimock" not in request.keywords:
             del os.environ["MLFLOW_TRACKING_URI"]
+
+
+@pytest.fixture(autouse=True, scope="session")
+def autologging_integration_test_mode():
+    try:
+        prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
+        os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "true"
+        yield
+    finally:
+        if prev_env_var_value:
+            os.environ["MLFLOW_AUTOLOGGING_TESTING"] = prev_env_var_value
+        else:
+            del os.environ["MLFLOW_AUTOLOGGING_TESTING"]
