@@ -21,8 +21,11 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.xgboost: "xgboost",
 }
 
-for library_module in AUTOLOGGING_INTEGRATIONS_TO_TEST.values():
-    importlib.import_module(library_module)
+
+@pytest.fixture(autouse=True, scope="module")
+def import_integration_libraries():
+    for library_module in AUTOLOGGING_INTEGRATIONS_TO_TEST.values():
+        importlib.import_module(library_module)
 
 
 @pytest.fixture(autouse=True)
