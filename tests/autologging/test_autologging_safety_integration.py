@@ -31,14 +31,14 @@ def import_integration_libraries():
 
 @pytest.fixture(autouse=True)
 def disable_autologging_at_test_end():
-    yield
-    mlflow.autolog(disable=True)
+    for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
+        integration.autolog(disable=True)
 
 
 def test_autologging_integrations_expose_configs_and_support_disablement():
-    mlflow.autolog()
-
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
+        integration.autolog(disable=False)
+
         assert not autologging_is_disabled(integration.FLAVOR_NAME)
         assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
 

@@ -4,7 +4,8 @@ import pytest
 
 import mlflow
 from mlflow.utils.autologging_utils import (
-    _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR,
+    _is_testing,
+    _AUTOLOGGING_TEST_MODE_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
