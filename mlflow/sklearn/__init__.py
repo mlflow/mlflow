@@ -18,7 +18,6 @@ import warnings
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -27,7 +26,6 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -534,7 +532,7 @@ class _SklearnTrainingSession(object):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_input_examples=False, log_model_signatures=True, log_models=True, disable=False):
+def autolog(log_input_examples=False, log_model_signatures=True, log_models=True, disable=False):  # pylint: disable=unused-argument
     """
     Enables autologging for scikit-learn estimators.
 

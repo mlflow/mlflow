@@ -2,7 +2,6 @@ import functools
 import inspect
 from unittest import mock
 import os
-import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
