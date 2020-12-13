@@ -19,6 +19,7 @@ INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
+_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
@@ -376,7 +377,7 @@ def _is_testing():
     """
     import os
 
-    return os.environ.get("MLFLOW_AUTOLOGGING_TESTING", "false") == "true"
+    return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
 # Function attribute used for testing purposes to verify that a given function
