@@ -152,3 +152,21 @@ lightgbm:
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+gluon:
+  package_info:
+    pip_release: "mxnet"
+    install_dev: |
+      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
+
+  models:
+    minimum: "1.5.1"
+    maximum: "1.7.0.post1"
+    run: |
+      pytest tests/gluon/test_gluon_model_export.py --large
+
+  autologging:
+    minimum: "1.5.1"
+    maximum: "1.7.0.post1"
+    run: |
+      pytest tests/gluon_autolog/test_gluon_autolog.py --large
