@@ -860,5 +860,5 @@ def test_try_mlflow_log_propagates_exceptions_in_test_mode():
     def throwing_function():
         raise Exception("bad implementation")
 
-    with pytest.raises(Exception, match="bad implementation") as exc:
+    with pytest.raises(Exception, match="bad implementation"):
         try_mlflow_log(throwing_function)
