@@ -1212,10 +1212,10 @@ def _get_experiment_id():
 
 
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True
+    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
 ):  # pylint: disable=unused-argument
     """
-    Enable autologging for all supported integrations.
+    Enables (or disables) and configures autologging for all supported integrations.
 
     The parameters are passed to any autologging integrations that support them.
 
@@ -1237,6 +1237,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
 
     .. code-block:: python
         :caption: Example

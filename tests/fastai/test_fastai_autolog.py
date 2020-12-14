@@ -177,20 +177,18 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_data_run):
 def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, callback, patience):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
+
+    model = fastai_model(iris_data)
+
     callbacks = []
-
     if callback == "early":
-        # min_delta is set as such to guarantee early stopping
-        callbacks.append(
-            lambda learn: EarlyStoppingCallback(learn, patience=patience, min_delta=MIN_DELTA)
-        )
-
-    model = fastai_model(iris_data, callback_fns=callbacks)
+        callback = EarlyStoppingCallback(learn=model, patience=patience, min_delta=MIN_DELTA)
+        callbacks.append(callback)
 
     if fit_variant == "fit_one_cycle":
-        model.fit_one_cycle(NUM_EPOCHS)
+        model.fit_one_cycle(NUM_EPOCHS, callbacks=callbacks)
     else:
-        model.fit(NUM_EPOCHS)
+        model.fit(NUM_EPOCHS, callbacks=callbacks)
 
     client = mlflow.tracking.MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)

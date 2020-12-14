@@ -18,7 +18,6 @@ import warnings
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -27,13 +26,13 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
     try_mlflow_log,
-    wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
 )
@@ -532,9 +531,12 @@ class _SklearnTrainingSession(object):
 
 
 @experimental
-def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+):  # pylint: disable=unused-argument
     """
-    Enables autologging for scikit-learn estimators.
+    Enables (or disables) and configures autologging for scikit-learn estimators.
 
     **When is autologging performed?**
       Autologging is performed when you call:
@@ -712,6 +714,8 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     import pandas as pd
     import sklearn
@@ -749,32 +753,15 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
             stacklevel=2,
         )
 
-    def fit_mlflow(self, clazz, func_name, *args, **kwargs):
+    def fit_mlflow(original, self, *args, **kwargs):
         """
         Autologging function that performs model training by executing the training method
         referred to be `func_name` on the instance of `clazz` referred to by `self` & records
         MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
         """
-        should_start_run = mlflow.active_run() is None
-        if should_start_run:
-            try_mlflow_log(mlflow.start_run)
-
         _log_pretraining_metadata(self, *args, **kwargs)
-
-        original_fit = gorilla.get_original_attribute(clazz, func_name)
-        try:
-            fit_output = original_fit(self, *args, **kwargs)
-        except Exception as e:
-            if should_start_run:
-                try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
-
-            raise e
-
+        fit_output = original(self, *args, **kwargs)
         _log_posttraining_metadata(self, *args, **kwargs)
-
-        if should_start_run:
-            try_mlflow_log(mlflow.end_run)
-
         return fit_output
 
     def _log_pretraining_metadata(estimator, *args, **kwargs):  # pylint: disable=unused-argument
@@ -923,7 +910,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                     )
                     _logger.warning(msg)
 
-    def patched_fit(self, clazz, func_name, *args, **kwargs):
+    def patched_fit(original, self, *args, **kwargs):
         """
         Autologging patch function to be applied to a sklearn model class that defines a `fit`
         method and inherits from `BaseEstimator` (thereby defining the `get_params()` method)
@@ -934,18 +921,11 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        with _SklearnTrainingSession(clazz=clazz, allow_children=False) as t:
+        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                return fit_mlflow(self, clazz, func_name, *args, **kwargs)
+                return fit_mlflow(original, self, *args, **kwargs)
             else:
-                original_fit = gorilla.get_original_attribute(clazz, func_name)
-                return original_fit(self, *args, **kwargs)
-
-    def create_patch_func(clazz, func_name):
-        def f(self, *args, **kwargs):
-            return patched_fit(self, clazz, func_name, *args, **kwargs)
-
-        return f
+                return original(self, *args, **kwargs)
 
     _, estimators_to_patch = zip(*_all_estimators())
     # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
@@ -998,5 +978,6 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                 if isinstance(original, property):
                     continue
 
-                patch_func = create_patch_func(class_def, func_name)
-                wrap_patch(class_def, func_name, patch_func)
+                safe_patch(
+                    FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
+                )

@@ -2,7 +2,6 @@ import functools
 import inspect
 from unittest import mock
 import os
-import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -26,13 +25,14 @@ from mlflow.sklearn.utils import (
     _truncate_dict,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+
+from tests.autologging.fixtures import test_mode_off
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -105,33 +105,6 @@ def assert_predict_equal(left, right, X):
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
-
-
-@pytest.fixture(autouse=True, scope="function")
-def force_try_mlflow_log_to_fail(request):
-    # autolog contains multiple `try_mlflow_log`. They unexpectedly allow tests that
-    # should fail to pass (without us noticing). To prevent that, temporarily turns
-    # warnings emitted by `try_mlflow_log` into errors.
-    if "disable_force_try_mlflow_log_to_fail" in request.keywords:
-        yield
-    else:
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error", message=r"^Logging to MLflow failed", category=UserWarning,
-            )
-            yield
-
-
-@pytest.mark.xfail(strict=True, raises=UserWarning)
-def test_force_try_mlflow_log_to_fail():
-    with mlflow.start_run():
-        try_mlflow_log(lambda: 1 / 0)
-
-
-@pytest.mark.disable_force_try_mlflow_log_to_fail
-def test_no_force_try_mlflow_log_to_fail():
-    with mlflow.start_run():
-        try_mlflow_log(lambda: 1 / 0)
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -852,7 +825,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     assert len(child_run.data.metrics) >= metrics_size
 
 
-@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(
     "failing_specialization",
     [
@@ -871,7 +844,7 @@ def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_spec
         mock_func.assert_called_once()
 
 
-@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(
     "func_to_fail",
     ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
