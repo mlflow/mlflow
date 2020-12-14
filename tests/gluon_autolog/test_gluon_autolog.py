@@ -15,7 +15,7 @@ from mxnet.gluon.nn import HybridSequential, Dense
 if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
     from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
 else:
-    from mxnet.metric import Accuracy
+    from mxnet.metric import Accuracy  # pylint: disable=import-error
 
 import mlflow
 import mlflow.gluon
