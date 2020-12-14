@@ -225,7 +225,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
-        user_specified_tags = tags
+        user_specified_tags = tags or {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
