@@ -598,6 +598,9 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
+        if _is_testing():
+            preexisting_run_for_testing = mlflow.active_run()
+
         original = gorilla.get_original_attribute(destination, function_name)
 
         # If the autologging integration associated with this patch is disabled,
@@ -614,6 +617,8 @@ def safe_patch(
         # Whether or not an exception was raised from within the original / underlying function
         # during the execution of patched code
         failed_during_original = False
+        # The active MLflow run (if any) associated with patch code execution
+        patch_function_run_for_testing = None
 
         try:
 
@@ -621,6 +626,8 @@ def safe_patch(
                 try:
                     if _is_testing():
                         _validate_args(args, kwargs, og_args, og_kwargs)
+                        nonlocal patch_function_run_for_testing
+                        patch_function_run_for_testing = mlflow.active_run()
 
                     nonlocal original_has_been_called
                     original_has_been_called = True
@@ -653,6 +660,12 @@ def safe_patch(
             _logger.warning(
                 "Encountered unexpected error during %s autologging: %s", autologging_integration, e
             )
+
+        if _is_testing() and patch_function_run_for_testing and not preexisting_run_for_testing:
+            # If an MLflow run was created during the execution of patch code, verify that
+            # it is no longer active and that it contains expected autologging tags
+            # TODO
+            pass
 
         if original_has_been_called:
             return original_result
