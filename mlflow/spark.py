@@ -631,7 +631,7 @@ class _PyFuncModelWrapper(object):
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False):  # pylint: disable=unused-argument
     """
-    Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
+    Enables (or disables) and configures logging of Spark datasource paths, versions (if applicable), and formats
     when they are read. This method is not threadsafe and assumes a
     `SparkSession
     <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
@@ -685,7 +685,8 @@ def autolog(disable=False):  # pylint: disable=unused-argument
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
 
-        :param disable: Whether to enable or disable autologging.
+        :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     from mlflow import _spark_autologging
 
