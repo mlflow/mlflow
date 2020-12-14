@@ -183,7 +183,13 @@ def test_that_keras_module_arg_works(model_path):
         @staticmethod
         def load_model(file, **kwargs):
             # pylint: disable=unused-argument
-            return MyModel(file.get("x").value)
+            import h5py
+
+            # `Dataset.value` was removed in `h5py == 3.0.0`
+            if LooseVersion(h5py.__version__) >= LooseVersion("3.0.0"):
+                return MyModel(file.get("x")[()].decode("utf-8"))
+            else:
+                return MyModel(file.get("x").value)
 
     original_import = importlib.import_module
 
@@ -201,6 +207,7 @@ def test_that_keras_module_arg_works(model_path):
             mlflow.keras.save_model(x, path0)
         mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
         y = mlflow.keras.load_model(path0)
+        print(x._x, y._x)
         assert x == y
         path1 = os.path.join(model_path, "1")
         mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
