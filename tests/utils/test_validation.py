@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import (
+    _is_numeric,
     _validate_metric_name,
     _validate_param_name,
     _validate_tag_name,
@@ -41,6 +42,15 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "./",
     "/./",
 ]
+
+
+def test_is_numeric():
+    assert _is_numeric(0)
+    assert _is_numeric(0.0)
+    assert not _is_numeric(True)
+    assert not _is_numeric(False)
+    assert not _is_numeric("0")
+    assert not _is_numeric(None)
 
 
 def test_validate_metric_name():

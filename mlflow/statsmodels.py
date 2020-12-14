@@ -30,6 +30,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.validation import _is_numeric
 
 import itertools
 import inspect
@@ -464,7 +465,7 @@ def autolog():
                         renamed_keys_dict = prepend_to_keys(d, f)
                         results_dict.update(renamed_keys_dict)
 
-                    elif isinstance(field, (int, float)):
+                    elif _is_numeric(field):
                         results_dict[f] = field
 
             except AttributeError:
