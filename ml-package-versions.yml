@@ -201,6 +201,6 @@ onnx:
   models:
     minimum: "1.5.0"
     maximum: "1.8.0"
-    requirements: ["keras", "tensorflow", "scikit-learn"]
+    requirements: ["onnxmltools", "onnxruntime", "keras", "tensorflow", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
