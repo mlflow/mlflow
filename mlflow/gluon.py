@@ -1,4 +1,4 @@
-from distutils import LooseVersion
+from distutils.version import LooseVersion
 import os
 
 import pandas as pd
