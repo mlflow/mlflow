@@ -9,9 +9,10 @@ from abc import abstractmethod
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
-from mlflow.utils import gorilla
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import gorilla
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING 
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 
@@ -472,7 +473,7 @@ class PatchFunction:
                 raise e
 
 
-def with_managed_run(patch_function):
+def with_managed_run(patch_function, tags=None):
     """
     Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
@@ -491,8 +492,9 @@ def with_managed_run(patch_function):
 
     :param patch_function: A `PatchFunction` class definition or a function object
                            compatible with `safe_patch`.
+    :param tags: A dictionary of string tags to set on each managed run created during the
+                 execution of `patch_function`.
     """
-
     if inspect.isclass(patch_function):
 
         class PatchWithManagedRun(patch_function):
@@ -502,7 +504,7 @@ def with_managed_run(patch_function):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(mlflow.start_run)
+                    self.managed_run = try_mlflow_log(mlflow.start_run, tags)
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
@@ -525,7 +527,7 @@ def with_managed_run(patch_function):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(mlflow.start_run)
+                managed_run = try_mlflow_log(mlflow.start_run, tags)
 
             try:
                 result = patch_function(original, *args, **kwargs)
