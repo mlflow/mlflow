@@ -15,11 +15,6 @@ from mxnet.gluon.data import DataLoader
 from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
 
-if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
-    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
-else:
-    from mxnet.metric import Accuracy  # pylint: disable=import-error
-
 import mlflow
 import mlflow.gluon
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
@@ -32,6 +27,11 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import pyfunc_serve_and_score_model
+
+if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
+    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
+else:
+    from mxnet.metric import Accuracy  # pylint: disable=import-error
 
 
 @pytest.fixture
