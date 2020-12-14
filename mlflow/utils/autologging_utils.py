@@ -26,11 +26,6 @@ AUTOLOGGING_INTEGRATIONS = {}
 
 _logger = logging.getLogger(__name__)
 
-# Dict mapping integration name to its config.
-AUTOLOGGING_INTEGRATIONS = {}
-
-_logger = logging.getLogger(__name__)
-
 
 def try_mlflow_log(fn, *args, **kwargs):
     """
