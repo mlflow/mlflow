@@ -152,3 +152,39 @@ lightgbm:
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+gluon:
+  package_info:
+    pip_release: "mxnet"
+    install_dev: |
+      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
+
+  models:
+    minimum: "1.5.1"
+    maximum: "1.7.0.post1"
+    run: |
+      pytest tests/gluon/test_gluon_model_export.py --large
+
+  autologging:
+    minimum: "1.5.1"
+    maximum: "1.7.0.post1"
+    run: |
+      pytest tests/gluon_autolog/test_gluon_autolog.py --large
+
+fastai-1.x:
+  package_info:
+    pip_release: "fastai"
+
+  models:
+    minimum: "1.0.60"
+    maximum: "1.0.61"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/fastai/test_fastai_model_export.py --large
+
+  autologging:
+    minimum: "1.0.60"
+    maximum: "1.0.61"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/fastai/test_fastai_autolog.py --large

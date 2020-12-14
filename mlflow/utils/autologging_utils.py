@@ -1,4 +1,5 @@
 import inspect
+import itertools
 import functools
 import warnings
 import logging
@@ -18,6 +19,12 @@ INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
+_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
+
+# Dict mapping integration name to its config.
+AUTOLOGGING_INTEGRATIONS = {}
+
+_logger = logging.getLogger(__name__)
 
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
@@ -32,7 +39,10 @@ def try_mlflow_log(fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
     except Exception as e:  # pylint: disable=broad-except
-        warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
+        if _is_testing():
+            raise
+        else:
+            warnings.warn("Logging to MLflow failed: " + str(e), stacklevel=2)
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
@@ -372,7 +382,7 @@ def _is_testing():
     """
     import os
 
-    return os.environ.get("MLFLOW_AUTOLOGGING_TESTING", "false") == "true"
+    return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -698,6 +708,19 @@ def _validate_args(
             )
 
     def _validate(autologging_call_input, user_call_input=None):
+        """
+        Validates that the specified `autologging_call_input` and `user_call_input`
+        are compatible. If `user_call_input` is `None`, then `autologging_call_input`
+        is regarded as a new input added by autologging and is validated using
+        `_validate_new_input`. Otherwise, the following properties must hold:
+
+            - `autologging_call_input` and `user_call_input` must have the same type
+              (referred to as "input type")
+            - if the input type is a tuple, list or dictionary, then `autologging_call_input` must
+              be equivalent to `user_call_input` or be a superset of `user_call_input`
+            - for all other input types, `autologging_call_input` and `user_call_input`
+              must be equivalent by reference equality or by object equality
+        """
         if user_call_input is None and autologging_call_input is not None:
             _validate_new_input(autologging_call_input)
             return
@@ -708,14 +731,16 @@ def _validate_args(
             type(autologging_call_input), type(user_call_input)
         )
 
-        if type(autologging_call_input) == list:
+        if type(autologging_call_input) in [list, tuple]:
             length_difference = len(autologging_call_input) - len(user_call_input)
             assert length_difference >= 0, (
                 "{} expected inputs are missing from the call"
                 " to the original function.".format(length_difference)
             )
-            user_call_input = user_call_input + ([None] * (length_difference))
-            for a, u in zip(autologging_call_input, user_call_input):
+            # If the autologging call input is longer than the user call input, we `zip_longest`
+            # will pad the user call input with `None` values to ensure that the subsequent calls
+            # to `_validate` identify new inputs added by the autologging call
+            for a, u in itertools.zip_longest(autologging_call_input, user_call_input):
                 _validate(a, u)
         elif type(autologging_call_input) == dict:
             assert set(user_call_input.keys()).issubset(set(autologging_call_input.keys())), (
