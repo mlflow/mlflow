@@ -22,7 +22,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
 )
 
-from tests.autologging.fixtures import test_mode_off, test_mode_on
+from tests.autologging.fixtures import test_mode_off, test_mode_on  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
@@ -32,7 +32,7 @@ PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
 
 
 @pytest.fixture(autouse=True)
-def turn_test_mode_off_by_default(test_mode_off):  # pylint: disable=unused-argument
+def turn_test_mode_off_by_default(test_mode_off):
     """
     Most of the unit test cases in this module assume that autologging APIs are operating in a
     standard execution mode (i.e. where test mode is disabled). Accordingly, we turn off autologging
