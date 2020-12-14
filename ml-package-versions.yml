@@ -188,3 +188,13 @@ fastai-1.x:
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
+
+spark:
+  package_info:
+    pip_release: "pyspark"
+
+  autologging:
+    minimum: "2.4.4"
+    maximum: "3.0.1"
+    run: |
+      pytest tests/spark_autolog --large
