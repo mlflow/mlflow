@@ -193,7 +193,7 @@ onnx:
   package_info:
     pip_release: "onnx"
     install_dev: |
-      conda install -c conda-forge protobuf numpy
+      pip install -U protobuf
       temp_dir=$(mktemp -d)
       git clone https://github.com/onnx/onnx.git $temp_dir
       cd $temp_dir
