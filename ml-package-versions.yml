@@ -162,12 +162,12 @@ gluon:
 
   models:
     minimum: "1.5.1"
-    maximum: "1.7.0"
+    maximum: "1.7.0.post1"
     run: |
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
     minimum: "1.5.1"
-    maximum: "1.7.0"
+    maximum: "1.7.0.post1"
     run: |
       pytest tests/gluon_autolog/test_gluon_autolog.py --large
