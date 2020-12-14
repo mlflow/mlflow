@@ -197,4 +197,4 @@ spark:
     minimum: "2.4.4"
     maximum: "3.0.1"
     run: |
-      pytest tests/spark_autolog --large
+      pytest tests/spark_autologging --large
