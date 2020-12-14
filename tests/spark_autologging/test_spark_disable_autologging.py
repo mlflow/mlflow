@@ -19,7 +19,7 @@ from tests.spark_autologging.utils import file_path  # pylint: disable=unused-im
 
 
 # Note that the following tests run one-after-the-other and operate on the SAME spark_session
-#   (it is not reset between tests, except for the last test case)
+#   (it is not reset between tests)
 
 
 @pytest.mark.large
