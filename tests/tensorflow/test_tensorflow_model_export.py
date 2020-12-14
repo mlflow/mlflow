@@ -581,6 +581,27 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     )
 
 
+# @pytest.mark.large
+def test_pyfunc_model_works_with_dict_input_type(saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(
+        tf_saved_model_dir=saved_tf_iris_model.path,
+        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+        path=model_path,
+    )
+
+    pyfunc_wrapper = pyfunc.load_model(model_path)
+    inp_data = {}
+    for col_name in list(saved_tf_iris_model.inference_df):
+        inp_data[col_name] = saved_tf_iris_model.inference_df[col_name].values
+    results = pyfunc_wrapper.predict(inp_data)
+    pandas.testing.assert_frame_equal(
+        pandas.DataFrame(data=results),
+        saved_tf_iris_model.expected_results_df,
+        check_less_precise=1,
+    )
+
+
 @pytest.mark.large
 def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     saved_tf_categorical_model, model_path
