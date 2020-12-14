@@ -90,10 +90,10 @@ def _infer_schema(data: Any) -> Schema:
             "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
             "but got '{}'".format(type(data))
         )
-    if any([t in (DataType.integer, DataType.long) for t in schema.column_types()]):
+    if any(t in (DataType.integer, DataType.long) for t in schema.column_types()):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "
-            "Python can  not represent missing values. If your input data contains"
+            "Python can  not represent missing values. If your input data contains "
             "missing values at inference time, it will be encoded as floats and will "
             "cause a schema enforcement error. The best way to avoid this problem is "
             "to infer the model schema based on a realistic data sample (training "
