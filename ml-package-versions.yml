@@ -193,12 +193,14 @@ onnx:
   package_info:
     pip_release: "onnx"
     install_dev: |
-      pip install -U protobuf
+      conda install -c conda-forge protobuf numpy
       temp_dir=$(mktemp -d)
       git clone https://github.com/onnx/onnx.git $temp_dir
       cd $temp_dir
       git submodule update --init --recursive
       python setup.py install
+
+      pip install -U protobuf
 
   models:
     minimum: "1.5.0"
