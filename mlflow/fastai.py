@@ -46,7 +46,30 @@ def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.fastai
+
+        # Start MLflow session and log the fastai learner model
+        with mlflow.start_run():
+           model.fit(epochs, learning_rate)
+           mlflow.fastai.log_model(learn, "model")
+
+        # Fetch the default conda environment
+        env = mlflow.fastai.get_default_conda_env()
+        print("conda environment: {}".format(env))
+
+    .. code-block:: text
+        :caption: Output
+
+        conda environment: {'name': 'mlflow-env',
+                            'channels': ['defaults', 'conda-forge'],
+                            'dependencies': ['python=3.7.5', 'fastai=1.0.61',
+                                             'pip', {'pip': ['mlflow']}]}
     """
+
     import fastai
 
     pip_deps = None
@@ -295,6 +318,69 @@ def autolog(log_models=True):
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+
+    .. code-block:: python
+        :caption: Example
+
+        from fastai.vision import URLs, untar_data, ImageDataBunch, imagenet_stats, models,
+            accuracy, rand_pad, cnn_learner
+        import mlflow.fastai
+        from mlflow.tracking import MlflowClient
+
+        def print_auto_logged_info(r):
+            tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
+            artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+            print("run_id: {}".format(r.info.run_id))
+            print("artifacts: {}".format(artifacts))
+            print("params: {}".format(r.data.params))
+            print("metrics: {}".format(r.data.metrics))
+            print("tags: {}".format(tags))
+
+        def main(epochs=1, learning_rate=0.01):
+            # Download and untar the MNIST data set
+            path = untar_data(URLs.MNIST_SAMPLE)
+
+            # Prepare, transform, and normalize the data
+            data = ImageDataBunch.from_folder(path, ds_tfms=(rand_pad(2, 28), []), bs=64)
+            data.normalize(imagenet_stats)
+
+            # Train and fit the Learner model
+            learn = cnn_learner(data, models.resnet18, metrics=accuracy)
+
+            # Enable auto logging
+            mlflow.fastai.autolog()
+
+            # Start MLflow session
+            with mlflow.start_run() as run:
+                learn.fit(epochs, lr)
+
+            # fetch the auto logged parameters, metrics, and artifacts
+            print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+
+        main(epochs=5, learning_rate=0.01)
+
+    .. code-block:: text
+        :caption: output
+
+        run_id: 5a23dcbcaa334637814dbce7a00b2f6a
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.fastai']
+        params: {'wd': 'None',
+                 'bn_wd': 'True',
+                 'opt_func': 'Adam',
+                 'epochs': '5', '
+                 train_bn': 'True',
+                 'num_layers': '60',
+                 'lr': '0.01',
+                 'true_wd': 'True'}
+        metrics: {'train_loss': 0.024,
+                  'accuracy': 0.99214,
+                  'valid_loss': 0.021}
+        # Tags model summary omitted too long
+        tags: {...}
+
+    .. figure:: ../_static/images/fastai_autolog.png
+
+        Fastai autologged MLflow entities
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info
