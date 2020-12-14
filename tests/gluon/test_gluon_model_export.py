@@ -14,7 +14,11 @@ from mxnet.gluon.contrib.estimator import estimator
 from mxnet.gluon.data import DataLoader
 from mxnet.gluon.loss import SoftmaxCrossEntropyLoss
 from mxnet.gluon.nn import HybridSequential, Dense
-from mxnet.metric import Accuracy
+
+if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
+    from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
+else:
+    from mxnet.metric import Accuracy
 
 import mlflow
 import mlflow.gluon
