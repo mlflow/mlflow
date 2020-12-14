@@ -44,7 +44,6 @@ from mlflow.utils.autologging_utils import (
     exception_safe_function,
     try_mlflow_log,
     log_fn_args_as_params,
-    wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _InputExampleInfo,
@@ -288,7 +287,7 @@ class _LGBModelWrapper:
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
-):  # pylint: unused-argument
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
 
