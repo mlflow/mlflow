@@ -581,7 +581,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     )
 
 
-# @pytest.mark.large
+@pytest.mark.large
 def test_pyfunc_model_works_with_dict_input_type(saved_tf_iris_model, model_path):
     mlflow.tensorflow.save_model(
         tf_saved_model_dir=saved_tf_iris_model.path,
