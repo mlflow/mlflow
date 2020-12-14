@@ -28,13 +28,7 @@ from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
-    try_mlflow_log,
-    log_fn_args_as_params,
-    autologging_integration,
-    safe_patch,
-    get_autologging_config,
-)
+from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
 from mlflow.utils.validation import _is_numeric
 
 import itertools
