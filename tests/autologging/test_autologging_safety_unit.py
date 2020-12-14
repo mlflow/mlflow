@@ -846,10 +846,8 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
     assert not autologging_utils._is_testing()
 
-    exc_to_throw = Exception("bad implementation")
-
     def throwing_function():
-        raise exc_to_throw
+        raise Exception("bad implementation")
 
     with pytest.warns(UserWarning, match="bad implementation"):
         try_mlflow_log(throwing_function)
@@ -859,12 +857,8 @@ def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
 def test_try_mlflow_log_propagates_exceptions_in_test_mode():
     assert autologging_utils._is_testing()
 
-    exc_to_throw = Exception("bad implementation")
-
     def throwing_function():
-        raise exc_to_throw
+        raise Exception("bad implementation")
 
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(Exception, match="bad implementation") as exc:
         try_mlflow_log(throwing_function)
-
-    assert exc.value == exc_to_throw
