@@ -520,16 +520,16 @@ class _TFWrapper(object):
     def predict(self, data):
         with self.tf_graph.as_default():
             feed_dict = data
-            if isinstance(data, pandas.DataFrame):
+            if isinstance(data, dict):
+                feed_dict = {self.input_tensor_mapping[k]: v for k, v in data.items()}
+            elif isinstance(data, pandas.DataFrame):
                 # Build the feed dict, mapping input tensors to DataFrame column values.
                 feed_dict = {
-                    self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name].values
                     for tensor_column_name in self.input_tensor_mapping.keys()
                 }
-            elif isinstance(data, dict):
-                feed_dict = {self.input_tensor_mapping[k]: v for k, v in data.items()}
             else:
-                raise MlflowException("Only pandas.DataFrames and dicts are allowed.")
+                raise MlflowException("Only dict and DataFrame input types are supported")
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             if isinstance(data, pandas.DataFrame):
@@ -556,8 +556,7 @@ class _TF2Wrapper(object):
         feed_dict = {}
         if isinstance(data, dict):
             feed_dict = {k: tensorflow.constant(v) for k, v in data.items()}
-        else:
-            # data is a dataframe
+        elif isinstance(data, pandas.DataFrame):
             for df_col_name in list(data):
                 # If there are multiple columns with the same name, selecting the shared name
                 # from the DataFrame will result in another DataFrame containing the columns
@@ -567,6 +566,9 @@ class _TF2Wrapper(object):
                 if isinstance(val, pandas.DataFrame):
                     val = val.values
                 feed_dict[df_col_name] = tensorflow.constant(val)
+        else:
+            raise MlflowException("Only dict and DataFrame input types are supported")
+
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():

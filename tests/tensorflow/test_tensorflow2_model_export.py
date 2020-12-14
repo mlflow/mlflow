@@ -204,7 +204,7 @@ def saved_tf_categorical_model(tmpdir):
         path=saved_estimator_path,
         meta_graph_tags=["serve"],
         signature_def_key="predict",
-        inference_df=trainingFeatures,
+        inference_df=pd.DataFrame(trainingFeatures),
         expected_results_df=estimator_preds_df,
         raw_results=None,
         raw_df=None,
@@ -550,9 +550,28 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
+
+    # can call predict with a df
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
+    assert isinstance(results_df, pd.DataFrame)
     for key in results_df.keys():
         assert np.array_equal(results_df[key], saved_tf_iris_model.raw_df[key])
+
+    # can also call predict with a dict
+    inp_dict = {}
+    for df_col_name in list(saved_tf_iris_model.inference_df):
+        inp_dict[df_col_name] = saved_tf_iris_model.inference_df[df_col_name].values
+    results = pyfunc_wrapper.predict(inp_dict)
+    assert isinstance(results, dict)
+    for key in results.keys():
+        assert np.array_equal(results[key], saved_tf_iris_model.raw_df[key].tolist())
+
+    # can not call predict with a list
+    inp_list = []
+    for df_col_name in list(saved_tf_iris_model.inference_df):
+        inp_list.append(saved_tf_iris_model.inference_df[df_col_name].values)
+    with pytest.raises(MlflowException):
+        results = pyfunc_wrapper.predict(inp_list)
 
 
 @pytest.mark.large
@@ -567,30 +586,32 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
+
+    # can call predict with a df
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     # Precision is less accurate for the categorical model when we load back the saved model.
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=3
     )
 
-
-@pytest.mark.large
-def test_pyfunc_model_works_with_dict_input_type(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(
-        tf_saved_model_dir=saved_tf_iris_model.path,
-        tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-        tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-        path=model_path,
-    )
-
-    pyfunc_wrapper = pyfunc.load_model(model_path)
+    # can also call predict with a dict
     inp_dict = {}
-    for df_col_name in list(saved_tf_iris_model.inference_df):
-        inp_dict[df_col_name] = saved_tf_iris_model.inference_df[df_col_name].values
+    for df_col_name in list(saved_tf_categorical_model.inference_df):
+        inp_dict[df_col_name] = saved_tf_categorical_model.inference_df[df_col_name].values
     results = pyfunc_wrapper.predict(inp_dict)
     assert isinstance(results, dict)
-    for key in results.keys():
-        assert np.array_equal(results[key], saved_tf_iris_model.raw_df[key].tolist())
+    pandas.testing.assert_frame_equal(
+        pandas.DataFrame.from_dict(data=results),
+        saved_tf_categorical_model.expected_results_df,
+        check_less_precise=3,
+    )
+
+    # can not call predict with a list
+    inp_list = []
+    for df_col_name in list(saved_tf_categorical_model.inference_df):
+        inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
+    with pytest.raises(MlflowException):
+        results = pyfunc_wrapper.predict(inp_list)
 
 
 @pytest.mark.release
