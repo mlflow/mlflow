@@ -464,7 +464,9 @@ def autolog():
                         renamed_keys_dict = prepend_to_keys(d, f)
                         results_dict.update(renamed_keys_dict)
 
-                    elif isinstance(field, (int, float)):
+                    # `not isinstance(field, bool)` is required because `bool` is a subclass of
+                    # `int`
+                    elif not isinstance(field, bool) and isinstance(field, (int, float)):
                         results_dict[f] = field
 
             except AttributeError:
