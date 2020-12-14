@@ -153,7 +153,6 @@ lightgbm:
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
 
-
 gluon:
   package_info:
     pip_release: "mxnet"
