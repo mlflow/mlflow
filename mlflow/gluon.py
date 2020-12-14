@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import os
 
 import pandas as pd
@@ -48,6 +49,7 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
+    import mxnet
     from mxnet import gluon
     from mxnet import sym
 
@@ -58,7 +60,10 @@ def load_model(model_uri, ctx):
     symbol = sym.load(model_arch_path)
     inputs = sym.var("data", dtype="float32")
     net = gluon.SymbolBlock(symbol, inputs)
-    net.collect_params().load(model_params_path, ctx)
+    if LooseVersion(mxnet.__version__) >= LooseVersion("2.0.0"):
+        net.load_parameters(model_params_path, ctx)
+    else:
+        net.collect_params().load(model_params_path, ctx)
     return net
 
 
