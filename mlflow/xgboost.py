@@ -293,7 +293,7 @@ def autolog(
     disable=False,
 ):  # pylint: disable=W0102,unused-argument
     """
-    Enables automatic logging from XGBoost to MLflow. Logs the following.
+    Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
 
     - parameters specified in `xgboost.train`_.
     - metrics on each iteration (if ``evals`` specified).
@@ -322,6 +322,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     import xgboost
     import numpy as np

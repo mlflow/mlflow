@@ -536,7 +536,7 @@ def autolog(
     log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
 ):  # pylint: disable=unused-argument
     """
-    Enables autologging for scikit-learn estimators.
+    Enables (or disables) and configures autologging for scikit-learn estimators.
 
     **When is autologging performed?**
       Autologging is performed when you call:
@@ -714,6 +714,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     import pandas as pd
     import sklearn

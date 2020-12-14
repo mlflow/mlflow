@@ -566,7 +566,8 @@ def load_model(model_uri, **kwargs):
 def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
-    Enables automatic logging from Keras to MLflow. Autologging captures the following information:
+    Enables (or disables) and configures autologging from Keras to MLflow. Autologging captures
+    the following information:
 
     **Metrics** and **Parameters**
      - Training loss; validation loss; user-specified metrics
@@ -613,6 +614,8 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     import keras
 
