@@ -5,8 +5,6 @@ import pytest
 import mlflow
 import mlflow.spark
 
-from tests.tracking.test_rest_tracking import BACKEND_URIS
-from tests.tracking.test_rest_tracking import tracking_server_uri  # pylint: disable=unused-import
 from tests.tracking.test_rest_tracking import mlflow_client  # pylint: disable=unused-import
 from tests.spark_autologging.utils import (
     _assert_spark_data_logged,

@@ -22,7 +22,6 @@ from mlflow.utils.autologging_utils import (
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
-FLAVOR_NAME = "spark"
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
@@ -221,7 +220,7 @@ class PythonSubscriber(object):
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
-        if autologging_is_disabled(FLAVOR_NAME):
+        if autologging_is_disabled("spark"):
             return
         # If there's an active run, simply set the tag on it
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
@@ -255,7 +254,7 @@ class SparkAutologgingContext(RunContextProvider):
 
     def tags(self):
         # if autologging is disabled, then short circuit `tags()` and return empty dict.
-        if autologging_is_disabled(FLAVOR_NAME):
+        if autologging_is_disabled("spark"):
             return {}
         with _lock:
             global _table_infos
