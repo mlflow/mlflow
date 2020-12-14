@@ -3,6 +3,10 @@ import os
 import pytest
 
 import mlflow
+from mlflow.utils.autologging_utils import (
+    _is_testing,
+    _AUTOLOGGING_TEST_MODE_ENV_VAR,
+)
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 from tests.autologging.fixtures import test_mode_on
@@ -44,24 +48,13 @@ def enable_test_mode_by_default_for_autologging_integrations():
     are raised and detected. For more information about autologging test mode, see the docstring
     for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
-    yield from test_mode_on()
-
-
-@pytest.fixture(autouse=True)
-def clean_up_leaked_runs():
-    """
-    Certain test cases validate safety API behavior when runs are leaked. Leaked runs that
-    are not cleaned up between test cases may result in cascading failures that are hard to
-    debug. Accordingly, this fixture attempts to end any active runs it encounters and
-    throws an exception (which reported as an additional error in the pytest execution output).
-    """
     try:
+        prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
+        os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "true"
+        assert _is_testing()
         yield
-        assert (
-            not mlflow.active_run()
-        ), "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
-            mlflow.active_run().info, mlflow.active_run().data
-        )
     finally:
-        while mlflow.active_run():
-            mlflow.end_run()
+        if prev_env_var_value:
+            os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = prev_env_var_value
+        else:
+            del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]

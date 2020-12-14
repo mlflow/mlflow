@@ -32,11 +32,6 @@ AUTOLOGGING_INTEGRATIONS = {}
 
 _logger = logging.getLogger(__name__)
 
-# Dict mapping integration name to its config.
-AUTOLOGGING_INTEGRATIONS = {}
-
-_logger = logging.getLogger(__name__)
-
 
 def try_mlflow_log(fn, *args, **kwargs):
     """
@@ -388,7 +383,7 @@ def _is_testing():
     """
     import os
 
-    return os.environ.get("MLFLOW_AUTOLOGGING_TESTING", "false") == "true"
+    return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
 # Function attribute used for testing purposes to verify that a given function

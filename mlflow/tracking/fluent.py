@@ -1240,15 +1240,8 @@ def _get_experiment_id():
 
 @autologging_integration("mlflow")
 def autolog(
-    log_input_examples: bool = False,
-    log_model_signatures: bool = True,
-    log_models: bool = True,
-    disable: bool = False,
-    exclusive: bool = False,
-    disable_for_unsupported_versions: bool = False,
-    silent: bool = False,
-    # pylint: disable=unused-argument
-) -> None:
+    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for all supported integrations.
 
@@ -1297,15 +1290,6 @@ def autolog(
                        are also omitted when ``log_models`` is ``False``.
     :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
                     enables all supported autologging integrations.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      all integration libraries that have not been tested against this version
-                      of the MLflow client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
-                   setup and training execution. If ``False``, show all events and warnings during
-                   autologging setup and training execution.
 
     .. code-block:: python
         :caption: Example
