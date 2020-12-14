@@ -196,6 +196,7 @@ onnx:
       temp_dir=$(mktemp -d)
       git clone https://github.com/onnx/onnx.git $temp_dir
       cd $temp_dir
+      git submodule update --init --recursive
       python setup.py install
 
   models:
