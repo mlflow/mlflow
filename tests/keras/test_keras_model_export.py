@@ -206,7 +206,6 @@ def test_that_keras_module_arg_works(model_path):
             mlflow.keras.save_model(x, path0)
         mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
         y = mlflow.keras.load_model(path0)
-        print(x._x, y._x)
         assert x == y
         path1 = os.path.join(model_path, "1")
         mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
