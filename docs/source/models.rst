@@ -146,8 +146,22 @@ names, matching is done by position (i.e. MLflow will only check the number of c
 Column Type Enforcement
 """""""""""""""""""""""
 The input column types are checked against the signature. MLflow will perform safe type conversions
-if necessary. Generally, only upcasts (e.g. integer -> long or float -> double) are considered to be
-safe. If the types cannot be made compatible, MLflow will raise an error.
+if necessary. Generally, only conversions that are guaranteed to be lossless are allowed. For
+example, int -> long or int -> double conversions are ok, long -> double is not. If the types cannot
+be made compatible, MLflow will raise an error.
+
+Handling Integers With Missing Values
+"""""""""""""""""""""""""""""""""""""
+Integer data with missing values is typically represented as floats in Python. Therefore, data
+types of integer columns in Python can vary depending on the data sample. This type variance can
+cause schema enforcement errors at runtime since integer and float are not compatible types. For
+example, if your training data did not have any missing values for integer column c, its type will
+be integer. However, when you attempt to score a sample of the data that does include a missing
+value in column c, its type will be float. If your model signature specified c to have integer type,
+MLflow will raise an error since it can not convert float to int. Note that MLflow uses python to
+serve models and to deploy models to Spark, so this can affect most model deployments. The best way
+to avoid this problem is to declare integer columns as doubles (float64) whenever there can be
+missing values.
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
