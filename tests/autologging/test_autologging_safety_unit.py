@@ -20,6 +20,7 @@ from mlflow.utils.autologging_utils import (
     _validate_args,
     _is_testing,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 
 pytestmark = pytest.mark.large
@@ -323,8 +324,8 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     assert validate_mock.call_count == 1
 
 
-def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging_integration, test_mode_on):
-
+def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(patch_destination, test_autologging_integration):
+    client = MlflowClient()
     active_run = None
 
     def patch_impl(original, *args, **kwargs):
@@ -342,6 +343,7 @@ def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging
         assert managed_run_mock.call_count == 1
         assert active_run is not None
         assert active_run.info.run_id is not None
+        assert client.get_run(active_run.info.run_id).data.tags[MLFLOW_AUTOLOGGING] == "test_integration"
 
 
 def test_safe_patch_does_not_manage_run_if_unspecified(
