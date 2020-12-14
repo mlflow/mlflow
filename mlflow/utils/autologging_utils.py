@@ -504,7 +504,7 @@ def with_managed_run(patch_function, tags=None):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(mlflow.start_run, tags)
+                    self.managed_run = try_mlflow_log(mlflow.start_run, tags=tags)
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs

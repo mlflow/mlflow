@@ -328,8 +328,6 @@ def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging
     active_run = None
 
     def patch_impl(original, *args, **kwargs):
-        print("IN PATCH IMPL")
-        print(mlflow.active_run())
         nonlocal active_run
         active_run = mlflow.active_run()
         return original(*args, **kwargs)
@@ -644,6 +642,33 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
         # even if the patch function throws
         status2 = client.get_run(active_run.info.run_id).info.status
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
+
+
+def test_with_managed_run_sets_specified_run_tags():
+    client = MlflowClient()
+    tags_to_set = {
+        "foo": "bar",
+        "num_layers": "7",
+    }
+
+    patch_function_1 = with_managed_run(
+        lambda original, *args, **kwargs: mlflow.active_run(),
+        tags=tags_to_set
+    )
+    run1 = patch_function_1(lambda: "foo")
+    assert tags_to_set.items() <= client.get_run(run1.info.run_id).data.tags.items()
+
+    class PatchFunction2(PatchFunction):
+        def _patch_implementation(self, original, *args, **kwargs):
+            return mlflow.active_run()
+
+        def _on_exception(self, exception):
+            pass
+
+    patch_function_2 = with_managed_run(PatchFunction2, tags=tags_to_set)
+    run2 = patch_function_2.call(lambda: "foo")
+    assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
+
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
