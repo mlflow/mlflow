@@ -323,11 +323,13 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     assert validate_mock.call_count == 1
 
 
-def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging_integration):
+def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging_integration, test_mode_on):
 
     active_run = None
 
     def patch_impl(original, *args, **kwargs):
+        print("IN PATCH IMPL")
+        print(mlflow.active_run())
         nonlocal active_run
         active_run = mlflow.active_run()
         return original(*args, **kwargs)

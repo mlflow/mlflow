@@ -12,7 +12,7 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING 
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 
@@ -527,7 +527,7 @@ def with_managed_run(patch_function, tags=None):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(mlflow.start_run, tags)
+                managed_run = try_mlflow_log(mlflow.start_run, tags=tags)
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -574,7 +574,9 @@ def safe_patch(
                        `patch_function`.
     """
     if manage_run:
-        patch_function = with_managed_run(patch_function)
+        patch_function = with_managed_run(patch_function, tags={
+            MLFLOW_AUTOLOGGING: autologging_integration,
+        })
 
     patch_is_class = inspect.isclass(patch_function)
     if patch_is_class:
