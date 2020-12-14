@@ -122,6 +122,7 @@ def test_validate_batch_log_data():
         Metric("super-long-bad-key" * 1000, 4.0, 0, 0),
     ]
     metrics_with_bad_val = [Metric("good-metric-key", "not-a-double-val", 0, 0)]
+    metrics_with_bool_val = [Metric("good-metric-key", True, 0, 0)]
     metrics_with_bad_ts = [Metric("good-metric-key", 1.0, "not-a-timestamp", 0)]
     metrics_with_neg_ts = [Metric("good-metric-key", 1.0, -123, 0)]
     metrics_with_bad_step = [Metric("good-metric-key", 1.0, 0, "not-a-step")]
@@ -145,6 +146,7 @@ def test_validate_batch_log_data():
         "metrics": [
             metrics_with_bad_key,
             metrics_with_bad_val,
+            metrics_with_bool_val,
             metrics_with_bad_ts,
             metrics_with_neg_ts,
             metrics_with_bad_step,
