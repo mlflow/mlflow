@@ -96,6 +96,11 @@ def onnx_model(model, sample_input, tmpdir):
 
 @pytest.fixture(scope="module")
 def onnx_sklearn_model():
+    """
+    A scikit-learn model in ONNX format that is used to test the behavior
+    of ONNX models that return outputs in list format. For reference, see
+    `test_pyfunc_predict_supports_models_with_list_outputs`.
+    """
     model_path = os.path.join(TEST_ONNX_RESOURCES_DIR, "sklearn_model.onnx")
     return onnx.load(model_path)
 
