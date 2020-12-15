@@ -22,12 +22,12 @@ def clear_session():
 
 @pytest.fixture
 def random_train_data():
-    return np.random.random((1000, 32))
+    return np.random.random((150, 4))
 
 
 @pytest.fixture
 def random_one_hot_labels():
-    n, n_class = (1000, 10)
+    n, n_class = (150, 3)
     classes = np.random.randint(0, n_class, n)
     labels = np.zeros((n, n_class))
     labels[np.arange(n), classes] = 1
@@ -45,9 +45,8 @@ def manual_run(request):
 def create_model():
     model = keras.Sequential()
 
-    model.add(layers.Dense(64, activation="relu", input_shape=(32,)))
-    model.add(layers.Dense(64, activation="relu"))
-    model.add(layers.Dense(10, activation="softmax"))
+    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(layers.Dense(3, activation="softmax"))
 
     model.compile(
         optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
