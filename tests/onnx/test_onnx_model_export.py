@@ -27,8 +27,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 TEST_DIR = "tests"
-# TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
-TEST_ONNX_RESOURCES_DIR = "/Users/czumar/mlflow/tests/resources/onnx"
+TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
 
 pytestmark = pytest.mark.skipif(
     (sys.version_info < (3, 6)), reason="Tests require Python 3 to run!"
