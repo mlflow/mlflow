@@ -56,7 +56,7 @@ def get_default_conda_env(include_cloudpickle=False):
         # Start MLflow session and log the fastai learner model
         with mlflow.start_run():
            model.fit(epochs, learning_rate)
-           mlflow.fastai.log_model(learn, "model")
+           mlflow.fastai.log_model(model, "model")
 
         # Fetch the default conda environment
         env = mlflow.fastai.get_default_conda_env()
