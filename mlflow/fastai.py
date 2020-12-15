@@ -156,7 +156,7 @@ def save_model(
         # Load saved model for inference
         model_uri = "{}/{}".format(os.getcwd(), 'model')
         loaded_model = mlflow.fastai.load_model(model_uri)
-        loaded_model.predict(predict_data)
+        results = loaded_model.predict(predict_data)
     """
     import fastai
     from pathlib import Path
@@ -364,7 +364,7 @@ def load_model(model_uri):
 
         # log the fastai Leaner model
         with mlflow.start_run() as run:
-            model.fit(epochs, lr)
+            model.fit(epochs, learning_rate)
             mlflow.fastai.log_model(model, "model")
 
         # Load the model for scoring
@@ -410,7 +410,7 @@ def autolog(log_models=True):
             print("metrics: {}".format(r.data.metrics))
             print("tags: {}".format(tags))
 
-        def main(epochs=1, learning_rate=0.01):
+        def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
             path = untar_data(URLs.MNIST_SAMPLE)
 
@@ -426,12 +426,12 @@ def autolog(log_models=True):
 
             # Start MLflow session
             with mlflow.start_run() as run:
-                model.fit(epochs, lr)
+                model.fit(epochs, learning_rate)
 
             # fetch the auto logged parameters, metrics, and artifacts
             print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
 
-        main(epochs=5, learning_rate=0.01)
+        main()
 
     .. code-block:: text
         :caption: output
