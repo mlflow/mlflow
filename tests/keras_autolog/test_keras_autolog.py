@@ -14,6 +14,7 @@ from unittest.mock import patch  # noqa
 
 @pytest.fixture(autouse=True)
 def clear_session():
+    # A workaround for this issue: https://github.com/keras-team/keras/issues/2102
     yield
     keras.backend.clear_session()
 
