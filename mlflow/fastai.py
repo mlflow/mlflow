@@ -44,8 +44,9 @@ FLAVOR_NAME = "fastai"
 
 def get_default_conda_env(include_cloudpickle=False):
     """
-    :return: The default Conda environment for MLflow Models produced by calls to
+    :return: The default Conda environment as a dictionary for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
+
 
     .. code-block:: python
         :caption: Example
@@ -136,6 +137,26 @@ def save_model(
                           base64-encoded.
 
     :param kwargs: kwargs to pass to ``Learner.save`` method.
+
+    .. code-block:: python
+        :caption: Example
+
+        import os
+
+        import mlflow.fastai
+
+        # Create a fastai Learner model
+        model = ...
+
+        # Start MLflow session and save model to current working directory
+        with mlflow.start_run():
+            model.fit(epochs, learning_rate)
+            mlflow.fastai.save_model(model, 'model')
+
+        # Load saved model for inference
+        model_uri = "{}/{}".format(os.getcwd(), 'model')
+        loaded_model = mlflow.fastai.load_model(model_uri)
+        loaded_model.predict(predict_data)
     """
     import fastai
     from pathlib import Path
@@ -234,6 +255,41 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+
+    .. code-block:: python
+        :caption: Example
+
+        from fastai.vision import URLs, untar_data, ImageDataBunch, imagenet_stats, models,
+            accuracy, rand_pad, cnn_learner
+        import mlflow.fastai
+        from mlflow.tracking import MlflowClient
+
+        def main(epochs=5, learning_rate=0.01):
+            # Download and untar the MNIST data set
+            path = untar_data(URLs.MNIST_SAMPLE)
+
+           # Prepare, transform, and normalize the data
+           data = ImageDataBunch.from_folder(path, ds_tfms=(rand_pad(2, 28), []), bs=64)
+           data.normalize(imagenet_stats)
+
+           # Create the CNN Learner model
+           model = cnn_learner(data, models.resnet18, metrics=accuracy)
+
+           # Start MLflow session and log model
+           with mlflow.start_run() as run:
+                model.fit(epochs, learning_rate)
+                mlflow.fastai.log_model(model, 'model')
+
+           # fetch the logged model artifacts
+           artifacts = [f.path for f in MlflowClient().list_artifacts(run.info.run_id, 'model')]
+           print("artifacts: {}".format(artifacts))
+
+        main()
+
+    .. code-block:: text
+        :caption: Output
+
+        artifacts: ['model/MLmodel', 'model/conda.yaml', 'model/model.fastai']
     """
     Model.log(
         artifact_path=artifact_path,
@@ -297,6 +353,24 @@ def load_model(model_uri):
                       artifact-locations>`_.
 
     :return: A fastai model (an instance of `fastai.Learner`_).
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow.fastai
+
+        # Define the Learner model
+        model = ...
+
+        # log the fastai Leaner model
+        with mlflow.start_run() as run:
+            model.fit(epochs, lr)
+            mlflow.fastai.log_model(model, "model")
+
+        # Load the model for scoring
+        model_uri = "runs:/{}/model".format(run.info.run_id)
+        loaded_model = mlflow.fastai.load_model(model_uri)
+        results = loaded_model.predict(predict_data)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -344,15 +418,15 @@ def autolog(log_models=True):
             data = ImageDataBunch.from_folder(path, ds_tfms=(rand_pad(2, 28), []), bs=64)
             data.normalize(imagenet_stats)
 
-            # Train and fit the Learner model
-            learn = cnn_learner(data, models.resnet18, metrics=accuracy)
+            # Create CNN the Learner model
+            model = cnn_learner(data, models.resnet18, metrics=accuracy)
 
             # Enable auto logging
             mlflow.fastai.autolog()
 
             # Start MLflow session
             with mlflow.start_run() as run:
-                learn.fit(epochs, lr)
+                model.fit(epochs, lr)
 
             # fetch the auto logged parameters, metrics, and artifacts
             print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
