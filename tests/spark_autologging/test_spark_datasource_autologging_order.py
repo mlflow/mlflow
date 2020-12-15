@@ -11,12 +11,16 @@ from pyspark.sql import Row
 from pyspark.sql.types import StructType, IntegerType, StructField
 
 from tests.spark_autologging.utils import _get_or_create_spark_session
-from tests.spark_autologging.utils import _assert_spark_data_logged
+from tests.spark_autologging.utils import (
+    _assert_spark_data_logged,
+    _assert_spark_data_not_logged,
+)
 
 
 @pytest.mark.large
-def test_enabling_autologging_before_spark_session_works():
-    mlflow.spark.autolog()
+@pytest.mark.parametrize("disable", [False, True])
+def test_enabling_autologging_before_spark_session_works(disable):
+    mlflow.spark.autolog(disable=disable)
 
     # creating spark session AFTER autolog was enabled
     spark_session = _get_or_create_spark_session()
@@ -42,7 +46,10 @@ def test_enabling_autologging_before_spark_session_works():
         time.sleep(1)
 
     run = mlflow.get_run(run_id)
-    _assert_spark_data_logged(run=run, path=filepath, data_format="csv")
+    if disable:
+        _assert_spark_data_not_logged(run=run)
+    else:
+        _assert_spark_data_logged(run=run, path=filepath, data_format="csv")
 
     shutil.rmtree(tempdir)
     spark_session.stop()
