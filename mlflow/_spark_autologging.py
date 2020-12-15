@@ -15,7 +15,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils import gorilla
-from mlflow.utils.autologging_utils import wrap_patch
+from mlflow.utils.autologging_utils import (
+    wrap_patch,
+    autologging_is_disabled,
+)
+from mlflow.spark import FLAVOR_NAME
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
@@ -217,6 +221,8 @@ class PythonSubscriber(object):
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
+        if autologging_is_disabled(FLAVOR_NAME):
+            return
         # If there's an active run, simply set the tag on it
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
@@ -248,6 +254,9 @@ class SparkAutologgingContext(RunContextProvider):
         return True
 
     def tags(self):
+        # if autologging is disabled, then short circuit `tags()` and return empty dict.
+        if autologging_is_disabled(FLAVOR_NAME):
+            return {}
         with _lock:
             global _table_infos
             seen = set()
