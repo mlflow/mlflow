@@ -20,22 +20,30 @@ from mlflow.utils.autologging_utils import (
     _validate_args,
     _validate_autologging_run,
     _is_testing,
+    try_mlflow_log,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+
+from tests.autologging.fixtures import test_mode_off, test_mode_on  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
 
 
-@pytest.fixture
-def test_mode_on():
-    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = True
-        assert autologging_utils._is_testing()
-        yield
-
-
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
+
+
+@pytest.fixture(autouse=True)
+def turn_test_mode_off_by_default(test_mode_off):
+    """
+    Most of the unit test cases in this module assume that autologging APIs are operating in a
+    standard execution mode (i.e. where test mode is disabled). Accordingly, we turn off autologging
+    test mode for this test module by default. Test cases that verify behaviors specific to test
+    mode enable test mode explicitly by specifying the `test_mode_on` fixture.
+
+    For more information about autologging test mode, see the docstring for
+    :py:func:`mlflow.utils.autologging_utils._is_testing()`.
+    """
 
 
 @pytest.fixture
@@ -1038,3 +1046,24 @@ def test_validate_autologging_run_validates_run_status_correctly():
     )
     with pytest.raises(AssertionError, match="has a non-terminal status"):
         _validate_autologging_run("test_integration", run_id_non_terminal)
+
+
+def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
+    assert not autologging_utils._is_testing()
+
+    def throwing_function():
+        raise Exception("bad implementation")
+
+    with pytest.warns(UserWarning, match="bad implementation"):
+        try_mlflow_log(throwing_function)
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_try_mlflow_log_propagates_exceptions_in_test_mode():
+    assert autologging_utils._is_testing()
+
+    def throwing_function():
+        raise Exception("bad implementation")
+
+    with pytest.raises(Exception, match="bad implementation"):
+        try_mlflow_log(throwing_function)
