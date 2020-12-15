@@ -340,6 +340,7 @@ def test_start_run_defaults_databricks_notebook(
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
 def test_start_run_with_user_specified_tags():
 
     mock_experiment_id = mock.Mock()
