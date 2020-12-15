@@ -33,7 +33,6 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -398,8 +397,6 @@ def autolog(
             finally:
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
-
-        original = gorilla.get_original_attribute(lightgbm, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.

@@ -20,6 +20,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.sklearn: "sklearn",
     mlflow.keras: "keras",
     mlflow.xgboost: "xgboost",
+    mlflow.lightgbm: "lightgbm",
 }
 
 
