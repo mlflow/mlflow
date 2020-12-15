@@ -12,9 +12,10 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
+    wrap_patch,
     autologging_is_disabled,
-    ExceptionSafeClass,
 )
 from mlflow.spark import FLAVOR_NAME
 

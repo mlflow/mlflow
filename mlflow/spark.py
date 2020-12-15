@@ -50,7 +50,7 @@ from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import autologging_integration
 
 
 FLAVOR_NAME = "spark"
@@ -682,8 +682,8 @@ class _PyFuncModelWrapper(object):
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """
-    Enables (or disables) and configures logging of Spark datasource paths, versions
-    (if applicable), and formats when they are read. This method is not threadsafe and assumes a
+    Enables (or disables) and configures logging of Spark datasource paths, versions (if applicable), and formats
+    when they are read. This method is not threadsafe and assumes a
     `SparkSession
     <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
     already exists with the
@@ -735,11 +735,8 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
 
-    :param disable: If ``True``, disables the Spark datasource autologging integration.
-                    If ``False``, enables the Spark datasource autologging integration.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Spark
-                   datasource autologging. If ``False``, show all events and warnings during Spark
-                   datasource autologging.
+    :param disable: If ``True``, disables all supported autologging integrations.
+                    If ``False``, enables all supported autologging integrations.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
     from mlflow._spark_autologging import _listen_for_spark_activity
