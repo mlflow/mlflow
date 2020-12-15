@@ -579,7 +579,7 @@ def safe_patch(
     """
     if manage_run:
         patch_function = with_managed_run(
-            patch_function, tags={MLFLOW_AUTOLOGGING: autologging_integration,}
+            patch_function, tags={MLFLOW_AUTOLOGGING: autologging_integration},
         )
 
     patch_is_class = inspect.isclass(patch_function)
