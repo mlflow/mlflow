@@ -664,8 +664,9 @@ def safe_patch(
         if _is_testing() and patch_function_run_for_testing and not preexisting_run_for_testing:
             # If an MLflow run was created during the execution of patch code, verify that
             # it is no longer active and that it contains expected autologging tags
-            # TODO
-            pass
+            assert not mlflow.active_run(), (
+                "Autologging integration %s leaked an active run" % autologging_integration)
+            _validate_autologging_run(autologging_integration, patch_function_run_for_testing.info.run_id)
 
         if original_has_been_called:
             return original_result
@@ -673,6 +674,26 @@ def safe_patch(
             return original(*args, **kwargs)
 
     wrap_patch(destination, function_name, safe_patch_function)
+
+
+def _validate_autologging_run(autologging_integration, run_id):
+    """
+    For testing purposes, verifies that an MLflow run produced by an `autologging_integration`
+    satisfies the following properties:
+
+        - The run has an autologging tag whose value is the name of the autologging integration
+        - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
+    """
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    autologging_tag_value = run.data.get(MLFLOW_AUTOLOGGING)
+    assert autologging_tag_value == autologging_integration, (
+        "Autologging run with id {} failed to set autologging tag with expected value. Expected: "
+        "'{}', Actual: '{}'".format(run_id, autologging_integration, autologging_tag_value)
+    )
+    assert RunStatus.from_string(run.info.status) in [RunStatus.FINISHED, RunStatus.FAILED, RunStatus.KILLED], (
+        "Autologging run with id {} has a non-terminal status '{}'".format(run_id, run.info.status)
+    )
 
 
 def _validate_args(

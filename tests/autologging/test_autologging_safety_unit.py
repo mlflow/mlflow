@@ -324,6 +324,16 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     assert validate_mock.call_count == 1
 
 
+def test_safe_patch_validates_autologging_runs_in_test_mode(patch_destination, test_autologging_integration):
+    def no_tag_run_patch_impl(original, *args, **kwargs):
+        with mlflow.start_run():
+            return original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
+    patch_destination.fn()
+
+
+
 def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(patch_destination, test_autologging_integration):
     client = MlflowClient()
     active_run = None
