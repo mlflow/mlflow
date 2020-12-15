@@ -22,6 +22,12 @@ SavedModelInfo = collections.namedtuple(
 )
 
 
+@pytest.fixture(autouse=True)
+def clear_session():
+    yield
+    tf.keras.backend.clear_session()
+
+
 @pytest.fixture
 def random_train_data():
     return np.random.random((1000, 32))

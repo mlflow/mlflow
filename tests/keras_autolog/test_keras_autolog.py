@@ -13,7 +13,7 @@ from unittest.mock import patch  # noqa
 
 
 @pytest.fixture(autouse=True)
-def keras_backend_clear_session():
+def clear_session():
     yield
     keras.backend.clear_session()
 
