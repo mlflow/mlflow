@@ -12,6 +12,12 @@ from mlflow.utils.autologging_utils import BatchMetricsLogger  # noqa
 from unittest.mock import patch  # noqa
 
 
+@pytest.fixture(autouse=True)
+def keras_backend_clear_session():
+    yield
+    keras.backend.clear_session()
+
+
 @pytest.fixture
 def random_train_data():
     return np.random.random((1000, 32))
