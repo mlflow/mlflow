@@ -50,7 +50,7 @@ def get_model_class():
             self.predict_fn = predict_fn
 
         def load_context(self, context):
-            super(CustomSklearnModel, self).load_context(context)
+            super().load_context(context)
             # pylint: disable=attribute-defined-outside-init
             self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
 
@@ -828,6 +828,23 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", python_model=None, loader_module=None)
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+
+
+@pytest.mark.large
+def test_repr_can_be_called_withtout_run_id_or_artifact_path():
+    model_meta = Model(
+        artifact_path=None,
+        run_id=None,
+        flavors={"python_function": {"loader_module": "someFlavour"}},
+    )
+
+    class TestModel(object):
+        def predict(self, model_input):
+            return model_input
+
+    model_impl = TestModel()
+
+    assert "flavor: someFlavour" in mlflow.pyfunc.PyFuncModel(model_meta, model_impl).__repr__()
 
 
 @pytest.mark.large

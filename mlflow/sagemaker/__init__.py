@@ -3,7 +3,7 @@ The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to A
 """
 import os
 from subprocess import Popen
-from six.moves import urllib
+import urllib.parse
 import sys
 import tarfile
 import logging

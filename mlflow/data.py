@@ -1,7 +1,6 @@
 import os
 import re
-
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.utils import process
 from mlflow.utils.annotations import deprecated

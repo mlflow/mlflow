@@ -42,6 +42,10 @@ def _get_expected_table_info_row(path, data_format, version=None):
     )
 
 
+# Note that the following tests run one-after-the-other and operate on the SAME spark_session
+#   (it is not reset between tests)
+
+
 @pytest.mark.large
 def test_autologging_of_datasources_with_different_formats(spark_session, format_to_file_path):
     mlflow.spark.autolog()

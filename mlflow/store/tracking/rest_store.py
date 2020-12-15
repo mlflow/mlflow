@@ -46,7 +46,7 @@ class RestStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super(RestStore, self).__init__()
+        super().__init__()
         self.get_host_creds = get_host_creds
 
     def _call_endpoint(self, api, json_body):

@@ -1,5 +1,9 @@
 context("Tracking - Experiments")
 
+teardown({
+  mlflow_clear_test_dir("mlruns")
+})
+
 test_that("mlflow_create/get_experiment() basic functionality (fluent)", {
   mlflow_clear_test_dir("mlruns")
 

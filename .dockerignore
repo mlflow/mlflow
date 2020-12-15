@@ -11,6 +11,7 @@ dev
 !dev/small-requirements.txt
 !dev/large-requirements.txt
 !dev/lint-requirements.txt
+!dev/extra-ml-requirements.txt
 
 tests
 # required for Docker build

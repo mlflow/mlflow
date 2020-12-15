@@ -83,7 +83,7 @@ def is_in_databricks_notebook():
 
 def is_in_databricks_job():
     try:
-        return _get_context_tag("jobId") is not None and _get_context_tag("idInJob") is not None
+        return get_job_id() is not None and get_job_run_id() is not None
     except Exception:  # pylint: disable=broad-except
         return False
 
@@ -142,22 +142,29 @@ def get_cluster_id():
 
 
 def get_job_id():
-    """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("jobId")
+    try:
+        return _get_command_context().jobId().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("jobId")
 
 
 def get_job_run_id():
-    """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("idInJob")
+    try:
+        return _get_command_context().idInJob().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("idInJob")
 
 
 def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
-    return _get_context_tag("jobTaskType")
+    try:
+        return _get_command_context().jobTaskType().get()
+    except Exception:  # pylint: disable=broad-except
+        return _get_context_tag("jobTaskType")
 
 
 def get_webapp_url():
-    """Should only be called if is_in_databricks_notebook is true"""
+    """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
     if url is not None:
         return url
@@ -184,7 +191,8 @@ def get_browser_hostname():
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        workspace_host = get_browser_hostname()
+        browser_hostname = get_browser_hostname()
+        workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
         workspace_id = get_workspace_id()
         return workspace_host, workspace_id
     return None, None

@@ -211,32 +211,93 @@ def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
     assert ftp_mock.storbinary.call_args_list[0][0][0] == "STOR test2.txt"
 
 
+def __posixpath_parents(pathname, root):
+    parents = [posixpath.dirname(pathname)]
+    root = posixpath.normpath(root)
+    while parents[-1] != "/" and parents[-1] != root:
+        parents.append(posixpath.dirname(parents[-1]))
+    return parents
+
+
 @pytest.mark.parametrize("artifact_path", [None, "dir", "dir1/dir2"])
 def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
-    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+    # Setup FTP mock.
+    dest_path_root = "/some/path"
+    repo = FTPArtifactRepository("ftp://test_ftp" + dest_path_root)
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
+    dirs_created = set([dest_path_root])
+    files_created = set()
+    cwd_history = ["/"]
+
+    def mkd_mock(pathname):
+        abs_pathname = posixpath.join(cwd_history[-1], pathname)
+        if posixpath.dirname(abs_pathname) not in dirs_created:
+            raise ftplib.error_perm
+        dirs_created.add(abs_pathname)
+
+    ftp_mock.mkd = MagicMock(side_effect=mkd_mock)
+
+    def cwd_mock(pathname):
+        abs_pathname = posixpath.join(cwd_history[-1], pathname)
+        if abs_pathname not in dirs_created:
+            raise ftplib.error_perm
+        cwd_history.append(abs_pathname)
+
+    ftp_mock.cwd = MagicMock(side_effect=cwd_mock)
+
+    def storbinary_mock(cmd, _):
+        head, basename = cmd.split(" ", 1)
+        assert head == "STOR"
+        assert "/" not in basename
+        files_created.add(posixpath.join(cwd_history[-1], basename))
+
+    ftp_mock.storbinary = MagicMock(side_effect=storbinary_mock)
+
+    # Test
     subd = tmpdir.mkdir("data").mkdir("subdir")
     subd.join("a.txt").write("A")
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
+    subd.mkdir("empty1")
+    subsubd = subd.mkdir("subsubdir")
+    subsubd.join("aa.txt").write("AA")
+    subsubd.join("bb.txt").write("BB")
+    subsubd.join("cc.txt").write("CC")
+    subsubd.mkdir("empty2")
 
-    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None, None, None, None, None])
+    dest_path = (
+        dest_path_root if artifact_path is None else posixpath.join(dest_path_root, artifact_path)
+    )
+    dirs_expected = set(
+        [
+            dest_path,
+            posixpath.join(dest_path, "empty1"),
+            posixpath.join(dest_path, "subsubdir"),
+            posixpath.join(dest_path, "subsubdir", "empty2"),
+        ]
+    )
+    files_expected = set(
+        [
+            posixpath.join(dest_path, "a.txt"),
+            posixpath.join(dest_path, "b.txt"),
+            posixpath.join(dest_path, "c.txt"),
+            posixpath.join(dest_path, "subsubdir/aa.txt"),
+            posixpath.join(dest_path, "subsubdir/bb.txt"),
+            posixpath.join(dest_path, "subsubdir/cc.txt"),
+        ]
+    )
+
+    for dirs_expected_i in dirs_expected.copy():
+        if dirs_expected_i != dest_path_root:
+            dirs_expected |= set(__posixpath_parents(dirs_expected_i, root=dest_path_root))
 
     repo.log_artifacts(subd.strpath, artifact_path)
-
-    arg_expected = (
-        "/some/path" if artifact_path is None else posixpath.join("/some/path", artifact_path)
-    )
-    ftp_mock.mkd.assert_any_call(arg_expected)
-    ftp_mock.cwd.assert_any_call(arg_expected)
-
-    assert ftp_mock.storbinary.call_count == 3
-    storbinary_call_args = sorted([ftp_mock.storbinary.call_args_list[i][0][0] for i in range(3)])
-    assert storbinary_call_args == ["STOR a.txt", "STOR b.txt", "STOR c.txt"]
+    assert dirs_created == dirs_expected
+    assert files_created == files_expected
 
 
 def test_download_artifacts_single(ftp_mock):

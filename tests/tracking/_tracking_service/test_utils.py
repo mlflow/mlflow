@@ -1,7 +1,7 @@
+from importlib import reload
 from unittest import mock
 import os
 import pytest
-from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.store.db.db_types import DATABASE_ENGINES

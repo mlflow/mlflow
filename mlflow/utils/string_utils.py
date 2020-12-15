@@ -11,6 +11,4 @@ def strip_suffix(original, suffix):
 
 
 def is_string_type(item):
-    import six
-
-    return isinstance(item, six.string_types)
+    return isinstance(item, str)

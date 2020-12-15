@@ -486,6 +486,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd5.version, 5)
         self.assertEqual(mvd5.description, description)
 
+        # create model version without runId
+        mv6 = self._mv_maker(name, run_id=None)
+        mvd6 = self.store.get_model_version(name, mv6.version)
+        self.assertEqual(mv6.version, 6)
+        self.assertEqual(mv6.run_id, None)
+        self.assertEqual(mvd6.version, 6)
+        self.assertEqual(mvd6.run_id, None)
+
     def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
@@ -718,6 +726,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # search using run_id_2 should return versions 2 and 3
         self.assertEqual(set(search_versions("run_id='%s'" % run_id_2)), set([2, 3]))
+
+        # search using the IN operator should return all versions
+        self.assertEqual(
+            set(
+                search_versions(
+                    "run_id IN ('{run_id_1}','{run_id_2}')".format(
+                        run_id_1=run_id_1, run_id_2=run_id_2
+                    )
+                )
+            ),
+            set([1, 2, 3]),
+        )
+
+        # search using the IN operator with bad lists should return exceptions
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (1,2,3)")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "expected string value or punctuation" in exception_context.exception.message
+
+        # search using the IN operator with empty lists should return exceptions
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN ()")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "expected a non-empty list of string values" in exception_context.exception.message
+
+        # search using an ill-formed IN operator correctly throws exception
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid clause" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid filter" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (,)")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "ill-formed list" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN ('runid1',,'runid2')")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "ill-formed list" in exception_context.exception.message
+
+        # search using the IN operator is not allowed with other additional filters
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions(
+                "name='{name}]' AND run_id IN ('{run_id_1}','{run_id_2}')".format(
+                    name=name, run_id_1=run_id_1, run_id_2=run_id_2
+                )
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "contains multiple expressions" in exception_context.exception.message
 
         # search using source_path "A/D" should return version 3 and 4
         self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3, 4]))

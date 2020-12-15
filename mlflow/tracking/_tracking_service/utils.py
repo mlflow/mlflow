@@ -94,7 +94,7 @@ def get_tracking_uri():
     .. code-block:: text
         :caption: Output
 
-        Current tracking uri: file:///.../apis/mlruns
+        Current tracking uri: file:///.../mlruns
     """
     global _tracking_uri
     if _tracking_uri is not None:

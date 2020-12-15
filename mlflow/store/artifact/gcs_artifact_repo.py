@@ -1,7 +1,7 @@
 import os
 
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -24,7 +24,7 @@ class GCSArtifactRepository(ArtifactRepository):
             from google.cloud import storage as gcs_storage
 
             self.gcs = gcs_storage
-        super(GCSArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
     @staticmethod
     def parse_gcs_uri(uri):

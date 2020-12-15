@@ -1,6 +1,6 @@
+from importlib import reload
 from unittest import mock
 import pytest
-from six.moves import reload_module as reload
 
 import mlflow.tracking.context.registry
 from mlflow.tracking.context.default_context import DefaultRunContext

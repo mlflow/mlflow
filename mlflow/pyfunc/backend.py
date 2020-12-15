@@ -21,7 +21,7 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
-        super(PyFuncBackend, self).__init__(config=config, **kwargs)
+        super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow

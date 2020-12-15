@@ -121,7 +121,7 @@ Comparator
 There are two classes of comparators: numeric and string.
 
 - Numeric comparators (``metrics``): ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-- String comparators (``params``, ``tags``, and ``attributes``): ``=`` and ``!=``.
+- String comparators (``params``, ``tags``, and ``attributes``): ``=``, ``!=``, ``LIKE`` and ``ILIKE``.
 
 Constant
 ^^^^^^^^

@@ -2,12 +2,12 @@ import functools
 import inspect
 from unittest import mock
 import os
-import warnings
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
 import sklearn
+import sklearn.base
 import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
@@ -18,20 +18,21 @@ from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus
 from mlflow.sklearn.utils import (
-    _METRICS_PREFIX,
     _is_supported_version,
     _is_metric_supported,
+    _is_plotting_supported,
     _get_arg_names,
     _truncate_dict,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+
+from tests.autologging.fixtures import test_mode_off
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -106,33 +107,6 @@ def fit_func_name(request):
     return request.param
 
 
-@pytest.fixture(autouse=True, scope="function")
-def force_try_mlflow_log_to_fail(request):
-    # autolog contains multiple `try_mlflow_log`. They unexpectedly allow tests that
-    # should fail to pass (without us noticing). To prevent that, temporarily turns
-    # warnings emitted by `try_mlflow_log` into errors.
-    if "disable_force_try_mlflow_log_to_fail" in request.keywords:
-        yield
-    else:
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error", message=r"^Logging to MLflow failed", category=UserWarning,
-            )
-            yield
-
-
-@pytest.mark.xfail(strict=True, raises=UserWarning)
-def test_force_try_mlflow_log_to_fail():
-    with mlflow.start_run():
-        try_mlflow_log(lambda: 1 / 0)
-
-
-@pytest.mark.disable_force_try_mlflow_log_to_fail
-def test_no_force_try_mlflow_log_to_fail():
-    with mlflow.start_run():
-        try_mlflow_log(lambda: 1 / 0)
-
-
 def test_autolog_preserves_original_function_attributes():
     def get_func_attrs(f):
         attrs = {}
@@ -201,11 +175,75 @@ def test_estimator(fit_func_name):
     assert_predict_equal(loaded_model, model, X)
 
 
-def test_classifier():
+def test_classifier_binary():
     mlflow.sklearn.autolog()
     # use RandomForestClassifier that has method [predict_proba], so that we can test
     # logging of (1) log_loss and (2) roc_auc_score.
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use binary datasets to cover the test for roc curve & precision recall curve
+    X, y_true = sklearn.datasets.load_breast_cancer(return_X_y=True)
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+
+    y_pred = model.predict(X)
+    y_pred_prob = model.predict_proba(X)
+    # For binary classification, y_score only accepts the probability of greater label
+    y_pred_prob_roc = y_pred_prob[:, 1]
+
+    run_id = run.info.run_id
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+
+    expected_metrics = {
+        TRAINING_SCORE: model.score(X, y_true),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+        )
+
+    assert metrics == expected_metrics
+
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names.extend(
+            [
+                "{}.png".format("training_confusion_matrix"),
+                "{}.png".format("training_roc_curve"),
+                "{}.png".format("training_precision_recall_curve"),
+            ]
+        )
+
+    assert all(x in artifacts for x in plot_names)
+
+    loaded_model = load_model_by_run_id(run_id)
+    assert_predict_equal(loaded_model, model, X)
+    # verify no figure is open
+    assert len(plt.get_fignums()) == 0
+
+
+def test_classifier_multi_class():
+    mlflow.sklearn.autolog()
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use multi-class datasets to verify that roc curve & precision recall curve care not recorded
     X, y_true = get_iris()
 
     with mlflow.start_run() as run:
@@ -213,29 +251,39 @@ def test_classifier():
 
     y_pred = model.predict(X)
     y_pred_prob = model.predict_proba(X)
+
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
 
     expected_metrics = {
         TRAINING_SCORE: model.score(X, y_true),
-        _METRICS_PREFIX + "accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
-        _METRICS_PREFIX
-        + "precision_score": sklearn.metrics.precision_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX
-        + "recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX + "f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
-        _METRICS_PREFIX + "log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
+        "training_accuracy_score": sklearn.metrics.accuracy_score(y_true, y_pred),
+        "training_precision_score": sklearn.metrics.precision_score(
+            y_true, y_pred, average="weighted"
+        ),
+        "training_recall_score": sklearn.metrics.recall_score(y_true, y_pred, average="weighted"),
+        "training_f1_score": sklearn.metrics.f1_score(y_true, y_pred, average="weighted"),
+        "training_log_loss": sklearn.metrics.log_loss(y_true, y_pred_prob),
     }
     if _is_metric_supported("roc_auc_score"):
-        expected_metrics[_METRICS_PREFIX + "roc_auc_score"] = sklearn.metrics.roc_auc_score(
-            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo"
+        expected_metrics["training_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_true, y_score=y_pred_prob, average="weighted", multi_class="ovo",
         )
 
     assert metrics == expected_metrics
 
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names = ["{}.png".format("training_confusion_matrix")]
+
+    assert all(x in artifacts for x in plot_names)
 
     loaded_model = load_model_by_run_id(run_id)
     assert_predict_equal(loaded_model, model, X)
@@ -257,10 +305,10 @@ def test_regressor():
 
     assert metrics == {
         TRAINING_SCORE: model.score(X, y_true),
-        _METRICS_PREFIX + "mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
-        _METRICS_PREFIX + "rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
-        _METRICS_PREFIX + "mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
-        _METRICS_PREFIX + "r2_score": sklearn.metrics.r2_score(y_true, y_pred),
+        "training_mse": sklearn.metrics.mean_squared_error(y_true, y_pred),
+        "training_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred)),
+        "training_mae": sklearn.metrics.mean_absolute_error(y_true, y_pred),
+        "training_r2_score": sklearn.metrics.r2_score(y_true, y_pred),
     }
     assert tags == get_expected_class_tags(model)
     assert MODEL_DIR in artifacts
@@ -567,9 +615,9 @@ def test_autolog_emits_warning_message_when_metric_fails():
     def throwing_metrics(y_true, y_pred):  # pylint: disable=unused-argument
         raise Exception("EXCEPTION")
 
-    sklearn.metrics.precision_score = throwing_metrics
-
-    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -608,12 +656,8 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
-        mock_warning.assert_called_once()
-        mock_warning.called_once_with(
-            "Failed to autolog metrics for "
-            + sklearn.model_selection.GridSearchCV.__class__.__name__
-            + ". Logging error: EXCEPTION"
-        )
+        # Will be called twice, once for metrics, once for artifacts
+        assert mock_warning.call_count == 2
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
@@ -675,7 +719,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
 def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
@@ -781,7 +825,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     assert len(child_run.data.metrics) >= metrics_size
 
 
-@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(
     "failing_specialization",
     [
@@ -800,7 +844,7 @@ def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_spec
         mock_func.assert_called_once()
 
 
-@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(
     "func_to_fail",
     ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
@@ -820,7 +864,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
 
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
 def test_autolog_logs_signature_and_input_example(data_type):
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
 
     X, y = get_iris()
     X = data_type(X)
@@ -847,7 +891,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
         def __getitem__(self, key):
             if isinstance(key, slice):
                 raise IndexError("DO NOT SLICE ME")
-            return super(ArrayThatThrowsWhenSliced, self).__getitem__(key)
+            return super().__getitem__(key)
 
     X, y = get_iris()
     throwing_X = ArrayThatThrowsWhenSliced(X)
@@ -870,10 +914,10 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     assert "saved_input_example_info" not in model_conf.to_dict()
 
 
-def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_predict():
+def test_autolog_logs_signature_only_when_estimator_defines_predict():
     from sklearn.cluster import AgglomerativeClustering
 
-    mlflow.sklearn.autolog()
+    mlflow.sklearn.autolog(log_model_signatures=True)
 
     X, y = get_iris()
     model = AgglomerativeClustering()
@@ -884,7 +928,6 @@ def test_autolog_logs_signature_and_input_example_only_when_estimator_defines_pr
 
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
-    assert "saved_input_example_info" not in model_conf.to_dict()
 
 
 def test_autolog_does_not_throw_when_predict_fails():
@@ -894,14 +937,13 @@ def test_autolog_does_not_throw_when_predict_fails():
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog()
+        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_with("Failed to infer an input example and model signature: Failed")
+    mock_warning.assert_called_with("Failed to infer model signature: Failed")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
-    assert "saved_input_example_info" not in model_conf.to_dict()
 
 
 def test_autolog_does_not_throw_when_infer_signature_fails():
@@ -910,13 +952,129 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     with mlflow.start_run() as run, mock.patch(
         "mlflow.models.infer_signature", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
-        mlflow.sklearn.autolog()
+        mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
 
-    mock_warning.assert_called_once_with(
-        "Failed to infer an input example and model signature: Failed"
-    )
+    mock_warning.assert_called_once_with("Failed to infer model signature: Failed")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
-    assert "saved_input_example_info" not in model_conf.to_dict()
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_input_examples", [True, False])
+@pytest.mark.parametrize("log_model_signatures", [True, False])
+def test_autolog_configuration_options(log_input_examples, log_model_signatures):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(
+            log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
+        )
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
+    assert ("signature" in model_conf.to_dict()) == log_model_signatures
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_sklearn_autolog_log_models_configuration(log_models):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_models=log_models)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    run_id = run.info.run_id
+    _, _, _, artifacts = get_run_data(run_id)
+    assert (MODEL_DIR in artifacts) == log_models
+
+
+@pytest.mark.large
+def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
+    """
+    Verifies that preprocessing and feature manipulation estimators, which represent data
+    manipulation steps (e.g., normalization, label encoding) rather than ML models, do not
+    produce runs when their fit_* operations are invoked independently of an ML pipeline
+    """
+    mlflow.sklearn.autolog()
+
+    # Create a run using the MLflow client, which will be resumed via the fluent API,
+    # in order to avoid setting fluent-level tags (e.g., source and user). Suppressing these
+    # tags simplifies test validation logic
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.create_run(experiment_id=0).info.run_id
+
+    from sklearn.preprocessing import Normalizer, LabelEncoder, MinMaxScaler
+    from sklearn.impute import SimpleImputer
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.feature_selection import VarianceThreshold
+
+    with mlflow.start_run(run_id=run_id):
+        Normalizer().fit_transform(np.random.random((5, 5)))
+        LabelEncoder().fit([1, 2, 2, 6])
+        MinMaxScaler().fit_transform(50 * np.random.random((10, 10)))
+        SimpleImputer().fit_transform([[1, 2], [np.nan, 3], [7, 6]])
+        TfidfVectorizer().fit_transform(
+            [
+                "MLflow is an end-to-end machine learning platform.",
+                "MLflow enables me to systematize my ML experimentation",
+            ]
+        )
+        VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
+
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert len(params) == 0
+    assert len(metrics) == 0
+    assert len(tags) == 0
+    assert len(artifacts) == 0
+
+
+@pytest.mark.large
+def test_autolog_produces_expected_results_for_estimator_when_parent_also_defines_fit():
+    """
+    Test to prevent recurrences of https://github.com/mlflow/mlflow/issues/3574
+    """
+    mlflow.sklearn.autolog()
+
+    # Construct two mock models - `ParentMod` and `ChildMod`, where ChildMod's fit() function
+    # calls ParentMod().fit() and mutates a predefined, constant prediction value set by
+    # ParentMod().fit(). We will then test that ChildMod.fit() completes and produces the
+    # expected constant prediction value, guarding against regressions of
+    # https://github.com/mlflow/mlflow/issues/3574 where ChildMod.fit() would either infinitely
+    # recurse or yield the incorrect prediction result set by ParentMod.fit()
+
+    class ParentMod(sklearn.base.BaseEstimator):
+        def __init__(self):
+            self.prediction = None
+
+        def get_params(self, deep=False):
+            return {}
+
+        def fit(self, X, y):  # pylint: disable=unused-argument
+            self.prediction = np.array([7])
+
+        def predict(self, X):  # pylint: disable=unused-argument
+            return self.prediction
+
+    class ChildMod(ParentMod):
+        def fit(self, X, y):
+            super().fit(X, y)
+            self.prediction = self.prediction + 1
+
+    og_all_estimators = mlflow.sklearn.utils._all_estimators()
+    new_all_estimators = og_all_estimators + [("ParentMod", ParentMod), ("ChildMod", ChildMod)]
+
+    with mock.patch("mlflow.sklearn.utils._all_estimators", return_value=new_all_estimators):
+        mlflow.sklearn.autolog()
+
+    model = ChildMod()
+    with mlflow.start_run() as run:
+        model.fit(*get_iris())
+
+    _, _, tags, _ = get_run_data(run.info.run_id)
+    assert {"estimator_name": "ChildMod"}.items() <= tags.items()
+    assert model.predict(1) == np.array([8])

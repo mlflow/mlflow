@@ -96,11 +96,11 @@ class SqlAlchemyStore(AbstractStore):
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
-        super(SqlAlchemyStore, self).__init__()
+        super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations

@@ -98,8 +98,6 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
       stop("Model does not contain requested flavor. ",
            paste("Available flavors:", paste(available_flavors, collapse = ", ")))
     }
-
-    flavor <- flavor
   } else {
     if (length(available_flavors) > 1) {
       warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
@@ -108,12 +106,15 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
     flavor <- available_flavors[[1]]
   }
 
-  flavor <- mlflow_flavor(flavor)
+  flavor <- mlflow_flavor(flavor, spec[[flavor]])
   mlflow_load_flavor(flavor, model_path)
 }
 
-new_mlflow_flavor <- function(flavor, class = character(0)) {
-  structure(character(0), class = c(class, "mlflow_flavor"))
+new_mlflow_flavor <- function(class = character(0), spec = NULL) {
+  flavor <- structure(character(0), class = c(class, "mlflow_flavor"))
+  attributes(flavor)$spec <- spec
+
+  flavor
 }
 
 # Create an MLflow Flavor Object
@@ -123,8 +124,8 @@ new_mlflow_flavor <- function(flavor, class = character(0)) {
 #
 # @param flavor The name of the flavor.
 # @keywords internal
-mlflow_flavor <- function(flavor) {
-  new_mlflow_flavor(flavor, paste0("mlflow_flavor_", flavor))
+mlflow_flavor <- function(flavor, spec) {
+  new_mlflow_flavor(class = paste0("mlflow_flavor_", flavor), spec = spec)
 }
 
 #' Load MLflow Model Flavor

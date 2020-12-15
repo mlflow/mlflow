@@ -1,5 +1,6 @@
 # pep8: disable=E501
 
+from distutils.version import LooseVersion
 import h5py
 import os
 import json
@@ -7,12 +8,12 @@ import pytest
 import shutil
 import importlib
 import random
-from packaging import version
 
 import tensorflow as tf
 from tensorflow.keras.models import Sequential as TfSequential
 from tensorflow.keras.layers import Dense as TfDense
 from tensorflow.keras.optimizers import SGD as TfSGD
+import keras
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
@@ -50,7 +51,7 @@ def fix_random_seed():
     random.seed(SEED)
     np.random.seed(SEED)
 
-    if version.parse(tf.__version__) >= version.parse("2.0.0"):
+    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
         tf.random.set_seed(SEED)
     else:
         tf.set_random_seed(SEED)
@@ -75,8 +76,16 @@ def model(data):
     model.add(Dense(1))
     # Use a small learning rate to prevent exploding gradients which may produce
     # infinite prediction values
-    model.compile(loss="mean_squared_error", optimizer=SGD(learning_rate=0.001))
-    model.fit(x, y)
+    lr = 0.001
+    kwargs = (
+        # `lr` was renamed to `learning_rate` in keras 2.3.0:
+        # https://github.com/keras-team/keras/releases/tag/2.3.0
+        {"lr": lr}
+        if LooseVersion(keras.__version__) < LooseVersion("2.3.0")
+        else {"learning_rate": lr}
+    )
+    model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
+    model.fit(x.values, y.values)
     return model
 
 
@@ -87,13 +96,13 @@ def tf_keras_model(data):
     model.add(TfDense(3, input_dim=4))
     model.add(TfDense(1))
     model.compile(loss="mean_squared_error", optimizer=TfSGD(learning_rate=0.001))
-    model.fit(x, y)
+    model.fit(x.values, y.values)
     return model
 
 
 @pytest.fixture(scope="module")
 def predicted(model, data):
-    return model.predict(data[0])
+    return model.predict(data[0].values)
 
 
 @pytest.fixture(scope="module")
@@ -101,7 +110,7 @@ def custom_layer():
     class MyDense(Layer):
         def __init__(self, output_dim, **kwargs):
             self.output_dim = output_dim
-            super(MyDense, self).__init__(**kwargs)
+            super().__init__(**kwargs)
 
         def build(self, input_shape):
             # pylint: disable=attribute-defined-outside-init
@@ -111,7 +120,7 @@ def custom_layer():
                 initializer="uniform",
                 trainable=True,
             )
-            super(MyDense, self).build(input_shape)
+            super().build(input_shape)
 
         def call(self, x):
             # pylint: disable=arguments-differ
@@ -129,18 +138,17 @@ def custom_layer():
 @pytest.fixture(scope="module")
 def custom_model(data, custom_layer):
     x, y = data
-    x, y = x.values, y.values
     model = Sequential()
-    model.add(custom_layer(6))
-    model.add(Dense(1))
+    model.add(Dense(6, input_dim=4))
+    model.add(custom_layer(1))
     model.compile(loss="mean_squared_error", optimizer="SGD")
-    model.fit(x, y, epochs=1)
+    model.fit(x.values, y.values, epochs=1)
     return model
 
 
 @pytest.fixture(scope="module")
 def custom_predicted(custom_model, data):
-    return custom_model.predict(data[0])
+    return custom_model.predict(data[0].values)
 
 
 @pytest.fixture
@@ -175,7 +183,12 @@ def test_that_keras_module_arg_works(model_path):
         @staticmethod
         def load_model(file, **kwargs):
             # pylint: disable=unused-argument
-            return MyModel(file.get("x").value)
+
+            # `Dataset.value` was removed in `h5py == 3.0.0`
+            if LooseVersion(h5py.__version__) >= LooseVersion("3.0.0"):
+                return MyModel(file.get("x")[()].decode("utf-8"))
+            else:
+                return MyModel(file.get("x").value)
 
     original_import = importlib.import_module
 
@@ -210,38 +223,46 @@ def test_that_keras_module_arg_works(model_path):
             assert x == b
 
 
-@pytest.mark.parametrize("build_model", [model, tf_keras_model])
+@pytest.mark.parametrize(
+    "build_model,save_format",
+    [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"), (tf_keras_model, "tf")],
+)
 @pytest.mark.large
-def test_model_save_load(build_model, model_path, data):
+def test_model_save_load(build_model, save_format, model_path, data):
     x, _ = data
     keras_model = build_model(data)
     if build_model == tf_keras_model:
         model_path = os.path.join(model_path, "tf")
     else:
         model_path = os.path.join(model_path, "plain")
-    expected = keras_model.predict(x)
-    mlflow.keras.save_model(keras_model, model_path)
+    expected = keras_model.predict(x.values)
+    kwargs = {"save_format": save_format} if save_format else {}
+    mlflow.keras.save_model(keras_model, model_path, **kwargs)
     # Loading Keras model
     model_loaded = mlflow.keras.load_model(model_path)
-    assert type(keras_model) == type(model_loaded)
-    assert all(expected == model_loaded.predict(x))
+    # When saving as SavedModel, we actually convert the model
+    # to a slightly different format, so we cannot assume it is
+    # exactly the same.
+    if save_format != "tf":
+        assert type(keras_model) == type(model_loaded)
+    np.testing.assert_allclose(model_loaded.predict(x.values), expected, rtol=1e-5)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    assert all(pyfunc_loaded.predict(x).values == expected)
+    np.testing.assert_allclose(pyfunc_loaded.predict(x).values, expected, rtol=1e-5)
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     print(scoring_response.content)
-    assert all(
-        pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
-            np.float32
-        )
-        == expected
-    )
+    actual_scoring_response = pd.read_json(
+        scoring_response.content, orient="records", encoding="utf8"
+    ).values.astype(np.float32)
+    np.testing.assert_allclose(actual_scoring_response, expected, rtol=1e-5)
+
     # test spark udf
     spark_udf_preds = score_model_as_udf(
         model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
@@ -276,12 +297,13 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
 
     # Loading Keras model
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(x) == custom_predicted)
+    assert all(model_loaded.predict(x.values) == custom_predicted)
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
     )
     assert np.allclose(
         pd.read_json(scoring_response.content, orient="records", encoding="utf8").values.astype(
@@ -330,7 +352,7 @@ def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, 
 
     model_uri = artifact_root + "/" + artifact_path
     model_loaded = mlflow.keras.load_model(model_uri=model_uri)
-    assert all(model_loaded.predict(x) == predicted)
+    assert all(model_loaded.predict(x.values) == predicted)
 
 
 @pytest.mark.large
@@ -349,7 +371,7 @@ def test_model_log(model, data, predicted):
 
             # Load model
             model_loaded = mlflow.keras.load_model(model_uri=model_uri)
-            assert all(model_loaded.predict(x) == predicted)
+            assert all(model_loaded.predict(x.values) == predicted)
 
             # Loading pyfunc model
             pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
@@ -489,7 +511,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(data[0]) == predicted)
+    assert all(model_loaded.predict(data[0].values) == predicted)
 
 
 @pytest.mark.release
@@ -506,3 +528,53 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     np.testing.assert_array_almost_equal(deployed_model_preds.values, predicted, decimal=4)
+
+
+def test_save_model_with_tf_save_format(model_path):
+    """Ensures that Keras models can be saved with SavedModel format.
+
+    Using SavedModel format (save_format="tf") requires that the file extension
+    is _not_ "h5".
+    """
+    keras_model = mock.Mock(spec=tf.keras.Model)
+    mlflow.keras.save_model(keras_model=keras_model, path=model_path, save_format="tf")
+    _, args, kwargs = keras_model.save.mock_calls[0]
+    # Ensure that save_format propagated through
+    assert kwargs["save_format"] == "tf"
+    # Ensure that the saved model does not have h5 extension
+    assert not args[0].endswith(".h5")
+
+
+@pytest.mark.large
+def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
+    """Ensures that keras models saved with save_format="tf" can be loaded."""
+    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="tf")
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
+    assert flavor_conf is not None
+    assert flavor_conf.get("save_format") == "tf"
+    assert not os.path.exists(
+        os.path.join(model_path, "data", "model.h5")
+    ), "TF model was saved with HDF5 format; expected SavedModel"
+    assert os.path.isdir(
+        os.path.join(model_path, "data", "model")
+    ), "Expected directory containing saved_model.pb"
+
+    model_loaded = mlflow.keras.load_model(model_path)
+    assert tf_keras_model.to_json() == model_loaded.to_json()
+
+
+@pytest.mark.large
+def test_load_without_save_format(tf_keras_model, model_path):
+    """Ensures that keras models without save_format can still be loaded."""
+    mlflow.keras.save_model(tf_keras_model, model_path, save_format="h5")
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME)
+    assert flavor_conf is not None
+    del flavor_conf["save_format"]
+    model_conf.save(model_conf_path)
+
+    model_loaded = mlflow.keras.load_model(model_path)
+    assert tf_keras_model.to_json() == model_loaded.to_json()

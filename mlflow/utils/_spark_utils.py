@@ -6,7 +6,7 @@ def _get_active_spark_session():
         return None
     try:
         # getActiveSession() only exists in Spark 3.0 and above
-        return SparkSession.builder.getActiveSession()
+        return SparkSession.getActiveSession()
     except Exception:  # pylint: disable=broad-except
         # Fall back to this internal field for Spark 2.x and below.
         return SparkSession._instantiatedSession

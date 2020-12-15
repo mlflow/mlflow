@@ -1,8 +1,7 @@
 import os
 import posixpath
 import re
-
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -20,7 +19,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, client=None):
-        super(AzureBlobArtifactRepository, self).__init__(artifact_uri)
+        super().__init__(artifact_uri)
 
         # Allow override for testing
         if client:

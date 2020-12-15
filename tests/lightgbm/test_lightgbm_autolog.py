@@ -12,6 +12,8 @@ import mlflow
 import mlflow.lightgbm
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 mpl.use("Agg")
 
@@ -19,6 +21,11 @@ mpl.use("Agg")
 def get_latest_run():
     client = mlflow.tracking.MlflowClient()
     return client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+
+def get_model_conf(artifact_uri, model_subpath="model"):
+    model_conf_path = os.path.join(artifact_uri, model_subpath, "MLmodel")
+    return Model.load(model_conf_path)
 
 
 @pytest.fixture(scope="session")
@@ -233,6 +240,50 @@ def test_lgb_autolog_logs_metrics_with_multi_validation_data_and_metrics(bst_par
 
 
 @pytest.mark.large
+def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, train_set):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+
+        mlflow.lightgbm.autolog()
+        evals_result = {}
+        params = {"metric": ["multi_error", "multi_logloss"]}
+        params.update(bst_params)
+        valid_sets = [train_set, lgb.Dataset(train_set.data)]
+        valid_names = ["train", "valid"]
+        lgb.train(
+            params,
+            train_set,
+            num_boost_round=10,
+            valid_sets=valid_sets,
+            valid_names=valid_names,
+            evals_result=evals_result,
+        )
+
+    run = get_latest_run()
+    original_metrics = run.data.metrics
+    patched_metrics_data = dict(patched_metrics_data)
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert "train-multi_logloss" in original_metrics
+    assert "train-multi_logloss" in patched_metrics_data
+
+
+@pytest.mark.large
 def test_lgb_autolog_logs_metrics_with_early_stopping(bst_params, train_set):
     mlflow.lightgbm.autolog()
     evals_result = {}
@@ -327,7 +378,7 @@ def test_lgb_autolog_gets_input_example(bst_params):
     y = iris.target
     dataset = lgb.Dataset(X, y, free_raw_data=True)
 
-    mlflow.lightgbm.autolog()
+    mlflow.lightgbm.autolog(log_input_examples=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
 
@@ -351,7 +402,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     y = iris.target
     dataset = lgb.Dataset(X, y, free_raw_data=True)
 
-    mlflow.lightgbm.autolog()
+    mlflow.lightgbm.autolog(log_model_signatures=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -404,7 +455,7 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
         "num_class": 3,
     }
 
-    mlflow.lightgbm.autolog()
+    mlflow.lightgbm.autolog(log_model_signatures=True)
     lgb.train(bst_params, dataset)
     run = get_latest_run()
     run_id = run.info.run_id
@@ -423,3 +474,50 @@ def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir)
     assert data is not None
     assert "run_id" in data
     assert "signature" not in data
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_input_examples", [True, False])
+@pytest.mark.parametrize("log_model_signatures", [True, False])
+def test_lgb_autolog_configuration_options(bst_params, log_input_examples, log_model_signatures):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(
+            log_input_examples=log_input_examples, log_model_signatures=log_model_signatures
+        )
+        dataset = lgb.Dataset(X, y)
+        lgb.train(bst_params, dataset)
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert ("saved_input_example_info" in model_conf.to_dict()) == log_input_examples
+    assert ("signature" in model_conf.to_dict()) == log_model_signatures
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("log_models", [True, False])
+def test_lgb_autolog_log_models_configuration(bst_params, log_models):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_models=log_models)
+        dataset = lgb.Dataset(X, y)
+        lgb.train(bst_params, dataset)
+
+    run_id = run.info.run_id
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id)]
+    assert ("model" in artifacts) == log_models
+
+
+def test_lgb_autolog_does_not_break_dataset_instantiation_with_data_none():
+    """
+    This test verifies that `lightgbm.Dataset(None)` doesn't fail after patching.
+    LightGBM internally calls `lightgbm.Dataset(None)` to create a subset of `Dataset`:
+    https://github.com/microsoft/LightGBM/blob/v3.0.0/python-package/lightgbm/basic.py#L1381
+    """
+    mlflow.lightgbm.autolog()
+    lgb.Dataset(None)

@@ -41,6 +41,7 @@ def test_docker_project_execution(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters=expected_params,
         entry_point="test_tracking",
+        docker_args={"memory": "1g", "privileged": True},
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
@@ -69,6 +70,31 @@ def test_docker_project_execution(
         assert run_tags[k].startswith(v)
     artifacts = mlflow_service.list_artifacts(run_id=run_id)
     assert len(artifacts) == 1
+    docker_cmd = submitted_run.command_proc.args[2]
+    assert "--memory 1g" in docker_cmd
+    assert "--privileged" in docker_cmd
+
+
+@pytest.mark.large
+def test_docker_project_execution_async_docker_args(
+    tmpdir, docker_example_base_image
+):  # pylint: disable=unused-argument
+    submitted_run = mlflow.projects.run(
+        TEST_DOCKER_PROJECT_DIR,
+        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+        parameters={"use_start_run": "0"},
+        entry_point="test_tracking",
+        docker_args={"memory": "1g", "privileged": True},
+        synchronous=False,
+    )
+    submitted_run.wait()
+
+    args = submitted_run.command_proc.args
+    assert len([a for a in args if a == "--docker-args"]) == 2
+    first_idx = args.index("--docker-args")
+    second_idx = args.index("--docker-args", first_idx + 1)
+    assert args[first_idx + 1] == "memory=1g"
+    assert args[second_idx + 1] == "privileged"
 
 
 @pytest.mark.parametrize(

@@ -49,7 +49,7 @@ class RestStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super(RestStore, self).__init__()
+        super().__init__()
         self.get_host_creds = get_host_creds
 
     def _call_endpoint(self, api, json_body):
@@ -219,7 +219,7 @@ class RestStore(AbstractStore):
     # CRUD API for ModelVersion objects
 
     def create_model_version(
-        self, name, source, run_id, tags=None, run_link=None, description=None
+        self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.
