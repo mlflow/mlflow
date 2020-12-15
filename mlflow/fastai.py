@@ -259,21 +259,20 @@ def log_model(
     .. code-block:: python
         :caption: Example
 
-        from fastai.vision import URLs, untar_data, ImageDataBunch, imagenet_stats, models,
-            accuracy, rand_pad, cnn_learner
+        import fastai.vision as vis
         import mlflow.fastai
         from mlflow.tracking import MlflowClient
 
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
-            path = untar_data(URLs.MNIST_SAMPLE)
+            path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
 
            # Prepare, transform, and normalize the data
-           data = ImageDataBunch.from_folder(path, ds_tfms=(rand_pad(2, 28), []), bs=64)
-           data.normalize(imagenet_stats)
+           data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
+           data.normalize(vis.imagenet_stats)
 
            # Create the CNN Learner model
-           model = cnn_learner(data, models.resnet18, metrics=accuracy)
+           model = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
 
            # Start MLflow session and log model
            with mlflow.start_run() as run:
@@ -396,8 +395,10 @@ def autolog(log_models=True):
     .. code-block:: python
         :caption: Example
 
-        from fastai.vision import URLs, untar_data, ImageDataBunch, imagenet_stats, models,
-            accuracy, rand_pad, cnn_learner
+        # This is a modified example from https://github.com/mlflow/mlflow/tree/master/examples/fastai
+        # demonstrating autolog capabilites.
+
+        import fastai.vision as vis
         import mlflow.fastai
         from mlflow.tracking import MlflowClient
 
@@ -412,14 +413,14 @@ def autolog(log_models=True):
 
         def main(epochs=5, learning_rate=0.01):
             # Download and untar the MNIST data set
-            path = untar_data(URLs.MNIST_SAMPLE)
+            path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
 
             # Prepare, transform, and normalize the data
-            data = ImageDataBunch.from_folder(path, ds_tfms=(rand_pad(2, 28), []), bs=64)
-            data.normalize(imagenet_stats)
+            data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)
+            data.normalize(vis.imagenet_stats)
 
             # Create CNN the Learner model
-            model = cnn_learner(data, models.resnet18, metrics=accuracy)
+            model = vis.cnn_learner(data, vis.models.resnet18, metrics=vis.accuracy)
 
             # Enable auto logging
             mlflow.fastai.autolog()
