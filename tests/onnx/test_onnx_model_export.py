@@ -290,7 +290,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
         atol=1e-05,
     )
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(Exception, match="Unexpected input data type"):
         pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
 
