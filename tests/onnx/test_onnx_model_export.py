@@ -97,8 +97,6 @@ def onnx_model(model, sample_input, tmpdir):
 
 @pytest.fixture(scope="module")
 def onnx_sklearn_model():
-    import onnx
-
     model_path = os.path.join(TEST_ONNX_RESOURCES_DIR, "sklearn_model.onnx")
     return onnx.load(model_path)
 
@@ -121,16 +119,12 @@ def predicted(model, dataset):
 
 @pytest.fixture(scope="module")
 def onnx_model_multiple_inputs_float64():
-    import onnx
-
     model_path = os.path.join(TEST_ONNX_RESOURCES_DIR, "tf_model_multiple_inputs_float64.onnx")
     return onnx.load(model_path)
 
 
 @pytest.fixture(scope="module")
-def onnx_model_multiple_inputs_float32(tf_model_multiple_inputs_float32):
-    import onnx
-
+def onnx_model_multiple_inputs_float32():
     model_path = os.path.join(TEST_ONNX_RESOURCES_DIR, "tf_model_multiple_inputs_float32.onnx")
     return onnx.load(model_path)
 
