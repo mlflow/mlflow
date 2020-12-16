@@ -615,6 +615,10 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField("simple_value"):
+                # NB: Most TensorFlow APIs use one-indexing for epochs, while tf.Keras
+                # uses zero-indexing. Accordingly, the modular arithmetic used here is slightly
+                # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
+                # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
                     _thread_pool.submit(
                         _add_to_queue,
@@ -744,7 +748,11 @@ def _setup_callbacks(lst, log_models, metrics_logger):
                 shutil.rmtree(tempdir)
 
         def on_epoch_end(self, epoch, logs=None):
-            if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
+            # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
+            # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
+            # used here is slightly different from the arithmetic used in `_log_event`, which
+            # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
+            if epoch % _LOG_EVERY_N_STEPS == 0:
                 metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
