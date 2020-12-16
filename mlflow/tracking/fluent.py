@@ -111,7 +111,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return exc_type is None
 
 
-def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
+def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags=None):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -138,7 +138,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                           or the default experiment as defined by the tracking server.
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
-    :param nested: Controls whether run is nested in parent run. ``True`` creates a nest run.
+    :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+    :param tags: An optional dictionary of string keys and values to set as tags on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -224,7 +225,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
-        user_specified_tags = {}
+        user_specified_tags = tags or {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:

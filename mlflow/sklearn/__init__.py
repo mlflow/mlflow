@@ -28,6 +28,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -883,11 +884,12 @@ def autolog(
                 try:
                     # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
                     # information is consistent with the parent run
-                    environment_tags = context_registry.resolve_tags()
+                    child_tags = context_registry.resolve_tags()
+                    child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
                     _create_child_runs_for_parameter_search(
                         cv_estimator=estimator,
                         parent_run=mlflow.active_run(),
-                        child_tags=environment_tags,
+                        child_tags=child_tags,
                     )
                 except Exception as e:  # pylint: disable=broad-except
 

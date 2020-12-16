@@ -340,6 +340,55 @@ def test_start_run_defaults_databricks_notebook(
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_with_user_specified_tags():
+
+    mock_experiment_id = mock.Mock()
+    experiment_id_patch = mock.patch(
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+    )
+    databricks_notebook_patch = mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
+    )
+    mock_user = mock.Mock()
+    user_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+    )
+    mock_source_name = mock.Mock()
+    source_name_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
+    )
+    source_type_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
+    )
+    mock_source_version = mock.Mock()
+    source_version_patch = mock.patch(
+        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+    )
+    user_specified_tags = {
+        "ml_task": "regression",
+        "num_layers": 7,
+        mlflow_tags.MLFLOW_USER: "user_override",
+    }
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_USER: "user_override",
+        "ml_task": "regression",
+        "num_layers": 7,
+    }
+
+    create_run_patch = mock.patch.object(MlflowClient, "create_run")
+
+    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+        active_run = start_run(tags=user_specified_tags)
+        MlflowClient.create_run.assert_called_once_with(
+            experiment_id=mock_experiment_id, tags=expected_tags
+        )
+        assert is_from_run(active_run, MlflowClient.create_run.return_value)
+
+
 def test_start_run_with_parent():
 
     parent_run = mock.Mock()

@@ -24,7 +24,7 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _truncate_dict,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
@@ -791,6 +791,7 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
         _, child_metrics, child_tags, _ = get_run_data(child_run.info.run_id)
         assert child_tags == get_expected_class_tags(svc)
+        assert child_run.data.tags.get(MLFLOW_AUTOLOGGING) == mlflow.sklearn.FLAVOR_NAME
         assert "mean_test_score" in child_metrics.keys()
         assert "std_test_score" in child_metrics.keys()
         # Ensure that we do not capture separate metrics for each cross validation split, which
