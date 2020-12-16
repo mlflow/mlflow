@@ -7,9 +7,7 @@ import tempfile
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
-from mlflow.pytorch import FLAVOR_NAME
 from mlflow.utils.autologging_utils import (
-    safe_patch,
     ExceptionSafeAbstractClass,
     try_mlflow_log,
     BatchMetricsLogger,
@@ -35,7 +33,7 @@ every_n_epoch = 1
 
 
 @rank_zero_only
-def _autolog(log_every_n_epoch=1, log_models=True):
+def _create_patch_fit(log_every_n_epoch=1, log_models=True):
     """
     Enable automatic logging from pytorch to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -225,4 +223,4 @@ def _autolog(log_every_n_epoch=1, log_models=True):
         """
         return _run_and_log_function(self, original, args, kwargs)
 
-    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", fit, manage_run=True)
+    return fit

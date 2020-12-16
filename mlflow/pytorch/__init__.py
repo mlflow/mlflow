@@ -34,7 +34,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging_utils import autologging_integration
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "pytorch"
 
@@ -838,6 +838,8 @@ def autolog(log_every_n_epoch=1, log_models=True, disable=False):  # pylint: dis
 
         PyTorch autologged MLflow entities
     """
-    from mlflow.pytorch._pytorch_autolog import _autolog
+    import pytorch_lightning as pl
+    from mlflow.pytorch._pytorch_autolog import _create_patch_fit
 
-    _autolog(log_every_n_epoch=log_every_n_epoch, log_models=log_models)
+    fit = _create_patch_fit(log_every_n_epoch=log_every_n_epoch, log_models=log_models)
+    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", fit, manage_run=True)
