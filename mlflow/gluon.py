@@ -47,6 +47,7 @@ def load_model(model_uri, ctx):
 
     :return: A Gluon model instance.
 
+
     .. code-block:: python
         :caption: Example
 
