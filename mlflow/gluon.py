@@ -312,7 +312,7 @@ def log_model(
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False):
+def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
