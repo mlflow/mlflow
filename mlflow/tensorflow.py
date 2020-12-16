@@ -615,7 +615,12 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField("simple_value"):
-                if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
+                # In tf.keras, epoch indexing for single-epoch training sessions begins at 0,
+                # while indexing begins at 1 for multi-epoch training sessions. While we have
+                # not observed similar discrepancies for other TensorFlow APIs, we cautiously
+                # insert some `max` logic to ensure that metrics for the first epoch are logged,
+                # whether that epoch is referred to as `0` or `1`
+                if max(event.step - 1, 0) % _LOG_EVERY_N_STEPS == 0:
                     _thread_pool.submit(
                         _add_to_queue,
                         key=v.tag,
@@ -744,7 +749,10 @@ def _setup_callbacks(lst, log_models, metrics_logger):
                 shutil.rmtree(tempdir)
 
         def on_epoch_end(self, epoch, logs=None):
-            if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
+            # For multi-epoch training sessions, epoch indexing begins at 1. For single-epoch
+            # training sessions, epoch indexing begins at 0. To ensure that we always capture
+            # metrics for the first epoch, we introduce some `max` and subtraction logic.
+            if max(epoch - 1, 0) % _LOG_EVERY_N_STEPS == 0:
                 metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
