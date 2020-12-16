@@ -407,8 +407,12 @@ def exception_safe_function(function):
     return safe_function
 
 
-def _create_exception_safe_class(base):
-    class _ExceptionSafeClass(base):
+def _exception_safe_class_factory(base_class):
+    """
+    Creates an exception safe class that inherits from `base_class`.
+    """
+
+    class _ExceptionSafeClass(base_class):
         """
         Metaclass that wraps all functions defined on the specified class with broad error handling
         logic to guard against unexpected errors during autlogging.
@@ -427,13 +431,13 @@ def _create_exception_safe_class(base):
             for m in dct:
                 if callable(dct[m]):
                     dct[m] = exception_safe_function(dct[m])
-            return base.__new__(cls, name, bases, dct)
+            return base_class.__new__(cls, name, bases, dct)
 
     return _ExceptionSafeClass
 
 
-ExceptionSafeClass = _create_exception_safe_class(type)
-ExceptionSafeAbstractClass = _create_exception_safe_class(abc.ABCMeta)
+ExceptionSafeClass = _exception_safe_class_factory(type)
+ExceptionSafeAbstractClass = _exception_safe_class_factory(abc.ABCMeta)
 
 
 class PatchFunction:
