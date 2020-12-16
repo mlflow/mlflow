@@ -18,9 +18,11 @@ from mlflow.utils.autologging_utils import (
     PatchFunction,
     with_managed_run,
     _validate_args,
+    _validate_autologging_run,
     _is_testing,
     try_mlflow_log,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on  # pylint: disable=unused-import
 
@@ -68,6 +70,22 @@ def test_autologging_integration():
     autolog()
 
     return integration_name
+
+
+@pytest.fixture(autouse=True)
+def clean_up_leaked_runs():
+    """
+    Certain test cases validate safety API behavior when runs are leaked. Leaked runs that
+    are not cleaned up between test cases may result in cascading failures that are hard to
+    debug. Accordingly, this fixture attempts to end any active runs it encounters and
+    throws an exception (which reported as an additional error in the pytest execution output).
+    """
+    try:
+        yield
+        assert not mlflow.active_run(), "test case unexpectedly leaked a run!"
+    finally:
+        while mlflow.active_run():
+            mlflow.end_run()
 
 
 def test_is_testing_respects_environment_variable():
@@ -331,8 +349,110 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     assert validate_mock.call_count == 1
 
 
-def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging_integration):
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
+    patch_destination, test_autologging_integration
+):
+    assert autologging_utils._is_testing()
 
+    def leak_run_patch_impl(original, *args, **kwargs):
+        mlflow.start_run(nested=True)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", leak_run_patch_impl)
+    with pytest.raises(AssertionError, match="leaked an active run"):
+        patch_destination.fn()
+
+    # End the leaked run
+    mlflow.end_run()
+
+    with mlflow.start_run():
+        # If a user-generated run existed prior to the autologged training session, we expect
+        # that safe patch will not throw a leaked run exception
+        patch_destination.fn()
+        # End the leaked nested run
+        mlflow.end_run()
+
+    assert not mlflow.active_run()
+
+
+def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_mode(
+    patch_destination, test_autologging_integration
+):
+    assert not autologging_utils._is_testing()
+
+    def leak_run_patch_impl(original, *args, **kwargs):
+        mlflow.start_run(nested=True)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", leak_run_patch_impl)
+    patch_destination.fn()
+    assert mlflow.active_run()
+
+    # End the leaked run
+    mlflow.end_run()
+
+    assert not mlflow.active_run()
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
+    patch_destination, test_autologging_integration
+):
+    assert autologging_utils._is_testing()
+
+    def no_tag_run_patch_impl(original, *args, **kwargs):
+        with mlflow.start_run(nested=True):
+            return original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
+
+    with mock.patch(
+        "mlflow.utils.autologging_utils._validate_autologging_run", wraps=_validate_autologging_run
+    ) as validate_run_mock:
+
+        with pytest.raises(
+            AssertionError, match="failed to set autologging tag with expected value"
+        ):
+            patch_destination.fn()
+            assert validate_run_mock.call_count == 1
+
+        validate_run_mock.reset_mock()
+
+        with mlflow.start_run(nested=True):
+            # If a user-generated run existed prior to the autologged training session, we expect
+            # that safe patch will not attempt to validate it
+            patch_destination.fn()
+            assert not validate_run_mock.called
+
+
+def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
+    patch_destination, test_autologging_integration
+):
+    assert not autologging_utils._is_testing()
+
+    def no_tag_run_patch_impl(original, *args, **kwargs):
+        with mlflow.start_run(nested=True):
+            return original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
+
+    with mock.patch(
+        "mlflow.utils.autologging_utils._validate_autologging_run", wraps=_validate_autologging_run
+    ) as validate_run_mock:
+
+        patch_destination.fn()
+
+        with mlflow.start_run(nested=True):
+            # If a user-generated run existed prior to the autologged training session, we expect
+            # that safe patch will not attempt to validate it
+            patch_destination.fn()
+
+        assert not validate_run_mock.called
+
+
+def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
+    patch_destination, test_autologging_integration
+):
+    client = MlflowClient()
     active_run = None
 
     def patch_impl(original, *args, **kwargs):
@@ -350,6 +470,10 @@ def test_safe_patch_manages_run_if_specified(patch_destination, test_autologging
         assert managed_run_mock.call_count == 1
         assert active_run is not None
         assert active_run.info.run_id is not None
+        assert (
+            client.get_run(active_run.info.run_id).data.tags[MLFLOW_AUTOLOGGING]
+            == "test_integration"
+        )
 
 
 def test_safe_patch_does_not_manage_run_if_unspecified(
@@ -652,6 +776,31 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
         assert RunStatus.from_string(status2) == RunStatus.FINISHED
 
 
+def test_with_managed_run_sets_specified_run_tags():
+    client = MlflowClient()
+    tags_to_set = {
+        "foo": "bar",
+        "num_layers": "7",
+    }
+
+    patch_function_1 = with_managed_run(
+        lambda original, *args, **kwargs: mlflow.active_run(), tags=tags_to_set
+    )
+    run1 = patch_function_1(lambda: "foo")
+    assert tags_to_set.items() <= client.get_run(run1.info.run_id).data.tags.items()
+
+    class PatchFunction2(PatchFunction):
+        def _patch_implementation(self, original, *args, **kwargs):
+            return mlflow.active_run()
+
+        def _on_exception(self, exception):
+            pass
+
+    patch_function_2 = with_managed_run(PatchFunction2, tags=tags_to_set)
+    run2 = patch_function_2.call(lambda: "foo")
+    assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
+
+
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
     args = (1, "b", ["c"])
@@ -841,6 +990,62 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
         _validate_args(
             user_call_args, user_call_kwargs, user_call_args, invalid_autologging_call_kwargs_2
         )
+
+
+def test_validate_autologging_run_validates_autologging_tag_correctly():
+    with mlflow.start_run():
+        run_id_1 = mlflow.active_run().info.run_id
+
+    with pytest.raises(AssertionError, match="failed to set autologging tag with expected value"):
+        _validate_autologging_run("test_integration", run_id_1)
+
+    with mlflow.start_run(tags={MLFLOW_AUTOLOGGING: "wrong_value"}):
+        run_id_2 = mlflow.active_run().info.run_id
+
+    with pytest.raises(
+        AssertionError, match="failed to set autologging tag with expected value.*wrong_value"
+    ):
+        _validate_autologging_run("test_integration", run_id_2)
+
+    with mlflow.start_run(tags={MLFLOW_AUTOLOGGING: "test_integration"}):
+        run_id_3 = mlflow.active_run().info.run_id
+
+    _validate_autologging_run("test_integration", run_id_3)
+
+
+def test_validate_autologging_run_validates_run_status_correctly():
+    valid_autologging_tags = {
+        MLFLOW_AUTOLOGGING: "test_integration",
+    }
+
+    with mlflow.start_run(tags=valid_autologging_tags) as run_finished:
+        run_id_finished = run_finished.info.run_id
+
+    assert (
+        RunStatus.from_string(MlflowClient().get_run(run_id_finished).info.status)
+        == RunStatus.FINISHED
+    )
+    _validate_autologging_run("test_integration", run_id_finished)
+
+    with mlflow.start_run(tags=valid_autologging_tags) as run_failed:
+        run_id_failed = run_failed.info.run_id
+
+    MlflowClient().set_terminated(run_id_failed, status=RunStatus.to_string(RunStatus.FAILED))
+    assert (
+        RunStatus.from_string(MlflowClient().get_run(run_id_failed).info.status) == RunStatus.FAILED
+    )
+    _validate_autologging_run("test_integration", run_id_finished)
+
+    run_non_terminal = MlflowClient().create_run(
+        experiment_id=run_finished.info.experiment_id, tags=valid_autologging_tags
+    )
+    run_id_non_terminal = run_non_terminal.info.run_id
+    assert (
+        RunStatus.from_string(MlflowClient().get_run(run_id_non_terminal).info.status)
+        == RunStatus.RUNNING
+    )
+    with pytest.raises(AssertionError, match="has a non-terminal status"):
+        _validate_autologging_run("test_integration", run_id_non_terminal)
 
 
 def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():

@@ -9,9 +9,10 @@ from abc import abstractmethod
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
-from mlflow.utils import gorilla
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import gorilla
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 
@@ -476,7 +477,7 @@ class PatchFunction:
                 raise e
 
 
-def with_managed_run(patch_function):
+def with_managed_run(patch_function, tags=None):
     """
     Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
@@ -495,8 +496,9 @@ def with_managed_run(patch_function):
 
     :param patch_function: A `PatchFunction` class definition or a function object
                            compatible with `safe_patch`.
+    :param tags: A dictionary of string tags to set on each managed run created during the
+                 execution of `patch_function`.
     """
-
     if inspect.isclass(patch_function):
 
         class PatchWithManagedRun(patch_function):
@@ -506,7 +508,7 @@ def with_managed_run(patch_function):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(mlflow.start_run)
+                    self.managed_run = try_mlflow_log(mlflow.start_run, tags=tags)
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
@@ -529,7 +531,7 @@ def with_managed_run(patch_function):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(mlflow.start_run)
+                managed_run = try_mlflow_log(mlflow.start_run, tags=tags)
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -576,7 +578,9 @@ def safe_patch(
                        `patch_function`.
     """
     if manage_run:
-        patch_function = with_managed_run(patch_function)
+        patch_function = with_managed_run(
+            patch_function, tags={MLFLOW_AUTOLOGGING: autologging_integration},
+        )
 
     patch_is_class = inspect.isclass(patch_function)
     if patch_is_class:
@@ -598,6 +602,9 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
+        if _is_testing():
+            preexisting_run_for_testing = mlflow.active_run()
+
         original = gorilla.get_original_attribute(destination, function_name)
 
         # If the autologging integration associated with this patch is disabled,
@@ -614,6 +621,8 @@ def safe_patch(
         # Whether or not an exception was raised from within the original / underlying function
         # during the execution of patched code
         failed_during_original = False
+        # The active MLflow run (if any) associated with patch code execution
+        patch_function_run_for_testing = None
 
         try:
 
@@ -621,6 +630,14 @@ def safe_patch(
                 try:
                     if _is_testing():
                         _validate_args(args, kwargs, og_args, og_kwargs)
+                        # By the time `original` is called by the patch implementation, we assume
+                        # that either: 1. the patch implementation has already created an MLflow
+                        # run or 2. the patch code will not create an MLflow run during the
+                        # current execution. Here, we capture a reference to the active run, which
+                        # we will use later on to determine whether or not the patch
+                        # implementation created a run and perform validation if necessary
+                        nonlocal patch_function_run_for_testing
+                        patch_function_run_for_testing = mlflow.active_run()
 
                     nonlocal original_has_been_called
                     original_has_been_called = True
@@ -654,12 +671,43 @@ def safe_patch(
                 "Encountered unexpected error during %s autologging: %s", autologging_integration, e
             )
 
+        if _is_testing() and not preexisting_run_for_testing:
+            # If an MLflow run was created during the execution of patch code, verify that
+            # it is no longer active and that it contains expected autologging tags
+            assert not mlflow.active_run(), (
+                "Autologging integration %s leaked an active run" % autologging_integration
+            )
+            if patch_function_run_for_testing:
+                _validate_autologging_run(
+                    autologging_integration, patch_function_run_for_testing.info.run_id
+                )
+
         if original_has_been_called:
             return original_result
         else:
             return original(*args, **kwargs)
 
     wrap_patch(destination, function_name, safe_patch_function)
+
+
+def _validate_autologging_run(autologging_integration, run_id):
+    """
+    For testing purposes, verifies that an MLflow run produced by an `autologging_integration`
+    satisfies the following properties:
+
+        - The run has an autologging tag whose value is the name of the autologging integration
+        - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
+    """
+    client = MlflowClient()
+    run = client.get_run(run_id)
+    autologging_tag_value = run.data.tags.get(MLFLOW_AUTOLOGGING)
+    assert autologging_tag_value == autologging_integration, (
+        "Autologging run with id {} failed to set autologging tag with expected value. Expected: "
+        "'{}', Actual: '{}'".format(run_id, autologging_integration, autologging_tag_value)
+    )
+    assert RunStatus.is_terminated(
+        RunStatus.from_string(run.info.status)
+    ), "Autologging run with id {} has a non-terminal status '{}'".format(run_id, run.info.status)
 
 
 def _validate_args(
