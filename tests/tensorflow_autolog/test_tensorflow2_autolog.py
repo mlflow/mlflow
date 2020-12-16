@@ -207,7 +207,7 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
     Epoch indexing in TF2 and tf.Keras has been known to exhibit inconsistent
     behaviors between training sessions consisting of a single epoch and
     multi-epoch training sessions. This test verifies that metrics are produced
-    for single-epoch training sessions with TensorFlow's Estimator API.
+    for single-epoch training sessions with tf.Keras.
     """
     mlflow.tensorflow.autolog(every_n_iter=5)
 
