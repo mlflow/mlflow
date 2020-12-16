@@ -716,8 +716,9 @@ class _PyTorchWrapper(object):
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_every_n_epoch=1, log_models=True, disable=False):  # pylint: disable=unused-argument
     """
-    Automatically log metrics, params, and models from `PyTorch Lightning
-    <https://pytorch-lightning.readthedocs.io/en/latest>`_ model training.
+    Enables (or disables) and configures autologging from `PyTorch Lightning
+    <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
+
     Autologging is performed when you call the `fit` method of
     `pytorch_lightning.Trainer() \
     <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
