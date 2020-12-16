@@ -193,7 +193,7 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert data.params["opt_amsgrad"] == "False"
     client = mlflow.tracking.MlflowClient()
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
+    assert all(x.step % 5 == 0 for x in all_epoch_acc)
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
@@ -204,10 +204,11 @@ def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
     random_train_data, random_one_hot_labels
 ):
     """
-    Epoch indexing in TF2 and tf.Keras has been known to exhibit inconsistent
-    behaviors between training sessions consisting of a single epoch and
-    multi-epoch training sessions. This test verifies that metrics are produced
-    for single-epoch training sessions with tf.Keras.
+    tf.Keras exhibits inconsistent epoch indexing behavior in comparison with other
+    TF2 APIs (e.g., tf.Estimator). tf.Keras uses zero-indexing for epochs,
+    while other APIs use one-indexing. Accordingly, this test verifies that metrics are
+    produced in the boundary case where a model is trained for a single epoch, ensuring
+    that we don't miss the zero index in the tf.Keras case.
     """
     mlflow.tensorflow.autolog(every_n_iter=5)
 
@@ -600,10 +601,11 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 @pytest.mark.large
 def test_tf_estimator_autolog_logs_metics_for_single_epoch_training(tmpdir):
     """
-    Epoch indexing in TF2 and tf.Keras has been known to exhibit inconsistent
-    behaviors between training sessions consisting of a single epoch and
-    multi-epoch training sessions. This test verifies that metrics are produced
-    for single-epoch training sessions with TensorFlow's Estimator API.
+    Epoch indexing behavior is consistent across TensorFlow 2: tf.Keras uses
+    zero-indexing for epochs, while other APIs (e.g., tf.Estimator) use one-indexing.
+    This test verifies that metrics are produced for tf.Estimator training sessions
+    in the boundary casewhere a model is trained for a single epoch, ensuring that
+    we capture metrics from the first epoch at index 1.
     """
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
