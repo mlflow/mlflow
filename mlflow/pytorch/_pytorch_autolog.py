@@ -39,7 +39,9 @@ every_n_epoch = 1
 @rank_zero_only
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def _autolog(log_every_n_epoch=1, log_models=True, disable=False):
+def _autolog(
+    log_every_n_epoch=1, log_models=True, disable=False
+):  # pylint: disable=unused-argument
     """
     Enable automatic logging from pytorch to MLflow.
     Logs loss and any other metrics specified in the fit
