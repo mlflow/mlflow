@@ -1,10 +1,12 @@
 import os
 import shutil
+import subprocess
 import tempfile
 import zipfile
 
 from pyspark.files import SparkFiles
 
+from mlflow.utils import databricks_utils
 
 class SparkModelCache(object):
     """Caches models in memory on Spark Executors, to avoid continually reloading from disk.
@@ -34,7 +36,11 @@ class SparkModelCache(object):
         _, archive_basepath = tempfile.mkstemp()
         # NB: We must archive the directory as Spark.addFile does not support non-DFS
         # directories when recursive=True.
-        archive_path = shutil.make_archive(archive_basepath, "zip", model_path)
+        if databricks_utils.is_in_cluster():
+            archive_path = "{}.zip".format(archive_basepath)
+            subprocess.call(["zip", archive_path, "-r", model_path])
+        else:
+            archive_path = shutil.make_archive(archive_basepath, format="zip", root_dir=model_path, base_dir=model_path)
         spark.sparkContext.addFile(archive_path)
         return archive_path
 
