@@ -30,6 +30,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.keras: "keras",
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
+    mlflow.gluon: "mxnet.gluon",
 }
 
 
