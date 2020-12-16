@@ -750,8 +750,8 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         def on_epoch_end(self, epoch, logs=None):
             # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
             # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
-            # is slightly different from the arithmetic used in `_log_event`, which provides
-            # metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
+            # used here is slightly different from the arithmetic used in `_log_event`, which
+            # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
             if epoch % _LOG_EVERY_N_STEPS == 0:
                 metrics_logger.record_metrics(logs, epoch)
 
