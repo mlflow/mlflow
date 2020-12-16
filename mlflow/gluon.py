@@ -314,7 +314,7 @@ def log_model(
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     """
-    Enable automatic logging from Gluon to MLflow.
+    Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
