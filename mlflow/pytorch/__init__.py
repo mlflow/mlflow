@@ -15,7 +15,6 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
-from collections import OrderedDict
 from distutils.version import LooseVersion
 import posixpath
 
@@ -351,31 +350,26 @@ def log_state_dict(state_dict, artifact_path, pickle_module=None, **kwargs):
             mlflow.pytorch.log_state_dict(scripted_pytorch_model, "models")
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
-    Model.log(
-        artifact_path=artifact_path,
-        flavor=mlflow.pytorch,
-        pytorch_model=state_dict,
-        pickle_module=pickle_module,
-        **kwargs,
-    )
+
+    with TempDir() as tmp:
+        local_path = tmp.path("model")
+        save_state_dict(
+            state_dict=state_dict, path=local_path, pickle_module=pickle_module, **kwargs
+        )
+        mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
 
 
-def save_state_dict(state_dict, path, mlflow_model=None, pickle_module=None, **kwargs):
+def save_state_dict(state_dict, path, pickle_module=None, **kwargs):
     """
     Save the model as state dict to a path on the local file system
 
-    :param pytorch_model: PyTorch model to be saved. Can be either an eager model (subclass of
-                          ``torch.nn.Module``) or scripted model prepared via ``torch.jit.script``
-                          or ``torch.jit.trace``.
+    :param state_dict: state dict of the pytorch model. Ex: model.state_dict()
     :param path: Local path where the model is to be saved.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     import torch
-
-    if mlflow_model is None:
-        mlflow_model = Model()
 
     os.makedirs(path)
 
@@ -389,20 +383,6 @@ def save_state_dict(state_dict, path, mlflow_model=None, pickle_module=None, **k
 
     model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
     torch.save(state_dict, model_path, pickle_module=pickle_module, **kwargs)
-
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        model_data=model_data_subpath,
-        pytorch_version=torch.__version__,
-        state_dict=True,
-    )
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.pytorch",
-        data=model_data_subpath,
-        pickle_module_name=pickle_module.__name__,
-    )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
 def save_model(
@@ -561,16 +541,6 @@ def save_model(
     import torch
 
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
-
-    if isinstance(pytorch_model, OrderedDict):
-        save_state_dict(
-            state_dict=pytorch_model,
-            path=path,
-            mlflow_model=mlflow_model,
-            pickle_module=pickle_module,
-            **kwargs,
-        )
-        return
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
@@ -846,6 +816,9 @@ def _get_model_artifact_path(model_uri):
     import torch
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    if not os.path.exists(os.path.join(local_model_path, MLMODEL_FILE_NAME)):
+        return os.path.join(local_model_path, "data")
+
     try:
         pyfunc_conf = _get_flavor_configuration(
             model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME
