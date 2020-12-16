@@ -30,7 +30,7 @@ def get_deploy_client(target_uri):
         client.create_deployment("spamDetector", "runs:/someRunId/myModel")
         # Load a CSV of emails and score it against our deployment
         emails_df = pd.read_csv("...")
-        prediction_df = client.predict_deployment("spamDetector", emails_df)
+        prediction_df = client.predict("spamDetector", emails_df)
         # List all deployments, get details of our particular deployment
         print(client.list_deployments())
         print(client.get_deployment("spamDetector"))
