@@ -6,9 +6,16 @@ import shutil
 import tempfile
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch, BatchMetricsLogger
+
+from mlflow.pytorch import FLAVOR_NAME
 from mlflow.utils.annotations import experimental
-from mlflow.utils import gorilla
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    ExceptionSafeClass,
+    try_mlflow_log,
+    BatchMetricsLogger,
+)
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -31,7 +38,8 @@ every_n_epoch = 1
 
 @rank_zero_only
 @experimental
-def _autolog(log_every_n_epoch=1, log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def _autolog(log_every_n_epoch=1, log_models=True, disable=False):
     """
     Enable automatic logging from pytorch to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -45,12 +53,14 @@ def _autolog(log_every_n_epoch=1, log_models=True):
                        are logged after every epoch.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     global every_n_epoch
     every_n_epoch = log_every_n_epoch
 
     def getPLCallback(log_models, metrics_logger):
-        class __MLflowPLCallback(pl.Callback):
+        class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeClass):
             """
             Callback for auto-logging metrics and parameters.
             """
@@ -204,11 +214,6 @@ def _autolog(log_every_n_epoch=1, log_models=True):
         This method would be called from patched fit method and
         It adds the custom callback class into callback list.
         """
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
 
         # The run_id is not set here. Rather it will be retrieved from
         # the current mlfow run's training session inside of BatchMetricsLogger.
@@ -218,16 +223,12 @@ def _autolog(log_every_n_epoch=1, log_models=True):
             self.callbacks += [__MLflowPLCallback()]
         result = original(self, *args, **kwargs)
 
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
         return result
 
-    @gorilla.patch(pl.Trainer)
-    def fit(self, *args, **kwargs):
+    def fit(original, self, *args, **kwargs):
         """
         Patching trainer.fit method to add autolog class into callback
         """
-        original = gorilla.get_original_attribute(pl.Trainer, "fit")
         return _run_and_log_function(self, original, args, kwargs)
 
-    wrap_patch(pl.Trainer, "fit", fit)
+    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", fit)
