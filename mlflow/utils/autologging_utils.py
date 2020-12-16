@@ -408,7 +408,7 @@ def exception_safe_function(function):
 
 
 def _create_exception_safe_class(base):
-    class ExceptionSafeClass(base):
+    class _ExceptionSafeClass(base):
         """
         Metaclass that wraps all functions defined on the specified class with broad error handling
         logic to guard against unexpected errors during autlogging.
@@ -429,7 +429,7 @@ def _create_exception_safe_class(base):
                     dct[m] = exception_safe_function(dct[m])
             return base.__new__(cls, name, bases, dct)
 
-    return ExceptionSafeClass
+    return _ExceptionSafeClass
 
 
 ExceptionSafeClass = _create_exception_safe_class(type)
