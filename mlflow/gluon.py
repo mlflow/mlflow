@@ -47,7 +47,6 @@ def load_model(model_uri, ctx):
 
     :return: A Gluon model instance.
 
-
     .. code-block:: python
         :caption: Example
 
@@ -274,6 +273,7 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+
 
 
     .. code-block:: python
