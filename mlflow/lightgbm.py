@@ -33,15 +33,16 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    exception_safe_function,
     try_mlflow_log,
     log_fn_args_as_params,
-    wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _InputExampleInfo,
@@ -282,9 +283,12 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(log_input_examples=False, log_model_signatures=True, log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+):  # pylint: disable=unused-argument
     """
-    Enables automatic logging from LightGBM to MLflow. Logs the following.
+    Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
@@ -312,6 +316,8 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     import lightgbm
     import numpy as np
@@ -320,9 +326,8 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
     #   to use as an input example and for inferring the model signature.
     #   (there is no way to get the data back from a Dataset object once it is consumed by train)
     # We store it on the Dataset object so the train function is able to read it.
-    def __init__(self, *args, **kwargs):
+    def __init__(original, self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
-        original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
 
         if data is not None:
             try:
@@ -341,12 +346,13 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
 
         original(self, *args, **kwargs)
 
-    def train(*args, **kwargs):
+    def train(original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
             """
 
+            @exception_safe_function
             def callback(env):
                 res = {}
                 for data_name, eval_name, value, _ in env.evaluation_result_list:
@@ -391,14 +397,6 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
             finally:
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
-
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
-        original = gorilla.get_original_attribute(lightgbm, "train")
 
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
@@ -517,9 +515,7 @@ def autolog(log_input_examples=False, log_model_signatures=True, log_models=True
                 input_example=input_example,
             )
 
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
         return model
 
-    wrap_patch(lightgbm, "train", train)
-    wrap_patch(lightgbm.Dataset, "__init__", __init__)
+    safe_patch(FLAVOR_NAME, lightgbm, "train", train, manage_run=True)
+    safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
