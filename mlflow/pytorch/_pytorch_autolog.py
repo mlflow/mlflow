@@ -12,7 +12,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    ExceptionSafeClass,
+    ExceptionSafeAbstractClass,
     try_mlflow_log,
     BatchMetricsLogger,
 )
@@ -62,7 +62,7 @@ def _autolog(
     every_n_epoch = log_every_n_epoch
 
     def getPLCallback(log_models, metrics_logger):
-        class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeClass):
+        class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             """
             Callback for auto-logging metrics and parameters.
             """
@@ -233,4 +233,4 @@ def _autolog(
         """
         return _run_and_log_function(self, original, args, kwargs)
 
-    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", fit)
+    safe_patch(FLAVOR_NAME, pl.Trainer, "fit", fit, manage_run=True)
