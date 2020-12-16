@@ -409,7 +409,7 @@ def exception_safe_function(function):
 
 def _exception_safe_class_factory(base_class):
     """
-    Creates an exception safe class that inherits from `base_class`.
+    Creates an exception safe metaclass that inherits from `base_class`.
     """
 
     class _ExceptionSafeClass(base_class):
