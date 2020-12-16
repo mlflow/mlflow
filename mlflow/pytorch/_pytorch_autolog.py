@@ -8,9 +8,7 @@ from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
 from mlflow.pytorch import FLAVOR_NAME
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
-    autologging_integration,
     safe_patch,
     ExceptionSafeAbstractClass,
     try_mlflow_log,
