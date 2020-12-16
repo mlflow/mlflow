@@ -155,4 +155,4 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client = self._get_s3_client()
         result = s3_client.list_objects_v2(Bucket=bucket, Prefix=path)
         for obj in result.get("Contents", []):
-            s3_client.delete_object(Bucket=bucket, Key=obj.get('Key'))
+            s3_client.delete_object(Bucket=bucket, Key=obj.get("Key"))
