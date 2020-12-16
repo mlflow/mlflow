@@ -599,7 +599,7 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     inp_list = []
     for df_col_name in list(saved_tf_iris_model.inference_df):
         inp_list.append(saved_tf_iris_model.inference_df[df_col_name].values)
-    with pytest.raises(MlflowException):
+    with pytest.raises(TypeError):
         results = pyfunc_wrapper.predict(inp_list)
 
 
@@ -639,7 +639,7 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     inp_list = []
     for df_col_name in list(saved_tf_categorical_model.inference_df):
         inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
-    with pytest.raises(MlflowException):
+    with pytest.raises(TypeError):
         results = pyfunc_wrapper.predict(inp_list)
 
 

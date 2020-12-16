@@ -330,6 +330,16 @@ def test_pyfunc_model_works_with_np_input_type(
     assert type(np_result) == np.ndarray
     np.testing.assert_array_almost_equal(np_result[:, 0], sequential_predicted, decimal=4)
 
+    # predict does not work with lists
+    with pytest.raises(TypeError) as exc_info:
+        pyfunc_loaded.predict([1, 2, 3, 4])
+    assert "The PyTorch flavor does not support List or Dict input types" in str(exc_info)
+
+    # predict does not work with scalars
+    with pytest.raises(TypeError) as exc_info:
+        pyfunc_loaded.predict(4)
+    assert "Input data should be pandas.DataFrame or numpy.ndarray" in str(exc_info)
+
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])

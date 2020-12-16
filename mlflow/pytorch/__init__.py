@@ -697,6 +697,11 @@ class _PyTorchWrapper(object):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
+        elif isinstance(data, (list, dict)):
+            raise TypeError(
+                "The PyTorch flavor does not support List or Dict input types. "
+                "Please use a pandas.DataFrame or a numpy.ndarray"
+            )
         else:
             raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
 

@@ -521,7 +521,10 @@ class _TFWrapper(object):
         with self.tf_graph.as_default():
             feed_dict = data
             if isinstance(data, dict):
-                feed_dict = {self.input_tensor_mapping[k]: v for k, v in data.items()}
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name]
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
             elif isinstance(data, pandas.DataFrame):
                 # Build the feed dict, mapping input tensors to DataFrame column values.
                 feed_dict = {
@@ -529,7 +532,7 @@ class _TFWrapper(object):
                     for tensor_column_name in self.input_tensor_mapping.keys()
                 }
             else:
-                raise MlflowException("Only dict and DataFrame input types are supported")
+                raise TypeError("Only dict and DataFrame input types are supported")
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             if isinstance(data, pandas.DataFrame):
@@ -567,7 +570,7 @@ class _TF2Wrapper(object):
                     val = val.values
                 feed_dict[df_col_name] = tensorflow.constant(val)
         else:
-            raise MlflowException("Only dict and DataFrame input types are supported")
+            raise TypeError("Only dict and DataFrame input types are supported")
 
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
