@@ -710,7 +710,7 @@ def load_state_dict(model_uri):
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
 
-    :return: A pytorch model instance
+    :return: A pytorch model state dict of type OrderedDictionary
     """
     import torch
 
