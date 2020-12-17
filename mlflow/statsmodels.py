@@ -303,9 +303,6 @@ class _StatsmodelsModelWrapper:
 
 
 class AutologHelpers:
-    # monkey patching should be done only the first time the user calls autolog()
-    patching_accomplished = False
-
     # Autologging should be done only in the fit function called by the user, but not
     # inside other internal fit functions
     should_autolog = True
@@ -485,6 +482,4 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
             if should_autolog:
                 AutologHelpers.should_autolog = True
 
-    if not AutologHelpers.patching_accomplished:
-        AutologHelpers.patching_accomplished = True
-        patch_class_tree(statsmodels.base.model.Model)
+    patch_class_tree(statsmodels.base.model.Model)
