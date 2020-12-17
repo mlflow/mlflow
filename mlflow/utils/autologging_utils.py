@@ -695,12 +695,13 @@ def safe_patch(
                     try:
                         if _is_testing():
                             _validate_args(args, kwargs, og_args, og_kwargs)
-                            # By the time `original` is called by the patch implementation, we assume
-                            # that either: 1. the patch implementation has already created an MLflow
-                            # run or 2. the patch code will not create an MLflow run during the
-                            # current execution. Here, we capture a reference to the active run, which
-                            # we will use later on to determine whether or not the patch
-                            # implementation created a run and perform validation if necessary
+                            # By the time `original` is called by the patch implementation, we
+                            # assume that either: 1. the patch implementation has already
+                            # created an MLflow run or 2. the patch code will not create an
+                            # MLflow run during the current execution. Here, we capture a
+                            # reference to the active run, which we will use later on to
+                            # determine whether or not the patch implementation created
+                            # a run and perform validation if necessary
                             nonlocal patch_function_run_for_testing
                             patch_function_run_for_testing = mlflow.active_run()
 
