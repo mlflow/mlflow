@@ -739,8 +739,8 @@ def autolog(log_every_n_epoch=1, log_models=True, disable=False):  # pylint: dis
                        are logged after every epoch.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
+                    If ``False``, enables the PyTorch Lightning autologging integration.
 
     .. code-block:: python
         :caption: Example

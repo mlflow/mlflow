@@ -71,7 +71,9 @@ def disable_new_import_hook_firing_if_module_already_exists():
 @pytest.mark.large
 @pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
-def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(library, mlflow_module):
+def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
+    library, mlflow_module
+):
     with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
@@ -111,10 +113,9 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         "disable": True,
     }
     if library in integrations_with_additional_config:
-        args_to_test.update({
-            "log_input_examples": True,
-            "log_model_signatures": True,
-        })
+        args_to_test.update(
+            {"log_input_examples": True, "log_model_signatures": True,}
+        )
 
     mlflow.autolog(**args_to_test)
     mlflow.utils.import_hooks.notify_module_loaded(library)
