@@ -7,15 +7,12 @@ import uuid
 from py4j.java_gateway import CallbackServerParameters
 
 from pyspark import SparkContext
-from pyspark.sql import SparkSession
-from mlflow.utils._spark_utils import _get_active_spark_session
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.utils.autologging_utils import (
-    safe_patch,
     autologging_is_disabled,
     ExceptionSafeClass,
 )
@@ -149,22 +146,6 @@ def _listen_for_spark_activity(spark_context):
     _run_context_provider_registry.register(SparkAutologgingContext)
 
     _logger.info("Autologging successfully enabled for spark.")
-
-
-def autolog():
-    def __init__(original, self, *args, **kwargs):
-        original(self, *args, **kwargs)
-
-        _listen_for_spark_activity(self._sc)
-
-    safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
-
-    active_session = _get_active_spark_session()
-    if active_session is not None:
-        # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
-
-        _listen_for_spark_activity(sc)
 
 
 def _get_repl_id():

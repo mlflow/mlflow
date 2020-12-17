@@ -41,7 +41,7 @@ from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging_utils import autologging_integration
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 
 FLAVOR_NAME = "spark"
@@ -688,6 +688,21 @@ def autolog(disable=False):  # pylint: disable=unused-argument
     :param disable: If ``True``, disables all supported autologging integrations.
                     If ``False``, enables all supported autologging integrations.
     """
-    from mlflow import _spark_autologging
+    from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow._spark_autologging import _listen_for_spark_activity
+    from pyspark.sql import SparkSession
+    from pyspark import SparkContext
 
-    _spark_autologging.autolog()
+    def __init__(original, self, *args, **kwargs):
+        original(self, *args, **kwargs)
+
+        _listen_for_spark_activity(self._sc)
+
+    safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
+
+    active_session = _get_active_spark_session()
+    if active_session is not None:
+        # We know SparkContext exists here already, so get it
+        sc = SparkContext.getOrCreate()
+
+        _listen_for_spark_activity(sc)
