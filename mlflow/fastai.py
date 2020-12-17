@@ -397,17 +397,6 @@ def autolog(
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables the Fastai autologging integration. If ``False``,
-                    enables the Fastai autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      fastai that have not been tested against this version of the MLflow client
-                      or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
-                   autologging. If ``False``, show all events and warnings during Fastai
-                   autologging.
 
     .. code-block:: python
         :caption: Example
