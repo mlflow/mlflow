@@ -1,3 +1,4 @@
+import abc
 import inspect
 import itertools
 import functools
@@ -407,26 +408,56 @@ def exception_safe_function(function):
     return safe_function
 
 
-class ExceptionSafeClass(type):
+def _exception_safe_class_factory(base_class):
     """
-    Metaclass that wraps all functions defined on the specified class with broad error handling
-    logic to guard against unexpected errors during autlogging.
-
-    Rationale: Patched autologging functions commonly pass additional class instances as arguments
-    to their underlying original training routines; for example, Keras autologging constructs
-    a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`. To prevent errors
-    encountered during method execution within such classes from disrupting model training,
-    this metaclass wraps all class functions in a broad try / catch statement.
-
-    Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
-    as these are not always Python callables and are difficult to wrap
+    Creates an exception safe metaclass that inherits from `base_class`.
     """
 
-    def __new__(cls, name, bases, dct):
-        for m in dct:
-            if callable(dct[m]):
-                dct[m] = exception_safe_function(dct[m])
-        return type.__new__(cls, name, bases, dct)
+    class _ExceptionSafeClass(base_class):
+        """
+        Metaclass that wraps all functions defined on the specified class with broad error handling
+        logic to guard against unexpected errors during autlogging.
+
+        Rationale: Patched autologging functions commonly pass additional class instances as
+        arguments to their underlying original training routines; for example, Keras autologging
+        constructs a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`.
+        To prevent errors encountered during method execution within such classes from disrupting
+        model training, this metaclass wraps all class functions in a broad try / catch statement.
+
+        Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
+        as these are not always Python callables and are difficult to wrap
+        """
+
+        def __new__(cls, name, bases, dct):
+            for m in dct:
+                if callable(dct[m]):
+                    dct[m] = exception_safe_function(dct[m])
+            return base_class.__new__(cls, name, bases, dct)
+
+    return _ExceptionSafeClass
+
+
+ExceptionSafeClass = _exception_safe_class_factory(type)
+
+# `ExceptionSafeClass` causes an error when used with an abstract class.
+#
+# ```
+# class AbstractClass(abc.ABC):
+#    ...
+#
+# class DerivedClass(AbstractClass, metaclass=ExceptionSafeClass):
+#    ...
+# ```
+#
+# This raises:
+#
+# ```
+# TypeError: metaclass conflict: the metaclass of a derived class must be
+#            a (non-strict) subclass of the metaclasses of all its bases.
+# ```
+#
+# To avoid this error, create `ExceptionSafeAbstractClass` that is based on `abc.ABCMeta`.
+ExceptionSafeAbstractClass = _exception_safe_class_factory(abc.ABCMeta)
 
 
 class PatchFunction:
@@ -743,11 +774,15 @@ def _validate_args(
                 " Please decorate the function with `exception_safe_function`.".format(inp)
             )
         else:
-            assert hasattr(inp, "__class__") and type(inp.__class__) == ExceptionSafeClass, (
-                "Invalid new input '{}'. New args / kwargs introduced to `original` function"
-                " calls by patched code must either be functions decorated with"
-                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass`"
-                " metaclass safe or lists of such exception safe functions / classes.".format(inp)
+            assert hasattr(inp, "__class__") and type(inp.__class__) in [
+                ExceptionSafeClass,
+                ExceptionSafeAbstractClass,
+            ], (
+                "Invalid new input '{}'. New args / kwargs introduced to `original` function "
+                "calls by patched code must either be functions decorated with "
+                "`exception_safe_function`, instances of classes with the `ExceptionSafeClass` "
+                "or `ExceptionSafeAbstractClass` metaclass safe or lists of such exception safe "
+                "functions / classes.".format(inp)
             )
 
     def _validate(autologging_call_input, user_call_input=None):
