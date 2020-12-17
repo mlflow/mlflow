@@ -5,8 +5,11 @@ import { getApis } from '../../experiment-tracking/reducers/Reducers';
 import PropTypes from 'prop-types';
 import { Spinner } from './Spinner';
 
+export const DEFAULT_ERROR_MESSAGE = 'A request error occurred.';
+
 export class RequestStateWrapper extends Component {
   static propTypes = {
+    customSpinner: PropTypes.node,
     // Should this component render the child before all the requests are complete?
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
@@ -39,10 +42,9 @@ export class RequestStateWrapper extends Component {
 
   static getDerivedStateFromProps(nextProps) {
     const shouldRender = nextProps.requests.length
-      ? nextProps.requests.every((r) => {
-          return r && r.active === false;
-        })
+      ? nextProps.requests.every((r) => r && r.active === false)
       : false;
+
     return {
       shouldRender,
       shouldRenderError: RequestStateWrapper.getErrorRequests(nextProps.requests).length > 0,
@@ -50,25 +52,25 @@ export class RequestStateWrapper extends Component {
   }
 
   render() {
-    const { children, requests } = this.props;
+    const { children, requests, customSpinner } = this.props;
     const { shouldRender, shouldRenderError } = this.state;
-    if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
-      if (typeof children === 'function') {
-        return children(!shouldRender, shouldRenderError, requests);
-      }
+    if (typeof children === 'function') {
+      return children(!shouldRender, shouldRenderError, requests);
+    } else if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
       if (shouldRenderError) {
         triggerError(requests);
       }
       return children;
     }
-    return <Spinner />;
+
+    return customSpinner || <Spinner />;
   }
 }
 
 export const triggerError = (requests) => {
   // This triggers the OOPS error boundary.
   console.error('ERROR', requests);
-  throw Error('GOTO error boundary');
+  throw Error(DEFAULT_ERROR_MESSAGE);
 };
 
 const mapStateToProps = (state, ownProps) => ({
