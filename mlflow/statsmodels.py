@@ -330,7 +330,7 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     # Autologging depends on the exploration of the models class tree within the
     # `statsmodels.base.models` module. In order to load / access this module, the
     # `statsmodels.api` module must be imported
-    import statsmodels.api
+    import statsmodels.api  # pylint: disable=unused-import
 
     def find_subclasses(klass):
         """
@@ -460,6 +460,10 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
             should_autolog = True
 
         try:
+            if should_autolog:
+                # This may generate warnings due to collisions in already-logged param names
+                log_fn_args_as_params(original, args, kwargs)
+
             # training model
             model = original(self, *args, **kwargs)
 
@@ -472,8 +476,6 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
                     metrics_dict = results_to_dict(model)
                     try_mlflow_log(mlflow.log_metrics, metrics_dict)
-                    # This may generate warnings due to collisions in already-logged param names
-                    log_fn_args_as_params(original, args, kwargs)
 
             return model
 
