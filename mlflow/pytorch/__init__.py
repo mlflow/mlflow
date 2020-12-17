@@ -740,7 +740,7 @@ def autolog(log_every_n_epoch=1, log_models=True, disable=False):  # pylint: dis
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                enables all supported autologging integrations.
+                    enables all supported autologging integrations.
 
     .. code-block:: python
         :caption: Example
