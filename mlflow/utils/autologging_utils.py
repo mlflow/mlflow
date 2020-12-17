@@ -431,6 +431,7 @@ def _exception_safe_class_factory(base_class):
 
         def __new__(cls, name, bases, dct):
             for m in dct:
+                # class methods or static methods are not callable.
                 if callable(dct[m]):
                     dct[m] = exception_safe_function(dct[m])
             return base_class.__new__(cls, name, bases, dct)

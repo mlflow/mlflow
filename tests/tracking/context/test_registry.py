@@ -117,11 +117,20 @@ def mock_run_context_providers():
     skipped_provider = mock.Mock()
     skipped_provider.in_context.return_value = False
 
+    exception_provider = mock.Mock()
+    exception_provider.in_context.return_value = True
+    exception_provider.tags.return_value = {
+        "random-key": "This val will never make it to tag resolution"
+    }
+    exception_provider.tags.side_effect = Exception(
+        "This should be caught by logic in resolve_tags()"
+    )
+
     override_provider = mock.Mock()
     override_provider.in_context.return_value = True
     override_provider.tags.return_value = {"one": "override", "new": "new-val"}
 
-    providers = [base_provider, skipped_provider, override_provider]
+    providers = [base_provider, skipped_provider, exception_provider, override_provider]
 
     with mock.patch("mlflow.tracking.context.registry._run_context_provider_registry", providers):
         yield
