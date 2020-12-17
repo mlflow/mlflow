@@ -58,7 +58,7 @@ def get_spark_session(conf):
     # because of a change in Arrow IPC format
     # https://spark.apache.org/docs/latest/sql-pyspark-pandas-with-arrow.html# \
     # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
-    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
+    # os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
