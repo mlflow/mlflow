@@ -14,10 +14,10 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
-from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
-    wrap_patch,
+    safe_patch,
     autologging_is_disabled,
+    ExceptionSafeClass,
 )
 from mlflow.spark import FLAVOR_NAME
 
@@ -119,11 +119,11 @@ def _listen_for_spark_activity(spark_context):
     )
     callback_server_started = gw.start_callback_server(callback_server_params)
 
-    event_publisher = _get_jvm_event_publisher()
     try:
+        event_publisher = _get_jvm_event_publisher()
         event_publisher.init(1)
         _spark_table_info_listener = PythonSubscriber()
-        _spark_table_info_listener.register()
+        event_publisher.register(_spark_table_info_listener)
     except Exception as e:
         if callback_server_started:
             try:
@@ -152,13 +152,12 @@ def _listen_for_spark_activity(spark_context):
 
 
 def autolog():
-    def __init__(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(SparkSession, "__init__")
+    def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
 
         _listen_for_spark_activity(self._sc)
 
-    wrap_patch(SparkSession, "__init__", __init__)
+    safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
 
     active_session = _get_active_spark_session()
     if active_session is not None:
@@ -183,7 +182,7 @@ def _get_repl_id():
     return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
-class PythonSubscriber(object):
+class PythonSubscriber(object, metaclass=ExceptionSafeClass):
     """
     Subscriber, intended to be instantiated once per Python process, that logs Spark table
     information propagated from Java to the current MLflow run, starting a run if necessary.
@@ -232,10 +231,6 @@ class PythonSubscriber(object):
             _set_run_tag_async(active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)
-
-    def register(self):
-        event_publisher = _get_jvm_event_publisher()
-        event_publisher.register(self)
 
     def replId(self):
         return self._repl_id

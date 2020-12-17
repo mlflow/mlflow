@@ -424,6 +424,7 @@ class ExceptionSafeClass(type):
 
     def __new__(cls, name, bases, dct):
         for m in dct:
+            # class methods or static methods are not callable.
             if callable(dct[m]):
                 dct[m] = exception_safe_function(dct[m])
         return type.__new__(cls, name, bases, dct)
