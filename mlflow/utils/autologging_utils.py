@@ -6,6 +6,7 @@ import warnings
 import logging
 import time
 import contextlib
+import uuid
 from contextlib import contextmanager
 from abc import abstractmethod
 
@@ -510,15 +511,16 @@ class PatchFunction:
 
 
 class _AutologgingSessionManager:
+    AutologgingSession = namedtuple("AutologgingSession", "integration", "id")
     _session = None
 
     @classmethod
     @contextmanager
     def start_session(cls, integration):
         try:
-            cls._session = integration
+            session_id = uuid.uuid4().hex
             if cls._session is None:
-                cls._session = integration
+                cls._session = AutologgingSession(integration, session_id) 
             yield integration
         finally:
             cls.end_session()
@@ -530,6 +532,74 @@ class _AutologgingSessionManager:
     @classmethod
     def end_session(cls):
         cls._session = None
+
+
+class AutologgingEventLogger(metaclass=ExceptionSafeClass):
+
+    _event_logger = _DefaultAutologgingEventLogger()
+
+    PatchFunctionInfo = namedtuple("PatchFunctionInfo", ["integration", "object_name", "function_name"])
+
+    @abstractmethod
+    def log_autolog_called(self, integration, *args, **kwargs):
+        """
+        Called when the `autolog()` method for an autologging integration
+        is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
+        """
+        pass
+
+    @abstractmethod
+    def log_patch_function_start(self, session_id, patch_function_info, call_args, call_kwargs):
+        """
+        Called upon invocation of a patched ML API associated with an autologging integration
+        (e.g., `sklearn.linear_model.LogisticRegression.fit()`)
+        """
+        pass
+
+    @abstractmethod
+    def log_patch_function_end(self, session_id, patch_function_info, call_args, call_kwargs, exception=None):
+        """
+        Called upon termination of a patched ML API associated with an autologging integration
+        (e.g., `sklearn.linear_model.LogisticRegression.fit()`)
+        """
+        pass
+
+    @abstractmethod
+    def log_original_function_start(self, session_id, patch_function_info, call_args, call_kwargs):
+        """
+        Called during the execution of a patched ML API associated with an autologging integration
+        when the original / underlying ML API is invoked. For example, this is called when
+        a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes
+        the original implementation of `sklearn.linear_model.LogisticRegression.fit()` 
+        """
+        pass
+
+    @abstractmethod
+    def log_original_function_end(self, session_id, patch_function_info, call_args, call_kwargs, exception=None):
+        """
+        Called during the execution of a patched ML API associated with an autologging integration
+        when the original / underlying ML API invocation terminates. For example, when a patched
+        implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes the
+        original / underlying implementation of `LogisticRegression.fit()`, then this function is
+        called when the original / underlying implementation terminates. 
+        """
+        pass
+
+    @staticmethod
+    def get_logger():
+        return _event_logger
+
+    @staticmethod
+    def set_logger(logger):
+        _event_logger = logger
+
+
+class _DefaultAutologgingEventLogger(AutologgingEventLogger):
+
+
+
+
+
 
 
 def with_managed_run(patch_function, tags=None):
