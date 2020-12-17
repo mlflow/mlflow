@@ -1,6 +1,5 @@
 import pytest
 from unittest import mock
-import inspect
 
 import mlflow
 from mlflow.utils.autologging_utils import get_autologging_config
@@ -113,9 +112,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         "disable": True,
     }
     if library in integrations_with_additional_config:
-        args_to_test.update(
-            {"log_input_examples": True, "log_model_signatures": True,}
-        )
+        args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
 
     mlflow.autolog(**args_to_test)
     mlflow.utils.import_hooks.notify_module_loaded(library)

@@ -1,7 +1,6 @@
 import os
 
 import pytest
-from unittest import mock
 
 from mlflow.utils.autologging_utils import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
 

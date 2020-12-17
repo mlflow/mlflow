@@ -37,7 +37,6 @@ from mlflow import (
     sklearn,
     fastai,
     pytorch,
-    statsmodels,
 )
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
