@@ -437,6 +437,25 @@ def _exception_safe_class_factory(base_class):
 
 
 ExceptionSafeClass = _exception_safe_class_factory(type)
+
+# `ExceptionSafeClass` causes an error when used with an abstract class.
+#
+# ```
+# class AbstractClass(abc.ABC):
+#    ...
+#
+# class MyClass(AbstractClass, metaclass=ExceptionSafeClass):
+#    ...
+# ```
+#
+# This raises:
+#
+# ```
+# TypeError: metaclass conflict: the metaclass of a derived class must be
+#            a (non-strict) subclass of the metaclasses of all its bases.
+# ```
+#
+# To avoid this error, create `ExceptionSafeAbstractClass` that is based on `abc.ABCMeta`.
 ExceptionSafeAbstractClass = _exception_safe_class_factory(abc.ABCMeta)
 
 
