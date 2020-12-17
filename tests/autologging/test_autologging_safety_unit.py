@@ -463,7 +463,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
 
 
 @pytest.mark.parametrize(
-    "baseclass,metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
+    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(baseclass, metaclass):
     assert not autologging_utils._is_testing()
@@ -492,7 +492,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(basecl
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 @pytest.mark.parametrize(
-    "baseclass,metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
+    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass, metaclass):
     assert autologging_utils._is_testing()
@@ -741,7 +741,7 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 @pytest.mark.parametrize(
-    "baseclass,metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
+    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
     baseclass, metaclass
