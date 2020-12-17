@@ -635,7 +635,6 @@ def save_model(
         model_data=model_data_subpath,
         pytorch_version=torch.__version__,
         **torchserve_artifacts_config,
-        state_dict=False,
     )
     pyfunc.add_to_model(
         mlflow_model,
