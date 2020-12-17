@@ -1,0 +1,41 @@
+# Build an image that can serve mlflow models.
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND='noninteractive'
+ENV MLFLOW_HOME='/opt/mlflow'
+RUN apt-get -y update && apt-get install -y --no-install-recommends \
+         wget \
+         curl \
+         nginx \
+         ca-certificates \
+         bzip2 \
+         build-essential \
+         cmake \
+         openjdk-8-jdk \
+         git-core \
+         maven \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and setup miniconda
+RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
+ENV PATH="/miniconda/bin:$PATH"
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV GUNICORN_CMD_ARGS='--timeout 60 -k gevent'
+# Set up the program in the image
+WORKDIR /opt/mlflow
+
+{install_mlflow}
+
+# Install the latest stable version of R
+RUN apt-get update && \
+  apt-get install -y gnupg2 software-properties-common && \
+  apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
+  add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/' && \
+  apt-get update && \
+  apt-get -y install r-base libcurl4-gnutls-dev libssl-dev libxml2-dev
+
+RUN Rscript -e 'install.packages("mlflow")'
+
+{custom_setup_steps}
+{entry_point}

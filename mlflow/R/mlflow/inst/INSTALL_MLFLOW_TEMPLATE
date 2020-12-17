@@ -1,0 +1,14 @@
+RUN pip install mlflow=={version}
+RUN pip install gunicorn[gevent]
+RUN mvn \
+  --batch-mode dependency:copy \
+  -Dartifact=org.mlflow:mlflow-scoring:{version}:pom \
+  -DoutputDirectory=/opt/java
+RUN mvn \
+  --batch-mode dependency:copy \
+  -Dartifact=org.mlflow:mlflow-scoring:{version}:jar \
+  -DoutputDirectory=/opt/java/jars
+RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml
+RUN cd /opt/java && mvn \
+  --batch-mode dependency:copy-dependencies \
+  -DoutputDirectory=/opt/java/jars

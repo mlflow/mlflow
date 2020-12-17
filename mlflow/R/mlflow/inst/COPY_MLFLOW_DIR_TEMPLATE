@@ -1,0 +1,7 @@
+COPY {mlflow_dir} /opt/mlflow
+RUN pip install /opt/mlflow
+RUN cd /opt/mlflow/mlflow/java/scoring && \
+  mvn --batch-mode package -DskipTests && \
+  mkdir -p /opt/java/jars && \
+  mv /opt/mlflow/mlflow/java/scoring/target/ \
+    mlflow-scoring-*-with-dependencies.jar /opt/java/jars

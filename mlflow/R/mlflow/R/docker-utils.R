@@ -1,47 +1,3 @@
-.dockerfile_template <- "
-# Build an image that can serve mlflow models.
-FROM ubuntu:20.04
-
-ENV DEBIAN_FRONTEND='noninteractive'
-ENV MLFLOW_HOME='/opt/mlflow'
-RUN apt-get -y update && apt-get install -y --no-install-recommends \\
-         wget \\
-         curl \\
-         nginx \\
-         ca-certificates \\
-         bzip2 \\
-         build-essential \\
-         cmake \\
-         openjdk-8-jdk \\
-         git-core \\
-         maven \\
-    && rm -rf /var/lib/apt/lists/*
-
-# Download and setup miniconda
-RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
-ENV PATH=\"/miniconda/bin:$PATH\"
-ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-ENV GUNICORN_CMD_ARGS='--timeout 60 -k gevent'
-# Set up the program in the image
-WORKDIR /opt/mlflow
-
-{install_mlflow}
-
-# Install the latest stable version of R
-RUN apt-get update && \\
-  apt-get install -y gnupg2 software-properties-common && \\
-  apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \\
-  add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu focal-cran40/' && \\
-  apt-get update && \\
-  apt-get -y install r-base libcurl4-gnutls-dev libssl-dev libxml2-dev
-
-RUN Rscript -e 'install.packages(\"mlflow\")'
-
-{custom_setup_steps}
-{entry_point}
-"
-
 #' Build a MLflow Docker image
 #'
 #' Build a MLflow Docker image that will an RFunc MLflow model
@@ -169,9 +125,11 @@ build_docker_image <- function(image_name,
       custom_setup_steps_hook(tmp)
     })
   dockerfile <- "Dockerfile"
+  dockerfile_template <- read_template_file("DOCKERFILE_TEMPLATE")
+
   writeLines(
     glue::glue(
-      .dockerfile_template,
+      dockerfile_template,
       install_mlflow = install_mlflow,
       custom_setup_steps = custom_setup_steps,
       entry_point = entry_point
@@ -190,39 +148,13 @@ mlflow_docker_installation_steps <- function(dockerfile_context_dir,
                                              mlflow_version) {
   if (!is.null(mlflow_home)) {
     mlflow_dir <- copy_project(src = mlflow_home, dst = dockerfile_context_dir)
+    template <- read_template_file("COPY_MLFLOW_DIR_TEMPLATE")
 
-    glue::glue(
-      "
-      COPY {mlflow_dir} /opt/mlflow
-      RUN pip install /opt/mlflow
-      RUN cd /opt/mlflow/mlflow/java/scoring && \\
-        mvn --batch-mode package -DskipTests && \\
-        mkdir -p /opt/java/jars && \\
-        mv /opt/mlflow/mlflow/java/scoring/target/ \\
-          mlflow-scoring-*-with-dependencies.jar /opt/java/jars
-      ",
-      mlflow_dir = mlflow_dir
-    )
+    glue::glue(template, mlflow_dir = mlflow_dir)
   } else {
-    glue::glue(
-      "
-      RUN pip install mlflow=={version}
-      RUN pip install gunicorn[gevent]
-      RUN mvn \\
-        --batch-mode dependency:copy \\
-        -Dartifact=org.mlflow:mlflow-scoring:{version}:pom \\
-        -DoutputDirectory=/opt/java
-      RUN mvn \\
-        --batch-mode dependency:copy \\
-        -Dartifact=org.mlflow:mlflow-scoring:{version}:jar \\
-        -DoutputDirectory=/opt/java/jars
-      RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml
-      RUN cd /opt/java && mvn \\
-        --batch-mode dependency:copy-dependencies \\
-        -DoutputDirectory=/opt/java/jars
-      ",
-      version = mlflow_version
-    )
+    template <- read_template_file("INSTALL_MLFLOW_TEMPLATE")
+
+    glue::glue(template, version = mlflow_version)
   }
 }
 
@@ -272,4 +204,11 @@ copy_project <- function(src, dst) {
   )
 
   mlflow_dir
+}
+
+read_template_file <- function(template) {
+  paste0(
+    readLines(system.file(template, package = "mlflow")),
+    collapse = "\n"
+  )
 }
