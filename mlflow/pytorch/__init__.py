@@ -32,11 +32,13 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
+_TORCH_STATE_DICT_FILE_NAME = 'state_dict.pth'
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
@@ -285,6 +287,7 @@ def log_model(
     )
 
 
+@experimental
 def log_state_dict(state_dict, artifact_path, pickle_module=None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
@@ -359,6 +362,7 @@ def log_state_dict(state_dict, artifact_path, pickle_module=None, **kwargs):
         mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
 
 
+@experimental
 def save_state_dict(state_dict, path, pickle_module=None, **kwargs):
     """
     Save the model as state dict to a path on the local file system
@@ -381,7 +385,7 @@ def save_state_dict(state_dict, path, pickle_module=None, **kwargs):
     with open(pickle_module_path, "w") as f:
         f.write(pickle_module.__name__)
 
-    model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_path = os.path.join(model_data_path, _TORCH_STATE_DICT_FILE_NAME)
     torch.save(state_dict, model_path, pickle_module=pickle_module, **kwargs)
 
 
@@ -693,6 +697,7 @@ def _load_model(path, **kwargs):
             return torch.jit.load(model_path)
 
 
+@experimental
 def load_state_dict(model_uri):
     """
     Load a PyTorch model state dict from a local file or a run.
@@ -715,7 +720,7 @@ def load_state_dict(model_uri):
     import torch
 
     model_path = _get_model_artifact_path(model_uri)
-    model_path = os.path.join(model_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_path = os.path.join(model_path, _TORCH_STATE_DICT_FILE_NAME)
     state_dict = torch.load(model_path)
     return state_dict
 
