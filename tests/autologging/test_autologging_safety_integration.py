@@ -22,6 +22,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.xgboost: "xgboost",
     mlflow.lightgbm: "lightgbm",
     mlflow.gluon: "mxnet.gluon",
+    mlflow.spark: "spark",
 }
 
 
