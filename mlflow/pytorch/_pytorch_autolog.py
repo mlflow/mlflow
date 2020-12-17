@@ -35,13 +35,18 @@ every_n_epoch = 1
 @rank_zero_only
 def _create_patch_fit(log_every_n_epoch=1, log_models=True):
     """
-    Enable automatic logging from pytorch to MLflow.
-    Logs loss and any other metrics specified in the fit
-    function, and optimizer data as parameters. Model checkpoints
-    are logged as artifacts and pytorch model is stored under `model` directory.
+    Creates a patch implementation of `pytorch_lightning.Trainer.fit` which enables logging the
+    following parameters, metrics and artifacts.
 
-    MLflow will also log the parameters of the
-    `EarlyStoppingCallback <https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html>`
+    - Training epochs
+    - Optimizer parameters
+    - `EarlyStoppingCallback`_ parameters
+    - Metrics stored in `trainer.callback_metrics`
+    - Model checkpoints
+    - Trained model
+
+    .. _EarlyStoppingCallback:
+        https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
 
     :param log_every_n_epoch: parameter to log metrics once in `n` epoch. By default, metrics
                        are logged after every epoch.
