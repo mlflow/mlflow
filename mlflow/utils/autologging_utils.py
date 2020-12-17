@@ -6,6 +6,7 @@ import warnings
 import logging
 import time
 import contextlib
+from contextlib import contextmanager
 from abc import abstractmethod
 
 import mlflow
@@ -508,6 +509,29 @@ class PatchFunction:
                 raise e
 
 
+class _AutologgingSessionManager:
+    _session = None
+
+    @classmethod
+    @contextmanager
+    def start_session(cls, integration):
+        try:
+            cls._session = integration
+            if cls._session is None:
+                cls._session = integration
+            yield integration
+        finally:
+            cls.end_session()
+
+    @classmethod
+    def active_session(cls):
+        return cls._session
+
+    @classmethod
+    def end_session(cls):
+        cls._session = None
+
+
 def with_managed_run(patch_function, tags=None):
     """
     Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
@@ -583,8 +607,8 @@ def safe_patch(
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging
-    purposes, replacing its implementation with an error-safe copy of the specified patch
-    `function` with the following error handling behavior:
+    purposes, preceding its implementation with an error-safe copy of the specified patch
+    `patch_function` with the following error handling behavior:
 
         - Exceptions thrown from the underlying / original function
           (`<destination>.<function_name>`) are propagated to the caller.
@@ -643,6 +667,15 @@ def safe_patch(
         if autologging_is_disabled(autologging_integration):
             return original(*args, **kwargs)
 
+        # Whether or not to exclude auto-autologged content from content explicitly logged via
+        # `mlflow.start_run()`
+        exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+
+        active_run = mlflow.active_run()
+
+        if active_run and exclusive and not _AutologgingSessionManager.active_session():
+            return original(*args, **kwargs)
+
         # Whether or not the original / underlying function has been called during the
         # execution of patched code
         original_has_been_called = False
@@ -655,68 +688,72 @@ def safe_patch(
         # The active MLflow run (if any) associated with patch code execution
         patch_function_run_for_testing = None
 
-        try:
+        with _AutologgingSessionManager.start_session(autologging_integration):
+            try:
 
-            def call_original(*og_args, **og_kwargs):
-                try:
-                    if _is_testing():
-                        _validate_args(args, kwargs, og_args, og_kwargs)
-                        # By the time `original` is called by the patch implementation, we assume
-                        # that either: 1. the patch implementation has already created an MLflow
-                        # run or 2. the patch code will not create an MLflow run during the
-                        # current execution. Here, we capture a reference to the active run, which
-                        # we will use later on to determine whether or not the patch
-                        # implementation created a run and perform validation if necessary
-                        nonlocal patch_function_run_for_testing
-                        patch_function_run_for_testing = mlflow.active_run()
+                def call_original(*og_args, **og_kwargs):
+                    try:
+                        if _is_testing():
+                            _validate_args(args, kwargs, og_args, og_kwargs)
+                            # By the time `original` is called by the patch implementation, we
+                            # assume that either: 1. the patch implementation has already
+                            # created an MLflow run or 2. the patch code will not create an
+                            # MLflow run during the current execution. Here, we capture a
+                            # reference to the active run, which we will use later on to
+                            # determine whether or not the patch implementation created
+                            # a run and perform validation if necessary
+                            nonlocal patch_function_run_for_testing
+                            patch_function_run_for_testing = mlflow.active_run()
 
-                    nonlocal original_has_been_called
-                    original_has_been_called = True
+                        nonlocal original_has_been_called
+                        original_has_been_called = True
 
-                    nonlocal original_result
-                    original_result = original(*og_args, **og_kwargs)
-                    return original_result
-                except Exception:  # pylint: disable=broad-except
-                    nonlocal failed_during_original
-                    failed_during_original = True
+                        nonlocal original_result
+                        original_result = original(*og_args, **og_kwargs)
+                        return original_result
+                    except Exception:  # pylint: disable=broad-except
+                        nonlocal failed_during_original
+                        failed_during_original = True
+                        raise
+
+                # Apply the name, docstring, and signature of `original` to `call_original`.
+                # This is important because several autologging patch implementations inspect
+                # the signature of the `original` argument during execution
+                call_original = _update_wrapper_extended(call_original, original)
+
+                if patch_is_class:
+                    patch_function.call(call_original, *args, **kwargs)
+                else:
+                    patch_function(call_original, *args, **kwargs)
+
+            except Exception as e:  # pylint: disable=broad-except
+                # Exceptions thrown during execution of the original function should be propagated
+                # to the caller. Additionally, exceptions encountered during test mode should be
+                # reraised to detect bugs in autologging implementations
+                if failed_during_original or _is_testing():
                     raise
 
-            # Apply the name, docstring, and signature of `original` to `call_original`.
-            # This is important because several autologging patch implementations inspect
-            # the signature of the `original` argument during execution
-            call_original = _update_wrapper_extended(call_original, original)
-
-            if patch_is_class:
-                patch_function.call(call_original, *args, **kwargs)
-            else:
-                patch_function(call_original, *args, **kwargs)
-
-        except Exception as e:  # pylint: disable=broad-except
-            # Exceptions thrown during execution of the original function should be propagated
-            # to the caller. Additionally, exceptions encountered during test mode should be
-            # reraised to detect bugs in autologging implementations
-            if failed_during_original or _is_testing():
-                raise
-
-            _logger.warning(
-                "Encountered unexpected error during %s autologging: %s", autologging_integration, e
-            )
-
-        if _is_testing() and not preexisting_run_for_testing:
-            # If an MLflow run was created during the execution of patch code, verify that
-            # it is no longer active and that it contains expected autologging tags
-            assert not mlflow.active_run(), (
-                "Autologging integration %s leaked an active run" % autologging_integration
-            )
-            if patch_function_run_for_testing:
-                _validate_autologging_run(
-                    autologging_integration, patch_function_run_for_testing.info.run_id
+                _logger.warning(
+                    "Encountered unexpected error during %s autologging: %s",
+                    autologging_integration,
+                    e,
                 )
 
-        if original_has_been_called:
-            return original_result
-        else:
-            return original(*args, **kwargs)
+            if _is_testing() and not preexisting_run_for_testing:
+                # If an MLflow run was created during the execution of patch code, verify that
+                # it is no longer active and that it contains expected autologging tags
+                assert not mlflow.active_run(), (
+                    "Autologging integration %s leaked an active run" % autologging_integration
+                )
+                if patch_function_run_for_testing:
+                    _validate_autologging_run(
+                        autologging_integration, patch_function_run_for_testing.info.run_id
+                    )
+
+            if original_has_been_called:
+                return original_result
+            else:
+                return original(*args, **kwargs)
 
     wrap_patch(destination, function_name, safe_patch_function)
 

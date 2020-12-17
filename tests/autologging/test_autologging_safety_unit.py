@@ -1080,3 +1080,107 @@ def test_try_mlflow_log_propagates_exceptions_in_test_mode():
 
     with pytest.raises(Exception, match="bad implementation"):
         try_mlflow_log(throwing_function)
+
+
+def test_session_manager_creates_session_before_patch_executes(
+    patch_destination, test_autologging_integration
+):
+    is_session_active = None
+
+    def check_session_manager_status(original):
+        nonlocal is_session_active
+        is_session_active = autologging_utils._AutologgingSessionManager.active_session()
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", check_session_manager_status)
+    patch_destination.fn()
+    assert is_session_active is not None
+
+
+def test_session_manager_exits_session_after_patch_executes(
+    patch_destination, test_autologging_integration
+):
+    def patch_fn(original):
+        assert autologging_utils._AutologgingSessionManager.active_session() is not None
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_fn)
+    patch_destination.fn()
+    assert autologging_utils._AutologgingSessionManager.active_session() is None
+
+
+def test_session_manager_exits_session_if_error_in_patch(
+    patch_destination, test_autologging_integration
+):
+    def patch_fn(original):
+        raise Exception("Exception that should stop autologging session")
+
+    # If use safe_patch to patch, exception would not come from original fn and so would be logged
+    patch_destination.fn = patch_fn
+    with pytest.raises(Exception):
+        patch_destination.fn()
+
+    assert autologging_utils._AutologgingSessionManager.active_session() is None
+
+
+def test_original_fn_runs_if_patch_should_not_be_applied(patch_destination):
+    patch_impl_call_count = 0
+
+    @autologging_integration("test_respects_exclusive")
+    def autolog(disable=False, exclusive=False):
+        def patch_impl(original, *args, **kwargs):
+            nonlocal patch_impl_call_count
+            patch_impl_call_count += 1
+            return original(*args, **kwargs)
+
+        safe_patch("test_respects_exclusive", patch_destination, "fn", patch_impl)
+
+    autolog(exclusive=True)
+    with mlflow.start_run():
+        patch_destination.fn()
+    assert patch_impl_call_count == 0
+    assert patch_destination.fn_call_count == 1
+
+
+def test_patch_runs_if_patch_should_be_applied():
+    patch_impl_call_count = 0
+
+    class TestPatchWithNewFnObj:
+        def __init__(self):
+            self.fn_call_count = 0
+
+        def fn(self, *args, **kwargs):
+            self.fn_call_count += 1
+            return PATCH_DESTINATION_FN_DEFAULT_RESULT
+
+        def new_fn(self, *args, **kwargs):
+            with mlflow.start_run():
+                self.fn()
+
+    patch_obj = TestPatchWithNewFnObj()
+
+    @autologging_integration("test_respects_exclusive")
+    def autolog(disable=False, exclusive=False):
+        def patch_impl(original, *args, **kwargs):
+            nonlocal patch_impl_call_count
+            patch_impl_call_count += 1
+
+        def new_fn_patch(original, *args, **kwargs):
+            pass
+
+        safe_patch("test_respects_exclusive", patch_obj, "fn", patch_impl)
+        safe_patch("test_respects_exclusive", patch_obj, "new_fn", new_fn_patch)
+
+    # Should patch if no active run
+    autolog()
+    patch_obj.fn()
+    assert patch_impl_call_count == 1
+
+    # Should patch if active run, but not exclusive
+    autolog(exclusive=False)
+    with mlflow.start_run():
+        patch_obj.fn()
+    assert patch_impl_call_count == 2
+
+    # Should patch if active run and exclusive, but active autologging session
+    autolog(exclusive=True)
+    patch_obj.new_fn()
+    assert patch_impl_call_count == 3
