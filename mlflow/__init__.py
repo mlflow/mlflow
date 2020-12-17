@@ -74,7 +74,7 @@ if sys.version_info[:2] == _deprecated_version:
         "continue to work without modification, but Python {ver} users will no longer "
         "get access to the latest MLflow features and bugfixes. We recommend that "
         "you upgrade to Python > {ver} - see https://www.python.org/downloads".format(
-            ver=".".join(_deprecated_version)
+            ver=".".join(str(x) for x in _deprecated_version)
         ),
         DeprecationWarning,
     )
