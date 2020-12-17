@@ -33,6 +33,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     autologging_integration,
     safe_patch,
+    get_autologging_config,
 )
 from mlflow.utils.validation import _is_numeric
 
@@ -312,14 +313,27 @@ class AutologHelpers:
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(disable=False):  # pylint: disable=unused-argument
+def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     """
-    Enables automatic logging from statsmodels to MLflow. Logs the following.
+    Enables (or disables) and configures automatic logging from statsmodels to MLflow.
+    Logs the following:
 
     - results metrics returned by method `fit` of any subclass of statsmodels.base.model.Model
     - trained model.
+
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables the statsmodels autologging integration. If ``False``,
+                    enables the statsmodels autologging integration.
     """
     import statsmodels
+
+    # Autologging depends on the exploration of the models class tree within the
+    # `statsmodels.base.models` module. In order to load / access this module, the
+    # `statsmodels.api` module must be imported
+    import statsmodels.api
 
     def find_subclasses(klass):
         """
@@ -454,7 +468,8 @@ def autolog(disable=False):  # pylint: disable=unused-argument
 
             if should_autolog:
                 # Log the model
-                try_mlflow_log(log_model, model, artifact_path="model")
+                if get_autologging_config(FLAVOR_NAME, "log_models", True):
+                    try_mlflow_log(log_model, model, artifact_path="model")
 
                 # Log the most common metrics
                 if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
