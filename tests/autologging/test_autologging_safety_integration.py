@@ -23,6 +23,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.lightgbm: "lightgbm",
     mlflow.gluon: "mxnet.gluon",
     mlflow.fastai: "fastai",
+    mlflow.statsmodels: "statsmodels",
 }
 
 
