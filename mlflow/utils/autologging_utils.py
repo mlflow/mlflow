@@ -444,7 +444,7 @@ ExceptionSafeClass = _exception_safe_class_factory(type)
 # class AbstractClass(abc.ABC):
 #    ...
 #
-# class MyClass(AbstractClass, metaclass=ExceptionSafeClass):
+# class DerivedClass(AbstractClass, metaclass=ExceptionSafeClass):
 #    ...
 # ```
 #
