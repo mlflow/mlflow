@@ -217,6 +217,10 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.5"
+      - name: Install dependecies
+        run: |
+          pip install -e .
+          pip install pytest
       - name: Run tests
         run: |
           pytest tests/test_deprecate_python.py --verbose
