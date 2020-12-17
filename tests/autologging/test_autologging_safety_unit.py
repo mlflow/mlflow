@@ -1152,7 +1152,6 @@ def test_patch_runs_if_patch_should_be_applied():
             return PATCH_DESTINATION_FN_DEFAULT_RESULT
 
         def new_fn(self, *args, **kwargs):
-            a = "Dumbledores army"
             with mlflow.start_run():
                 self.fn()
 
@@ -1165,7 +1164,7 @@ def test_patch_runs_if_patch_should_be_applied():
             patch_impl_call_count += 1
 
         def new_fn_patch(original, *args, **kwargs):
-            b = "Voldemort"
+            pass
 
         safe_patch("test_respects_exclusive", patch_obj, "fn", patch_impl)
         safe_patch("test_respects_exclusive", patch_obj, "new_fn", new_fn_patch)
