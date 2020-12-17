@@ -32,6 +32,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
     mlflow.gluon: "mxnet.gluon",
+    mlflow.spark: "pyspark",
 }
 
 
@@ -43,6 +44,9 @@ def import_integration_libraries():
 
 @pytest.fixture(autouse=True)
 def disable_autologging_at_test_end():
+    # The yeild statement is to insure that code below is executed as teardown code.
+    # This will avoid bleeding of an active autologging session from test suite.
+    yield
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=True)
 
