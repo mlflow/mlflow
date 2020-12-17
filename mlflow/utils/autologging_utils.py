@@ -417,11 +417,11 @@ def _exception_safe_class_factory(base_class):
         Metaclass that wraps all functions defined on the specified class with broad error handling
         logic to guard against unexpected errors during autlogging.
 
-        Rationale: Patched autologging functions commonly pass additional class instances as arguments
-        to their underlying original training routines; for example, Keras autologging constructs
-        a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`. To prevent errors
-        encountered during method execution within such classes from disrupting model training,
-        this metaclass wraps all class functions in a broad try / catch statement.
+        Rationale: Patched autologging functions commonly pass additional class instances as
+        arguments to their underlying original training routines; for example, Keras autologging
+        constructs a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`.
+        To prevent errors encountered during method execution within such classes from disrupting
+        model training, this metaclass wraps all class functions in a broad try / catch statement.
 
         Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
         as these are not always Python callables and are difficult to wrap
