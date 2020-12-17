@@ -33,8 +33,10 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     try_mlflow_log,
     log_fn_args_as_params,
-    wrap_patch,
+    safe_patch,
     batch_metrics_logger,
+    autologging_integration,
+    ExceptionSafeClass,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -282,7 +284,8 @@ def load_model(model_uri):
 
 
 @experimental
-def autolog(log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -301,7 +304,7 @@ def autolog(log_models=True):
     from fastai.callbacks import EarlyStoppingCallback, OneCycleScheduler
 
     def getFastaiCallback(metrics_logger, learner):
-        class __MLflowFastaiCallback(LearnerCallback):
+        class __MLflowFastaiCallback(LearnerCallback, metaclass=ExceptionSafeClass):
             """
             Callback for auto-logging metrics and parameters.
             Records model structural information as params when training begins
@@ -395,12 +398,6 @@ def autolog(log_models=True):
                 return
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
         log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
 
         callbacks = [cb(self) for cb in self.callback_fns] + (self.callbacks or [])
@@ -429,14 +426,10 @@ def autolog(log_models=True):
 
             result = original(self, *args, **kwargs)
 
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
-
         return result
 
-    def fit(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(Learner, "fit")
+    def fit(original, self, *args, **kwargs):
         unlogged_params = ["self", "callbacks", "learner"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 3)
 
-    wrap_patch(Learner, "fit", fit)
+    safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True)
