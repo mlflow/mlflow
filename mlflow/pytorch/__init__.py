@@ -831,14 +831,7 @@ def load_state_dict(state_dict_uri, **kwargs):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(
-    log_every_n_epoch=1,
-    log_models=True,
-    disable=False,
-    exclusive=False,
-    disable_for_unsupported_versions=False,
-    silent=False,
-):  # pylint: disable=unused-argument
+def autolog(log_every_n_epoch=1, log_models=True, disable=False):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
@@ -863,17 +856,8 @@ def autolog(
                        are logged after every epoch.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
-                    If ``False``, enables the PyTorch Lightning autologging integration.
-    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
-                      If ``False``, autologged content is logged to the active fluent run,
-                      which may be user-created.
-    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
-                      pytorch and pytorch-lightning that have not been tested against this version
-                      of the MLflow client or are incompatible.
-    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
-                   Lightning autologging. If ``False``, show all events and warnings during
-                   PyTorch Lightning autologging.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
 
     .. code-block:: python
         :caption: Example

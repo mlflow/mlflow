@@ -1,5 +1,6 @@
 # pylint: disable=unused-argument
 
+import abc
 import copy
 import inspect
 import os
@@ -17,6 +18,7 @@ from mlflow.utils.autologging_utils import (
     exception_safe_function,
     AutologgingEventLogger,
     ExceptionSafeClass,
+    ExceptionSafeAbstractClass,
     PatchFunction,
     with_managed_run,
     is_testing,
@@ -755,10 +757,13 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     assert exc.value == exc_to_throw
 
 
-def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
+@pytest.mark.parametrize(
+    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
+)
+def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(baseclass, metaclass):
     assert not autologging_utils._is_testing()
 
-    class NonThrowingClass(metaclass=ExceptionSafeClass):
+    class NonThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
             return 10
 
@@ -766,7 +771,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
 
     exc_to_throw = Exception("function error")
 
-    class ThrowingClass(metaclass=ExceptionSafeClass):
+    class ThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
             raise exc_to_throw
 
@@ -781,10 +786,13 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-def test_exception_safe_class_exhibits_expected_behavior_in_test_mode():
+@pytest.mark.parametrize(
+    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
+)
+def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass, metaclass):
     assert autologging_utils._is_testing()
 
-    class NonThrowingClass(metaclass=ExceptionSafeClass):
+    class NonThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
             return 10
 
@@ -792,7 +800,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_test_mode():
 
     exc_to_throw = Exception("function error")
 
-    class ThrowingClass(metaclass=ExceptionSafeClass):
+    class ThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
             raise exc_to_throw
 
@@ -1096,13 +1104,18 @@ def test_validate_args_throws_when_extra_args_are_not_exception_safe():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes():
+@pytest.mark.parametrize(
+    "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
+)
+def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_classes(
+    baseclass, metaclass
+):
     user_call_args = (1, "b", ["c"])
     user_call_kwargs = {
         "foo": ["bar"],
     }
 
-    class Safe(metaclass=ExceptionSafeClass):
+    class Safe(baseclass, metaclass=metaclass):
         pass
 
     autologging_call_args = copy.deepcopy(user_call_args)
