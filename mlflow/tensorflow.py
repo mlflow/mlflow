@@ -37,6 +37,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
     try_mlflow_log,
     log_fn_args_as_params,
     wrap_patch,
@@ -774,7 +775,8 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
 
 @experimental
-def autolog(every_n_iter=100, log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(every_n_iter=100, log_models=True, disable=False):
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -830,6 +832,8 @@ def autolog(every_n_iter=100, log_models=True):
                                   at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
     """
     import tensorflow
 
