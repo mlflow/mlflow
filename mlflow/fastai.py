@@ -297,6 +297,8 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the Fastai autologging integration. If ``False``,
+                    enables the Fastai autologging integration.
     """
     from fastai.basic_train import LearnerCallback, Learner
     from fastai.callbacks.hooks import model_summary, layers_info
