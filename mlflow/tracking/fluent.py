@@ -1314,7 +1314,7 @@ def autolog(
             try:
                 needed_params = list(inspect.signature(autolog_fn).parameters.keys())
                 filtered = {k: v for k, v in locals_copy if k in needed_params}
-            except ValueError:
+            except Exception:  # pylint: disable=broad-except
                 filtered = {}
 
             autolog_fn(**filtered)
