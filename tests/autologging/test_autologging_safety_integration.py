@@ -118,7 +118,7 @@ def test_autolog_respects_exclusive_flag(setup_keras_model):
 def test_autolog_respects_disable_flag(setup_keras_model):
     x, y, model = setup_keras_model
 
-    mlflow.keras.autolog(disable=True)
+    mlflow.keras.autolog(disable=True, exclusive=False)
     run = mlflow.start_run()
     model.fit(x, y, epochs=2, batch_size=10)
     mlflow.end_run()
@@ -128,7 +128,7 @@ def test_autolog_respects_disable_flag(setup_keras_model):
     assert not params
     assert all("mlflow." in key for key in tags)
 
-    mlflow.keras.autolog(disable=False)
+    mlflow.keras.autolog(disable=False, exclusive=False)
     run = mlflow.start_run()
     model.fit(x, y, epochs=2, batch_size=10)
     mlflow.end_run()
