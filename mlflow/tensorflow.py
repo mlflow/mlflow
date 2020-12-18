@@ -19,7 +19,6 @@ import tempfile
 from collections import namedtuple
 import pandas
 from distutils.version import LooseVersion
-from contextlib import contextmanager
 
 import mlflow
 import mlflow.keras
