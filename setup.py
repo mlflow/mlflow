@@ -54,7 +54,7 @@ setup(
         # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
         "sqlparse>=0.3.1",
         # Required to run the MLflow server against SQL-backed storage
-        "sqlalchemy>=1.3.21",
+        "sqlalchemy",
         "prometheus-flask-exporter",
     ],
     extras_require={
