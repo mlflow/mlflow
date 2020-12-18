@@ -16,16 +16,11 @@ import ParallelCoordinatesPlotPanel from '../../experiment-tracking/components/P
 import { modelListPageRoute, getModelPageRoute, getModelVersionPageRoute } from '../routes';
 import { css } from 'emotion';
 import _ from 'lodash';
-import {
-  getModelVersionSchemaInputsByIndex,
-  getModelVersionSchemaInputsByName,
-  getModelVersionSchemaOutputsByIndex,
-  getModelVersionSchemaOutputsByName,
-} from '../reducers';
+import { getModelVersionSchemas } from '../reducers';
 
 const { TabPane } = Tabs;
 
-export class CompareModelVersionsView extends Component {
+export class CompareModelVersionsViewImpl extends Component {
   static propTypes = {
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
     // Array that contains whether or not corresponding runInfo is valid.
@@ -42,10 +37,10 @@ export class CompareModelVersionsView extends Component {
     runDisplayNames: PropTypes.arrayOf(PropTypes.string).isRequired,
     modelName: PropTypes.string.isRequired,
     versionsToRuns: PropTypes.object.isRequired,
-    inputsListByName: PropTypes.arrayOf(PropTypes.array).isRequired,
-    inputsListByIndex: PropTypes.arrayOf(PropTypes.array).isRequired,
-    outputsListByName: PropTypes.arrayOf(PropTypes.array).isRequired,
-    outputsListByIndex: PropTypes.arrayOf(PropTypes.array).isRequired,
+    inputsListByName: PropTypes.arrayOf(Array).isRequired,
+    inputsListByIndex: PropTypes.arrayOf(Array).isRequired,
+    outputsListByName: PropTypes.arrayOf(Array).isRequired,
+    outputsListByIndex: PropTypes.arrayOf(Array).isRequired,
   };
 
   state = {
@@ -460,6 +455,32 @@ export class CompareModelVersionsView extends Component {
   }
 }
 
+const getModelVersionSchemaColumnsByIndex = (columns) => {
+  const columnsByIndex = {};
+  columns.forEach((column, index) => {
+    const name = column.name ? column.name : '';
+    const type = column.type ? column.type : '';
+    columnsByIndex[index] = {
+      key: index,
+      value: name !== '' && type !== '' ? `${name}: ${type}` : `${name}${type}`,
+    };
+  });
+  return columnsByIndex;
+};
+
+const getModelVersionSchemaColumnsByName = (columns) => {
+  const columnsByName = {};
+  columns.forEach((column) => {
+    const name = column.name ? column.name : '-';
+    const type = column.type ? column.type : '-';
+    columnsByName[name] = {
+      key: name,
+      value: type,
+    };
+  });
+  return columnsByName;
+};
+
 const mapStateToProps = (state, ownProps) => {
   const runInfos = [];
   const runInfosValid = [];
@@ -498,18 +519,11 @@ const mapStateToProps = (state, ownProps) => {
         paramLists.push([]);
         runNames.push('Invalid Run');
       }
-      inputsListByIndex.push(
-        Object.values(getModelVersionSchemaInputsByIndex(state, modelName, modelVersion)),
-      );
-      inputsListByName.push(
-        Object.values(getModelVersionSchemaInputsByName(state, modelName, modelVersion)),
-      );
-      outputsListByIndex.push(
-        Object.values(getModelVersionSchemaOutputsByIndex(state, modelName, modelVersion)),
-      );
-      outputsListByName.push(
-        Object.values(getModelVersionSchemaOutputsByName(state, modelName, modelVersion)),
-      );
+      const schema = getModelVersionSchemas(state, modelName, modelVersion);
+      inputsListByIndex.push(Object.values(getModelVersionSchemaColumnsByIndex(schema.inputs)));
+      inputsListByName.push(Object.values(getModelVersionSchemaColumnsByName(schema.inputs)));
+      outputsListByIndex.push(Object.values(getModelVersionSchemaColumnsByIndex(schema.outputs)));
+      outputsListByName.push(Object.values(getModelVersionSchemaColumnsByName(schema.outputs)));
     }
   }
 
@@ -622,4 +636,4 @@ const compareModelVersionsViewClassName = css({
   },
 });
 
-export default connect(mapStateToProps)(CompareModelVersionsView);
+export const CompareModelVersionsView = connect(mapStateToProps)(CompareModelVersionsViewImpl);

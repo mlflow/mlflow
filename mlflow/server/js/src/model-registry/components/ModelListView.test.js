@@ -7,6 +7,12 @@ import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
 import { ModelRegistryDocUrl } from '../../common/constants';
 import { Table, Input } from 'antd';
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
+import { Provider } from 'react-redux';
+
+const mockStore = configureStore([thunk, promiseMiddleware()]);
 
 const { Search } = Input;
 
@@ -16,6 +22,7 @@ describe('ModelListView', () => {
   let wrapper;
   let instance;
   let minimalProps;
+  let minimalStore;
 
   beforeEach(() => {
     minimalProps = {
@@ -29,7 +36,10 @@ describe('ModelListView', () => {
       onClickNext: jest.fn(),
       onClickPrev: jest.fn(),
       onClickSortableColumn: jest.fn(),
+      onSetMaxResult: jest.fn(),
+      getMaxResultValue: jest.fn().mockReturnValue(10),
     };
+    minimalStore = mockStore({});
   });
 
   test('should render with minimal props without exploding', () => {
@@ -37,12 +47,58 @@ describe('ModelListView', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test('should show correct empty message', () => {
-    wrapper = mount(<ModelListView {...minimalProps} />);
-    expect(wrapper.find(`a[href="${ModelRegistryDocUrl}"]`)).toHaveLength(1);
+  test('should display onBoarding helper', () => {
+    wrapper = shallow(<ModelListView {...minimalProps} />);
+    expect(wrapper.find('Alert').length).toBe(1);
+  });
 
-    wrapper.setProps({ searchInput: 'xyz' });
+  test('should not display onBoarding helper if disabled', () => {
+    wrapper = shallow(<ModelListView {...minimalProps} />);
+    instance = wrapper.instance();
+    instance.setState({
+      showOnboardingHelper: false,
+    });
+    expect(wrapper.find('Alert').length).toBe(0);
+  });
+
+  test('should show correct link in onboarding helper', () => {
+    wrapper = mount(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelListView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    expect(wrapper.find(`a[href="${ModelRegistryDocUrl}"]`)).toHaveLength(1);
+  });
+
+  test('should render correct information if table is empty', () => {
+    wrapper = mount(
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelListView {...minimalProps} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    expect(wrapper.find(ANTD_TABLE_PLACEHOLDER_CLS).text()).toBe(
+      'No models yet. Create a model to get started.',
+    );
+
+    wrapper.setProps({
+      children: (
+        <BrowserRouter>
+          <ModelListView {...{ ...minimalProps, searchInput: 'xyz' }} />
+        </BrowserRouter>
+      ),
+    });
     expect(wrapper.find(ANTD_TABLE_PLACEHOLDER_CLS).text()).toBe('No models found.');
+
+    instance = wrapper.find(ModelListView).instance();
+    instance.setState({ lastNavigationActionWasClickPrev: true });
+    expect(wrapper.find(ANTD_TABLE_PLACEHOLDER_CLS).text()).toBe(
+      'No models found for the page. ' +
+        'Please refresh the page as the underlying data may have changed significantly.',
+    );
   });
 
   test('should render latest version correctly', () => {
@@ -55,9 +111,11 @@ describe('ModelListView', () => {
     ];
     const props = { ...minimalProps, models };
     wrapper = mount(
-      <BrowserRouter>
-        <ModelListView {...props} />
-      </BrowserRouter>,
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelListView {...props} />
+        </BrowserRouter>
+      </Provider>,
     );
     expect(wrapper.find('td.latest-version').text()).toBe('Version 3');
     expect(wrapper.find('td.latest-staging').text()).toBe('Version 2');
@@ -72,9 +130,11 @@ describe('ModelListView', () => {
     ];
     const props = { ...minimalProps, models };
     wrapper = mount(
-      <BrowserRouter>
-        <ModelListView {...props} />
-      </BrowserRouter>,
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelListView {...props} />
+        </BrowserRouter>
+      </Provider>,
     );
     expect(wrapper.find('td.latest-version').text()).toBe('Version 1');
     expect(wrapper.find('td.latest-staging').text()).toBe('_');
@@ -105,9 +165,11 @@ describe('ModelListView', () => {
       orderByAsc: true,
     };
     wrapper = mount(
-      <BrowserRouter>
-        <ModelListView {...props} />
-      </BrowserRouter>,
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelListView {...props} />
+        </BrowserRouter>
+      </Provider>,
     );
 
     let table = wrapper.find(Table);
@@ -142,9 +204,11 @@ describe('ModelListView', () => {
       orderByAsc: false,
     };
     wrapper = mount(
-      <BrowserRouter>
-        <ModelListView {...props} />
-      </BrowserRouter>,
+      <Provider store={minimalStore}>
+        <BrowserRouter>
+          <ModelListView {...props} />
+        </BrowserRouter>
+      </Provider>,
     );
     table = wrapper.find(Table);
     // prop values look legit

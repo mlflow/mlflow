@@ -20,6 +20,7 @@ import {
   getSharedParamKeysByRunUuids,
   getAllParamKeysByRunUuids,
   getArtifactRootUri,
+  modelVersionsByRunUuid,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
@@ -36,6 +37,9 @@ import {
 } from '../actions';
 import { fulfilled, pending, rejected } from '../../common/utils/ActionUtils';
 import { deepFreeze } from '../../common/utils/TestUtils';
+import { mockModelVersionDetailed } from '../../model-registry/test-utils';
+import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
+import { Stages, ModelVersionStatus } from '../../model-registry/constants';
 
 describe('test experimentsById', () => {
   test('should set up initial state correctly', () => {
@@ -273,6 +277,116 @@ describe('test runInfosByUuid', () => {
       [removed.getRunUuid()]: removed,
       [replacedNew.getRunUuid()]: replacedNew,
       [newRun.getRunUuid()]: newRun,
+    });
+  });
+});
+
+describe('test modelVersionsByUuid', () => {
+  test('should set up initial state correctly', () => {
+    expect(modelVersionsByRunUuid(undefined, {})).toEqual({});
+  });
+
+  test('search api with no payload', () => {
+    expect(
+      runInfosByUuid(undefined, {
+        type: fulfilled(SEARCH_MODEL_VERSIONS),
+      }),
+    ).toEqual({});
+  });
+
+  test('searchModelVersionsApi correctly updates empty state', () => {
+    const runA = mockRunInfo('run01');
+    const runB = mockRunInfo('run02');
+    const mvA = mockModelVersionDetailed(
+      'model1',
+      2,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+      [],
+      undefined,
+      'run01',
+    );
+    const mvB = mockModelVersionDetailed(
+      'model2',
+      1,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+      [],
+      undefined,
+      'run02',
+    );
+    const state = undefined;
+    const action = {
+      type: fulfilled(SEARCH_MODEL_VERSIONS),
+      payload: {
+        model_versions: [mvA, mvB],
+      },
+    };
+    const new_state = deepFreeze(modelVersionsByRunUuid(state, action));
+    expect(new_state).not.toEqual(state);
+    expect(new_state).toEqual({
+      [runA.getRunUuid()]: [mvA],
+      [runB.getRunUuid()]: [mvB],
+    });
+  });
+
+  test('searchModelVersionsApi correctly updates state', () => {
+    const run1 = mockRunInfo('run01');
+    const run2 = mockRunInfo('run02');
+    const run3 = mockRunInfo('run03');
+    const mvA = mockModelVersionDetailed(
+      'model1',
+      2,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+      [],
+      undefined,
+      'run01',
+    );
+    const mvB = mockModelVersionDetailed(
+      'model2',
+      1,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+      [],
+      undefined,
+      'run02',
+    );
+    const mvC = mockModelVersionDetailed(
+      'model2',
+      1,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+      [],
+      undefined,
+      'run02',
+    );
+    const mvD = mockModelVersionDetailed(
+      'model2',
+      1,
+      Stages.PRODUCTION,
+      ModelVersionStatus.READY,
+      [],
+      undefined,
+      'run03',
+    );
+    const state = deepFreeze({
+      [run1.getRunUuid()]: [mvA],
+      [run2.getRunUuid()]: [mvB, mvC],
+    });
+    const action = {
+      type: fulfilled(SEARCH_MODEL_VERSIONS),
+      payload: {
+        model_versions: [mvA, mvB, mvD],
+      },
+    };
+    const new_state = modelVersionsByRunUuid(state, action);
+    // make sure the reducer did not modify the original state
+    expect(new_state).not.toEqual(state);
+    expect(new_state).toEqual({
+      [run1.getRunUuid()]: [mvA],
+      [run2.getRunUuid()]: [mvB],
+      [run3.getRunUuid()]: [mvD],
     });
   });
 });

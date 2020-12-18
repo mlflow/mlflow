@@ -10,6 +10,7 @@ const { Column } = Table;
 export class SchemaTable extends React.PureComponent {
   static propTypes = {
     schema: PropType.object,
+    defaultExpandAllRows: PropType.bool,
   };
 
   renderSchemaTable = (schemaData, schemaType) => {
@@ -47,8 +48,8 @@ export class SchemaTable extends React.PureComponent {
     schemaData.forEach((row, index) => {
       rowData[index] = {
         key: index,
-        name: row.name,
-        type: row.type,
+        name: row.name ? row.name : '-',
+        type: row.type ? row.type : '-',
       };
     });
     return rowData;
@@ -83,10 +84,12 @@ export class SchemaTable extends React.PureComponent {
     return (
       <div className={`${schemaTableClassName}`}>
         <Table
+          key='schema-table'
           className='outer-table'
           rowClassName='section-header-row'
           size='middle'
           pagination={false}
+          defaultExpandAllRows={this.props.defaultExpandAllRows}
           expandRowByClick
           expandedRowRender={(record) => record.table}
           expandIcon={({ expanded }) => (expanded ? minusIcon : plusIcon)}
