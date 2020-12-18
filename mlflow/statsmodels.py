@@ -15,7 +15,6 @@ statsmodels (native) format
 import os
 import yaml
 import logging
-from mlflow.utils import gorilla
 import numpy as np
 
 import mlflow
@@ -29,7 +28,13 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    log_fn_args_as_params,
+    autologging_integration,
+    safe_patch,
+    get_autologging_config,
+)
 from mlflow.utils.validation import _is_numeric
 
 import itertools
@@ -298,23 +303,34 @@ class _StatsmodelsModelWrapper:
 
 
 class AutologHelpers:
-    # monkey patching should be done only the first time the user calls autolog()
-    patching_accomplished = False
-
     # Autologging should be done only in the fit function called by the user, but not
     # inside other internal fit functions
     should_autolog = True
 
 
 @experimental
-def autolog():
+@autologging_integration(FLAVOR_NAME)
+def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
     """
-    Enables automatic logging from statsmodels to MLflow. Logs the following.
+    Enables (or disables) and configures automatic logging from statsmodels to MLflow.
+    Logs the following:
 
     - results metrics returned by method `fit` of any subclass of statsmodels.base.model.Model
     - trained model.
+
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables the statsmodels autologging integration. If ``False``,
+                    enables the statsmodels autologging integration.
     """
     import statsmodels
+
+    # Autologging depends on the exploration of the models class tree within the
+    # `statsmodels.base.models` module. In order to load / access this module, the
+    # `statsmodels.api` module must be imported
+    import statsmodels.api  # pylint: disable=unused-import
 
     def find_subclasses(klass):
         """
@@ -346,39 +362,6 @@ def autolog():
         except (IndexError, AttributeError):
             return False
 
-    def apply_gorilla_patch(patch, force_backup=True):
-        """
-        Apply a patch, even if the backup method already exists.
-        Adapted from gorilla.py in the gorilla package
-        """
-        settings = gorilla.Settings() if patch.settings is None else patch.settings
-
-        # When a hit occurs due to an attribute at the destination already existing
-        # with the patch's name, the existing attribute is referred to as 'target'.
-        try:
-            target = gorilla.get_attribute(patch.destination, patch.name)
-        except AttributeError:
-            pass
-        else:
-            if not settings.allow_hit:
-                raise RuntimeError(
-                    "An attribute named '%s' already exists at the destination "
-                    "'%s'. Set a different name through the patch object to avoid "
-                    "a name clash or set the setting 'allow_hit' to True to "
-                    "overwrite the attribute. In the latter case, it is "
-                    "recommended to also set the 'store_hit' setting to True in "
-                    "order to store the original attribute under a different "
-                    "name so it can still be accessed." % (patch.name, patch.destination.__name__)
-                )
-
-            if settings.store_hit:
-                original_name = gorilla._ORIGINAL_NAME % (patch.name,)
-                # This condition is different from gorilla.apply as it now includes force_backup
-                if force_backup or not hasattr(patch.destination, original_name):
-                    setattr(patch.destination, original_name, target)
-
-        setattr(patch.destination, patch.name, patch.obj)
-
     def patch_class_tree(klass):
         """
         Patches all subclasses that override any auto-loggable method via monkey patching using
@@ -390,8 +373,6 @@ def autolog():
         # TODO: add more autologgable methods here (e.g. fit_regularized, from_formula, etc)
         # See https://www.statsmodels.org/dev/api.html
         autolog_supported_func = {"fit": wrapper_fit}
-
-        glob_settings = gorilla.Settings(allow_hit=True, store_hit=True)
         glob_subclasses = set(find_subclasses(klass))
 
         # Create a patch for every method that needs to be patched, i.e. those
@@ -400,16 +381,14 @@ def autolog():
             # Link the patched function with the original via a local variable in the closure
             # to allow invoking superclass methods in the context of the subclass, and not
             # losing the trace of the true original method
-            gorilla.Patch(
-                c, method_name, wrapper_func(getattr(c, method_name)), settings=glob_settings
-            )
-            for c in glob_subclasses
+            (clazz, method_name, wrapper_func)
+            for clazz in glob_subclasses
             for (method_name, wrapper_func) in autolog_supported_func.items()
-            if overrides(c, method_name)
+            if overrides(clazz, method_name)
         ]
 
-        for p in patches_list:
-            apply_gorilla_patch(p)
+        for clazz, method_name, patch_impl in patches_list:
+            safe_patch(FLAVOR_NAME, clazz, method_name, patch_impl, manage_run=True)
 
     def prepend_to_keys(dictionary: dict, preffix="_"):
         """
@@ -473,61 +452,36 @@ def autolog():
 
         return results_dict
 
-    def wrapper_fit(original_method):
+    def wrapper_fit(original, self, *args, **kwargs):
 
-        """
-        External function to generate customized versions of fit with the proper value of the
-        original function (set externally in parameter). This enables a more accurate link
-        between the patched and the original function than using gorilla.get_original_attribute
-        in corner cases where `self` still refers to the subclass but the method we want to invoke
-        (in the context of the subclass) belongs to a superclass
+        should_autolog = False
+        if AutologHelpers.should_autolog:
+            AutologHelpers.should_autolog = False
+            should_autolog = True
 
-        :param original_method: the original function object that will be replaced by this function
-        :return: the new fit function, from which we will be doing a call to the original fit
-                 method at some point
-        """
+        try:
+            if should_autolog:
+                # This may generate warnings due to collisions in already-logged param names
+                log_fn_args_as_params(original, args, kwargs)
 
-        def fit(self, *args, **kwargs):
+            # training model
+            model = original(self, *args, **kwargs)
 
-            should_autolog = False
-            if AutologHelpers.should_autolog:
-                AutologHelpers.should_autolog = False
-                should_autolog = True
-
-            if not mlflow.active_run():
-                try_mlflow_log(mlflow.start_run)
-                auto_end_run = True
-            else:
-                auto_end_run = False
-
-            try:
-                # training model
-                model = original_method(self, *args, **kwargs)
-
-                if should_autolog:
-                    # Log the model
+            if should_autolog:
+                # Log the model
+                if get_autologging_config(FLAVOR_NAME, "log_models", True):
                     try_mlflow_log(log_model, model, artifact_path="model")
 
-                    # Log the most common metrics
-                    if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
-                        metrics_dict = results_to_dict(model)
-                        try_mlflow_log(mlflow.log_metrics, metrics_dict)
-                        # This may generate warnings due to collisions in already-logged param names
-                        log_fn_args_as_params(original_method, args, kwargs)
+                # Log the most common metrics
+                if isinstance(model, statsmodels.base.wrapper.ResultsWrapper):
+                    metrics_dict = results_to_dict(model)
+                    try_mlflow_log(mlflow.log_metrics, metrics_dict)
 
-                return model
+            return model
 
-            finally:
-                # Clean the shared flag for future calls in case it had been set here ...
-                if should_autolog:
-                    AutologHelpers.should_autolog = True
+        finally:
+            # Clean the shared flag for future calls in case it had been set here ...
+            if should_autolog:
+                AutologHelpers.should_autolog = True
 
-                # End current run if it had been created here ...
-                if auto_end_run:
-                    try_mlflow_log(mlflow.end_run)
-
-        return fit
-
-    if not AutologHelpers.patching_accomplished:
-        AutologHelpers.patching_accomplished = True
-        patch_class_tree(statsmodels.base.model.Model)
+    patch_class_tree(statsmodels.base.model.Model)

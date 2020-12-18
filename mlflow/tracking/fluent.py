@@ -19,6 +19,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
+from mlflow.utils.autologging_utils import _is_testing
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -111,7 +112,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return exc_type is None
 
 
-def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
+def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags=None):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -138,7 +139,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                           or the default experiment as defined by the tracking server.
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
-    :param nested: Controls whether run is nested in parent run. ``True`` creates a nest run.
+    :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+    :param tags: An optional dictionary of string keys and values to set as tags on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -224,7 +226,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
-        user_specified_tags = {}
+        user_specified_tags = tags or {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
@@ -1212,7 +1214,11 @@ def _get_experiment_id():
 
 
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for all supported integrations.
@@ -1239,6 +1245,9 @@ def autolog(
                        are also omitted when ``log_models`` is ``False``.
     :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
                     enables all supported autologging integrations.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
 
     .. code-block:: python
         :caption: Example
@@ -1307,20 +1316,27 @@ def autolog(
     }
 
     def setup_autologging(module):
-        autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
         try:
-            needed_params = list(inspect.signature(autolog_fn).parameters.keys())
-            filtered = {k: v for k, v in locals_copy if k in needed_params}
-        except ValueError:
-            filtered = {}
+            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+            try:
+                needed_params = list(inspect.signature(autolog_fn).parameters.keys())
+                filtered = {k: v for k, v in locals_copy if k in needed_params}
+            except Exception:  # pylint: disable=broad-except
+                filtered = {}
 
-        try:
             autolog_fn(**filtered)
             _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.warning(
-                "Exception raised while enabling autologging for %s: %s", module.__name__, str(e)
-            )
+            if _is_testing():
+                # Raise unexpected exceptions in test mode in order to detect
+                # errors within dependent autologging integrations
+                raise
+            else:
+                _logger.warning(
+                    "Exception raised while enabling autologging for %s: %s",
+                    module.__name__,
+                    str(e),
+                )
 
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
@@ -1339,4 +1355,9 @@ def autolog(
         if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
     except Exception as e:  # pylint: disable=broad-except
-        _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+        if _is_testing():
+            # Raise unexpected exceptions in test mode in order to detect
+            # errors within dependent autologging integrations
+            raise
+        else:
+            _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
