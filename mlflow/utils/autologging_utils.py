@@ -516,8 +516,10 @@ class PatchFunction:
                 raise e
 
 
+AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
+
+
 class _AutologgingSessionManager:
-    AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
     _session = None
 
     @classmethod
@@ -526,7 +528,7 @@ class _AutologgingSessionManager:
         try:
             session_id = uuid.uuid4().hex
             if cls._session is None:
-                cls._session = _AutologgingSessionManager.AutologgingSession(
+                cls._session = AutologgingSession(
                     integration, session_id
                 )
             yield cls._session
@@ -550,6 +552,10 @@ class AutologgingEventLogger:
         """
         Called when the `autolog()` method for an autologging integration
         is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
+
+        :param integration: The autologging integration for which `autolog()` was called.
+        :param args: The positional arguments passed to the `autolog()` call.
+        :param kwargs: The keyword arguments passed to the `autolog()` call.
         """
         _logger.debug(
             "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
@@ -561,7 +567,13 @@ class AutologgingEventLogger:
     def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
         """
         Called upon invocation of a patched ML API associated with an autologging integration
-        (e.g., `sklearn.linear_model.LogisticRegression.fit()`)
+        (e.g., `sklearn.linear_model.LogisticRegression.fit()`).
+
+        :param session: The `AutologgingSession` associated with the patched ML API call.
+        :param patch_obj: The object (class, module, etc) on which the patched ML API was called.
+        :param function_name: The name of the patched API that was called.
+        :param call_args: The positional arguments passed to the patched ML API call.
+        :param call_kwargs: The keyword arguments passed to the patched ML API call.
         """
         _logger.debug(
             "Invoked patched ML API '%s.%s' for %s autologging with args '%s' and kwargs '%s'",
@@ -572,10 +584,16 @@ class AutologgingEventLogger:
             call_kwargs,
         )
 
-    def log_patch_function_end(self, session, patch_obj, function_name, call_args, call_kwargs):
+    def log_patch_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
         """
-        Called upon termination of a patched ML API associated with an autologging integration
-        (e.g., `sklearn.linear_model.LogisticRegression.fit()`)
+        Called upon successful termination of a patched ML API associated with an autologging
+        integration (e.g., `sklearn.linear_model.LogisticRegression.fit()`).
+
+        :param session: The `AutologgingSession` associated with the patched ML API call.
+        :param patch_obj: The object (class, module, etc) on which the patched ML API was called.
+        :param function_name: The name of the patched API that was called.
+        :param call_args: The positional arguments passed to the patched ML API call.
+        :param call_kwargs: The keyword arguments passed to the patched ML API call.
         """
         _logger.debug(
             "Patched ML API call '%s.%s' for %s autologging completed successfully. Patched ML"
@@ -590,6 +608,17 @@ class AutologgingEventLogger:
     def log_patch_function_error(
         self, session, patch_obj, function_name, call_args, call_kwargs, exception
     ):
+        """
+        Called when execution of a patched ML API associated with an autologging integration
+        (e.g., `sklearn.linear_model.LogisticRegression.fit()`) terminates with an exception.
+
+        :param session: The `AutologgingSession` associated with the patched ML API call.
+        :param patch_obj: The object (class, module, etc) on which the patched ML API was called.
+        :param function_name: The name of the patched API that was called.
+        :param call_args: The positional arguments passed to the patched ML API call.
+        :param call_kwargs: The keyword arguments passed to the patched ML API call.
+        :param exception: The exception that caused the patched ML API call to terminate.
+        """
         _logger.debug(
             "Patched ML API call '%s.%s' for %s autologging threw exception. Patched ML API was"
             " called with args '%s' and kwargs '%s'. Exception: %s",
@@ -609,6 +638,12 @@ class AutologgingEventLogger:
         when the original / underlying ML API is invoked. For example, this is called when
         a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes
         the original implementation of `sklearn.linear_model.LogisticRegression.fit()`.
+
+        :param session: The `AutologgingSession` associated with the patched ML API call.
+        :param patch_obj: The object (class, module, etc) on which the original ML API was called.
+        :param function_name: The name of the original ML API that was called.
+        :param call_args: The positional arguments passed to the original ML API call.
+        :param call_kwargs: The keyword arguments passed to the original ML API call.
         """
         _logger.debug(
             "Original function invoked during execution of patched ML API '%s.%s' for %s"
@@ -620,13 +655,19 @@ class AutologgingEventLogger:
             call_kwargs,
         )
 
-    def log_original_function_end(self, session, patch_obj, function_name, call_args, call_kwargs):
+    def log_original_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
         """
         Called during the execution of a patched ML API associated with an autologging integration
-        when the original / underlying ML API invocation terminates. For example, when a patched
-        implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes the
+        when the original / underlying ML API invocation terminates successfully. For example,
+        when a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes the
         original / underlying implementation of `LogisticRegression.fit()`, then this function is
-        called when the original / underlying implementation terminates.
+        called if the original / underlying implementation successfully completes.
+
+        :param session: The `AutologgingSession` associated with the patched ML API call.
+        :param patch_obj: The object (class, module, etc) on which the original ML API was called.
+        :param function_name: The name of the original ML API that was called.
+        :param call_args: The positional arguments passed to the original ML API call.
+        :param call_kwargs: The keyword arguments passed to the original ML API call.
         """
         _logger.debug(
             "Original function invocation completed successfully during execution of patched ML API"
@@ -642,6 +683,20 @@ class AutologgingEventLogger:
     def log_original_function_error(
         self, session, patch_obj, function_name, call_args, call_kwargs, exception
     ):
+        """
+        Called during the execution of a patched ML API associated with an autologging integration
+        when the original / underlying ML API invocation terminates with an error. For example,
+        when a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes the
+        original / underlying implementation of `LogisticRegression.fit()`, then this function is
+        called if the original / underlying implementation terminates with an exception.
+
+        :param session: The `AutologgingSession` associated with the patched ML API call.
+        :param patch_obj: The object (class, module, etc) on which the original ML API was called.
+        :param function_name: The name of the original ML API that was called.
+        :param call_args: The positional arguments passed to the original ML API call.
+        :param call_kwargs: The keyword arguments passed to the original ML API call.
+        :param exception: The exception that caused the original ML API call to terminate.
+        """
         _logger.debug(
             "Original function invocation threw exception during execution of patched"
             " ML API call '%s.%s' for %s autologging. Original function was invoked with"
