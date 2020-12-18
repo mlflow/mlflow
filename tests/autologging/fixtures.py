@@ -1,20 +1,33 @@
-import pytest
-from unittest import mock
+import os
 
-import mlflow.utils.autologging_utils as autologging_utils
+import pytest
+
+from mlflow.utils.autologging_utils import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
 
 
 @pytest.fixture
 def test_mode_off():
-    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = False
-        assert not autologging_utils._is_testing()
+    try:
+        prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
+        os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "false"
+        assert not _is_testing()
         yield
+    finally:
+        if prev_env_var_value:
+            os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = prev_env_var_value
+        else:
+            del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]
 
 
 @pytest.fixture
 def test_mode_on():
-    with mock.patch("mlflow.utils.autologging_utils._is_testing") as testing_mock:
-        testing_mock.return_value = True
-        assert autologging_utils._is_testing()
+    try:
+        prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
+        os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "true"
+        assert _is_testing()
         yield
+    finally:
+        if prev_env_var_value:
+            os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = prev_env_var_value
+        else:
+            del os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR]

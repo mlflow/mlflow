@@ -321,8 +321,8 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the MXNet Gluon autologging integration. If ``False``,
+                    enables the MXNet Gluon autologging integration.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
