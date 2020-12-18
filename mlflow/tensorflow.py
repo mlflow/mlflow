@@ -1090,7 +1090,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
         # `fit_generator()` in TF < 2.1.0
         managed.append((tensorflow.keras.Model, "fit_generator", fit_generator))
 
-    not_managed = [
+    non_managed = [
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
     ]
@@ -1098,5 +1098,5 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
 
-    for p in not_managed:
+    for p in non_managed:
         safe_patch(FLAVOR_NAME, *p)
