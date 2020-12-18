@@ -614,8 +614,8 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the Keras autologging integration. If ``False``,
+                    enables the Keras autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.

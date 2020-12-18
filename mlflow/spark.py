@@ -685,8 +685,8 @@ def autolog(disable=False):  # pylint: disable=unused-argument
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
 
-    :param disable: If ``True``, disables all supported autologging integrations.
-                    If ``False``, enables all supported autologging integrations.
+    :param disable: If ``True``, disables the Spark datasource autologging integration.
+                    If ``False``, enables the Spark datasource autologging integration.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
     from mlflow._spark_autologging import _listen_for_spark_activity

@@ -1,8 +1,8 @@
 import pytest
 from unittest import mock
-import inspect
 
 import mlflow
+from mlflow.utils.autologging_utils import get_autologging_config
 
 import tensorflow
 import keras
@@ -15,19 +15,21 @@ import mxnet.gluon
 import pyspark
 import pytorch_lightning
 
+from tests.autologging.fixtures import test_mode_off, test_mode_on
+
 library_to_mlflow_module_without_pyspark = {
-    tensorflow: "tensorflow",
-    keras: "keras",
-    fastai: "fastai",
-    sklearn: "sklearn",
-    xgboost: "xgboost",
-    lightgbm: "lightgbm",
-    statsmodels: "statsmodels",
-    mxnet.gluon: "gluon",
-    pytorch_lightning: "pytorch",
+    tensorflow: mlflow.tensorflow,
+    keras: mlflow.keras,
+    fastai: mlflow.fastai,
+    sklearn: mlflow.sklearn,
+    xgboost: mlflow.xgboost,
+    lightgbm: mlflow.lightgbm,
+    statsmodels: mlflow.statsmodels,
+    mxnet.gluon: mlflow.gluon,
+    pytorch_lightning: mlflow.pytorch,
 }
 
-library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark: "spark"}
+library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark: mlflow.spark}
 
 
 @pytest.fixture(autouse=True)
@@ -66,9 +68,12 @@ def disable_new_import_hook_firing_if_module_already_exists():
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
-def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, mlflow_module):
-    with mock.patch("mlflow." + mlflow_module + ".autolog") as autolog_mock:
+def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
+    library, mlflow_module
+):
+    with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
         if library != pyspark:
@@ -78,41 +83,42 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws(library, ml
 
 
 @pytest.mark.large
+@pytest.mark.usefixtures(test_mode_on.__name__)
+@pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
+def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(library, mlflow_module):
+    with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
+        autolog_mock.side_effect = Exception("asdf")
+
+        if library == pyspark:
+            with pytest.raises(Exception, match="asdf"):
+                # mlflow.autolog() invokes mlflow.spark.autolog() immediately, rather
+                # than relying on import hooks; accordingly, we expect an exception
+                # to be propagated as soon as mlflow.autolog() is called
+                mlflow.autolog()
+        else:
+            mlflow.autolog()
+            with pytest.raises(Exception, match="asdf"):
+                mlflow.utils.import_hooks.notify_module_loaded(library)
+
+        autolog_mock.assert_called_once()
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module_without_pyspark.items())
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
-    integrations_with_config = [xgboost, lightgbm, statsmodels, sklearn]
+    integrations_with_additional_config = [xgboost, lightgbm, sklearn]
+    args_to_test = {
+        "log_models": False,
+        "disable": True,
+    }
+    if library in integrations_with_additional_config:
+        args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
 
-    # modify the __signature__ of the mock to contain the needed parameters
-    args = (
-        {"log_input_examples": bool, "log_model_signatures": bool, "log_models": bool}
-        if library in integrations_with_config
-        else {"log_models": bool}
-    )
-    params = [
-        inspect.Parameter(param, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=type_)
-        for param, type_ in args.items()
-    ]
-    with mock.patch(
-        "mlflow." + mlflow_module + ".autolog", wraps=getattr(mlflow, mlflow_module).autolog
-    ) as autolog_mock:
-        autolog_mock.__signature__ = inspect.Signature(params)
+    mlflow.autolog(**args_to_test)
+    mlflow.utils.import_hooks.notify_module_loaded(library)
 
-        autolog_mock.assert_not_called()
-
-        # this should attach import hooks to each library
-        mlflow.autolog(log_input_examples=True, log_model_signatures=True, log_models=True)
-
-        autolog_mock.assert_not_called()
-
-        mlflow.utils.import_hooks.notify_module_loaded(library)
-
-        # after each library is imported, its corresponding autolog function should have been called
-        if library in integrations_with_config:
-            autolog_mock.assert_called_once_with(
-                log_input_examples=True, log_model_signatures=True, log_models=True
-            )
-        else:
-            autolog_mock.assert_called_once_with(log_models=True)
+    for arg_key, arg_value in args_to_test.items():
+        assert get_autologging_config(mlflow_module.FLAVOR_NAME, arg_key, None) == arg_value
 
 
 @pytest.mark.large
