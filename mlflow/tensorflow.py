@@ -879,9 +879,9 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
         return result
 
     def export_saved_model(original, self, *args, **kwargs):
-        global _AUTOLOG_RUN_ID
         auto_end = False
         if not mlflow.active_run():
+            global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
@@ -905,8 +905,8 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
 
     def export_savedmodel(original, self, *args, **kwargs):
         auto_end = False
-        global _AUTOLOG_RUN_ID
         if not mlflow.active_run():
+            global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
