@@ -96,7 +96,15 @@ class TestLogger(AutologgingEventLogger):
 
     LoggerCall = namedtuple(
         "LoggerCall",
-        ["method", "session", "patch_obj", "function_name", "call_args", "call_kwargs", "exception"],
+        [
+            "method",
+            "session",
+            "patch_obj",
+            "function_name",
+            "call_args",
+            "call_kwargs",
+            "exception",
+        ],
     )
 
     def __init__(self):
@@ -128,7 +136,9 @@ class TestLogger(AutologgingEventLogger):
             )
         )
 
-    def log_original_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
+    def log_original_function_start(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
         self.calls.append(
             TestLogger.LoggerCall(
                 "original_start", session, patch_obj, function_name, call_args, call_kwargs, None
@@ -147,7 +157,13 @@ class TestLogger(AutologgingEventLogger):
     ):
         self.calls.append(
             TestLogger.LoggerCall(
-                "original_error", session, patch_obj, function_name, call_args, call_kwargs, exception
+                "original_error",
+                session,
+                patch_obj,
+                function_name,
+                call_args,
+                call_kwargs,
+                exception,
             )
         )
 
@@ -622,9 +638,9 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
     def patch_impl(original, *args, **kwargs):
         nonlocal og_call_kwargs
-        kwargs.update({
-            "extra_func": exception_safe_function(lambda k: "foo"),
-        })
+        kwargs.update(
+            {"extra_func": exception_safe_function(lambda k: "foo"),}
+        )
         og_call_kwargs = kwargs
 
         nonlocal patch_session

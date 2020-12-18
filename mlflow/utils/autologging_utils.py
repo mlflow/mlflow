@@ -526,7 +526,9 @@ class _AutologgingSessionManager:
         try:
             session_id = uuid.uuid4().hex
             if cls._session is None:
-                cls._session = _AutologgingSessionManager.AutologgingSession(integration, session_id)
+                cls._session = _AutologgingSessionManager.AutologgingSession(
+                    integration, session_id
+                )
             yield cls._session
         finally:
             cls.end_session()
@@ -599,7 +601,9 @@ class AutologgingEventLogger:
             exception,
         )
 
-    def log_original_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
+    def log_original_function_start(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
         """
         Called during the execution of a patched ML API associated with an autologging integration
         when the original / underlying ML API is invoked. For example, this is called when
@@ -828,7 +832,11 @@ def safe_patch(
                     try:
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_original_function_start,
-                            session, destination, function_name, og_args, og_kwargs,
+                            session,
+                            destination,
+                            function_name,
+                            og_args,
+                            og_kwargs,
                         )
 
                         if _is_testing():
@@ -851,14 +859,23 @@ def safe_patch(
 
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_original_function_end,
-                            session, destination, function_name, og_args, og_kwargs
+                            session,
+                            destination,
+                            function_name,
+                            og_args,
+                            og_kwargs,
                         )
 
                         return original_result
                     except Exception as e:  # pylint: disable=broad-except
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_original_function_error,
-                            session, destination, function_name, og_args, og_kwargs, e
+                            session,
+                            destination,
+                            function_name,
+                            og_args,
+                            og_kwargs,
+                            e,
                         )
 
                         nonlocal failed_during_original
@@ -872,7 +889,11 @@ def safe_patch(
 
                 try_log_autologging_event(
                     AutologgingEventLogger.get_logger().log_patch_function_start,
-                    session, destination, function_name, args, kwargs,
+                    session,
+                    destination,
+                    function_name,
+                    args,
+                    kwargs,
                 )
 
                 if patch_is_class:
@@ -888,7 +909,12 @@ def safe_patch(
 
                 try_log_autologging_event(
                     AutologgingEventLogger.get_logger().log_patch_function_error,
-                    session, destination, function_name, args, kwargs, e
+                    session,
+                    destination,
+                    function_name,
+                    args,
+                    kwargs,
+                    e,
                 )
 
                 _logger.warning(
@@ -899,9 +925,12 @@ def safe_patch(
             else:
                 try_log_autologging_event(
                     AutologgingEventLogger.get_logger().log_patch_function_end,
-                    session, destination, function_name, args, kwargs,
+                    session,
+                    destination,
+                    function_name,
+                    args,
+                    kwargs,
                 )
-
 
             if _is_testing() and not preexisting_run_for_testing:
                 # If an MLflow run was created during the execution of patch code, verify that
