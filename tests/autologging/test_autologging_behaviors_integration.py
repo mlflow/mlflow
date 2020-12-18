@@ -32,6 +32,8 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
     mlflow.gluon: "mxnet.gluon",
+    mlflow.fastai: "fastai",
+    mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",
 }
 
@@ -51,20 +53,37 @@ def disable_autologging_at_test_end():
         integration.autolog(disable=True)
 
 
-def test_autologging_integrations_expose_configs_and_support_disablement():
+@pytest.fixture()
+def setup_keras_model():
+    from keras.models import Sequential
+    from keras.layers import Dense
+
+    x = [1, 2, 3]
+    y = [0, 1, 0]
+    model = Sequential()
+    model.add(Dense(12, input_dim=1, activation="relu"))
+    model.add(Dense(8, activation="relu"))
+    model.add(Dense(1, activation="sigmoid"))
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    return x, y, model
+
+
+@pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
+def test_autologging_integrations_expose_configs_and_support_disablement(integration):
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=False)
 
-        assert not autologging_is_disabled(integration.FLAVOR_NAME)
-        assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
+    assert not autologging_is_disabled(integration.FLAVOR_NAME)
+    assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
 
-        integration.autolog(disable=True)
+    integration.autolog(disable=True)
 
-        assert autologging_is_disabled(integration.FLAVOR_NAME)
-        assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
+    assert autologging_is_disabled(integration.FLAVOR_NAME)
+    assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
 
 
-def test_autologging_integrations_use_safe_patch_for_monkey_patching():
+@pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
+def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         with mock.patch(
             "mlflow.utils.gorilla.apply", wraps=gorilla.apply

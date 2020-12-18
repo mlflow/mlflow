@@ -316,8 +316,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the LightGBM autologging integration. If ``False``,
+                    enables the LightGBM autologging integration.
     """
     import lightgbm
     import numpy as np
