@@ -545,8 +545,47 @@ class _AutologgingSessionManager:
 
 
 class AutologgingEventLogger:
+    """
+    Provides instrumentation hooks for important autologging lifecycle events, including:
+
+        - Calls to `mlflow.autolog()` APIs
+        - Calls to patched ML APIs with associated termination states
+          ("success" and "failure due to error")
+        - Calls to original / underlying ML APIs made by patched function code with
+          associated termination states ("success" and "failure due to error")
+
+    Default implementations are included for each of these hooks, which emit corresponding
+    DEBUG-level logging statements. Developers can provide their own hook implementations
+    by subclassing `AutologgingEventLogger` and calling the static
+    `AutologgingEventLogger.set_logger()` method to supply a new event logger instance.
+
+    Callers fetch the configured logger via `AutologgingEventLogger.get_logger()`
+    and invoke one or more hooks (e.g., `AutologgingEventLogger.get_logger().log_autolog_called()`).
+    """
 
     _event_logger = None
+
+    @staticmethod
+    def get_logger():
+        """
+        Fetches the configured `AutologgingEventLogger` instance for logging.
+
+        :return: The instance of `AutologgingEventLogger` specified via `set_logger`
+                 (if configured) or the default implementation of `AutologgingEventLogger`
+                 (if a logger was not configured via `set_logger`).
+        """
+        return AutologgingEventLogger._event_logger or AutologgingEventLogger()
+
+    @staticmethod
+    def set_logger(logger):
+        """
+        Configures the `AutologgingEventLogger` instance for logging. This instance
+        is exposed via `AutologgingEventLogger.get_logger()` and callers use it to invoke
+        logging hooks (e.g., AutologgingEventLogger.get_logger().log_autolog_called()).
+
+        :param logger: The instance of `AutologgingEventLogger` to use when invoking logging hooks.
+        """
+        AutologgingEventLogger._event_logger = logger
 
     def log_autolog_called(self, integration, args, kwargs):
         """
@@ -708,14 +747,6 @@ class AutologgingEventLogger:
             call_kwargs,
             exception,
         )
-
-    @staticmethod
-    def get_logger():
-        return AutologgingEventLogger._event_logger or AutologgingEventLogger()
-
-    @staticmethod
-    def set_logger(logger):
-        AutologgingEventLogger._event_logger = logger
 
 
 def with_managed_run(patch_function, tags=None):
@@ -913,7 +944,7 @@ def safe_patch(
                         original_result = original(*og_args, **og_kwargs)
 
                         try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_end,
+                            AutologgingEventLogger.get_logger().log_original_function_success,
                             session,
                             destination,
                             function_name,
@@ -979,7 +1010,7 @@ def safe_patch(
                 )
             else:
                 try_log_autologging_event(
-                    AutologgingEventLogger.get_logger().log_patch_function_end,
+                    AutologgingEventLogger.get_logger().log_patch_function_success,
                     session,
                     destination,
                     function_name,
