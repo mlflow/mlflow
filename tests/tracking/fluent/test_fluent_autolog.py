@@ -110,6 +110,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     args_to_test = {
         "log_models": False,
         "disable": True,
+        "exclusive": True,
     }
     if library in integrations_with_additional_config:
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
