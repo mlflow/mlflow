@@ -779,7 +779,9 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(
+    every_n_iter=100, log_models=True, disable=False, exclusive=False
+):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -835,8 +837,11 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
                                   at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables the TensorFlow integration. If ``False``,
+    :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
                     enables the TensorFlow integration autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import tensorflow
 
