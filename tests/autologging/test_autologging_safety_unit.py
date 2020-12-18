@@ -5,6 +5,7 @@ import copy
 import inspect
 import os
 import pytest
+from collections import namedtuple
 from unittest import mock
 
 import mlflow
@@ -15,6 +16,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
     exception_safe_function,
+    AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
     PatchFunction,
@@ -88,6 +90,63 @@ def clean_up_leaked_runs():
     finally:
         while mlflow.active_run():
             mlflow.end_run()
+
+
+class TestLogger(AutologgingEventLogger):
+
+    LoggerCall = namedtuple(
+        "LoggerCall",
+        ["method", "session", "patch_function_info", "call_args", "call_kwargs", "exception"],
+    )
+
+    def __init__(self):
+        self.calls = []
+
+    def reset(self):
+        self.calls = []
+
+    def log_patch_function_start(self, session, patch_function_info, call_args, call_kwargs):
+        print("PATCH START")
+        self.calls.append(
+            TestLogger.LoggerCall(
+                "patch_start", session, patch_function_info, call_args, call_kwargs, None
+            )
+        )
+
+    def log_patch_function_end(self, session, patch_function_info, call_args, call_kwargs, exception=None):
+        print("PATCH END")
+        self.calls.append(
+            TestLogger.LoggerCall(
+                "patch_end", session, patch_function_info, call_args, call_kwargs, exception
+            )
+        )
+
+    def log_original_function_start(self, session, patch_function_info, call_args, call_kwargs):
+        print("OG START")
+        self.calls.append(
+            TestLogger.LoggerCall(
+                "original_start", session, patch_function_info, call_args, call_kwargs, None
+            )
+        )
+
+    def log_original_function_end(self, session, patch_function_info, call_args, call_kwargs, exception=None):
+        print("OG END")
+        self.calls.append(
+            TestLogger.LoggerCall(
+                "original_end", session, patch_function_info, call_args, call_kwargs, exception
+            )
+        )
+
+
+@pytest.fixture
+def test_logger():
+    try:
+        prev_logger = AutologgingEventLogger.get_logger()
+        logger = TestLogger()
+        AutologgingEventLogger.set_logger(logger)
+        yield logger
+    finally:
+        AutologgingEventLogger.set_logger(prev_logger)
 
 
 def test_is_testing_respects_environment_variable():
@@ -539,6 +598,102 @@ def test_safe_patch_provides_original_function_with_expected_signature(
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
     patch_destination.fn(1, 2)
     assert original_signature == inspect.signature(original)
+
+
+def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invocation(
+    patch_destination, test_autologging_integration, test_logger,
+):
+    patch_session = None
+    og_call_kwargs = {}
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal og_call_kwargs
+        kwargs.update({
+            "extra_func": exception_safe_function(lambda k: "foo"),
+        })
+        og_call_kwargs = kwargs
+
+        nonlocal patch_session
+        patch_session = autologging_utils._AutologgingSessionManager.active_session()
+
+        original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    patch_destination.fn("a", 1, b=2)
+    expected_order = ["patch_start", "original_start", "original_end", "patch_end"]
+    assert [call.method for call in test_logger.calls] == expected_order
+    assert all([call.session == patch_session for call in test_logger.calls])
+    patch_start, original_start, original_end, patch_end = test_logger.calls
+    assert patch_start.call_args == patch_end.call_args == ("a", 1)
+    assert patch_start.call_kwargs == patch_end.call_kwargs == {"b": 2}
+    assert original_start.call_args == original_end.call_args == ("a", 1)
+    assert original_start.call_kwargs == original_end.call_kwargs == og_call_kwargs
+    assert patch_start.exception is original_start.exception is None
+    assert patch_end.exception is original_end.exception is None
+
+
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws(
+    patch_destination, test_autologging_integration, test_logger,
+):
+    patch_session = None
+    exc_to_raise = Exception("thrown from patch")
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal patch_session
+        patch_session = autologging_utils._AutologgingSessionManager.active_session()
+
+        if throw_location == "before":
+            raise exc_to_raise
+
+        original(*args, **kwargs)
+
+        if throw_location != "before":
+            raise exc_to_raise
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    throw_location = "before"
+    patch_destination.fn()
+    expected_order_throw_before = ["patch_start", "patch_end"]
+    assert [call.method for call in test_logger.calls] == expected_order_throw_before
+    patch_start, patch_end = test_logger.calls
+    assert patch_start.exception is None
+    assert patch_end.exception == exc_to_raise
+
+    test_logger.reset()
+
+    throw_location = "after"
+    patch_destination.fn()
+    expected_order_throw_after = ["patch_start", "original_start", "original_end", "patch_end"]
+    assert [call.method for call in test_logger.calls] == expected_order_throw_after
+    patch_start, original_start, original_end, patch_end = test_logger.calls
+    assert patch_start.exception is original_start.exception is None
+    assert original_end.exception is None
+    assert patch_end.exception == exc_to_raise
+
+
+def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
+    patch_destination, test_autologging_integration, test_logger,
+):
+    exc_to_raise = Exception("thrown from patch")
+
+    def original(*args, **kwargs):
+        raise exc_to_raise
+
+    patch_destination.original = original
+
+    def patch_impl(original, *args, **kwargs):
+        original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    patch_destination.fn()
+    expected_order = ["patch_start", "original_start", "original_end"]
+    assert [call.method for call in test_logger.calls] == expected_order
+    patch_start, original_start, original_end = test_logger.calls
+    assert patch_start.exception is original_start.exception is None
+    assert original_end.exception == exc_to_raise
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():

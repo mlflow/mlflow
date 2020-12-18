@@ -328,6 +328,11 @@ def autologging_integration(name):
         default_params = {param.name: param.default for param in param_spec.values()}
 
         def autolog(*args, **kwargs):
+            try:
+                AutologgingEventLogger.get_logger().log_autolog_called(name, args, kwargs)
+            except Exception:  # pylint: disable=broad-except
+                pass
+
             config_to_store = dict(default_params)
             config_to_store.update(
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
@@ -543,7 +548,7 @@ class AutologgingEventLogger:
         "PatchFunctionInfo", ["integration", "object_name", "function_name"]
     )
 
-    def log_autolog_called(self, integration, *args, **kwargs):
+    def log_autolog_called(self, integration, args, kwargs):
         """
         Called when the `autolog()` method for an autologging integration
         is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
@@ -626,7 +631,7 @@ class AutologgingEventLogger:
         )
         _logger.debug(
             "Original function invocation during execution of patched ML API call '%s.%s' for %s"
-            " autologging %s. Original function was invoked with with args '%s' and kwargs '%s' %s",
+            " autologging %s. Original function was invoked with with args '%s' and kwargs '%s'",
             patch_function_info.object_name,
             patch_function_info.function_name,
             session.integration,
@@ -857,8 +862,8 @@ def safe_patch(
                         AutologgingEventLogger.PatchFunctionInfo(
                             autologging_integration, destination, function_name
                         ),
-                        args,
-                        kwargs,
+                        og_args,
+                        og_kwargs,
                     ):
                         try:
                             if _is_testing():
