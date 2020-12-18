@@ -1053,7 +1053,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
             self.log_dir = None
 
         def _patch_implementation(
-            self, original, inst, *args, **kwargs
+            self, original, *args, **kwargs
         ):  # pylint: disable=arguments-differ
             active_run = mlflow.active_run()
             if MLFLOW_AUTOLOGGING in active_run.data.tags:
