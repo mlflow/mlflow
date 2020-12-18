@@ -714,7 +714,9 @@ class _PyTorchWrapper(object):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_every_n_epoch=1, log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
+def autolog(
+    log_every_n_epoch=1, log_models=True, disable=False, exclusive=False
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
     <https://pytorch-lightning.readthedocs.io/en/latest>`_ to MLflow.
