@@ -19,7 +19,6 @@ import tempfile
 from collections import namedtuple
 import pandas
 from distutils.version import LooseVersion
-from contextlib import contextmanager
 
 import mlflow
 import mlflow.keras
@@ -31,15 +30,19 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    exception_safe_function,
+    ExceptionSafeClass,
+    PatchFunction,
     try_mlflow_log,
     log_fn_args_as_params,
-    wrap_patch,
     batch_metrics_logger,
 )
 from mlflow.entities import Metric
@@ -607,10 +610,6 @@ def _log_event(event):
     """
     Extracts metric information from the event protobuf
     """
-    if not mlflow.active_run():
-        try_mlflow_log(mlflow.start_run)
-        global _AUTOLOG_RUN_ID
-        _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
     if event.WhichOneof("what") == "summary":
         summary = event.summary
         for v in summary.value:
@@ -630,6 +629,7 @@ def _log_event(event):
                     )
 
 
+@exception_safe_function
 def _get_tensorboard_callback(lst):
     import tensorflow
 
@@ -654,7 +654,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     import tensorflow
     from tensorflow.keras.callbacks import Callback, TensorBoard
 
-    class __MLflowTfKerasCallback(Callback):
+    class __MLflowTfKerasCallback(Callback, metaclass=ExceptionSafeClass):
         """
         Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
         Records model structural information as params after training finishes.
@@ -718,7 +718,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
             if log_models:
                 try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
-    class __MLflowTfKeras2Callback(Callback):
+    class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
         """
         Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
         Records model structural information as params when training starts.
@@ -762,7 +762,11 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
-        out_list = lst + [TensorBoard(log_dir.location)]
+
+        class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
+            pass
+
+        out_list = lst + [_TensorBoard(log_dir.location)]
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
@@ -774,7 +778,8 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
 
 @experimental
-def autolog(every_n_iter=100, log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -830,6 +835,8 @@ def autolog(every_n_iter=100, log_models=True):
                                   at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the TensorFlow integration. If ``False``,
+                    enables the TensorFlow integration autologging integration.
     """
     import tensorflow
 
@@ -851,36 +858,27 @@ def autolog(every_n_iter=100, log_models=True):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
-    @contextmanager
-    def _manage_active_run():
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
+    def train(original, self, *args, **kwargs):
+        active_run = mlflow.active_run()
+        if MLFLOW_AUTOLOGGING in active_run.data.tags:
             global _AUTOLOG_RUN_ID
-            if mlflow.active_run() is not None:  # defensive check in case `mlflow.start_run` fails
-                _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
-        yield mlflow.active_run()
-        if mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
-            try_mlflow_log(mlflow.end_run)
+            _AUTOLOG_RUN_ID = active_run.info.run_id
 
-    def train(self, *args, **kwargs):
-        with _manage_active_run():
-            original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, "train")
+        # Checking step and max_step parameters for logging
+        if len(args) >= 3:
+            try_mlflow_log(mlflow.log_param, "steps", args[2])
+            if len(args) >= 4:
+                try_mlflow_log(mlflow.log_param, "max_steps", args[3])
+        if "steps" in kwargs:
+            try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
+        if "max_steps" in kwargs:
+            try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
 
-            # Checking step and max_step parameters for logging
-            if len(args) >= 3:
-                try_mlflow_log(mlflow.log_param, "steps", args[2])
-                if len(args) >= 4:
-                    try_mlflow_log(mlflow.log_param, "max_steps", args[3])
-            if "steps" in kwargs:
-                try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
-            if "max_steps" in kwargs:
-                try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
+        result = original(self, *args, **kwargs)
 
-            result = original(self, *args, **kwargs)
+        return result
 
-            return result
-
-    def export_saved_model(self, *args, **kwargs):
+    def export_saved_model(original, self, *args, **kwargs):
         auto_end = False
         if not mlflow.active_run():
             global _AUTOLOG_RUN_ID
@@ -888,11 +886,9 @@ def autolog(every_n_iter=100, log_models=True):
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
                 try_mlflow_log(mlflow.start_run)
+                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
                 auto_end = True
 
-        original = gorilla.get_original_attribute(
-            tensorflow.estimator.Estimator, "export_saved_model"
-        )
         serialized = original(self, *args, **kwargs)
         try_mlflow_log(
             log_model,
@@ -907,19 +903,17 @@ def autolog(every_n_iter=100, log_models=True):
             try_mlflow_log(mlflow.end_run)
         return serialized
 
-    def export_savedmodel(self, *args, **kwargs):
+    def export_savedmodel(original, self, *args, **kwargs):
         auto_end = False
-        global _AUTOLOG_RUN_ID
         if not mlflow.active_run():
+            global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
                 try_mlflow_log(mlflow.start_run)
+                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
                 auto_end = True
 
-        original = gorilla.get_original_attribute(
-            tensorflow.estimator.Estimator, "export_savedmodel"
-        )
         serialized = original(self, *args, **kwargs)
         try_mlflow_log(
             log_model,
@@ -928,12 +922,14 @@ def autolog(every_n_iter=100, log_models=True):
             tf_signature_def_key="predict",
             artifact_path="model",
         )
+
         if (
             mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
         ) or auto_end:
             try_mlflow_log(mlflow.end_run)
         return serialized
 
+    @exception_safe_function
     def _early_stop_check(callbacks):
         for callback in callbacks:
             if isinstance(callback, tensorflow.keras.callbacks.EarlyStopping):
@@ -989,110 +985,152 @@ def autolog(every_n_iter=100, log_models=True):
                     last_epoch = len(history.history[metric_key])
                     metrics_logger.record_metrics(restored_metrics, last_epoch)
 
-    def fit(self, *args, **kwargs):
-        with _manage_active_run() as run:
-            original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit")
+    class FitPatch(PatchFunction):
+        def __init__(self):
+            self.log_dir = None
 
+        def _patch_implementation(
+            self, original, inst, *args, **kwargs
+        ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
             early_stop_callback = None
 
-            run_id = run.info.run_id
+            run_id = mlflow.active_run().info.run_id
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Checking if the 'callback' argument of fit() is set
                 if len(args) >= 6:
                     tmp_list = list(args)
                     early_stop_callback = _early_stop_check(tmp_list[5])
-                    tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models, metrics_logger)
+                    tmp_list[5], self.log_dir = _setup_callbacks(
+                        tmp_list[5], log_models, metrics_logger
+                    )
                     args = tuple(tmp_list)
                 elif kwargs.get("callbacks"):
                     early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                    kwargs["callbacks"], log_dir = _setup_callbacks(
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
                         kwargs["callbacks"], log_models, metrics_logger
                     )
                 else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                        [], log_models, metrics_logger
+                    )
 
                 _log_early_stop_callback_params(early_stop_callback)
 
-                history = original(self, *args, **kwargs)
+                history = original(inst, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
             _flush_queue()
             _log_artifacts_with_warning(
-                local_dir=log_dir.location, artifact_path="tensorboard_logs"
+                local_dir=self.log_dir.location, artifact_path="tensorboard_logs",
             )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+            if self.log_dir.is_temp:
+                shutil.rmtree(self.log_dir.location)
 
             return history
 
-    def fit_generator(self, *args, **kwargs):
+        def _on_exception(self, exception):
+            if (
+                self.log_dir is not None
+                and self.log_dir.is_temp
+                and os.path.exists(self.log_dir.location)
+            ):
+                shutil.rmtree(self.log_dir.location)
+
+    class FitGeneratorPatch(PatchFunction):
         """
         NOTE: `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
         To avoid unintentional creation of nested MLflow runs caused by a patched
         `fit_generator()` method calling a patched `fit()` method, we only patch
         `fit_generator()` in TF < 2.1.0.
         """
-        with _manage_active_run() as run:
-            original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
+
+        def __init__(self):
+            self.log_dir = None
+
+        def _patch_implementation(
+            self, original, inst, *args, **kwargs
+        ):  # pylint: disable=arguments-differ
+            active_run = mlflow.active_run()
+            if MLFLOW_AUTOLOGGING in active_run.data.tags:
+                global _AUTOLOG_RUN_ID
+                _AUTOLOG_RUN_ID = active_run.info.run_id
 
             unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = run.info.run_id
+            run_id = active_run.info.run_id
+
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Checking if the 'callback' argument of fit() is set
                 if len(args) >= 5:
                     tmp_list = list(args)
-                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models, metrics_logger)
+                    tmp_list[4], self.log_dir = _setup_callbacks(
+                        tmp_list[4], log_models, metrics_logger
+                    )
                     args = tuple(tmp_list)
                 elif kwargs.get("callbacks"):
-                    kwargs["callbacks"], log_dir = _setup_callbacks(
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
                         kwargs["callbacks"], log_models, metrics_logger
                     )
                 else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
-                result = original(self, *args, **kwargs)
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                        [], log_models, metrics_logger
+                    )
+                result = original(inst, *args, **kwargs)
 
             _flush_queue()
             _log_artifacts_with_warning(
-                local_dir=log_dir.location, artifact_path="tensorboard_logs"
+                local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
             )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+            if self.log_dir.is_temp:
+                shutil.rmtree(self.log_dir.location)
 
             return result
 
-    def add_event(self, event):
+        def _on_exception(self, exception):
+            if (
+                self.log_dir is not None
+                and self.log_dir.is_temp
+                and os.path.exists(self.log_dir.location)
+            ):
+                shutil.rmtree(self.log_dir.location)
+
+    def add_event(original, self, event):
         _log_event(event)
-        original = gorilla.get_original_attribute(EventFileWriter, "add_event")
         return original(self, event)
 
-    def add_summary(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(FileWriter, "add_summary")
+    def add_summary(original, self, *args, **kwargs):
         result = original(self, *args, **kwargs)
         _flush_queue()
         return result
 
-    patches = [
+    managed = [
         (EventFileWriter, "add_event", add_event),
         (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
-        (tensorflow.keras.Model, "fit", fit),
-        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
-        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
+        (tensorflow.keras.Model, "fit", FitPatch),
         (FileWriter, "add_summary", add_summary),
     ]
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
         # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
         # To avoid unintentional creation of nested MLflow runs caused by a patched
         # `fit_generator()` method calling a patched `fit()` method, we only patch
         # `fit_generator()` in TF < 2.1.0
-        patches.append((tensorflow.keras.Model, "fit_generator", fit_generator))
+        managed.append((tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
 
-    for p in patches:
-        wrap_patch(*p)
+    non_managed = [
+        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
+    ]
+
+    for p in managed:
+        safe_patch(FLAVOR_NAME, *p, manage_run=True)
+
+    for p in non_managed:
+        safe_patch(FLAVOR_NAME, *p)
