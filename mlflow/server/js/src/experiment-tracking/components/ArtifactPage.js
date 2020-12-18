@@ -15,10 +15,16 @@ import './ArtifactPage.css';
 export class ArtifactPageImpl extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
+    // An initially-selected artifact path to display in the artifact viewer, if any.
+    // If no path is specified, defaults to selecting & displaying the contents of the
+    // run's root artifact directory.
+    initialSelectedArtifactPath: PropTypes.string,
     artifactRootUri: PropTypes.string.isRequired,
     apis: PropTypes.object.isRequired,
     listArtifactsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
+    runTags: PropTypes.object,
+    modelVersions: PropTypes.arrayOf(PropTypes.object),
   };
 
   getFailedtoListArtifactsMsg = () => {
@@ -36,7 +42,11 @@ export class ArtifactPageImpl extends Component {
 
   searchRequestId = getUUID();
 
-  listArtifactRequestId = getUUID();
+  listArtifactRequestIds = [getUUID()].concat(
+    this.props.initialSelectedArtifactPath
+      ? this.props.initialSelectedArtifactPath.split('/').map((s) => getUUID())
+      : [],
+  );
 
   pollModelVersionsForCurrentRun = () => {
     const { apis, runUuid } = this.props;
@@ -53,16 +63,32 @@ export class ArtifactPageImpl extends Component {
     this.setState({ activeNodeIsDirectory });
   };
 
-  componentWillMount() {
+  pollArtifactsForCurrentRun = async () => {
     const { runUuid } = this.props;
-    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
-  }
+    await this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestIds[0]);
+    if (this.props.initialSelectedArtifactPath) {
+      const parts = this.props.initialSelectedArtifactPath.split('/');
+      let pathSoFar = '';
+      for (let i = 0; i < parts.length; i++) {
+        pathSoFar += parts[i];
+        // ML-12477: ListArtifacts API requests need to be sent and fulfilled for parent
+        // directories before nested child directories, as our Reducers assume that parent
+        // directories are listed before their children to construct the correct artifact tree.
+        // Index i + 1 because listArtifactRequestIds[0] would have been used up by
+        // root-level artifact API call above.
+        // eslint-disable-next-line no-await-in-loop
+        await this.props.listArtifactsApi(runUuid, pathSoFar, this.listArtifactRequestIds[i + 1]);
+        pathSoFar += '/';
+      }
+    }
+  };
 
   componentDidMount() {
     if (Utils.isModelRegistryEnabled()) {
       this.pollModelVersionsForCurrentRun();
       this.pollIntervalId = setInterval(this.pollModelVersionsForCurrentRun, POLL_INTERVAL);
     }
+    this.pollArtifactsForCurrentRun();
   }
 
   componentWillUnmount() {
@@ -101,7 +127,7 @@ export class ArtifactPageImpl extends Component {
 
   render() {
     return (
-      <RequestStateWrapper requestIds={[this.listArtifactRequestId]}>
+      <RequestStateWrapper requestIds={this.listArtifactRequestIds}>
         {this.renderArtifactView}
       </RequestStateWrapper>
     );

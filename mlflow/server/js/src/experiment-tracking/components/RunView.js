@@ -27,6 +27,7 @@ export class RunViewImpl extends Component {
     run: PropTypes.object.isRequired,
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     experimentId: PropTypes.string.isRequired,
+    initialSelectedArtifactPath: PropTypes.string,
     params: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
@@ -36,6 +37,7 @@ export class RunViewImpl extends Component {
     handleSetRunTag: PropTypes.func.isRequired,
     setTagApi: PropTypes.func.isRequired,
     deleteTagApi: PropTypes.func.isRequired,
+    modelVersions: PropTypes.arrayOf(PropTypes.object),
   };
 
   state = {
@@ -147,7 +149,16 @@ export class RunViewImpl extends Component {
   }
 
   render() {
-    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const {
+      runUuid,
+      run,
+      params,
+      tags,
+      latestMetrics,
+      getMetricPagePath,
+      initialSelectedArtifactPath,
+      modelVersions,
+    } = this.props;
     const { showNoteEditor, isTagsRequestPending } = this.state;
     const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
@@ -200,8 +211,8 @@ export class RunViewImpl extends Component {
         <Descriptions className='metadata-list'>
           <Descriptions.Item label='Date'>{startTime}</Descriptions.Item>
           <Descriptions.Item label='Source'>
-            {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
-            {Utils.renderSource(tags, queryParams)}
+            {Utils.renderSourceTypeIcon(tags)}
+            {Utils.renderSource(tags, queryParams, runUuid)}
           </Descriptions.Item>
           {Utils.getSourceVersion(tags) ? (
             <Descriptions.Item label='Git Commit'>
@@ -262,6 +273,7 @@ export class RunViewImpl extends Component {
           </CollapsibleSection>
           <CollapsibleSection title='Parameters'>
             <HtmlTableView
+              data-test-id='params-table'
               columns={['Name', 'Value']}
               values={getParamValues(params)}
               styles={tableStyles}
@@ -269,6 +281,7 @@ export class RunViewImpl extends Component {
           </CollapsibleSection>
           <CollapsibleSection title='Metrics'>
             <HtmlTableView
+              data-test-id='metrics-table'
               columns={['Name', 'Value']}
               values={getMetricValues(latestMetrics, getMetricPagePath)}
               styles={tableStyles}
@@ -285,7 +298,12 @@ export class RunViewImpl extends Component {
             />
           </CollapsibleSection>
           <CollapsibleSection title='Artifacts'>
-            <ArtifactPage runUuid={runUuid} />
+            <ArtifactPage
+              runUuid={runUuid}
+              modelVersions={modelVersions}
+              initialSelectedArtifactPath={initialSelectedArtifactPath}
+              runTags={tags}
+            />
           </CollapsibleSection>
         </div>
       </div>

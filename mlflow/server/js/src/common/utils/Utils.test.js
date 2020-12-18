@@ -172,6 +172,12 @@ test('formatSource & renderSource', () => {
   // and https://stackoverflow.com/a/34772568
   expect(wrapper3.props().href).toEqual('http://localhost/?o=123#notebook/13/revision/42');
 
+  const wrapper4 = shallow(Utils.renderSource(databricksRunRevisionTags, '', 'abcd123456'));
+  expect(wrapper4.is('a')).toEqual(true);
+  expect(wrapper4.props().href).toEqual(
+    'http://localhost/#notebook/13/revision/42/mlflow/run/abcd123456',
+  );
+
   const databricksJobTags = {
     'mlflow.source.name': { value: 'job/70/run/5' },
     'mlflow.source.type': { value: 'JOB' },
@@ -181,9 +187,9 @@ test('formatSource & renderSource', () => {
     'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
   };
   expect(Utils.formatSource(databricksJobTags)).toEqual('run 5 of job 70');
-  const wrapper4 = shallow(Utils.renderSource(databricksJobTags));
-  expect(wrapper4.is('a')).toEqual(true);
-  expect(wrapper4.props().href).toEqual('http://localhost/#job/70/run/5');
+  const wrapper5 = shallow(Utils.renderSource(databricksJobTags));
+  expect(wrapper5.is('a')).toEqual(true);
+  expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
 });
 
 test('addQueryParams', () => {

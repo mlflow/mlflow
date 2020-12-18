@@ -18,6 +18,7 @@
     "http-proxy-middleware": "^1.0.3",
     "immutable": "3.8.1",
     "jquery": "^3.4.1",
+    "js-yaml": "^3.14.0",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
     "leaflet": "^1.5.1",
     "lodash": "^4.17.11",
@@ -29,7 +30,7 @@
     "react-bootstrap": "0.32.1",
     "react-dom": "16.3.2",
     "react-iframe": "1.8.0",
-    "react-mde": "^7.6.2",
+    "react-mde": "^11.0.0",
     "react-modal": "^3.4.4",
     "react-pdf": "^4.1.0",
     "react-plotly.js": "2.2.0",
@@ -40,13 +41,13 @@
     "react-syntax-highlighter": "^12.2.1",
     "react-treebeard": "2.1.0",
     "react-virtualized": "9.21.0",
+    "react-transition-group": "^4.4.1",
     "redux": "3.7.2",
     "redux-mock-store": "^1.5.3",
     "redux-promise-middleware": "5.0.0",
     "redux-thunk": "^2.3.0",
     "sanitize-html": "^1.18.5",
-    "showdown": "^1.8.6",
-    "yamljs": "^0.3.0"
+    "showdown": "^1.8.6"
   },
   "devDependencies": {
     "canvas": "^2.6.1",

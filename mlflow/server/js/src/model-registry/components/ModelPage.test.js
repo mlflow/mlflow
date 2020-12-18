@@ -24,7 +24,7 @@ describe('ModelPage', () => {
     minimalProps = {
       match: {
         params: {
-          modelName: 'Model A',
+          modelName: encodeURIComponent('Model A'),
         },
       },
       history: {

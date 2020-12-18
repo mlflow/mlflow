@@ -28,6 +28,7 @@ export class ModelViewImpl extends React.Component {
     super(props);
     this.onCompare = this.onCompare.bind(this);
   }
+
   static propTypes = {
     model: PropTypes.shape({
       name: PropTypes.string.isRequired,

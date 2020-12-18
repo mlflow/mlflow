@@ -48,6 +48,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
       { key: 'attributes-Run Name', title: 'Run Name' },
       { key: 'attributes-Source', title: 'Source' },
       { key: 'attributes-Version', title: 'Version' },
+      { key: 'attributes-Models', title: 'Models' },
       {
         title: 'Parameters',
         key: 'params',
@@ -86,6 +87,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
       'attributes-Run Name',
       'attributes-Source',
       'attributes-Version',
+      'attributes-Models',
       'params-p1',
       'params-p2',
       'metrics-m1',
@@ -99,7 +101,7 @@ describe('RunsTableColumnSelectionDropdown', () => {
     const props = {
       ...commonProps,
       categorizedUncheckedKeys: {
-        [ColumnTypes.ATTRIBUTES]: ['User', 'Run Name', 'Source', 'Version'],
+        [ColumnTypes.ATTRIBUTES]: ['User', 'Run Name', 'Source', 'Models', 'Version'],
         [ColumnTypes.PARAMS]: ['p1'],
         [ColumnTypes.METRICS]: ['m1'],
         [ColumnTypes.TAGS]: ['t1'],
