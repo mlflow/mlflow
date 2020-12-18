@@ -835,8 +835,8 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
                                   at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the TensorFlow integration. If ``False``,
+                    enables the TensorFlow integration autologging integration.
     """
     import tensorflow
 
