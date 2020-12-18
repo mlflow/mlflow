@@ -521,7 +521,7 @@ class _AutologgingSessionManager:
         try:
             session_id = uuid.uuid4().hex
             if cls._session is None:
-                cls._session = AutologgingSession(integration, session_id)
+                cls._session = _AutologgingSessionManager.AutologgingSession(integration, session_id)
             yield cls._session
         finally:
             cls.end_session()
@@ -645,7 +645,7 @@ class AutologgingEventLogger:
 
     @staticmethod
     def log_patch_function_execution(session, patch_function_info, call_args, call_kwargs):
-        _log_function_execution(
+        return AutologgingEventLogger._log_function_execution(
             AutologgingEventLogger.get_logger().log_patch_function_start,
             AutologgingEventLogger.get_logger().log_patch_function_end,
             session,
@@ -656,7 +656,7 @@ class AutologgingEventLogger:
 
     @staticmethod
     def log_original_function_execution(session, patch_function_info, call_args, call_kwargs):
-        _log_function_execution(
+        return AutologgingEventLogger._log_function_execution(
             AutologgingEventLogger.get_logger().log_original_function_start,
             AutologgingEventLogger.get_logger().log_original_function_end,
             session,
@@ -666,6 +666,7 @@ class AutologgingEventLogger:
         )
 
     @staticmethod
+    @contextmanager
     def _log_function_execution(
         start_fn, end_fn, session, patch_function_info, call_args, call_kwargs
     ):
@@ -853,7 +854,9 @@ def safe_patch(
                 def call_original(*og_args, **og_kwargs):
                     with AutologgingEventLogger.log_original_function_execution(
                         session,
-                        PatchFunctionInfo(autologging_integration, destination, function_name),
+                        AutologgingEventLogger.PatchFunctionInfo(
+                            autologging_integration, destination, function_name
+                        ),
                         args,
                         kwargs,
                     ):
@@ -888,7 +891,9 @@ def safe_patch(
 
                 with AutologgingEventLogger.log_patch_function_execution(
                     session,
-                    PatchFunctionInfo(autologging_integration, destination, function_name),
+                    AutologgingEventLogger.PatchFunctionInfo(
+                        autologging_integration, destination, function_name
+                    ),
                     args,
                     kwargs,
                 ):
