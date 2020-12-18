@@ -1053,7 +1053,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
             self.log_dir = None
 
         def _patch_implementation(
-            self, original, *args, **kwargs
+            self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
             active_run = mlflow.active_run()
             if MLFLOW_AUTOLOGGING in active_run.data.tags:
@@ -1082,7 +1082,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
                     kwargs["callbacks"], self.log_dir = _setup_callbacks(
                         [], log_models, metrics_logger
                     )
-                result = original(self, *args, **kwargs)
+                result = original(inst, *args, **kwargs)
 
             _flush_queue()
             _log_artifacts_with_warning(
