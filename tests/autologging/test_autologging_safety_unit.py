@@ -96,7 +96,7 @@ class TestLogger(AutologgingEventLogger):
 
     LoggerCall = namedtuple(
         "LoggerCall",
-        ["method", "session", "patch_function_info", "call_args", "call_kwargs", "exception"],
+        ["method", "session", "patch_obj", "function_name", "call_args", "call_kwargs", "exception"],
     )
 
     def __init__(self):
@@ -105,49 +105,49 @@ class TestLogger(AutologgingEventLogger):
     def reset(self):
         self.calls = []
 
-    def log_patch_function_start(self, session, patch_function_info, call_args, call_kwargs):
+    def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
         self.calls.append(
             TestLogger.LoggerCall(
-                "patch_start", session, patch_function_info, call_args, call_kwargs, None
+                "patch_start", session, patch_obj, function_name, call_args, call_kwargs, None
             )
         )
 
-    def log_patch_function_end(self, session, patch_function_info, call_args, call_kwargs):
+    def log_patch_function_end(self, session, patch_obj, function_name, call_args, call_kwargs):
         self.calls.append(
             TestLogger.LoggerCall(
-                "patch_end", session, patch_function_info, call_args, call_kwargs, None
+                "patch_end", session, patch_obj, function_name, call_args, call_kwargs, None
             )
         )
 
     def log_patch_function_error(
-        self, session, patch_function_info, call_args, call_kwargs, exception
+        self, session, patch_obj, function_name, call_args, call_kwargs, exception
     ):
         self.calls.append(
             TestLogger.LoggerCall(
-                "patch_error", session, patch_function_info, call_args, call_kwargs, exception
+                "patch_error", session, patch_obj, function_name, call_args, call_kwargs, exception
             )
         )
 
-    def log_original_function_start(self, session, patch_function_info, call_args, call_kwargs):
+    def log_original_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
         self.calls.append(
             TestLogger.LoggerCall(
-                "original_start", session, patch_function_info, call_args, call_kwargs, None
+                "original_start", session, patch_obj, function_name, call_args, call_kwargs, None
             )
         )
 
-    def log_original_function_end(self, session, patch_function_info, call_args, call_kwargs):
+    def log_original_function_end(self, session, patch_obj, function_name, call_args, call_kwargs):
         self.calls.append(
             TestLogger.LoggerCall(
-                "original_end", session, patch_function_info, call_args, call_kwargs, None
+                "original_end", session, patch_obj, function_name, call_args, call_kwargs, None
             )
         )
 
     def log_original_function_error(
-        self, session, patch_function_info, call_args, call_kwargs, exception
+        self, session, patch_obj, function_name, call_args, call_kwargs, exception
     ):
         self.calls.append(
             TestLogger.LoggerCall(
-                "original_error", session, patch_function_info, call_args, call_kwargs, exception
+                "original_error", session, patch_obj, function_name, call_args, call_kwargs, exception
             )
         )
 
@@ -636,8 +636,11 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
     patch_destination.fn("a", 1, b=2)
     expected_order = ["patch_start", "original_start", "original_end", "patch_end"]
+    print([call.method for call in test_logger.calls])
     assert [call.method for call in test_logger.calls] == expected_order
     assert all([call.session == patch_session for call in test_logger.calls])
+    assert all([call.patch_obj == patch_destination for call in test_logger.calls])
+    assert all([call.function_name == "fn" for call in test_logger.calls])
     patch_start, original_start, original_end, patch_end = test_logger.calls
     assert patch_start.call_args == patch_end.call_args == ("a", 1)
     assert patch_start.call_kwargs == patch_end.call_kwargs == {"b": 2}
