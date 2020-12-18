@@ -5,9 +5,6 @@ import posixpath
 import requests
 import uuid
 
-from azure.core.exceptions import ClientAuthenticationError
-from azure.storage.blob import BlobClient
-
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -155,6 +152,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         Finally, since the prevailing credentials could expire in the time between the last
         stage_block and the commit, a second try-except block refreshes credentials if needed.
         """
+        from azure.core.exceptions import ClientAuthenticationError
+        from azure.storage.blob import BlobClient
+
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
             service = BlobClient.from_blob_url(

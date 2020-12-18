@@ -3,7 +3,6 @@ import os
 import pytest
 
 import mlflow
-from mlflow.utils.file_utils import path_to_local_sqlite_uri
 
 from tests.autologging.fixtures import test_mode_on
 
@@ -25,6 +24,8 @@ def reset_mock():
 
 @pytest.fixture(autouse=True)
 def tracking_uri_mock(tmpdir, request):
+    from mlflow.utils.file_utils import path_to_local_sqlite_uri
+
     try:
         if "notrackingurimock" not in request.keywords:
             tracking_uri = path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, "mlruns"))
