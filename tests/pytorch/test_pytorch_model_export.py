@@ -695,38 +695,25 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory_saved_as_state_dict(
-    module_scoped_subclassed_model, model_path, data
+    sequential_model, model_path, data
 ):
 
     mlflow.pytorch.save_state_dict(
-        state_dict=module_scoped_subclassed_model.state_dict(), path=model_path
+        state_dict=sequential_model.state_dict(), path=model_path
     )
 
-    model_class = ModuleScopedSubclassedModel()
+    model_class = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model_class.load_state_dict(model_state_dict)
     model_class.eval()
 
     np.testing.assert_array_almost_equal(
         pd.DataFrame(_predict(model=model_class, data=data)),
-        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        pd.DataFrame(_predict(model=sequential_model, data=data)),
         decimal=4,
     )
-
-
-@pytest.mark.large
-def test_state_dict_key_set_to_false_for_full_model(module_scoped_subclassed_model, model_path):
-
-    mlflow.pytorch.save_model(
-        pytorch_model=module_scoped_subclassed_model, path=model_path, conda_env=None
-    )
-
-    model_conf_path = os.path.join(model_path, "MLmodel")
-    model_conf = Model.load(model_conf_path)
-    pyfunc_conf = model_conf.flavors.get("pytorch")
-    assert pyfunc_conf is not None
-    assert pyfunc_conf["state_dict"] is False
 
 
 @pytest.mark.large
@@ -774,8 +761,9 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_as_state_dict(
-    module_scoped_subclassed_model, model_path, data
+    sequential_model, model_path, data
 ):
     """
     This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
@@ -786,7 +774,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_state_dict(
-            artifact_path=artifact_path, state_dict=module_scoped_subclassed_model.state_dict()
+            artifact_path=artifact_path, state_dict=sequential_model.state_dict()
         )
         model_path = _download_artifact_from_uri(
             "runs:/{run_id}/{artifact_path}".format(
@@ -794,14 +782,14 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_
             )
         )
 
-    model_class = ModuleScopedSubclassedModel()
+    model_class = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model_class.load_state_dict(model_state_dict)
     model_class.eval()
 
     np.testing.assert_array_almost_equal(
         pd.DataFrame(_predict(model=model_class, data=data)),
-        pd.DataFrame(_predict(model=module_scoped_subclassed_model, data=data)),
+        pd.DataFrame(_predict(model=sequential_model, data=data)),
         decimal=4,
     )
 

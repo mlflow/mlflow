@@ -699,7 +699,7 @@ def _load_model(path, **kwargs):
 @experimental
 def load_state_dict(model_uri):
     """
-    Load a PyTorch model state dict from a local file or a run.
+    Load a state dict from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
