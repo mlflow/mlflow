@@ -508,10 +508,13 @@ def save_model(
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    # If spark DFS is DBFS and we're running on a Databricks cluster, copy to local FS
-    # via the FUSE mount
-    is_saving_to_dbfs = is_valid_dbfs_uri(tmp_path) or posixpath.abspath(tmp_path) == tmp_path
-    if is_saving_to_dbfs and databricks_utils.is_in_cluster():
+    # We're saving to DBFS either if (a) the URI is a valid DBFS URI ("dbfs:/my-directory"), or
+    # (b) if we're running on a Databricks cluster and the URI is schemeless (e.g. looks like a
+    # filesystem absolute path like "/my-directory")
+    is_saving_to_dbfs = is_valid_dbfs_uri(tmp_path) or (
+        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+    )
+    if is_saving_to_dbfs:
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
@@ -527,6 +530,24 @@ def save_model(
     )
 
 
+def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
+    """
+    Copies the directory src_dir into dst_dir, without preserving filesystem permissions
+    """
+    for (dirpath, dirnames, filenames) in os.walk(src_dir):
+        for dirname in dirnames:
+            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), src_dir)
+            # Compute corresponding FUSE path of each local directory and create an equivalent
+            # FUSE directory
+            fuse_dir_path = os.path.join(dst_dir, relative_dir_path)
+            os.mkdir(fuse_dir_path)
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            relative_file_path = os.path.relpath(file_path, src_dir)
+            fuse_file_path = os.path.join(dst_dir, relative_file_path)
+            shutil.copyfile(file_path, fuse_file_path)
+
+
 def _load_model_databricks(model_uri, dfs_tmpdir):
     from pyspark.ml.pipeline import PipelineModel
 
@@ -539,18 +560,7 @@ def _load_model_databricks(model_uri, dfs_tmpdir):
     os.mkdir(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
-    for (dirpath, dirnames, filenames) in os.walk(local_model_path):
-        for dirname in dirnames:
-            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), local_model_path)
-            # Compute corresponding FUSE path of each local directory and create an equivalent
-            # FUSE directory
-            fuse_dir_path = os.path.join(fuse_dfs_tmpdir, relative_dir_path)
-            os.mkdir(fuse_dir_path)
-        for filename in filenames:
-            file_path = os.path.join(dirpath, filename)
-            relative_file_path = os.path.relpath(file_path, local_model_path)
-            fuse_file_path = os.path.join(fuse_dfs_tmpdir, relative_file_path)
-            shutil.copyfile(file_path, fuse_file_path)
+    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
     return PipelineModel.load(dfs_tmpdir)
 
 

@@ -271,8 +271,15 @@ def is_valid_dbfs_uri(uri):
 
 
 def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
-    # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
+    """
+    Converts the provided DBFS URI into a DBFS FUSE path
+    :param dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
+                     "/my-directory" if running in an environment where the default HDFS filesystem
+                     is "dbfs:/" (e.g. Databricks)
+    :return A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+    """
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
+        # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
         dbfs_uri = "dbfs:" + dbfs_uri
     if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
         raise MlflowException(
