@@ -574,27 +574,33 @@ class AutologgingEventLogger:
             call_kwargs,
         )
 
-    def log_patch_function_end(
-        self, session, patch_function_info, call_args, call_kwargs, exception=None
-    ):
+    def log_patch_function_end(self, session, patch_function_info, call_args, call_kwargs):
         """
         Called upon termination of a patched ML API associated with an autologging integration
         (e.g., `sklearn.linear_model.LogisticRegression.fit()`)
         """
-        termination_state = (
-            "completed successfully"
-            if exception is None
-            else "terminated with unexpected exception: '{}'".format(exception)
-        )
         _logger.debug(
-            "Patched ML API call '%s.%s' for %s autologging %s. Patched ML API was called with"
-            " args '%s' and kwargs '%s'",
+            "Patched ML API call '%s.%s' for %s autologging completed successfully. Patched ML"
+            " API was called with args '%s' and kwargs '%s'",
             patch_function_info.object_name,
             patch_function_info.function_name,
             session.integration,
-            termination_state,
             call_args,
             call_kwargs,
+        )
+
+    def log_patch_function_error(
+        self, session, patch_function_info, call_args, call_kwargs, exception
+    ):
+        _logger.debug(
+            "Patched ML API call '%s.%s' for %s autologging threw exception. Patched ML API was"
+            " called with args '%s' and kwargs '%s'. Exception: %s",
+            patch_function_info.object_name,
+            patch_function_info.function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+            exception,
         )
 
     def log_original_function_start(self, session, patch_function_info, call_args, call_kwargs):
@@ -614,9 +620,7 @@ class AutologgingEventLogger:
             call_kwargs,
         )
 
-    def log_original_function_end(
-        self, session, patch_function_info, call_args, call_kwargs, exception=None
-    ):
+    def log_original_function_end(self, session, patch_function_info, call_args, call_kwargs):
         """
         Called during the execution of a patched ML API associated with an autologging integration
         when the original / underlying ML API invocation terminates. For example, when a patched
@@ -624,20 +628,30 @@ class AutologgingEventLogger:
         original / underlying implementation of `LogisticRegression.fit()`, then this function is
         called when the original / underlying implementation terminates.
         """
-        termination_state = (
-            "completed successfully"
-            if exception is None
-            else "terminated with exception: '{}'".format(exception)
-        )
         _logger.debug(
-            "Original function invocation during execution of patched ML API call '%s.%s' for %s"
-            " autologging %s. Original function was invoked with with args '%s' and kwargs '%s'",
+            "Original function invocation completed successfully during execution of patched ML API"
+            " call '%s.%s' for %s autologging. Original function was invoked with with"
+            " args '%s' and kwargs '%s'",
             patch_function_info.object_name,
             patch_function_info.function_name,
             session.integration,
-            termination_state,
             call_args,
             call_kwargs,
+        )
+
+    def log_original_function_error(
+        self, session, patch_function_info, call_args, call_kwargs, exception
+    ):
+        _logger.debug(
+            "Original function invocation threw exception during execution of patched"
+            " ML API call '%s.%s' for %s autologging. Original function was invoked with"
+            " args '%s' and kwargs '%s'. Exception: %s",
+            patch_function_info.object_name,
+            patch_function_info.function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+            exception,
         )
 
     @staticmethod
@@ -653,6 +667,7 @@ class AutologgingEventLogger:
         return AutologgingEventLogger._log_function_execution(
             AutologgingEventLogger.get_logger().log_patch_function_start,
             AutologgingEventLogger.get_logger().log_patch_function_end,
+            AutologgingEventLogger.get_logger().log_patch_function_error,
             session,
             patch_function_info,
             call_args,
@@ -664,6 +679,7 @@ class AutologgingEventLogger:
         return AutologgingEventLogger._log_function_execution(
             AutologgingEventLogger.get_logger().log_original_function_start,
             AutologgingEventLogger.get_logger().log_original_function_end,
+            AutologgingEventLogger.get_logger().log_original_function_error,
             session,
             patch_function_info,
             call_args,
@@ -673,7 +689,7 @@ class AutologgingEventLogger:
     @staticmethod
     @contextmanager
     def _log_function_execution(
-        start_fn, end_fn, session, patch_function_info, call_args, call_kwargs
+        start_fn, end_fn, error_fn, session, patch_function_info, call_args, call_kwargs
     ):
         def log_safely(fn, *args, **kwargs):
             try:
@@ -685,7 +701,7 @@ class AutologgingEventLogger:
             log_safely(start_fn, session, patch_function_info, call_args, call_kwargs)
             yield
         except Exception as e:
-            log_safely(end_fn, session, patch_function_info, call_args, call_kwargs, e)
+            log_safely(error_fn, session, patch_function_info, call_args, call_kwargs, e)
             raise
         else:
             log_safely(end_fn, session, patch_function_info, call_args, call_kwargs)

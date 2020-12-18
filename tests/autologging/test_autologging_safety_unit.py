@@ -106,34 +106,48 @@ class TestLogger(AutologgingEventLogger):
         self.calls = []
 
     def log_patch_function_start(self, session, patch_function_info, call_args, call_kwargs):
-        print("PATCH START")
         self.calls.append(
             TestLogger.LoggerCall(
                 "patch_start", session, patch_function_info, call_args, call_kwargs, None
             )
         )
 
-    def log_patch_function_end(self, session, patch_function_info, call_args, call_kwargs, exception=None):
-        print("PATCH END")
+    def log_patch_function_end(self, session, patch_function_info, call_args, call_kwargs):
         self.calls.append(
             TestLogger.LoggerCall(
-                "patch_end", session, patch_function_info, call_args, call_kwargs, exception
+                "patch_end", session, patch_function_info, call_args, call_kwargs, None
+            )
+        )
+
+    def log_patch_function_error(
+        self, session, patch_function_info, call_args, call_kwargs, exception
+    ):
+        self.calls.append(
+            TestLogger.LoggerCall(
+                "patch_error", session, patch_function_info, call_args, call_kwargs, exception
             )
         )
 
     def log_original_function_start(self, session, patch_function_info, call_args, call_kwargs):
-        print("OG START")
         self.calls.append(
             TestLogger.LoggerCall(
                 "original_start", session, patch_function_info, call_args, call_kwargs, None
             )
         )
 
-    def log_original_function_end(self, session, patch_function_info, call_args, call_kwargs, exception=None):
-        print("OG END")
+    def log_original_function_end(self, session, patch_function_info, call_args, call_kwargs):
         self.calls.append(
             TestLogger.LoggerCall(
-                "original_end", session, patch_function_info, call_args, call_kwargs, exception
+                "original_end", session, patch_function_info, call_args, call_kwargs, None
+            )
+        )
+
+    def log_original_function_error(
+        self, session, patch_function_info, call_args, call_kwargs, exception
+    ):
+        self.calls.append(
+            TestLogger.LoggerCall(
+                "original_error", session, patch_function_info, call_args, call_kwargs, exception
             )
         )
 
@@ -655,22 +669,22 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
     throw_location = "before"
     patch_destination.fn()
-    expected_order_throw_before = ["patch_start", "patch_end"]
+    expected_order_throw_before = ["patch_start", "patch_error"]
     assert [call.method for call in test_logger.calls] == expected_order_throw_before
-    patch_start, patch_end = test_logger.calls
+    patch_start, patch_error = test_logger.calls
     assert patch_start.exception is None
-    assert patch_end.exception == exc_to_raise
+    assert patch_error.exception == exc_to_raise
 
     test_logger.reset()
 
     throw_location = "after"
     patch_destination.fn()
-    expected_order_throw_after = ["patch_start", "original_start", "original_end", "patch_end"]
+    expected_order_throw_after = ["patch_start", "original_start", "original_end", "patch_error"]
     assert [call.method for call in test_logger.calls] == expected_order_throw_after
-    patch_start, original_start, original_end, patch_end = test_logger.calls
+    patch_start, original_start, original_end, patch_error = test_logger.calls
     assert patch_start.exception is original_start.exception is None
     assert original_end.exception is None
-    assert patch_end.exception == exc_to_raise
+    assert patch_error.exception == exc_to_raise
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
@@ -681,19 +695,21 @@ def test_safe_patch_makes_expected_event_logging_calls_when_original_function_th
     def original(*args, **kwargs):
         raise exc_to_raise
 
-    patch_destination.original = original
+    patch_destination.fn = original
 
     def patch_impl(original, *args, **kwargs):
         original(*args, **kwargs)
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
-    patch_destination.fn()
-    expected_order = ["patch_start", "original_start", "original_end"]
+    with pytest.raises(Exception, match="thrown from patch"):
+        patch_destination.fn()
+    expected_order = ["patch_start", "original_start", "original_error"]
+    print([call.method for call in test_logger.calls])
     assert [call.method for call in test_logger.calls] == expected_order
-    patch_start, original_start, original_end = test_logger.calls
+    patch_start, original_start, original_error = test_logger.calls
     assert patch_start.exception is original_start.exception is None
-    assert original_end.exception == exc_to_raise
+    assert original_error.exception == exc_to_raise
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
