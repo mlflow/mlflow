@@ -1,4 +1,4 @@
-# `trivial` is a fictional MLflow flavor that exists only for unit test purposes
+# `trivial` is a dummy MLflow flavor that exists only for unit testing purposes
 
 mlflow_save_model.trivial <- function(model, path, model_spec = list(), ...) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
@@ -6,7 +6,7 @@ mlflow_save_model.trivial <- function(model, path, model_spec = list(), ...) {
   path <- normalizePath(path)
 
   trivial_conf = list(
-    trivial = list(type = "trivial")
+    trivial = list(key1 = "value1", key2 = "value2")
   )
   model_spec$flavors <- c(model_spec$flavors, trivial_conf)
   mlflow:::mlflow_write_model_spec(path, model_spec)

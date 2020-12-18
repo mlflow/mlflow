@@ -116,5 +116,6 @@ test_that("mlflow can save and load attributes of model flavor correctly", {
   mlflow_save_model(model, path = path)
   model <- mlflow_load_model(path)
 
-  expect_equal(attributes(model$flavor)$spec$type, "trivial")
+  expect_equal(attributes(model$flavor)$spec$key1, "value1")
+  expect_equal(attributes(model$flavor)$spec$key2, "value2")
 })
