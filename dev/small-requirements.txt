@@ -1,5 +1,8 @@
 ## Small test reqs
 scipy
+# NB: We're specifying a test-only minimum version bound for sqlalchemy in order to reliably
+# execute schema consistency checks, the semantics of which were changed in sqlalchemy 1.3.21
+sqlalchemy>=1.3.21
 ## Test-only dependencies
 pytest==3.2.1
 pytest-cov==2.6.0
