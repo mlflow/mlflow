@@ -35,6 +35,7 @@ from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -609,10 +610,6 @@ def _log_event(event):
     """
     Extracts metric information from the event protobuf
     """
-    if not mlflow.active_run():
-        try_mlflow_log(mlflow.start_run)
-        global _AUTOLOG_RUN_ID
-        _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
     if event.WhichOneof("what") == "summary":
         summary = event.summary
         for v in summary.value:
@@ -861,42 +858,35 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
-    @contextmanager
-    def _manage_active_run():
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            global _AUTOLOG_RUN_ID
-            if mlflow.active_run() is not None:  # defensive check in case `mlflow.start_run` fails
-                _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
-        yield mlflow.active_run()
-        if mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
-            try_mlflow_log(mlflow.end_run)
-
     def train(original, self, *args, **kwargs):
-        with _manage_active_run():
+        active_run = mlflow.active_run()
+        if MLFLOW_AUTOLOGGING in active_run.data.tags:
+            global _AUTOLOG_RUN_ID
+            _AUTOLOG_RUN_ID = active_run.info.run_id
 
-            # Checking step and max_step parameters for logging
-            if len(args) >= 3:
-                try_mlflow_log(mlflow.log_param, "steps", args[2])
-                if len(args) >= 4:
-                    try_mlflow_log(mlflow.log_param, "max_steps", args[3])
-            if "steps" in kwargs:
-                try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
-            if "max_steps" in kwargs:
-                try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
+        # Checking step and max_step parameters for logging
+        if len(args) >= 3:
+            try_mlflow_log(mlflow.log_param, "steps", args[2])
+            if len(args) >= 4:
+                try_mlflow_log(mlflow.log_param, "max_steps", args[3])
+        if "steps" in kwargs:
+            try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
+        if "max_steps" in kwargs:
+            try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
 
-            result = original(self, *args, **kwargs)
+        result = original(self, *args, **kwargs)
 
-            return result
+        return result
 
     def export_saved_model(original, self, *args, **kwargs):
+        global _AUTOLOG_RUN_ID
         auto_end = False
         if not mlflow.active_run():
-            global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
                 try_mlflow_log(mlflow.start_run)
+                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
                 auto_end = True
 
         serialized = original(self, *args, **kwargs)
@@ -921,6 +911,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
                 try_mlflow_log(mlflow.start_run)
+                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
                 auto_end = True
 
         serialized = original(self, *args, **kwargs)
@@ -931,6 +922,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
             tf_signature_def_key="predict",
             artifact_path="model",
         )
+
         if (
             mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
         ) or auto_end:
@@ -994,43 +986,46 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
                     metrics_logger.record_metrics(restored_metrics, last_epoch)
 
     def fit(original, self, *args, **kwargs):
-        with _manage_active_run() as run:
+        active_run = mlflow.active_run()
+        if MLFLOW_AUTOLOGGING in active_run.data.tags:
+            global _AUTOLOG_RUN_ID
+            _AUTOLOG_RUN_ID = active_run.info.run_id
 
-            unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
+        unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
-            log_fn_args_as_params(original, args, kwargs, unlogged_params)
-            early_stop_callback = None
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        early_stop_callback = None
 
-            run_id = run.info.run_id
-            with batch_metrics_logger(run_id) as metrics_logger:
-                # Checking if the 'callback' argument of fit() is set
-                if len(args) >= 6:
-                    tmp_list = list(args)
-                    early_stop_callback = _early_stop_check(tmp_list[5])
-                    tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models, metrics_logger)
-                    args = tuple(tmp_list)
-                elif kwargs.get("callbacks"):
-                    early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                    kwargs["callbacks"], log_dir = _setup_callbacks(
-                        kwargs["callbacks"], log_models, metrics_logger
-                    )
-                else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
+        run_id = mlflow.active_run().info.run_id
+        _AUTOLOG_RUN_ID = run_id
 
-                _log_early_stop_callback_params(early_stop_callback)
+        with batch_metrics_logger(run_id) as metrics_logger:
+            # Checking if the 'callback' argument of fit() is set
+            if len(args) >= 6:
+                tmp_list = list(args)
+                early_stop_callback = _early_stop_check(tmp_list[5])
+                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5], log_models, metrics_logger)
+                args = tuple(tmp_list)
+            elif kwargs.get("callbacks"):
+                early_stop_callback = _early_stop_check(kwargs["callbacks"])
+                kwargs["callbacks"], log_dir = _setup_callbacks(
+                    kwargs["callbacks"], log_models, metrics_logger
+                )
+            else:
+                kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
 
-                history = original(self, *args, **kwargs)
+            _log_early_stop_callback_params(early_stop_callback)
 
-                _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
+            history = original(self, *args, **kwargs)
 
-            _flush_queue()
-            _log_artifacts_with_warning(
-                local_dir=log_dir.location, artifact_path="tensorboard_logs"
-            )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+            _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
-            return history
+        _flush_queue()
+        _log_artifacts_with_warning(local_dir=log_dir.location, artifact_path="tensorboard_logs")
+        if log_dir.is_temp:
+            shutil.rmtree(log_dir.location)
+
+        return history
 
     def fit_generator(original, self, *args, **kwargs):
         """
@@ -1039,35 +1034,37 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
         `fit_generator()` method calling a patched `fit()` method, we only patch
         `fit_generator()` in TF < 2.1.0.
         """
-        with _manage_active_run() as run:
+        active_run = mlflow.active_run()
+        if MLFLOW_AUTOLOGGING in active_run.data.tags:
+            global _AUTOLOG_RUN_ID
+            _AUTOLOG_RUN_ID = active_run.info.run_id
 
-            unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
+        unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
-            log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = run.info.run_id
-            with batch_metrics_logger(run_id) as metrics_logger:
-                # Checking if the 'callback' argument of fit() is set
-                if len(args) >= 5:
-                    tmp_list = list(args)
-                    tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models, metrics_logger)
-                    args = tuple(tmp_list)
-                elif kwargs.get("callbacks"):
-                    kwargs["callbacks"], log_dir = _setup_callbacks(
-                        kwargs["callbacks"], log_models, metrics_logger
-                    )
-                else:
-                    kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
-                result = original(self, *args, **kwargs)
+        run_id = active_run.info.run_id
 
-            _flush_queue()
-            _log_artifacts_with_warning(
-                local_dir=log_dir.location, artifact_path="tensorboard_logs"
-            )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+        with batch_metrics_logger(run_id) as metrics_logger:
+            # Checking if the 'callback' argument of fit() is set
+            if len(args) >= 5:
+                tmp_list = list(args)
+                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4], log_models, metrics_logger)
+                args = tuple(tmp_list)
+            elif kwargs.get("callbacks"):
+                kwargs["callbacks"], log_dir = _setup_callbacks(
+                    kwargs["callbacks"], log_models, metrics_logger
+                )
+            else:
+                kwargs["callbacks"], log_dir = _setup_callbacks([], log_models, metrics_logger)
+            result = original(self, *args, **kwargs)
 
-            return result
+        _flush_queue()
+        _log_artifacts_with_warning(local_dir=log_dir.location, artifact_path="tensorboard_logs")
+        if log_dir.is_temp:
+            shutil.rmtree(log_dir.location)
+
+        return result
 
     def add_event(original, self, event):
         _log_event(event)
@@ -1078,21 +1075,28 @@ def autolog(every_n_iter=100, log_models=True, disable=False):
         _flush_queue()
         return result
 
-    patches = [
+    managed = [
         (EventFileWriter, "add_event", add_event),
         (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", fit),
-        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
-        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
         (FileWriter, "add_summary", add_summary),
     ]
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
         # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
         # To avoid unintentional creation of nested MLflow runs caused by a patched
         # `fit_generator()` method calling a patched `fit()` method, we only patch
         # `fit_generator()` in TF < 2.1.0
-        patches.append((tensorflow.keras.Model, "fit_generator", fit_generator))
+        managed.append((tensorflow.keras.Model, "fit_generator", fit_generator))
 
-    for p in patches:
+    not_managed = [
+        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
+    ]
+
+    for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
+
+    for p in not_managed:
+        safe_patch(FLAVOR_NAME, *p)
