@@ -305,11 +305,14 @@ def log_model(
 
 
 def _load_model(path):
-    from fastai.basic_train import load_learner
+    from fastai.learner import load_learner
+
 
     abspath = os.path.abspath(path)
-    path, file = os.path.split(abspath)
-    return load_learner(path, file)
+    
+    # fastaiV2 load_learner function takes only the fname path
+    # For detail please see https://docs.fast.ai/learner.html#load_learner
+    return load_learner(abspath)
 
 
 class _FastaiModelWrapper:
