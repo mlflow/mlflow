@@ -217,7 +217,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         testnames = ["blue", "red", "green"]
 
         experiments = self._experiment_factory(testnames)
-        actual = self.store.list_experiments()
+        actual = self.store.list_experiments(max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None)
 
         self.assertEqual(len(experiments) + 1, len(actual))  # default
 
@@ -230,6 +230,65 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 )
                 self.assertIn(res.name, testnames)
                 self.assertEqual(str(res.experiment_id), experiment_id)
+
+    def test_list_experiments_paginated_last_page(self):
+        import random
+        # 9 + 1 default experiment for 10 total
+        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 9)]
+        experiments = self._experiment_factory(testnames)
+        max_results = 5
+        returned_experiments = []
+        result = self.store.list_experiments(max_results=max_results, page_token=None)
+        self.assertEqual(len(result), max_results)
+        returned_experiments.extend(result)
+        while result.token:
+            result = self.store.list_experiments(max_results=max_results, page_token=result.token)
+            self.assertEqual(len(result), max_results)
+            returned_experiments.extend(result)
+        self.assertEqual(result.token, None)
+        # make sure that at least all the experiments created in this test are found
+        self.assertEqual(set(experiments) - set([exp.experiment_id for exp in returned_experiments]), set())
+
+    def test_list_experiments_paginated_returns_in_correct_order(self):
+        import random
+        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
+        experiments = self._experiment_factory(testnames)
+
+        # test that pagination will return all valid results in sorted order
+        # by name ascending
+        result = self.store.list_experiments(max_results=3, page_token=None)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result[1:]], testnames[0:2])
+
+        result = self.store.list_experiments(max_results=4, page_token=result.token)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result], testnames[2:6])
+
+        result = self.store.list_experiments(max_results=6, page_token=result.token)
+        self.assertNotEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result], testnames[6:12])
+
+        result = self.store.list_experiments(max_results=8, page_token=result.token)
+        # this page token should be none
+        self.assertEqual(result.token, None)
+        self.assertEqual([exp.name for exp in result], testnames[12:])
+
+    def test_list_experiments_paginated_errors(self):
+        import random
+        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
+        experiments = self._experiment_factory(testnames)
+
+        # test that providing a completely invalid page token throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.list_experiments(page_token="evilhax", max_results=20)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that providing too large of a max_results throws
+        with self.assertRaises(MlflowException) as exception_context:
+            self.store.list_experiments(page_token=None, max_results=int(1e15))
+            assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self.assertIn("Invalid value for request parameter max_results",
+                      exception_context.exception.message)
 
     def test_create_experiments(self):
         with self.store.ManagedSessionMaker() as session:
