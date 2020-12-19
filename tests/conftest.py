@@ -31,7 +31,9 @@ def tracking_uri_mock(tmpdir, request):
 
     try:
         if "notrackingurimock" not in request.keywords:
-            tracking_uri = path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, "mlruns"))
+            tracking_uri = path_to_local_sqlite_uri(
+                os.path.join(tmpdir.strpath, "mlruns")
+            )
             mlflow.set_tracking_uri(tracking_uri)
             os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
         yield tmpdir
@@ -54,6 +56,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
 @pytest.fixture(scope="function")
 def sqlite_store():
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
     fd, temp_dbfile = tempfile.mkstemp()
     # Close handle immediately so that we can remove the file later on in Windows
     os.close(fd)
