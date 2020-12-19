@@ -26,6 +26,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -54,16 +55,29 @@ class RestStore(AbstractStore):
         response_proto = api.Response()
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         """
-        :return: a list of all known Experiment objects
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: a PagedList of all known Experiment objects
         """
-        req_body = message_to_json(ListExperiments(view_type=view_type))
+        req_body = message_to_json(ListExperiments(view_type=view_type,
+                                                   max_results=max_results,
+                                                   page_token=page_token))
         response_proto = self._call_endpoint(ListExperiments, req_body)
-        return [
-            Experiment.from_proto(experiment_proto)
-            for experiment_proto in response_proto.experiments
-        ]
+        if max_results is not None:
+            return PagedList([
+                Experiment.from_proto(experiment_proto)
+                for experiment_proto in response_proto.experiments
+            ],
+            response_proto.next_page_token)
+        else:
+            return [
+                Experiment.from_proto(experiment_proto)
+                for experiment_proto in response_proto.experiments
+            ]
 
     def create_experiment(self, name, artifact_location=None):
         """

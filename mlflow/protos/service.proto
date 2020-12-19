@@ -682,9 +682,18 @@ message ListExperiments {
   // If unspecified, return only active experiments.
   optional ViewType view_type = 1;
 
+  // Maximum number of registered models desired. Max threshold is 50K.
+  optional int64 max_results = 2 [default = 50000];
+
+  // Pagination token to go to the next page based on a previous query.
+  optional string page_token = 3;
+
   message Response {
     // All experiments.
     repeated Experiment experiments = 1;
+
+    // Pagination token to request next page of models for the same query.
+    optional string next_page_token = 2;
   }
 }
 

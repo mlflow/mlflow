@@ -22,6 +22,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.db.base_sql_model import Base
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.tracking.abstract_store import AbstractStore
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -251,39 +252,69 @@ class SqlAlchemyStore(AbstractStore):
         query_options = self._get_eager_experiment_query_options() if eager else []
         return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
-        with self.ManagedSessionMaker() as session:
-            return [
-                exp.to_mlflow_entity()
-                for exp in self._list_experiments(session=session, view_type=view_type, eager=True)
-            ]
-
-    def _get_experiment(self, session, experiment_id, view_type, eager=False):
+    def _list_experiments(
+        self, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None, eager=False
+    ):
         """
-        :param eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
                       are not eagerly loaded and will be loaded if/when their corresponding
-                      object properties are accessed from the resulting ``SqlExperiment`` object.
+                      object properties are accessed from a resulting ``SqlExperiment`` object.
         """
-        experiment_id = experiment_id or SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
         stages = LifecycleStage.view_type_to_stages(view_type)
-        query_options = self._get_eager_experiment_query_options() if eager else []
+        conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
+        if ids and len(ids) > 0:
+            int_ids = [int(eid) for eid in ids]
+            conditions.append(SqlExperiment.experiment_id.in_(int_ids))
+        if names and len(names) > 0:
+            conditions.append(SqlExperiment.name.in_(names))
 
-        experiment = (
-            session.query(SqlExperiment)
-            .options(*query_options)
-            .filter(
-                SqlExperiment.experiment_id == experiment_id,
-                SqlExperiment.lifecycle_stage.in_(stages),
-            )
-            .one_or_none()
-        )
+        max_results_for_query = None
+        if max_results is not None:
+            max_results_for_query = max_results + 1
+            def compute_next_token(current_size):
+                next_token = None
+                if max_results_for_query == current_size:
+                    final_offset = offset + max_results
+                    next_token = SearchUtils.create_page_token(final_offset)
 
-        if experiment is None:
-            raise MlflowException(
-                "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST
-            )
+                return next_token
 
-        return experiment
+        with self.ManagedSessionMaker() as session:
+            query_options = self._get_eager_experiment_query_options() if eager else []
+            if max_results is not None:
+                offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+                queried_experiments = (
+                    session.query(SqlExperiment)
+                    .options(*query_options)
+                    .filter(*conditions)
+                    .offset(offset)
+                    .limit(max_results_for_query)
+                    .all()
+                )
+            else:
+                queried_experiments = (
+                    session.query(SqlExperiment)
+                    .options(*query_options)
+                    .filter(*conditions)
+                    .all()
+                )
+
+            experiments = [exp.to_mlflow_entity() for exp in queried_experiments]
+        if max_results is not None:
+            return PagedList(experiments[:max_results], compute_next_token(len(experiments)))
+        else:
+            return experiments
+
+
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
+            return self._list_experiments(view_type=view_type,
+                                          max_results=max_results,
+                                          page_token=page_token,
+                                          eager=True)
 
     @staticmethod
     def _get_eager_experiment_query_options():

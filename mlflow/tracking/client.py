@@ -323,9 +323,13 @@ class MlflowClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type: Optional[str] = None) -> List[Experiment]:
+    def list_experiments(self, view_type=None, max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None):
         """
-        :return: List of :py:class:`mlflow.entities.Experiment`
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: PagedList of :py:class:`mlflow.entities.Experiment`
 
         .. code-block:: python
             :caption: Example
@@ -366,7 +370,7 @@ class MlflowClient(object):
             - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
             - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
-        return self._tracking_client.list_experiments(view_type)
+        return self._tracking_client.list_experiments(view_type, max_results, page_token)
 
     def get_experiment(self, experiment_id: str) -> Experiment:
         """
