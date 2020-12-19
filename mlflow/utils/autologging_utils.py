@@ -529,9 +529,7 @@ class _AutologgingSessionManager:
         try:
             session_id = uuid.uuid4().hex
             if cls._session is None:
-                cls._session = AutologgingSession(
-                    integration, session_id
-                )
+                cls._session = AutologgingSession(integration, session_id)
             yield cls._session
         finally:
             cls.end_session()
@@ -695,7 +693,9 @@ class AutologgingEventLogger:
             call_kwargs,
         )
 
-    def log_original_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
+    def log_original_function_success(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
         """
         Called during the execution of a patched ML API associated with an autologging integration
         when the original / underlying ML API invocation terminates successfully. For example,

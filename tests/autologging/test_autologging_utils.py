@@ -506,13 +506,12 @@ def test_autologging_integration_makes_expected_event_logging_calls():
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
-def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_mode(): 
+def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_mode():
     @autologging_integration("test")
     def autolog(disable=False):
         return "result"
 
     class ThrowingLogger(AutologgingEventLogger):
-
         def __init__(self):
             self.logged_event = False
 
