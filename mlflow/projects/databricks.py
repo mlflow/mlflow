@@ -196,12 +196,16 @@ class DatabricksJobRunner(object):
         if is_release_version():
             libraries = [{"pypi": {"package": "'mlflow==%s'" % VERSION}}]
         else:
-            # When running a non-release version as the client the same version will not be available
-            # within Databricks. Therefore, fallback to the default version by the runtime.
-            _logger.warning(("Your client is running a non-release version of MLFlow. "
-                             "This version is not avaialable on the databricks runtime. "
-                             "MLFlow will fallback the MLFlow version provided by the runtime. "
-                             "This might lead to unforeseen issues. "))
+            # When running a non-release version as the client the same version will not be
+            # available within Databricks.
+            _logger.warning(
+                (
+                    "Your client is running a non-release version of MLFlow. "
+                    "This version is not avaialable on the databricks runtime. "
+                    "MLFlow will fallback the MLFlow version provided by the runtime. "
+                    "This might lead to unforeseen issues. "
+                )
+            )
             libraries = [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}]
 
         # Check syntax of JSON - if it contains libraries and new_cluster, pull those out
