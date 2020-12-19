@@ -990,6 +990,15 @@ def safe_patch(
                     patch_function.call(call_original, *args, **kwargs)
                 else:
                     patch_function(call_original, *args, **kwargs)
+
+                try_log_autologging_event(
+                    AutologgingEventLogger.get_logger().log_patch_function_success,
+                    session,
+                    destination,
+                    function_name,
+                    args,
+                    kwargs,
+                )
             except Exception as e:  # pylint: disable=broad-except
                 # Exceptions thrown during execution of the original function should be propagated
                 # to the caller. Additionally, exceptions encountered during test mode should be
@@ -1011,15 +1020,6 @@ def safe_patch(
                     "Encountered unexpected error during %s autologging: %s",
                     autologging_integration,
                     e,
-                )
-            else:
-                try_log_autologging_event(
-                    AutologgingEventLogger.get_logger().log_patch_function_success,
-                    session,
-                    destination,
-                    function_name,
-                    args,
-                    kwargs,
                 )
 
             if _is_testing() and not preexisting_run_for_testing:
