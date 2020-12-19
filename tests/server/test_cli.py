@@ -2,8 +2,6 @@ from click.testing import CliRunner
 from unittest import mock
 import os
 import pytest
-import shutil
-import tempfile
 import time
 import subprocess
 
