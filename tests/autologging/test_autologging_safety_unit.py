@@ -640,9 +640,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
     def patch_impl(original, *args, **kwargs):
         nonlocal og_call_kwargs
-        kwargs.update(
-            {"extra_func": exception_safe_function(lambda k: "foo"),}
-        )
+        kwargs.update({"extra_func": exception_safe_function(lambda k: "foo")})
         og_call_kwargs = kwargs
 
         nonlocal patch_session
