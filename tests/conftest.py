@@ -5,7 +5,6 @@ import tempfile
 import pytest
 
 import mlflow
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.file_store import FileStore
 
 
@@ -56,6 +55,7 @@ def enable_test_mode_by_default_for_autologging_integrations():
 
 @pytest.fixture(scope="function")
 def sqlite_store():
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     fd, temp_dbfile = tempfile.mkstemp()
     # Close handle immediately so that we can remove the file later on in Windows
     os.close(fd)
