@@ -556,12 +556,14 @@ def with_managed_run(integration, patch_function, tags=None):
     :param tags: A dictionary of string tags to set on each managed run created during the
                  execution of `patch_function`.
     """
+
     def create_managed_run():
         managed_run = mlflow.start_run(tags=tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
             " performance metrics, model artifacts, and lineage information for this %s workflow",
-            managed_run.info.run_id, integration
+            managed_run.info.run_id,
+            integration,
         )
         return managed_run
 

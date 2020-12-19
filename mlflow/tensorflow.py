@@ -889,7 +889,7 @@ def autolog(
             _logger.info(
                 "Created MLflow autologging run with ID '%s', which will store the TensorFlow"
                 " model in MLflow Model format",
-                autologging_run.info.run_id, 
+                autologging_run.info.run_id,
             )
 
         auto_end = False
