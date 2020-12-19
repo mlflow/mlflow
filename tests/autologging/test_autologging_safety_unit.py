@@ -682,8 +682,8 @@ def test_with_managed_runs_yields_functions_and_classes_as_expected():
         def _on_exception(self, exception):
             pass
 
-    assert callable(with_managed_run(patch_function))
-    assert inspect.isclass(with_managed_run(TestPatch))
+    assert callable(with_managed_run("test_integration", patch_function))
+    assert inspect.isclass(with_managed_run("test_integration", TestPatch))
 
 
 def test_with_managed_run_with_non_throwing_function_exhibits_expected_behavior():
@@ -709,11 +709,12 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
     client = MlflowClient()
     patch_function_active_run = None
 
-    @with_managed_run
     def patch_function(original, *args, **kwargs):
         nonlocal patch_function_active_run
         patch_function_active_run = mlflow.active_run()
         raise Exception("bad implementation")
+
+    patch_function = with_managed_run("test_integration", patch_function)
 
     with pytest.raises(Exception):
         patch_function(lambda: "foo")
@@ -734,13 +735,14 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
 def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
     client = MlflowClient()
 
-    @with_managed_run
     class TestPatch(PatchFunction):
         def _patch_implementation(self, original, *args, **kwargs):
             return mlflow.active_run()
 
         def _on_exception(self, exception):
             pass
+
+    TestPatch = with_managed_run("test_integration", TestPatch)
 
     run1 = TestPatch.call(lambda: "foo")
     run1_status = client.get_run(run1.info.run_id).info.status
@@ -758,7 +760,6 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
     client = MlflowClient()
     patch_function_active_run = None
 
-    @with_managed_run
     class TestPatch(PatchFunction):
         def _patch_implementation(self, original, *args, **kwargs):
             nonlocal patch_function_active_run
@@ -767,6 +768,8 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
         def _on_exception(self, exception):
             pass
+
+    TestPatch = with_managed_run("test_integration", TestPatch)
 
     with pytest.raises(Exception):
         TestPatch.call(lambda: "foo")
@@ -792,7 +795,7 @@ def test_with_managed_run_sets_specified_run_tags():
     }
 
     patch_function_1 = with_managed_run(
-        lambda original, *args, **kwargs: mlflow.active_run(), tags=tags_to_set
+        "test_integration", lambda original, *args, **kwargs: mlflow.active_run(), tags=tags_to_set
     )
     run1 = patch_function_1(lambda: "foo")
     assert tags_to_set.items() <= client.get_run(run1.info.run_id).data.tags.items()
@@ -804,7 +807,7 @@ def test_with_managed_run_sets_specified_run_tags():
         def _on_exception(self, exception):
             pass
 
-    patch_function_2 = with_managed_run(PatchFunction2, tags=tags_to_set)
+    patch_function_2 = with_managed_run("test_integration", PatchFunction2, tags=tags_to_set)
     run2 = patch_function_2.call(lambda: "foo")
     assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
 
