@@ -910,7 +910,7 @@ def safe_patch(
             try:
                 log_fn(*args)
             except Exception as e:  # pylint: disable=broad-except
-                _logger.debug("Failed to log autologging event via '%s'", log_fn)
+                _logger.debug("Failed to log autologging event via '%s'. Exception: %s", log_fn, e)
 
         with _AutologgingSessionManager.start_session(autologging_integration) as session:
             try:
