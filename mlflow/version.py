@@ -6,4 +6,4 @@ VERSION = "1.12.2.dev0"
 
 
 def is_release_version():
-    return re.match(r"^\d+\.\d+\.\d+$", VERSION)
+    return bool(re.match(r"^\d+\.\d+\.\d+$", VERSION))
