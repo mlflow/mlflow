@@ -898,7 +898,7 @@ def autolog(
             if _AUTOLOG_RUN_ID:
                 _logger.info(
                     "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
-                    _AUTOLOG_RUN_ID
+                    _AUTOLOG_RUN_ID,
                 )
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
