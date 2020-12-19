@@ -312,7 +312,7 @@ def log_model(
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -321,8 +321,11 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the MXNet Gluon autologging integration. If ``False``,
+                    enables the MXNet Gluon autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd

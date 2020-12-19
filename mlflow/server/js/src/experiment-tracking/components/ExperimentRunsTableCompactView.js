@@ -14,7 +14,7 @@ import { LoadMoreBar } from './LoadMoreBar';
 import 'react-virtualized/styles.css';
 import { ColumnTypes } from '../constants';
 
-export const NUM_RUN_METADATA_COLS = 9;
+export const NUM_RUN_METADATA_COLS = 10;
 const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
@@ -77,6 +77,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
 
   static propTypes = {
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
+    modelVersionsByRunUuid: PropTypes.object.isRequired,
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
@@ -107,16 +108,18 @@ export class ExperimentRunsTableCompactView extends React.Component {
     // Array of keys corresponding to unbagged metrics
     unbaggedMetrics: PropTypes.arrayOf(PropTypes.string).isRequired,
 
-    nextPageToken: PropTypes.string,
+    numRunsFromLatestSearch: PropTypes.number,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     categorizedUncheckedKeys: PropTypes.object.isRequired,
+    nestChildren: PropTypes.bool,
   };
 
   /** Returns a row of table content (i.e. a non-header row) corresponding to a single run. */
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
     const {
       runInfos,
+      modelVersionsByRunUuid,
       paramsList,
       metricsList,
       onCheckbox,
@@ -137,6 +140,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
     const runInfo = runInfos[idx];
+    const modelVersionInfo = modelVersionsByRunUuid[runInfo.run_uuid];
     const selected = runsSelected[runInfo.run_uuid] === true;
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), 'div'),
@@ -160,7 +164,9 @@ export class ExperimentRunsTableCompactView extends React.Component {
       this.handleCellToggle,
       categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES],
     ).forEach((col) => rowContents.push(col));
-
+    rowContents.push(
+      ExperimentViewUtil.getLinkedModelCell(modelVersionInfo, this.handleCellToggle),
+    );
     const unbaggedParamSet = new Set(unbaggedParams);
     const unbaggedMetricSet = new Set(unbaggedMetrics);
     const baggedParams = paramKeyList.filter(
@@ -373,15 +379,17 @@ export class ExperimentRunsTableCompactView extends React.Component {
       runsExpanded,
       unbaggedMetrics,
       unbaggedParams,
-      nextPageToken,
+      numRunsFromLatestSearch,
       loadingMore,
       handleLoadMoreRuns,
       categorizedUncheckedKeys,
+      nestChildren,
     } = this.props;
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       tagsList,
       runsExpanded,
+      nestChildren,
     });
 
     const headerCells = [
@@ -399,7 +407,7 @@ export class ExperimentRunsTableCompactView extends React.Component {
     ).forEach((headerCell) => headerCells.push(headerCell));
 
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
-    const showLoadMore = (nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore;
+    const showLoadMore = this.state.isAtScrollBottom || this.props.loadingMore;
     return (
       <div id='autosizer-container' className='runs-table-flex-container'>
         <AutoSizer>
@@ -433,7 +441,8 @@ export class ExperimentRunsTableCompactView extends React.Component {
               120, // 'Run Name' column width
               100, // 'Source' column width
               80, // 'Version' column width
-              250, // 'Tags' column width
+              250, // 'Tags' column width,
+              190, // 'Linked Models' column width
             ];
             const showBaggedParams = this.shouldShowBaggedColumn(true);
             const showBaggedMetrics = this.shouldShowBaggedColumn(false);
@@ -633,6 +642,10 @@ export class ExperimentRunsTableCompactView extends React.Component {
                   key='load-more-row'
                   loadingMore={loadingMore}
                   onLoadMore={handleLoadMoreRuns}
+                  disableButton={ExperimentViewUtil.disableLoadMoreButton({
+                    numRunsFromLatestSearch: numRunsFromLatestSearch,
+                  })}
+                  nestChildren={nestChildren}
                   style={{
                     position: 'absolute',
                     bottom: 20,

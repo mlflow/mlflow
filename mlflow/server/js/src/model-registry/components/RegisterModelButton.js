@@ -1,4 +1,5 @@
 import React from 'react';
+import _ from 'lodash';
 import { Modal, Button } from 'antd';
 import {
   RegisterModelForm,
@@ -11,13 +12,17 @@ import {
   createModelVersionApi,
   listRegisteredModelsApi,
   searchModelVersionsApi,
+  searchRegisteredModelsApi,
 } from '../actions';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { getModelNameFilter } from '../../model-registry/utils/SearchUtils';
 
-class RegisterModelButton extends React.Component {
+const MAX_SEARCH_REGISTERED_MODELS = 5; // used in drop-down list so not many are visible at once
+
+export class RegisterModelButtonImpl extends React.Component {
   static propTypes = {
     // own props
     disabled: PropTypes.bool.isRequired,
@@ -29,11 +34,13 @@ class RegisterModelButton extends React.Component {
     createModelVersionApi: PropTypes.func.isRequired,
     listRegisteredModelsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
+    searchRegisteredModelsApi: PropTypes.func.isRequired,
   };
 
   state = {
     visible: false,
     confirmLoading: false,
+    modelByName: {},
   };
 
   createRegisteredModelRequestId = getUUID();
@@ -59,6 +66,10 @@ class RegisterModelButton extends React.Component {
   handleRegistrationFailure = (e) => {
     this.setState({ confirmLoading: false });
     Utils.logErrorAndNotifyUser(e);
+  };
+
+  handleSearchRegisteredModels = (input) => {
+    this.props.searchRegisteredModelsApi(getModelNameFilter(input), MAX_SEARCH_REGISTERED_MODELS);
   };
 
   reloadModelVersionsForCurrentRun = () => {
@@ -149,11 +160,25 @@ class RegisterModelButton extends React.Component {
           confirmLoading={confirmLoading}
           onCancel={this.hideRegisterModal}
           centered
+          footer={[
+            <Button key='back' onClick={this.hideRegisterModal}>
+              Cancel
+            </Button>,
+            <Button
+              key='submit'
+              type='primary'
+              onClick={this.handleRegisterModel}
+              data-test-id='confirm-register-model'
+            >
+              Register
+            </Button>,
+          ]}
         >
           <RegisterModelForm
             modelByName={modelByName}
             ref={this.saveFormRef}
             wrappedComponentRef={this.saveFormComponentRef}
+            onSearchRegisteredModels={_.debounce(this.handleSearchRegisteredModels, 300)}
           />
         </Modal>
       </div>
@@ -170,6 +195,10 @@ const mapDispatchToProps = {
   createModelVersionApi,
   listRegisteredModelsApi,
   searchModelVersionsApi,
+  searchRegisteredModelsApi,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(RegisterModelButton);
+export const RegisterModelButton = connect(
+  mapStateToProps,
+  mapDispatchToProps,
+)(RegisterModelButtonImpl);

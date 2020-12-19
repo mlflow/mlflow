@@ -15,6 +15,7 @@ export const mockModelVersionDetailed = (
   status,
   tags = [],
   run_link = undefined,
+  run_id = 'b99a0fc567ae4d32994392c800c0b6ce',
 ) => {
   return {
     name,
@@ -26,7 +27,7 @@ export const mockModelVersionDetailed = (
     current_stage: stage,
     description: '',
     source: 'path/to/model',
-    run_id: 'b99a0fc567ae4d32994392c800c0b6ce',
+    run_id: run_id,
     run_link: run_link,
     status,
     version,

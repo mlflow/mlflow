@@ -24,6 +24,9 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.lightgbm: "lightgbm",
     mlflow.pytorch: "torch",
     mlflow.gluon: "mxnet.gluon",
+    mlflow.fastai: "fastai",
+    mlflow.statsmodels: "statsmodels",
+    mlflow.spark: "pyspark",
 }
 
 
@@ -35,6 +38,9 @@ def import_integration_libraries():
 
 @pytest.fixture(autouse=True)
 def disable_autologging_at_test_end():
+    # The yeild statement is to insure that code below is executed as teardown code.
+    # This will avoid bleeding of an active autologging session from test suite.
+    yield
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=True)
 
@@ -54,20 +60,22 @@ def setup_keras_model():
     return x, y, model
 
 
-def test_autologging_integrations_expose_configs_and_support_disablement():
+@pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
+def test_autologging_integrations_expose_configs_and_support_disablement(integration):
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=False)
 
-        assert not autologging_is_disabled(integration.FLAVOR_NAME)
-        assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
+    assert not autologging_is_disabled(integration.FLAVOR_NAME)
+    assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
 
-        integration.autolog(disable=True)
+    integration.autolog(disable=True)
 
-        assert autologging_is_disabled(integration.FLAVOR_NAME)
-        assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
+    assert autologging_is_disabled(integration.FLAVOR_NAME)
+    assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
 
 
-def test_autologging_integrations_use_safe_patch_for_monkey_patching():
+@pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
+def test_autologging_integrations_use_safe_patch_for_monkey_patching(integration):
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         with mock.patch(
             "mlflow.utils.gorilla.apply", wraps=gorilla.apply
@@ -100,6 +108,29 @@ def test_autolog_respects_exclusive_flag(setup_keras_model):
     mlflow.keras.autolog(exclusive=False)
     run = mlflow.start_run()
     model.fit(x, y, epochs=150, batch_size=10)
+    mlflow.end_run()
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    metrics, params = run_data.metrics, run_data.params
+    assert metrics
+    assert params
+
+
+def test_autolog_respects_disable_flag(setup_keras_model):
+    x, y, model = setup_keras_model
+
+    mlflow.keras.autolog(disable=True, exclusive=False)
+    run = mlflow.start_run()
+    model.fit(x, y, epochs=2, batch_size=10)
+    mlflow.end_run()
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    assert not metrics
+    assert not params
+    assert all("mlflow." in key for key in tags)
+
+    mlflow.keras.autolog(disable=False, exclusive=False)
+    run = mlflow.start_run()
+    model.fit(x, y, epochs=2, batch_size=10)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
     metrics, params = run_data.metrics, run_data.params

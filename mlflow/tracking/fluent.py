@@ -19,6 +19,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
+from mlflow.utils.autologging_utils import _is_testing
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -1315,20 +1316,27 @@ def autolog(
     }
 
     def setup_autologging(module):
-        autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
         try:
-            needed_params = list(inspect.signature(autolog_fn).parameters.keys())
-            filtered = {k: v for k, v in locals_copy if k in needed_params}
-        except ValueError:
-            filtered = {}
+            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+            try:
+                needed_params = list(inspect.signature(autolog_fn).parameters.keys())
+                filtered = {k: v for k, v in locals_copy if k in needed_params}
+            except Exception:  # pylint: disable=broad-except
+                filtered = {}
 
-        try:
             autolog_fn(**filtered)
             _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:  # pylint: disable=broad-except
-            _logger.warning(
-                "Exception raised while enabling autologging for %s: %s", module.__name__, str(e)
-            )
+            if _is_testing():
+                # Raise unexpected exceptions in test mode in order to detect
+                # errors within dependent autologging integrations
+                raise
+            else:
+                _logger.warning(
+                    "Exception raised while enabling autologging for %s: %s",
+                    module.__name__,
+                    str(e),
+                )
 
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
@@ -1347,4 +1355,9 @@ def autolog(
         if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
     except Exception as e:  # pylint: disable=broad-except
-        _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+        if _is_testing():
+            # Raise unexpected exceptions in test mode in order to detect
+            # errors within dependent autologging integrations
+            raise
+        else:
+            _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
