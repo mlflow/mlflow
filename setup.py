@@ -48,7 +48,6 @@ SKINNY_REQUIREMENTS = [
     "protobuf>=3.6.0",
     "requests>=2.17.3",
     "six>=1.10.0",
-    "simplejson",
 ]
 
 """
@@ -67,9 +66,9 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "prometheus-flask-exporter",
     "querystring_parser",
     # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433
-    "sqlparse",
+    "sqlparse>=0.3.1",
     # Required to run the MLflow server against SQL-backed storage
-    "sqlalchemy<=1.3.13",
+    "sqlalchemy",
     "waitress; platform_system == 'Windows'",
 ]
 
