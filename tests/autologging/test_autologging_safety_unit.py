@@ -652,7 +652,6 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
     patch_destination.fn("a", 1, b=2)
     expected_order = ["patch_start", "original_start", "original_success", "patch_success"]
-    print([call.method for call in test_logger.calls])
     assert [call.method for call in test_logger.calls] == expected_order
     assert all([call.session == patch_session for call in test_logger.calls])
     assert all([call.patch_obj == patch_destination for call in test_logger.calls])
@@ -724,12 +723,67 @@ def test_safe_patch_makes_expected_event_logging_calls_when_original_function_th
     with pytest.raises(Exception, match="thrown from patch"):
         patch_destination.fn()
     expected_order = ["patch_start", "original_start", "original_error"]
-    print([call.method for call in test_logger.calls])
     assert [call.method for call in test_logger.calls] == expected_order
     patch_start, original_start, original_error = test_logger.calls
     assert patch_start.exception is original_start.exception is None
     assert original_error.exception == exc_to_raise
 
+
+@pytest.mark.usefixtures(test_mode_off.__name__)
+def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
+    patch_destination, test_autologging_integration,
+):
+    patch_preamble_called = False
+    patch_postamble_called = False
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal patch_preamble_called
+        patch_preamble_called = True
+        original(*args, **kwargs)
+        nonlocal patch_postamble_called
+        patch_postamble_called = True
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    class ThrowingLogger(TestLogger):
+
+        def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
+            super().log_patch_function_start(session, patch_obj, function_name, call_args, call_kwargs)
+            raise Exception("failed")
+
+        def log_patch_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
+            super().log_patch_function_success(session, patch_obj, function_name, call_args, call_kwargs)
+            raise Exception("failed")
+
+        def log_patch_function_error(
+            self, session, patch_obj, function_name, call_args, call_kwargs, exception
+        ):
+            super().log_patch_function_error(session, patch_obj, function_name, call_args, call_kwargs, exception)
+            raise Exception("failed")
+
+        def log_original_function_start(
+            self, session, patch_obj, function_name, call_args, call_kwargs
+        ):
+            super().log_original_function_start(session, patch_obj, function_name, call_args, call_kwargs)
+            raise Exception("failed")
+
+        def log_original_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
+            super().log_original_function_success(session, patch_obj, function_name, call_args, call_kwargs)
+            raise Exception("failed")
+
+        def log_original_function_error(
+            self, session, patch_obj, function_name, call_args, call_kwargs, exception
+        ):
+            super().log_original_function_error(session, patch_obj, function_name, call_args, call_kwargs, exception)
+            raise Exception("failed")
+
+    logger = ThrowingLogger()
+    AutologgingEventLogger.set_logger(logger)
+    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_preamble_called
+    assert patch_postamble_called
+    expected_calls = ["patch_start", "original_start", "original_success", "patch_success"]
+    assert [call.method for call in logger.calls] == expected_calls 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
     assert not autologging_utils._is_testing()

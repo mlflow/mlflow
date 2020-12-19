@@ -587,20 +587,20 @@ class AutologgingEventLogger:
         """
         AutologgingEventLogger._event_logger = logger
 
-    def log_autolog_called(self, integration, args, kwargs):
+    def log_autolog_called(self, integration, call_args, call_kwargs):
         """
         Called when the `autolog()` method for an autologging integration
         is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
 
         :param integration: The autologging integration for which `autolog()` was called.
-        :param args: The positional arguments passed to the `autolog()` call.
-        :param kwargs: The keyword arguments passed to the `autolog()` call.
+        :param config_args: The positional arguments passed to the `autolog()` call.
+        :param config_kwargs: The keyword arguments passed to the `autolog()` call.
         """
         _logger.debug(
             "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
             integration,
-            args,
-            kwargs,
+            call_args,
+            call_kwargs,
         )
 
     def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
