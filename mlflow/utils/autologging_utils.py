@@ -517,6 +517,9 @@ class PatchFunction:
                 raise e
 
 
+# Represents an active autologging session using two fields:
+# - integration: the name of the autologging integration corresponding to the session
+# - id: a unique session identifier (e.g., a UUID)
 AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
 
 
