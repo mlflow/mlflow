@@ -12,8 +12,6 @@ from urllib.parse import urlparse, unquote
 
 from mlflow.cli import server, ui
 from mlflow.server import handlers
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 
