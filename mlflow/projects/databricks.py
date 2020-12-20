@@ -194,7 +194,7 @@ class DatabricksJobRunner(object):
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         if is_release_version():
-            libraries = [{"pypi": {"package": "'mlflow==%s'" % VERSION}}]
+            libraries = [{"pypi": {"package": "mlflow==%s" % VERSION}}]
         else:
             # When running a non-release version as the client the same version will not be
             # available within Databricks.
