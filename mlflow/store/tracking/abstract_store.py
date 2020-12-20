@@ -31,8 +31,9 @@ class AbstractStore:
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
 
-        :return: A PagedList of Experiment objects stored in store for requested view. The pagination token
-                 for the next page can be obtained via the ``token`` attribute of the object.
+        :return: A PagedList of Experiment objects stored in store for requested view.
+                 The pagination token for the next page can be obtained via the ``token``
+                 attribute of the object.
         """
         pass
 

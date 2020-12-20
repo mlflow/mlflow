@@ -253,7 +253,8 @@ class SqlAlchemyStore(AbstractStore):
         return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
 
     def _list_experiments(
-        self, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None, eager=False
+        self, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, max_results=None,
+        page_token=None, eager=False
     ):
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
@@ -275,6 +276,7 @@ class SqlAlchemyStore(AbstractStore):
         max_results_for_query = None
         if max_results is not None:
             max_results_for_query = max_results + 1
+
             def compute_next_token(current_size):
                 next_token = None
                 if max_results_for_query == current_size:
@@ -309,12 +311,11 @@ class SqlAlchemyStore(AbstractStore):
         else:
             return experiments
 
-
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
-            return self._list_experiments(view_type=view_type,
-                                          max_results=max_results,
-                                          page_token=page_token,
-                                          eager=True)
+        return self._list_experiments(view_type=view_type,
+                                      max_results=max_results,
+                                      page_token=page_token,
+                                      eager=True)
 
     @staticmethod
     def _get_eager_experiment_query_options():

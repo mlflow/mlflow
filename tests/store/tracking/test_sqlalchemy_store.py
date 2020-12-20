@@ -5,6 +5,7 @@ import unittest
 import warnings
 
 import math
+import random
 import pytest
 import sqlalchemy
 import time
@@ -217,7 +218,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         testnames = ["blue", "red", "green"]
 
         experiments = self._experiment_factory(testnames)
-        actual = self.store.list_experiments(max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None)
+        actual = self.store.list_experiments(max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                             page_token=None)
 
         self.assertEqual(len(experiments) + 1, len(actual))  # default
 
@@ -232,7 +234,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
                 self.assertEqual(str(res.experiment_id), experiment_id)
 
     def test_list_experiments_paginated_last_page(self):
-        import random
         # 9 + 1 default experiment for 10 total
         testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 9)]
         experiments = self._experiment_factory(testnames)
@@ -247,12 +248,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
             returned_experiments.extend(result)
         self.assertEqual(result.token, None)
         # make sure that at least all the experiments created in this test are found
-        self.assertEqual(set(experiments) - set([exp.experiment_id for exp in returned_experiments]), set())
+        returned_exp_id_set = set([exp.experiment_id for exp in returned_experiments])
+        self.assertEqual(set(experiments) - returned_exp_id_set, set())
 
     def test_list_experiments_paginated_returns_in_correct_order(self):
-        import random
         testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
-        experiments = self._experiment_factory(testnames)
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
@@ -274,10 +274,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         self.assertEqual([exp.name for exp in result], testnames[12:])
 
     def test_list_experiments_paginated_errors(self):
-        import random
-        testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
-        experiments = self._experiment_factory(testnames)
-
         # test that providing a completely invalid page token throws
         with self.assertRaises(MlflowException) as exception_context:
             self.store.list_experiments(page_token="evilhax", max_results=20)

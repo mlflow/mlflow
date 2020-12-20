@@ -71,8 +71,7 @@ class RestStore(AbstractStore):
             return PagedList([
                 Experiment.from_proto(experiment_proto)
                 for experiment_proto in response_proto.experiments
-            ],
-            response_proto.next_page_token)
+            ], response_proto.next_page_token)
         else:
             return [
                 Experiment.from_proto(experiment_proto)

@@ -323,7 +323,8 @@ class MlflowClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type=None, max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None):
+    def list_experiments(self, view_type=None, max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                         page_token=None):
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
                             passed, all experiments will be returned.
