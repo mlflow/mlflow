@@ -908,32 +908,6 @@ def autolog(
             try_mlflow_log(mlflow.end_run)
         return serialized
 
-    def export_savedmodel(original, self, *args, **kwargs):
-        auto_end = False
-        if not mlflow.active_run():
-            global _AUTOLOG_RUN_ID
-            if _AUTOLOG_RUN_ID:
-                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
-            else:
-                try_mlflow_log(mlflow.start_run)
-                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
-                auto_end = True
-
-        serialized = original(self, *args, **kwargs)
-        try_mlflow_log(
-            log_model,
-            tf_saved_model_dir=serialized.decode("utf-8"),
-            tf_meta_graph_tags=[tag_constants.SERVING],
-            tf_signature_def_key="predict",
-            artifact_path="model",
-        )
-
-        if (
-            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
-        ) or auto_end:
-            try_mlflow_log(mlflow.end_run)
-        return serialized
-
     @exception_safe_function
     def _early_stop_check(callbacks):
         for callback in callbacks:
@@ -1059,16 +1033,11 @@ def autolog(
         def _patch_implementation(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
-            active_run = mlflow.active_run()
-            if MLFLOW_AUTOLOGGING in active_run.data.tags:
-                global _AUTOLOG_RUN_ID
-                _AUTOLOG_RUN_ID = active_run.info.run_id
-
             unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = active_run.info.run_id
+            run_id = mlflow.active_run().info.run_id
 
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Checking if the 'callback' argument of fit() is set
@@ -1131,7 +1100,7 @@ def autolog(
 
     non_managed = [
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
-        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
     ]
 
     for p in managed:
