@@ -696,9 +696,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory_saved_as_state_dict(
-    sequential_model, model_path, data
-):
+def test_save_state_dict(sequential_model, model_path, data):
 
     mlflow.pytorch.save_state_dict(state_dict=sequential_model.state_dict(), path=model_path)
 
@@ -760,9 +758,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_as_state_dict(
-    sequential_model, model_path, data
-):
+def test_log_state_dict(sequential_model, model_path, data):
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_state_dict(
