@@ -545,6 +545,15 @@ def test_safe_patch_provides_original_function_with_expected_signature(
 def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
     patch_destination, test_autologging_integration
 ):
+    """
+    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
+    API. In many cases, the user cannot remediate the cause of these warnings because
+    they result from the autologging patch implementation, rather than a user-facing API call.
+
+    This test case verifies that, for user clarity, such MLflow warnings are augmented with
+    context about their origin (i.e. MLflow's autologging patch implementation, rather than
+    user behavior).
+    """
     mlflow_warning_kwargs = {
         "message": "Mock MLflow warning",
         "category": UserWarning,
