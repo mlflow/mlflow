@@ -290,7 +290,7 @@ def log_model(
 @experimental
 def log_state_dict(state_dict, artifact_path, **kwargs):
     """
-    Log a PyTorch model as an MLflow artifact for the current run.
+    Log a state dict as an MLflow artifact for the current run.
 
     :param state_dict: PyTorch model state dict to be saved.
 
@@ -357,10 +357,10 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
 @experimental
 def save_state_dict(state_dict, path, **kwargs):
     """
-    Save the model as state dict to a path on the local file system
+    Save state dict to a path on the local file system
 
     :param state_dict: state dict of the pytorch model. Ex: model.state_dict()
-    :param path: Local path where the model is to be saved.
+    :param path: Local path where the state_dict is to be saved.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     """
 
