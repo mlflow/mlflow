@@ -787,7 +787,7 @@ def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
     formatting_args = logger_warn_args[1:]
     full_logger_warning = message % formatting_args
     assert "Mock MLflow warning" in full_logger_warning
-    assert str(lineno) in full_logger_warning
+    assert str(7) in full_logger_warning  # Ensure that the warning line number is present
     assert mlflow.__file__ in full_logger_warning
 
     with pytest.warns(UserWarning) as user_warnings_outside_patch:
