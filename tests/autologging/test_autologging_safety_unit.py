@@ -956,9 +956,10 @@ def test_with_managed_runs_yields_functions_and_classes_as_expected():
 def test_with_managed_run_with_non_throwing_function_exhibits_expected_behavior():
     client = MlflowClient()
 
-    @with_managed_run
     def patch_function(original, *args, **kwargs):
         return mlflow.active_run()
+
+    patch_function = with_managed_run("test_integration", patch_function)
 
     run1 = patch_function(lambda: "foo")
     run1_status = client.get_run(run1.info.run_id).info.status
