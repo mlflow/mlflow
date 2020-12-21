@@ -691,7 +691,7 @@ def safe_patch(
         # The active MLflow run (if any) associated with patch code execution
         patch_function_run_for_testing = None
 
-        with _redirect_mlflow_warnings(
+        with _augment_mlflow_warnings(
             autologging_integration
         ), _AutologgingSessionManager.start_session(autologging_integration):
             try:
