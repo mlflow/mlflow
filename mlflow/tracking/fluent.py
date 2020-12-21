@@ -19,7 +19,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import _is_testing
+from mlflow.utils.autologging_utils import _is_testing, autologging_integration
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -646,7 +646,6 @@ def log_figure(figure, artifact_file):
     .. _plotly.graph_objects.Figure:
         https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
 
-    :param run_id: String ID of the run.
     :param figure: Figure to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the figure is saved (e.g. "dir/file.png").
@@ -712,7 +711,6 @@ def log_image(image, artifact_file):
             - H x W x 3 (an RGB channel order is assumed)
             - H x W x 4 (an RGBA channel order is assumed)
 
-    :param run_id: String ID of the run.
     :param image: Image to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the image is saved (e.g. "dir/image.png").
@@ -1213,6 +1211,7 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
+@autologging_integration("mlflow")
 def autolog(
     log_input_examples=False,
     log_model_signatures=True,

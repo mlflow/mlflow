@@ -1,8 +1,9 @@
 import pytest
+from collections import namedtuple
 from unittest import mock
 
 import mlflow
-from mlflow.utils.autologging_utils import get_autologging_config
+from mlflow.utils.autologging_utils import get_autologging_config, AutologgingEventLogger
 
 import tensorflow
 import keras
@@ -164,3 +165,32 @@ def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installe
 
         # assert autolog is called again once pyspark is imported
         assert autolog_mock.call_count == 2
+
+
+@pytest.mark.large
+def test_universal_autolog_makes_expected_event_logging_calls():
+    class TestLogger(AutologgingEventLogger):
+
+        LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
+
+        def __init__(self):
+            self.calls = []
+
+        def reset(self):
+            self.calls = []
+
+        def log_autolog_called(self, integration, call_args, call_kwargs):
+            self.calls.append(TestLogger.LoggerCall(integration, call_args, call_kwargs))
+
+    logger = TestLogger()
+    AutologgingEventLogger.set_logger(logger)
+
+    mlflow.autolog(exclusive=True, disable=True)
+
+    universal_autolog_event_logging_calls = [
+        call for call in logger.calls if call.integration == "mlflow"
+    ]
+    assert len(universal_autolog_event_logging_calls) == 1
+    call = universal_autolog_event_logging_calls[0]
+    assert call.integration == "mlflow"
+    assert {"disable": True, "exclusive": True}.items() <= call.call_kwargs.items()
