@@ -5,7 +5,7 @@ import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
 
-from keras.models import Sequential, Model
+from keras.models import Model
 from keras.layers import Dense, Input, Concatenate
 from keras.optimizers import SGD
 import pytest
@@ -462,7 +462,7 @@ def test_parse_tf_serving_input():
     tfserving_input = {"inputs": arr}
     with pytest.raises(MlflowException) as ex:
         pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
-    assert 'When providing TF serving data using "inputs", a dictionary must be provided' in str(ex)
+    assert "Failed to parse data as TF serving input." in str(ex)
 
     # input can be provided in column format
     tfserving_input = {

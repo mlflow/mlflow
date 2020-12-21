@@ -133,6 +133,7 @@ def parse_tf_serving_input(inp_dict):
                      serving API doc
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
     """
+    # pylint: disable=broad-except
     if "instances" in inp_dict and "inputs" in inp_dict:
         _handle_serving_error(
             error_message=(
@@ -142,42 +143,45 @@ def parse_tf_serving_input(inp_dict):
             error_code=MALFORMED_REQUEST,
         )
 
-    if "instances" in inp_dict:
-        items = inp_dict["instances"]
-        if len(items) > 0 and isinstance(items[0], dict):
-            # convert items to column format (map column/input name to tensor)
-            data = defaultdict(list)
-            for item in items:
-                for k, v in item.items():
-                    data[k].append(v)
-            data = {k: np.array(v) for k, v in data.items()}
+    try:
+        if "instances" in inp_dict:
+            items = inp_dict["instances"]
+            if len(items) > 0 and isinstance(items[0], dict):
+                # convert items to column format (map column/input name to tensor)
+                data = defaultdict(list)
+                for item in items:
+                    for k, v in item.items():
+                        data[k].append(v)
+                data = {k: np.array(v) for k, v in data.items()}
+            else:
+                data = np.array(items)
         else:
-            data = np.array(items)
-    else:
-        # items already in column format, convert values to tensor
-        items = inp_dict["inputs"]
-        if not isinstance(items, dict):
-            _handle_serving_error(
-                error_message=(
-                    "Failed to parse data as TF serving input. When providing TF serving data"
-                    ' using "inputs", a dictionary must be provided.'
-                ),
-                error_code=MALFORMED_REQUEST,
-            )
-        data = {k: np.array(v) for k, v in items.items()}
+            # items already in column format, convert values to tensor
+            items = inp_dict["inputs"]
+            data = {k: np.array(v) for k, v in items.items()}
 
-    if isinstance(data, dict):
-        # ensure all columns have the same number of items
-        expected_len = len(list(data.values())[0])
-        if not all(len(v) == expected_len for v in data.values()):
-            _handle_serving_error(
-                error_message=(
-                    "Failed to parse data as TF serving input. The length of values for"
-                    " each input/column name are not the same"
-                ),
-                error_code=MALFORMED_REQUEST,
-            )
-    return data
+        if isinstance(data, dict):
+            # ensure all columns have the same number of items
+            expected_len = len(list(data.values())[0])
+            if not all(len(v) == expected_len for v in data.values()):
+                _handle_serving_error(
+                    error_message=(
+                        "Failed to parse data as TF serving input. The length of values for"
+                        " each input/column name are not the same"
+                    ),
+                    error_code=MALFORMED_REQUEST,
+                )
+        return data
+    except Exception:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse data as TF serving input. Ensure that the input is"
+                " a valid JSON-formatted string that conforms to the request body for"
+                " TF serving's Predict API as documented at"
+                " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
 
 
 def predictions_to_json(raw_predictions, output):
@@ -241,7 +245,7 @@ def init(model: PyFuncModel):
             json_str = flask.request.data.decode("utf-8")
             try:
                 inp_dict = json.loads(json_str)
-            except Exception:
+            except json.decoder.JSONDecodeError:
                 _handle_serving_error(
                     error_message=(
                         "Failed to parse input from JSON. Ensure that input is a valid JSON.formatted"
