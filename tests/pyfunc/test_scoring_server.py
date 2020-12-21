@@ -398,3 +398,37 @@ def test_get_jsonnable_obj():
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
     np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+
+
+def test_serve_model_return_compress_result():
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return not_compress_result
+
+    not_compress_result = (
+        "["
+        '{"zip": "95120", "cost": 10.45, "score": 8},'
+        '{"zip": "95128", "cost": 23.0, "score": 0},'
+        '{"zip": "95128", "cost": 12.1, "score": 10}'
+        "]"
+    )
+    compress_result = (
+        "["
+        '{"zip":"95120","cost":10.45,"score":8},'
+        '{"zip":"95128","cost":23.0,"score":0},'
+        '{"zip":"95128","cost":12.1,"score":10}'
+        "]"
+    )
+    with TempDir(chdr=True):
+        with mlflow.start_run() as run:
+            mlflow.pyfunc.log_model("model", python_model=TestModel())
+        df = pyfunc_scoring_server.parse_json_input(not_compress_result, orient="records")
+        response = pyfunc_serve_and_score_model(
+            model_uri="runs:/{}/model".format(run.info.run_id),
+            data=df.to_json(orient="records"),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED,
+            extra_args=["--no-conda"],
+        )
+        response_json = json.loads(response.content)
+        assert response_json == not_compress_result
+        assert response_json != compress_result
