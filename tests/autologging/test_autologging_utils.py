@@ -3,6 +3,7 @@
 import inspect
 import time
 import pytest
+from collections import namedtuple
 from unittest.mock import Mock, call
 from unittest import mock
 
@@ -15,6 +16,7 @@ from mlflow.utils.autologging_utils import (
     wrap_patch,
     resolve_input_example_and_signature,
     batch_metrics_logger,
+    AutologgingEventLogger,
     BatchMetricsLogger,
     autologging_integration,
     get_autologging_config,
@@ -458,6 +460,69 @@ def test_autologging_integration_validates_structure_of_autolog_function():
     # Failure to apply the @autologging_integration decorator should not create a
     # placeholder for configuration state
     assert "test" not in AUTOLOGGING_INTEGRATIONS
+
+
+def test_autologging_integration_makes_expected_event_logging_calls():
+    @autologging_integration("test_success")
+    def autolog_success(foo, bar=7, disable=False):
+        pass
+
+    @autologging_integration("test_failure")
+    def autolog_failure(biz, baz="val", disable=False):
+        raise Exception("autolog failed")
+
+    class TestLogger(AutologgingEventLogger):
+
+        LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
+
+        def __init__(self):
+            self.calls = []
+
+        def reset(self):
+            self.calls = []
+
+        def log_autolog_called(self, integration, call_args, call_kwargs):
+            self.calls.append(TestLogger.LoggerCall(integration, call_args, call_kwargs))
+
+    logger = TestLogger()
+    AutologgingEventLogger.set_logger(logger)
+
+    autolog_success("a", bar=9, disable=True)
+    assert len(logger.calls) == 1
+    call = logger.calls[0]
+    assert call.integration == "test_success"
+    assert call.call_args == ("a",)
+    assert call.call_kwargs == {"bar": 9, "disable": True}
+
+    logger.reset()
+
+    with pytest.raises(Exception, match="autolog failed"):
+        autolog_failure(82, baz="b", disable=False)
+    assert len(logger.calls) == 1
+    call = logger.calls[0]
+    assert call.integration == "test_failure"
+    assert call.call_args == (82,)
+    assert call.call_kwargs == {"baz": "b", "disable": False}
+
+
+@pytest.mark.usefixtures(test_mode_off.__name__)
+def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_mode():
+    @autologging_integration("test")
+    def autolog(disable=False):
+        return "result"
+
+    class ThrowingLogger(AutologgingEventLogger):
+        def __init__(self):
+            self.logged_event = False
+
+        def log_autolog_called(self, integration, call_args, call_kwargs):
+            self.logged_event = True
+            raise Exception("autolog failed")
+
+    logger = ThrowingLogger()
+    AutologgingEventLogger.set_logger(logger)
+    assert autolog() == "result"
+    assert logger.logged_event
 
 
 def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
