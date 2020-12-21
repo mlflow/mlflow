@@ -763,12 +763,6 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_as_state_dict(
     sequential_model, model_path, data
 ):
-    """
-    This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by ``mlflow.pytorch.load_model``. The ``data`` path associated with these older models is
-    serialized PyTorch model file, as opposed to the current format: a directory containing a
-    serialized model file and pickle module information.
-    """
     artifact_path = "pytorch_model"
     with mlflow.start_run():
         mlflow.pytorch.log_state_dict(
