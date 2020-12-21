@@ -84,6 +84,11 @@ def test_model_multi_tensor_input(multi_tensor_input_model, model_path, data):
     # Loading Keras model via PyFunc
     model_loaded = mlflow.pyfunc.load_model(model_path)
 
+    # Calling predict with a list should return a np.ndarray output
+    actual = model_loaded.predict(test_input)
+    assert type(actual) == np.ndarray
+    np.testing.assert_allclose(actual, expected, rtol=1e-5)
+
     # Calling predict with a dict should return a np.ndarray output
     test_input = {
         "a": x.values[:, :2],

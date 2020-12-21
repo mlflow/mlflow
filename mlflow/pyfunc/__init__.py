@@ -206,7 +206,7 @@ import yaml
 from copy import deepcopy
 import logging
 
-from typing import Any, Union, Dict
+from typing import Any, Union, List, Dict
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
@@ -237,7 +237,7 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
-PyFuncInput = Union[pandas.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
@@ -380,7 +380,7 @@ def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    if isinstance(pdf, (np.ndarray, dict)):
+    if isinstance(pdf, (list, np.ndarray, dict)):
         try:
             pdf = pandas.DataFrame(pdf)
         except Exception as e:
@@ -390,9 +390,7 @@ def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
             )
             raise MlflowException(message)
     if not isinstance(pdf, pandas.DataFrame):
-        message = (
-            "Expected input to be DataFrame, numpy array, or dict. Found: %s" % type(pdf).__name__
-        )
+        message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
 
     if input_schema.has_column_names():
