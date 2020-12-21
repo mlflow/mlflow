@@ -704,6 +704,10 @@ def test_save_state_dict(sequential_model, model_path, data):
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model_class.load_state_dict(model_state_dict)
     model_class.eval()
+    assert (
+        len(set(model_state_dict.items()).intersection(set(sequential_model.state_dict().items())))
+        == 0
+    )
 
     np.testing.assert_array_almost_equal(
         pd.DataFrame(_predict(model=model_class, data=data)),
@@ -770,6 +774,11 @@ def test_log_state_dict(sequential_model, model_path, data):
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model_class.load_state_dict(model_state_dict)
     model_class.eval()
+
+    assert (
+        len(set(model_state_dict.items()).intersection(set(sequential_model.state_dict().items())))
+        == 0
+    )
 
     np.testing.assert_array_almost_equal(
         pd.DataFrame(_predict(model=model_class, data=data)),
