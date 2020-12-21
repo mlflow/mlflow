@@ -919,7 +919,7 @@ def safe_patch(
 
         with _augment_mlflow_warnings(
             autologging_integration
-        ), _AutologgingSessionManager.start_session(autologging_integration):
+        ), _AutologgingSessionManager.start_session(autologging_integration) as session:
             try:
 
                 def call_original(*og_args, **og_kwargs):

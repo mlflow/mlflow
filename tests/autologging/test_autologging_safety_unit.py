@@ -867,7 +867,6 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
     assert patch_postamble_called
     expected_calls = ["patch_start", "original_start", "original_success", "patch_success"]
     assert [call.method for call in logger.calls] == expected_calls
->>>>>>> origin/master
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
