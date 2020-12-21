@@ -768,11 +768,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory_saved_
         mlflow.pytorch.log_state_dict(
             state_dict=sequential_model.state_dict(), artifact_path=artifact_path
         )
-        model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-        )
+        model_path = mlflow.get_artifact_uri(artifact_path)
 
     model_class = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
