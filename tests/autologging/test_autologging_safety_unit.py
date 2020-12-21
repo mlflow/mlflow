@@ -775,14 +775,20 @@ def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
     # Verify that the warning message (which is the first argument to the UserWarning)
     # issued via the standard warning mechanism (i.e. printing to `sys.stderr`) corresponds
     # to the external warning
-    assert user_warnings_from_patch[0].message.args[0] == "Mock external warning"
+    external_warning = user_warnings_from_patch[0]
+    assert external_warning.message.args[0] == "Mock external warning"
+    assert external_warning.lineno == 14
+    assert external_warning.filename == "/some/tensorflow/module.py"
 
     # Verify that the warning message routed to the MLflow logger corresponds to the MLflow warning
     assert logger_mock.call_count == 1
     logger_warn_args = logger_mock.call_args[0]
     message = logger_warn_args[0]
     formatting_args = logger_warn_args[1:]
-    assert "Mock MLflow warning" in (message % formatting_args)
+    full_logger_warning = message % formatting_args
+    assert "Mock MLflow warning" in full_logger_warning
+    assert str(lineno) in full_logger_warning
+    assert mlflow.__file__ in full_logger_warning
 
     with pytest.warns(UserWarning) as user_warnings_outside_patch:
         warnings.warn_explicit(**mlflow_warning_kwargs)
@@ -792,6 +798,10 @@ def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
     # of autologging patch execution
     assert set([warning.message.args[0] for warning in user_warnings_outside_patch]) == set(
         ["Mock MLflow warning", "Mock external warning"]
+    )
+    assert set([warning.lineno for warning in user_warnings_outside_patch]) == set([7, 14])
+    assert set([warning.filename for warning in user_warnings_outside_patch]) == set(
+        [mlflow.__file__, "/some/tensorflow/module.py"]
     )
 
 
