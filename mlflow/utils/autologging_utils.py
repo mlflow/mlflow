@@ -1051,7 +1051,7 @@ def _augment_mlflow_warnings(autologging_integration):
     they result from the autologging patch implementation, rather than a user-facing API call.
 
     Accordingly, this context manager is designed to augment MLflow warnings issued during
-    autologging patch code execution, explaining the warnings were raised as a result of
+    autologging patch code execution, explaining that such warnings were raised as a result of
     MLflow's autologging implementation. MLflow warnings are also redirected from `sys.stderr`
     to an MLflow logger with level WARNING. Warnings issued by code outside of MLflow are
     not modified. When the context manager exits, the original output behavior for MLflow warnings
