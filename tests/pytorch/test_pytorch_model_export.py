@@ -700,9 +700,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory_saved
     sequential_model, model_path, data
 ):
 
-    mlflow.pytorch.save_state_dict(
-        state_dict=sequential_model.state_dict(), path=model_path
-    )
+    mlflow.pytorch.save_state_dict(state_dict=sequential_model.state_dict(), path=model_path)
 
     model_class = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)

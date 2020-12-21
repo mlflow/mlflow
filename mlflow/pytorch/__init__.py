@@ -38,7 +38,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
-_TORCH_STATE_DICT_FILE_NAME = 'state_dict.pth'
+_TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
