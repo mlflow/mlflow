@@ -288,18 +288,13 @@ def log_model(
 
 
 @experimental
-def log_state_dict(state_dict, artifact_path, pickle_module=None, **kwargs):
+def log_state_dict(state_dict, artifact_path, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
     :param state_dict: PyTorch model state dict to be saved.
 
     :param artifact_path: Run-relative artifact path.
-
-    :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
-                          ``pytorch_model``. This is passed as the ``pickle_module`` parameter
-                          to ``torch.save()``. By default, this module is also used to
-                          deserialize ("unpickle") the PyTorch model at load time.
 
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -352,18 +347,15 @@ def log_state_dict(state_dict, artifact_path, pickle_module=None, **kwargs):
             scripted_pytorch_model = torch.jit.script(model)
             mlflow.pytorch.log_state_dict(scripted_pytorch_model, "models")
     """
-    pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     with TempDir() as tmp:
         local_path = tmp.path("model")
-        save_state_dict(
-            state_dict=state_dict, path=local_path, pickle_module=pickle_module, **kwargs
-        )
+        save_state_dict(state_dict=state_dict, path=local_path, **kwargs)
         mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
 
 
 @experimental
-def save_state_dict(state_dict, path, pickle_module=None, **kwargs):
+def save_state_dict(state_dict, path, **kwargs):
     """
     Save the model as state dict to a path on the local file system
 
@@ -371,7 +363,6 @@ def save_state_dict(state_dict, path, pickle_module=None, **kwargs):
     :param path: Local path where the model is to be saved.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     """
-    pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     import torch
 
@@ -381,12 +372,8 @@ def save_state_dict(state_dict, path, pickle_module=None, **kwargs):
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
 
-    pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
-    with open(pickle_module_path, "w") as f:
-        f.write(pickle_module.__name__)
-
     model_path = os.path.join(model_data_path, _TORCH_STATE_DICT_FILE_NAME)
-    torch.save(state_dict, model_path, pickle_module=pickle_module, **kwargs)
+    torch.save(state_dict, model_path, **kwargs)
 
 
 def save_model(
