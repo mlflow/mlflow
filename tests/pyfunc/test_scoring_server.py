@@ -5,6 +5,9 @@ import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
 
+from keras.models import Sequential, Model
+from keras.layers import Dense, Input, Concatenate
+from keras.optimizers import SGD
 import pytest
 import random
 import sklearn.datasets as datasets
@@ -49,6 +52,23 @@ def sklearn_model():
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
+
+
+@pytest.fixture(scope="session")
+def keras_model():
+    iris = datasets.load_iris()
+    data = pd.DataFrame(
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
+    )
+    y = data["target"]
+    X = data.drop("target", axis=1).values
+    input_a = Input(shape=(2,), name="a")
+    input_b = Input(shape=(2,), name="b")
+    output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a, input_b])))
+    model = Model(inputs=[input_a, input_b], outputs=output)
+    model.compile(loss="mean_squared_error", optimizer=SGD())
+    model.fit([X[:, :2], X[:, -2:]], y)
+    return ModelWithData(model=model, inference_data=X)
 
 
 @pytest.fixture
@@ -220,10 +240,52 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 
 
 @pytest.mark.large
-def test_scoring_server_successfully_evaluates_correct_tf_serving(sklearn_model, model_path):
+def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
+    sklearn_model, model_path
+):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     inp_dict = {"instances": sklearn_model.inference_data.tolist()}
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instances(
+    keras_model, model_path
+):
+    mlflow.keras.save_model(keras_model.model, model_path)
+
+    inp_dict = {
+        "instances": [
+            {"a": a.tolist(), "b": b.tolist()}
+            for (a, b) in zip(keras_model.inference_data[:, :2], keras_model.inference_data[:, -2:])
+        ]
+    }
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
+    keras_model, model_path
+):
+    mlflow.keras.save_model(keras_model, model_path)
+
+    inp_dict = {
+        "inputs": {
+            "a": keras_model.inference_data[:, :2].tolist(),
+            "b": keras_model.inference_data[:, -2:].tolist(),
+        }
+    }
     response_records_content_type = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=json.dumps(inp_dict),
