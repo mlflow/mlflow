@@ -1,3 +1,4 @@
+import os
 import abc
 import inspect
 import itertools
@@ -10,6 +11,7 @@ import uuid
 from collections import namedtuple
 from contextlib import contextmanager
 from abc import abstractmethod
+from pathlib import Path
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
@@ -385,8 +387,6 @@ def _is_testing():
         - Disables exception handling for patched function logic, ensuring that patch code
           executes without errors during testing
     """
-    import os
-
     return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
@@ -944,7 +944,9 @@ def safe_patch(
             except Exception as e:  # pylint: disable=broad-except
                 _logger.debug("Failed to log autologging event via '%s'. Exception: %s", log_fn, e)
 
-        with _AutologgingSessionManager.start_session(autologging_integration) as session:
+        with _augment_mlflow_warnings(
+            autologging_integration
+        ), _AutologgingSessionManager.start_session(autologging_integration) as session:
             try:
 
                 def call_original(*og_args, **og_kwargs):
@@ -1068,6 +1070,54 @@ def safe_patch(
                 return original(*args, **kwargs)
 
     wrap_patch(destination, function_name, safe_patch_function)
+
+
+@contextmanager
+def _augment_mlflow_warnings(autologging_integration):
+    """
+    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
+    API. In many cases, the user cannot remediate the cause of these warnings because
+    they result from the autologging patch implementation, rather than a user-facing API call.
+
+    Accordingly, this context manager is designed to augment MLflow warnings issued during
+    autologging patch code execution, explaining that such warnings were raised as a result of
+    MLflow's autologging implementation. MLflow warnings are also redirected from `sys.stderr`
+    to an MLflow logger with level WARNING. Warnings issued by code outside of MLflow are
+    not modified. When the context manager exits, the original output behavior for MLflow warnings
+    is restored.
+
+    :param autologging_integration: The name of the active autologging integration for which
+                                    MLflow warnings are to be augmented during patch code
+                                    execution.
+    """
+    original_showwarning = warnings.showwarning
+
+    def autologging_showwarning(message, category, filename, lineno, *args, **kwargs):
+        mlflow_root_path = Path(os.path.dirname(mlflow.__file__)).resolve()
+        warning_source_path = Path(filename).resolve()
+        # If the warning's source file is contained within the MLflow package's base
+        # directory, it is an MLflow warning and should be emitted via `logger.warning`
+        if mlflow_root_path in warning_source_path.parents:
+            _logger.warning(
+                "MLflow issued a warning during %s autologging:" ' "%s:%d: %s: %s"',
+                autologging_integration,
+                filename,
+                lineno,
+                category.__name__,
+                message,
+            )
+        else:
+            original_showwarning(message, category, filename, lineno, *args, **kwargs)
+
+    try:
+        # NB: Reassigning `warnings.showwarning` is the standard / recommended approach for
+        # specifying an alternative destination and output format for warning messages
+        # (i.e. a sink other than `sys.stderr`). For reference, see
+        # https://docs.python.org/3/library/warnings.html#warnings.showwarning
+        warnings.showwarning = autologging_showwarning
+        yield
+    finally:
+        warnings.showwarning = original_showwarning
 
 
 def _validate_autologging_run(autologging_integration, run_id):
