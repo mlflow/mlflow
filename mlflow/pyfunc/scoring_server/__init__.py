@@ -239,7 +239,16 @@ def init(model: PyFuncModel):
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
             json_str = flask.request.data.decode("utf-8")
-            inp_dict = json.loads(json_str)
+            try:
+                inp_dict = json.loads(json_str)
+            except Exception:
+                _handle_serving_error(
+                    error_message=(
+                        "Failed to parse input from JSON. Ensure that input is a valid JSON.formatted"
+                        " string."
+                    ),
+                    error_code=MALFORMED_REQUEST,
+                )
             if "instances" in inp_dict or "inputs" in inp_dict:
                 data = parse_tf_serving_input(inp_dict)
             else:
