@@ -19,7 +19,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import _is_testing
+from mlflow.utils.autologging_utils import _is_testing, autologging_integration
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -1211,6 +1211,7 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
+@autologging_integration("mlflow")
 def autolog(
     log_input_examples=False,
     log_model_signatures=True,
