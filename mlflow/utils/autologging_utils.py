@@ -561,7 +561,8 @@ def with_managed_run(integration, patch_function, tags=None):
         managed_run = mlflow.start_run(tags=tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
-            " performance metrics, model artifacts, and lineage information for this %s workflow",
+            " performance metrics, model artifacts, and lineage information for the"
+            " current %s workflow",
             managed_run.info.run_id,
             integration,
         )
@@ -570,7 +571,7 @@ def with_managed_run(integration, patch_function, tags=None):
     def print_autologging_info_for_active_run(active_run):
         _logger.info(
             "%s autologging will track hyperparameters, performance metrics, model artifacts,"
-            " and lineage information for this %s workflow to the MLflow run with ID '%s'",
+            " and lineage information for the current %s workflow to the MLflow run with ID '%s'",
             integration,
             integration,
             active_run.info.run_id,
