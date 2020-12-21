@@ -1044,16 +1044,11 @@ def autolog(
         def _patch_implementation(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
-            active_run = mlflow.active_run()
-            if MLFLOW_AUTOLOGGING in active_run.data.tags:
-                global _AUTOLOG_RUN_ID
-                _AUTOLOG_RUN_ID = active_run.info.run_id
-
             unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = active_run.info.run_id
+            run_id = mlflow.active_run().info.run_id
 
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Checking if the 'callback' argument of fit() is set
