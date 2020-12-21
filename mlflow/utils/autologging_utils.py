@@ -753,7 +753,7 @@ class AutologgingEventLogger:
         )
 
 
-def with_managed_run(patch_function, tags=None):
+def with_managed_run(autologging_integration, patch_function, tags=None):
     """
     Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
@@ -770,11 +770,34 @@ def with_managed_run(patch_function, tags=None):
     Note that, if nested runs or non-fluent runs are created by `patch_function`, `patch_function`
     is responsible for terminating them by the time it terminates (or in the event of an exception).
 
+    :param autologging_integration: The autologging integration associated
+                                    with the `patch_function`.
     :param patch_function: A `PatchFunction` class definition or a function object
                            compatible with `safe_patch`.
     :param tags: A dictionary of string tags to set on each managed run created during the
                  execution of `patch_function`.
     """
+
+    def create_managed_run():
+        managed_run = mlflow.start_run(tags=tags)
+        _logger.info(
+            "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
+            " performance metrics, model artifacts, and lineage information for the"
+            " current %s workflow",
+            managed_run.info.run_id,
+            autologging_integration,
+        )
+        return managed_run
+
+    def print_autologging_info_for_active_run(active_run):
+        _logger.info(
+            "%s autologging will track hyperparameters, performance metrics, model artifacts,"
+            " and lineage information for the current %s workflow to the MLflow run with ID '%s'",
+            autologging_integration,
+            autologging_integration,
+            active_run.info.run_id,
+        )
+
     if inspect.isclass(patch_function):
 
         class PatchWithManagedRun(patch_function):
@@ -784,7 +807,9 @@ def with_managed_run(patch_function, tags=None):
 
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
-                    self.managed_run = try_mlflow_log(mlflow.start_run, tags=tags)
+                    self.managed_run = try_mlflow_log(create_managed_run)
+                else:
+                    print_autologging_info_for_active_run(mlflow.active_run())
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
@@ -807,7 +832,9 @@ def with_managed_run(patch_function, tags=None):
         def patch_with_managed_run(original, *args, **kwargs):
             managed_run = None
             if not mlflow.active_run():
-                managed_run = try_mlflow_log(mlflow.start_run, tags=tags)
+                managed_run = try_mlflow_log(create_managed_run)
+            else:
+                print_autologging_info_for_active_run(mlflow.active_run())
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -855,7 +882,9 @@ def safe_patch(
     """
     if manage_run:
         patch_function = with_managed_run(
-            patch_function, tags={MLFLOW_AUTOLOGGING: autologging_integration},
+            autologging_integration,
+            patch_function,
+            tags={MLFLOW_AUTOLOGGING: autologging_integration},
         )
 
     patch_is_class = inspect.isclass(patch_function)

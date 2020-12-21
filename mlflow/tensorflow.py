@@ -884,14 +884,25 @@ def autolog(
         return result
 
     def export_saved_model(original, self, *args, **kwargs):
+        def create_autologging_run():
+            autologging_run = mlflow.start_run(tags={MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+            _logger.info(
+                "Created MLflow autologging run with ID '%s', which will store the TensorFlow"
+                " model in MLflow Model format",
+                autologging_run.info.run_id,
+            )
+
         auto_end = False
         if not mlflow.active_run():
             global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
+                _logger.info(
+                    "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
+                    _AUTOLOG_RUN_ID,
+                )
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
-                try_mlflow_log(mlflow.start_run)
-                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
+                try_mlflow_log(create_autologging_run)
                 auto_end = True
 
         serialized = original(self, *args, **kwargs)
