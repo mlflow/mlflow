@@ -1066,6 +1066,8 @@ def _augment_mlflow_warnings(autologging_integration):
     def autologging_showwarning(message, category, filename, lineno, *args, **kwargs):
         mlflow_root_path = Path(os.path.dirname(mlflow.__file__)).resolve()
         warning_source_path = Path(filename).resolve()
+        # If the warning's source file is contained within the MLflow package's base
+        # directory, it is an MLflow warning and should be emitted via `logger.warning`
         if mlflow_root_path in warning_source_path.parents:
             _logger.warning(
                 "MLflow issued a warning during %s autologging:" ' "%s:%d: %s: %s"',
@@ -1076,7 +1078,7 @@ def _augment_mlflow_warnings(autologging_integration):
                 message,
             )
         else:
-            original_showwarning(message, category, filename, *args, **kwargs)
+            original_showwarning(message, category, filename, lineno, *args, **kwargs)
 
     try:
         # NB: Reassigning `warnings.showwarning` is the standard / recommended approach for
