@@ -646,7 +646,6 @@ def log_figure(figure, artifact_file):
     .. _plotly.graph_objects.Figure:
         https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
 
-    :param run_id: String ID of the run.
     :param figure: Figure to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the figure is saved (e.g. "dir/file.png").
@@ -712,7 +711,6 @@ def log_image(image, artifact_file):
             - H x W x 3 (an RGB channel order is assumed)
             - H x W x 4 (an RGBA channel order is assumed)
 
-    :param run_id: String ID of the run.
     :param image: Image to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the image is saved (e.g. "dir/image.png").
