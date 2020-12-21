@@ -552,7 +552,7 @@ def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
 
     This test case verifies that, for user clarity, such MLflow warnings are augmented with
     context about their origin (i.e. MLflow's autologging patch implementation, rather than
-    user behavior).
+    user behavior) during autologging patch code execution.
     """
     mlflow_warning_kwargs = {
         "message": "Mock MLflow warning",
