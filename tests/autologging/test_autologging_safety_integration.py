@@ -113,3 +113,26 @@ def test_autolog_respects_exclusive_flag(setup_keras_model):
     metrics, params = run_data.metrics, run_data.params
     assert metrics
     assert params
+
+
+def test_autolog_respects_disable_flag(setup_keras_model):
+    x, y, model = setup_keras_model
+
+    mlflow.keras.autolog(disable=True, exclusive=False)
+    run = mlflow.start_run()
+    model.fit(x, y, epochs=2, batch_size=10)
+    mlflow.end_run()
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    assert not metrics
+    assert not params
+    assert all("mlflow." in key for key in tags)
+
+    mlflow.keras.autolog(disable=False, exclusive=False)
+    run = mlflow.start_run()
+    model.fit(x, y, epochs=2, batch_size=10)
+    mlflow.end_run()
+    run_data = MlflowClient().get_run(run.info.run_id).data
+    metrics, params = run_data.metrics, run_data.params
+    assert metrics
+    assert params

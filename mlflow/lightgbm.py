@@ -285,7 +285,11 @@ class _LGBModelWrapper:
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
@@ -318,6 +322,9 @@ def autolog(
                        are also omitted when ``log_models`` is ``False``.
     :param disable: If ``True``, disables the LightGBM autologging integration. If ``False``,
                     enables the LightGBM autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import lightgbm
     import numpy as np

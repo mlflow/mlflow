@@ -310,7 +310,7 @@ class AutologHelpers:
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures automatic logging from statsmodels to MLflow.
     Logs the following:
@@ -324,6 +324,9 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
                        are also omitted when ``log_models`` is ``False``.
     :param disable: If ``True``, disables the statsmodels autologging integration. If ``False``,
                     enables the statsmodels autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import statsmodels
 

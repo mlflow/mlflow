@@ -520,16 +520,28 @@ class _TFWrapper(object):
             for sigdef_output, tnsr_info in signature_def.outputs.items()
         }
 
-    def predict(self, df):
+    def predict(self, data):
         with self.tf_graph.as_default():
-            # Build the feed dict, mapping input tensors to DataFrame column values.
-            feed_dict = {
-                self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
-                for tensor_column_name in self.input_tensor_mapping.keys()
-            }
+            feed_dict = data
+            if isinstance(data, dict):
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name]
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
+            elif isinstance(data, pandas.DataFrame):
+                # Build the feed dict, mapping input tensors to DataFrame column values.
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name].values
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
+            else:
+                raise TypeError("Only dict and DataFrame input types are supported")
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
-            return pandas.DataFrame(data=pred_dict)
+            if isinstance(data, pandas.DataFrame):
+                return pandas.DataFrame(data=pred_dict)
+            else:
+                return pred_dict
 
 
 class _TF2Wrapper(object):
@@ -544,19 +556,25 @@ class _TF2Wrapper(object):
         """
         self.infer = infer
 
-    def predict(self, df):
+    def predict(self, data):
         import tensorflow
 
         feed_dict = {}
-        for df_col_name in list(df):
-            # If there are multiple columns with the same name, selecting the shared name
-            # from the DataFrame will result in another DataFrame containing the columns
-            # with the shared name. TensorFlow cannot make eager tensors out of pandas
-            # DataFrames, so we convert the DataFrame to a numpy array here.
-            val = df[df_col_name]
-            if isinstance(val, pandas.DataFrame):
-                val = val.values
-            feed_dict[df_col_name] = tensorflow.constant(val)
+        if isinstance(data, dict):
+            feed_dict = {k: tensorflow.constant(v) for k, v in data.items()}
+        elif isinstance(data, pandas.DataFrame):
+            for df_col_name in list(data):
+                # If there are multiple columns with the same name, selecting the shared name
+                # from the DataFrame will result in another DataFrame containing the columns
+                # with the shared name. TensorFlow cannot make eager tensors out of pandas
+                # DataFrames, so we convert the DataFrame to a numpy array here.
+                val = data[df_col_name]
+                if isinstance(val, pandas.DataFrame):
+                    val = val.values
+                feed_dict[df_col_name] = tensorflow.constant(val)
+        else:
+            raise TypeError("Only dict and DataFrame input types are supported")
+
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
@@ -565,7 +583,10 @@ class _TF2Wrapper(object):
             else:
                 pred_dict[col] = pred_dict[col].tolist()
 
-        return pandas.DataFrame.from_dict(data=pred_dict)
+        if isinstance(data, dict):
+            return pred_dict
+        else:
+            return pandas.DataFrame.from_dict(data=pred_dict)
 
 
 def _log_artifacts_with_warning(**kwargs):
@@ -779,7 +800,9 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(
+    every_n_iter=100, log_models=True, disable=False, exclusive=False
+):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -835,8 +858,11 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
                                   at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables the TensorFlow integration. If ``False``,
+    :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
                     enables the TensorFlow integration autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import tensorflow
 
@@ -879,14 +905,25 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
         return result
 
     def export_saved_model(original, self, *args, **kwargs):
+        def create_autologging_run():
+            autologging_run = mlflow.start_run(tags={MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+            _logger.info(
+                "Created MLflow autologging run with ID '%s', which will store the TensorFlow"
+                " model in MLflow Model format",
+                autologging_run.info.run_id,
+            )
+
         auto_end = False
         if not mlflow.active_run():
             global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
+                _logger.info(
+                    "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
+                    _AUTOLOG_RUN_ID,
+                )
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
-                try_mlflow_log(mlflow.start_run)
-                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
+                try_mlflow_log(create_autologging_run)
                 auto_end = True
 
         serialized = original(self, *args, **kwargs)
@@ -897,32 +934,6 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
             tf_signature_def_key="predict",
             artifact_path="model",
         )
-        if (
-            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
-        ) or auto_end:
-            try_mlflow_log(mlflow.end_run)
-        return serialized
-
-    def export_savedmodel(original, self, *args, **kwargs):
-        auto_end = False
-        if not mlflow.active_run():
-            global _AUTOLOG_RUN_ID
-            if _AUTOLOG_RUN_ID:
-                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
-            else:
-                try_mlflow_log(mlflow.start_run)
-                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
-                auto_end = True
-
-        serialized = original(self, *args, **kwargs)
-        try_mlflow_log(
-            log_model,
-            tf_saved_model_dir=serialized.decode("utf-8"),
-            tf_meta_graph_tags=[tag_constants.SERVING],
-            tf_signature_def_key="predict",
-            artifact_path="model",
-        )
-
         if (
             mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
         ) or auto_end:
@@ -1054,16 +1065,11 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
         def _patch_implementation(
             self, original, inst, *args, **kwargs
         ):  # pylint: disable=arguments-differ
-            active_run = mlflow.active_run()
-            if MLFLOW_AUTOLOGGING in active_run.data.tags:
-                global _AUTOLOG_RUN_ID
-                _AUTOLOG_RUN_ID = active_run.info.run_id
-
             unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            run_id = active_run.info.run_id
+            run_id = mlflow.active_run().info.run_id
 
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Checking if the 'callback' argument of fit() is set
@@ -1126,7 +1132,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
 
     non_managed = [
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
-        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
     ]
 
     for p in managed:

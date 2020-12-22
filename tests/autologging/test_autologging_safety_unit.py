@@ -5,6 +5,8 @@ import copy
 import inspect
 import os
 import pytest
+import warnings
+from collections import namedtuple
 from unittest import mock
 
 import mlflow
@@ -15,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
     exception_safe_function,
+    AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
     PatchFunction,
@@ -88,6 +91,95 @@ def clean_up_leaked_runs():
     finally:
         while mlflow.active_run():
             mlflow.end_run()
+
+
+class MockEventLogger(AutologgingEventLogger):
+
+    LoggerCall = namedtuple(
+        "LoggerCall",
+        [
+            "method",
+            "session",
+            "patch_obj",
+            "function_name",
+            "call_args",
+            "call_kwargs",
+            "exception",
+        ],
+    )
+
+    def __init__(self):
+        self.calls = []
+
+    def reset(self):
+        self.calls = []
+
+    def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
+        self.calls.append(
+            MockEventLogger.LoggerCall(
+                "patch_start", session, patch_obj, function_name, call_args, call_kwargs, None
+            )
+        )
+
+    def log_patch_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
+        self.calls.append(
+            MockEventLogger.LoggerCall(
+                "patch_success", session, patch_obj, function_name, call_args, call_kwargs, None
+            )
+        )
+
+    def log_patch_function_error(
+        self, session, patch_obj, function_name, call_args, call_kwargs, exception
+    ):
+        self.calls.append(
+            MockEventLogger.LoggerCall(
+                "patch_error", session, patch_obj, function_name, call_args, call_kwargs, exception
+            )
+        )
+
+    def log_original_function_start(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
+        self.calls.append(
+            MockEventLogger.LoggerCall(
+                "original_start", session, patch_obj, function_name, call_args, call_kwargs, None
+            )
+        )
+
+    def log_original_function_success(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
+        self.calls.append(
+            MockEventLogger.LoggerCall(
+                "original_success", session, patch_obj, function_name, call_args, call_kwargs, None
+            )
+        )
+
+    def log_original_function_error(
+        self, session, patch_obj, function_name, call_args, call_kwargs, exception
+    ):
+        self.calls.append(
+            MockEventLogger.LoggerCall(
+                "original_error",
+                session,
+                patch_obj,
+                function_name,
+                call_args,
+                call_kwargs,
+                exception,
+            )
+        )
+
+
+@pytest.fixture
+def mock_event_logger():
+    try:
+        prev_logger = AutologgingEventLogger.get_logger()
+        logger = MockEventLogger()
+        AutologgingEventLogger.set_logger(logger)
+        yield logger
+    finally:
+        AutologgingEventLogger.set_logger(prev_logger)
 
 
 def test_is_testing_respects_environment_variable():
@@ -541,6 +633,252 @@ def test_safe_patch_provides_original_function_with_expected_signature(
     assert original_signature == inspect.signature(original)
 
 
+def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invocation(
+    patch_destination, test_autologging_integration, mock_event_logger,
+):
+    patch_session = None
+    og_call_kwargs = {}
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal og_call_kwargs
+        kwargs.update({"extra_func": exception_safe_function(lambda k: "foo")})
+        og_call_kwargs = kwargs
+
+        nonlocal patch_session
+        patch_session = autologging_utils._AutologgingSessionManager.active_session()
+
+        original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    patch_destination.fn("a", 1, b=2)
+    expected_order = ["patch_start", "original_start", "original_success", "patch_success"]
+    assert [call.method for call in mock_event_logger.calls] == expected_order
+    assert all([call.session == patch_session for call in mock_event_logger.calls])
+    assert all([call.patch_obj == patch_destination for call in mock_event_logger.calls])
+    assert all([call.function_name == "fn" for call in mock_event_logger.calls])
+    patch_start, original_start, original_success, patch_success = mock_event_logger.calls
+    assert patch_start.call_args == patch_success.call_args == ("a", 1)
+    assert patch_start.call_kwargs == patch_success.call_kwargs == {"b": 2}
+    assert original_start.call_args == original_success.call_args == ("a", 1)
+    assert original_start.call_kwargs == original_success.call_kwargs == og_call_kwargs
+    assert patch_start.exception is original_start.exception is None
+    assert patch_success.exception is original_success.exception is None
+
+
+def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws(
+    patch_destination, test_autologging_integration, mock_event_logger,
+):
+    patch_session = None
+    exc_to_raise = Exception("thrown from patch")
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal patch_session
+        patch_session = autologging_utils._AutologgingSessionManager.active_session()
+
+        if throw_location == "before":
+            raise exc_to_raise
+
+        original(*args, **kwargs)
+
+        if throw_location != "before":
+            raise exc_to_raise
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    throw_location = "before"
+    patch_destination.fn()
+    expected_order_throw_before = ["patch_start", "patch_error"]
+    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_before
+    patch_start, patch_error = mock_event_logger.calls
+    assert patch_start.exception is None
+    assert patch_error.exception == exc_to_raise
+
+    mock_event_logger.reset()
+
+    throw_location = "after"
+    patch_destination.fn()
+    expected_order_throw_after = [
+        "patch_start",
+        "original_start",
+        "original_success",
+        "patch_error",
+    ]
+    assert [call.method for call in mock_event_logger.calls] == expected_order_throw_after
+    patch_start, original_start, original_success, patch_error = mock_event_logger.calls
+    assert patch_start.exception is original_start.exception is None
+    assert original_success.exception is None
+    assert patch_error.exception == exc_to_raise
+
+
+def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
+    patch_destination, test_autologging_integration, mock_event_logger,
+):
+    exc_to_raise = Exception("thrown from patch")
+
+    def original(*args, **kwargs):
+        raise exc_to_raise
+
+    patch_destination.fn = original
+
+    def patch_impl(original, *args, **kwargs):
+        original(*args, **kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    with pytest.raises(Exception, match="thrown from patch"):
+        patch_destination.fn()
+    expected_order = ["patch_start", "original_start", "original_error"]
+    assert [call.method for call in mock_event_logger.calls] == expected_order
+    patch_start, original_start, original_error = mock_event_logger.calls
+    assert patch_start.exception is original_start.exception is None
+    assert original_error.exception == exc_to_raise
+
+
+def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
+    patch_destination, test_autologging_integration
+):
+    """
+    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
+    API. In many cases, the user cannot remediate the cause of these warnings because
+    they result from the autologging patch implementation, rather than a user-facing API call.
+
+    This test case verifies that, for user clarity, such MLflow warnings are augmented with
+    context about their origin (i.e. MLflow's autologging patch implementation, rather than
+    user behavior) during autologging patch code execution.
+    """
+    mlflow_warning_kwargs = {
+        "message": "Mock MLflow warning",
+        "category": UserWarning,
+        "filename": mlflow.__file__,
+        "lineno": 7,
+    }
+    external_warning_kwargs = {
+        "message": "Mock external warning",
+        "category": UserWarning,
+        "filename": "/some/tensorflow/module.py",
+        "lineno": 14,
+    }
+
+    def patch_impl(original, *args, **kwargs):
+        warnings.warn_explicit(**mlflow_warning_kwargs)
+        warnings.warn_explicit(**external_warning_kwargs)
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    with pytest.warns(UserWarning) as user_warnings_from_patch, mock.patch(
+        "mlflow.utils.autologging_utils._logger.warning"
+    ) as logger_mock:
+        patch_destination.fn()
+
+    assert len(user_warnings_from_patch) == 1
+    # Verify that the warning message (which is the first argument to the UserWarning)
+    # issued via the standard warning mechanism (i.e. printing to `sys.stderr`) corresponds
+    # to the external warning
+    external_warning = user_warnings_from_patch[0]
+    assert external_warning.message.args[0] == "Mock external warning"
+    assert external_warning.lineno == 14
+    assert external_warning.filename == "/some/tensorflow/module.py"
+
+    # Verify that the warning message routed to the MLflow logger corresponds to the MLflow warning
+    assert logger_mock.call_count == 1
+    logger_warn_args = logger_mock.call_args[0]
+    message = logger_warn_args[0]
+    formatting_args = logger_warn_args[1:]
+    full_logger_warning = message % formatting_args
+    assert "Mock MLflow warning" in full_logger_warning
+    assert str(7) in full_logger_warning  # Ensure that the warning line number is present
+    assert mlflow.__file__ in full_logger_warning
+
+    with pytest.warns(UserWarning) as user_warnings_outside_patch:
+        warnings.warn_explicit(**mlflow_warning_kwargs)
+        warnings.warn_explicit(**external_warning_kwargs)
+
+    # Verify that MLflow warnings and external warnings are emitted as normal outside
+    # of autologging patch execution
+    assert set([warning.message.args[0] for warning in user_warnings_outside_patch]) == set(
+        ["Mock MLflow warning", "Mock external warning"]
+    )
+    assert set([warning.lineno for warning in user_warnings_outside_patch]) == set([7, 14])
+    assert set([warning.filename for warning in user_warnings_outside_patch]) == set(
+        [mlflow.__file__, "/some/tensorflow/module.py"]
+    )
+
+
+@pytest.mark.usefixtures(test_mode_off.__name__)
+def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
+    patch_destination, test_autologging_integration,
+):
+    patch_preamble_called = False
+    patch_postamble_called = False
+
+    def patch_impl(original, *args, **kwargs):
+        nonlocal patch_preamble_called
+        patch_preamble_called = True
+        original(*args, **kwargs)
+        nonlocal patch_postamble_called
+        patch_postamble_called = True
+
+    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
+
+    class ThrowingLogger(MockEventLogger):
+        def log_patch_function_start(
+            self, session, patch_obj, function_name, call_args, call_kwargs
+        ):
+            super().log_patch_function_start(
+                session, patch_obj, function_name, call_args, call_kwargs
+            )
+            raise Exception("failed")
+
+        def log_patch_function_success(
+            self, session, patch_obj, function_name, call_args, call_kwargs
+        ):
+            super().log_patch_function_success(
+                session, patch_obj, function_name, call_args, call_kwargs
+            )
+            raise Exception("failed")
+
+        def log_patch_function_error(
+            self, session, patch_obj, function_name, call_args, call_kwargs, exception
+        ):
+            super().log_patch_function_error(
+                session, patch_obj, function_name, call_args, call_kwargs, exception
+            )
+            raise Exception("failed")
+
+        def log_original_function_start(
+            self, session, patch_obj, function_name, call_args, call_kwargs
+        ):
+            super().log_original_function_start(
+                session, patch_obj, function_name, call_args, call_kwargs
+            )
+            raise Exception("failed")
+
+        def log_original_function_success(
+            self, session, patch_obj, function_name, call_args, call_kwargs
+        ):
+            super().log_original_function_success(
+                session, patch_obj, function_name, call_args, call_kwargs
+            )
+            raise Exception("failed")
+
+        def log_original_function_error(
+            self, session, patch_obj, function_name, call_args, call_kwargs, exception
+        ):
+            super().log_original_function_error(
+                session, patch_obj, function_name, call_args, call_kwargs, exception
+            )
+            raise Exception("failed")
+
+    logger = ThrowingLogger()
+    AutologgingEventLogger.set_logger(logger)
+    assert patch_destination.fn() == PATCH_DESTINATION_FN_DEFAULT_RESULT
+    assert patch_preamble_called
+    assert patch_postamble_called
+    expected_calls = ["patch_start", "original_start", "original_success", "patch_success"]
+    assert [call.method for call in logger.calls] == expected_calls
+
+
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
     assert not autologging_utils._is_testing()
 
@@ -682,16 +1020,17 @@ def test_with_managed_runs_yields_functions_and_classes_as_expected():
         def _on_exception(self, exception):
             pass
 
-    assert callable(with_managed_run(patch_function))
-    assert inspect.isclass(with_managed_run(TestPatch))
+    assert callable(with_managed_run("test_integration", patch_function))
+    assert inspect.isclass(with_managed_run("test_integration", TestPatch))
 
 
 def test_with_managed_run_with_non_throwing_function_exhibits_expected_behavior():
     client = MlflowClient()
 
-    @with_managed_run
     def patch_function(original, *args, **kwargs):
         return mlflow.active_run()
+
+    patch_function = with_managed_run("test_integration", patch_function)
 
     run1 = patch_function(lambda: "foo")
     run1_status = client.get_run(run1.info.run_id).info.status
@@ -709,11 +1048,12 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
     client = MlflowClient()
     patch_function_active_run = None
 
-    @with_managed_run
     def patch_function(original, *args, **kwargs):
         nonlocal patch_function_active_run
         patch_function_active_run = mlflow.active_run()
         raise Exception("bad implementation")
+
+    patch_function = with_managed_run("test_integration", patch_function)
 
     with pytest.raises(Exception):
         patch_function(lambda: "foo")
@@ -734,13 +1074,14 @@ def test_with_managed_run_with_throwing_function_exhibits_expected_behavior():
 def test_with_managed_run_with_non_throwing_class_exhibits_expected_behavior():
     client = MlflowClient()
 
-    @with_managed_run
     class TestPatch(PatchFunction):
         def _patch_implementation(self, original, *args, **kwargs):
             return mlflow.active_run()
 
         def _on_exception(self, exception):
             pass
+
+    TestPatch = with_managed_run("test_integration", TestPatch)
 
     run1 = TestPatch.call(lambda: "foo")
     run1_status = client.get_run(run1.info.run_id).info.status
@@ -758,7 +1099,6 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
     client = MlflowClient()
     patch_function_active_run = None
 
-    @with_managed_run
     class TestPatch(PatchFunction):
         def _patch_implementation(self, original, *args, **kwargs):
             nonlocal patch_function_active_run
@@ -767,6 +1107,8 @@ def test_with_managed_run_with_throwing_class_exhibits_expected_behavior():
 
         def _on_exception(self, exception):
             pass
+
+    TestPatch = with_managed_run("test_integration", TestPatch)
 
     with pytest.raises(Exception):
         TestPatch.call(lambda: "foo")
@@ -792,7 +1134,7 @@ def test_with_managed_run_sets_specified_run_tags():
     }
 
     patch_function_1 = with_managed_run(
-        lambda original, *args, **kwargs: mlflow.active_run(), tags=tags_to_set
+        "test_integration", lambda original, *args, **kwargs: mlflow.active_run(), tags=tags_to_set
     )
     run1 = patch_function_1(lambda: "foo")
     assert tags_to_set.items() <= client.get_run(run1.info.run_id).data.tags.items()
@@ -804,7 +1146,7 @@ def test_with_managed_run_sets_specified_run_tags():
         def _on_exception(self, exception):
             pass
 
-    patch_function_2 = with_managed_run(PatchFunction2, tags=tags_to_set)
+    patch_function_2 = with_managed_run("test_integration", PatchFunction2, tags=tags_to_set)
     run2 = patch_function_2.call(lambda: "foo")
     assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
 
