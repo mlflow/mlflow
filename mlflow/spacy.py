@@ -130,26 +130,23 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    pyfunc.add_to_model(
+        mlflow_model,
+        loader_module="mlflow.spacy",
+        data=model_data_subpath,
+        env=conda_env_subpath,
+    )
+
     # Save the pyfunc flavor if at least one text categorizer in spaCy pipeline
-    if any(
+    if not any(
         [
             isinstance(pipe_component[1], spacy.pipeline.TextCategorizer)
             for pipe_component in spacy_model.pipeline
         ]
     ):
-        pyfunc.add_to_model(
-            mlflow_model,
-            loader_module="mlflow.spacy",
-            data=model_data_subpath,
-            env=conda_env_subpath,
-        )
-    else:
         _logger.warning(
-            "Generating only the spacy flavor for the provided spacy model. This means the model "
-            "can be loaded back via `mlflow.spacy.load_model`, but cannot be loaded back using "
-            "pyfunc APIs like `mlflow.pyfunc.load_model` or via the `mlflow models` CLI commands. "
-            "MLflow will only generate the pyfunc flavor for spacy models containing a pipeline "
-            "component that is an instance of spacy.pipeline.TextCategorizer."
+            "pyfunc flavor of this spacy models was generated, however non `cats` results "
+            "are not yet accessible in the output of the `predict` method"
         )
 
     mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
