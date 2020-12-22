@@ -74,7 +74,7 @@ tensorflow-2.x:
     requirements:
       "< 2.2": ["h5py<3.0"]
     run: |
-      pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+      pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
 
 keras:
   package_info:
@@ -105,7 +105,7 @@ keras:
       "== 2.3.1": ["tensorflow==2.2.1"]
       "> 2.3.1, != dev": ["tensorflow"]
     run: |
-      pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
+      pytest tests/keras_autolog/test_keras_autolog.py --large
 
 xgboost:
   package_info:
