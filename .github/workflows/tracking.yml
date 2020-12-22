@@ -24,5 +24,4 @@ jobs:
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
-        export MLFLOW_HOME=$(pwd)
-        pytest --large tests/tracking/test_tracking.py
+        ./dev/run-repo-tests.sh
