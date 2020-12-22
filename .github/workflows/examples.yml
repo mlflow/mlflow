@@ -7,6 +7,9 @@ on:
     # Run this action daily at 7:00 UTC
     - cron: "0 7 * * *"
 
+env:
+  CONDA_DIR: /usr/share/miniconda
+
 jobs:
   examples:
     runs-on: ubuntu-latest
@@ -43,6 +46,7 @@ jobs:
     - name: Run example tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         pytest --verbose tests/examples --durations=0 --large
 
