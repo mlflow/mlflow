@@ -16,12 +16,12 @@ export MLFLOW_SKINNY='true'
 python -m pip uninstall sqlalchemy alembic sqlparse -y
 pytest --verbose tests/test_skinny.py
 python -m pip install sqlalchemy alembic sqlparse
+pytest --verbose tests/test_cli_run.py
 pytest --verbose tests/tracking/test_client.py
 pytest --verbose tests/tracking/test_tracking.py
 pytest --verbose tests/projects/test_projects.py
 pytest --verbose tests/deployments/test_cli.py
 pytest --verbose tests/deployments/test_deployments.py
-pytest --verbose tests/test_cli.py
 pytest --verbose tests/projects/test_projects_cli.py
 
 test $err = 0
