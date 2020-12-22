@@ -195,7 +195,11 @@ def get_changed_flavors(changed_files, flavors):
     ['pytorch', 'xgboost']
     >>> get_changed_flavors(["mlflow/xgboost.py"], flavors)
     ['xgboost']
-    >>> get_changed_flavors(["tests/xgboost/test_xgboost_autolog.py"], flavors)
+    >>> get_changed_flavors(["tests/xgboost/test_xxx.py"], flavors)
+    ['xgboost']
+    >>> get_changed_flavors(["tests/xgboost_autolog/test_xxx.py"], flavors)
+    ['xgboost']
+    >>> get_changed_flavors(["tests/xgboost_autologging/test_xxx.py"], flavors)
     ['xgboost']
     >>> get_changed_flavors(["README.rst"], flavors)
     []
@@ -204,7 +208,10 @@ def get_changed_flavors(changed_files, flavors):
     """
     changed_flavors = []
     for f in changed_files:
-        match = re.search(r"^(mlflow|tests)/(.+?)(\.py|/)", f)
+        pattern = r"^(mlflow|tests)/(.+?)(_autolog(ging)?)?(\.py|/)"
+        #                           ~~~~~
+        #                           # This group captures a flavor name
+        match = re.search(pattern, f)
 
         if (match is not None) and (match.group(2) in flavors):
             changed_flavors.append(match.group(2))
