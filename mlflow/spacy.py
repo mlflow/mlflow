@@ -248,7 +248,7 @@ class _SpacyModelWrapper:
         docs = dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text))
 
         return pd.DataFrame(
-            {"predictions": docs.apply(lambda doc: doc.cats), "docs": docs}
+            {"predictions": docs.apply(lambda doc: doc.cats), "docs": docs.apply(lambda doc: doc.to_json())}
         )
 
 
