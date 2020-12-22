@@ -695,20 +695,33 @@ class _PyTorchWrapper(object):
     def predict(self, data, device="cpu"):
         import torch
 
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError("Input data should be pandas.DataFrame")
+        if isinstance(data, pd.DataFrame):
+            inp_data = data.values.astype(np.float32)
+        elif isinstance(data, np.ndarray):
+            inp_data = data
+        elif isinstance(data, (list, dict)):
+            raise TypeError(
+                "The PyTorch flavor does not support List or Dict input types. "
+                "Please use a pandas.DataFrame or a numpy.ndarray"
+            )
+        else:
+            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+
         self.pytorch_model.to(device)
         self.pytorch_model.eval()
         with torch.no_grad():
-            input_tensor = torch.from_numpy(data.values.astype(np.float32)).to(device)
+            input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
                     "but got output of type '{}'".format(type(preds))
                 )
-            predicted = pd.DataFrame(preds.numpy())
-            predicted.index = data.index
+            if isinstance(data, pd.DataFrame):
+                predicted = pd.DataFrame(preds.numpy())
+                predicted.index = data.index
+            else:
+                predicted = preds.numpy()
             return predicted
 
 
