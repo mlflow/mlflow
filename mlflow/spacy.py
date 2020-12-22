@@ -5,9 +5,7 @@ This module exports spacy models with the following flavors:
 spaCy (native) format
     This is the main flavor that can be loaded back into spaCy.
 :py:mod:`mlflow.pyfunc`
-    Produced for use by generic pyfunc-based deployment tools and batch inference, this
-    flavor is created only if spaCy's model pipeline has at least one
-    `TextCategorizer <https://spacy.io/api/textcategorizer>`_.
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import logging
 import os
@@ -137,18 +135,6 @@ def save_model(
         env=conda_env_subpath,
     )
 
-    # Save the pyfunc flavor if at least one text categorizer in spaCy pipeline
-    if not any(
-        [
-            isinstance(pipe_component[1], spacy.pipeline.TextCategorizer)
-            for pipe_component in spacy_model.pipeline
-        ]
-    ):
-        _logger.warning(
-            "pyfunc flavor of this spacy models was generated, however non `cats` results "
-            "are not yet accessible in the output of the `predict` method"
-        )
-
     mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -236,14 +222,14 @@ class _SpacyModelWrapper:
 
     def predict(self, dataframe):
         """
-        Only works for predicting using text categorizer.
-        Not suitable for other pipeline components (e.g: parser)
-        :param dataframe: pandas dataframe containing texts to be categorized
-                          expected shape is (n_rows,1 column)
-        :return: dataframe with predictions
+        Makes predictions based on the contents of the spacy pipeline, including text
+        categorization, named-entity recognition, part-of-speech tagging, etc.
+        :param dataframe: pandas dataframe containing texts to be evaluated
+                          expected shape is (n_rows, 1_column)
+        :return: dataframe with a column for each of the object keys in `doc.to_json()`
         """
         if len(dataframe.columns) != 1:
-            raise MlflowException("Shape of input dataframe must be (n_rows, 1column)")
+            _logger.warning("Shape of input dataframe expected to be (n_rows, 1_column). Only using the first column.")
 
         # Note: `to_json` returns a `dict`, not a JSON string (https://spacy.io/api/doc#to_json)
         objs = dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).to_json())
