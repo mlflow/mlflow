@@ -21,7 +21,6 @@ pytest --verbose tests/tracking/test_tracking.py
 pytest --verbose tests/projects/test_projects.py
 pytest --verbose tests/deployments/test_cli.py
 pytest --verbose tests/deployments/test_deployments.py
-pytest --verbose tests/test_cli.py
 pytest --verbose tests/projects/test_projects_cli.py
 
 test $err = 0
