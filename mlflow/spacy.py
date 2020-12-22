@@ -245,8 +245,10 @@ class _SpacyModelWrapper:
         if len(dataframe.columns) != 1:
             raise MlflowException("Shape of input dataframe must be (n_rows, 1column)")
 
+        docs = dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text))
+
         return pd.DataFrame(
-            {"predictions": dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).cats)}
+            {"predictions": docs.apply(lambda doc: doc.cats), "docs": docs}
         )
 
 
