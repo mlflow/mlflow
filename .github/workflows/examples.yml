@@ -42,8 +42,8 @@ jobs:
         rm -rf "$AGENT_TOOLSDIRECTORY"
 
     - name: Enable conda
-        run: |
-          echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+      run: |
+        echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
 
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
