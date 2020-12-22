@@ -1,0 +1,28 @@
+name: MLflow tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CONDA_DIR: /usr/share/miniconda
+
+jobs:
+  python-large:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
+      run: |
+        source ./dev/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        export MLFLOW_HOME=$(pwd)
+        pytest --large tests/tracking/test_tracking.py
