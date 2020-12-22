@@ -24,11 +24,17 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params, wrap_patch
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    ExceptionSafeClass,
+    try_mlflow_log,
+    log_fn_args_as_params,
+    batch_metrics_logger,
+)
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
@@ -167,10 +173,17 @@ def save_model(
 
         def _is_plain_keras(model):
             try:
-                # NB: Network is the first parent with save method
-                import keras.engine.network
+                import keras
 
-                return isinstance(model, keras.engine.network.Network)
+                if LooseVersion(keras.__version__) < LooseVersion("2.2.0"):
+                    import keras.engine
+
+                    return isinstance(model, keras.engine.Model)
+                else:
+                    # NB: Network is the first parent with save method
+                    import keras.engine.network
+
+                    return isinstance(model, keras.engine.network.Network)
             except ImportError:
                 return False
 
@@ -549,10 +562,12 @@ def load_model(model_uri, **kwargs):
 
 
 @experimental
-def autolog(log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
-    Enables automatic logging from Keras to MLflow. Autologging captures the following information:
+    Enables (or disables) and configures autologging from Keras to MLflow. Autologging captures
+    the following information:
 
     **Metrics** and **Parameters**
      - Training loss; validation loss; user-specified metrics
@@ -599,66 +614,76 @@ def autolog(log_models=True):
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the Keras autologging integration. If ``False``,
+                    enables the Keras autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import keras
 
-    class __MLflowKerasCallback(keras.callbacks.Callback):
-        """
-        Callback for auto-logging metrics and parameters.
-        Records available logs after each epoch.
-        Records model structural information as params when training begins
-        """
+    def getKerasCallback(metrics_logger):
+        class __MLflowKerasCallback(keras.callbacks.Callback, metaclass=ExceptionSafeClass):
+            """
+            Callback for auto-logging metrics and parameters.
+            Records available logs after each epoch.
+            Records model structural information as params when training begins
+            """
 
-        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-            try_mlflow_log(mlflow.log_param, "num_layers", len(self.model.layers))
-            try_mlflow_log(mlflow.log_param, "optimizer_name", type(self.model.optimizer).__name__)
-            if hasattr(self.model.optimizer, "lr"):
-                lr = (
-                    self.model.optimizer.lr
-                    if type(self.model.optimizer.lr) is float
-                    else keras.backend.eval(self.model.optimizer.lr)
+            def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+                try_mlflow_log(mlflow.log_param, "num_layers", len(self.model.layers))
+                try_mlflow_log(
+                    mlflow.log_param, "optimizer_name", type(self.model.optimizer).__name__
                 )
-                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-            if hasattr(self.model.optimizer, "epsilon"):
-                epsilon = (
-                    self.model.optimizer.epsilon
-                    if type(self.model.optimizer.epsilon) is float
-                    else keras.backend.eval(self.model.optimizer.epsilon)
-                )
-                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+                if hasattr(self.model.optimizer, "lr"):
+                    lr = (
+                        self.model.optimizer.lr
+                        if type(self.model.optimizer.lr) is float
+                        else keras.backend.eval(self.model.optimizer.lr)
+                    )
+                    try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+                if hasattr(self.model.optimizer, "epsilon"):
+                    epsilon = (
+                        self.model.optimizer.epsilon
+                        if type(self.model.optimizer.epsilon) is float
+                        else keras.backend.eval(self.model.optimizer.epsilon)
+                    )
+                    try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
 
-            sum_list = []
-            self.model.summary(print_fn=sum_list.append)
-            summary = "\n".join(sum_list)
-            tempdir = tempfile.mkdtemp()
-            try:
-                summary_file = os.path.join(tempdir, "model_summary.txt")
-                with open(summary_file, "w") as f:
-                    f.write(summary)
-                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-            finally:
-                shutil.rmtree(tempdir)
+                sum_list = []
+                self.model.summary(print_fn=sum_list.append)
+                summary = "\n".join(sum_list)
+                tempdir = tempfile.mkdtemp()
+                try:
+                    summary_file = os.path.join(tempdir, "model_summary.txt")
+                    with open(summary_file, "w") as f:
+                        f.write(summary)
+                    try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+                finally:
+                    shutil.rmtree(tempdir)
 
-        def on_epoch_end(self, epoch, logs=None):
-            if not logs:
-                return
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+            def on_epoch_end(self, epoch, logs=None):
+                if not logs:
+                    return
+                metrics_logger.record_metrics(logs, epoch)
 
-        def on_train_end(self, logs=None):
-            if log_models:
-                try_mlflow_log(log_model, self.model, artifact_path="model")
+            def on_train_end(self, logs=None):
+                if log_models:
+                    try_mlflow_log(log_model, self.model, artifact_path="model")
 
-        # As of Keras 2.4.0, Keras Callback implementations must define the following
-        # methods indicating whether or not the callback overrides functions for
-        # batch training/testing/inference
-        def _implements_train_batch_hooks(self):
-            return False
+            # As of Keras 2.4.0, Keras Callback implementations must define the following
+            # methods indicating whether or not the callback overrides functions for
+            # batch training/testing/inference
+            def _implements_train_batch_hooks(self):
+                return False
 
-        def _implements_test_batch_hooks(self):
-            return False
+            def _implements_test_batch_hooks(self):
+                return False
 
-        def _implements_predict_batch_hooks(self):
-            return False
+            def _implements_predict_batch_hooks(self):
+                return False
+
+        return __MLflowKerasCallback()
 
     def _early_stop_check(callbacks):
         if LooseVersion(keras.__version__) < LooseVersion("2.3.0") or LooseVersion(
@@ -674,17 +699,14 @@ def autolog(log_models=True):
 
     def _log_early_stop_callback_params(callback):
         if callback:
-            try:
-                earlystopping_params = {
-                    "monitor": callback.monitor,
-                    "min_delta": callback.min_delta,
-                    "patience": callback.patience,
-                    "baseline": callback.baseline,
-                    "restore_best_weights": callback.restore_best_weights,
-                }
-                try_mlflow_log(mlflow.log_params, earlystopping_params)
-            except Exception:  # pylint: disable=W0703
-                return
+            earlystopping_params = {
+                "monitor": callback.monitor,
+                "min_delta": callback.min_delta,
+                "patience": callback.patience,
+                "baseline": callback.baseline,
+                "restore_best_weights": callback.restore_best_weights,
+            }
+            try_mlflow_log(mlflow.log_params, earlystopping_params)
 
     def _get_early_stop_callback_attrs(callback):
         try:
@@ -692,79 +714,74 @@ def autolog(log_models=True):
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history):
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
         if callback:
             callback_attrs = _get_early_stop_callback_attrs(callback)
             if callback_attrs is None:
                 return
             stopped_epoch, restore_best_weights, patience = callback_attrs
-            try_mlflow_log(mlflow.log_metric, "stopped_epoch", stopped_epoch)
+            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
             # Weights are restored only if early stopping occurs
             if stopped_epoch != 0 and restore_best_weights:
                 restored_epoch = stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
+                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+                restored_index = history.epoch.index(restored_epoch)
                 restored_metrics = {
-                    key: history.history[key][restored_epoch] for key in history.history.keys()
+                    key: history.history[key][restored_index] for key in history.history.keys()
                 }
                 # Checking that a metric history exists
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
                     last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
+                    metrics_logger.record_metrics(restored_metrics, last_epoch)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
         log_fn_args_as_params(original, args, kwargs, unlogged_params)
         early_stop_callback = None
 
         # Checking if the 'callback' argument of the function is set
-        if len(args) > callback_arg_index:
-            tmp_list = list(args)
-            early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
-            tmp_list[callback_arg_index] += [__MLflowKerasCallback()]
-            args = tuple(tmp_list)
-        elif kwargs.get("callbacks"):
-            early_stop_callback = _early_stop_check(kwargs["callbacks"])
-            kwargs["callbacks"] += [__MLflowKerasCallback()]
-        else:
-            kwargs["callbacks"] = [__MLflowKerasCallback()]
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            mlflowKerasCallback = getKerasCallback(metrics_logger)
+            if len(args) > callback_arg_index:
+                tmp_list = list(args)
+                early_stop_callback = _early_stop_check(tmp_list[callback_arg_index])
+                tmp_list[callback_arg_index] += [mlflowKerasCallback]
+                args = tuple(tmp_list)
+            elif kwargs.get("callbacks"):
+                early_stop_callback = _early_stop_check(kwargs["callbacks"])
+                kwargs["callbacks"] += [mlflowKerasCallback]
+            else:
+                kwargs["callbacks"] = [mlflowKerasCallback]
 
-        _log_early_stop_callback_params(early_stop_callback)
+            try_mlflow_log(_log_early_stop_callback_params, early_stop_callback)
 
-        history = original(self, *args, **kwargs)
+            history = original(self, *args, **kwargs)
 
-        _log_early_stop_callback_metrics(early_stop_callback, history)
-
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
+            try_mlflow_log(
+                _log_early_stop_callback_metrics, early_stop_callback, history, metrics_logger
+            )
 
         return history
 
-    def fit(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(keras.Model, "fit")
+    def fit(original, self, *args, **kwargs):
         unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 5)
 
-    def fit_generator(self, *args, **kwargs):
+    def fit_generator(original, self, *args, **kwargs):
         """
         NOTE: `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
         To avoid unintentional creation of nested MLflow runs caused by a patched
         `fit_generator()` method calling a patched `fit()` method, we only patch
         `fit_generator()` in Keras < 2.4.0.
         """
-        original = gorilla.get_original_attribute(keras.Model, "fit_generator")
         unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
         return _run_and_log_function(self, original, args, kwargs, unlogged_params, 4)
 
-    wrap_patch(keras.Model, "fit", fit)
+    safe_patch(FLAVOR_NAME, keras.Model, "fit", fit, manage_run=True)
     # `fit_generator()` is deprecated in Keras >= 2.4.0 and simply wraps `fit()`.
     # To avoid unintentional creation of nested MLflow runs caused by a patched
     # `fit_generator()` method calling a patched `fit()` method, we only patch
     # `fit_generator()` in Keras < 2.4.0.
     if LooseVersion(keras.__version__) < LooseVersion("2.4.0"):
-        wrap_patch(keras.Model, "fit_generator", fit_generator)
+        safe_patch(FLAVOR_NAME, keras.Model, "fit_generator", fit_generator, manage_run=True)

@@ -14,6 +14,7 @@ export class GenericInputModal extends Component {
   };
 
   static propTypes = {
+    okText: PropTypes.string,
     isOpen: PropTypes.bool,
     onClose: PropTypes.func.isRequired,
     // Function which returns a promise which resolves when the submission is done.
@@ -63,7 +64,7 @@ export class GenericInputModal extends Component {
 
   render() {
     const { isSubmitting } = this.state;
-    const { isOpen, children } = this.props;
+    const { okText, isOpen, children } = this.props;
 
     // add props (ref) to passed component
     const displayForm = React.cloneElement(children, { ref: this.saveFormRef });
@@ -74,7 +75,7 @@ export class GenericInputModal extends Component {
         width={540}
         visible={isOpen}
         onOk={this.onSubmit}
-        okText='Save'
+        okText={okText}
         confirmLoading={isSubmitting}
         onCancel={this.onRequestCloseHandler}
         centered

@@ -17,6 +17,7 @@ pytest tests/azureml --large
 pytest tests/models --large
 pytest tests/xgboost --large
 pytest tests/lightgbm --large
+pytest tests/statsmodels --large
 pytest tests/gluon --large
 pytest tests/gluon_autolog --large
 pytest tests/spacy --large

@@ -31,6 +31,8 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `LightGBM <https://github.com/mlflow/mlflow/tree/master/examples/lightgbm>`_
 
+  - `Statsmodels <https://github.com/mlflow/mlflow/tree/master/examples/statsmodels>`_
+
   - `Glmnet (R) <https://github.com/mlflow/mlflow/tree/master/examples/r_wine>`_
 
   - `SpaCy <https://github.com/mlflow/mlflow/tree/master/examples/spacy>`_

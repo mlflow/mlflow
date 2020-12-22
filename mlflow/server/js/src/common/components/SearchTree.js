@@ -114,12 +114,12 @@ export class SearchTree extends React.Component {
         );
       if (item.children) {
         return (
-          <TreeNode key={item.key} title={title}>
+          <TreeNode data-test-id={item.key} key={item.key} title={title}>
             {this.renderTreeNodes(item.children)}
           </TreeNode>
         );
       }
-      return <TreeNode key={item.key} title={title} />;
+      return <TreeNode data-test-id={item.key} key={item.key} title={title} />;
     });
   };
 

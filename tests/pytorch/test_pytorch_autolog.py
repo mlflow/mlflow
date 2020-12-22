@@ -1,3 +1,5 @@
+from distutils.version import LooseVersion
+
 import pytest
 import pytorch_lightning as pl
 import torch
@@ -7,6 +9,8 @@ import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.autologging_utils import BatchMetricsLogger
+from unittest.mock import patch
 
 NUM_EPOCHS = 20
 
@@ -57,7 +61,10 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
-    assert data.params["optimizer_name"] == "Adam"
+
+    # In pytorch-lightning >= 1.1.0, optimizer names are prefixed with "Lightning".
+    prefix = "Lightning" if LooseVersion(pl.__version__) >= LooseVersion("1.1.0") else ""
+    assert data.params["optimizer_name"] == prefix + "Adam"
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()
@@ -190,6 +197,36 @@ def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
     assert "stopped_epoch" in data.metrics
     assert "wait_count" in data.metrics
     assert "restored_epoch" in data.metrics
+
+
+@pytest.mark.parametrize("patience", [3])
+def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
+    patched_metrics_data = []
+
+    # Mock patching BatchMetricsLogger.record_metrics()
+    # to ensure that expected metrics are being logged.
+    original = BatchMetricsLogger.record_metrics
+
+    with patch(
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+    ) as record_metrics_mock:
+
+        def record_metrics_side_effect(self, metrics, step=None):
+            patched_metrics_data.extend(metrics.items())
+            original(self, metrics, step)
+
+        record_metrics_mock.side_effect = record_metrics_side_effect
+        _, run = pytorch_model_with_callback(patience)
+
+    patched_metrics_data = dict(patched_metrics_data)
+    original_metrics = run.data.metrics
+
+    for metric_name in original_metrics:
+        assert metric_name in patched_metrics_data
+        assert original_metrics[metric_name] == patched_metrics_data[metric_name]
+
+    assert "loss" in original_metrics
+    assert "loss" in patched_metrics_data
 
 
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):

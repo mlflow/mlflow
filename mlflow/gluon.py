@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import os
 
 import pandas as pd
@@ -11,10 +12,15 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import try_mlflow_log, wrap_patch
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    ExceptionSafeClass,
+    try_mlflow_log,
+    batch_metrics_logger,
+)
 
 FLAVOR_NAME = "gluon"
 _MODEL_SAVE_PATH = "net"
@@ -48,6 +54,7 @@ def load_model(model_uri, ctx):
         model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
         model(nd.array(np.random.rand(1000, 1, 32)))
     """
+    import mxnet
     from mxnet import gluon
     from mxnet import sym
 
@@ -58,7 +65,10 @@ def load_model(model_uri, ctx):
     symbol = sym.load(model_arch_path)
     inputs = sym.var("data", dtype="float32")
     net = gluon.SymbolBlock(symbol, inputs)
-    net.collect_params().load(model_params_path, ctx)
+    if LooseVersion(mxnet.__version__) >= LooseVersion("2.0.0"):
+        net.load_parameters(model_params_path, ctx)
+    else:
+        net.collect_params().load(model_params_path, ctx)
     return net
 
 
@@ -301,71 +311,79 @@ def log_model(
 
 
 @experimental
-def autolog(log_models=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
     """
-    Enable automatic logging from Gluon to MLflow.
+    Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the MXNet Gluon autologging integration. If ``False``,
+                    enables the MXNet Gluon autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
     from mxnet.gluon.nn import HybridSequential
 
-    class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin):
-        def __init__(self):
-            self.current_epoch = 0
+    def getGluonCallback(metrics_logger):
+        class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass):
+            def __init__(self):
+                self.current_epoch = 0
 
-        def epoch_end(self, estimator, *args, **kwargs):
-            logs = {}
-            for metric in estimator.train_metrics:
-                metric_name, metric_val = metric.get()
-                logs[metric_name] = metric_val
-            for metric in estimator.val_metrics:
-                metric_name, metric_val = metric.get()
-                logs[metric_name] = metric_val
-            try_mlflow_log(mlflow.log_metrics, logs, step=self.current_epoch)
-            self.current_epoch += 1
+            def epoch_end(self, estimator, *args, **kwargs):
+                logs = {}
+                for metric in estimator.train_metrics:
+                    metric_name, metric_val = metric.get()
+                    logs[metric_name] = metric_val
+                for metric in estimator.val_metrics:
+                    metric_name, metric_val = metric.get()
+                    logs[metric_name] = metric_val
+                metrics_logger.record_metrics(logs, self.current_epoch)
+                self.current_epoch += 1
 
-        def train_begin(self, estimator, *args, **kwargs):
-            try_mlflow_log(mlflow.log_param, "num_layers", len(estimator.net))
-            if estimator.max_epoch is not None:
-                try_mlflow_log(mlflow.log_param, "epochs", estimator.max_epoch)
-            if estimator.max_batch is not None:
-                try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
-            try_mlflow_log(
-                mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
-            )
-            if hasattr(estimator.trainer.optimizer, "lr"):
-                try_mlflow_log(mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr)
-            if hasattr(estimator.trainer.optimizer, "epsilon"):
-                try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
+            def train_begin(self, estimator, *args, **kwargs):
+                try_mlflow_log(mlflow.log_param, "num_layers", len(estimator.net))
+                if estimator.max_epoch is not None:
+                    try_mlflow_log(mlflow.log_param, "epochs", estimator.max_epoch)
+                if estimator.max_batch is not None:
+                    try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
+                try_mlflow_log(
+                    mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
+                )
+                if hasattr(estimator.trainer.optimizer, "lr"):
+                    try_mlflow_log(
+                        mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr
+                    )
+                if hasattr(estimator.trainer.optimizer, "epsilon"):
+                    try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
 
-        def train_end(self, estimator, *args, **kwargs):
-            if isinstance(estimator.net, HybridSequential) and log_models:
-                try_mlflow_log(log_model, estimator.net, artifact_path="model")
+            def train_end(self, estimator, *args, **kwargs):
+                if isinstance(estimator.net, HybridSequential) and log_models:
+                    try_mlflow_log(log_model, estimator.net, artifact_path="model")
 
-    def fit(self, *args, **kwargs):
-        if not mlflow.active_run():
-            auto_end_run = True
-        else:
-            auto_end_run = False
+        return __MLflowGluonCallback()
 
-        original = gorilla.get_original_attribute(Estimator, "fit")
-        if len(args) >= 4:
-            l = list(args)
-            l[3] += [__MLflowGluonCallback()]
-            args = tuple(l)
-        elif "event_handlers" in kwargs:
-            kwargs["event_handlers"] += [__MLflowGluonCallback()]
-        else:
-            kwargs["event_handlers"] = [__MLflowGluonCallback()]
-        result = original(self, *args, **kwargs)
-        if auto_end_run:
-            mlflow.end_run()
+    def fit(original, self, *args, **kwargs):
+        # Wrap `fit` execution within a batch metrics logger context.
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            mlflowGluonCallback = getGluonCallback(metrics_logger)
+            if len(args) >= 4:
+                l = list(args)
+                l[3] += [mlflowGluonCallback]
+                args = tuple(l)
+            elif "event_handlers" in kwargs:
+                kwargs["event_handlers"] += [mlflowGluonCallback]
+            else:
+                kwargs["event_handlers"] = [mlflowGluonCallback]
+            result = original(self, *args, **kwargs)
+
         return result
 
-    wrap_patch(Estimator, "fit", fit)
+    safe_patch(FLAVOR_NAME, Estimator, "fit", fit, manage_run=True)
