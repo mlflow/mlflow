@@ -246,7 +246,8 @@ class _SpacyModelWrapper:
         pdf = pd.DataFrame.from_records(objs)
 
         # preserve old `predictions` column name for backwards compatibility
-        pdf["predictions"] = pdf["cats"]
+        if "cats" in pdf.columns:
+            pdf["predictions"] = pdf["cats"]
 
         return pdf
 
