@@ -41,6 +41,10 @@ jobs:
         # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
         rm -rf "$AGENT_TOOLSDIRECTORY"
 
+    - name: Enable conda
+        run: |
+          echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
@@ -52,7 +56,6 @@ jobs:
     - name: Run example tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         pytest --verbose tests/examples --durations=0 --large
 
