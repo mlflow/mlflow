@@ -24,4 +24,4 @@ jobs:
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
-        ./dev/run-repo-tests.sh
+        ./dev/run-repro-tests.sh
