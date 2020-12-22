@@ -57,7 +57,7 @@ jobs:
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       run: |
         source activate test-environment
-        pytest --verbose tests/examples --durations=0 --large
+        pytest --verbose tests/examples --durations=30 --large
 
     - name: Remove conda environments
       run: |
