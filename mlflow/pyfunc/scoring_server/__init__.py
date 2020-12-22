@@ -10,7 +10,7 @@ Defines two endpoints:
     /ping used for health check
     /invocations used for scoring
 """
-from collections import OrderedDict
+from collections import defaultdict, OrderedDict
 import flask
 import json
 import logging
@@ -127,6 +127,63 @@ def parse_split_oriented_json_input_to_numpy(json_input):
         )
 
 
+def parse_tf_serving_input(inp_dict):
+    """
+    :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
+                     serving API doc
+                     (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
+    """
+    # pylint: disable=broad-except
+    if "instances" in inp_dict and "inputs" in inp_dict:
+        _handle_serving_error(
+            error_message=(
+                'Failed to parse data as TF serving input. Both "instances" and'
+                ' "inputs" were specified. A request can have either but not both.'
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+
+    try:
+        if "instances" in inp_dict:
+            items = inp_dict["instances"]
+            if len(items) > 0 and isinstance(items[0], dict):
+                # convert items to column format (map column/input name to tensor)
+                data = defaultdict(list)
+                for item in items:
+                    for k, v in item.items():
+                        data[k].append(v)
+                data = {k: np.array(v) for k, v in data.items()}
+            else:
+                data = np.array(items)
+        else:
+            # items already in column format, convert values to tensor
+            items = inp_dict["inputs"]
+            data = {k: np.array(v) for k, v in items.items()}
+    except Exception:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse data as TF serving input. Ensure that the input is"
+                " a valid JSON-formatted string that conforms to the request body for"
+                " TF serving's Predict API as documented at"
+                " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+
+    if isinstance(data, dict):
+        # ensure all columns have the same number of items
+        expected_len = len(list(data.values())[0])
+        if not all(len(v) == expected_len for v in data.values()):
+            _handle_serving_error(
+                error_message=(
+                    "Failed to parse data as TF serving input. The length of values for"
+                    " each input/column name are not the same"
+                ),
+                error_code=MALFORMED_REQUEST,
+            )
+    return data
+
+
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
     json.dump(predictions, output, cls=NumpyEncoder)
@@ -184,7 +241,23 @@ def init(model: PyFuncModel):
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
+        elif flask.request.content_type == CONTENT_TYPE_JSON:
+            json_str = flask.request.data.decode("utf-8")
+            try:
+                inp_dict = json.loads(json_str)
+            except json.decoder.JSONDecodeError:
+                _handle_serving_error(
+                    error_message=(
+                        "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                        " formatted string."
+                    ),
+                    error_code=MALFORMED_REQUEST,
+                )
+            if "instances" in inp_dict or "inputs" in inp_dict:
+                data = parse_tf_serving_input(inp_dict)
+            else:
+                data = parse_json_input(json_input=json_str, orient="split", schema=input_schema)
+        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(
                 json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema
             )

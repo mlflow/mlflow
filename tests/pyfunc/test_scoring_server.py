@@ -5,11 +5,15 @@ import os
 import pandas as pd
 from collections import namedtuple, OrderedDict
 
+from keras.models import Model
+from keras.layers import Dense, Input, Concatenate
+from keras.optimizers import SGD
 import pytest
 import random
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
+from mlflow.exceptions import MlflowException
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.models import ModelSignature, infer_signature
@@ -48,6 +52,23 @@ def sklearn_model():
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
+
+
+@pytest.fixture(scope="session")
+def keras_model():
+    iris = datasets.load_iris()
+    data = pd.DataFrame(
+        data=np.c_[iris["data"], iris["target"]], columns=iris["feature_names"] + ["target"]
+    )
+    y = data["target"]
+    X = data.drop("target", axis=1).values
+    input_a = Input(shape=(2,), name="a")
+    input_b = Input(shape=(2,), name="b")
+    output = Dense(1)(Dense(3, input_dim=4)(Concatenate()([input_a, input_b])))
+    model = Model(inputs=[input_a, input_b], outputs=output)
+    model.compile(loss="mean_squared_error", optimizer=SGD())
+    model.fit([X[:, :2], X[:, -2:]], y)
+    return ModelWithData(model=model, inference_data=X)
 
 
 @pytest.fixture
@@ -219,6 +240,61 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 
 
 @pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
+    sklearn_model, model_path
+):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    inp_dict = {"instances": sklearn_model.inference_data.tolist()}
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_instances(
+    keras_model, model_path
+):
+    mlflow.keras.save_model(keras_model.model, model_path)
+
+    inp_dict = {
+        "instances": [
+            {"a": a.tolist(), "b": b.tolist()}
+            for (a, b) in zip(keras_model.inference_data[:, :2], keras_model.inference_data[:, -2:])
+        ]
+    }
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
+    keras_model, model_path
+):
+    mlflow.keras.save_model(keras_model.model, model_path)
+
+    inp_dict = {
+        "inputs": {
+            "a": keras_model.inference_data[:, :2].tolist(),
+            "b": keras_model.inference_data[:, -2:].tolist(),
+        }
+    }
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=json.dumps(inp_dict),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
 def test_parse_json_input_records_oriented():
     size = 20
     data = {
@@ -344,6 +420,70 @@ def test_parse_with_schema(pandas_df_with_all_types):
     # Boolean is forced - zero and empty string is false, everything else is true:
     assert df["bad_boolean"].dtype == np.bool
     assert all(df["bad_boolean"] == [True, False, True])
+
+
+def test_parse_tf_serving_input():
+    # instances are correctly aggregated to dict of input name -> tensor
+    tfserving_input = {
+        "instances": [
+            {"a": "s1", "b": 1, "c": [1, 2, 3]},
+            {"a": "s2", "b": 2, "c": [4, 5, 6]},
+            {"a": "s3", "b": 3, "c": [7, 8, 9]},
+        ]
+    }
+    result = pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert (result["a"] == np.array(["s1", "s2", "s3"])).all()
+    assert (result["b"] == np.array([1, 2, 3])).all()
+    assert (result["c"] == np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).all()
+
+    # input is bad if a column value is missing for a row/instance
+    tfserving_input = {
+        "instances": [
+            {"a": "s1", "b": 1},
+            {"a": "s2", "b": 2, "c": [4, 5, 6]},
+            {"a": "s3", "b": 3, "c": [7, 8, 9]},
+        ]
+    }
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert "The length of values for each input/column name are not the same" in str(ex)
+
+    # values for each column are properly converted to a tensor
+    arr = [
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        [[3, 2, 1], [6, 5, 4], [9, 8, 7]],
+    ]
+    tfserving_input = {"instances": arr}
+    result = pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert result.shape == (2, 3, 3)
+    assert (result == np.array(arr)).all()
+
+    # input data specified via "inputs" must be a dictionary
+    tfserving_input = {"inputs": arr}
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert "Failed to parse data as TF serving input." in str(ex)
+
+    # input can be provided in column format
+    tfserving_input = {
+        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
+    }
+    result = pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert (result["a"] == np.array(["s1", "s2", "s3"])).all()
+    assert (result["b"] == np.array([1, 2, 3])).all()
+    assert (result["c"] == np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).all()
+
+    # cannot specify both instance and inputs
+    tfserving_input = {
+        "instances": arr,
+        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
+    }
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert (
+        'Both "instances" and "inputs" were specified. A request can have either but not both'
+        in str(ex)
+    )
 
 
 @pytest.mark.large
