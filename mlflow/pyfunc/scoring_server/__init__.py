@@ -159,19 +159,6 @@ def parse_tf_serving_input(inp_dict):
             # items already in column format, convert values to tensor
             items = inp_dict["inputs"]
             data = {k: np.array(v) for k, v in items.items()}
-
-        if isinstance(data, dict):
-            # ensure all columns have the same number of items
-            expected_len = len(list(data.values())[0])
-            if not all(len(v) == expected_len for v in data.values()):
-                _handle_serving_error(
-                    error_message=(
-                        "Failed to parse data as TF serving input. The length of values for"
-                        " each input/column name are not the same"
-                    ),
-                    error_code=MALFORMED_REQUEST,
-                )
-        return data
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -182,6 +169,19 @@ def parse_tf_serving_input(inp_dict):
             ),
             error_code=MALFORMED_REQUEST,
         )
+
+    if isinstance(data, dict):
+        # ensure all columns have the same number of items
+        expected_len = len(list(data.values())[0])
+        if not all(len(v) == expected_len for v in data.values()):
+            _handle_serving_error(
+                error_message=(
+                    "Failed to parse data as TF serving input. The length of values for"
+                    " each input/column name are not the same"
+                ),
+                error_code=MALFORMED_REQUEST,
+            )
+    return data
 
 
 def predictions_to_json(raw_predictions, output):
