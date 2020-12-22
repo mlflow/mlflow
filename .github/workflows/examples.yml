@@ -58,6 +58,7 @@ jobs:
 
     - name: Remove conda environments
       run: |
+        conda remove --all --yes --name test-environment
         ./dev/remove-conda-envs.sh
 
     - name: Run docker tests
