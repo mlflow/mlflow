@@ -229,7 +229,10 @@ class _SpacyModelWrapper:
         :return: dataframe with a column for each of the object keys in `doc.to_json()`
         """
         if len(dataframe.columns) != 1:
-            _logger.warning("Shape of input dataframe expected to be (n_rows, 1_column). Only using the first column.")
+            _logger.warning(
+                "Shape of input dataframe expected to be (n_rows, 1_column). "
+                "Only using the first column."
+            )
 
         # Note: `to_json` returns a `dict`, not a JSON string (https://spacy.io/api/doc#to_json)
         objs = dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).to_json())
