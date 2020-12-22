@@ -120,6 +120,16 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
+
+  anaconda:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+    - name: Run tests
+      run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.02"
         ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
