@@ -771,7 +771,7 @@ def _backported_all_estimators(type_filter=None):
     import sklearn
     from importlib import import_module
     from operator import itemgetter
-    from sklearn.utils.testing import ignore_warnings  # pylint: disable=no-name-in-module
+    from sklearn.utils.testing import ignore_warnings  # pylint: disable=import-error
     from sklearn.base import (
         BaseEstimator,
         ClassifierMixin,
