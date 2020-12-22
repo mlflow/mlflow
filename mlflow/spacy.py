@@ -245,11 +245,21 @@ class _SpacyModelWrapper:
         if len(dataframe.columns) != 1:
             raise MlflowException("Shape of input dataframe must be (n_rows, 1column)")
 
-        docs = dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text))
+        # Note: `to_json` returns a `dict`, not a JSON string (https://spacy.io/api/doc#to_json)
+        objs = dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).to_json())
 
-        return pd.DataFrame(
-            {"predictions": docs.apply(lambda doc: doc.cats), "docs": docs.apply(lambda doc: doc.to_json())}
-        )
+        # Columns:
+        # `text` (original text)
+        # `ents` (named entity offsets and labels)
+        # `sents` (sentence offsets)
+        # `cats` (category dictionary, like `predictions` previously)
+        # `tokens` (token offsets along with POS tagging)
+        pdf = pd.DataFrame.from_records(objs)
+
+        # preserve old `predictions` column name for backwards compatibility
+        pdf["predictions"] = pdf["cats"]
+
+        return pdf
 
 
 def _load_pyfunc(path):
