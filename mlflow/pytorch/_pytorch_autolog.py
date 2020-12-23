@@ -44,14 +44,14 @@ def _get_optimizer_name(optimizer):
     #pytorch_lightning.trainer.trainer.Trainer.params.enable_pl_optimizer
     """
     if LooseVersion(pl.__version__) < LooseVersion("1.1.0"):
-        return type(optimizer).__name__
+        return optimizer.__class__.__name__
     else:
         from pytorch_lightning.core.optimizer import LightningOptimizer
 
         return (
-            type(optimizer._optimizer).__name__
+            optimizer._optimizer.__class__.__name__
             if isinstance(optimizer, LightningOptimizer)
-            else type(optimizer).__name__
+            else optimizer.__class__.__name__
         )
 
 
