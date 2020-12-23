@@ -31,7 +31,6 @@ python --version
 pip install --upgrade pip==19.3.1
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
-  pip uninstall sqlalchemy -y
   pip install . --upgrade
 else
   pip install .[extras] --upgrade
@@ -56,6 +55,10 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
+# Skinny Client purposefully removes the sqlalchemy dependency
+if [[ "$MLFLOW_SKINNY" == "true" ]]; then
+  pip uninstall sqlalchemy -y
+fi
 
 # Print current environment info
 pip list
