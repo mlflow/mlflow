@@ -31,6 +31,7 @@ python --version
 pip install --upgrade pip==19.3.1
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
+  pip uninstall sqlalchemy -y
   pip install . --upgrade
 else
   pip install .[extras] --upgrade
