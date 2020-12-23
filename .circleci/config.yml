@@ -47,7 +47,7 @@ jobs:
       - run:
           name: Show diff
           command: |
-            git diff
+            git --no-pager diff
 
       - save_cache:
           key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
