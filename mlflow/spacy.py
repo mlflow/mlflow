@@ -129,10 +129,7 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.spacy",
-        data=model_data_subpath,
-        env=conda_env_subpath,
+        mlflow_model, loader_module="mlflow.spacy", data=model_data_subpath, env=conda_env_subpath,
     )
 
     mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
