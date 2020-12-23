@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import logging
 import mlflow.pytorch
 import os
@@ -30,6 +31,28 @@ every_n_epoch = 1
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
+
+
+def _get_optimizer_name(optimizer):
+    """
+    In pytorch-lightining 1.1.0, `LightningOptimizer` was introduced:
+    https://github.com/PyTorchLightning/pytorch-lightning/pull/4658
+
+    If a user sets `enable_pl_optimizer` to True when instantiating a `Trainer` object,
+    each optimizer will be wrapped by `LightningOptimizer`:
+    https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.html
+    #pytorch_lightning.trainer.trainer.Trainer.params.enable_pl_optimizer
+    """
+    if LooseVersion(pl.__version__) < LooseVersion("1.1.0"):
+        return optimizer.__class__.__name__
+    else:
+        from pytorch_lightning.core.optimizer import LightningOptimizer
+
+        return (
+            optimizer._optimizer.__class__.__name__
+            if isinstance(optimizer, LightningOptimizer)
+            else optimizer.__class__.__name__
+        )
 
 
 @rank_zero_only
@@ -108,7 +131,9 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
                 if hasattr(trainer, "optimizers"):
                     optimizer = trainer.optimizers[0]
-                    try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
+                    try_mlflow_log(
+                        mlflow.log_param, "optimizer_name", _get_optimizer_name(optimizer)
+                    )
 
                     if hasattr(optimizer, "defaults"):
                         try_mlflow_log(mlflow.log_params, optimizer.defaults)
