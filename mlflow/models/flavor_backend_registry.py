@@ -7,14 +7,13 @@ REST api endpoint, or build a docker image for serving the model locally or remo
 Not all flavors have a flavor backend.
 """
 import mlflow.pyfunc as pyfunc
-from mlflow.pyfunc.backend import PyFuncBackend
-from mlflow.rfunc.backend import RFuncBackend
-
-
-_flavor_backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, "crate": RFuncBackend}
 
 
 def get_flavor_backend(model, build_docker=True, **kwargs):
+    from mlflow.pyfunc.backend import PyFuncBackend
+    from mlflow.rfunc.backend import RFuncBackend
+
+    _flavor_backends = {pyfunc.FLAVOR_NAME: PyFuncBackend, "crate": RFuncBackend}
     for flavor_name, flavor_config in model.flavors.items():
         if flavor_name in _flavor_backends:
             backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
