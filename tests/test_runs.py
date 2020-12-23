@@ -31,18 +31,18 @@ def test_csv_generation():
         mock_search_runs.return_value = pd.DataFrame(
             {
                 "run_id": np.array(["all_set", "with_none", "with_nan"]),
-                "experiment_id": np.array([0, 1, 1]),
+                "experiment_id": np.array([1, 1, 1]),
                 "param_optimizer": np.array(["Adam", None, "Adam"]),
-                "avg_loss": np.array([41.0, None, np.nan], dtype=np.float32),
+                "avg_loss": np.array([42.0, None, np.nan], dtype=np.float32),
             },
             columns=["run_id", "experiment_id", "param_optimizer", "avg_loss"],
         )
         expected_csv = textwrap.dedent(
             """\
         run_id,experiment_id,param_optimizer,avg_loss
-        all_set,0,Adam,42.0
-        with_none,0,,
-        with_nan,0,Adam,
+        all_set,1,Adam,42.0
+        with_none,1,,
+        with_nan,1,Adam,
         """
         )
         tempdir = tempfile.mkdtemp()
@@ -50,7 +50,7 @@ def test_csv_generation():
             result_filename = os.path.join(tempdir, "result.csv")
             CliRunner().invoke(
                 experiments.generate_csv_with_runs,
-                ["--experiment-id", "0", "--filename", result_filename],
+                ["--experiment-id", "1", "--filename", result_filename],
             )
             with open(result_filename, "r") as fd:
                 assert expected_csv == fd.read()
