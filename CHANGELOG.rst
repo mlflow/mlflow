@@ -1,5 +1,61 @@
 Changelog
 =========
+1.13 (2020-12-22)
+-----------------
+MLflow 1.13 includes several major features and improvements:
+
+Features:
+
+New fluent APIs for logging in-memory objects as artifacts:
+
+- Add ``mlflow.log_text`` which logs text as an artifact (#3678, @harupy)
+- Add ``mlflow.log_dict`` which logs a dictionary as an artifact (#3685, @harupy)
+- Add ``mlflow.log_figure`` which logs a figure object as an artifact (#3707, @harupy)
+- Add ``mlflow.log_image`` which logs an image object as an artifact (#3728, @harupy)
+
+UI update / fixes (#3867, @smurching):
+
+- Add "Empty state" overlay for experiments
+- Add ``SectionErrorBoundary`` for better error handling
+- Use local storage to persist model registry UI settings
+- Add ``data-test-id`` / DOM classname to facilitate e2e UI testing
+- Add description to model version table
+- Add model version link in compact experiment table view
+- Add logged/registered model links in experiment runs page view
+- Enhance artifact viewer for MLflow models
+
+Autologging enhancements:
+
+- Add ``exclusive`` flag to remaining relevant autologging integrations (#3869, @dbczumar)
+- Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
+- Add ``log_models`` configuration for autologging (#3663, @mohamad-arabi)
+
+More features and improvements:
+
+- Retry SQLAlchemy engine creation (#3784, @HCoban)
+- Add support for ``statsmodels`` flavor (#3304, @olbapjose)
+- Make ``run_id`` an optional parameter for python client (#3768, @wentinghu)
+- Add support for nested-run in mlflow R client (#3765, @yitao-li)
+- Java client changes to incorporate PreSigned URL support (#3649, @arjundc-db)
+- Add ``DatabricksModelArtifactRepository`` (#3643, @arjundc-db)
+- Some additional model handling to ``azureml.deploy`` (#3419, @trangevi)
+
+Bug fixes and documentation updates:
+
+- Pin the version of mlflow in the databricks job to the same version as that of the client (#3880, @FlorisHoogenboom)
+- Add autologging safety utils to ``statsmodels`` & ``fastai`` (#3859, @dbczumar)
+- Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
+- Reject bool metric value (#3822, @HCoban)
+- Fix bug related with bad alignment of history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
+- Unpin TF / Keras and fix bugs in autologging integrations for newer versions (#3735, @dbczumar)
+- Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
+- Only import ``matplotlib`` where necessary for artifact plotting (#3703, @dbczumar)
+- Do not disable existing logger when initializing ``alembic`` (#3653, @arthury1n)
+- Fix library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
+- Allow Keras models to be saved with ``SavedModel`` format (#3552, @skylarbpayne)
+
+Small bug fixes and doc updates (#3887, #3882, #3845, #3861, #3855, #3854, #3833, #3828, #3826, #3825, #3800, #3809, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, @dmatrix; #3664, @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3844, #3815, #3682, @dbczumar)
+
 1.12.1 (2020-11-19)
 -------------------
 MLflow 1.12.1 is a patch release containing bug fixes and small changes:
