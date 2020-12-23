@@ -1,5 +1,6 @@
 import os
 import getpass
+from pwd import getpwnam
 
 import pytest
 import posixpath  # pylint: disable=unused-import
@@ -38,10 +39,14 @@ def test_docker_project_execution(
 ):  # pylint: disable=unused-argument
     # import os
     # os.makedirs("./mlruns/0", exist_ok=True)
+
+    user_info = getpwnam(getpass.getuser())
+    user = "{}:{}".format(user_info.pw_uid, user_info.pw_gid)
+
     docker_args = {
         "memory": "1g",
         "privileged": True,
-        "user": getpass.getuser(),
+        "user": user,
     }
     # try:
     #     docker_args.update({
@@ -95,10 +100,13 @@ def test_docker_project_execution_async_docker_args(
 ):  # pylint: disable=unused-argument
     # import os
     # os.makedirs("./mlruns/0", exist_ok=True)
+    user_info = getpwnam(getpass.getuser())
+    user = "{}:{}".format(user_info.pw_uid, user_info.pw_gid)
+
     docker_args = {
         "memory": "1g",
         "privileged": True,
-        "user": getpass.getuser(),
+        "user": user,
     }
     # try:
     #     docker_args.update({
