@@ -1,4 +1,5 @@
 import os
+import getpass
 
 import pytest
 import posixpath  # pylint: disable=unused-import
@@ -35,15 +36,26 @@ def _build_uri(base_uri, subdirectory):
 def test_docker_project_execution(
     use_start_run, tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
-    import os
-    os.makedirs("./mlruns/0", exist_ok=True)
+    # import os
+    # os.makedirs("./mlruns/0", exist_ok=True)
+    docker_args = {
+        "memory": "1g",
+        "privileged": True,
+        "user": getpass.getuser(),
+    }
+    # try:
+    #     docker_args.update({
+    #         "user": getpass.getuser(),
+    #     })
+    # except Exception:
+    #     pass
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters=expected_params,
         entry_point="test_tracking",
-        docker_args={"memory": "1g", "privileged": True},
+        docker_args=docker_args,
     )
     # Validate run contents in the FileStore
     run_id = submitted_run.run_id
@@ -81,14 +93,25 @@ def test_docker_project_execution(
 def test_docker_project_execution_async_docker_args(
     tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
-    import os
-    os.makedirs("./mlruns/0", exist_ok=True)
+    # import os
+    # os.makedirs("./mlruns/0", exist_ok=True)
+    docker_args = {
+        "memory": "1g",
+        "privileged": True,
+        "user": getpass.getuser(),
+    }
+    # try:
+    #     docker_args.update({
+    #         "user": getpass.getuser(),
+    #     })
+    # except Exception:
+    #     pass
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters={"use_start_run": "0"},
         entry_point="test_tracking",
-        docker_args={"memory": "1g", "privileged": True},
+        docker_args=docker_args,
         synchronous=False,
     )
     submitted_run.wait()
