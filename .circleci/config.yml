@@ -44,6 +44,11 @@ jobs:
           command: |
             ./build-rdoc.sh
 
+      run:
+        name: Show diff
+        command: |
+          git diff
+
       - save_cache:
           key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
           paths:
