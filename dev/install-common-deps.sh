@@ -44,6 +44,9 @@ if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   # As a workaround, we retry installation of large packages.
   retry-with-backoff pip install --quiet -r ./dev/small-requirements.txt
 fi
+if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
+  retry-with-backoff pip install --quiet -r ./dev/skinny-requirements.txt
+fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   retry-with-backoff pip install --quiet -r ./dev/large-requirements.txt
   retry-with-backoff pip install --quiet -r ./dev/extra-ml-requirements.txt
@@ -53,11 +56,6 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
   chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
-fi
-
-# Skinny Client purposefully removes the sqlalchemy dependency
-if [[ "$MLFLOW_SKINNY" == "true" ]]; then
-  pip uninstall sqlalchemy -y
 fi
 
 # Print current environment info

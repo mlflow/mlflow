@@ -100,7 +100,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       env:
-        INSTALL_SMALL_PYTHON_DEPS: true
+        INSTALL_SKINNY_PYTHON_DEPS: true
         MLFLOW_SKINNY: true
       run: |
         source ./dev/install-common-deps.sh
