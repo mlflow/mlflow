@@ -36,7 +36,7 @@ def test_docker_project_execution(
     use_start_run, tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
     import os
-    os.makedirs("./mlruns", exist_ok=True)
+    os.makedirs("./mlruns/0", exist_ok=True)
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
@@ -82,7 +82,7 @@ def test_docker_project_execution_async_docker_args(
     tmpdir, docker_example_base_image
 ):  # pylint: disable=unused-argument
     import os
-    os.makedirs("./mlruns", exist_ok=True)
+    os.makedirs("./mlruns/0", exist_ok=True)
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR,
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
