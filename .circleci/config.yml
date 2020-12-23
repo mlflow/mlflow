@@ -69,7 +69,7 @@ jobs:
       - run:
           name: Install Java
           command: |
-            sudo apt-get update  --yes
+            sudo apt-get update --yes
             sudo apt-get install default-jdk --yes
             sudo apt-get install maven --yes
             java -version
