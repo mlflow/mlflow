@@ -120,6 +120,8 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
+    - name: Run anaconda compatibility tests
+      run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.02"
         ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
