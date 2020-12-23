@@ -51,6 +51,18 @@ def docker_example_base_image():
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=cwd)
         import shutil
 
+        import getpass
+        from pwd import getpwnam
+        user_info = getpwnam(getpass.getuser())
+
+        user_permissions_scaffolding = [
+            "RUN addgroup --gid {group_id} user".format(group_id=user_info.pw_gid),
+            "RUN adduser --disabled-password --gecos '' --uid {user_id} --gid {group_id} user".format(
+                user_id=user_info.pw_uid, group_id=user_info.pw_gid,
+            ),
+            "USER user",
+        ]
+
         shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
         with open(tmp.path("Dockerfile"), "a") as f:
             f.write(
@@ -58,6 +70,8 @@ def docker_example_base_image():
                     mlflow_dir=mlflow_dir
                 )
             )
+            f.write("\n".join(user_permissions_scaffolding))
+
 
         client = docker.from_env()
         try:

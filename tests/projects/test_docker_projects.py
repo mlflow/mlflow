@@ -46,7 +46,7 @@ def test_docker_project_execution(
     docker_args = {
         "memory": "1g",
         "privileged": True,
-        "user": user,
+        # "user": user,
     }
     # try:
     #     docker_args.update({
@@ -106,7 +106,7 @@ def test_docker_project_execution_async_docker_args(
     docker_args = {
         "memory": "1g",
         "privileged": True,
-        "user": user,
+        # "user": user,
     }
     # try:
     #     docker_args.update({
