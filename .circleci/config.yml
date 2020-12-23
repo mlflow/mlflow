@@ -11,7 +11,7 @@ jobs:
           name: Install R
           command: |
             apt-get update --yes
-            apt-get install sudo apt-transport-https wget curl software-properties-common --yes
+            apt-get install sudo git wget curl software-properties-common apt-transport-https --yes
 
             echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
             sudo add-apt-repository ppa:cran/libgit2 --yes
