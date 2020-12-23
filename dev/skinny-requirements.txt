@@ -1,0 +1,7 @@
+## Small test reqs
+scipy
+## Test-only dependencies
+pytest==3.2.1
+pytest-cov==2.6.0
+# Test plugin, used to verify correctness of MLflow plugin APIs
+tests/resources/mlflow-test-plugin/

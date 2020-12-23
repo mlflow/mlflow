@@ -1,7 +1,5 @@
 import filecmp
 import os
-import docker
-from docker.errors import BuildError, APIError
 
 
 import pytest
@@ -40,6 +38,9 @@ def assert_dirs_equal(expected, actual):
 
 @pytest.fixture(scope="session")
 def docker_example_base_image():
+    import docker
+    from docker.errors import BuildError, APIError
+
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:
         raise Exception(
