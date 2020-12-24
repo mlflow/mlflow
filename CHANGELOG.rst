@@ -13,7 +13,7 @@ New fluent APIs for logging in-memory objects as artifacts:
 - Add ``mlflow.log_figure`` which logs a figure object as an artifact (#3707, @harupy)
 - Add ``mlflow.log_image`` which logs an image object as an artifact (#3728, @harupy)
 
-UI update / fixes (#3867, @smurching):
+UI updates / fixes (#3867, @smurching):
 
 - Add "Empty state" overlay for experiments
 - Add ``SectionErrorBoundary`` for better error handling
