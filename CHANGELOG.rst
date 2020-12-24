@@ -46,7 +46,7 @@ Bug fixes and documentation updates:
 - Add autologging safety utils to ``statsmodels`` & ``fastai`` (#3859, @dbczumar)
 - Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
 - Reject bool metric value (#3822, @HCoban)
-- Fix bug related with bad alignment of history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
+- Fix alignment of Keras / ``tf.Keras`` metric history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
 - Fix bugs in autologging integrations for newer versions of TensorFlow and Keras (#3735, @dbczumar)
 - Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
 - Only import ``matplotlib`` where necessary for artifact plotting (#3703, @dbczumar)
