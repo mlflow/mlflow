@@ -18,9 +18,7 @@ jobs:
           name: Install Python dependencies
           command: |
             pip --version
-            pip install --progress-bar off . \
-              -r ./dev/large-requirements.txt \
-              sphinx sphinx-click
+            pip install --progress-bar off -r dev-requirements.txt .
       - run:
           name: Build documentation
           working_directory: docs
