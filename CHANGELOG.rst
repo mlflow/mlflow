@@ -47,7 +47,7 @@ Bug fixes and documentation updates:
 - Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
 - Reject bool metric value (#3822, @HCoban)
 - Fix bug related with bad alignment of history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
-- Unpin TF / Keras and fix bugs in autologging integrations for newer versions (#3735, @dbczumar)
+- Fix bugs in autologging integrations for newer versions of TensorFlow and Keras (#3735, @dbczumar)
 - Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
 - Only import ``matplotlib`` where necessary for artifact plotting (#3703, @dbczumar)
 - Do not disable existing logger when initializing ``alembic`` (#3653, @arthury1n)
