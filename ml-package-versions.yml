@@ -38,6 +38,19 @@ pytorch:
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
 
+pytorch-lightning:
+  package_info:
+    pip_release: "pytorch-lightning"
+    install_dev: |
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@master
+
+  autologging:
+    minimum: "1.0.5"
+    maximum: "1.1.2"
+    requirements: ["torchvision", "scikit-learn"]
+    run: |
+      pytest tests/pytorch/test_pytorch_autolog.py --large
+
 tensorflow-1.x:
   package_info:
     pip_release: "tensorflow"
@@ -88,8 +101,16 @@ keras:
     minimum: "2.2.4"
     maximum: "2.4.3"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "< 2.3.1":
+        [
+          "tensorflow==1.15.4",
+          "h5py<3.0",
+          "scikit-learn",
+          "pyspark==2.4.0",
+          "pyarrow",
+        ]
+      "== 2.3.1":
+        ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
       "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
       "== dev": ["scikit-learn", "pyspark==2.4.0", "pyarrow"]
     run: |
