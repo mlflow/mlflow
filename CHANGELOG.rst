@@ -26,8 +26,8 @@ Autologging enhancements:
 - Improve robustness of autologging integrations to exceptions (#3682, #3815, dbczumar; #3860, @mohamad-arabi; #3854, #3855, #3861, @harupy)
 - Add ``disable`` configuration option for autologging (#3682, #3815, dbczumar; #3838, @mohamad-arabi; #3854, #3855, #3861, @harupy)
 - Add ``exclusive`` configuration option for autologging (#3851, @apurva-koti; #3869, @dbczumar)
-- Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
 - Add ``log_models`` configuration option for autologging (#3663, @mohamad-arabi)
+- Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
 
 More features and improvements:
 
