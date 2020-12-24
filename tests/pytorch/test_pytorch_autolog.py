@@ -10,6 +10,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
 from unittest.mock import patch
 
 NUM_EPOCHS = 20
@@ -61,10 +62,7 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
-
-    # In pytorch-lightning >= 1.1.0, optimizer names are prefixed with "Lightning".
-    prefix = "Lightning" if LooseVersion(pl.__version__) >= LooseVersion("1.1.0") else ""
-    assert data.params["optimizer_name"] == prefix + "Adam"
+    assert data.params["optimizer_name"] == "Adam"
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()
@@ -254,3 +252,19 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
+
+
+def test_get_optimizer_name():
+    adam = torch.optim.Adam(torch.nn.Linear(1, 1).parameters())
+    assert _get_optimizer_name(adam) == "Adam"
+
+
+@pytest.mark.skipif(
+    LooseVersion(pl.__version__) < LooseVersion("1.1.0"),
+    reason="`LightningOptimizer` doesn't exist in pytorch-lightning < 1.1.0",
+)
+def test_get_optimizer_name_with_lightning_optimizer():
+    from pytorch_lightning.core.optimizer import LightningOptimizer
+
+    adam = torch.optim.Adam(torch.nn.Linear(1, 1).parameters())
+    assert _get_optimizer_name(LightningOptimizer(adam)) == "Adam"
