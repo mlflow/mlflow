@@ -41,7 +41,6 @@ More features and improvements:
 Bug fixes and documentation updates:
 
 - When running an MLflow Project on Databricks, the version of MLflow installed on the Databricks cluster will now match the version used to run the Project (#3880, @FlorisHoogenboom)
-- Add autologging safety utils to ``statsmodels`` & ``fastai`` (#3859, @dbczumar)
 - Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
 - Reject boolean types when logging MLflow metrics (#3822, @HCoban)
 - Fix alignment of Keras / ``tf.Keras`` metric history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
@@ -52,7 +51,7 @@ Bug fixes and documentation updates:
 - Fix ``h5py`` library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
 - Allow Keras models to be saved with ``SavedModel`` format (#3552, @skylarbpayne)
 
-Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3861, #3855, #3854, #3833, #3828, #3826, #3825, #3800, #3809, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, @dmatrix; #3664, #3867 @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3844, #3682, @dbczumar)
+Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3861, #3855, #3854, #3833, #3828, #3826, #3825, #3800, #3809, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, @dmatrix; #3664, #3867 @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3859, #3844, #3682, @dbczumar)
 
 1.12.1 (2020-11-19)
 -------------------
