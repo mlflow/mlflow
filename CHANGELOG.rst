@@ -23,7 +23,7 @@ UI updates / fixes (#3867, @smurching):
 
 Autologging enhancements:
 
-- Introduce utilities for autologging error tolerance / safety (#3815, dbczumar)
+- Introduce utilities for autologging error tolerance / safety (#3682, dbczumar)
 - Add ``exclusive`` configuration option for autologging (#3869, @dbczumar)
 - Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
 - Add ``log_models`` configuration for autologging (#3663, @mohamad-arabi)
@@ -49,7 +49,7 @@ Bug fixes and documentation updates:
 - Fix ``h5py`` library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
 - Add ``DatabricksModelArtifactRepository`` (#3643, @arjundc-db)
 
-Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3861, #3855, #3854, #3833, #3828, #3826, #3825, #3800, #3809, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, @dmatrix; #3664, #3867 @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3859, #3844, #3703, #3682, @dbczumar; #3768, @wentinghu)
+Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3861, #3855, #3854, #3833, #3828, #3826, #3825, #3800, #3809, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, @dmatrix; #3664, #3867 @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3815, #3859, #3844, #3703, @dbczumar; #3768, @wentinghu)
 
 1.12.1 (2020-11-19)
 -------------------
