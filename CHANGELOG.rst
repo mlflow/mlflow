@@ -42,7 +42,7 @@ More features and improvements:
 
 Bug fixes and documentation updates:
 
-- Pin the version of mlflow in the databricks job to the same version as that of the client (#3880, @FlorisHoogenboom)
+- When running an MLflow Project on Databricks, the version of MLflow installed on the Databricks cluster will now match the version used to run the Project (#3880, @FlorisHoogenboom)
 - Add autologging safety utils to ``statsmodels`` & ``fastai`` (#3859, @dbczumar)
 - Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
 - Reject boolean types when logging MLflow metrics (#3822, @HCoban)
