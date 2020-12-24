@@ -19,7 +19,7 @@ UI updates / fixes (#3867, @smurching):
 - Add ``SectionErrorBoundary`` for better error handling
 - Use local storage to persist model registry UI settings
 - Add ``data-test-id`` / DOM classname to facilitate e2e UI testing
-- Add description to model version table
+- Add model version ``description`` field to model version table
 - Add model version link in compact experiment table view
 - Add logged/registered model links in experiment runs page view
 - Enhance artifact viewer for MLflow models
