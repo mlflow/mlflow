@@ -1,5 +1,46 @@
 Changelog
 =========
+1.13 (2020-12-24)
+-----------------
+MLflow 1.13 includes several major features and improvements:
+
+Features:
+
+- Add `exclusive` flag to remaining relevant autologging integrations (#3869, @dbczumar)
+- UI updates / fixes (#3867, @smurching)
+- Add fault tolerance for Spark autologging (#3860, @mohamad-arabi)
+- Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
+- Add disable=True/False flag for Spark autologging (#3838, @mohamad-arabi)
+- Update schema enforcement (#3798, @tomasatdatabricks)
+- retry sqlalchemy create engine (#3784, @HCoban)
+- Add support for statsmodels flavor (#3304, @olbapjose)
+- Make run_id an optional parameter for python client (#3768, @wentinghu)
+- support nested-run in mlflow R client (#3765, @yitao-li)
+- Add `log_image` (#3728, @harupy)
+- Add `log_figure` (#3707, @harupy)
+- Add log_models configuration for autologging (#3663, @mohamad-arabi)
+- Java Client changes to incorporate PreSigned Url support. (#3649, @arjundc-db)
+- Adding DatabricksModelArtifactRepository (#3643, @arjundc-db)
+- Some additional model handling to azureml.deploy (#3419, @trangevi)
+- Add `log_dict` (#3685, @harupy)
+- Add `log_text` (#3678, @harupy)
+
+Bug fixes and documentation updates:
+
+- Pin the version of mlflow in the databricks job to the same version as that of the client (#3880, @FlorisHoogenboom)
+- Add autologging safety utils to statsmodels & Fast.ai (#3859, @dbczumar)
+- Autologging: Fix bug where metrics are not logged for single-epoch tf.keras training sessions (#3853, @dbczumar)
+- reject bool metric value (#3822, @HCoban)
+- Fix bug related with bad alignment of history entries when "initial_epoch" is different from zero. (#3575, @garciparedes)
+- Unpin TF / Keras and fix bugs in autologging integrations for newer versions (#3735, @dbczumar)
+- Drop global filterwwarnings module at import time (#3621, @jogo)
+- Only import matplotlib where necessary for artifact plotting (#3703, @dbczumar)
+- Do not disable existing logger when init alembic (#3653, @arthury1n)
+- Fix library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
+- (Issue #3224) Allow keras models to be saved with SavedModel format (#3552, @skylarbpayne)
+
+Small bug fixes and doc updates (#3887, #3882, #3845, #3861, #3855, #3854, #3833, #3830, #3828, #3826, #3825, #3807, #3800, #3809, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3698, #3658, #3675, @harupy; #3664, @smurching; #3864, @AveshCSingh; #3650, #3655, @shrinath-suresh; #3850, #3753, #3725, @dmatrix; #3723, @mohamad-arabi; #3681, @sueann; #3851, @apurva-koti; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3883, #3874, #3870, #3877, #3878, #3844, #3815, #3682, @dbczumar; #3756, @yitao-li)
+
 1.12.1 (2020-11-19)
 -------------------
 MLflow 1.12.1 is a patch release containing bug fixes and small changes:
