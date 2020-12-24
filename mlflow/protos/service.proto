@@ -682,7 +682,7 @@ message ListExperiments {
   // If unspecified, return only active experiments.
   optional ViewType view_type = 1;
 
-  // Maximum number of registered models desired. Max threshold is 50K.
+  // Maximum number of experiments desired. Max threshold is 50K.
   optional int64 max_results = 2 [default = 50000];
 
   // Pagination token to go to the next page based on a previous query.
