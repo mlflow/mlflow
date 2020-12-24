@@ -45,7 +45,7 @@ Bug fixes and documentation updates:
 - Pin the version of mlflow in the databricks job to the same version as that of the client (#3880, @FlorisHoogenboom)
 - Add autologging safety utils to ``statsmodels`` & ``fastai`` (#3859, @dbczumar)
 - Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
-- Reject bool metric value (#3822, @HCoban)
+- Reject boolean types when logging MLflow metrics (#3822, @HCoban)
 - Fix alignment of Keras / ``tf.Keras`` metric history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
 - Fix bugs in autologging integrations for newer versions of TensorFlow and Keras (#3735, @dbczumar)
 - Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
