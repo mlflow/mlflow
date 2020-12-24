@@ -17,7 +17,7 @@ UI updates / fixes (#3867, @smurching):
 
 - Add "Empty state" overlay for experiments
 - Add ``SectionErrorBoundary`` for better error handling
-- Use local storage to persist model registry UI settings
+- Model registry UI settings are now persisted across browser sessions
 - Add ``data-test-id`` / DOM classname to facilitate e2e UI testing
 - Add model version ``description`` field to model version table
 - Add model version link in compact experiment table view
