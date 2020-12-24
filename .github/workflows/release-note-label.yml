@@ -1,0 +1,62 @@
+# A workflow to validate only one release-note label is selected
+
+name: Release-note label
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Validate
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { body, user } = context.payload.pull_request;
+
+            // Skip validation on pull requests created by the mlflow-automation bot
+            if (user.login === "mlflow-automation") {
+              console.log("Skipping validation since this pull request was created by the mlflow-automation bot");
+              return;
+            }
+
+            const RNLabels = [
+              "rn/feature",
+              "rn/breaking-change",
+              "rn/bug-fix",
+              "rn/documentation",
+              "rn/none",
+            ];
+
+            // Extract selected release-note labels
+            const regexp = /- \[(.*?)\] ?`(.+?)`/g; // matches "- [x] `abc`"
+            const selectedRNLabels = [];
+            let match = regexp.exec(body);
+            while (match != null) {
+              const selected = match[1].trim().toLocaleLowerCase() === "x";
+              const name = match[2].trim();
+
+              if (RNLabels.includes(name) && selected) {
+                selectedRNLabels.push(name);
+              }
+              match = regexp.exec(body);
+            }
+
+            console.log("Selected release-note labels:");
+            console.log(selectedRNLabels);
+
+            // If the number of selected release-note labels is not 1, set the action status to "failed"
+            const numSelected = selectedRNLabels.length;
+            if (numSelected === 0) {
+              core.setFailed("No release-note label is selected. Please select one.");
+            } else if (numSelected > 1) {
+              core.setFailed("Multiple release-note labels are selected. Please select one.");
+            }
