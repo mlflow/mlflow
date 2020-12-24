@@ -38,7 +38,7 @@ More features and improvements:
 - Add support for nested-run in mlflow R client (#3765, @yitao-li)
 - Java client changes to incorporate PreSigned URL support (#3649, @arjundc-db)
 - Add ``DatabricksModelArtifactRepository`` (#3643, @arjundc-db)
-- Some additional model handling to ``azureml.deploy`` (#3419, @trangevi)
+- Deploying a model using ``mlflow.azureml.deploy`` now integrates better with the AzureML tracking/registry. (#3419, @trangevi)
 
 Bug fixes and documentation updates:
 
