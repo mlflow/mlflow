@@ -23,7 +23,7 @@ UI updates / fixes (#3867, @smurching):
 
 Autologging enhancements:
 
-- Add ``exclusive`` flag to remaining relevant autologging integrations (#3869, @dbczumar)
+- Add ``exclusive`` configuration option for autologging (#3869, @dbczumar)
 - Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
 - Add ``log_models`` configuration for autologging (#3663, @mohamad-arabi)
 
