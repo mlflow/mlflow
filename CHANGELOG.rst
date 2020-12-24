@@ -50,7 +50,7 @@ Bug fixes and documentation updates:
 - Fix bugs in autologging integrations for newer versions of TensorFlow and Keras (#3735, @dbczumar)
 - Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
 - Only import ``matplotlib`` where necessary for artifact plotting (#3703, @dbczumar)
-- Do not disable existing logger when initializing ``alembic`` (#3653, @arthury1n)
+- Fix bug that caused preexisting Python loggers to be disabled when using MLflow with the SQLAlchemyStore (#3653, @arthury1n)
 - Fix library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
 - Allow Keras models to be saved with ``SavedModel`` format (#3552, @skylarbpayne)
 
