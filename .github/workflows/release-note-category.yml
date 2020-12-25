@@ -63,6 +63,6 @@ jobs:
               );
             } else if (numSelected > 1) {
               core.setFailed(
-                "Multiple release-note categories are selected. Please select one." + url
+                "Multiple release-note categories are selected. Please select one: " + url
               );
             }
