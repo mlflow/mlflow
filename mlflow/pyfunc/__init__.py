@@ -206,7 +206,7 @@ import yaml
 from copy import deepcopy
 import logging
 
-from typing import Any, Union
+from typing import Any, Union, List, Dict
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
@@ -237,6 +237,8 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
+PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
+PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
@@ -290,6 +292,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
     1. np.object -> string
     2. int -> long (upcast)
     3. float -> double (upcast)
+    4. int -> double (safe conversion)
 
     Any other type mismatch will raise error.
     """
@@ -310,7 +313,10 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
                 "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
             )
 
-    if values.dtype in (t.to_pandas(), t.to_numpy()):
+    # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
+    # side of the comparison operator. It works, however, if pandas type is on the left hand side.
+    # That is because pandas is aware of numpy.
+    if t.to_pandas() == values.dtype or t.to_numpy() == values.dtype:
         # The types are already compatible => conversion is not necessary.
         return values
 
@@ -321,21 +327,50 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         return values
 
     numpy_type = t.to_numpy()
-    is_compatible_type = values.dtype.kind == numpy_type.kind
-    is_upcast = values.dtype.itemsize <= numpy_type.itemsize
-    if is_compatible_type and is_upcast:
+    if values.dtype.kind == numpy_type.kind:
+        is_upcast = values.dtype.itemsize <= numpy_type.itemsize
+    elif values.dtype.kind == "u" and numpy_type.kind == "i":
+        is_upcast = values.dtype.itemsize < numpy_type.itemsize
+    elif values.dtype.kind in ("i", "u") and numpy_type == np.float64:
+        # allow (u)int => double conversion
+        is_upcast = values.dtype.itemsize <= 6
+    else:
+        is_upcast = False
+
+    if is_upcast:
         return values.astype(numpy_type, errors="raise")
     else:
         # NB: conversion between incompatible types (e.g. floats -> ints or
         # double -> float) are not allowed. While supported by pandas and numpy,
         # these conversions alter the values significantly.
+        def all_ints(xs):
+            return all([pandas.isnull(x) or int(x) == x for x in xs])
+
+        hint = ""
+        if (
+            values.dtype == np.float64
+            and numpy_type.kind in ("i", "u")
+            and values.hasnans
+            and all_ints(values)
+        ):
+            hint = (
+                " Hint: the type mismatch is likely caused by missing values. "
+                "Integer columns in python can not represent missing values and are therefore "
+                "encoded as floats. The best way to avoid this problem is to infer the model "
+                "schema based on a realistic data sample (training dataset) that includes missing "
+                "values. Alternatively, you can declare integer columns as doubles (float64) "
+                "whenever these columns may have missing values. See `Handling Integers With "
+                "Missing Values <https://www.mlflow.org/docs/latest/models.html#"
+                "handling-integers-with-missing-values>`_ for more details."
+            )
+
         raise MlflowException(
             "Incompatible input types for column {0}. "
-            "Can not safely convert {1} to {2}.".format(name, values.dtype, numpy_type)
+            "Can not safely convert {1} to {2}.{3}".format(name, values.dtype, numpy_type, hint)
         )
 
 
-def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
+def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
     """
     Enforce column names and types match the input schema.
 
@@ -345,8 +380,15 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    if isinstance(pdf, list):
-        pdf = pandas.DataFrame(pdf)
+    if isinstance(pdf, (list, np.ndarray, dict)):
+        try:
+            pdf = pandas.DataFrame(pdf)
+        except Exception as e:
+            message = (
+                "This model contains a model signature, which suggests a DataFrame input."
+                "There was an error casting the input data to a DataFrame: {0}".format(str(e))
+            )
+            raise MlflowException(message)
     if not isinstance(pdf, pandas.DataFrame):
         message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
@@ -386,9 +428,6 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     return new_pdf
 
 
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
-
-
 class PyFuncModel(object):
     """
     MLflow 'python function' model.
@@ -399,7 +438,7 @@ class PyFuncModel(object):
 
     ``model_impl`` can be any Python object that implements the `Pyfunc interface
     <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#pyfunc-inference-api>`_, and is
-    by invoking the model's ``loader_module``.
+    returned by invoking the model's ``loader_module``.
 
     ``model_meta`` contains model metadata loaded from the MLmodel file.
     """
@@ -412,13 +451,19 @@ class PyFuncModel(object):
         self._model_meta = model_meta
         self._model_impl = model_impl
 
-    def predict(self, data: pandas.DataFrame) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput) -> PyFuncOutput:
         """
         Generate model predictions.
-        :param data: Model input as pandas.DataFrame.
+
+        If the model contains signature, enforce the input schema first before calling the model
+        implementation with the sanitized input. If the pyfunc model does not include model schema,
+        the input is passed to the model implementation as is. See `Model Signature Enforcement
+        <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
+
+        :param data: Model input
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        input_schema = self._model_meta.get_input_schema()
+        input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
         return self._model_impl.predict(data)

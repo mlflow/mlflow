@@ -9,7 +9,7 @@
 */
 
 import React from 'react';
-import { Button, Icon } from 'antd';
+import { Button, Icon, Tooltip } from 'antd';
 import PropTypes from 'prop-types';
 
 export class LoadMoreBar extends React.PureComponent {
@@ -17,10 +17,56 @@ export class LoadMoreBar extends React.PureComponent {
     style: PropTypes.object,
     loadingMore: PropTypes.bool.isRequired,
     onLoadMore: PropTypes.func.isRequired,
+    disableButton: PropTypes.bool,
+    nestChildren: PropTypes.bool,
   };
 
+  renderButton() {
+    const { disableButton, onLoadMore, nestChildren } = this.props;
+    const loadMoreButton = (
+      <Button
+        className='load-more-button'
+        style={styles.loadMoreButton}
+        type='primary'
+        htmlType='button'
+        onClick={onLoadMore}
+        size='small'
+        disabled={disableButton}
+      >
+        Load more
+      </Button>
+    );
+
+    if (disableButton) {
+      return (
+        <Tooltip
+          className='load-more-button-disabled-tooltip'
+          placement='bottom'
+          title='No more runs to load.'
+        >
+          {loadMoreButton}
+        </Tooltip>
+      );
+    } else if (nestChildren) {
+      return (
+        <div>
+          {loadMoreButton}
+          <Tooltip
+            className='load-more-button-nested-info-tooltip'
+            placement='bottom'
+            title='Loaded child runs are nested under their parents.'
+          >
+            <i className='fas fa-info-circle' style={styles.nestedTooltip} />
+          </Tooltip>
+        </div>
+      );
+    } else {
+      return loadMoreButton;
+    }
+  }
+
   render() {
-    const { loadingMore, onLoadMore, style } = this.props;
+    const { loadingMore, style } = this.props;
     return (
       <div className='load-more-row' style={{ ...styles.loadMoreRows, ...style }}>
         {loadingMore ? (
@@ -28,17 +74,7 @@ export class LoadMoreBar extends React.PureComponent {
             <Icon type='sync' spin style={styles.loadingMoreIcon} />
           </div>
         ) : (
-          <Button
-            className='load-more-button'
-            style={styles.loadMoreButton}
-            type='primary'
-            htmlType='button'
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            size='small'
-          >
-            Load more
-          </Button>
+          this.renderButton()
         )}
       </div>
     );
@@ -62,5 +98,9 @@ const styles = {
   loadMoreButton: {
     paddingLeft: 16,
     paddingRight: 16,
+  },
+  nestedTooltip: {
+    color: '#2374BB', // matches antd primary button colour
+    marginLeft: 8,
   },
 };
