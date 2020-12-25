@@ -37,7 +37,7 @@ jobs:
             ];
 
             // Extract selected release-note labels
-            const regexp = /- \[(.*?)\] ?`(.+?)`/g; // matches "- [x] `abc`"
+            const regexp = /^- \[(.*?)\] ?`(.+?)`/gm;
             const selectedRNLabels = [];
             let match = regexp.exec(body);
             while (match != null) {
