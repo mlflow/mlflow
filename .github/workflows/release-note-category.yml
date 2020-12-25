@@ -1,6 +1,6 @@
-# A workflow to validate only one release-note label is selected
+# A workflow to validate only one release-note category is selected
 
-name: Release-note label
+name: Release-note category
 
 on:
   pull_request:
@@ -28,7 +28,7 @@ jobs:
               return;
             }
 
-            const RNLabels = [
+            const categories = [
               "rn/feature",
               "rn/breaking-change",
               "rn/bug-fix",
@@ -36,27 +36,28 @@ jobs:
               "rn/none",
             ];
 
-            // Extract selected release-note labels
+            // Extract selected release-note categories
             const regexp = /^- \[(.*?)\] ?`(.+?)`/gm;
-            const selectedRNLabels = [];
+            const selectedCategories = [];
             let match = regexp.exec(body);
             while (match != null) {
               const selected = match[1].trim().toLocaleLowerCase() === "x";
               const name = match[2].trim();
 
-              if (RNLabels.includes(name) && selected) {
-                selectedRNLabels.push(name);
+              if (categories.includes(name) && selected) {
+                selectedCategories.push(name);
               }
               match = regexp.exec(body);
             }
 
-            console.log("Selected release-note labels:");
-            console.log(selectedRNLabels);
+            console.log("Selected release-note categories:");
+            console.log(selectedCategories);
 
-            // If the number of selected release-note labels is not 1, set the action status to "failed"
-            const numSelected = selectedRNLabels.length;
+            // If the number of selected release-note categories is not 1,
+            // set the action status to "failed"
+            const numSelected = selectedCategories.length;
             if (numSelected === 0) {
-              core.setFailed("No release-note label is selected. Please select one.");
+              core.setFailed("No release-note category is selected. Please select one.");
             } else if (numSelected > 1) {
-              core.setFailed("Multiple release-note labels are selected. Please select one.");
+              core.setFailed("Multiple release-note categories are selected. Please select one.");
             }
