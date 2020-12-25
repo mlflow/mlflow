@@ -36,7 +36,7 @@ jobs:
               "rn/none",
             ];
 
-            // Extract selected release-note categories
+            // Extract selected release-note categories from the PR description
             const regexp = /^- \[(.*?)\] ?`(.+?)`/gm;
             const selectedCategories = [];
             let match = regexp.exec(body);
