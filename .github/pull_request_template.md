@@ -44,7 +44,7 @@ Integrations
 - [ ] `integrations/sagemaker`: SageMaker integrations
 - [ ] `integrations/databricks`: Databricks integrations
 
-<!-- Insert an empty anchor here to allow jumping to this section with a fragment URL -->
+<!-- Insert an empty named anchor here to allow jumping to this section with a fragment URL -->
 <a name="release-note-category"></a>
 ### How should the PR be classified in the release notes? Choose one:
 
