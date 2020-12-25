@@ -304,7 +304,7 @@ def create_mock_response(status_code, text):
 # Define this utility function to avoid installing scikit-learn just for the iris dataset.
 def get_iris(usecols=None):
     """
-    Returns the Iris dataset as a tuple of (data: pandas.DataFrame, target: pandas.Series).
+    Returns the iris dataset as a tuple of (data: pandas.DataFrame, target: pandas.Series).
 
     :param usecols: A list of column indices to return.
     :return: A tuple of (data, target).
