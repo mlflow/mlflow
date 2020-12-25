@@ -20,7 +20,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const { body, user } = context.payload.pull_request;
+            const { body, user, html_url } = context.payload.pull_request;
 
             // Skip validation on pull requests created by the mlflow-automation bot
             if (user.login === "mlflow-automation") {
@@ -56,8 +56,13 @@ jobs:
             // If the number of selected release-note categories is not 1,
             // set the action status to "failed"
             const numSelected = selectedCategories.length;
+            const url = `${html_url}#user-content-release-note-category`;
             if (numSelected === 0) {
-              core.setFailed("No release-note category is selected. Please select one.");
+              core.setFailed(
+                "No release-note category is selected. Please select one: " + url
+              );
             } else if (numSelected > 1) {
-              core.setFailed("Multiple release-note categories are selected. Please select one.");
+              core.setFailed(
+                "Multiple release-note categories are selected. Please select one." + url
+              );
             }
