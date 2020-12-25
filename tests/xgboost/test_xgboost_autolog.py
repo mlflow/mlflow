@@ -3,7 +3,6 @@ import os
 import json
 import pytest
 import numpy as np
-import pandas as pd
 import xgboost as xgb
 import matplotlib as mpl
 import yaml
@@ -15,7 +14,7 @@ from mlflow.models.utils import _read_example
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
-from tests.datasets import get_iris
+from tests.helper_functions import get_iris
 
 mpl.use("Agg")
 
