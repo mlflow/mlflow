@@ -608,12 +608,15 @@ def _flush_queue():
     Flush the metric queue and log contents in batches to MLflow.
     Queue is divided into batches according to run id.
     """
-    global _metric_queue
-    client = mlflow.tracking.MlflowClient()
-    dic = _assoc_list_to_map(_metric_queue)
-    for key in dic:
-        try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
-    _metric_queue = []
+    from threading import RLock
+
+    with RLock():
+        global _metric_queue
+        client = mlflow.tracking.MlflowClient()
+        dic = _assoc_list_to_map(_metric_queue)
+        for key in dic:
+            try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
+        _metric_queue = []
 
 
 def _add_to_queue(key, value, step, time, run_id):
@@ -624,7 +627,7 @@ def _add_to_queue(key, value, step, time, run_id):
     met = Metric(key=key, value=value, timestamp=time, step=step)
     _metric_queue.append((run_id, met))
     if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        _flush_queue()
+        _thread_pool.submit(_flush_queue)
 
 
 def _log_event(event):
@@ -640,8 +643,7 @@ def _log_event(event):
                 # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
                 # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(
-                        _add_to_queue,
+                    _add_to_queue(
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
