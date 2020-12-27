@@ -615,7 +615,7 @@ def _flush_queue():
         # (e.g., if the queue is at its flush threshold and several more items
         # are added before a flush occurs). For correctness and efficiency, only one such
         # flush operation should proceed; all others are redundant and should be dropped
-        acquired_lock = _metric_queue_lock.acquire()
+        acquired_lock = _metric_queue_lock.acquire(blocking=False)
         if acquired_lock:
             global _metric_queue
             client = mlflow.tracking.MlflowClient()
