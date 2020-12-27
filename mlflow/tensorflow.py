@@ -610,9 +610,6 @@ def _flush_queue():
     Flush the metric queue and log contents in batches to MLflow.
     Queue is divided into batches according to run id.
     """
-    global _metric_queue
-    global _metric_queue_lock
-
     try:
         # Multiple queue flushes may be scheduled simultaneously on different threads
         # (e.g., if the queue is at its flush threshold and several more items
@@ -620,6 +617,7 @@ def _flush_queue():
         # flush operation should proceed; all others are redundant and should be dropped
         acquired_lock = _metric_queue_lock.acquire()
         if acquired_lock:
+            global _metric_queue
             client = mlflow.tracking.MlflowClient()
             dic = _assoc_list_to_map(_metric_queue)
             for key in dic:
