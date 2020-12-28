@@ -17,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
     exception_safe_function,
+    _AutologgingSessionManager,
     AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
@@ -645,7 +646,7 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
         og_call_kwargs = kwargs
 
         nonlocal patch_session
-        patch_session = autologging_utils._AutologgingSessionManager.active_session()
+        patch_session = _AutologgingSessionManager.active_session()
 
         original(*args, **kwargs)
 
@@ -674,7 +675,7 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
     def patch_impl(original, *args, **kwargs):
         nonlocal patch_session
-        patch_session = autologging_utils._AutologgingSessionManager.active_session()
+        patch_session = _AutologgingSessionManager.active_session()
 
         if throw_location == "before":
             raise exc_to_raise
@@ -1431,7 +1432,7 @@ def test_session_manager_creates_session_before_patch_executes(
 
     def check_session_manager_status(original):
         nonlocal is_session_active
-        is_session_active = autologging_utils._AutologgingSessionManager.active_session()
+        is_session_active = _AutologgingSessionManager.active_session()
 
     safe_patch(test_autologging_integration, patch_destination, "fn", check_session_manager_status)
     patch_destination.fn()
@@ -1442,11 +1443,11 @@ def test_session_manager_exits_session_after_patch_executes(
     patch_destination, test_autologging_integration
 ):
     def patch_fn(original):
-        assert autologging_utils._AutologgingSessionManager.active_session() is not None
+        assert _AutologgingSessionManager.active_session() is not None
 
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_fn)
     patch_destination.fn()
-    assert autologging_utils._AutologgingSessionManager.active_session() is None
+    assert _AutologgingSessionManager.active_session() is None
 
 
 def test_session_manager_exits_session_if_error_in_patch(
@@ -1460,7 +1461,19 @@ def test_session_manager_exits_session_if_error_in_patch(
     with pytest.raises(Exception):
         patch_destination.fn()
 
-    assert autologging_utils._AutologgingSessionManager.active_session() is None
+    assert _AutologgingSessionManager.active_session() is None
+
+
+def test_session_manager_terminates_session_when_appropriate():
+    with _AutologgingSessionManager.start_session("test_integration") as outer_sess:
+        assert outer_sess
+
+        with _AutologgingSessionManager.start_session("test_integration") as inner_sess:
+            assert _AutologgingSessionManager.active_session() == inner_sess == outer_sess
+
+        assert _AutologgingSessionManager.active_session() == outer_sess
+
+    assert not _AutologgingSessionManager.active_session()
 
 
 def test_original_fn_runs_if_patch_should_not_be_applied(patch_destination):

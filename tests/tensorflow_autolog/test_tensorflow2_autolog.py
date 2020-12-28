@@ -604,6 +604,20 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
+def test_tf_estimator_autolog_logs_metrics_in_exclusive_mode(tmpdir):
+    mlflow.tensorflow.autolog(exclusive=True)
+
+    create_tf_estimator_model(tmpdir, export=False)
+    client = mlflow.tracking.MlflowClient()
+    tf_estimator_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+    assert "loss" in tf_estimator_run.data.metrics
+    assert "steps" in tf_estimator_run.data.params
+    metrics = client.get_metric_history(tf_estimator_run.info.run_id, "loss")
+    assert all((x.step - 1) % 100 == 0 for x in metrics)
+
+
+@pytest.mark.large
 def test_tf_estimator_autolog_logs_metics_for_single_epoch_training(tmpdir):
     """
     Epoch indexing behavior is consistent across TensorFlow 2: tf.Keras uses
