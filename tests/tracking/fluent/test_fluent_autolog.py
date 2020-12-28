@@ -129,8 +129,6 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
 @pytest.mark.large
 def test_universal_autolog_calls_pyspark_immediately():
-    library = pyspark
-
     mlflow.autolog()
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
 
@@ -139,6 +137,12 @@ def test_universal_autolog_calls_pyspark_immediately():
 
     mlflow.autolog(disable=False)
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+
+    with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
+        # there should be no import hook on pyspark since autologging was already
+        # applied to an active spark session
+        mlflow.utils.import_hooks.notify_module_loaded(pyspark)
+        autolog_mock.assert_not_called()
 
 
 @pytest.mark.large
