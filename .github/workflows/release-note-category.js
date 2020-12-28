@@ -35,21 +35,21 @@ module.exports = ({ core, context }) => {
   console.log(selectedCategories);
 
   // ".github/pull_request_template.md" must contain an HTML anchor with this name
-  const anchor_name = "release-note-category";
+  const anchorName = "release-note-category";
 
   // GitHub prefixes anchor names in markdown with "user-content-"
-  const url = `${html_url}#user-content-${anchor_name}`;
+  const anchorUrl = `${html_url}#user-content-${anchorName}`;
 
   // If the number of selected release-note categories is not equal to 1,
   // set the action status to "failed"
   const numSelected = selectedCategories.length;
   if (numSelected === 0) {
     core.setFailed(
-      "No release-note category is selected. Please select one: " + url
+      "No release-note category is selected. Please select one: " + anchorUrl
     );
   } else if (numSelected > 1) {
     core.setFailed(
-      "Multiple release-note categories are selected. Please select one: " + url
+      "Multiple release-note categories are selected. Please select one: " + anchorUrl
     );
   }
 };
