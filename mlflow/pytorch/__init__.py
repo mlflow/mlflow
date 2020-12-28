@@ -295,6 +295,7 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     :param state_dict: PyTorch state dict to be saved.
     :param artifact_path: Run-relative artifact path.
     :param kwargs: kwargs to pass to ``torch.save`` method.
+
     .. code-block:: python
         :caption: Example
 
