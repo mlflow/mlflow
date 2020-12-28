@@ -87,6 +87,7 @@ def train_model(model, data):
 def get_sequential_model():
     return nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
 
+
 @pytest.fixture
 def sequential_model(data, scripted_model):
     model = get_sequential_model()
@@ -707,15 +708,10 @@ def test_save_state_dict(sequential_model, model_path, data):
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model.load_state_dict(model_state_dict)
     model.eval()
-    assert (
-        len(set(model_state_dict.items()).intersection(set(sequential_model.state_dict().items())))
-        == 0
-    )
+    assert compare_state_dicts(model_state_dict, sequential_model.state_dict()) is True
 
     np.testing.assert_array_almost_equal(
-        _predict(model=model, data=data),
-        _predict(model=sequential_model, data=data),
-        decimal=4,
+        _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
     )
 
 
@@ -763,6 +759,20 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     )
 
 
+def compare_state_dicts(state_dict1, state_dict2):
+    for key, value in state_dict1.items():
+        if key not in state_dict2:
+            return False
+        value1 = state_dict1[key]
+        value2 = state_dict2[key]
+        if isinstance(value1, torch.Tensor) and isinstance(value2, torch.Tensor):
+            if not torch.all(value1.eq(value2)):
+                return False
+        elif state_dict1[key] != state_dict2[key]:
+            return False
+    return True
+
+
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_state_dict(sequential_model, model_path, data):
@@ -777,16 +787,10 @@ def test_log_state_dict(sequential_model, model_path, data):
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model.load_state_dict(model_state_dict)
     model.eval()
-
-    assert (
-        len(set(model_state_dict.items()).intersection(set(sequential_model.state_dict().items())))
-        == 0
-    )
+    assert compare_state_dicts(model_state_dict, sequential_model.state_dict()) is True
 
     np.testing.assert_array_almost_equal(
-        _predict(model=model, data=data),
-        _predict(model=sequential_model, data=data),
-        decimal=4,
+        _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
     )
 
 
