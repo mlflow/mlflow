@@ -33,7 +33,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.annotations import experimental  # pylint: disable=reimported
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
