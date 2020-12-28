@@ -1314,16 +1314,18 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
+    def get_autologging_params(autolog_fn):
+        try:
+            needed_params = list(inspect.signature(autolog_fn).parameters.keys())
+            return {k: v for k, v in locals_copy if k in needed_params}
+        except Exception:  # pylint: disable=broad-except
+            return {}
+
     def setup_autologging(module):
         try:
             autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
-            try:
-                needed_params = list(inspect.signature(autolog_fn).parameters.keys())
-                filtered = {k: v for k, v in locals_copy if k in needed_params}
-            except Exception:  # pylint: disable=broad-except
-                filtered = {}
-
-            autolog_fn(**filtered)
+            autologging_params = get_autologging_params(autolog_fn)
+            autolog_fn(**autologging_params)
             _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:  # pylint: disable=broad-except
             if _is_testing():
@@ -1347,7 +1349,8 @@ def autolog(
     # this is because on Databricks a SparkSession already exists and the user can directly
     #   interact with it, and this activity should be logged.
     try:
-        spark.autolog()
+        autologging_params = get_autologging_params(spark.autolog)
+        spark.autolog(**autologging_params)
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle
         #   of their session so we want to enable autologging once they do
