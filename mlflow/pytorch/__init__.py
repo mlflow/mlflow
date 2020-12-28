@@ -697,7 +697,7 @@ def load_state_dict(model_uri):
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
-    :return: A pytorch state dict of type OrderedDictionary
+    :return: A pytorch state dict
     """
     import torch
 
