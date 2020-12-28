@@ -22,6 +22,6 @@ jobs:
           script: |
             // https://github.com/actions/github-script#run-a-separate-file
             const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/release_note_category.js`
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note-category.js`
             );
             script({ core, context });
