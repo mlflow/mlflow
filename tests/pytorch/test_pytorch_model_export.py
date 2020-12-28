@@ -713,8 +713,8 @@ def test_save_state_dict(sequential_model, model_path, data):
     )
 
     np.testing.assert_array_almost_equal(
-        pd.DataFrame(_predict(model=model, data=data)),
-        pd.DataFrame(_predict(model=sequential_model, data=data)),
+        _predict(model=model, data=data),
+        _predict(model=sequential_model, data=data),
         decimal=4,
     )
 
@@ -784,8 +784,8 @@ def test_log_state_dict(sequential_model, model_path, data):
     )
 
     np.testing.assert_array_almost_equal(
-        pd.DataFrame(_predict(model=model, data=data)),
-        pd.DataFrame(_predict(model=sequential_model, data=data)),
+        _predict(model=model, data=data),
+        _predict(model=sequential_model, data=data),
         decimal=4,
     )
 
