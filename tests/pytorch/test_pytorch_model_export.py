@@ -84,9 +84,12 @@ def train_model(model, data):
             optimizer.step()
 
 
+def get_sequential_model():
+    return nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+
 @pytest.fixture
 def sequential_model(data, scripted_model):
-    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    model = get_sequential_model()
     if scripted_model:
         model = torch.jit.script(model)
 
@@ -700,17 +703,17 @@ def test_save_state_dict(sequential_model, model_path, data):
 
     mlflow.pytorch.save_state_dict(state_dict=sequential_model.state_dict(), path=model_path)
 
-    model_class = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    model = get_sequential_model()
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
-    model_class.load_state_dict(model_state_dict)
-    model_class.eval()
+    model.load_state_dict(model_state_dict)
+    model.eval()
     assert (
         len(set(model_state_dict.items()).intersection(set(sequential_model.state_dict().items())))
         == 0
     )
 
     np.testing.assert_array_almost_equal(
-        pd.DataFrame(_predict(model=model_class, data=data)),
+        pd.DataFrame(_predict(model=model, data=data)),
         pd.DataFrame(_predict(model=sequential_model, data=data)),
         decimal=4,
     )
@@ -770,10 +773,10 @@ def test_log_state_dict(sequential_model, model_path, data):
         )
         model_path = mlflow.get_artifact_uri(artifact_path)
 
-    model_class = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    model = get_sequential_model()
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
-    model_class.load_state_dict(model_state_dict)
-    model_class.eval()
+    model.load_state_dict(model_state_dict)
+    model.eval()
 
     assert (
         len(set(model_state_dict.items()).intersection(set(sequential_model.state_dict().items())))
@@ -781,7 +784,7 @@ def test_log_state_dict(sequential_model, model_path, data):
     )
 
     np.testing.assert_array_almost_equal(
-        pd.DataFrame(_predict(model=model_class, data=data)),
+        pd.DataFrame(_predict(model=model, data=data)),
         pd.DataFrame(_predict(model=sequential_model, data=data)),
         decimal=4,
     )
