@@ -791,7 +791,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 def compare_state_dicts(state_dict1, state_dict2):
-    for key, value in state_dict1.items():
+    for key, _ in state_dict1.items():
         if key not in state_dict2:
             return False
         value1 = state_dict1[key]
