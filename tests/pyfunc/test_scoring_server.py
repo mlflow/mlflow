@@ -444,7 +444,9 @@ def test_parse_tf_serving_input():
             {"a": "s3", "b": 3, "c": [7, 8, 9]},
         ]
     }
-    with pytest.raises(MlflowException, match="The length of values for each input/column name are not the same"):
+    with pytest.raises(
+        MlflowException, match="The length of values for each input/column name are not the same"
+    ):
         pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
 
     # values for each column are properly converted to a tensor
