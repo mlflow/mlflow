@@ -40,7 +40,7 @@ module.exports = ({ core, context }) => {
   // GitHub prefixes anchor names in markdown with "user-content-"
   const url = `${html_url}#user-content-${anchor_name}`;
 
-  // If the number of selected release-note categories is not 1,
+  // If the number of selected release-note categories is not equal to 1,
   // set the action status to "failed"
   const numSelected = selectedCategories.length;
   if (numSelected === 0) {
