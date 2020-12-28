@@ -19,6 +19,7 @@ import tempfile
 from collections import namedtuple
 import pandas
 from distutils.version import LooseVersion
+from threading import RLock
 
 import mlflow
 import mlflow.keras
@@ -57,6 +58,7 @@ _MAX_METRIC_QUEUE_SIZE = 500
 
 _LOG_EVERY_N_STEPS = 100
 
+_metric_queue_lock = RLock()
 _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -587,12 +589,22 @@ def _flush_queue():
     Flush the metric queue and log contents in batches to MLflow.
     Queue is divided into batches according to run id.
     """
-    global _metric_queue
-    client = mlflow.tracking.MlflowClient()
-    dic = _assoc_list_to_map(_metric_queue)
-    for key in dic:
-        try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
-    _metric_queue = []
+    try:
+        # Multiple queue flushes may be scheduled simultaneously on different threads
+        # (e.g., if the queue is at its flush threshold and several more items
+        # are added before a flush occurs). For correctness and efficiency, only one such
+        # flush operation should proceed; all others are redundant and should be dropped
+        acquired_lock = _metric_queue_lock.acquire(blocking=False)
+        if acquired_lock:
+            global _metric_queue
+            client = mlflow.tracking.MlflowClient()
+            dic = _assoc_list_to_map(_metric_queue)
+            for key in dic:
+                try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
+            _metric_queue = []
+    finally:
+        if acquired_lock:
+            _metric_queue_lock.release()
 
 
 def _add_to_queue(key, value, step, time, run_id):
@@ -603,7 +615,7 @@ def _add_to_queue(key, value, step, time, run_id):
     met = Metric(key=key, value=value, timestamp=time, step=step)
     _metric_queue.append((run_id, met))
     if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        _flush_queue()
+        _thread_pool.submit(_flush_queue)
 
 
 def _log_event(event):
@@ -619,8 +631,7 @@ def _log_event(event):
                 # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
                 # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(
-                        _add_to_queue,
+                    _add_to_queue(
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
