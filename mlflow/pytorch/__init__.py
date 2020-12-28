@@ -701,8 +701,8 @@ def load_state_dict(model_uri):
     """
     import torch
 
-    model_path = _get_model_artifact_path(model_uri)
-    model_path = os.path.join(model_path, _TORCH_STATE_DICT_FILE_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    model_path = os.path.join(local_model_path, "data", _TORCH_STATE_DICT_FILE_NAME)
     state_dict = torch.load(model_path)
     return state_dict
 
