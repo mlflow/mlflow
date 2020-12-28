@@ -33,6 +33,7 @@ export class RenameRunModalImpl extends Component {
     return (
       <GenericInputModal
         title='Rename Run'
+        okText='Save'
         isOpen={isOpen}
         handleSubmit={this.handleRenameRun}
         onClose={this.props.onClose}

@@ -2,7 +2,6 @@
 @import 'components/ModelVersionTable.css';
 @import 'components/ModelVersionView.css';
 @import 'components/ModelStageTransitionDropdown.css';
-@import 'components/ModelListView.css';
 
 /** TODO(Zangr) migrate globally common components and styles into src/common folder */
 .metadata-container {

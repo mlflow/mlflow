@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.python.keras import layers  # pylint: disable=import-error
+from tensorflow.keras import layers
 
 import mlflow
 import mlflow.tensorflow
@@ -24,14 +24,20 @@ SavedModelInfo = collections.namedtuple(
 )
 
 
+@pytest.fixture(autouse=True)
+def clear_session():
+    yield
+    tf.keras.backend.clear_session()
+
+
 @pytest.fixture
 def random_train_data():
-    return np.random.random((1000, 32))
+    return np.random.random((150, 4))
 
 
 @pytest.fixture
 def random_one_hot_labels():
-    n, n_class = (1000, 10)
+    n, n_class = (150, 3)
     classes = np.random.randint(0, n_class, n)
     labels = np.zeros((n, n_class))
     labels[np.arange(n), classes] = 1
@@ -49,9 +55,8 @@ def manual_run(request):
 def create_tf_keras_model():
     model = tf.keras.Sequential()
 
-    model.add(layers.Dense(64, activation="relu", input_shape=(32,)))
-    model.add(layers.Dense(64, activation="relu"))
-    model.add(layers.Dense(10, activation="softmax"))
+    model.add(layers.Dense(16, activation="relu", input_shape=(4,)))
+    model.add(layers.Dense(3, activation="softmax"))
 
     model.compile(
         optimizer=tf.keras.optimizers.Adam(), loss="categorical_crossentropy", metrics=["accuracy"]
@@ -193,10 +198,35 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert data.params["opt_amsgrad"] == "False"
     client = mlflow.tracking.MlflowClient()
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
+    assert all(x.step % 5 == 0 for x in all_epoch_acc)
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
+
+
+@pytest.mark.large
+def test_tf_keras_autolog_logs_metrics_for_single_epoch_training(
+    random_train_data, random_one_hot_labels
+):
+    """
+    tf.Keras exhibits inconsistent epoch indexing behavior in comparison with other
+    TF2 APIs (e.g., tf.Estimator). tf.Keras uses zero-indexing for epochs,
+    while other APIs use one-indexing. Accordingly, this test verifies that metrics are
+    produced in the boundary case where a model is trained for a single epoch, ensuring
+    that we don't miss the zero index in the tf.Keras case.
+    """
+    mlflow.tensorflow.autolog(every_n_iter=5)
+
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data, random_one_hot_labels, epochs=1,
+        )
+
+    client = mlflow.tracking.MlflowClient()
+    run_metrics = client.get_run(run.info.run_id).data.metrics
+    assert "accuracy" in run_metrics
+    assert "loss" in run_metrics
 
 
 @pytest.mark.large
@@ -490,7 +520,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def create_tf_estimator_model(directory, export):
+def create_tf_estimator_model(directory, export, training_steps=500):
     CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
 
     train = pd.read_csv(
@@ -529,7 +559,7 @@ def create_tf_estimator_model(directory, export):
         n_classes=3,
         model_dir=directory,
     )
-    classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=500)
+    classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
     if export:
         classifier.export_saved_model(directory, receiver_fn)
 
@@ -574,6 +604,38 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
+def test_tf_estimator_autolog_logs_metrics_in_exclusive_mode(tmpdir):
+    mlflow.tensorflow.autolog(exclusive=True)
+
+    create_tf_estimator_model(tmpdir, export=False)
+    client = mlflow.tracking.MlflowClient()
+    tf_estimator_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+    assert "loss" in tf_estimator_run.data.metrics
+    assert "steps" in tf_estimator_run.data.params
+    metrics = client.get_metric_history(tf_estimator_run.info.run_id, "loss")
+    assert all((x.step - 1) % 100 == 0 for x in metrics)
+
+
+@pytest.mark.large
+def test_tf_estimator_autolog_logs_metics_for_single_epoch_training(tmpdir):
+    """
+    Epoch indexing behavior is consistent across TensorFlow 2: tf.Keras uses
+    zero-indexing for epochs, while other APIs (e.g., tf.Estimator) use one-indexing.
+    This test verifies that metrics are produced for tf.Estimator training sessions
+    in the boundary casewhere a model is trained for a single epoch, ensuring that
+    we capture metrics from the first epoch at index 1.
+    """
+    mlflow.tensorflow.autolog()
+    with mlflow.start_run() as run:
+        create_tf_estimator_model(str(tmpdir), export=False, training_steps=1)
+    client = mlflow.tracking.MlflowClient()
+    metrics = client.get_metric_history(run.info.run_id, "loss")
+    assert len(metrics) == 1
+    assert metrics[0].step == 1
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("export", [True])
 def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
@@ -589,3 +651,36 @@ def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
     assert all((x.step - 1) % 4 == 0 for x in metrics)
+
+
+@pytest.mark.large
+def test_flush_queue_is_thread_safe():
+    """
+    Autologging augments TensorBoard event logging hooks with MLflow `log_metric` API
+    calls. To prevent these API calls from blocking TensorBoard event logs, `log_metric`
+    API calls are scheduled via `_flush_queue` on a background thread. Accordingly, this test
+    verifies that `_flush_queue` is thread safe.
+    """
+    from threading import Thread
+    from mlflow.entities import Metric
+    from mlflow.tensorflow import _flush_queue, _metric_queue_lock
+
+    metric_queue_item = ("run_id1", Metric("foo", "bar", 100, 1))
+    mlflow.tensorflow._metric_queue.append(metric_queue_item)
+
+    # Verify that, if another thread holds a lock on the metric queue leveraged by
+    # _flush_queue, _flush_queue terminates and does not modify the queue
+    _metric_queue_lock.acquire()
+    flush_thread1 = Thread(target=_flush_queue)
+    flush_thread1.start()
+    flush_thread1.join()
+    assert len(mlflow.tensorflow._metric_queue) == 1
+    assert mlflow.tensorflow._metric_queue[0] == metric_queue_item
+    _metric_queue_lock.release()
+
+    # Verify that, if no other thread holds a lock on the metric queue leveraged by
+    # _flush_queue, _flush_queue flushes the queue as expected
+    flush_thread2 = Thread(target=_flush_queue)
+    flush_thread2.start()
+    flush_thread2.join()
+    assert len(mlflow.tensorflow._metric_queue) == 0

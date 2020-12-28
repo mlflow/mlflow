@@ -1,12 +1,13 @@
 channels:
-- defaults
-- conda-forge
 - pytorch
+- conda-forge
+- defaults
 dependencies:
 - python=3.8.2
 - pytorch=1.6.0
-- pytorch-lightning==1.0.2
 - torchvision=0.7.0
+- torchtext==0.7.0
+- pytorch-lightning==1.0.2
 - pip
 - pip:
   - mlflow
@@ -14,5 +15,4 @@ dependencies:
   - cloudpickle==1.6.0
   - boto3
   - transformers<4.0.0
-  - torchtext==0.7.0
   - pandas

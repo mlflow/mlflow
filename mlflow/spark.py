@@ -41,6 +41,7 @@ from mlflow.utils.uri import is_local_uri, append_to_uri_path
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 
 FLAVOR_NAME = "spark"
@@ -627,10 +628,11 @@ class _PyFuncModelWrapper(object):
 
 
 @experimental
-def autolog():
+@autologging_integration(FLAVOR_NAME)
+def autolog(disable=False):  # pylint: disable=unused-argument
     """
-    Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
-    when they are read. This method is not threadsafe and assumes a
+    Enables (or disables) and configures logging of Spark datasource paths, versions
+    (if applicable), and formats when they are read. This method is not threadsafe and assumes a
     `SparkSession
     <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
     already exists with the
@@ -682,7 +684,25 @@ def autolog():
         # next-created MLflow run if no run is currently active
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
-    """
-    from mlflow import _spark_autologging
 
-    _spark_autologging.autolog()
+    :param disable: If ``True``, disables the Spark datasource autologging integration.
+                    If ``False``, enables the Spark datasource autologging integration.
+    """
+    from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow._spark_autologging import _listen_for_spark_activity
+    from pyspark.sql import SparkSession
+    from pyspark import SparkContext
+
+    def __init__(original, self, *args, **kwargs):
+        original(self, *args, **kwargs)
+
+        _listen_for_spark_activity(self._sc)
+
+    safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
+
+    active_session = _get_active_spark_session()
+    if active_session is not None:
+        # We know SparkContext exists here already, so get it
+        sc = SparkContext.getOrCreate()
+
+        _listen_for_spark_activity(sc)

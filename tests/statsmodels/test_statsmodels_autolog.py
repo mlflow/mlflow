@@ -94,6 +94,19 @@ def test_statsmodels_autolog_works_after_exception():
 
 
 @pytest.mark.large
+@pytest.mark.parametrize(
+    "log_models", [True, False],
+)
+def test_statsmodels_autolog_respects_log_models_flag(log_models):
+    mlflow.statsmodels.autolog(log_models=log_models)
+    ols_model()
+    run = get_latest_run()
+    client = mlflow.tracking.MlflowClient()
+    artifact_paths = [artifact.path for artifact in client.list_artifacts(run.info.run_id)]
+    assert ("model" in artifact_paths) == log_models
+
+
+@pytest.mark.large
 def test_statsmodels_autolog_loads_model_from_artifact():
     mlflow.statsmodels.autolog()
     fixtures = [

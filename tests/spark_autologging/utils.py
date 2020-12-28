@@ -39,6 +39,10 @@ def _assert_spark_data_logged(run, path, data_format, version=None):
     assert table_info_tag == _get_expected_table_info_row(path, data_format, version)
 
 
+def _assert_spark_data_not_logged(run):
+    assert _SPARK_TABLE_INFO_TAG_NAME not in run.data.tags
+
+
 def _get_or_create_spark_session(jars=None):
     jar_path = jars if jars is not None else _get_mlflow_spark_jar_path()
     return SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()

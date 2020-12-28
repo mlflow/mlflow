@@ -1,5 +1,6 @@
-import { MlflowService } from '../../sdk/MlflowService';
-import { wrapDeferred } from '../../../common/utils/ActionUtils';
+import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
+import { Services as ModelRegistryService } from '../../model-registry/services';
+import { wrapDeferred } from '../utils/ActionUtils';
 
 export const getExperimentNameValidator = (getExistingExperimentNames) => {
   return (rule, value, callback) => {
@@ -24,4 +25,14 @@ export const getExperimentNameValidator = (getExistingExperimentNames) => {
         .catch((e) => callback(undefined)); // no experiment returned
     }
   };
+};
+
+export const modelNameValidator = (rule, name, callback) => {
+  if (name.length === 0) {
+    callback(undefined);
+    return;
+  }
+  ModelRegistryService.getRegisteredModel({ data: { name } })
+    .then(() => callback(`Model "${name}" already exists.`))
+    .catch((e) => callback(undefined));
 };
