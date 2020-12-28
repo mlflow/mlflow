@@ -292,7 +292,7 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     """
     Log a state dict as an MLflow artifact for the current run.
 
-    :param state_dict: PyTorch model state dict to be saved.
+    :param state_dict: PyTorch state dict to be saved.
     :param artifact_path: Run-relative artifact path.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     .. code-block:: python
@@ -697,7 +697,7 @@ def load_state_dict(model_uri):
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
-    :return: A pytorch model state dict of type OrderedDictionary
+    :return: A pytorch state dict of type OrderedDictionary
     """
     import torch
 
