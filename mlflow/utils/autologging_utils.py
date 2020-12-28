@@ -530,19 +530,24 @@ class _AutologgingSessionManager:
     @contextmanager
     def start_session(cls, integration):
         try:
-            session_id = uuid.uuid4().hex
-            if cls._session is None:
+            prev_session = cls._session
+            if prev_session is None:
+                session_id = uuid.uuid4().hex
                 cls._session = AutologgingSession(integration, session_id)
             yield cls._session
         finally:
-            cls.end_session()
+            # Only end the session upon termination of the context if we created
+            # the session; otherwise, leave the session open for later termination
+            # by its creator
+            if prev_session is None:
+                cls._end_session()
 
     @classmethod
     def active_session(cls):
         return cls._session
 
     @classmethod
-    def end_session(cls):
+    def _end_session(cls):
         cls._session = None
 
 

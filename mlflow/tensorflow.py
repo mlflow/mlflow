@@ -1106,11 +1106,8 @@ def autolog(
         return result
 
     managed = [
-        (EventFileWriter, "add_event", add_event),
-        (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", FitPatch),
-        (FileWriter, "add_summary", add_summary),
     ]
 
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
@@ -1121,6 +1118,9 @@ def autolog(
         managed.append((tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
 
     non_managed = [
+        (EventFileWriter, "add_event", add_event),
+        (EventFileWriterV2, "add_event", add_event),
+        (FileWriter, "add_summary", add_summary),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
     ]
