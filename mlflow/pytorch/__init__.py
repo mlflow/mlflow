@@ -527,7 +527,6 @@ def save_model(
         predict X: 12.0, y_pred: 23.96
         predict X: 30.0, y_pred: 60.13
     """
-
     import torch
 
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
