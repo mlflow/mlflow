@@ -70,7 +70,7 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
     """
     # pylint: disable=broad-except
     try:
-        return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
+        return _dataframe_from_json(StringIO(json_input), pandas_orient=orient, schema=schema)
     except Exception:
         _handle_serving_error(
             error_message=(
