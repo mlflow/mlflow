@@ -739,7 +739,7 @@ def test_save_state_dict(sequential_model, model_path, data):
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model.load_state_dict(model_state_dict)
     model.eval()
-    assert compare_state_dicts(model_state_dict, sequential_model.state_dict()) is True
+    assert state_dict_equal(model_state_dict, sequential_model.state_dict())
 
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
@@ -790,14 +790,14 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     )
 
 
-def compare_state_dicts(state_dict1, state_dict2):
-    for key, _ in state_dict1.items():
+def state_dict_equal(state_dict1, state_dict2):
+    for key in state_dict1.items():
         if key not in state_dict2:
             return False
         value1 = state_dict1[key]
         value2 = state_dict2[key]
         if isinstance(value1, torch.Tensor) and isinstance(value2, torch.Tensor):
-            if not torch.all(value1.eq(value2)):
+            if not torch.equal(value1, value2):
                 return False
         elif state_dict1[key] != state_dict2[key]:
             return False
@@ -818,7 +818,7 @@ def test_log_state_dict(sequential_model, model_path, data):
     model_state_dict = mlflow.pytorch.load_state_dict(model_path)
     model.load_state_dict(model_state_dict)
     model.eval()
-    assert compare_state_dicts(model_state_dict, sequential_model.state_dict()) is True
+    assert state_dict_equal(model_state_dict, sequential_model.state_dict())
 
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
