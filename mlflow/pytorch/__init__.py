@@ -300,51 +300,9 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     .. code-block:: python
         :caption: Example
 
-        import torch
-        import mlflow
-        import mlflow.pytorch
-        # X data
-        x_data = torch.Tensor([[1.0], [2.0], [3.0]])
-        # Y data with its expected value: labels
-        y_data = torch.Tensor([[2.0], [4.0], [6.0]])
-        # Partial Model example modified from Sung Kim
-        # https://github.com/hunkim/PyTorchZeroToAll
-        class Model(torch.nn.Module):
-            def __init__(self):
-               super().__init__()
-               self.linear = torch.nn.Linear(1, 1)  # One in and one out
-            def forward(self, x):
-                y_pred = self.linear(x)
-            return y_pred
-        # our model
-        model = Model()
-        criterion = torch.nn.MSELoss(size_average=False)
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
-        # Training loop
-        for epoch in range(500):
-            # Forward pass: Compute predicted y by passing x to the model
-            y_pred = model(x_data)
-            # Compute and print loss
-            loss = criterion(y_pred, y_data)
-            print(epoch, loss.data.item())
-            #Zero gradients, perform a backward pass, and update the weights.
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        # After training
-        for hv in [4.0, 5.0, 6.0]:
-            hour_var = torch.Tensor([[hv]])
-            y_pred = model(hour_var)
-            print("predict (after training)",  hv, model(hour_var).data[0][0])
-        # log the model
-        with mlflow.start_run() as run:
-            mlflow.log_param("epochs", 500)
-            mlflow.pytorch.log_state_dict(model, "models")
-
-            # logging scripted module
-            scripted_pytorch_model = torch.jit.script(model)
-            mlflow.pytorch.log_state_dict(scripted_pytorch_model, "models")
+        with mlflow.start_run():
+            state_dict = model.state_dict()
+            mlflow.pytorch.log_state_dict(state_dict, artifact_path="state_dict")
     """
 
     with TempDir() as tmp:
@@ -358,7 +316,7 @@ def save_state_dict(state_dict, path, **kwargs):
     """
     Save state dict to a path on the local file system
 
-    :param state_dict: state dict of the pytorch model. Ex: model.state_dict()
+    :param state_dict: PyTorch state dict to be saved
     :param path: Local path where the state_dict is to be saved.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     """
@@ -692,8 +650,6 @@ def load_state_dict(model_uri):
                     - ``relative/path/to/local/model``
                     - ``s3://my_bucket/path/to/model``
                     - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                    - ``models:/<model_name>/<model_version>``
-                    - ``models:/<model_name>/<stage>``
 
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#

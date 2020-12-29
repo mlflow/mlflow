@@ -733,13 +733,14 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_state_dict(sequential_model, model_path, data):
 
-    mlflow.pytorch.save_state_dict(state_dict=sequential_model.state_dict(), path=model_path)
+    state_dict = sequential_model.state_dict()
+    mlflow.pytorch.save_state_dict(state_dict=state_dict, path=model_path)
 
+    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
+    assert state_dict_equal(loaded_state_dict, state_dict)
     model = get_sequential_model()
-    model_state_dict = mlflow.pytorch.load_state_dict(model_path)
-    model.load_state_dict(model_state_dict)
+    model.load_state_dict(loaded_state_dict)
     model.eval()
-    assert state_dict_equal(model_state_dict, sequential_model.state_dict())
 
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
@@ -791,7 +792,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 def state_dict_equal(state_dict1, state_dict2):
-    for key in state_dict1.items():
+    for key in state_dict1:
         if key not in state_dict2:
             return False
         value1 = state_dict1[key]
@@ -799,7 +800,7 @@ def state_dict_equal(state_dict1, state_dict2):
         if isinstance(value1, torch.Tensor) and isinstance(value2, torch.Tensor):
             if not torch.equal(value1, value2):
                 return False
-        elif state_dict1[key] != state_dict2[key]:
+        elif value1 != value2:
             return False
     return True
 
@@ -808,17 +809,16 @@ def state_dict_equal(state_dict1, state_dict2):
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_state_dict(sequential_model, model_path, data):
     artifact_path = "pytorch_model"
+    state_dict = sequential_model.state_dict()
     with mlflow.start_run():
-        mlflow.pytorch.log_state_dict(
-            state_dict=sequential_model.state_dict(), artifact_path=artifact_path
-        )
+        mlflow.pytorch.log_state_dict(state_dict=state_dict, artifact_path=artifact_path)
         model_path = mlflow.get_artifact_uri(artifact_path)
 
     model = get_sequential_model()
-    model_state_dict = mlflow.pytorch.load_state_dict(model_path)
-    model.load_state_dict(model_state_dict)
+    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
+    assert state_dict_equal(loaded_state_dict, state_dict)
+    model.load_state_dict(loaded_state_dict)
     model.eval()
-    assert state_dict_equal(model_state_dict, sequential_model.state_dict())
 
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
