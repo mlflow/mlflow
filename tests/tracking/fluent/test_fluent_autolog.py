@@ -3,7 +3,11 @@ from collections import namedtuple
 from unittest import mock
 
 import mlflow
-from mlflow.utils.autologging_utils import get_autologging_config, AutologgingEventLogger
+from mlflow.utils.autologging_utils import (
+    get_autologging_config,
+    autologging_is_disabled,
+    AutologgingEventLogger,
+)
 
 import tensorflow
 import keras
@@ -125,46 +129,40 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
 @pytest.mark.large
 def test_universal_autolog_calls_pyspark_immediately():
-    library = pyspark
-    mlflow_module = "spark"
+    mlflow.autolog()
+    assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
 
-    with mock.patch(
-        "mlflow." + mlflow_module + ".autolog", wraps=getattr(mlflow, mlflow_module).autolog
-    ) as autolog_mock:
+    mlflow.autolog(disable=True)
+    assert autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+
+    mlflow.autolog(disable=False)
+    assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+
+    with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
+        # there should be no import hook on pyspark since autologging was already
+        # applied to an active spark session
+        mlflow.utils.import_hooks.notify_module_loaded(pyspark)
         autolog_mock.assert_not_called()
-
-        mlflow.autolog()
-
-        # pyspark autolog should NOT wait for pyspark to be imported
-        # it should instead initialize autologging immediately
-        autolog_mock.assert_called_once_with()
-
-        # there should also be no import hook on pyspark
-        mlflow.utils.import_hooks.notify_module_loaded(library)
-        autolog_mock.assert_called_once_with()
 
 
 @pytest.mark.large
-def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed():
-    library = pyspark
-    mlflow_module = "spark"
-
-    with mock.patch(
-        "mlflow." + mlflow_module + ".autolog", wraps=getattr(mlflow, mlflow_module).autolog
-    ) as autolog_mock:
+@pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
+def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
+    with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         # simulate pyspark not being installed
         autolog_mock.side_effect = ImportError("no module named pyspark blahblah")
 
-        mlflow.autolog()
+        mlflow.autolog(**config)
         autolog_mock.assert_called_once()  # it was called once and failed
 
         # now the user installs pyspark
         autolog_mock.side_effect = None
 
-        mlflow.utils.import_hooks.notify_module_loaded(library)
+        mlflow.utils.import_hooks.notify_module_loaded(pyspark)
 
         # assert autolog is called again once pyspark is imported
         assert autolog_mock.call_count == 2
+        assert autolog_mock.call_args_list[1] == config
 
 
 @pytest.mark.large
