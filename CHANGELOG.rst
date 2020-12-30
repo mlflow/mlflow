@@ -1,6 +1,6 @@
 Changelog
 =========
-1.13 (2020-12-30)
+1.13.1 (2020-12-30)
 -----------------
 MLflow 1.13.1 is a patch release containing bug fixes and small changes:
 
