@@ -16,6 +16,12 @@ export const getLanguage = (path) => {
   return ext;
 };
 
+export const normalize = (path) => {
+  const without_redundant_slashes = path.replace(/([^:]\/)\/+/g, '$1');
+  const without_trailing_slash = without_redundant_slashes.replace(/\/$/, '');
+  return without_trailing_slash;
+};
+
 export const MLPROJECT_FILE_NAME = 'mlproject';
 export const MLMODEL_FILE_NAME = 'mlmodel';
 
