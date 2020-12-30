@@ -3,11 +3,11 @@
 #' Build a MLflow Docker image that will an RFunc MLflow model
 #'
 #' @template roxlate-model-uri
-#' @param image_name Name of the Docker image
-#' @param port Port for serving the model (default: 8090)
+#' @param image_name Name of the Docker image.
+#' @param port Port for serving the model (default: 8090).
 #' @param mlflow_version (Optional) Ignored if `mlflow_home` is specified,
 #'   otherwise build the image with the  version of MLflow specified by
-#'   `mlflow_version` (default: `packageVersion("mlflow")`)
+#'   `mlflow_version` (default: `packageVersion("mlflow")`).
 #' @param custom_setup_steps_hook (Optional) single-argument function accepting
 #'   the dockerfile context directory as input and returning additional
 #'   Dockerfile commands to run during the image build step as output.
@@ -40,11 +40,11 @@
 #'}
 #'
 #' @export
-build_docker_image <- function(image_name,
-                               model_uri,
-                               port = 8090,
-                               mlflow_version = utils::packageVersion("mlflow"),
-                               custom_setup_steps_hook = NULL) {
+mlflow_build_docker_image <- function(image_name,
+                                      model_uri,
+                                      port = 8090,
+                                      mlflow_version = utils::packageVersion("mlflow"),
+                                      custom_setup_steps_hook = NULL) {
   src_model_path <- mlflow_download_artifacts_from_uri(model_uri)
   dst_model_path <- "/opt/ml/model"
   serve_model_impl <- glue::glue(
@@ -137,10 +137,10 @@ build_docker_image <- function(image_name,
     con = fs::path(tmp, dockerfile)
   )
   message("Building docker image with name ", image_name)
-  wd <- getwd()
-  on.exit(setwd(wd))
-  setwd(tmp)
-  system2("docker", c("build", "-t", image_name, "-f", dockerfile, "."))
+  withr::with_dir(
+    tmp,
+    system2("docker", c("build", "-t", image_name, "-f", dockerfile, "."))
+  )
 }
 
 mlflow_docker_installation_steps <- function(dockerfile_context_dir,
