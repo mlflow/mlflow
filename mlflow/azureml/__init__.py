@@ -410,8 +410,8 @@ def deploy(
 
             _logger.info(
                 "Registered an Azure Model with name: `%s` and version: `%s`",
-                registered_model.name,
-                registered_model.version,
+                mlflow_model.name,
+                azure_model_id,
             )
 
         # Attempt to retrieve an AzureML Model object which we intend to deploy
