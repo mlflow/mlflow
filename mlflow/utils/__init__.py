@@ -43,7 +43,7 @@ def get_unique_resource_id(max_length=None):
 
 
 def reraise(tp, value, tb=None):
-    # Copied from: https://github.com/benjaminp/six/blob/c0be8815d13df45b6ae471c4c436cce8c192245d/six.py#L694-L700  # noqa
+    # Taken from: https://github.com/benjaminp/six/blob/1.15.0/six.py#L694-L700
     try:
         if value is None:
             value = tp()
