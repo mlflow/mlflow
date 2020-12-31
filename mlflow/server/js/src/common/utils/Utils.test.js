@@ -349,3 +349,16 @@ test('compareExperiments', () => {
 
   expect([expB, exp1, expA, exp0].sort(Utils.compareExperiments)).toEqual([exp0, exp1, expA, expB]);
 });
+
+test('normalize', () => {
+  expect(Utils.normalize('/normalized/absolute/path')).toEqual('/normalized/absolute/path');
+  expect(Utils.normalize('normalized/relative/path')).toEqual('normalized/relative/path');
+  expect(Utils.normalize('http://mlflow.org/resource')).toEqual('http://mlflow.org/resource');
+  expect(Utils.normalize('s3:/bucket/resource')).toEqual('s3:/bucket/resource');
+  expect(Utils.normalize('C:\\Windows\\Filesystem\\Path')).toEqual('C:\\Windows\\Filesystem\\Path');
+
+  expect(Utils.normalize('///redundant//absolute/path')).toEqual('/redundant/absolute/path');
+  expect(Utils.normalize('redundant//relative///path///')).toEqual('redundant/relative/path');
+  expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
+  expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
+});
