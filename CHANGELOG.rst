@@ -7,9 +7,11 @@ MLflow 1.13.1 is a patch release containing bug fixes and small changes:
 - Fix bug causing Spark autologging to ignore configuration options specified by ``mlflow.autolog()`` (#3917, @dbczumar)
 - Fix bugs causing metrics to be dropped during TensorFlow autologging (#3913, #3914, @dbczumar)
 - Fix incorrect value of optimizer name parameter in autologging PyTorch Lightning (#3901, @harupy)
-- Fix model registry database "allow_null_for_run_id" migration failure affecting MySQL databases (#3836, @t-henri)
+- Fix model registry database ``allow_null_for_run_id`` migration failure affecting MySQL databases (#3836, @t-henri)
+- Fix failure in ``transition_model_version_stage`` when uncanonical stage name is passed (#3929, @harupy)
 - Fix an undefined variable error causing AzureML model deployment to fail (#3922, @eedeleon)
 - Reclassify scikit-learn as a pip dependency in MLflow Model conda environments (#3896, @harupy)
+- Fix experiment view crash and artifact view inconsistency caused by artifact URIs with redundant slashes (#3928, @dbczumar)
 
 1.13 (2020-12-22)
 -----------------
