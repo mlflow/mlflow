@@ -156,6 +156,20 @@ class Utils {
     return path.replace(/(.*[^/])\.[^/.]+$/, '$1');
   }
 
+  /**
+   * Normalizes a URI, removing redundant slashes and trailing slashes
+   * For example, normalize("foo://bar///baz/") === "foo://bar/baz"
+   */
+  static normalize(uri) {
+    // Remove empty authority component (e.g., "foo:///" becomes "foo:/")
+    const withNormalizedAuthority = uri.replace(/[:]\/\/\/+/, ':/');
+    // Remove redundant slashes while ensuring that double slashes immediately following
+    // the scheme component are preserved
+    const withoutRedundantSlashes = withNormalizedAuthority.replace(/(^\/|[^:]\/)\/+/g, '$1');
+    const withoutTrailingSlash = withoutRedundantSlashes.replace(/\/$/, '');
+    return withoutTrailingSlash;
+  }
+
   static getGitHubRegex() {
     return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
