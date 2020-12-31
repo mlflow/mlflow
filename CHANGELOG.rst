@@ -1,5 +1,18 @@
 Changelog
 =========
+1.13.1 (2020-12-30)
+-----------------
+MLflow 1.13.1 is a patch release containing bug fixes and small changes:
+
+- Fix bug causing Spark autologging to ignore configuration options specified by ``mlflow.autolog()`` (#3917, @dbczumar)
+- Fix bugs causing metrics to be dropped during TensorFlow autologging (#3913, #3914, @dbczumar)
+- Fix incorrect value of optimizer name parameter in autologging PyTorch Lightning (#3901, @harupy)
+- Fix model registry database ``allow_null_for_run_id`` migration failure affecting MySQL databases (#3836, @t-henri)
+- Fix failure in ``transition_model_version_stage`` when uncanonical stage name is passed (#3929, @harupy)
+- Fix an undefined variable error causing AzureML model deployment to fail (#3922, @eedeleon)
+- Reclassify scikit-learn as a pip dependency in MLflow Model conda environments (#3896, @harupy)
+- Fix experiment view crash and artifact view inconsistency caused by artifact URIs with redundant slashes (#3928, @dbczumar)
+
 1.13 (2020-12-22)
 -----------------
 MLflow 1.13 includes several major features and improvements:
@@ -49,7 +62,6 @@ Bug fixes and documentation updates:
 - Fix ``h5py`` library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
 
 Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3833, #3830, #3828, #3826, #3825, #3800, #3809, #3807, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3698, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, #3725, @dmatrix; ##3867, #3670, #3664, @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3815, #3859, #3844, #3703, @dbczumar; #3768, @wentinghu; #3784, @HCoban; #3643, #3649, @arjundc-db; #3864, @AveshCSingh, #3756, @yitao-li)
-
 
 1.12.1 (2020-11-19)
 -------------------
