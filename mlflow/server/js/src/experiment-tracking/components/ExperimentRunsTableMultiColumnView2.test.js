@@ -123,6 +123,13 @@ describe('ExperimentRunsTableMultiColumnView2', () => {
     expect(wrapper.find('img[data-test-id="registered-model-icon"]')).toHaveLength(1);
   });
 
+  /**
+   * A model version's source may be semantically equivalent to a run artifact path
+   * but syntactically distinct; this occurs when there are redundant or trailing
+   * slashes present in the version source or run artifact path. This test verifies that,
+   * in these cases, associated registered model links are still displayed correctly for runs
+   * containing model artifacts with semantically equivalent paths.
+   */
   test('should show registered model link for semantically equivalent artifact paths', () => {
     const runArtifactPath = 'somePath////subdir///';
     const loggedModelHistoryTag = {
