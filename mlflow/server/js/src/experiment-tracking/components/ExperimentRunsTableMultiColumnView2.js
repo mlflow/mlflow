@@ -591,28 +591,36 @@ export function ModelsCellRenderer(props) {
         source: registeredModelSource,
         version,
       } = registeredModels[0];
-      const artifactPath = registeredModelSource.split(`${runId}/artifacts/`)[1];
-      [loggedModel] = loggedModels.filter((model) => model['artifact_path'].includes(artifactPath));
-      registeredModelDiv = (
-        <>
-          {' - '}
-          <img
-            data-test-id='registered-model-icon'
-            alt=''
-            title='Registered Model'
-            src={registeredModelSvg}
-          />
-          <a
-            href={getModelVersionPageURL(registeredModelName, version)}
-            className='model-version-link'
-            title={`${registeredModelName}, v${version}`}
-            target='_blank'
-          >
-            <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
-            {`/${version}`}
-          </a>
-        </>
+
+      const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(
+        `${runId}/artifacts/`,
+      )[1];
+      const matchingModels = loggedModels.filter(
+        (model) => Utils.normalize(model['artifact_path']) === normalizedSourceArtifactPath,
       );
+      if (matchingModels.length > 0) {
+        [loggedModel] = matchingModels;
+        registeredModelDiv = (
+          <>
+            {' - '}
+            <img
+              data-test-id='registered-model-icon'
+              alt='registered model icon'
+              title='Registered Model'
+              src={registeredModelSvg}
+            />
+            <a
+              href={getModelVersionPageURL(registeredModelName, version)}
+              className='model-version-link'
+              title={`${registeredModelName}, v${version}`}
+              target='_blank'
+            >
+              <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
+              {`/${version}`}
+            </a>
+          </>
+        );
+      }
     }
     const loggedModelFlavorText = loggedModel['flavors'] ? loggedModel['flavors'][0] : 'Model';
     const loggedModelLink = Routes.getRunArtifactRoute(
