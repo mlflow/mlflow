@@ -7,7 +7,6 @@ import { RunInfo } from '../sdk/MlflowMessages';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
 import Utils from '../../common/utils/Utils';
-import { normalize } from '../../common/utils/FileUtils';
 
 import { AgGridReact } from '@ag-grid-community/react/main';
 import { Grid } from '@ag-grid-community/core';
@@ -593,7 +592,9 @@ export function ModelsCellRenderer(props) {
         version,
       } = registeredModels[0];
 
-      const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(`${runId}/artifacts/`)[1];
+      const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(
+        `${runId}/artifacts/`,
+      )[1];
       const matchingModels = loggedModels.filter(
         (model) => Utils.normalize(model['artifact_path']) === normalizedSourceArtifactPath,
       );
@@ -604,7 +605,7 @@ export function ModelsCellRenderer(props) {
             {' - '}
             <img
               data-test-id='registered-model-icon'
-              alt=''
+              alt='registered model icon'
               title='Registered Model'
               src={registeredModelSvg}
             />

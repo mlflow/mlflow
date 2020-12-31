@@ -160,13 +160,13 @@ class Utils {
    * Normalizes a URI, removing redundant slashes and trailing slashes
    * For example, normalize("foo://bar///baz/") === "foo://bar/baz"
    */
-  static normalize = (uri) => {
+  static normalize(uri) {
     // Remove redundant slashes while ensuring that double slashes immediately following
     // the scheme component are preserved
-    const without_redundant_slashes = uri.replace(/([^:]\/)\/+/g, '$1');
-    const without_trailing_slash = without_redundant_slashes.replace(/\/$/, '');
-    return without_trailing_slash;
-  };
+    const withoutRedundantSlashes = uri.replace(/([^:]\/)\/+/g, '$1');
+    const withoutTrailingSlash = withoutRedundantSlashes.replace(/\/$/, '');
+    return withoutTrailingSlash;
+  }
 
   static getGitHubRegex() {
     return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
