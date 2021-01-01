@@ -537,15 +537,17 @@ def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
     for (dirpath, dirnames, filenames) in os.walk(src_dir):
         for dirname in dirnames:
             relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), src_dir)
-            # Compute corresponding FUSE path of each local directory and create an equivalent
-            # FUSE directory
-            fuse_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(fuse_dir_path)
+            # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
+            # directory under the destination directory
+            abs_dir_path = os.path.join(dst_dir, relative_dir_path)
+            os.mkdir(abs_dir_path)
         for filename in filenames:
+            # For each file with name <filename> immediately under <dirpath>, copy that file to
+            # the appropriate location in the destination directory
             file_path = os.path.join(dirpath, filename)
             relative_file_path = os.path.relpath(file_path, src_dir)
-            fuse_file_path = os.path.join(dst_dir, relative_file_path)
-            shutil.copyfile(file_path, fuse_file_path)
+            abs_file_path = os.path.join(dst_dir, relative_file_path)
+            shutil.copyfile(file_path, abs_file_path)
 
 
 def _load_model_databricks(model_uri, dfs_tmpdir):
