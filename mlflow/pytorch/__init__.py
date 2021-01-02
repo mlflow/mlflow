@@ -308,7 +308,7 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     with TempDir() as tmp:
         local_path = tmp.path("model")
         save_state_dict(state_dict=state_dict, path=local_path, **kwargs)
-        mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+        mlflow.log_artifacts(local_path, artifact_path)
 
 
 @experimental
@@ -639,7 +639,7 @@ def load_state_dict(model_uri):
     """
     Load a state dict from a local file or a run.
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    :param model_uri: The location, in URI format, for example:
 
                     - ``/Users/me/path/to/local/model``
                     - ``relative/path/to/local/model``
