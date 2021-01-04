@@ -60,6 +60,40 @@ CONTENT_TYPES = [
 _logger = logging.getLogger(__name__)
 
 
+def infer_and_parse_json_input(json_input, schema: Schema = None):
+    """
+    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                       DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
+    """
+    try:
+        decoded_input = json.loads(json_input)
+    except json.decoder.JSONDecodeError:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                " formatted string."
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+
+    if isinstance(decoded_input, list):
+        return parse_json_input(json_input=json_input, orient="records", schema=schema)
+    elif isinstance(decoded_input, dict):
+        if "instances" in decoded_input or "inputs" in decoded_input:
+            return parse_tf_serving_input(decoded_input)
+        else:
+            return parse_json_input(json_input=json_input, orient="split", schema=schema)
+    else:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                " list or dictionary."
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+
+
 def parse_json_input(json_input, orient="split", schema: Schema = None):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
@@ -251,33 +285,7 @@ def init(model: PyFuncModel):
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
             json_str = flask.request.data.decode("utf-8")
-            try:
-                decoded_input = json.loads(json_str)
-            except json.decoder.JSONDecodeError:
-                _handle_serving_error(
-                    error_message=(
-                        "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                        " formatted string."
-                    ),
-                    error_code=MALFORMED_REQUEST,
-                )
-            if isinstance(decoded_input, list):
-                data = parse_json_input(json_input=json_str, orient="records", schema=input_schema)
-            elif isinstance(decoded_input, dict):
-                if "instances" in decoded_input or "inputs" in decoded_input:
-                    data = parse_tf_serving_input(decoded_input)
-                else:
-                    data = parse_json_input(
-                        json_input=json_str, orient="split", schema=input_schema
-                    )
-            else:
-                _handle_serving_error(
-                    error_message=(
-                        "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                        " list or dictionary."
-                    ),
-                    error_code=MALFORMED_REQUEST,
-                )
+            infer_and_parse_json_input(json_str, input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(
                 json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema

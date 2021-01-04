@@ -315,7 +315,7 @@ def test_scoring_server_successfully_evaluates_correct_tf_serving_keras_inputs(
 
 @pytest.mark.large
 def test_parse_json_input_records_oriented():
-    size = 20
+    size = 2
     data = {
         "col_m": [random_int(0, 1000) for _ in range(size)],
         "col_z": [random_str(4) for _ in range(size)],
@@ -515,6 +515,55 @@ def test_parse_tf_serving_input():
     assert (
         'Failed to parse data as TF serving input. "signature_name" is currently not supported'
         in str(ex)
+    )
+
+
+def test_infer_and_parse_json_input():
+    size = 20
+    # input is correctly recognized as list, and parsed as pd df with orient 'records'
+    data = {
+        "col_m": [random_int(0, 1000) for _ in range(size)],
+        "col_z": [random_str(4) for _ in range(size)],
+        "col_a": [random_int() for _ in range(size)],
+    }
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.infer_and_parse_json_input(p1.to_json(orient="records"))
+    assert all(p1 == p2)
+
+    # input is correctly recognized as a dict, and parsed as pd df with orient 'split'
+    data = {
+        "col_m": [random_int(0, 1000) for _ in range(size)],
+        "col_z": [random_str(4) for _ in range(size)],
+        "col_a": [random_int() for _ in range(size)],
+    }
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.infer_and_parse_json_input(p1.to_json(orient="split"))
+    assert all(p1 == p2)
+
+    # input is correctly recognized as tf serving input
+    arr = [
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        [[3, 2, 1], [6, 5, 4], [9, 8, 7]],
+    ]
+    tfserving_input = {"instances": arr}
+    result = pyfunc_scoring_server.infer_and_parse_json_input(json.dumps(tfserving_input))
+    assert result.shape == (2, 3, 3)
+    assert (result == np.array(arr)).all()
+
+    # input is unrecognized JSON input
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_scoring_server.infer_and_parse_json_input(json.dumps('"just a string"'))
+    assert (
+        "Failed to parse input from JSON. Ensure that input is a valid JSON"
+        " list or dictionary." in str(ex)
+    )
+
+    # input is not json str
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_scoring_server.infer_and_parse_json_input("(not a json string)")
+    assert (
+        "Failed to parse input from JSON. Ensure that input is a valid JSON"
+        " formatted string." in str(ex)
     )
 
 
