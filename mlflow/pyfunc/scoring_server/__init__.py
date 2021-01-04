@@ -285,7 +285,7 @@ def init(model: PyFuncModel):
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type == CONTENT_TYPE_JSON:
             json_str = flask.request.data.decode("utf-8")
-            infer_and_parse_json_input(json_str, input_schema)
+            data = infer_and_parse_json_input(json_str, input_schema)
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(
                 json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema
