@@ -16,6 +16,7 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
+from distutils.version import LooseVersion
 import os
 import shutil
 import json
@@ -40,6 +41,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     exception_safe_function,
+    ExceptionSafeAbstractClass,
     try_mlflow_log,
     log_fn_args_as_params,
     INPUT_EXAMPLE_SAMPLE_ROWS,
@@ -365,12 +367,33 @@ def autolog(
             Create a callback function that records evaluation results.
             """
 
-            @exception_safe_function
-            def callback(env):
-                metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
-                eval_results.append(dict(env.evaluation_result_list))
+            if LooseVersion(xgboost.__version__) >= LooseVersion("1.3.0"):
+                # In xgboost >= 1.3.0, user-defined callbacks should inherit
+                # `xgboost.callback.TrainingCallback`:
+                # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
+                class Callback(
+                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass
+                ):
+                    def after_iteration(self, model, epoch, evals_log):
+                        evaluation_result_dict = {}
+                        for data_name, metric_dict in evals_log.items():
+                            for metric_name, metric_values in metric_dict.items():
+                                key = "{}-{}".format(data_name, metric_name)
+                                evaluation_result_dict[key] = metric_values[-1]
 
-            return callback
+                        metrics_logger.record_metrics(evaluation_result_dict, epoch)
+                        eval_results.append(evaluation_result_dict)
+
+                return Callback()
+
+            else:
+
+                @exception_safe_function
+                def callback(env):
+                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
+                    eval_results.append(dict(env.evaluation_result_list))
+
+                return callback
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
