@@ -134,11 +134,19 @@ def parse_tf_serving_input(inp_dict):
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
     """
     # pylint: disable=broad-except
-    if "instances" in inp_dict and "inputs" in inp_dict:
+    if "signature_name" in inp_dict:
         _handle_serving_error(
             error_message=(
-                'Failed to parse data as TF serving input. Both "instances" and'
-                ' "inputs" were specified. A request can have either but not both.'
+                'Failed to parse data as TF serving input. "signature_name" is currently'
+                " not supported."
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+    if not (list(inp_dict.keys()) == ["instances"] or list(inp_dict.keys()) == ["inputs"]):
+        _handle_serving_error(
+            error_message=(
+                'Failed to parse data as TF serving input. One of "instances" and'
+                ' "inputs" must be specified (not both or any other keys).'
             ),
             error_code=MALFORMED_REQUEST,
         )
@@ -244,7 +252,7 @@ def init(model: PyFuncModel):
         elif flask.request.content_type == CONTENT_TYPE_JSON:
             json_str = flask.request.data.decode("utf-8")
             try:
-                inp_dict = json.loads(json_str)
+                decoded_input = json.loads(json_str)
             except json.decoder.JSONDecodeError:
                 _handle_serving_error(
                     error_message=(
@@ -253,10 +261,23 @@ def init(model: PyFuncModel):
                     ),
                     error_code=MALFORMED_REQUEST,
                 )
-            if "instances" in inp_dict or "inputs" in inp_dict:
-                data = parse_tf_serving_input(inp_dict)
+            if isinstance(decoded_input, list):
+                data = parse_json_input(json_input=json_str, orient="records", schema=input_schema)
+            elif isinstance(decoded_input, dict):
+                if "instances" in decoded_input or "inputs" in decoded_input:
+                    data = parse_tf_serving_input(decoded_input)
+                else:
+                    data = parse_json_input(
+                        json_input=json_str, orient="split", schema=input_schema
+                    )
             else:
-                data = parse_json_input(json_input=json_str, orient="split", schema=input_schema)
+                _handle_serving_error(
+                    error_message=(
+                        "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                        " list or dictionary."
+                    ),
+                    error_code=MALFORMED_REQUEST,
+                )
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(
                 json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema

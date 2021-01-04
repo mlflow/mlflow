@@ -94,6 +94,18 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     assert "message" in response_json
     assert "stack_trace" in response_json
 
+    incorrect_json_content = json.dumps("not a dict or a list")
+    response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=incorrect_json_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    response_json = json.loads(response.content)
+    assert "error_code" in response_json
+    assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+    assert "message" in response_json
+    assert "stack_trace" in response_json
+
 
 @pytest.mark.large
 def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
@@ -181,6 +193,13 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="records")
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_record_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
+
     response_records_content_type = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
         data=pandas_record_content,
@@ -482,7 +501,19 @@ def test_parse_tf_serving_input():
     with pytest.raises(MlflowException) as ex:
         pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
     assert (
-        'Both "instances" and "inputs" were specified. A request can have either but not both'
+        'Failed to parse data as TF serving input. One of "instances" and "inputs" must be specified'
+        in str(ex)
+    )
+
+    # cannot specify signature name
+    tfserving_input = {
+        "signature_name": "hello",
+        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
+    }
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
+    assert (
+        'Failed to parse data as TF serving input. "signature_name" is currently not supported'
         in str(ex)
     )
 
