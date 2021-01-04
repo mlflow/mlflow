@@ -378,6 +378,9 @@ def autolog(
                     xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
                 ):
                     def after_iteration(self, model, epoch, evals_log):
+                        """
+                        Run after each iteration. Return True when training should stop.
+                        """
                         evaluation_result_dict = {}
                         for data_name, metric_dict in evals_log.items():
                             for metric_name, metric_values in metric_dict.items():
@@ -386,6 +389,8 @@ def autolog(
 
                         metrics_logger.record_metrics(evaluation_result_dict, epoch)
                         eval_results.append(evaluation_result_dict)
+
+                        return False
 
                 return Callback()
 
