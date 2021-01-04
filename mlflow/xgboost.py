@@ -41,7 +41,9 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     exception_safe_function,
-    ExceptionSafeAbstractClass,
+    # Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
+    # `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
+    ExceptionSafeAbstractClass,  # pylint: disable=unused-import
     try_mlflow_log,
     log_fn_args_as_params,
     INPUT_EXAMPLE_SAMPLE_ROWS,
@@ -371,8 +373,9 @@ def autolog(
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
+
                 class Callback(
-                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass
+                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
                 ):
                     def after_iteration(self, model, epoch, evals_log):
                         evaluation_result_dict = {}
