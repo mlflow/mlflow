@@ -70,7 +70,7 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
     """
     # pylint: disable=broad-except
     try:
-        return _dataframe_from_json(StringIO(json_input), pandas_orient=orient, schema=schema)
+        return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -186,11 +186,11 @@ def init(model: PyFuncModel):
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
             data = parse_json_input(
-                json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema
+                json_input=StringIO(flask.request.data.decode("utf-8")), orient="split", schema=input_schema
             )
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(
-                json_input=flask.request.data.decode("utf-8"), orient="records", schema=input_schema
+                json_input=StringIO(flask.request.data.decode("utf-8")), orient="records", schema=input_schema
             )
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
