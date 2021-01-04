@@ -42,7 +42,7 @@ def reset_global_states():
     for integration_name in library_to_mlflow_module.keys():
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             pass
 
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -52,7 +52,7 @@ def reset_global_states():
     for integration_name in library_to_mlflow_module.keys():
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             pass
 
     assert mlflow.utils.import_hooks._post_import_hooks == {}

@@ -122,7 +122,7 @@ class DatabricksJobRunner(object):
         )
         try:
             json_response_obj = json.loads(response.text)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             raise MlflowException(
                 "API request to check existence of file at DBFS path %s failed with status code "
                 "%s. Response body: %s" % (dbfs_path, response.status_code, response.text)

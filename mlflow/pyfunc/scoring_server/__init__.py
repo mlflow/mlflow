@@ -68,7 +68,7 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
                    or 'records'.
     :param schema: Optional schema specification to be used during parsing.
     """
-    # pylint: disable=broad-except
+
     try:
         return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
     except Exception:
@@ -88,7 +88,7 @@ def parse_csv_input(csv_input):
     :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
     """
-    # pylint: disable=broad-except
+
     try:
         return pd.read_csv(csv_input)
     except Exception:
@@ -107,7 +107,7 @@ def parse_split_oriented_json_input_to_numpy(json_input):
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame with split
                        orient, or a stream containing such a string representation.
     """
-    # pylint: disable=broad-except
+
     try:
         json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
         return pd.DataFrame(
@@ -208,7 +208,7 @@ def init(model: PyFuncModel):
             )
 
         # Do the prediction
-        # pylint: disable=broad-except
+
         try:
             raw_predictions = model.predict(data)
         except MlflowException as e:

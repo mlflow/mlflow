@@ -125,7 +125,7 @@ def _listen_for_spark_activity(spark_context):
         if callback_server_started:
             try:
                 gw.shutdown_callback_server()
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 _logger.warning(
                     "Failed to shut down Spark callback server for autologging: %s", str(e)
                 )
@@ -189,7 +189,7 @@ class PythonSubscriber(object, metaclass=ExceptionSafeClass):
     def notify(self, path, version, data_format):
         try:
             self._notify(path, version, data_format)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             _logger.error(
                 "Unexpected exception %s while attempting to log Spark datasource "
                 "info. Exception:\n",
