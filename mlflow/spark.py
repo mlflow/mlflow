@@ -508,13 +508,14 @@ def save_model(
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    # We're saving to DBFS either if (a) the URI is a valid DBFS URI ("dbfs:/my-directory"), or
-    # (b) if we're running on a Databricks cluster and the URI is schemeless (e.g. looks like a
-    # filesystem absolute path like "/my-directory")
-    is_saving_to_dbfs = is_valid_dbfs_uri(tmp_path) or (
+    # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
+    # we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're running
+    # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
+    # like "/my-directory")
+    copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
         databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
-    if is_saving_to_dbfs:
+    if copying_from_dbfs:
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
