@@ -41,9 +41,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     exception_safe_function,
-    # Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
-    # `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
-    ExceptionSafeAbstractClass,  # pylint: disable=unused-import
     try_mlflow_log,
     log_fn_args_as_params,
     INPUT_EXAMPLE_SAMPLE_ROWS,
@@ -52,6 +49,13 @@ from mlflow.utils.autologging_utils import (
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
 )
+
+# Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
+# `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
+from mlflow.utils.autologging_utils import (  # pylint: disable=unused-import
+    ExceptionSafeAbstractClass,
+)
+
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
