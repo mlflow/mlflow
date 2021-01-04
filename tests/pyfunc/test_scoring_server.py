@@ -501,8 +501,8 @@ def test_parse_tf_serving_input():
     with pytest.raises(MlflowException) as ex:
         pyfunc_scoring_server.parse_tf_serving_input(tfserving_input)
     assert (
-        'Failed to parse data as TF serving input. One of "instances" and "inputs" must be specified'
-        in str(ex)
+        'Failed to parse data as TF serving input. One of "instances" and "inputs"'
+        " must be specified" in str(ex)
     )
 
     # cannot specify signature name
