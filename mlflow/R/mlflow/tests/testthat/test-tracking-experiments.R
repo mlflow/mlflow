@@ -70,16 +70,16 @@ test_that("mlflow_list_experiments() works properly", {
   mlflow_set_experiment_tag("key2", "value2", experiment_id = ex2)
   experiments <- mlflow_list_experiments()
   expect_true("tags" %in% names(experiments))
-  expect_equal(
+  expect_setequal(
     experiments$tags, list(NULL, NULL, c(key = "key2", value = "value2"))
   )
 
   # experiment tags are returned if every experiment has tags
   mlflow_set_experiment_tag("key1", "value1", experiment_id = ex1)
-  mlflow_set_experiment_tag("key0", "value0", experiment_id = 0)
+  mlflow_set_experiment_tag("key0", "value0", experiment_id = "0")
   experiments <- mlflow_list_experiments()
   expect_true("tags" %in% names(experiments))
-  expect_equal(experiments$tags, list(
+  expect_setequal(experiments$tags, list(
     c(key = "key0", value = "value0"),
     c(key = "key1", value = "value1"),
     c(key = "key2", value = "value2")
