@@ -4,20 +4,20 @@
 # Required by mlflow.azureml
 azureml-sdk==1.2.0
 # Required by mlflow.keras
-keras==2.3.1
+keras
 # Pin h5py < 3.0.0 to avoid this issue: https://github.com/tensorflow/tensorflow/issues/44467
 # TODO: unpin after we use tensorflow >= 2.4
 h5py<3.0.0
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
-mxnet==1.5.0
+mxnet
 # Required by mlflow.fastai
 fastai==1.0.60
 # Required by mlflow.spacy
 spacy
 # Required by mlflow.tensorflow
-tensorflow==1.15.2
+tensorflow
 # Required by mlflow.pytorch
 torch
 torchvision
@@ -26,11 +26,12 @@ pytorch_lightning>=1.0.2
 xgboost>=0.82
 # Required by mlflow.lightgbm
 lightgbm
+# Required by mlflow.statsmodels
+statsmodels
 # Required by mlflow.h2o
 h2o
 # Required by mlflow.onnx
 onnx
-onnxmltools
 onnxruntime
 # Required by mlflow.mleap, and in order to save SparkML models in
 # mleap format via ``mlflow.spark.log_model``, ``mlflow.spark.save_model``

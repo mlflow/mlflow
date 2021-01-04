@@ -128,7 +128,7 @@ For this method, you will need the ``run_id`` as part of the ``runs:URI`` argume
 .. code-block:: py
 
     result = mlflow.register_model(
-        "runs:/d16076a3ec534311817565e6527539c0/artifacts/sklearn-model",
+        "runs:/d16076a3ec534311817565e6527539c0/sklearn-model",
         "sk-learn-random-forest-reg"
     )
 

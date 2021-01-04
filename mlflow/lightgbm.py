@@ -33,19 +33,21 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import gorilla
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    exception_safe_function,
     try_mlflow_log,
     log_fn_args_as_params,
-    wrap_patch,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
+    batch_metrics_logger,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -281,9 +283,16 @@ class _LGBModelWrapper:
 
 
 @experimental
-def autolog(log_input_examples=False, log_model_signatures=True):
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+):  # pylint: disable=unused-argument
     """
-    Enables automatic logging from LightGBM to MLflow. Logs the following.
+    Enables (or disables) and configures autologging from LightGBM to MLflow. Logs the following:
 
     - parameters specified in `lightgbm.train`_.
     - metrics on each iteration (if ``valid_sets`` specified).
@@ -298,11 +307,24 @@ def autolog(log_input_examples=False, log_model_signatures=True):
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with LightGBM model artifacts during training. If
                                ``False``, input examples are not logged.
+                               Note: Input examples are MLflow model attributes
+                               and are only collected if ``log_models`` is also ``True``.
     :param log_model_signatures: If ``True``,
                                  :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                  describing model inputs and outputs are collected and logged along
                                  with LightGBM model artifacts during training. If ``False``,
                                  signatures are not logged.
+                                 Note: Model signatures are MLflow model attributes
+                                 and are only collected if ``log_models`` is also ``True``.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+                       Input examples and model signatures, which are attributes of MLflow models,
+                       are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables the LightGBM autologging integration. If ``False``,
+                    enables the LightGBM autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import lightgbm
     import numpy as np
@@ -311,9 +333,8 @@ def autolog(log_input_examples=False, log_model_signatures=True):
     #   to use as an input example and for inferring the model signature.
     #   (there is no way to get the data back from a Dataset object once it is consumed by train)
     # We store it on the Dataset object so the train function is able to read it.
-    def __init__(self, *args, **kwargs):
+    def __init__(original, self, *args, **kwargs):
         data = args[0] if len(args) > 0 else kwargs.get("data")
-        original = gorilla.get_original_attribute(lightgbm.Dataset, "__init__")
 
         if data is not None:
             try:
@@ -332,18 +353,19 @@ def autolog(log_input_examples=False, log_model_signatures=True):
 
         original(self, *args, **kwargs)
 
-    def train(*args, **kwargs):
-        def record_eval_results(eval_results):
+    def train(original, *args, **kwargs):
+        def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
             """
 
+            @exception_safe_function
             def callback(env):
                 res = {}
                 for data_name, eval_name, value, _ in env.evaluation_result_list:
                     key = data_name + "-" + eval_name
                     res[key] = value
-
+                metrics_logger.record_metrics(res, env.iteration)
                 eval_results.append(res)
 
             return callback
@@ -383,14 +405,6 @@ def autolog(log_input_examples=False, log_model_signatures=True):
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
-            auto_end_run = True
-        else:
-            auto_end_run = False
-
-        original = gorilla.get_original_attribute(lightgbm, "train")
-
         # logging booster params separately via mlflow.log_params to extract key/value pairs
         # and make it easier to compare them across runs.
         params = args[0] if len(args) > 0 else kwargs["params"]
@@ -417,38 +431,36 @@ def autolog(log_input_examples=False, log_model_signatures=True):
         # adding a callback that records evaluation results.
         eval_results = []
         callbacks_index = all_arg_names.index("callbacks")
-        callback = record_eval_results(eval_results)
-        if num_pos_args >= callbacks_index + 1:
-            tmp_list = list(args)
-            tmp_list[callbacks_index] += [callback]
-            args = tuple(tmp_list)
-        elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
-            kwargs["callbacks"] += [callback]
-        else:
-            kwargs["callbacks"] = [callback]
+        run_id = mlflow.active_run().info.run_id
+        with batch_metrics_logger(run_id) as metrics_logger:
+            callback = record_eval_results(eval_results, metrics_logger)
+            if num_pos_args >= callbacks_index + 1:
+                tmp_list = list(args)
+                tmp_list[callbacks_index] += [callback]
+                args = tuple(tmp_list)
+            elif "callbacks" in kwargs and kwargs["callbacks"] is not None:
+                kwargs["callbacks"] += [callback]
+            else:
+                kwargs["callbacks"] = [callback]
 
-        # training model
-        model = original(*args, **kwargs)
+            # training model
+            model = original(*args, **kwargs)
 
-        # logging metrics on each iteration.
-        for idx, metrics in enumerate(eval_results):
-            try_mlflow_log(mlflow.log_metrics, metrics, step=idx)
-
-        # If early_stopping_rounds is present, logging metrics at the best iteration
-        # as extra metrics with the max step + 1.
-        early_stopping_index = all_arg_names.index("early_stopping_rounds")
-        early_stopping = (
-            num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
-        )
-        if early_stopping:
-            extra_step = len(eval_results)
-            try_mlflow_log(mlflow.log_metric, "stopped_iteration", len(eval_results))
-            # best_iteration is set even if training does not stop early.
-            try_mlflow_log(mlflow.log_metric, "best_iteration", model.best_iteration)
-            # iteration starts from 1 in LightGBM.
-            try_mlflow_log(
-                mlflow.log_metrics, eval_results[model.best_iteration - 1], step=extra_step
+            # If early_stopping_rounds is present, logging metrics at the best iteration
+            # as extra metrics with the max step + 1.
+            early_stopping_index = all_arg_names.index("early_stopping_rounds")
+            early_stopping = (
+                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
             )
+            if early_stopping:
+                extra_step = len(eval_results)
+
+                metrics_logger.record_metrics({"stopped_iteration": extra_step})
+                # best_iteration is set even if training does not stop early.
+                metrics_logger.record_metrics({"best_iteration": model.best_iteration})
+                # iteration starts from 1 in LightGBM.
+                results = eval_results[model.best_iteration - 1]
+                metrics_logger.record_metrics(results, step=extra_step)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:
@@ -491,25 +503,26 @@ def autolog(log_input_examples=False, log_model_signatures=True):
             model_signature = infer_signature(input_example, model_output)
             return model_signature
 
-        input_example, signature = resolve_input_example_and_signature(
-            get_input_example,
-            infer_model_signature,
-            log_input_examples,
-            log_model_signatures,
-            _logger,
-        )
+        # Whether to automatically log the trained model based on boolean flag.
+        if log_models:
+            # Will only resolve `input_example` and `signature` if `log_models` is `True`.
+            input_example, signature = resolve_input_example_and_signature(
+                get_input_example,
+                infer_model_signature,
+                log_input_examples,
+                log_model_signatures,
+                _logger,
+            )
 
-        try_mlflow_log(
-            log_model,
-            model,
-            artifact_path="model",
-            signature=signature,
-            input_example=input_example,
-        )
+            try_mlflow_log(
+                log_model,
+                model,
+                artifact_path="model",
+                signature=signature,
+                input_example=input_example,
+            )
 
-        if auto_end_run:
-            try_mlflow_log(mlflow.end_run)
         return model
 
-    wrap_patch(lightgbm, "train", train)
-    wrap_patch(lightgbm.Dataset, "__init__", __init__)
+    safe_patch(FLAVOR_NAME, lightgbm, "train", train, manage_run=True)
+    safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)

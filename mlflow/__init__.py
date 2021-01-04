@@ -41,8 +41,6 @@ import warnings
 
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
-# log a deprecated warning only once per function per module
-warnings.filterwarnings("module", category=DeprecationWarning)
 
 import mlflow.projects as projects  # noqa: E402
 import mlflow.tracking as tracking  # noqa: E402
@@ -60,6 +58,7 @@ import mlflow.pytorch as pytorch  # noqa: E402
 import mlflow.sklearn as sklearn  # noqa: E402
 import mlflow.spacy as spacy  # noqa: E402
 import mlflow.spark as spark  # noqa: E402
+import mlflow.statsmodels as statsmodels  # noqa: E402
 import mlflow.tensorflow as tensorflow  # noqa: E402
 import mlflow.xgboost as xgboost  # noqa: E402
 import mlflow.shap as shap  # noqa: E402
@@ -86,6 +85,9 @@ delete_tag = mlflow.tracking.fluent.delete_tag
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 log_text = mlflow.tracking.fluent.log_text
+log_dict = mlflow.tracking.fluent.log_dict
+log_image = mlflow.tracking.fluent.log_image
+log_figure = mlflow.tracking.fluent.log_figure
 active_run = mlflow.tracking.fluent.active_run
 get_run = mlflow.tracking.fluent.get_run
 start_run = mlflow.tracking.fluent.start_run
@@ -124,6 +126,9 @@ __all__ = [
     "log_artifacts",
     "log_artifact",
     "log_text",
+    "log_dict",
+    "log_figure",
+    "log_image",
     "active_run",
     "start_run",
     "end_run",
@@ -157,6 +162,7 @@ __all__ = [
     "sklearn",
     "spacy",
     "spark",
+    "statsmodels",
     "tensorflow",
     "xgboost",
     "shap",

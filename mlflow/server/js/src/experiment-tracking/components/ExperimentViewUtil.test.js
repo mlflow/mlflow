@@ -1,7 +1,9 @@
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ExperimentViewUtil, { TreeNode } from './ExperimentViewUtil';
+import { getModelVersionPageRoute } from '../../model-registry/routes';
 import { BrowserRouter } from 'react-router-dom';
+import { SEARCH_MAX_RESULTS } from '../actions';
 
 describe('ExperimentViewUtil', () => {
   test('getCheckboxForRow should render', () => {
@@ -100,6 +102,82 @@ describe('ExperimentViewUtil', () => {
     const ranges = ExperimentViewUtil.computeMetricRanges(metricsByRun);
     expect(ranges.foo.min).toBe(0);
     expect(ranges.foo.max).toBe(2);
+  });
+
+  test('disable loadMoreButton when numRunsFromLatestSearch is not null and less than SEARCH_MAX_RESULTS', () => {
+    expect(
+      ExperimentViewUtil.disableLoadMoreButton({
+        numRunsFromLatestSearch: null,
+      }),
+    ).toBe(false);
+
+    expect(
+      ExperimentViewUtil.disableLoadMoreButton({
+        numRunsFromLatestSearch: SEARCH_MAX_RESULTS - 1,
+      }),
+    ).toBe(true);
+
+    expect(
+      ExperimentViewUtil.disableLoadMoreButton({
+        numRunsFromLatestSearch: SEARCH_MAX_RESULTS,
+      }),
+    ).toBe(false);
+  });
+
+  test('get linked model cell displays model name with a single model version', () => {
+    const modelName = 'model1';
+    const model_versions = [{ name: modelName, version: 2 }];
+    const linkedModelDiv = shallow(ExperimentViewUtil.getLinkedModelCell(model_versions));
+    expect(
+      linkedModelDiv
+        .find('.model-version-link')
+        .at(0)
+        .props().href,
+    ).toContain(getModelVersionPageRoute(model_versions[0].name, model_versions[0].version));
+  });
+
+  test('should not nest children if nestChildren is false', () => {
+    const runInfos = [{ run_uuid: 1 }, { run_uuid: 2 }];
+    const tagsList = [
+      {
+        'mlflow.parentRunId': {
+          value: 2,
+        },
+      },
+      {},
+    ];
+    const runsExpanded = { 1: true, 2: true };
+
+    expect(
+      ExperimentViewUtil.getRowRenderMetadata({
+        runInfos,
+        tagsList,
+        runsExpanded,
+        nestChildren: true,
+      }),
+    ).toEqual([
+      {
+        childrenIds: [1],
+        expanderOpen: true,
+        hasExpander: true,
+        idx: 1,
+        isParent: true,
+        runId: 2,
+      },
+      { hasExpander: false, idx: 0, isParent: false },
+    ]);
+
+    expect(
+      ExperimentViewUtil.getRowRenderMetadata({
+        runInfos,
+        tagsList,
+        runsExpanded,
+        nestChildren: false,
+      }),
+    ).toEqual([
+      { hasExpander: false, idx: 0, isParent: true, runId: 1 },
+      { hasExpander: false, idx: 1, isParent: true, runId: 2 },
+    ]);
   });
 
   test('TreeNode finds the correct root', () => {

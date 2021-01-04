@@ -12,8 +12,9 @@ export class HtmlTableView extends Component {
 
   render() {
     const styles = this.props.styles || {};
+    const { ...tableProps } = this.props;
     return (
-      <Table hover className='HtmlTableView' style={styles['table']}>
+      <Table hover className='HtmlTableView' style={styles['table']} {...tableProps}>
         <tbody>
           <tr style={styles['tr']}>
             {this.props.columns.map((c, idx) => {

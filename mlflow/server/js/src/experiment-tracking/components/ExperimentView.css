@@ -1,264 +1,348 @@
 .ExperimentView input[type=checkbox] {
-  width: auto;
+    width: auto;
 }
 
 .ExperimentView th {
-  background-color: #fafafa;
-  color: #888888;
-  font-weight: 500;
+    background-color: #fafafa;
+    color: #888888;
+    font-weight: 500;
 }
 
 .ExperimentView td, .ExperimentView th {
-  border-top: 1px solid #e2e2e2;
-  border-bottom: 1px solid #e2e2e2;
+    border-top: 1px solid #e2e2e2;
+    border-bottom: 1px solid #e2e2e2;
 }
 
 .ExperimentView .metadata-list td, .ExperimentView .metadata-list th {
-  border: none;
+    border: none;
+}
+
+.LinkColor {
+    color: #2374BB;
+}
+
+.ExperimentView .information {
+    margin: 0px 0px 16px 0px;
+    padding-left: 56px;
+    padding-top: 14px;
+
+    background: #EDFAFE;
+    /* Gray-background */
+
+    border: 1px solid #EEEEEE;
+    box-sizing: border-box;
+    /* Dropshadow */
+
+    box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.12);
+    border-radius: 4px;
+}
+
+.ExperimentView .ant-alert-info .ant-alert-icon {
+    color: #00B379;
 }
 
 .ExperimentView .top-row {
-  text-align: center;
-  border-bottom: none;
-  border-top: none;
+    text-align: center;
+    border-bottom: none;
+    border-top: none;
 }
 
 .ExperimentView .bottom-row {
-  text-align: left;
-  border-top: none;
+    text-align: left;
+    border-top: none;
 }
 
 .ExperimentView .left-border {
-  border-left: 1px solid #e2e2e2;
+    border-left: 1px solid #e2e2e2;
 }
 
 .ExperimentView-run-buttons .btn {
-  margin-left: 16px;
+    margin-left: 16px;
 }
 
 .ExperimentView-run-buttons .run-count {
-  font-size: 14px;
-  color: #6B6B6B;
+    font-size: 14px;
+    color: #6B6B6B;
 }
 
 .ExperimentView-evenRow {
-  background-color: #bbbbbb;
+    background-color: #bbbbbb;
 }
 
 .ExperimentView-evenRow:hover {
-  background-color: #acacac;
+    background-color: #acacac;
 }
 
 .ExperimentView-oddRow:hover {
-  background-color: #e1e1e1;
+    background-color: #e1e1e1;
 }
 
 .ExperimentView-downloadCsv {
-  float: right;
+    float: right;
 }
 
 .ExperimentView-search-controls {
-  margin-top: 8px;
-  min-width: 800px;
+    margin-top: 8px;
+    min-width: 800px;
 }
 
 .ExperimentView-info {
-  margin-top: 8px;
+    margin-top: 8px;
 }
 
 .ExperimentView-info .note-view-outer-container {
-  width: 100%;
-  height: auto;
+    width: 100%;
+    height: auto;
 }
 
 .ExperimentView-info .note-editor-button-area {
-  padding-bottom: 12px;
+    padding-bottom: 12px;
 }
 
-.ExperimentView-run-buttons{
-  margin-top: 16px;
-  margin-bottom: 16px;
+.ExperimentView-run-buttons {
+    margin-top: 16px;
+    margin-bottom: 16px;
 }
 
 .ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter {
-  display: inline-block;
-  width: 50%;
-  min-width: 210px;
-  margin-top: 8px;
+    display: inline-block;
+    width: 50%;
+    min-width: 210px;
+    margin-top: 8px;
 }
 
 .ExperimentView-search {
-  display: flex;
-  align-items: center;
+    display: flex;
+    align-items: center;
 }
 
 .ExperimentView-search-input {
-  flex: 1;
-  width: auto;
+    flex: 1;
+    width: auto;
+}
+
+.ant-input-affix-wrapper .ant-input:not(:first-child) {
+    padding-left: 40px;
 }
 
 .ExperimentView-search-help {
-  margin-right: 10px;
-  cursor: pointer;
+    margin-right: 10px;
+    cursor: pointer;
 }
 
 .ExperimentView-lifecycle-input {
-  padding-right: 8px;
-}
-
-.ExperimentView-lifecycle-button {
-  width: 80px;
+    padding-top: 8px;
 }
 
 .ExperimentView-paramKeyFilter, .ExperimentView-metricKeyFilter, .ExperimentView-search-input, .ExperimentView-lifecycle-input {
-  padding-right: 8px;
+    padding-right: 8px;
 }
 
 .ExperimentView-search-buttons .btn {
-  display: block;
-  width: 100%;
-  margin-bottom: 8px;
+    display: block;
+    width: 100%;
+    margin-bottom: 8px;
 }
 
 .ExperimentView-search-controls .filter-label {
-  width: 92px;
-  float: left;
-  margin-top: 6px;
+    width: 92px;
+    float: left;
+    margin-top: 6px;
 }
 
 .ExperimentView-search-controls .filter-wrapper {
-  margin-left: 92px;
+    margin-left: 92px;
 }
 
 .ExperimentView-search-controls input {
-  width: 100%;
+    width: 100%;
 }
 
 .search-button {
-  width: 120px;
+    width: 120px;
+    height: auto;
+    margin-left: 10px;
 }
 
 .clear-button {
-  margin-left: 8px;
+    margin-left: 10px;
+    height: auto;
+}
+
+.filter-button {
+    margin-left: 10px;
+    height: 40px;
+    width: 97px;
+}
+
+.compare-button {
+    margin-left: 4px;
+}
+
+.csv-button {
+    margin-left: 4px;
+}
+
+.delete-restore-button {
+    margin-left: 4px;
+}
+
+.model-versions-label {
+    padding-left: 20px;
+}
+
+.filterIcon {
+    padding-right: 8px;
+}
+
+.search-control-btns {
+    display: flex;
+}
+
+.lifecycleButtons-enter {
+    opacity: 0.01;
+}
+
+.lifecycleButtons-enter.lifecycleButtons-enter-active {
+    opacity: 1;
+    transition: opacity 500ms linear;
+}
+
+.lifecycleButtons-exit {
+    opacity: 1;
+}
+
+.lifecycleButtons-exit.lifecycleButtons-exit-active {
+    opacity: 0.01;
+    transition: opacity 300ms ease-in;
+}
+
+.ExperimentView-linked-model-button {
+    margin-left: 10px;
+}
+
+.ExperimentView-lifecycle-button {
+    margin-left: 10px;
 }
 
 div.error-message {
-  margin-top: 8px;
-  margin-left: 0;
-  /*width: auto;*/
+    margin-top: 8px;
+    margin-left: 0;
+    /*width: auto;*/
 }
+
 span.error-message {
-  color: #db1905;
+    color: #db1905;
 }
 
 .metric-filler-bg {
-  position: relative;
-  background-color: #f7f7f7;
-  width: 50px;
-  display: inline-block;
+    position: relative;
+    background-color: #f7f7f7;
+    width: 50px;
+    display: inline-block;
 }
 
 .metric-filler-fg {
-  background-color: #def1ff;
-  position: absolute;
-  top: -1px;
-  height: 22px;
-  display: inline-block;
+    background-color: #def1ff;
+    position: absolute;
+    top: -1px;
+    height: 22px;
+    display: inline-block;
 }
 
 .metric-text {
-  position: relative;
+    position: relative;
 }
 
 .ExperimentView .sortable {
-  white-space: nowrap;
-  cursor: pointer;
+    white-space: nowrap;
+    cursor: pointer;
 
-  /* Prevent double click text select */
-  -webkit-user-select: none; /* Safari */
-  -khtml-user-select: none; /* Konqueror HTML */
-  -moz-user-select: none; /* Firefox */
-  -ms-user-select: none; /* Internet Explorer/Edge */
-  user-select: none;
+    /* Prevent double click text select */
+    -webkit-user-select: none; /* Safari */
+    -khtml-user-select: none; /* Konqueror HTML */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none;
 }
 
 .ExperimentView .metric-param-sort-toggle {
-  color: #888;
-  cursor: pointer;
+    color: #888;
+    cursor: pointer;
 }
 
 .ExperimentView .underline-on-hover:hover {
-  text-decoration: underline;
+    text-decoration: underline;
 }
 
 .ExperimentView .metric-param-value {
-  margin-left: 4px;
+    margin-left: 4px;
 }
 
 .ExperimentView .highlighted {
-  border-radius: 5px;
-  background-color: rgba(255, 242, 172, 0.5);
-  color: black;
+    border-radius: 5px;
+    background-color: rgba(255, 242, 172, 0.5);
+    color: black;
 }
 
 /** Container with a max width & text-truncation for use in the experiment runs table */
 .ExperimentView .run-table-container {
-  max-width: 240px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  vertical-align: top;
-  height: 100%;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
+    height: 100%;
 }
 
 .ExperimentView .metric-param-container-cell {
-  min-width: 280px;
-  padding: 8px;
+    min-width: 280px;
+    padding: 8px;
 }
 
 .ExperimentView .metric-param-cell {
-  display: inline-block;
-  width: 250px;
-  padding: 0;
+    display: inline-block;
+    width: 250px;
+    padding: 0;
 }
 
 .ExperimentView .tag-cell-item {
-  height: 100%;
+    height: 100%;
 }
 
 .ExperimentView-expander:hover {
-  cursor: pointer;
+    cursor: pointer;
 }
 
 .ExperimentView .ReactVirtualized__Table__headerRow {
-  overflow: visible;
-  text-transform: inherit;
-  font-weight: inherit;
+    overflow: visible;
+    text-transform: inherit;
+    font-weight: inherit;
 }
 
 .ExperimentView .ReactVirtualized__Table__Grid:focus {
-  outline: 0;
+    outline: 0;
 }
 
 /* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
 .ExperimentView .ReactVirtualized__Table__rowColumn {
-  overflow: visible !important;
+    overflow: visible !important;
 }
 
 .ExperimentView .ReactVirtualized__Table__headerColumn {
-  color: rgb(136, 136, 136);
+    color: rgb(136, 136, 136);
 }
 
 .ExperimentView .ReactVirtualized__Table .run-table-container {
-  padding: 8px;
+    padding: 8px;
 }
 
-.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-sort-toggle {
-  padding: 0;
+.ExperimentView .ReactVirtualized__Table .run-table-container.metric-param-sort-toggle {
+    padding: 0;
 }
 
-.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-value {
-  padding: 0;
+.ExperimentView .ReactVirtualized__Table .run-table-container.metric-param-value {
+    padding: 0;
 }
 
 /**
@@ -267,59 +351,77 @@ span.error-message {
  * 100% of the available vertical space (via 'flex: 1 1 auto')
  */
 .runs-table-flex-container {
-  flex: 1 1 auto;
-  flex-direction: column;
-  display: flex;
-  min-height: 800px;
+    flex: 1 1 auto;
+    flex-direction: column;
+    display: flex;
+    min-height: 800px;
 }
 
 .ExperimentView .ReactVirtualized__Table__row:hover {
-  background-color: #f5f5f5;
+    background-color: #f5f5f5;
 }
 
 .search-input-tooltip .ant-popover-inner-content {
-  background-color: rgba(0, 0, 0, 0.75);
-  color: white;
-  border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.75);
+    color: white;
+    border-radius: 4px;
 }
 
 .search-input-tooltip.ant-popover-placement-bottom > .ant-popover-content > .ant-popover-arrow {
-  border-top-color: rgba(0, 0, 0, 0.75);
-  border-left-color: rgba(0, 0, 0, 0.75);
+    border-top-color: rgba(0, 0, 0, 0.75);
+    border-left-color: rgba(0, 0, 0, 0.75);
 }
 
-.artifact-location-public-tooltip  .ant-popover-inner-content {
-  background-color: rgba(0, 0, 0, 0.75);
-  color: white;
-  border-radius: 4px;
+.artifact-location-public-tooltip .ant-popover-inner-content {
+    background-color: rgba(0, 0, 0, 0.75);
+    color: white;
+    border-radius: 4px;
 }
 
 .artifact-location-public-tooltip.ant-popover-placement-bottom > .ant-popover-content > .ant-popover-arrow {
-  border-top-color: rgba(0, 0, 0, 0.75);
-  border-left-color: rgba(0, 0, 0, 0.75);
+    border-top-color: rgba(0, 0, 0, 0.75);
+    border-left-color: rgba(0, 0, 0, 0.75);
 }
 
-.ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover{
-  background-color: #f3fafd !important; /* TODO(Zangr) override specificity in a better way */
+.ExperimentView .ag-row-hover, .ExperimentView .ag-column-hover {
+    background-color: #f3fafd !important; /* TODO(Zangr) override specificity in a better way */
 }
 
 .ExperimentView .ag-row-hover .ag-column-hover {
-  background-color: #e8f6fd !important;
+    background-color: #e8f6fd !important;
 }
 
 .ExperimentView .multi-column-view .load-more-button,
 .ExperimentView .multi-column-view .loading-more-wrapper {
-  height: 24px;
-  margin-top: 1px;
+    height: 24px;
+    margin-top: 1px;
 }
 
 .ExperimentView .ag-header-cell .ag-react-container {
-  width: 100%;
-  height: 100%;
+    width: 100%;
+    height: 100%;
 }
 
 .ExperimentView .multi-column-view {
-  width: 100%;
-  height: 700px;
-  margin-bottom: 50px;
+    width: 100%;
+    height: 700px;
+    margin-bottom: 50px;
+}
+
+.ExperimentView .ag-overlay-wrapper {
+    margin-top: 50px;
+    align-items: start;
+}
+
+.ExperimentView .ag-react-container {
+    width: inherit;
+}
+
+.ExperimentView .version-link {
+    display: flex;
+    align-items: center;
+}
+
+.ExperimentView .model-link-text {
+    padding-left: 3px;
 }

@@ -5,9 +5,12 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 import contextlib
 import logging
+import json
 import os
 import posixpath
+import sys
 import tempfile
+import yaml
 
 from mlflow.entities import ViewType
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -31,6 +34,7 @@ from mlflow.utils.databricks_utils import (
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -963,6 +967,258 @@ class MlflowClient(object):
             with open(tmp_path, "w") as f:
                 f.write(text)
 
+    @experimental
+    def log_dict(self, run_id, dictionary, artifact_file):
+        """
+        Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
+        inferred from the extension of `artifact_file`. If the file extension doesn't exist or
+        match any of [".json", ".yml", ".yaml"], JSON format is used.
+
+        :param run_id: String ID of the run.
+        :param dictionary: Dictionary to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the dictionary is saved (e.g. "dir/data.json").
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow.tracking import MlflowClient
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            run_id = run.info.run_id
+
+            dictionary = {"k": "v"}
+
+            # Log a dictionary as a JSON file under the run's root artifact directory
+            client.log_dict(run_id, dictionary, "data.json")
+
+            # Log a dictionary as a YAML file in a subdirectory of the run's root artifact directory
+            client.log_dict(run_id, dictionary, "dir/data.yml")
+
+            # If the file extension doesn't exist or match any of [".json", ".yaml", ".yml"],
+            # JSON format is used.
+            mlflow.log_dict(run_id, dictionary, "data")
+            mlflow.log_dict(run_id, dictionary, "data.txt")
+        """
+        extension = os.path.splitext(artifact_file)[1]
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            with open(tmp_path, "w") as f:
+                # Specify `indent` to prettify the output
+                if extension in [".yml", ".yaml"]:
+                    yaml.dump(dictionary, f, indent=2, default_flow_style=False)
+                else:
+                    json.dump(dictionary, f, indent=2)
+
+    @experimental
+    def log_figure(self, run_id, figure, artifact_file):
+        """
+        Log a figure as an artifact. The following figure objects are supported:
+
+        - `matplotlib.figure.Figure`_
+        - `plotly.graph_objects.Figure`_
+
+        .. _matplotlib.figure.Figure:
+            https://matplotlib.org/api/_as_gen/matplotlib.figure.Figure.html
+
+        .. _plotly.graph_objects.Figure:
+            https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
+
+        :param run_id: String ID of the run.
+        :param figure: Figure to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the figure is saved (e.g. "dir/file.png").
+
+        .. code-block:: python
+            :caption: Matplotlib Example
+
+            import mlflow
+            import matplotlib.pyplot as plt
+
+            fig, ax = plt.subplots()
+            ax.plot([0, 1], [2, 3])
+
+            run = client.create_run(experiment_id="0")
+            client.log_figure(run.info.run_id, fig, "figure.png")
+
+        .. code-block:: python
+            :caption: Plotly Example
+
+            import mlflow
+            from plotly import graph_objects as go
+
+            fig = go.Figure(go.Scatter(x=[0, 1], y=[2, 3]))
+
+            run = client.create_run(experiment_id="0")
+            client.log_figure(run.info.run_id, fig, "figure.html")
+        """
+
+        def _is_matplotlib_figure(fig):
+            import matplotlib
+
+            return isinstance(fig, matplotlib.figure.Figure)
+
+        def _is_plotly_figure(fig):
+            import plotly
+
+            return isinstance(fig, plotly.graph_objects.Figure)
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            # `is_matplotlib_figure` is executed only when `matplotlib` is found in `sys.modules`.
+            # This allows logging a `plotly` figure in an environment where `matplotlib` is not
+            # installed.
+            if "matplotlib" in sys.modules and _is_matplotlib_figure(figure):
+                figure.savefig(tmp_path)
+            elif "plotly" in sys.modules and _is_plotly_figure(figure):
+                figure.write_html(tmp_path, include_plotlyjs="cdn", auto_open=False)
+            else:
+                raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
+
+    @experimental
+    def log_image(self, run_id, image, artifact_file):
+        """
+        Log an image as an artifact. The following image objects are supported:
+
+        - `numpy.ndarray`_
+        - `PIL.Image.Image`_
+
+        .. _numpy.ndarray:
+            https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html
+
+        .. _PIL.Image.Image:
+            https://pillow.readthedocs.io/en/stable/reference/Image.html#PIL.Image.Image
+
+        Numpy array support
+            - data type (( ) represents a valid value range):
+
+                - bool
+                - integer (0 ~ 255)
+                - unsigned integer (0 ~ 255)
+                - float (0.0 ~ 1.0)
+
+                .. warning::
+
+                    - Out-of-range integer values will be **clipped** to [0, 255].
+                    - Out-of-range float values will be **clipped** to [0, 1].
+
+            - shape (H: height, W: width):
+
+                - H x W (Grayscale)
+                - H x W x 1 (Grayscale)
+                - H x W x 3 (an RGB channel order is assumed)
+                - H x W x 4 (an RGBA channel order is assumed)
+
+        :param run_id: String ID of the run.
+        :param image: Image to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the image is saved (e.g. "dir/image.png").
+
+        .. code-block:: python
+            :caption: Numpy Example
+
+            import mlflow
+            import numpy as np
+
+            image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+
+        .. code-block:: python
+            :caption: Pillow Example
+
+            import mlflow
+            from PIL import Image
+
+            image = Image.new("RGB", (100, 100))
+
+            run = client.create_run(experiment_id="0")
+            client.log_image(run.info.run_id, image, "image.png")
+        """
+
+        def _is_pillow_image(image):
+            from PIL.Image import Image
+
+            return isinstance(image, Image)
+
+        def _is_numpy_array(image):
+            import numpy as np
+
+            return isinstance(image, np.ndarray)
+
+        def _normalize_to_uint8(x):
+            # Based on: https://github.com/matplotlib/matplotlib/blob/06567e021f21be046b6d6dcf00380c1cb9adaf3c/lib/matplotlib/image.py#L684  # noqa
+
+            is_int = np.issubdtype(x.dtype, np.integer)
+            low = 0
+            high = 255 if is_int else 1
+            if x.min() < low or x.max() > high:
+                msg = (
+                    "Out-of-range values are detected. "
+                    "Clipping array (dtype: '{}') to [{}, {}]".format(x.dtype, low, high)
+                )
+                _logger.warning(msg)
+                x = np.clip(x, low, high)
+
+            # float or bool
+            if not is_int:
+                x = x * 255
+
+            return x.astype(np.uint8)
+
+        with self._log_artifact_helper(run_id, artifact_file) as tmp_path:
+            if "PIL" in sys.modules and _is_pillow_image(image):
+                image.save(tmp_path)
+            elif "numpy" in sys.modules and _is_numpy_array(image):
+                import numpy as np
+
+                try:
+                    from PIL import Image
+                except ImportError as exc:
+                    raise ImportError(
+                        "`log_image` requires Pillow to serialize a numpy array as an image."
+                        "Please install it via: pip install Pillow"
+                    ) from exc
+
+                # Ref.: https://numpy.org/doc/stable/reference/generated/numpy.dtype.kind.html#numpy-dtype-kind  # noqa
+                valid_data_types = {
+                    "b": "bool",
+                    "i": "signed integer",
+                    "u": "unsigned integer",
+                    "f": "floating",
+                }
+
+                if image.dtype.kind not in valid_data_types.keys():
+                    raise TypeError(
+                        "Invalid array data type: '{}'. Must be one of {}".format(
+                            image.dtype, list(valid_data_types.values())
+                        )
+                    )
+
+                if image.ndim not in [2, 3]:
+                    raise ValueError(
+                        "`image` must be a 2D or 3D array but got a {}D array".format(image.ndim)
+                    )
+
+                if (image.ndim == 3) and (image.shape[2] not in [1, 3, 4]):
+                    raise ValueError(
+                        "Invalid channel length: {}. Must be one of [1, 3, 4]".format(
+                            image.shape[2]
+                        )
+                    )
+
+                # squeeze a 3D grayscale image since `Image.fromarray` doesn't accept it.
+                if image.ndim == 3 and image.shape[2] == 1:
+                    image = image[:, :, 0]
+
+                image = _normalize_to_uint8(image)
+
+                Image.fromarray(image).save(tmp_path)
+
+            else:
+                raise TypeError("Unsupported image object type: '{}'".format(type(image)))
+
     def _record_logged_model(self, run_id, mlflow_model):
         """
         Record logged model info with the tracking server.
@@ -1657,13 +1913,13 @@ class MlflowClient(object):
             # Create two runs Log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -1798,7 +2054,7 @@ class MlflowClient(object):
         self,
         name,
         source,
-        run_id,
+        run_id=None,
         tags=None,
         run_link=None,
         description=None,
@@ -1830,8 +2086,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
-
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
@@ -1862,7 +2117,13 @@ class MlflowClient(object):
         """
         tracking_uri = self._tracking_client.tracking_uri
         if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
-            run_link = self._get_run_link(tracking_uri, run_id)
+            if not run_id:
+                eprint(
+                    "Warning: no run_link will be recorded with the model version "
+                    "because no run_id was given"
+                )
+            else:
+                run_link = self._get_run_link(tracking_uri, run_id)
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
@@ -1943,7 +2204,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2013,7 +2274,7 @@ class MlflowClient(object):
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
             desc = "A new version of the model using ensemble trees"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2077,13 +2338,13 @@ class MlflowClient(object):
             # Create two runs and log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -2146,13 +2407,13 @@ class MlflowClient(object):
             # Create two runs Log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params)
+                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
                 mlflow.log_params(params)
                 mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -2201,7 +2462,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2283,7 +2544,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2333,7 +2594,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:
@@ -2391,7 +2652,7 @@ class MlflowClient(object):
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params)
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
 
             # Log MLflow entities
             with mlflow.start_run() as run:

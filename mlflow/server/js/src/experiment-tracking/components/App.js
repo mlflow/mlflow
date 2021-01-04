@@ -15,6 +15,7 @@ import { Switch } from 'react-router';
 import {
   modelListPageRoute,
   modelPageRoute,
+  modelSubpageRoute,
   modelVersionPageRoute,
   compareModelVersionsPageRoute,
 } from '../../model-registry/routes';
@@ -81,6 +82,7 @@ class App extends Component {
             <Switch>
               <Route exact path={Routes.rootRoute} component={HomePage} />
               <Route exact path={Routes.experimentPageRoute} component={HomePage} />
+              <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
               <Route exact path={Routes.runPageRoute} component={RunPage} />
               <Route exact path={Routes.metricPageRoute} component={MetricPage} />
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
@@ -89,6 +91,7 @@ class App extends Component {
               <Route exact path={modelListPageRoute} component={ModelListPage} />
               <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
               <Route exact path={modelPageRoute} component={ModelPage} />
+              <Route exact path={modelSubpageRoute} component={ModelPage} />
               <Route
                 exact
                 path={compareModelVersionsPageRoute}

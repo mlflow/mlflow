@@ -1,5 +1,5 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { shallow, mount } from 'enzyme';
 import { RegisterModelForm, CREATE_NEW_MODEL_OPTION_VALUE } from './RegisterModelForm';
 import { mockRegisteredModelDetailed } from '../test-utils';
 
@@ -42,5 +42,20 @@ describe('RegisterModelForm', () => {
     instance = wrapper.instance();
     instance.setState({ selectedModel: CREATE_NEW_MODEL_OPTION_VALUE });
     expect(wrapper.find('[label="Model Name"]').length).toBe(1);
+  });
+
+  test('should search registered model when user types model name', () => {
+    const modelByName = {
+      'Model A': mockRegisteredModelDetailed('Model A', []),
+    };
+    const onSearchRegisteredModels = jest.fn(() => Promise.resolve({}));
+    const props = {
+      ...minimalProps,
+      modelByName,
+      onSearchRegisteredModels,
+    };
+    wrapper = mount(<RegisterModelForm {...props} />);
+    wrapper.find('input#selectedModel').simulate('change', { target: { value: 'Model B' } });
+    expect(onSearchRegisteredModels.mock.calls.length).toBe(1);
   });
 });

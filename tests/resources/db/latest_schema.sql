@@ -44,7 +44,7 @@ CREATE TABLE model_versions (
 	user_id VARCHAR(256),
 	current_stage VARCHAR(20),
 	source VARCHAR(500),
-	run_id VARCHAR(32) NOT NULL,
+	run_id VARCHAR(32),
 	status VARCHAR(20),
 	status_message VARCHAR(500),
 	run_link VARCHAR(500),
@@ -104,7 +104,7 @@ CREATE TABLE metrics (
 	run_uuid VARCHAR(32) NOT NULL,
 	step BIGINT DEFAULT '0' NOT NULL,
 	is_nan BOOLEAN DEFAULT '0' NOT NULL,
-	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step, is_nan),
+	CONSTRAINT metric_pk PRIMARY KEY (key, timestamp, step, run_uuid, value, is_nan),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 

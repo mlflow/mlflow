@@ -486,6 +486,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd5.version, 5)
         self.assertEqual(mvd5.description, description)
 
+        # create model version without runId
+        mv6 = self._mv_maker(name, run_id=None)
+        mvd6 = self.store.get_model_version(name, mv6.version)
+        self.assertEqual(mv6.version, 6)
+        self.assertEqual(mv6.run_id, None)
+        self.assertEqual(mvd6.version, 6)
+        self.assertEqual(mvd6.run_id, None)
+
     def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
@@ -608,6 +616,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd2.current_stage, "Archived")
         self.assertEqual(mvd3.current_stage, "Production")
         self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
+
+        for uncanonical_stage_name in ["STAGING", "staging", "StAgInG"]:
+            self.store.transition_model_version_stage(mv1.name, mv1.version, "Staging", False)
+            self.store.transition_model_version_stage(mv2.name, mv2.version, "None", False)
+
+            # stage names are case-insensitive and auto-corrected to system stage names
+            self.store.transition_model_version_stage(
+                mv2.name, mv2.version, uncanonical_stage_name, True
+            )
+
+            mvd1 = self.store.get_model_version(name=mv1.name, version=mv1.version)
+            mvd2 = self.store.get_model_version(name=mv2.name, version=mv2.version)
+            self.assertEqual(mvd1.current_stage, "Archived")
+            self.assertEqual(mvd2.current_stage, "Staging")
 
     def test_delete_model_version(self):
         name = "test_for_delete_MV"

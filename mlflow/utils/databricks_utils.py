@@ -164,7 +164,7 @@ def get_job_type():
 
 
 def get_webapp_url():
-    """Should only be called if is_in_databricks_notebook is true"""
+    """Should only be called if is_in_databricks_notebook or is_in_databricks_jobs is true"""
     url = _get_property_from_spark_context("spark.databricks.api.url")
     if url is not None:
         return url
@@ -191,7 +191,8 @@ def get_browser_hostname():
 def get_workspace_info_from_dbutils():
     dbutils = _get_dbutils()
     if dbutils:
-        workspace_host = get_browser_hostname()
+        browser_hostname = get_browser_hostname()
+        workspace_host = "https://" + browser_hostname if browser_hostname else get_webapp_url()
         workspace_id = get_workspace_id()
         return workspace_host, workspace_id
     return None, None

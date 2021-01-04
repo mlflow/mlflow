@@ -5,9 +5,6 @@ import posixpath
 import requests
 import uuid
 
-from azure.core.exceptions import ClientAuthenticationError
-from azure.storage.blob import BlobClient
-
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -21,7 +18,11 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import relative_path_to_artifact_path, yield_file_in_chunks
+from mlflow.utils.file_utils import (
+    download_file_using_http_uri,
+    relative_path_to_artifact_path,
+    yield_file_in_chunks,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -151,6 +152,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         Finally, since the prevailing credentials could expire in the time between the last
         stage_block and the commit, a second try-except block refreshes credentials if needed.
         """
+        from azure.core.exceptions import ClientAuthenticationError
+        from azure.storage.blob import BlobClient
+
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
             service = BlobClient.from_blob_url(
@@ -233,13 +237,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
         try:
             signed_read_uri = cloud_credential.signed_uri
-            with requests.get(signed_read_uri, stream=True) as response:
-                response.raise_for_status()
-                with open(local_file_path, "wb") as output_file:
-                    for chunk in response.iter_content(chunk_size=_DOWNLOAD_CHUNK_SIZE):
-                        if not chunk:
-                            break
-                        output_file.write(chunk)
+            download_file_using_http_uri(signed_read_uri, local_file_path, _DOWNLOAD_CHUNK_SIZE)
         except Exception as err:
             raise MlflowException(err)
 

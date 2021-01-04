@@ -1,6 +1,65 @@
 version: 2.1
 
 jobs:
+  build_doc_r:
+    docker:
+      - image: ubuntu:16.04
+
+    steps:
+      - checkout
+      - run:
+          name: Install dev tools
+          command: |
+            apt-get update --yes
+            apt-get install sudo git wget curl software-properties-common apt-transport-https --yes
+
+      - run:
+          name: Install R
+          command: |
+            echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list
+            sudo add-apt-repository ppa:cran/libgit2 --yes
+            sudo apt-get update --yes
+            sudo apt-get install --yes --allow-unauthenticated \
+              r-base r-base-dev libssl-dev libcurl4-openssl-dev texlive-latex-base libxml2-dev libssh2-1-dev libgit2-dev
+
+      - run:
+          name: Install pandoc
+          command: |
+            # Install a recent version of pandoc
+            TEMP_DEB="$(mktemp)"
+            wget -O "$TEMP_DEB" 'https://github.com/jgm/pandoc/releases/download/2.7.2/pandoc-2.7.2-1-amd64.deb'
+            sudo dpkg -i "$TEMP_DEB"
+            rm -f "$TEMP_DEB"
+
+      - run:
+          name: Dump R dependencies
+          command: |
+            Rscript .circleci/dump-r-dependencies.R
+            ls .circleci
+
+      - restore_cache:
+          keys:
+            - r-cache-{{ checksum ".circleci/R-version" }}
+
+      - run:
+          name: Build documentation
+          working_directory: docs
+          command: |
+            ./build-rdoc.sh
+
+      - run:
+          name: Show diff
+          command: |
+            git --no-pager diff
+
+      - save_cache:
+          key: r-cache-{{ checksum ".circleci/R-version" }}-{{ checksum ".circleci/depends.Rds" }}
+          paths:
+            - /usr/local/lib/R/site-library
+
+      - store_artifacts:
+          path: docs/source/R-api.rst
+
   build_doc:
     docker:
       - image: circleci/python:3.6
@@ -10,20 +69,15 @@ jobs:
       - run:
           name: Install Java
           command: |
-            sudo apt-get update
-            sudo apt-get install default-jdk -y
-            sudo apt-get install maven -y
+            sudo apt-get update --yes
+            sudo apt-get install default-jdk --yes
+            sudo apt-get install maven --yes
             java -version
       - run:
           name: Install Python dependencies
-          environment:
-            INSTALL_SMALL_PYTHON_DEPS: true
-            INSTALL_LARGE_PYTHON_DEPS: true
           command: |
-            pip install --progress-bar off . \
-              -r ./dev/small-requirements.txt \
-              -r ./dev/large-requirements.txt \
-              sphinx==2.2.1 sphinx-click==2.3.0
+            pip --version
+            pip install --progress-bar off -r dev-requirements.txt .
       - run:
           name: Build documentation
           working_directory: docs
@@ -39,3 +93,4 @@ workflows:
   build:
     jobs:
       - build_doc
+      - build_doc_r

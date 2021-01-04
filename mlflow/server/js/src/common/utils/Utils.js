@@ -1,6 +1,7 @@
 import dateFormat from 'dateformat';
 import React from 'react';
 import notebookSvg from '../static/notebook.svg';
+import revisionSvg from '../static/revision.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
@@ -9,7 +10,7 @@ import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import { message } from 'antd';
 import _ from 'lodash';
-import { ErrorCodes } from '../constants';
+import { ErrorCodes, SupportPageUrl } from '../constants';
 
 message.config({
   maxCount: 1,
@@ -45,6 +46,7 @@ class Utils {
   static entryPointTag = 'mlflow.project.entryPoint';
   static backendTag = 'mlflow.project.backend';
   static userTag = 'mlflow.user';
+  static loggedModelsTag = 'mlflow.log-model.history';
 
   static formatMetric(value) {
     if (value === 0) {
@@ -154,6 +156,20 @@ class Utils {
     return path.replace(/(.*[^/])\.[^/.]+$/, '$1');
   }
 
+  /**
+   * Normalizes a URI, removing redundant slashes and trailing slashes
+   * For example, normalize("foo://bar///baz/") === "foo://bar/baz"
+   */
+  static normalize(uri) {
+    // Remove empty authority component (e.g., "foo:///" becomes "foo:/")
+    const withNormalizedAuthority = uri.replace(/[:]\/\/\/+/, ':/');
+    // Remove redundant slashes while ensuring that double slashes immediately following
+    // the scheme component are preserved
+    const withoutRedundantSlashes = withNormalizedAuthority.replace(/(^\/|[^:]\/)\/+/g, '$1');
+    const withoutTrailingSlash = withoutRedundantSlashes.replace(/\/$/, '');
+    return withoutTrailingSlash;
+  }
+
   static getGitHubRegex() {
     return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
@@ -246,8 +262,9 @@ class Utils {
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param tags Object containing tag key value pairs.
    * @param queryParams Query params to add to certain source type links.
+   * @param runUuid ID of the MLflow run to add to certain source (revision) links.
    */
-  static renderSource(tags, queryParams) {
+  static renderSource(tags, queryParams, runUuid) {
     const sourceName = Utils.getSourceName(tags);
     const sourceType = Utils.getSourceType(tags);
     let res = Utils.formatSource(tags);
@@ -269,6 +286,9 @@ class Utils {
         url += `#notebook/${notebookId}`;
         if (revisionId) {
           url += `/revision/${revisionId}`;
+          if (runUuid) {
+            url += `/mlflow/run/${runUuid}`;
+          }
         }
         res = (
           <a title={sourceName} href={url} target='_top'>
@@ -300,15 +320,27 @@ class Utils {
   /**
    * Returns an svg with some styling applied.
    */
-  static renderSourceTypeIcon(sourceType) {
+  static renderSourceTypeIcon(tags) {
     const imageStyle = {
       height: '20px',
       position: 'relative',
       top: '-3px',
       marginRight: '4px',
     };
+    const sourceType = this.getSourceType(tags);
     if (sourceType === 'NOTEBOOK') {
-      return <img alt='' title='Notebook' style={imageStyle} src={notebookSvg} />;
+      if (Utils.getNotebookRevisionId(tags)) {
+        return (
+          <img
+            alt=''
+            title='Notebook Revision'
+            style={{ ...imageStyle, top: '0px' }}
+            src={revisionSvg}
+          />
+        );
+      } else {
+        return <img alt='' title='Notebook' style={imageStyle} src={notebookSvg} />;
+      }
     } else if (sourceType === 'LOCAL') {
       return <img alt='' title='Local Source' style={imageStyle} src={laptopSvg} />;
     } else if (sourceType === 'PROJECT') {
@@ -557,6 +589,32 @@ class Utils {
     );
   }
 
+  static getLoggedModelsFromTags(tags) {
+    const modelsTag = tags[Utils.loggedModelsTag];
+    if (modelsTag) {
+      const models = JSON.parse(modelsTag.value);
+      if (models) {
+        // extract artifact path, flavors and creation time from tag.
+        // 'python_function' should be interpreted as pyfunc flavor
+        const filtered = models.map((model) => {
+          const removeFunc = Object.keys(_.omit(model.flavors, 'python_function'));
+          const flavors = removeFunc.length ? removeFunc : ['pyfunc'];
+          return {
+            artifact_path: model.artifact_path,
+            flavors: flavors,
+            utc_time_created: new Date(model.utc_time_created).getTime() / 1000,
+          };
+        });
+        // sort in descending order of creation time
+        const sorted = filtered.sort(
+          (a, b) => parseFloat(b.utc_time_created) - parseFloat(a.utc_time_created),
+        );
+        return _.uniqWith(sorted, (a, b) => a.artifact_path === b.artifact_path);
+      }
+    }
+    return [];
+  }
+
   static getAjaxUrl(relativeUrl) {
     if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true') {
       return '/' + relativeUrl;
@@ -626,6 +684,8 @@ class Utils {
 
     return aId.localeCompare(bId);
   }
+
+  static getSupportPageUrl = () => SupportPageUrl;
 }
 
 export default Utils;

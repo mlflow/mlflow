@@ -1,13 +1,7 @@
 # Dev/Deployment
-sphinx==2.2.1
-sphinx_rtd_theme==0.4.3
-sphinx-autobuild==0.7.1
-sphinx-click==2.3.1
-gitpython>=2.1.0
-nose
-codecov
-coverage
-pypi-publisher
+sphinx
+sphinx-autobuild
+sphinx-click
 scikit-learn
 scipy
 kubernetes

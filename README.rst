@@ -16,7 +16,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 * `MLflow Model Registry <https://mlflow.org/docs/latest/model-registry.html>`_: A centralized model store, set of APIs, and UI, to collaboratively manage the full lifecycle of MLflow Models.
 
-|docs| |labeling| |examples| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack|
+|docs| |labeling| |examples| |cross-version-tests| |pypi| |conda-forge| |cran| |maven| |license| |downloads| |slack|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
     :target: https://mlflow.org/docs/latest/index.html
@@ -26,6 +26,9 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :alt: Labeling Action Status
 .. |examples| image:: https://github.com/mlflow/mlflow/workflows/Examples/badge.svg?event=schedule
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
+    :alt: Examples Action Status
+.. |cross-version-tests| image:: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3A%22Cross+version+tests%22+event%3Aschedule
     :alt: Examples Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
     :target: https://pypi.org/project/mlflow/
