@@ -40,7 +40,7 @@ def try_mlflow_log(fn, *args, **kwargs):
     """
     try:
         return fn(*args, **kwargs)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         if _is_testing():
             raise
         else:
@@ -101,7 +101,7 @@ def _update_wrapper_extended(wrapper, wrapped):
     # One such example is the `tensorflow.estimator.Estimator.export_savedmodel()` function
     try:
         updated_wrapper.__signature__ = inspect.signature(wrapped)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         _logger.debug("Failed to restore original signature for wrapper around %s", wrapped)
     return updated_wrapper
 
@@ -175,7 +175,7 @@ def resolve_input_example_and_signature(
     if log_input_example or log_model_signature:
         try:
             input_example = get_input_example()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             input_example_failure_msg = str(e)
             input_example_user_msg = "Failed to gather input example: " + str(e)
 
@@ -188,7 +188,7 @@ def resolve_input_example_and_signature(
                     "could not sample data to infer model signature: " + input_example_failure_msg
                 )
             model_signature = infer_model_signature(input_example)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             model_signature_user_msg = "Failed to infer model signature: " + str(e)
 
     if log_input_example and input_example_user_msg is not None:
@@ -332,7 +332,7 @@ def autologging_integration(name):
         def autolog(*args, **kwargs):
             try:
                 AutologgingEventLogger.get_logger().log_autolog_called(name, args, kwargs)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 pass
 
             config_to_store = dict(default_params)
@@ -406,7 +406,7 @@ def exception_safe_function(function):
     def safe_function(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             if _is_testing():
                 raise
             else:
@@ -508,7 +508,7 @@ class PatchFunction:
     def __call__(self, original, *args, **kwargs):
         try:
             return self._patch_implementation(original, *args, **kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             try:
                 self._on_exception(e)
             finally:
@@ -946,7 +946,7 @@ def safe_patch(
         def try_log_autologging_event(log_fn, *args):
             try:
                 log_fn(*args)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 _logger.debug("Failed to log autologging event via '%s'. Exception: %s", log_fn, e)
 
         with _augment_mlflow_warnings(
@@ -993,7 +993,7 @@ def safe_patch(
                         )
 
                         return original_result
-                    except Exception as e:  # pylint: disable=broad-except
+                    except Exception as e:
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_original_function_error,
                             session,
@@ -1035,7 +1035,7 @@ def safe_patch(
                     args,
                     kwargs,
                 )
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 # Exceptions thrown during execution of the original function should be propagated
                 # to the caller. Additionally, exceptions encountered during test mode should be
                 # reraised to detect bugs in autologging implementations

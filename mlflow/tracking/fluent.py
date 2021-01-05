@@ -1318,7 +1318,7 @@ def autolog(
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
             return {k: v for k, v in locals_copy if k in needed_params}
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return {}
 
     def setup_autologging(module):
@@ -1327,7 +1327,7 @@ def autolog(
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
             _logger.info("Autologging successfully enabled for %s.", module.__name__)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
@@ -1356,7 +1356,7 @@ def autolog(
         #   of their session so we want to enable autologging once they do
         if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         if _is_testing():
             # Raise unexpected exceptions in test mode in order to detect
             # errors within dependent autologging integrations

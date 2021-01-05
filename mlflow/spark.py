@@ -326,7 +326,7 @@ class _HadoopFileSystem:
     def _try_file_exists(cls, dfs_path):
         try:
             return cls._fs().exists(dfs_path)
-        except Exception as ex:  # pylint: disable=broad-except
+        except Exception as ex:
             # Log a debug-level message, since existence checks may raise exceptions
             # in normal operating circumstances that do not warrant warnings
             _logger.debug(
@@ -348,7 +348,7 @@ class _HadoopFileSystem:
             if cls._try_file_exists(dfs_path):
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             _logger.info("URI '%s' does not point to the current DFS.", src_uri)
         _logger.info("File '%s' not found on DFS. Will attempt to upload the file.", src_uri)
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)

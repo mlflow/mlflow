@@ -202,7 +202,7 @@ class RestEndpoint:
                 print("connection attempt", i, "server is up! ping status", ping_status)
                 if ping_status.status_code == 200:
                     break
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 print("connection attempt", i, "failed, server is not up yet")
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")

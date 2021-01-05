@@ -68,7 +68,7 @@ def spark_context():
         try:
             spark = get_spark_session(conf)
             return spark.sparkContext
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(
