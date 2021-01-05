@@ -47,7 +47,6 @@ SKINNY_REQUIREMENTS = [
     "pyyaml",
     "protobuf>=3.6.0",
     "requests>=2.17.3",
-    "six>=1.10.0",
 ]
 
 """

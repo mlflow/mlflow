@@ -16,7 +16,6 @@ import json
 import logging
 import numpy as np
 import pandas as pd
-from six import reraise
 import sys
 import traceback
 
@@ -27,6 +26,7 @@ import traceback
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
+from mlflow.utils import reraise
 from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, _get_jsonable_obj
 
 try:

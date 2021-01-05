@@ -12,7 +12,6 @@ import logging
 import os
 import sys
 import traceback
-from six import reraise
 
 import mlflow
 from mlflow.models import Model
@@ -20,6 +19,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.utils import reraise
 from mlflow.utils.annotations import keyword_only
 
 FLAVOR_NAME = "mleap"
