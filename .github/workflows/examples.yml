@@ -7,6 +7,9 @@ on:
     # Run this action daily at 7:00 UTC
     - cron: "0 7 * * *"
 
+env:
+  CONDA_DIR: /usr/share/miniconda
+
 jobs:
   examples:
     runs-on: ubuntu-latest
@@ -32,18 +35,33 @@ jobs:
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
         echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
-    - name: Run example tests
+    - name: Increase available disk space
+      run: |
+        # Increase available disk space by removing unnecessary tool chains:
+        # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+        rm -rf "$AGENT_TOOLSDIRECTORY"
+
+    - name: Enable conda
+      run: |
+        echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+
+    - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
         INSTALL_SMALL_PYTHON_DEPS: true
         INSTALL_LARGE_PYTHON_DEPS: true
       run: |
         source ./dev/install-common-deps.sh
+
+    - name: Run example tests
+      if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+      run: |
         source activate test-environment
-        pytest --verbose tests/examples --durations=0 --large
+        pytest --verbose tests/examples --durations=30 --large
 
     - name: Remove conda environments
       run: |
+        conda remove --all --yes --name test-environment
         ./dev/remove-conda-envs.sh
 
     - name: Run docker tests

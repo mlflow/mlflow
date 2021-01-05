@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import (
+    _is_numeric,
     _validate_metric_name,
     _validate_param_name,
     _validate_tag_name,
@@ -41,6 +42,15 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "./",
     "/./",
 ]
+
+
+def test_is_numeric():
+    assert _is_numeric(0)
+    assert _is_numeric(0.0)
+    assert not _is_numeric(True)
+    assert not _is_numeric(False)
+    assert not _is_numeric("0")
+    assert not _is_numeric(None)
 
 
 def test_validate_metric_name():
@@ -122,6 +132,7 @@ def test_validate_batch_log_data():
         Metric("super-long-bad-key" * 1000, 4.0, 0, 0),
     ]
     metrics_with_bad_val = [Metric("good-metric-key", "not-a-double-val", 0, 0)]
+    metrics_with_bool_val = [Metric("good-metric-key", True, 0, 0)]
     metrics_with_bad_ts = [Metric("good-metric-key", 1.0, "not-a-timestamp", 0)]
     metrics_with_neg_ts = [Metric("good-metric-key", 1.0, -123, 0)]
     metrics_with_bad_step = [Metric("good-metric-key", 1.0, 0, "not-a-step")]
@@ -145,6 +156,7 @@ def test_validate_batch_log_data():
         "metrics": [
             metrics_with_bad_key,
             metrics_with_bad_val,
+            metrics_with_bool_val,
             metrics_with_bad_ts,
             metrics_with_neg_ts,
             metrics_with_bad_step,

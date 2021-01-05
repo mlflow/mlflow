@@ -575,10 +575,32 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
+
+    # can call predict with a df
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
+    assert isinstance(results_df, pandas.DataFrame)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_iris_model.expected_results_df, check_less_precise=1
     )
+
+    # can also call predict with a dict
+    inp_data = {}
+    for col_name in list(saved_tf_iris_model.inference_df):
+        inp_data[col_name] = saved_tf_iris_model.inference_df[col_name].values
+    results = pyfunc_wrapper.predict(inp_data)
+    assert isinstance(results, dict)
+    pandas.testing.assert_frame_equal(
+        pandas.DataFrame(data=results),
+        saved_tf_iris_model.expected_results_df,
+        check_less_precise=1,
+    )
+
+    # can not call predict with a list
+    inp_list = []
+    for df_col_name in list(saved_tf_iris_model.inference_df):
+        inp_list.append(saved_tf_iris_model.inference_df[df_col_name].values)
+    with pytest.raises(TypeError):
+        results = pyfunc_wrapper.predict(inp_list)
 
 
 @pytest.mark.large
@@ -593,10 +615,32 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
+
+    # can call predict with a df
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
+    assert isinstance(results_df, pandas.DataFrame)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6
     )
+
+    # can also call predict with a dict
+    inp_dict = {}
+    for df_col_name in list(saved_tf_categorical_model.inference_df):
+        inp_dict[df_col_name] = saved_tf_categorical_model.inference_df[df_col_name].values
+    results = pyfunc_wrapper.predict(inp_dict)
+    assert isinstance(results, dict)
+    pandas.testing.assert_frame_equal(
+        pandas.DataFrame.from_dict(data=results),
+        saved_tf_categorical_model.expected_results_df,
+        check_less_precise=6,
+    )
+
+    # can not call predict with a list
+    inp_list = []
+    for df_col_name in list(saved_tf_categorical_model.inference_df):
+        inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
+    with pytest.raises(TypeError):
+        results = pyfunc_wrapper.predict(inp_list)
 
 
 @pytest.mark.release

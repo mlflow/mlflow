@@ -142,7 +142,7 @@ by running the following from your checkout of MLflow:
     source activate mlflow-dev-env
     pip install -r dev-requirements.txt
     pip install -r test-requirements.txt
-    pip install -e .  # installs mlflow from current checkout
+    pip install -e .[extras]  # installs mlflow from current checkout
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 

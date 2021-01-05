@@ -124,6 +124,7 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
         trigger={['click']}
         visible={menuVisible}
         onVisibleChange={this.handleVisibleChange}
+        className='column-selection-dropdown'
       >
         <Button style={{ height: 34, display: 'flex', alignItems: 'center' }}>
           <Icon type='setting' style={{ marginTop: 2 }} />

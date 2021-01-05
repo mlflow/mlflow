@@ -104,7 +104,7 @@ describe('ModelView', () => {
         .find('td.model-version')
         .at(0)
         .text(),
-    ).toBe('Version 1');
+    ).toBe('Version 3');
     expect(
       wrapper
         .find('td.model-version')
@@ -116,7 +116,7 @@ describe('ModelView', () => {
         .find('td.model-version')
         .at(2)
         .text(),
-    ).toBe('Version 3');
+    ).toBe('Version 1');
   });
 
   test('should render model version table with activeStageOnly when "Active" button is on', () => {

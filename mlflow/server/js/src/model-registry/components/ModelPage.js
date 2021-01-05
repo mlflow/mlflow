@@ -146,7 +146,7 @@ export class ModelPageImpl extends React.Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { modelName } = ownProps.match.params;
+  const modelName = decodeURIComponent(ownProps.match.params.modelName);
   const model = state.entities.modelByName[modelName];
   const modelVersions = getModelVersions(state, modelName);
   const { apis } = state;

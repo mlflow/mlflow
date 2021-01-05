@@ -3,9 +3,14 @@ import React from 'react';
 import Utils from '../../common/utils/Utils';
 import { Link } from 'react-router-dom';
 import Routes from '../routes';
+import { getModelVersionPageURL } from '../../model-registry/routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import { CollapsibleTagsCell } from './CollapsibleTagsCell';
 import _ from 'lodash';
+import ExpandableList from '../../common/components/ExpandableList';
+import registryIcon from '../../common/static/registryIcon.svg';
+import { TrimmedText } from '../../common/components/TrimmedText';
+import { SEARCH_MAX_RESULTS } from '../actions';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -115,7 +120,7 @@ export default class ExperimentViewUtil {
         title: sourceType,
         children: (
           <div className='truncate-text single-line' style={ExperimentViewUtil.styles.runInfoCell}>
-            {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+            {Utils.renderSourceTypeIcon(tags)}
             {sourceType}
           </div>
         ),
@@ -180,6 +185,7 @@ export default class ExperimentViewUtil {
     RUN_NAME: 'Run Name',
     SOURCE: 'Source',
     VERSION: 'Version',
+    MODELS: 'Models',
   };
 
   /**
@@ -244,6 +250,11 @@ export default class ExperimentViewUtil {
       {
         key: 'tags',
         displayName: 'Tags',
+        canonicalSortKey: null,
+      },
+      {
+        key: 'linked-models',
+        displayName: 'Linked Models',
         canonicalSortKey: null,
       },
     ]
@@ -317,6 +328,44 @@ export default class ExperimentViewUtil {
     }
   }
 
+  static renderLinkedModelCell(modelVersion) {
+    const { name, version } = modelVersion;
+    return (
+      <div className='version-link'>
+        <img src={registryIcon} alt='MLflow Model Registry Icon' />
+        <span className='model-link-text'>
+          <a
+            href={getModelVersionPageURL(name, version)}
+            className='model-version-link'
+            title={`${name}, v${version}`}
+            style={{ verticalAlign: 'middle' }}
+            target='_blank'
+          >
+            <TrimmedText text={name} maxSize={10} className={'model-name'} />
+            <span>/{version}&nbsp;</span>
+          </a>
+        </span>
+      </div>
+    );
+  }
+
+  static getLinkedModelCell(associatedModelVersions, handleCellToggle) {
+    const className = 'left-border run-table-container';
+    if (associatedModelVersions && associatedModelVersions.length > 0) {
+      return (
+        <div className={className} key='linked=models'>
+          <ExpandableList
+            children={associatedModelVersions.map((version) => this.renderLinkedModelCell(version))}
+            showLines={1}
+            onToggle={handleCellToggle}
+          />
+        </div>
+      );
+    } else {
+      return null;
+    }
+  }
+
   static computeMetricRanges(metricsByRun) {
     const ret = {};
     metricsByRun.forEach((metrics) => {
@@ -384,7 +433,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
+  static getNestedRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -453,6 +502,19 @@ export default class ExperimentViewUtil {
     return mergedRows.slice(0);
   }
 
+  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded, nestChildren }) {
+    if (nestChildren) {
+      return this.getNestedRowRenderMetadata({ runInfos, tagsList, runsExpanded });
+    } else {
+      return [...Array(runInfos.length).keys()].map((idx) => ({
+        idx,
+        isParent: true,
+        hasExpander: false,
+        runId: runInfos[idx].run_uuid,
+      }));
+    }
+  }
+
   static getRows({ runInfos, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
@@ -471,6 +533,14 @@ export default class ExperimentViewUtil {
         </tr>
       );
     });
+  }
+
+  static disableLoadMoreButton({ numRunsFromLatestSearch }) {
+    if (numRunsFromLatestSearch === null) {
+      // numRunsFromLatestSearch is null by default, so we should not disable the button
+      return false;
+    }
+    return numRunsFromLatestSearch < SEARCH_MAX_RESULTS;
   }
 }
 
