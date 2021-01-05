@@ -395,6 +395,7 @@ def autolog(
                         metrics_logger.record_metrics(evaluation_result_dict, epoch)
                         eval_results.append(evaluation_result_dict)
 
+                        # Return `False` to indicate training should not stop
                         return False
 
                 return Callback()
