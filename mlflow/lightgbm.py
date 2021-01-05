@@ -346,7 +346,7 @@ def autolog(
                 input_example_info = _InputExampleInfo(
                     input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
                 )
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 input_example_info = _InputExampleInfo(error_msg=str(e))
 
             setattr(self, "input_example_info", input_example_info)
@@ -468,7 +468,7 @@ def autolog(
             importance = model.feature_importance(importance_type=imp_type)
             try:
                 log_feature_importance_plot(features, importance, imp_type)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _logger.exception(
                     "Failed to log feature importance plot. LightGBM autologging "
                     "will ignore the failure and continue. Exception: "

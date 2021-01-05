@@ -75,7 +75,7 @@ def resolve_tags(tags=None):
         try:
             if provider.in_context():
                 all_tags.update(provider.tags())
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             _logger.warning("Encountered unexpected error during resolving tags: %s", e)
 
     if tags is not None:
