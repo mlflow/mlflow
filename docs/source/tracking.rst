@@ -616,6 +616,31 @@ Use ``--backend-store-uri`` to configure the type of backend store. You specify:
   MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
   Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver. For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
 
+Connection String Factory
+^^^^^^^^^^^^^^^^^^^^^^^^^
+A python function can also be used generate a backend store connection string. This can be useful, for example, in situations where secrets exist in the connection string, and exposing them
+on the command line is not desirable. The command line connection string takes the format ``pycallback://{target_package}/{module}:{function_name}[?{options...}]`` where:
+
+- **target_package:** optional; name of python package where module and factory function reside
+- **module:** required; name of the python module containing the factory function
+- **function_name:** optional; name of the factory function (default: ``get_db_url``)
+- **options:** optional; a query string (``&`` separated pairs, each pair is ``=`` separated. These are parsed into a ``dict`` and passed into the factory function as ``kwargs``
+
+The function should return a valid database URI connection string, as previously described
+
+**Example Connection Strings:**
+- ``pycallback://my_module`` - attempts to invoke ``my_module.py:get_db_url`` function with no ``kwargs``
+- ``pycallback://my_package/my_module:my_connection_factory?user=mlflow&secret_location=/somewhere/safe/passwd_file&host=192.168.1.10`` - attempts to invoke
+``my_package.my_module.py:my_connection_factory`` with ``kwargs``: ``{'user': 'mlflow', 'secret_location': '/secrets/passwd_file', 'host': '192.168.1.10'}``
+
+**Example Factory Function (pseudo-code):**
+
+.. code-block:: python
+
+    def get_db_url(**kwargs):
+        secret = load_secret_from(kwargs['secret_location']
+        # ...
+        return 'mysql://{user}:{passwd}@....'.format(user=kwargs['user'], passwd=secret, ...)
 
 .. important::
 
