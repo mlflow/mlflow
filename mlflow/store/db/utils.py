@@ -190,20 +190,23 @@ def _upgrade_db_initialized_before_mlflow_1(engine):
 
 
 def resolve_backend_store_uri(backend_store_uri: str):
-    callback_prefix = ''.join([MLFLOW_DBURI_PYTHON_CALLBACK_SCHEME, '://'])
+    callback_prefix = "".join([MLFLOW_DBURI_PYTHON_CALLBACK_SCHEME, "://"])
 
     if not backend_store_uri or not backend_store_uri.startswith(callback_prefix):
         return backend_store_uri
 
     # Format: pycallback://{module-name}[:{functionName}][{?optKey1=optVal1[&optKey2=optVal2...]}]
     # options (if any) are passed as kwargs to callback
-    module = backend_store_uri[len(callback_prefix):]
+    module = backend_store_uri[len(callback_prefix) :]
     parts = module.split("?", 1)
 
     if len(parts) == 1:
         extra_args = {}
     else:
-        module, extra_args = parts[0], {e[0]: e[1] for e in (p.split("=", 1) for p in parts[1].split("&"))}
+        module, extra_args = (
+            parts[0],
+            {e[0]: e[1] for e in (p.split("=", 1) for p in parts[1].split("&"))},
+        )
 
     parts = module.split(":", 1)
     if len(parts) == 1:
@@ -211,7 +214,7 @@ def resolve_backend_store_uri(backend_store_uri: str):
     else:
         module, f_name = parts[0], parts[1]
 
-    module = module.replace('/', '.')
+    module = module.replace("/", ".")
 
     mod = importlib.import_module(module)
     conn_str_factory = getattr(mod, f_name)
