@@ -18,15 +18,15 @@ module.exports = ({ core, context }) => {
   ];
 
   // Extract selected release-note categories from the PR description
-  const regexp = /^- \[(.*?)\] ?`(.+?)`/gm;
+  const regexp = /^- \[(?<selected>.*?)\] ?`(?<category>.+?)`/gm;
   const selectedCategories = [];
   let match = regexp.exec(body);
   while (match != null) {
-    const selected = match[1].trim().toLocaleLowerCase() === "x";
-    const name = match[2].trim();
+    const selected = match.groups.selected.trim().toLocaleLowerCase() === "x";
+    const category = match.groups.category.trim();
 
-    if (categories.includes(name) && selected) {
-      selectedCategories.push(name);
+    if (categories.includes(category) && selected) {
+      selectedCategories.push(category);
     }
     match = regexp.exec(body);
   }
