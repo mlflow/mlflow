@@ -129,7 +129,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         file_store = FileStore(self.test_root)
         try:
             file_store._check_root_dir()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             self.fail("test_valid_root raised exception '%s'" % e.message)
 
         # Test removing root

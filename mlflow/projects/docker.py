@@ -76,7 +76,7 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id):
         )
     try:
         os.remove(build_ctx_path)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(run_id, MLFLOW_DOCKER_IMAGE_URI, image_uri)
     tracking.MlflowClient().set_tag(run_id, MLFLOW_DOCKER_IMAGE_ID, image.id)

@@ -273,7 +273,7 @@ def ui(backend_store_uri, default_artifact_root, port, host):
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
@@ -384,7 +384,7 @@ def server(
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
