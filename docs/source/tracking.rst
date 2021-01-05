@@ -626,7 +626,7 @@ on the command line is not desirable. The command line connection string takes t
 - **function_name:** optional; name of the factory function (default: ``get_db_url``)
 - **options:** optional; a query string (``&`` separated pairs, each pair is ``=`` separated. These are parsed into a ``dict`` and passed into the factory function as ``kwargs``
 
-The function should return a valid database URI connection string, as previously described
+The function should return a valid SQLAlchemy database URI connection string, as previously described
 
 **Example Connection Strings:**
 - ``pycallback://my_module`` - attempts to invoke ``my_module.py:get_db_url`` function with no ``kwargs``
