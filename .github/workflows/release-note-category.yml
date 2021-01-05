@@ -1,4 +1,4 @@
-# A workflow to validate only one release-note category is selected
+# A workflow to validate at least one release-note category is selected
 
 name: Release-note category
 

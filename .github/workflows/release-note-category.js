@@ -1,10 +1,10 @@
 module.exports = ({ core, context }) => {
   const { body, user, html_url } = context.payload.pull_request;
 
-  // Skip validation on pull requests created by the mlflow-automation bot
+  // Skip validation on pull requests created by the automation bot
   if (user.login === "mlflow-automation") {
     console.log(
-      "Skipping validation since this pull request was created by the mlflow-automation bot"
+      "Skipping validation since this pull request was created by the automation bot"
     );
     return;
   }
@@ -45,11 +45,7 @@ module.exports = ({ core, context }) => {
   const numSelected = selectedCategories.length;
   if (numSelected === 0) {
     core.setFailed(
-      "No release-note category is selected. Please select one: " + anchorUrl
-    );
-  } else if (numSelected > 1) {
-    core.setFailed(
-      "Multiple release-note categories are selected. Please select one: " + anchorUrl
+      "At least one release-note category must be selected: " + anchorUrl
     );
   }
 };
