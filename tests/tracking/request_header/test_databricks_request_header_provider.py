@@ -1,17 +1,37 @@
 import pytest
+import itertools
 from unittest import mock
 
 from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,
 )
 
-
-def test_databricks_cluster_run_context_in_context():
-    with mock.patch("mlflow.utils.databricks_utils.is_in_cluster") as in_cluster_mock:
-        assert DatabricksRequestHeaderProvider().in_context() == in_cluster_mock.return_value
+bool_values = [True, False]
 
 
-@pytest.mark.parametrize("is_in_databricks_notebook", [True, False])
+@pytest.mark.parametrize(
+    "is_in_databricks_notebook,is_in_databricks_job,is_in_cluster",
+    itertools.product(bool_values, bool_values, bool_values),
+)
+def test_databricks_cluster_run_context_in_context(
+    is_in_databricks_notebook, is_in_databricks_job, is_in_cluster
+):
+    with mock.patch(
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook",
+        return_value=is_in_databricks_notebook,
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster
+    ):
+        assert (
+            DatabricksRequestHeaderProvider().in_context() == is_in_databricks_notebook
+            or is_in_databricks_job
+            or is_in_cluster
+        )
+
+
+@pytest.mark.parametrize("is_in_databricks_notebook", bool_values)
 def test_notebook_request_headers(is_in_databricks_notebook):
     with mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_notebook",
@@ -25,7 +45,7 @@ def test_notebook_request_headers(is_in_databricks_notebook):
             assert "notebook_id" not in request_headers
 
 
-@pytest.mark.parametrize("is_in_databricks_job", [True, False])
+@pytest.mark.parametrize("is_in_databricks_job", bool_values)
 def test_job_request_headers(is_in_databricks_job):
     with mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=is_in_databricks_job
@@ -46,7 +66,7 @@ def test_job_request_headers(is_in_databricks_job):
             assert "job_type" not in request_headers
 
 
-@pytest.mark.parametrize("is_in_cluster", [True, False])
+@pytest.mark.parametrize("is_in_cluster", bool_values)
 def test_cluster_request_headers(is_in_cluster):
     with mock.patch(
         "mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster,

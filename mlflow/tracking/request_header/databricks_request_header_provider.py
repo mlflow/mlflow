@@ -4,7 +4,11 @@ from mlflow.utils import databricks_utils
 
 class DatabricksRequestHeaderProvider(RequestHeaderProvider):
     def in_context(self):
-        return databricks_utils.is_in_cluster()
+        return (
+            databricks_utils.is_in_cluster()
+            or databricks_utils.is_in_databricks_notebook()
+            or databricks_utils.is_in_databricks_job()
+        )
 
     def request_headers(self):
         request_headers = {}
