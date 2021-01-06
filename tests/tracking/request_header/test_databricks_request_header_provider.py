@@ -55,7 +55,7 @@ def test_job_request_headers(is_in_databricks_job):
 
 
 @pytest.mark.parametrize("is_in_cluster", [True, False])
-def test_notebook_request_headers(is_in_cluster):
+def test_cluster_request_headers(is_in_cluster):
     with mock.patch(
         "mlflow.utils.databricks_utils.is_in_cluster", return_value=is_in_cluster,
     ), mock.patch("mlflow.utils.databricks_utils.get_cluster_id") as cluster_id_mock:
