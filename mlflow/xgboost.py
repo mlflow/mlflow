@@ -386,7 +386,8 @@ def autolog(
                         """
                         Run after each iteration. Return True when training should stop.
                         """
-                        # `evals_log` is a nested dict that looks like this:
+                        # `evals_log` is a nested dict (type: Dict[str, Dict[str, List[float]]])
+                        # that looks like this:
                         # {
                         #   "train": {
                         #     "auc": [0.5, 0.6, 0.7, ...],
