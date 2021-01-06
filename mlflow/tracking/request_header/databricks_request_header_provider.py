@@ -9,7 +9,6 @@ class DatabricksRequestHeaderProvider(RequestHeaderProvider):
     def request_headers(self):
         request_headers = {}
         if databricks_utils.is_in_databricks_notebook():
-            print("hello")
             request_headers["notebook_id"] = databricks_utils.get_notebook_id()
         if databricks_utils.is_in_databricks_job():
             request_headers["job_id"] = databricks_utils.get_job_id()
