@@ -7,15 +7,16 @@ import uuid
 from py4j.java_gateway import CallbackServerParameters
 
 from pyspark import SparkContext
-from pyspark.sql import SparkSession
-from mlflow.utils._spark_utils import _get_active_spark_session
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
-from mlflow.utils import gorilla
-from mlflow.utils.autologging_utils import wrap_patch
+from mlflow.utils.autologging_utils import (
+    autologging_is_disabled,
+    ExceptionSafeClass,
+)
+from mlflow.spark import FLAVOR_NAME
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
@@ -115,16 +116,16 @@ def _listen_for_spark_activity(spark_context):
     )
     callback_server_started = gw.start_callback_server(callback_server_params)
 
-    event_publisher = _get_jvm_event_publisher()
     try:
+        event_publisher = _get_jvm_event_publisher()
         event_publisher.init(1)
         _spark_table_info_listener = PythonSubscriber()
-        _spark_table_info_listener.register()
+        event_publisher.register(_spark_table_info_listener)
     except Exception as e:
         if callback_server_started:
             try:
                 gw.shutdown_callback_server()
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 _logger.warning(
                     "Failed to shut down Spark callback server for autologging: %s", str(e)
                 )
@@ -147,23 +148,6 @@ def _listen_for_spark_activity(spark_context):
     _logger.info("Autologging successfully enabled for spark.")
 
 
-def autolog():
-    def __init__(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(SparkSession, "__init__")
-        original(self, *args, **kwargs)
-
-        _listen_for_spark_activity(self._sc)
-
-    wrap_patch(SparkSession, "__init__", __init__)
-
-    active_session = _get_active_spark_session()
-    if active_session is not None:
-        # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
-
-        _listen_for_spark_activity(sc)
-
-
 def _get_repl_id():
     """
     Get a unique REPL ID for a PythonSubscriber instance. This is used to distinguish between
@@ -179,7 +163,7 @@ def _get_repl_id():
     return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
-class PythonSubscriber(object):
+class PythonSubscriber(object, metaclass=ExceptionSafeClass):
     """
     Subscriber, intended to be instantiated once per Python process, that logs Spark table
     information propagated from Java to the current MLflow run, starting a run if necessary.
@@ -205,7 +189,7 @@ class PythonSubscriber(object):
     def notify(self, path, version, data_format):
         try:
             self._notify(path, version, data_format)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             _logger.error(
                 "Unexpected exception %s while attempting to log Spark datasource "
                 "info. Exception:\n",
@@ -217,6 +201,8 @@ class PythonSubscriber(object):
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
+        if autologging_is_disabled(FLAVOR_NAME):
+            return
         # If there's an active run, simply set the tag on it
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
@@ -226,10 +212,6 @@ class PythonSubscriber(object):
             _set_run_tag_async(active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)
-
-    def register(self):
-        event_publisher = _get_jvm_event_publisher()
-        event_publisher.register(self)
 
     def replId(self):
         return self._repl_id
@@ -248,6 +230,9 @@ class SparkAutologgingContext(RunContextProvider):
         return True
 
     def tags(self):
+        # if autologging is disabled, then short circuit `tags()` and return empty dict.
+        if autologging_is_disabled(FLAVOR_NAME):
+            return {}
         with _lock:
             global _table_infos
             seen = set()

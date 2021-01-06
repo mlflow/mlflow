@@ -28,6 +28,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -55,16 +56,12 @@ def get_default_conda_env(include_cloudpickle=False):
     """
     import sklearn
 
-    pip_deps = None
+    pip_deps = ["scikit-learn=={}".format(sklearn.__version__)]
     if include_cloudpickle:
         import cloudpickle
 
-        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
-    return _mlflow_conda_env(
-        additional_conda_deps=["scikit-learn={}".format(sklearn.__version__)],
-        additional_pip_deps=pip_deps,
-        additional_conda_channels=None,
-    )
+        pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
+    return _mlflow_conda_env(additional_pip_deps=pip_deps, additional_conda_channels=None)
 
 
 def save_model(
@@ -533,7 +530,11 @@ class _SklearnTrainingSession(object):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -714,8 +715,11 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
+                    enables the scikit-learn autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import pandas as pd
     import sklearn
@@ -809,7 +813,7 @@ def autolog(
             try:
                 score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
                 training_score = estimator.score(*score_args)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 msg = (
                     estimator.score.__qualname__
                     + " failed. The 'training_score' metric will not be recorded. Scoring error: "
@@ -883,13 +887,14 @@ def autolog(
                 try:
                     # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
                     # information is consistent with the parent run
-                    environment_tags = context_registry.resolve_tags()
+                    child_tags = context_registry.resolve_tags()
+                    child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
                     _create_child_runs_for_parameter_search(
                         cv_estimator=estimator,
                         parent_run=mlflow.active_run(),
-                        child_tags=environment_tags,
+                        child_tags=child_tags,
                     )
-                except Exception as e:  # pylint: disable=broad-except
+                except Exception as e:
 
                     msg = (
                         "Encountered exception during creation of child runs for parameter search."
@@ -902,7 +907,7 @@ def autolog(
                     _log_parameter_search_results_as_artifact(
                         cv_results_df, mlflow.active_run().info.run_id
                     )
-                except Exception as e:  # pylint: disable=broad-except
+                except Exception as e:
 
                     msg = (
                         "Failed to log parameter search results as an artifact."

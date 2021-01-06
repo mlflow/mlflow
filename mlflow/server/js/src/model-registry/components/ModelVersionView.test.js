@@ -31,8 +31,6 @@ describe('ModelVersionView', () => {
         ModelVersionStatus.READY,
       ),
       handleStageTransitionDropdownSelect: jest.fn(),
-      handlePendingRequestTransition: jest.fn(),
-      handlePendingRequestDeletion: jest.fn(),
       deleteModelVersionApi: jest.fn(() => Promise.resolve()),
       handleEditDescription: jest.fn(() => Promise.resolve()),
       setModelVersionTagApi: jest.fn(),

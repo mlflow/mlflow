@@ -662,7 +662,7 @@ class SqlAlchemyStore(AbstractStore):
                 conditions = [
                     SqlModelVersion.name == name,
                     SqlModelVersion.version != version,
-                    SqlModelVersion.current_stage == stage,
+                    SqlModelVersion.current_stage == get_canonical_stage(stage),
                 ]
                 model_versions = session.query(SqlModelVersion).filter(*conditions).all()
                 for mv in model_versions:

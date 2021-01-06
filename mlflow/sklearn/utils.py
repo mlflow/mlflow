@@ -133,7 +133,7 @@ def _get_metrics_value_dict(metrics_list):
     for metric in metrics_list:
         try:
             metric_value = metric.function(**metric.arguments)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             _log_warning_for_metrics(metric.name, metric.function, e)
         else:
             metric_value_dict[metric.name] = metric_value
@@ -460,7 +460,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
 
         elif sklearn.base.is_regressor(fitted_estimator):
             name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
-    except Exception as err:  # pylint: disable=broad-except
+    except Exception as err:
         msg = (
             "Failed to autolog metrics for "
             + fitted_estimator.__class__.__name__
@@ -482,7 +482,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
     if sklearn.base.is_classifier(fitted_estimator):
         try:
             artifacts = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             msg = (
                 "Failed to autolog artifacts for "
                 + fitted_estimator.__class__.__name__
@@ -502,7 +502,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
                     import matplotlib.pyplot as plt
 
                     plt.close(display.figure_)
-                except Exception as e:  # pylint: disable=broad-except
+                except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
             try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
@@ -771,7 +771,9 @@ def _backported_all_estimators(type_filter=None):
     import sklearn
     from importlib import import_module
     from operator import itemgetter
-    from sklearn.utils.testing import ignore_warnings  # pylint: disable=no-name-in-module
+
+    # pylint: disable=no-name-in-module, import-error
+    from sklearn.utils.testing import ignore_warnings
     from sklearn.base import (
         BaseEstimator,
         ClassifierMixin,

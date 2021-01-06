@@ -410,8 +410,8 @@ def deploy(
 
             _logger.info(
                 "Registered an Azure Model with name: `%s` and version: `%s`",
-                registered_model.name,
-                registered_model.version,
+                mlflow_model.name,
+                azure_model_id,
             )
 
         # Attempt to retrieve an AzureML Model object which we intend to deploy
@@ -419,7 +419,7 @@ def deploy(
             try:
                 registered_model = AzureModel(workspace, id=azure_model_id)
                 _logger.info("Found registered model in AzureML with ID '%s'", azure_model_id)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 _logger.info(
                     "Unable to find model in AzureML with ID '%s', will register the model.\n"
                     "Exception was: %s",

@@ -291,6 +291,7 @@ def autolog(
     log_model_signatures=True,
     log_models=True,
     disable=False,
+    exclusive=False,
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -322,8 +323,11 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the XGBoost autologging integration. If ``False``,
+                    enables the XGBoost autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import xgboost
     import numpy as np
@@ -348,7 +352,7 @@ def autolog(
                 input_example_info = _InputExampleInfo(
                     input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
                 )
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 input_example_info = _InputExampleInfo(error_msg=str(e))
 
             setattr(self, "input_example_info", input_example_info)
@@ -464,7 +468,7 @@ def autolog(
                 imp = model.get_score(importance_type=imp_type)
                 features, importance = zip(*imp.items())
                 log_feature_importance_plot(features, importance, imp_type)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _logger.exception(
                     "Failed to log feature importance plot. XGBoost autologging "
                     "will ignore the failure and continue. Exception: "

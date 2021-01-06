@@ -450,16 +450,23 @@ class _KerasModelWrapper:
         self._graph = graph
         self._sess = sess
 
-    def predict(self, dataframe):
+    def predict(self, data):
+        def _predict(data):
+            if isinstance(data, pd.DataFrame):
+                predicted = pd.DataFrame(self.keras_model.predict(data.values))
+                predicted.index = data.index
+            else:
+                predicted = self.keras_model.predict(data)
+            return predicted
+
         # In TensorFlow < 2.0, we use a graph and session to predict
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
-                    predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
+                    predicted = _predict(data)
         # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
-            predicted = pd.DataFrame(self.keras_model.predict(dataframe.values))
-        predicted.index = dataframe.index
+            predicted = _predict(data)
         return predicted
 
 
@@ -563,7 +570,7 @@ def load_model(model_uri, **kwargs):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
+def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables (or disables) and configures autologging from Keras to MLflow. Autologging captures
@@ -614,8 +621,11 @@ def autolog(log_models=True, disable=False):  # pylint: disable=unused-argument
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
-                    enables all supported autologging integrations.
+    :param disable: If ``True``, disables the Keras autologging integration. If ``False``,
+                    enables the Keras autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
     import keras
 

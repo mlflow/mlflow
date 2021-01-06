@@ -1,5 +1,68 @@
 Changelog
 =========
+1.13.1 (2020-12-30)
+-----------------
+MLflow 1.13.1 is a patch release containing bug fixes and small changes:
+
+- Fix bug causing Spark autologging to ignore configuration options specified by ``mlflow.autolog()`` (#3917, @dbczumar)
+- Fix bugs causing metrics to be dropped during TensorFlow autologging (#3913, #3914, @dbczumar)
+- Fix incorrect value of optimizer name parameter in autologging PyTorch Lightning (#3901, @harupy)
+- Fix model registry database ``allow_null_for_run_id`` migration failure affecting MySQL databases (#3836, @t-henri)
+- Fix failure in ``transition_model_version_stage`` when uncanonical stage name is passed (#3929, @harupy)
+- Fix an undefined variable error causing AzureML model deployment to fail (#3922, @eedeleon)
+- Reclassify scikit-learn as a pip dependency in MLflow Model conda environments (#3896, @harupy)
+- Fix experiment view crash and artifact view inconsistency caused by artifact URIs with redundant slashes (#3928, @dbczumar)
+
+1.13 (2020-12-22)
+-----------------
+MLflow 1.13 includes several major features and improvements:
+
+Features:
+
+New fluent APIs for logging in-memory objects as artifacts:
+
+- Add ``mlflow.log_text`` which logs text as an artifact (#3678, @harupy)
+- Add ``mlflow.log_dict`` which logs a dictionary as an artifact (#3685, @harupy)
+- Add ``mlflow.log_figure`` which logs a figure object as an artifact (#3707, @harupy)
+- Add ``mlflow.log_image`` which logs an image object as an artifact (#3728, @harupy)
+
+UI updates / fixes (#3867, @smurching):
+
+- Add model version link in compact experiment table view
+- Add logged/registered model links in experiment runs page view
+- Enhance artifact viewer for MLflow models
+- Model registry UI settings are now persisted across browser sessions
+- Add model version ``description`` field to model version table
+
+Autologging enhancements:
+
+- Improve robustness of autologging integrations to exceptions (#3682, #3815, dbczumar; #3860, @mohamad-arabi; #3854, #3855, #3861, @harupy)
+- Add ``disable`` configuration option for autologging (#3682, #3815, dbczumar; #3838, @mohamad-arabi; #3854, #3855, #3861, @harupy)
+- Add ``exclusive`` configuration option for autologging (#3851, @apurva-koti; #3869, @dbczumar)
+- Add ``log_models`` configuration option for autologging (#3663, @mohamad-arabi)
+- Set tags on autologged runs for easy identification (and add tags to start_run) (#3847, @dbczumar)
+
+More features and improvements:
+
+- Allow Keras models to be saved with ``SavedModel`` format (#3552, @skylarbpayne)
+- Add support for ``statsmodels`` flavor (#3304, @olbapjose)
+- Add support for nested-run in mlflow R client (#3765, @yitao-li)
+- Deploying a model using ``mlflow.azureml.deploy`` now integrates better with the AzureML tracking/registry. (#3419, @trangevi)
+- Update schema enforcement to handle integers with missing values (#3798, @tomasatdatabricks)
+
+Bug fixes and documentation updates:
+
+- When running an MLflow Project on Databricks, the version of MLflow installed on the Databricks cluster will now match the version used to run the Project (#3880, @FlorisHoogenboom)
+- Fix bug where metrics are not logged for single-epoch ``tf.keras`` training sessions (#3853, @dbczumar)
+- Reject boolean types when logging MLflow metrics (#3822, @HCoban)
+- Fix alignment of Keras / ``tf.Keras`` metric history entries when ``initial_epoch`` is different from zero. (#3575, @garciparedes)
+- Fix bugs in autologging integrations for newer versions of TensorFlow and Keras (#3735, @dbczumar)
+- Drop global ``filterwwarnings`` module at import time (#3621, @jogo)
+- Fix bug that caused preexisting Python loggers to be disabled when using MLflow with the SQLAlchemyStore (#3653, @arthury1n)
+- Fix ``h5py`` library incompatibility for exported Keras models (#3667, @tomasatdatabricks)
+
+Small changes, bug fixes and doc updates (#3887, #3882, #3845, #3833, #3830, #3828, #3826, #3825, #3800, #3809, #3807, #3786, #3794, #3731, #3776, #3760, #3771, #3754, #3750, #3749, #3747, #3736, #3701, #3699, #3698, #3658, #3675, @harupy; #3723, @mohamad-arabi; #3650, #3655, @shrinath-suresh; #3850, #3753, #3725, @dmatrix; ##3867, #3670, #3664, @smurching; #3681, @sueann; #3619, @andrewnitu; #3837, @javierluraschi; #3721, @szczeles; #3653, @arthury1n; #3883, #3874, #3870, #3877, #3878, #3815, #3859, #3844, #3703, @dbczumar; #3768, @wentinghu; #3784, @HCoban; #3643, #3649, @arjundc-db; #3864, @AveshCSingh, #3756, @yitao-li)
+
 1.12.1 (2020-11-19)
 -------------------
 MLflow 1.12.1 is a patch release containing bug fixes and small changes:

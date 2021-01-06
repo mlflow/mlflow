@@ -15,10 +15,7 @@ import mlflow.projects as projects
 import mlflow.runs
 import mlflow.sagemaker.cli
 import mlflow.store.artifact.cli
-import mlflow.store.db.utils
 from mlflow import tracking
-from mlflow.server import _run_server
-from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
@@ -261,6 +258,8 @@ def ui(backend_store_uri, default_artifact_root, port, host):
     need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
     address).
     """
+    from mlflow.server import _run_server
+    from mlflow.server.handlers import initialize_backend_stores
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -274,7 +273,7 @@ def ui(backend_store_uri, default_artifact_root, port, host):
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
@@ -364,6 +363,8 @@ def server(
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
     """
+    from mlflow.server import _run_server
+    from mlflow.server.handlers import initialize_backend_stores
 
     _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
 
@@ -383,7 +384,7 @@ def server(
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
@@ -443,8 +444,8 @@ def gc(backend_store_uri, run_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
-                "Run {} is not in `deleted` lifecycle stage. Only runs in "
-                "`deleted` lifecycle stage can be deleted.".format(run_id)
+                "Run % is not in `deleted` lifecycle stage. Only runs in "
+                "`deleted` lifecycle stage can be deleted." % run_id
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()

@@ -2,9 +2,13 @@ name: MLflow tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
 
 env:
   CONDA_DIR: /usr/share/miniconda
@@ -90,6 +94,26 @@ jobs:
         name: 00check.log
         path: /tmp/00check.log
 
+  # python-skinny tests cover a subset of mlflow functionality
+  # that is meant to be supported with a smaller dependency footprint.
+  # The python skinny tests cover the subset of mlflow functionality
+  # while also verifying certain dependencies are omitted.
+  python-skinny:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_SKINNY_PYTHON_DEPS: true
+        MLFLOW_SKINNY: true
+      run: |
+        source ./dev/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./dev/run-python-skinny-tests.sh
+
   python-small:
     runs-on: ubuntu-latest
     steps:
@@ -120,7 +144,9 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.02"
+    - name: Run anaconda compatibility tests
+      run: |
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
         ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:

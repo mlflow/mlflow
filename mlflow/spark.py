@@ -21,8 +21,11 @@ Spark MLlib (native) format
 import os
 import yaml
 import logging
+import posixpath
 import re
+import shutil
 import traceback
+import uuid
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -37,10 +40,17 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.uri import is_local_uri, append_to_uri_path
+from mlflow.utils.uri import (
+    is_local_uri,
+    append_to_uri_path,
+    dbfs_hdfs_uri_to_fuse_path,
+    is_valid_dbfs_uri,
+)
+from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 
 FLAVOR_NAME = "spark"
@@ -197,11 +207,11 @@ def log_model(
             input_example=input_example,
             await_registration_for=await_registration_for,
         )
-    # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
-    # model
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
+    # Try to write directly to the artifact repo via Spark. If this fails, defer to Model.log()
+    # to persist the model
     try:
-        spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
+        spark_model.save(posixpath.join(model_dir, _SPARK_MODEL_PATH_SUB))
     except Py4JJavaError:
         return Model.log(
             artifact_path=artifact_path,
@@ -239,9 +249,7 @@ def log_model(
 
 
 def _tmp_path(dfs_tmp):
-    import uuid
-
-    return os.path.join(dfs_tmp, str(uuid.uuid4()))
+    return posixpath.join(dfs_tmp, str(uuid.uuid4()))
 
 
 class _HadoopFileSystem:
@@ -318,7 +326,7 @@ class _HadoopFileSystem:
     def _try_file_exists(cls, dfs_path):
         try:
             return cls._fs().exists(dfs_path)
-        except Exception as ex:  # pylint: disable=broad-except
+        except Exception as ex:
             # Log a debug-level message, since existence checks may raise exceptions
             # in normal operating circumstances that do not warrant warnings
             _logger.debug(
@@ -340,7 +348,7 @@ class _HadoopFileSystem:
             if cls._try_file_exists(dfs_path):
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             _logger.info("URI '%s' does not point to the current DFS.", src_uri)
         _logger.info("File '%s' not found on DFS. Will attempt to upload the file.", src_uri)
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
@@ -500,7 +508,18 @@ def save_model(
     tmp_path = _tmp_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
-    _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
+    # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
+    # we saved the Spark model to is a DBFS URI ("dbfs:/my-directory"), or (b) if we're running
+    # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
+    # like "/my-directory")
+    copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
+        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+    )
+    if copying_from_dbfs:
+        tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+        shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
+    else:
+        _HadoopFileSystem.copy_to_local_file(tmp_path, sparkml_data_path, remove_src=True)
     _save_model_metadata(
         dst_dir=path,
         spark_model=spark_model,
@@ -512,17 +531,52 @@ def save_model(
     )
 
 
-def _load_model(model_uri, dfs_tmpdir=None):
+def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
+    """
+    Copies the directory src_dir into dst_dir, without preserving filesystem permissions
+    """
+    for (dirpath, dirnames, filenames) in os.walk(src_dir):
+        for dirname in dirnames:
+            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), src_dir)
+            # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
+            # directory under the destination directory
+            abs_dir_path = os.path.join(dst_dir, relative_dir_path)
+            os.mkdir(abs_dir_path)
+        for filename in filenames:
+            # For each file with name <filename> immediately under <dirpath>, copy that file to
+            # the appropriate location in the destination directory
+            file_path = os.path.join(dirpath, filename)
+            relative_file_path = os.path.relpath(file_path, src_dir)
+            abs_file_path = os.path.join(dst_dir, relative_file_path)
+            shutil.copyfile(file_path, abs_file_path)
+
+
+def _load_model_databricks(model_uri, dfs_tmpdir):
     from pyspark.ml.pipeline import PipelineModel
 
-    if dfs_tmpdir is None:
-        dfs_tmpdir = DFS_TMP
-    tmp_path = _tmp_path(dfs_tmpdir)
+    # Download model saved to remote URI to local filesystem
+    local_model_path = _download_artifact_from_uri(model_uri)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
-    model_path = _HadoopFileSystem.maybe_copy_from_uri(model_uri, tmp_path)
-    return PipelineModel.load(model_path)
+    fuse_dfs_tmpdir = dbfs_hdfs_uri_to_fuse_path(dfs_tmpdir)
+    os.mkdir(fuse_dfs_tmpdir)
+    # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
+    # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
+    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
+    return PipelineModel.load(dfs_tmpdir)
+
+
+def _load_model(model_uri, dfs_tmpdir_base=None):
+    from pyspark.ml.pipeline import PipelineModel
+
+    if dfs_tmpdir_base is None:
+        dfs_tmpdir_base = DFS_TMP
+    dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
+    if databricks_utils.is_in_cluster():
+        return _load_model_databricks(model_uri, dfs_tmpdir)
+    model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
+    return PipelineModel.load(model_uri)
 
 
 def load_model(model_uri, dfs_tmpdir=None):
@@ -570,7 +624,7 @@ def load_model(model_uri, dfs_tmpdir=None):
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
     model_uri = append_to_uri_path(model_uri, flavor_conf["model_data"])
-    return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
+    return _load_model(model_uri=model_uri, dfs_tmpdir_base=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
@@ -627,10 +681,11 @@ class _PyFuncModelWrapper(object):
 
 
 @experimental
-def autolog():
+@autologging_integration(FLAVOR_NAME)
+def autolog(disable=False):  # pylint: disable=unused-argument
     """
-    Enables automatic logging of Spark datasource paths, versions (if applicable), and formats
-    when they are read. This method is not threadsafe and assumes a
+    Enables (or disables) and configures logging of Spark datasource paths, versions
+    (if applicable), and formats when they are read. This method is not threadsafe and assumes a
     `SparkSession
     <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
     already exists with the
@@ -682,7 +737,25 @@ def autolog():
         # next-created MLflow run if no run is currently active
         with mlflow.start_run() as active_run:
             pandas_df = loaded_df.toPandas()
-    """
-    from mlflow import _spark_autologging
 
-    _spark_autologging.autolog()
+    :param disable: If ``True``, disables the Spark datasource autologging integration.
+                    If ``False``, enables the Spark datasource autologging integration.
+    """
+    from mlflow.utils._spark_utils import _get_active_spark_session
+    from mlflow._spark_autologging import _listen_for_spark_activity
+    from pyspark.sql import SparkSession
+    from pyspark import SparkContext
+
+    def __init__(original, self, *args, **kwargs):
+        original(self, *args, **kwargs)
+
+        _listen_for_spark_activity(self._sc)
+
+    safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
+
+    active_session = _get_active_spark_session()
+    if active_session is not None:
+        # We know SparkContext exists here already, so get it
+        sc = SparkContext.getOrCreate()
+
+        _listen_for_spark_activity(sc)

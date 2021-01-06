@@ -206,7 +206,7 @@ import yaml
 from copy import deepcopy
 import logging
 
-from typing import Any, Union
+from typing import Any, Union, List, Dict
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
@@ -237,6 +237,8 @@ ENV = "env"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
+PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
+PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
@@ -368,7 +370,7 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
         )
 
 
-def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
+def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
     """
     Enforce column names and types match the input schema.
 
@@ -378,8 +380,15 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     For column types, we make sure the types match schema or can be safely converted to match the
     input schema.
     """
-    if isinstance(pdf, list):
-        pdf = pandas.DataFrame(pdf)
+    if isinstance(pdf, (list, np.ndarray, dict)):
+        try:
+            pdf = pandas.DataFrame(pdf)
+        except Exception as e:
+            message = (
+                "This model contains a model signature, which suggests a DataFrame input."
+                "There was an error casting the input data to a DataFrame: {0}".format(str(e))
+            )
+            raise MlflowException(message)
     if not isinstance(pdf, pandas.DataFrame):
         message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
@@ -419,9 +428,6 @@ def _enforce_schema(pdf: pandas.DataFrame, input_schema: Schema):
     return new_pdf
 
 
-PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
-
-
 class PyFuncModel(object):
     """
     MLflow 'python function' model.
@@ -445,7 +451,7 @@ class PyFuncModel(object):
         self._model_meta = model_meta
         self._model_impl = model_impl
 
-    def predict(self, data: pandas.DataFrame) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput) -> PyFuncOutput:
         """
         Generate model predictions.
 
@@ -454,7 +460,7 @@ class PyFuncModel(object):
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input as pandas.DataFrame.
+        :param data: Model input
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()

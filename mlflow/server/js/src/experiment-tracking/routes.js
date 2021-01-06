@@ -15,7 +15,15 @@ class Routes {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
 
+  static getRunArtifactRoute(experimentId, runUuid, artifactPath) {
+    return `${this.getRunPageRoute(experimentId, runUuid)}/artifactPath/${artifactPath}`;
+  }
+
   static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
+
+  static runPageWithArtifactSelectedRoute =
+    '/experiments/:experimentId/runs/:runUuid/artifactPath/:initialSelectedArtifactPath+';
+
   /**
    * Get route to the metric plot page
    * @param runUuids - Array of string run IDs to plot

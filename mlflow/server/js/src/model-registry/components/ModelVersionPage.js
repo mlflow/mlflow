@@ -71,6 +71,22 @@ export class ModelVersionPageImpl extends React.Component {
     return Promise.all([promises]);
   };
 
+  pollData = () => {
+    const { modelName, version, history } = this.props;
+    if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
+      return this.loadData().catch((e) => {
+        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
+          Utils.logErrorAndNotifyUser(e);
+          this.props.deleteModelVersionApi(modelName, version, undefined, true);
+          history.push(getModelPageRoute(modelName));
+        } else {
+          console.error(e);
+        }
+      });
+    }
+    return Promise.resolve();
+  };
+
   // We need to do this because currently the ModelVersionDetailed we got does not contain
   // experimentId. We need experimentId to construct a link to the source run. This workaround can
   // be removed after the availability of experimentId.
@@ -142,22 +158,6 @@ export class ModelVersionPageImpl extends React.Component {
       .catch(console.error);
   };
 
-  pollData = () => {
-    const { modelName, version, history } = this.props;
-    if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
-      return this.loadData().catch((e) => {
-        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
-          Utils.logErrorAndNotifyUser(e);
-          this.props.deleteModelVersionApi(modelName, version, undefined, true);
-          history.push(getModelPageRoute(modelName));
-        } else {
-          console.error(e);
-        }
-      });
-    }
-    return Promise.resolve();
-  };
-
   componentDidMount() {
     this.loadData(true).catch(console.error);
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
@@ -223,7 +223,8 @@ export class ModelVersionPageImpl extends React.Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-  const { modelName, version } = ownProps.match.params;
+  const modelName = decodeURIComponent(ownProps.match.params.modelName);
+  const { version } = ownProps.match.params;
   const modelVersion = getModelVersion(state, modelName, version);
   const schema = getModelVersionSchemas(state, modelName, version);
   let runInfo = null;

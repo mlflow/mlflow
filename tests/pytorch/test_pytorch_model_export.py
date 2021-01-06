@@ -312,6 +312,37 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
+def test_pyfunc_model_works_with_np_input_type(
+    sequential_model, model_path, data, sequential_predicted
+):
+    mlflow.pytorch.save_model(sequential_model, model_path)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    # predict works with dataframes
+    df_result = pyfunc_loaded.predict(data[0])
+    assert type(df_result) == pd.DataFrame
+    np.testing.assert_array_almost_equal(df_result.values[:, 0], sequential_predicted, decimal=4)
+
+    # predict works with numpy ndarray
+    np_result = pyfunc_loaded.predict(data[0].values.astype(np.float32))
+    assert type(np_result) == np.ndarray
+    np.testing.assert_array_almost_equal(np_result[:, 0], sequential_predicted, decimal=4)
+
+    # predict does not work with lists
+    with pytest.raises(TypeError) as exc_info:
+        pyfunc_loaded.predict([1, 2, 3, 4])
+    assert "The PyTorch flavor does not support List or Dict input types" in str(exc_info)
+
+    # predict does not work with scalars
+    with pytest.raises(TypeError) as exc_info:
+        pyfunc_loaded.predict(4)
+    assert "Input data should be pandas.DataFrame or numpy.ndarray" in str(exc_info)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_from_remote_uri_succeeds(
     sequential_model, model_path, mock_s3_bucket, data, sequential_predicted
 ):
