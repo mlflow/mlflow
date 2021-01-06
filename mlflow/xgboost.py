@@ -386,7 +386,7 @@ def autolog(
                         """
                         Run after each iteration. Return True when training should stop.
                         """
-                        # `evals_log` (type: Dict[str, Dict[str, List[float]]]) looks like this:
+                        # `evals_log` is a nested dict that looks like this:
                         # {
                         #   "train": {
                         #     "auc": [0.5, 0.6, 0.7, ...],
@@ -396,11 +396,11 @@ def autolog(
                         # }
                         evaluation_result_dict = {}
                         for data_name, metric_dict in evals_log.items():
-                            for metric_name, metric_values in metric_dict.items():
+                            for metric_name, metric_values_on_each_iter in metric_dict.items():
                                 key = "{}-{}".format(data_name, metric_name)
-                                # metric value on the current iteration is stored in the last
-                                # element of `metric_values`
-                                evaluation_result_dict[key] = metric_values[-1]
+                                # The last element in `metric_values_on_each_iter` corresponds to
+                                # the meric on the current iteration
+                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
 
                         metrics_logger.record_metrics(evaluation_result_dict, epoch)
                         eval_results.append(evaluation_result_dict)
