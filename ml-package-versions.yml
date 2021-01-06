@@ -201,3 +201,21 @@ fastai-1.x:
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
+
+onnx:
+  package_info:
+    pip_release: "onnx"
+    install_dev: |
+      sudo apt-get install protobuf-compiler libprotoc-dev
+      temp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $temp_dir
+      cd $temp_dir
+      git submodule update --init --recursive
+      python setup.py install
+
+  models:
+    minimum: "1.5.0"
+    maximum: "1.8.0"
+    requirements: ["onnxruntime", "torch", "scikit-learn"]
+    run: |
+      pytest tests/onnx/test_onnx_model_export.py --large
