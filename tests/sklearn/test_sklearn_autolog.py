@@ -881,7 +881,26 @@ def test_autolog_logs_signature_and_input_example(data_type):
     pyfunc_model = mlflow.pyfunc.load_model(model_path)
 
     assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
-    np.testing.assert_array_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
+
+    # On GitHub Actions, `pyfunc_model.predict` and `model.predict` sometimes return
+    # slightly different results:
+    #
+    # >>> pyfunc_model.predict(input_example)
+    # [[0.171504346208176  ]
+    #  [0.34346150441640155]  <- diff
+    #  [0.06895096846585114]  <- diff
+    #  [0.05925789882165455]
+    #  [0.03424907823290102]]
+    #
+    # >>> model.predict(X[:5])
+    # [[0.171504346208176  ]
+    #  [0.3434615044164018 ]  <- diff
+    #  [0.06895096846585136]  <- diff
+    #  [0.05925789882165455]
+    #  [0.03424907823290102]]
+    #
+    # As a workaround, use `assert_array_almost_equal` instead of `assert_array_equal`
+    np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
