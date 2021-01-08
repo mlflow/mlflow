@@ -108,3 +108,14 @@ test_that("mlflow log model records correct metadata with the tracking server", 
     expect_equal(model_spec_expected$flavors, model_spec_actual$flavors)
   })
 })
+
+test_that("mlflow can save and load attributes of model flavor correctly", {
+  model_name <- basename(tempfile("model_"))
+  model <- structure(list(), class = "trivial")
+  path <- file.path(tempdir(), model_name)
+  mlflow_save_model(model, path = path)
+  model <- mlflow_load_model(path)
+
+  expect_equal(attributes(model$flavor)$spec$key1, "value1")
+  expect_equal(attributes(model$flavor)$spec$key2, "value2")
+})
