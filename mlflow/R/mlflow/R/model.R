@@ -106,7 +106,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
     flavor <- available_flavors[[1]]
   }
 
-  flavor <- mlflow_flavor(flavor, spec[[flavor]])
+  flavor <- mlflow_flavor(flavor, spec$flavors[[flavor]])
   mlflow_load_flavor(flavor, model_path)
 }
 
