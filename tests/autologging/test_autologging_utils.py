@@ -491,18 +491,24 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     assert len(logger.calls) == 1
     call = logger.calls[0]
     assert call.integration == "test_success"
-    assert call.call_args == ("a",)
-    assert call.call_kwargs == {"bar": 9, "disable": True}
+    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
+    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
+    # in keyword format
+    assert call.call_args == ()
+    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True}
 
     logger.reset()
 
     with pytest.raises(Exception, match="autolog failed"):
-        autolog_failure(82, baz="b", disable=False)
+        autolog_failure(82, disable=False)
     assert len(logger.calls) == 1
     call = logger.calls[0]
     assert call.integration == "test_failure"
-    assert call.call_args == (82,)
-    assert call.call_kwargs == {"baz": "b", "disable": False}
+    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
+    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
+    # in keyword format
+    assert call.call_args == ()
+    assert call.call_kwargs == {"biz": 82, "baz": "val", "disable": False}
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
