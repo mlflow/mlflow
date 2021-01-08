@@ -608,6 +608,8 @@ class AutologgingEventLogger:
                           This field is empty in MLflow > 1.13.1; all arguments are passed in
                           keyword form via `call_kwargs`.
         :param call_kwargs: The arguments passed to the `autolog()` call in keyword form.
+                            Any positional arguments should also be converted to keyword form
+                            and passed via `call_kwargs`.
         """
         _logger.debug(
             "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
