@@ -1,8 +1,6 @@
 #' @include model-utils.R
 NULL
 
-.model_filename <- "model.zip"
-
 #' @rdname mlflow_save_model
 #' @param sample_input Sample Spark DataFrame input that the model can evaluate. This is required by MLeap for data schema inference.
 #'
@@ -18,9 +16,12 @@ mlflow_save_model.ml_pipeline_model <- function(model,
   }
 
   assert_pkg_installed("mleap")
+
+  model_filename <- "model.zip"
+
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
-  model_path <- file.path(path, .model_filename)
+  model_path <- file.path(path, model_filename)
   mleap::ml_write_bundle(model, sample_input = sample_input, path = model_path)
   version <- mleap::mleap_installed_versions()$mleap %>%
     purrr::map(~ numeric_version(.x)) %>%
@@ -31,7 +32,7 @@ mlflow_save_model.ml_pipeline_model <- function(model,
     path, conda_env, default_pip_deps = list("mlflow", paste("mleap>=", version, sep = ""))
   )
   mleap_conf <- list(
-    mleap = list(mleap_version = version, model_filename = .model_filename)
+    mleap = list(mleap_version = version, model_data = model_filename)
   )
   model_spec$flavors <- append(model_spec$flavors, mleap_conf)
 
@@ -42,7 +43,11 @@ mlflow_save_model.ml_pipeline_model <- function(model,
 #' @export
 mlflow_load_flavor.mlflow_flavor_mleap <- function(flavor, model_path) {
   assert_pkg_installed("mleap")
-  mleap::mleap_load_bundle(file.path(model_path, .model_filename))
+  model_data <- attributes(flavor)$spec$model_data
+  if (is.null(model_data)) {
+    stop("'model_data' attribute is missing")
+  }
+  mleap::mleap_load_bundle(file.path(model_path, model_data))
 }
 
 #' @export

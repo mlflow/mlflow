@@ -36,3 +36,20 @@ test_that("can load model and predict with `mlflow_predict()`", {
   # "memorized" the dataset
   expect_equal(ifelse(mtcars$hp >= 100, 1, 0), predictions$high_hp)
 })
+
+test_that("can load model created by MLflow Java client and predict with `mlflow_predict()`", {
+  model_dir <- file.path(
+    "..", "..", "..", "..", "java", "scoring", "src", "test", "resources", "org", "mlflow", "mleap_model"
+  )
+  model <- mlflow_load_model(model_dir)
+
+  input <- jsonlite::fromJSON(file.path(model_dir, "sample_input.json"))
+  data <- as.data.frame(input$data)
+  colnames(data) <- input$columns
+  predictions <- mlflow_predict(model, data)
+
+  expect_equal(
+    colnames(predictions),
+    c("text", "topic", "label", "words", "features", "rawPrediction", "probability", "prediction")
+  )
+})
