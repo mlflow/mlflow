@@ -617,7 +617,7 @@ class AutologgingEventLogger:
                 " deprecated in MLflow > 1.13.1, and all arguments should be passed"
                 " in keyword form via `call_kwargs`." % len(call_args),
                 category=DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
         _logger.debug(
             "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
