@@ -2,31 +2,26 @@
 The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
 """
 import json
-import yaml
-import os
 import logging
+import os
+
+import yaml
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
+import mlflow.utils.uri
 from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.projects.utils import (
-    PROJECT_SYNCHRONOUS,
-    get_entry_point_command,
-    get_run_env_vars,
-    fetch_and_validate_project,
-    get_or_create_run,
-    load_project,
-    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
-    PROJECT_USE_CONDA,
-    PROJECT_STORAGE_DIR,
-    PROJECT_DOCKER_ARGS,
-)
 from mlflow.projects.backend import loader
+from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.projects.utils import (MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
+                                   PROJECT_DOCKER_ARGS, PROJECT_STORAGE_DIR,
+                                   PROJECT_SYNCHRONOUS, PROJECT_USE_CONDA,
+                                   fetch_and_validate_project,
+                                   get_entry_point_command, get_or_create_run,
+                                   get_run_env_vars, load_project)
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
-import mlflow.utils.uri
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND, MLFLOW_PROJECT_ENV
 
 _logger = logging.getLogger(__name__)
 
@@ -139,25 +134,35 @@ def _run(
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "kubernetes"
         )
-        validate_docker_env(project)
-        validate_docker_installation()
+        
         kube_config = _parse_kubernetes_config(backend_config)
-        image = build_docker_image(
-            work_dir=work_dir,
-            repository_uri=kube_config["repository-uri"],
-            base_image=project.docker_env.get("image"),
-            run_id=active_run.info.run_id,
-        )
-        image_digest = kb.push_image_to_registry(image.tags[0])
+        if os.environ.get('IMAGE_DIGEST') is None or os.environ.get('IMAGE_TAG') is None:
+            validate_docker_env(project)
+            validate_docker_installation()
+            image = build_docker_image(
+                work_dir=work_dir,
+                repository_uri=kube_config["repository-uri"],
+                base_image=project.docker_env.get("image"),
+                run_id=active_run.info.run_id,
+            )
+            image_digest = kb.push_image_to_registry(image.tags[0])
+            image_tag = image.tags[0]
+        else:
+            image_digest = os.environ.get('IMAGE_DIGEST')
+            image_tag = os.environ.get('IMAGE_TAG')
+
+        run_env_vars = get_run_env_vars(
+                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
+            )
+        run_env_vars.update({'IMAGE_DIGEST':image_digest, 'IMAGE_TAG':image_tag}),
+
         submitted_run = kb.run_kubernetes_job(
             project.name,
             active_run,
-            image.tags[0],
+            image_tag,
             image_digest,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
-            get_run_env_vars(
-                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
-            ),
+            run_env_vars,
             kube_config.get("kube-context", None),
             kube_config["kube-job-template"],
         )
