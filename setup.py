@@ -43,7 +43,6 @@ SKINNY_REQUIREMENTS = [
     "gitpython>=2.1.0",
     "numpy",
     "pandas",
-    "python-dateutil",
     "pyyaml",
     "protobuf>=3.6.0",
     "requests>=2.17.3",
