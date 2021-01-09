@@ -288,55 +288,6 @@ def log_model(
     )
 
 
-@experimental
-def log_state_dict(state_dict, artifact_path, **kwargs):
-    """
-    Log a state_dict as an MLflow artifact for the current run.
-
-    :param state_dict: state_dict to be saved.
-    :param artifact_path: Run-relative artifact path.
-    :param kwargs: kwargs to pass to ``torch.save`` method.
-
-    .. code-block:: python
-        :caption: Example
-
-        with mlflow.start_run():
-            state_dict = model.state_dict()
-            mlflow.pytorch.log_state_dict(state_dict, artifact_path="state_dict")
-    """
-
-    with TempDir() as tmp:
-        local_path = tmp.path()
-        save_state_dict(state_dict=state_dict, path=local_path, **kwargs)
-        mlflow.log_artifacts(local_path, artifact_path)
-
-
-@experimental
-def save_state_dict(state_dict, path, **kwargs):
-    """
-    Save state_dict to a path on the local file system
-
-    :param state_dict: state_dict to be saved
-    :param path: Local path where the state_dict is to be saved.
-    :param kwargs: kwargs to pass to ``torch.save`` method.
-    """
-    import torch
-
-    # To avoid a scenario where a user accidentally passes a model (an instance of
-    # `torch.nn.Module`) and `torch.save` saves it as a state_dict, throw here if
-    # `state_dict` is not an instance of `dict`.
-    if not isinstance(state_dict, dict):
-        raise TypeError(
-            "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
-                type(state_dict)
-            )
-        )
-
-    os.makedirs(path, exist_ok=True)
-    model_path = os.path.join(path, _TORCH_STATE_DICT_FILE_NAME)
-    torch.save(state_dict, model_path, **kwargs)
-
-
 def save_model(
     pytorch_model,
     path,
@@ -643,32 +594,6 @@ def _load_model(path, **kwargs):
             return torch.jit.load(model_path)
 
 
-@experimental
-def load_state_dict(state_dict_uri, **kwargs):
-    """
-    Load a state_dict from a local file or a run.
-
-    :param state_dict_uri: The location, in URI format, of the state_dict, for example:
-
-                    - ``/Users/me/path/to/local/state_dict``
-                    - ``relative/path/to/local/state_dict``
-                    - ``s3://my_bucket/path/to/state_dict``
-                    - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
-
-                    For more information about supported URI schemes, see
-                    `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                    artifact-locations>`_.
-
-    :param kwargs: kwargs to pass to ``torch.load``.
-    :return: A state_dict
-    """
-    import torch
-
-    local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
-    state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
-    return torch.load(state_dict_path, **kwargs)
-
-
 def load_model(model_uri, **kwargs):
     """
     Load a PyTorch model from a local file or a run.
@@ -799,6 +724,81 @@ class _PyTorchWrapper(object):
             else:
                 predicted = preds.numpy()
             return predicted
+
+
+@experimental
+def log_state_dict(state_dict, artifact_path, **kwargs):
+    """
+    Log a state_dict as an MLflow artifact for the current run.
+
+    :param state_dict: state_dict to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param kwargs: kwargs to pass to ``torch.save``.
+
+    .. code-block:: python
+        :caption: Example
+
+        with mlflow.start_run():
+            state_dict = model.state_dict()
+            mlflow.pytorch.log_state_dict(state_dict, artifact_path="state_dict")
+    """
+
+    with TempDir() as tmp:
+        local_path = tmp.path()
+        save_state_dict(state_dict=state_dict, path=local_path, **kwargs)
+        mlflow.log_artifacts(local_path, artifact_path)
+
+
+@experimental
+def save_state_dict(state_dict, path, **kwargs):
+    """
+    Save state_dict to a path on the local file system
+
+    :param state_dict: state_dict to be saved
+    :param path: Local path where the state_dict is to be saved.
+    :param kwargs: kwargs to pass to ``torch.save``.
+    """
+    import torch
+
+    # To avoid a scenario where a user accidentally passes a model (an instance of
+    # `torch.nn.Module`) and `torch.save` saves it as a state_dict, throw here if
+    # `state_dict` is not an instance of `dict`.
+    if not isinstance(state_dict, dict):
+        raise TypeError(
+            "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
+                type(state_dict)
+            )
+        )
+
+    os.makedirs(path, exist_ok=True)
+    model_path = os.path.join(path, _TORCH_STATE_DICT_FILE_NAME)
+    torch.save(state_dict, model_path, **kwargs)
+
+
+@experimental
+def load_state_dict(state_dict_uri, **kwargs):
+    """
+    Load a state_dict from a local file or a run.
+
+    :param state_dict_uri: The location, in URI format, of the state_dict, for example:
+
+                    - ``/Users/me/path/to/local/state_dict``
+                    - ``relative/path/to/local/state_dict``
+                    - ``s3://my_bucket/path/to/state_dict``
+                    - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
+
+                    For more information about supported URI schemes, see
+                    `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                    artifact-locations>`_.
+
+    :param kwargs: kwargs to pass to ``torch.load``.
+    :return: A state_dict
+    """
+    import torch
+
+    local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
+    state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
+    return torch.load(state_dict_path, **kwargs)
 
 
 @experimental
