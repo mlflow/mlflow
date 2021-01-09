@@ -17,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     batch_metrics_logger,
     AutologgingEventLogger,
+    AutologgingSession,
     BatchMetricsLogger,
     autologging_integration,
     get_autologging_config,
@@ -574,3 +575,57 @@ def test_autologging_is_disabled_returns_expected_values():
     autolog(disable=False)
 
     assert autologging_is_disabled("test_integration_for_disable_check") is False
+
+
+def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
+    AutologgingEventLogger.set_logger(AutologgingEventLogger())
+
+    class PatchObj:
+        def test_fn(self):
+            pass
+
+    # Test successful autologging workflow
+    AutologgingEventLogger.get_logger().log_autolog_called(
+        "test_integration", ("a"), {"b": 1, "c": "d"}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_original_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_original_function_success(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_success(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+
+    # Test patch function failure autologging workflow
+    AutologgingEventLogger.get_logger().log_patch_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_error(
+        AutologgingSession("test_integration", "123"),
+        PatchObj(),
+        "test_fn",
+        (1000),
+        {"a": 2},
+        Exception("patch error"),
+    )
+
+    # Test original function failure autologging workflow
+    AutologgingEventLogger.get_logger().log_patch_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_original_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_error(
+        AutologgingSession("test_integration", "123"),
+        PatchObj(),
+        "test_fn",
+        (1000),
+        {"a": 2},
+        Exception("patch error"),
+    )
