@@ -658,6 +658,7 @@ def load_state_dict(state_dict_uri, **kwargs):
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
+
     :param kwargs: kwargs to pass to ``torch.load``.
     :return: A state_dict
     """
