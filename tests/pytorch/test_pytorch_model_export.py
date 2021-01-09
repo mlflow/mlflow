@@ -740,7 +740,6 @@ def test_save_state_dict(sequential_model, model_path, data):
     assert state_dict_equal(loaded_state_dict, state_dict)
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
-    model.eval()
 
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
@@ -825,7 +824,6 @@ def test_log_state_dict(sequential_model, model_path, data):
     loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
     assert state_dict_equal(loaded_state_dict, state_dict)
     model.load_state_dict(loaded_state_dict)
-    model.eval()
 
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
