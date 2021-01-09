@@ -17,6 +17,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     batch_metrics_logger,
     AutologgingEventLogger,
+    AutologgingSession,
     BatchMetricsLogger,
     autologging_integration,
     get_autologging_config,
@@ -491,18 +492,24 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     assert len(logger.calls) == 1
     call = logger.calls[0]
     assert call.integration == "test_success"
-    assert call.call_args == ("a",)
-    assert call.call_kwargs == {"bar": 9, "disable": True}
+    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
+    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
+    # in keyword format
+    assert call.call_args == ()
+    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True}
 
     logger.reset()
 
     with pytest.raises(Exception, match="autolog failed"):
-        autolog_failure(82, baz="b", disable=False)
+        autolog_failure(82, disable=False)
     assert len(logger.calls) == 1
     call = logger.calls[0]
     assert call.integration == "test_failure"
-    assert call.call_args == (82,)
-    assert call.call_kwargs == {"baz": "b", "disable": False}
+    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
+    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
+    # in keyword format
+    assert call.call_args == ()
+    assert call.call_kwargs == {"biz": 82, "baz": "val", "disable": False}
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
@@ -568,3 +575,70 @@ def test_autologging_is_disabled_returns_expected_values():
     autolog(disable=False)
 
     assert autologging_is_disabled("test_integration_for_disable_check") is False
+
+
+def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
+    AutologgingEventLogger.set_logger(AutologgingEventLogger())
+
+    class PatchObj:
+        def test_fn(self):
+            pass
+
+    # Test successful autologging workflow
+    AutologgingEventLogger.get_logger().log_autolog_called(
+        "test_integration", ("a"), {"b": 1, "c": "d"}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_original_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_original_function_success(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_success(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+
+    # Test patch function failure autologging workflow
+    AutologgingEventLogger.get_logger().log_patch_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_error(
+        AutologgingSession("test_integration", "123"),
+        PatchObj(),
+        "test_fn",
+        (1000),
+        {"a": 2},
+        Exception("patch error"),
+    )
+
+    # Test original function failure autologging workflow
+    AutologgingEventLogger.get_logger().log_patch_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_original_function_start(
+        AutologgingSession("test_integration", "123"), PatchObj(), "test_fn", (1000), {"a": 2}
+    )
+    AutologgingEventLogger.get_logger().log_patch_function_error(
+        AutologgingSession("test_integration", "123"),
+        PatchObj(),
+        "test_fn",
+        (1000),
+        {"a": 2},
+        Exception("patch error"),
+    )
+
+
+def test_autologging_event_logger_default_impl_warns_for_log_autolog_called_with_deprecated_args():
+    AutologgingEventLogger.set_logger(AutologgingEventLogger())
+
+    with pytest.warns(DeprecationWarning, match="Received 1 positional arguments"):
+        AutologgingEventLogger.get_logger().log_autolog_called(
+            "test_integration",
+            # call_args is deprecated in MLflow > 1.13.1; specifying a non-empty
+            # value for this parameter should emit a warning
+            call_args=("a"),
+            call_kwargs={"b": "c"},
+        )
