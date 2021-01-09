@@ -714,50 +714,9 @@ def load_model(model_uri, **kwargs):
         predict X: 6.0, y_pred: 11.64
         predict X: 30.0, y_pred: 60.48
     """
-
-    torch_model_artifacts_path = _get_model_artifact_path(model_uri)
-    return _load_model(path=torch_model_artifacts_path, **kwargs)
-
-
-def _get_model_artifact_path(model_uri):
-
-    """
-    Load a PyTorch model from a local file or a run.
-
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
-
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
-
-    :param kwargs: kwargs to pass to ``torch.load`` method.
-    :return: A PyTorch model.
-
-    .. code-block:: python
-        :caption: Example
-
-        import torch
-        import mlflow
-        import mlflow.pytorch
-        # Set values
-        model_path_dir = ...
-        run_id = "96771d893a5e46159d9f3b49bf9013e2"
-        pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
-        y_pred = pytorch_model(x_new_data)
-    """
     import torch
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    if not os.path.exists(os.path.join(local_model_path, MLMODEL_FILE_NAME)):
-        return os.path.join(local_model_path, "data")
-
     try:
         pyfunc_conf = _get_flavor_configuration(
             model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME
@@ -778,7 +737,7 @@ def _get_model_artifact_path(model_uri):
             torch.__version__,
         )
     torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
-    return torch_model_artifacts_path
+    return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
 def _load_pyfunc(path, **kwargs):
