@@ -732,15 +732,14 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_state_dict(sequential_model, model_path, data):
-
     state_dict = sequential_model.state_dict()
     mlflow.pytorch.save_state_dict(state_dict=state_dict, path=model_path)
 
     loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
     assert state_dict_equal(loaded_state_dict, state_dict)
+
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
-
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
     )
@@ -813,18 +812,18 @@ def state_dict_equal(state_dict1, state_dict2):
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_log_state_dict(sequential_model, model_path, data):
-    artifact_path = "pytorch_model"
+def test_log_state_dict(sequential_model, data):
+    artifact_path = "state_dict"
     state_dict = sequential_model.state_dict()
     with mlflow.start_run():
         mlflow.pytorch.log_state_dict(state_dict=state_dict, artifact_path=artifact_path)
-        model_path = mlflow.get_artifact_uri(artifact_path)
+        state_dict_uri = mlflow.get_artifact_uri(artifact_path)
+
+    loaded_state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
+    assert state_dict_equal(loaded_state_dict, state_dict)
 
     model = get_sequential_model()
-    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
-    assert state_dict_equal(loaded_state_dict, state_dict)
     model.load_state_dict(loaded_state_dict)
-
     np.testing.assert_array_almost_equal(
         _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
     )
