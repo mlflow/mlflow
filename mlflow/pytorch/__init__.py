@@ -320,8 +320,17 @@ def save_state_dict(state_dict, path, **kwargs):
     :param path: Local path where the state_dict is to be saved.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     """
-
     import torch
+
+    # To avoid a scenario where a user accidentally passes a model (an instance of
+    # `torch.nn.Module`) and `torch.save` saves it as a state_dict, throw here if
+    # `state_dict` is not an instance of `dict`.
+    if not isinstance(state_dict, dict):
+        raise TypeError(
+            "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
+                type(state_dict)
+            )
+        )
 
     os.makedirs(path, exist_ok=True)
     model_path = os.path.join(path, _TORCH_STATE_DICT_FILE_NAME)

@@ -748,6 +748,13 @@ def test_save_state_dict(sequential_model, model_path, data):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("invalid_state_dict", [0, "a", get_sequential_model()])
+def test_save_state_dict_throws_for_invalid_object_type(invalid_state_dict, model_path):
+    with pytest.raises(TypeError, match="Invalid object type for `state_dict`"):
+        mlflow.pytorch.save_state_dict(invalid_state_dict, model_path)
+
+
+@pytest.mark.large
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     module_scoped_subclassed_model, model_path, data
 ):
