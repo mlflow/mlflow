@@ -807,6 +807,8 @@ def state_dict_equal(state_dict1, state_dict2):
                 return False
         elif value1 != value2:
             return False
+        else:
+            raise Exception("Should not reach here")
     return True
 
 
