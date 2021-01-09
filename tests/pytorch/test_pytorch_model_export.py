@@ -746,6 +746,18 @@ def test_save_state_dict(sequential_model, model_path, data):
 
 
 @pytest.mark.large
+def test_save_state_dict_can_save_nested_state_dict(model_path, data):
+    model = get_sequential_model()
+    state_dict = {
+        "model": model.state_dict(),
+        "optim": torch.optim.Adam(model.parameters()).state_dict(),
+    }
+    mlflow.pytorch.save_state_dict(state_dict=state_dict, path=model_path)
+    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
+    assert state_dict_equal(loaded_state_dict, state_dict)
+
+
+@pytest.mark.large
 @pytest.mark.parametrize("invalid_state_dict", [0, "a", get_sequential_model()])
 def test_save_state_dict_throws_for_invalid_object_type(invalid_state_dict, model_path):
     with pytest.raises(TypeError, match="Invalid object type for `state_dict`"):
@@ -797,18 +809,26 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 def state_dict_equal(state_dict1, state_dict2):
-    for key in state_dict1:
-        if key not in state_dict2:
+    for key1 in state_dict1:
+        if key1 not in state_dict2:
             return False
-        value1 = state_dict1[key]
-        value2 = state_dict2[key]
-        if isinstance(value1, torch.Tensor) and isinstance(value2, torch.Tensor):
+
+        value1 = state_dict1[key1]
+        value2 = state_dict2[key1]
+
+        if type(value1) != type(value2):
+            return False
+        elif isinstance(value1, dict):
+            if not state_dict_equal(value1, value2):
+                return False
+        elif isinstance(value1, torch.Tensor):
             if not torch.equal(value1, value2):
                 return False
         elif value1 != value2:
             return False
         else:
-            raise Exception("Should not reach here")
+            continue
+
     return True
 
 
