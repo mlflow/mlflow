@@ -644,7 +644,7 @@ def _load_model(path, **kwargs):
 
 
 @experimental
-def load_state_dict(state_dict_uri):
+def load_state_dict(state_dict_uri, **kwargs):
     """
     Load a state_dict from a local file or a run.
 
@@ -658,13 +658,14 @@ def load_state_dict(state_dict_uri):
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
+    :param kwargs: kwargs to pass to ``torch.load``.
     :return: A state_dict
     """
     import torch
 
     local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
     state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
-    return torch.load(state_dict_path)
+    return torch.load(state_dict_path, **kwargs)
 
 
 def load_model(model_uri, **kwargs):
