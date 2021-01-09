@@ -306,7 +306,7 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     """
 
     with TempDir() as tmp:
-        local_path = tmp.path("model")
+        local_path = tmp.path()
         save_state_dict(state_dict=state_dict, path=local_path, **kwargs)
         mlflow.log_artifacts(local_path, artifact_path)
 
