@@ -291,9 +291,9 @@ def log_model(
 @experimental
 def log_state_dict(state_dict, artifact_path, **kwargs):
     """
-    Log a state dict as an MLflow artifact for the current run.
+    Log a state_dict as an MLflow artifact for the current run.
 
-    :param state_dict: PyTorch state dict to be saved.
+    :param state_dict: state_dict to be saved.
     :param artifact_path: Run-relative artifact path.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -314,9 +314,9 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
 @experimental
 def save_state_dict(state_dict, path, **kwargs):
     """
-    Save state dict to a path on the local file system
+    Save state_dict to a path on the local file system
 
-    :param state_dict: PyTorch state dict to be saved
+    :param state_dict: state_dict to be saved
     :param path: Local path where the state_dict is to be saved.
     :param kwargs: kwargs to pass to ``torch.save`` method.
     """
@@ -644,28 +644,27 @@ def _load_model(path, **kwargs):
 
 
 @experimental
-def load_state_dict(model_uri):
+def load_state_dict(state_dict_uri):
     """
-    Load a state dict from a local file or a run.
+    Load a state_dict from a local file or a run.
 
-    :param model_uri: The location, in URI format, for example:
+    :param state_dict_uri: The location, in URI format, of the state_dict, for example:
 
-                    - ``/Users/me/path/to/local/model``
-                    - ``relative/path/to/local/model``
-                    - ``s3://my_bucket/path/to/model``
-                    - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                    - ``/Users/me/path/to/local/state_dict``
+                    - ``relative/path/to/local/state_dict``
+                    - ``s3://my_bucket/path/to/state_dict``
+                    - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
 
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
-    :return: A pytorch state dict
+    :return: A state_dict
     """
     import torch
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    model_path = os.path.join(local_model_path, _TORCH_STATE_DICT_FILE_NAME)
-    state_dict = torch.load(model_path)
-    return state_dict
+    local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
+    state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
+    return torch.load(state_dict_path)
 
 
 def load_model(model_uri, **kwargs):
