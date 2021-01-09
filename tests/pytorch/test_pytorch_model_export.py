@@ -1079,7 +1079,7 @@ def test_save_state_dict(sequential_model, model_path, data):
 
 
 @pytest.mark.large
-def test_save_state_dict_can_save_nested_state_dict(model_path, data):
+def test_save_state_dict_can_save_nested_state_dict(model_path):
     model = get_sequential_model()
     state_dict = {
         "model": model.state_dict(),
