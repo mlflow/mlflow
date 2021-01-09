@@ -330,17 +330,21 @@ def autologging_integration(name):
         default_params = {param.name: param.default for param in param_spec.values()}
 
         def autolog(*args, **kwargs):
-            try:
-                AutologgingEventLogger.get_logger().log_autolog_called(name, args, kwargs)
-            except Exception:
-                pass
-
             config_to_store = dict(default_params)
             config_to_store.update(
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
             )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+
+            try:
+                # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
+                # event loggers to more easily identify important configuration parameters
+                # (e.g., `disable`) without examining positional arguments. Passing positional
+                # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
+                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
+            except Exception:
+                pass
 
             return _autolog(*args, **kwargs)
 
@@ -600,9 +604,21 @@ class AutologgingEventLogger:
         is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
 
         :param integration: The autologging integration for which `autolog()` was called.
-        :param config_args: The positional arguments passed to the `autolog()` call.
-        :param config_kwargs: The keyword arguments passed to the `autolog()` call.
+        :param call_args: **DEPRECATED** The positional arguments passed to the `autolog()` call.
+                          This field is empty in MLflow > 1.13.1; all arguments are passed in
+                          keyword form via `call_kwargs`.
+        :param call_kwargs: The arguments passed to the `autolog()` call in keyword form.
+                            Any positional arguments should also be converted to keyword form
+                            and passed via `call_kwargs`.
         """
+        if len(call_args) > 0:
+            warnings.warn(
+                "Received %d positional arguments via `call_args`. `call_args` is"
+                " deprecated in MLflow > 1.13.1, and all arguments should be passed"
+                " in keyword form via `call_kwargs`." % len(call_args),
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
         _logger.debug(
             "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
             integration,
