@@ -1082,7 +1082,7 @@ def test_save_state_dict(sequential_model, model_path, data):
 def test_save_state_dict_can_save_nested_state_dict(model_path):
     """
     This test ensures that `save_state_dict` supports this use case:
-    https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_a_general_checkpoint.htmls
+    https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_a_general_checkpoint.html
     """
     model = get_sequential_model()
     state_dict = {
