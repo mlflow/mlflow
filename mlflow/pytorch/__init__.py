@@ -760,9 +760,9 @@ def save_state_dict(state_dict, path, **kwargs):
     """
     import torch
 
-    # To avoid a scenario where a user accidentally passes a model (an instance of
-    # `torch.nn.Module`) and `torch.save` saves it as a state_dict, throw here if
-    # `state_dict` is not an instance of `dict`.
+    # The object type check here aims to prevent a scenario where a user accidentally passees
+    # a model instead of a state_dict and `torch.save` (which accepts both model and state_dict)
+    # successfully completes, leaving the user unaware of the mistake.
     if not isinstance(state_dict, dict):
         raise TypeError(
             "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
