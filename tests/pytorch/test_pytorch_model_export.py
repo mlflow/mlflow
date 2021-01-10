@@ -1085,13 +1085,14 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
     https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_a_general_checkpoint.html
     """
     model = get_sequential_model()
-    state_dict = {
-        "model": model.state_dict(),
-        "optim": torch.optim.Adam(model.parameters()).state_dict(),
-    }
+    optim = torch.optim.Adam(model.parameters())
+    state_dict = {"model": model.state_dict(), "optim": optim.state_dict()}
     mlflow.pytorch.save_state_dict(state_dict=state_dict, path=model_path)
     loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
+
     assert state_dict_equal(loaded_state_dict, state_dict)
+    model.load_state_dict(loaded_state_dict["model"])
+    optim.load_state_dict(loaded_state_dict["optim"])
 
 
 @pytest.mark.large
