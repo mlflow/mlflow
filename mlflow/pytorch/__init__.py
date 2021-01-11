@@ -754,7 +754,7 @@ def save_state_dict(state_dict, path, **kwargs):
     """
     Save state_dict to a path on the local file system
 
-    :param state_dict: state_dict to be saved
+    :param state_dict: state_dict to be saved.
     :param path: Local path where the state_dict is to be saved.
     :param kwargs: kwargs to pass to ``torch.save``.
     """
