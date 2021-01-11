@@ -1070,7 +1070,6 @@ def test_save_state_dict(sequential_model, model_path, data):
 
     loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
     assert state_dict_equal(loaded_state_dict, state_dict)
-
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
     np.testing.assert_array_almost_equal(
@@ -1090,8 +1089,8 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
     optim = torch.optim.Adam(model.parameters())
     state_dict = {"model": model.state_dict(), "optim": optim.state_dict()}
     mlflow.pytorch.save_state_dict(state_dict, model_path)
-    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
 
+    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
     assert state_dict_equal(loaded_state_dict, state_dict)
     model.load_state_dict(loaded_state_dict["model"])
     optim.load_state_dict(loaded_state_dict["optim"])
@@ -1115,7 +1114,6 @@ def test_log_state_dict(sequential_model, data):
 
     loaded_state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
     assert state_dict_equal(loaded_state_dict, state_dict)
-
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
     np.testing.assert_array_almost_equal(
