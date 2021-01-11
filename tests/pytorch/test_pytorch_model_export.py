@@ -1066,7 +1066,7 @@ def state_dict_equal(state_dict1, state_dict2):
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_state_dict(sequential_model, model_path, data):
     state_dict = sequential_model.state_dict()
-    mlflow.pytorch.save_state_dict(state_dict=state_dict, path=model_path)
+    mlflow.pytorch.save_state_dict(state_dict, model_path)
 
     loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
     assert state_dict_equal(loaded_state_dict, state_dict)
@@ -1074,7 +1074,7 @@ def test_save_state_dict(sequential_model, model_path, data):
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
     np.testing.assert_array_almost_equal(
-        _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
+        _predict(model, data), _predict(sequential_model, data), decimal=4,
     )
 
 
@@ -1089,7 +1089,7 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
     model = get_sequential_model()
     optim = torch.optim.Adam(model.parameters())
     state_dict = {"model": model.state_dict(), "optim": optim.state_dict()}
-    mlflow.pytorch.save_state_dict(state_dict=state_dict, path=model_path)
+    mlflow.pytorch.save_state_dict(state_dict, model_path)
     loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
 
     assert state_dict_equal(loaded_state_dict, state_dict)
@@ -1098,10 +1098,10 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("invalid_state_dict", [0, "a", get_sequential_model()])
-def test_save_state_dict_throws_for_invalid_object_type(invalid_state_dict, model_path):
+@pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
+def test_save_state_dict_throws_for_invalid_object_type(not_state_dict, model_path):
     with pytest.raises(TypeError, match="Invalid object type for `state_dict`"):
-        mlflow.pytorch.save_state_dict(invalid_state_dict, model_path)
+        mlflow.pytorch.save_state_dict(not_state_dict, model_path)
 
 
 @pytest.mark.large
@@ -1110,7 +1110,7 @@ def test_log_state_dict(sequential_model, data):
     artifact_path = "state_dict"
     state_dict = sequential_model.state_dict()
     with mlflow.start_run():
-        mlflow.pytorch.log_state_dict(state_dict=state_dict, artifact_path=artifact_path)
+        mlflow.pytorch.log_state_dict(state_dict, artifact_path)
         state_dict_uri = mlflow.get_artifact_uri(artifact_path)
 
     loaded_state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
@@ -1119,5 +1119,5 @@ def test_log_state_dict(sequential_model, data):
     model = get_sequential_model()
     model.load_state_dict(loaded_state_dict)
     np.testing.assert_array_almost_equal(
-        _predict(model=model, data=data), _predict(model=sequential_model, data=data), decimal=4,
+        _predict(model, data), _predict(sequential_model, data), decimal=4,
     )
