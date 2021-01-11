@@ -85,7 +85,7 @@ def train_model(model, data):
 
 
 def get_sequential_model():
-    return nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    return nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1))
 
 
 @pytest.fixture
