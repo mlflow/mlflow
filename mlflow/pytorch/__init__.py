@@ -771,8 +771,8 @@ def save_state_dict(state_dict, path, **kwargs):
         )
 
     os.makedirs(path, exist_ok=True)
-    model_path = os.path.join(path, _TORCH_STATE_DICT_FILE_NAME)
-    torch.save(state_dict, model_path, **kwargs)
+    state_dict_path = os.path.join(path, _TORCH_STATE_DICT_FILE_NAME)
+    torch.save(state_dict, state_dict_path, **kwargs)
 
 
 @experimental
