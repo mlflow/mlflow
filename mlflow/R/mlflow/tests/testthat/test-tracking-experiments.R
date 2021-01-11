@@ -89,10 +89,8 @@ test_that("mlflow_list_experiments() works properly", {
   # one experiment
   mlflow_set_experiment_tag("key1.2", "value1.2", experiment_id = ex1)
   experiments <- mlflow_list_experiments()
-  expect_setequal(experiments$tags, list(
-    c(key = "key0", value = "value0"),
-    c(key = "key1.2", value = "value1.2", key = "key1", value = 'value1'),
-    c(key = "key2", value = "value2")
+  expect_setequal(experiments$tags[experiments$experiment_id %in% ex1], list(
+    c(key = "key1.2", value = "value1.2", key = "key1", value = 'value1')
   ))
 
   # `view_type` is respected
