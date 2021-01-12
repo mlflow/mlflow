@@ -111,7 +111,7 @@ def _get_paths_to_ignore(work_dir):
             if line.strip().startswith("#"):
                 continue
         # Parse the line
-        patterns += line.strip()
+        patterns += [line.strip()]
     return patterns
 
 
