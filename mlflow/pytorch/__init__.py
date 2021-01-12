@@ -739,8 +739,7 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
         :caption: Example
 
         with mlflow.start_run():
-            state_dict = model.state_dict()
-            mlflow.pytorch.log_state_dict(state_dict, artifact_path="state_dict")
+            mlflow.pytorch.log_state_dict(model.state_dict(), artifact_path="model")
     """
 
     with TempDir() as tmp:
@@ -793,6 +792,16 @@ def load_state_dict(state_dict_uri, **kwargs):
 
     :param kwargs: kwargs to pass to ``torch.load``.
     :return: A state_dict
+
+    .. code-block:: python
+        :caption: Example
+
+        with mlflow.start_run():
+            artifact_path = "model"
+            mlflow.pytorch.log_state_dict(model.state_dict(), artifact_path)
+            state_dict_uri = mlflow.get_artifact_uri(artifact_path)
+
+        state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
     """
     import torch
 

@@ -1106,7 +1106,7 @@ def test_save_state_dict_throws_for_invalid_object_type(not_state_dict, model_pa
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_log_state_dict(sequential_model, data):
-    artifact_path = "state_dict"
+    artifact_path = "model"
     state_dict = sequential_model.state_dict()
     with mlflow.start_run():
         mlflow.pytorch.log_state_dict(state_dict, artifact_path)
