@@ -738,8 +738,21 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     .. code-block:: python
         :caption: Example
 
+        # Log a model as a state_dict
         with mlflow.start_run():
-            mlflow.pytorch.log_state_dict(model.state_dict(), artifact_path="model")
+            state_dict = model.state_dict()
+            mlflow.pytorch.log_state_dict(state_dict, artifact_path="model")
+
+        # Log a checkpoint as a state_dict
+        with mlflow.start_run():
+            state_dict = {
+                "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "epoch": epoch,
+                "loss": loss,
+                ...
+            }
+            mlflow.pytorch.log_state_dict(state_dict, artifact_path="checkpoint")
     """
 
     with TempDir() as tmp:
