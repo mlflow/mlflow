@@ -78,7 +78,7 @@ def test_get():
     assert "key2: val2" in res.stdout
 
 
-@pytest.mark.skipif("MLFLOW_SKINNY" not in os.environ,
+@pytest.mark.skipif("MLFLOW_SKINNY" in os.environ,
                     reason="Skinny Client does not support predict due to the pandas dependency")
 def test_predict(tmpdir):
     temp_input_file_path = tmpdir.join("input.json").strpath
