@@ -110,8 +110,8 @@ def _get_paths_to_ignore(work_dir):
             # Ignore comments
             if line.strip().startswith("#"):
                 continue
-        # Parse the line
-        patterns += [line.strip()]
+            # Parse the line
+            patterns += [line.strip()]
     return patterns
 
 
