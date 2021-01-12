@@ -750,7 +750,6 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
                 "optimizer": optimizer.state_dict(),
                 "epoch": epoch,
                 "loss": loss,
-                ...
             }
             mlflow.pytorch.log_state_dict(state_dict, artifact_path="checkpoint")
     """
