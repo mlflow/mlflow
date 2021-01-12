@@ -731,6 +731,10 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
     """
     Log a state_dict as an MLflow artifact for the current run.
 
+    .. warning::
+        This function just logs a state_dict as an artifact and doesn't generate
+        an :ref:`MLflow Model <models>`.
+
     :param state_dict: state_dict to be saved.
     :param artifact_path: Run-relative artifact path.
     :param kwargs: kwargs to pass to ``torch.save``.
