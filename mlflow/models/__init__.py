@@ -22,7 +22,18 @@ For details, see `MLflow Models <../models.html>`_.
 
 from .model import Model
 from .flavor_backend import FlavorBackend
-from .signature import ModelSignature, infer_signature
-from .utils import ModelInputExample
 
-__all__ = ["Model", "ModelSignature", "ModelInputExample", "infer_signature", "FlavorBackend"]
+
+try:
+    from .signature import ModelSignature, infer_signature
+    from .utils import ModelInputExample
+except ImportError:
+    __all__ = ["Model", "FlavorBackend"]
+else:
+    __all__ = [
+        "Model",
+        "FlavorBackend",
+        "ModelSignature",
+        "ModelInputExample",
+        "infer_signature",
+    ]

@@ -13,6 +13,7 @@ def test_fails_import_sqlalchemy():
     import mlflow
 
     assert mlflow is not None  # pylint or flake8 disabling is not working
+
     with pytest.raises(ImportError):
         import sqlalchemy  # pylint: disable=unused-import
 
@@ -23,7 +24,30 @@ def test_fails_import_flask():
     import mlflow
 
     assert mlflow is not None
+
     with pytest.raises(ImportError):
         import flask
 
         assert flask is not None
+
+
+def test_fails_import_pandas():
+    import mlflow
+
+    assert mlflow is not None
+
+    with pytest.raises(ImportError):
+        import pandas
+
+        assert pandas is not None
+
+
+def test_fails_import_numpy():
+    import mlflow
+
+    assert mlflow is not None
+
+    with pytest.raises(ImportError):
+        import numpy
+
+        assert numpy is not None

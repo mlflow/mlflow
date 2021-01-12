@@ -8,8 +8,6 @@ import atexit
 import time
 import logging
 import inspect
-import numpy as np
-import pandas as pd
 
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -85,7 +83,11 @@ def set_experiment(experiment_name):
     experiment = client.get_experiment_by_name(experiment_name)
     exp_id = experiment.experiment_id if experiment else None
     if exp_id is None:  # id can be 0
-        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+        print(
+            "INFO: '{}' does not exist. Creating a new experiment".format(
+                experiment_name
+            )
+        )
         exp_id = client.create_experiment(experiment_name)
     elif experiment.lifecycle_stage == LifecycleStage.DELETED:
         raise MlflowException(
@@ -175,7 +177,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
     """
     global _active_run_stack
     # back compat for int experiment_id
-    experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
+    experiment_id = (
+        str(experiment_id) if isinstance(experiment_id, int) else experiment_id
+    )
     if len(_active_run_stack) > 0 and not nested:
         raise Exception(
             (
@@ -224,7 +228,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
         else:
             parent_run_id = None
 
-        exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
+        exp_id_for_run = (
+            experiment_id if experiment_id is not None else _get_experiment_id()
+        )
 
         user_specified_tags = tags or {}
         if parent_run_id is not None:
@@ -234,7 +240,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
 
         tags = context_registry.resolve_tags(user_specified_tags)
 
-        active_run_obj = MlflowClient().create_run(experiment_id=exp_id_for_run, tags=tags)
+        active_run_obj = MlflowClient().create_run(
+            experiment_id=exp_id_for_run, tags=tags
+        )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
@@ -455,7 +463,9 @@ def log_metrics(metrics, step=None):
     """
     run_id = _get_or_start_run().info.run_id
     timestamp = int(time.time() * 1000)
-    metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+    metrics_arr = [
+        Metric(key, value, timestamp, step or 0) for key, value in metrics.items()
+    ]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 
@@ -955,6 +965,7 @@ def search_runs(
     run_view_type=ViewType.ACTIVE_ONLY,
     max_results=SEARCH_MAX_RESULTS_PANDAS,
     order_by=None,
+    as_pandas=True,
 ):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
@@ -968,11 +979,15 @@ def search_runs(
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+    :param as_pandas: Bool to toggle returns between pandas.DataFrame and List[mlflow.entitie.Run].
+                      Allows for mlflow.search_runs to work without pandas or numpy installed.
+                      Default is True.
 
-    :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
-        are expanded into their own columns named metrics.*, params.*, and tags.*
-        respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be (NumPy) Nan, None, or None respectively.
+    :return: If as_pandas is True:  pandas.DataFrame of runs, where each metric, parameter, and tag
+             are expanded into their own columns named metrics.*, params.*, and tags.*
+             respectively. For runs that don't have a particular metric, parameter, or tag, their
+             value will be (NumPy) Nan, None, or None respectively.
+             If as_pandas is False: List[mlflow.entitie.Run].
 
     .. code-block:: python
         :caption: Example
@@ -1016,10 +1031,21 @@ def search_runs(
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_runs(
-            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            number_to_get,
+            order_by,
+            next_page_token,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
+
+    if not as_pandas:
+        return runs  # List[mlflow.entities.run.Run]
+
+    import numpy as np
+    import pandas as pd
 
     info = {
         "run_id": [],
@@ -1036,7 +1062,9 @@ def search_runs(
         info["experiment_id"].append(run.info.experiment_id)
         info["status"].append(run.info.status)
         info["artifact_uri"].append(run.info.artifact_uri)
-        info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+        info["start_time"].append(
+            pd.to_datetime(run.info.start_time, unit="ms", utc=True)
+        )
         info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
 
         # Params
@@ -1362,4 +1390,6 @@ def autolog(
             # errors within dependent autologging integrations
             raise
         else:
-            _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+            _logger.warning(
+                "Exception raised while enabling autologging for spark: %s", str(e)
+            )

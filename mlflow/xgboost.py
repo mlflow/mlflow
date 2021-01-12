@@ -28,10 +28,7 @@ from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, ModelInputExample, infer_signature
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import _save_example
+from mlflow.models.model import MLMODEL_FILE_NAME, Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -84,8 +81,8 @@ def save_model(
     path,
     conda_env=None,
     mlflow_model=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Save an XGBoost model to a path on the local file system.
@@ -136,6 +133,8 @@ def save_model(
     """
     import xgboost as xgb
 
+    from mlflow.models.utils import _save_example
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -162,9 +161,14 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
+        mlflow_model,
+        loader_module="mlflow.xgboost",
+        data=model_data_subpath,
+        env=conda_env_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, xgb_version=xgb.__version__, data=model_data_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
@@ -173,8 +177,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
@@ -277,8 +281,12 @@ def load_model(model_uri):
     :return: An XGBoost model (an instance of `xgboost.Booster`_)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    xgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.xgb"))
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME
+    )
+    xgb_model_file_path = os.path.join(
+        local_model_path, flavor_conf.get("data", "model.xgb")
+    )
     return _load_model(path=xgb_model_file_path)
 
 
@@ -380,7 +388,8 @@ def autolog(
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
 
                 class Callback(
-                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
+                    xgboost.callback.TrainingCallback,
+                    metaclass=ExceptionSafeAbstractClass,
                 ):
                     def after_iteration(self, model, epoch, evals_log):
                         """
@@ -397,11 +406,16 @@ def autolog(
                         # }
                         evaluation_result_dict = {}
                         for data_name, metric_dict in evals_log.items():
-                            for metric_name, metric_values_on_each_iter in metric_dict.items():
+                            for (
+                                metric_name,
+                                metric_values_on_each_iter,
+                            ) in metric_dict.items():
                                 key = "{}-{}".format(data_name, metric_name)
                                 # The last element in `metric_values_on_each_iter` corresponds to
                                 # the meric on the current iteration
-                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
+                                evaluation_result_dict[
+                                    key
+                                ] = metric_values_on_each_iter[-1]
 
                         metrics_logger.record_metrics(evaluation_result_dict, epoch)
                         eval_results.append(evaluation_result_dict)
@@ -415,7 +429,9 @@ def autolog(
 
                 @exception_safe_function
                 def callback(env):
-                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
+                    metrics_logger.record_metrics(
+                        dict(env.evaluation_result_list), env.iteration
+                    )
                     eval_results.append(dict(env.evaluation_result_list))
 
                 return callback
@@ -450,7 +466,9 @@ def autolog(
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(
+                    tmpdir, "feature_importance_{}.png".format(imp_type)
+                )
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
@@ -501,13 +519,16 @@ def autolog(
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
             early_stopping = (
-                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+                num_pos_args >= early_stopping_index + 1
+                or "early_stopping_rounds" in kwargs
             )
             if early_stopping:
                 extra_step = len(eval_results)
                 metrics_logger.record_metrics({"stopped_iteration": extra_step - 1})
                 metrics_logger.record_metrics({"best_iteration": model.best_iteration})
-                metrics_logger.record_metrics(eval_results[model.best_iteration], extra_step)
+                metrics_logger.record_metrics(
+                    eval_results[model.best_iteration], extra_step
+                )
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
@@ -525,7 +546,9 @@ def autolog(
             if imp is not None:
                 tmpdir = tempfile.mkdtemp()
                 try:
-                    filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                    filepath = os.path.join(
+                        tmpdir, "feature_importance_{}.json".format(imp_type)
+                    )
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     try_mlflow_log(mlflow.log_artifact, filepath)
@@ -547,6 +570,8 @@ def autolog(
             return input_example_info.input_example
 
         def infer_model_signature(input_example):
+            from mlflow.models import infer_signature
+
             model_output = model.predict(xgboost.DMatrix(input_example))
             model_signature = infer_signature(input_example, model_output)
             return model_signature

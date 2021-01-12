@@ -15,14 +15,11 @@ statsmodels (native) format
 import os
 import yaml
 import logging
-import numpy as np
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -68,8 +65,8 @@ def save_model(
     conda_env=None,
     mlflow_model=None,
     remove_data: bool = False,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Save a statsmodels model to a path on the local file system.
@@ -121,6 +118,8 @@ def save_model(
     """
     import statsmodels
 
+    from mlflow.models.utils import _save_example
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -163,8 +162,8 @@ def log_model(
     conda_env=None,
     registered_model_name=None,
     remove_data: bool = False,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
@@ -418,6 +417,8 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
         :return: a python dictionary with those metrics that are (a) a real number, or (b) an array
                  of the same length of the number of coefficients
         """
+        import numpy as np
+
         has_features = False
         features = results.model.exog_names
         if features is not None:

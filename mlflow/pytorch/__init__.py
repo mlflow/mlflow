@@ -13,8 +13,6 @@ import os
 import yaml
 
 import cloudpickle
-import numpy as np
-import pandas as pd
 from distutils.version import LooseVersion
 import posixpath
 
@@ -23,9 +21,8 @@ import shutil
 import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature
+from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -99,8 +96,8 @@ def log_model(
     code_paths=None,
     pickle_module=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     requirements_file=None,
     extra_files=None,
@@ -295,8 +292,8 @@ def save_model(
     mlflow_model=None,
     code_paths=None,
     pickle_module=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     requirements_file=None,
     extra_files=None,
     **kwargs
@@ -441,6 +438,8 @@ def save_model(
         predict X: 30.0, y_pred: 60.13
     """
     import torch
+
+    from mlflow.models.utils import _save_example
 
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
@@ -695,6 +694,9 @@ class _PyTorchWrapper(object):
 
     def predict(self, data, device="cpu"):
         import torch
+
+        import numpy as np
+        import pandas as pd
 
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)

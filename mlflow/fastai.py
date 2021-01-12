@@ -16,14 +16,11 @@ import os
 import yaml
 import tempfile
 import shutil
-import pandas as pd
-import numpy as np
 
 from mlflow import pyfunc
-from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models import Model
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
-from mlflow.models.utils import _save_example
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -91,8 +88,8 @@ def save_model(
     path,
     conda_env=None,
     mlflow_model=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     **kwargs
 ):
     """
@@ -162,6 +159,8 @@ def save_model(
     import fastai
     from pathlib import Path
 
+    from mlflow.models.utils import _save_example
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -202,8 +201,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
@@ -319,6 +318,9 @@ class _FastaiModelWrapper:
     def predict(self, dataframe):
         from fastai.tabular import TabularList
         from fastai.basic_data import DatasetType
+
+        import pandas as pd
+        import numpy as np
 
         test_data = TabularList.from_df(dataframe, cont_names=self.learner.data.cont_names)
         self.learner.data.add_test(test_data)

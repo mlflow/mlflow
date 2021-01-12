@@ -15,8 +15,6 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -44,8 +42,8 @@ def save_model(
     conda_env=None,
     mlflow_model=None,
     settings=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Save an H2O model to a path on the local file system.
@@ -93,6 +91,7 @@ def save_model(
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
     import h2o
+    from mlflow.models.utils import _save_example
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -149,8 +148,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     **kwargs
 ):
     """

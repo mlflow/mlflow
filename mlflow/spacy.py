@@ -12,15 +12,13 @@ spaCy (native) format
 import logging
 import os
 
-import pandas as pd
 import yaml
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature
+from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -49,8 +47,8 @@ def save_model(
     path,
     conda_env=None,
     mlflow_model=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Save a spaCy model to a path on the local file system.
@@ -99,6 +97,8 @@ def save_model(
 
     """
     import spacy
+
+    from mlflow.models.utils import _save_example
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -152,7 +152,9 @@ def save_model(
             "component that is an instance of spacy.pipeline.TextCategorizer."
         )
 
-    mlflow_model.add_flavor(FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, spacy_version=spacy.__version__, data=model_data_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
@@ -161,8 +163,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     **kwargs
 ):
     """
@@ -245,11 +247,17 @@ class _SpacyModelWrapper:
                           expected shape is (n_rows,1 column)
         :return: dataframe with predictions
         """
+        import pandas as pd
+
         if len(dataframe.columns) != 1:
             raise MlflowException("Shape of input dataframe must be (n_rows, 1column)")
 
         return pd.DataFrame(
-            {"predictions": dataframe.iloc[:, 0].apply(lambda text: self.spacy_model(text).cats)}
+            {
+                "predictions": dataframe.iloc[:, 0].apply(
+                    lambda text: self.spacy_model(text).cats
+                )
+            }
         )
 
 
@@ -282,8 +290,12 @@ def load_model(model_uri):
     :return: A spaCy loaded model
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME
+    )
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`
-    spacy_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.spacy"))
+    spacy_model_file_path = os.path.join(
+        local_model_path, flavor_conf.get("data", "model.spacy")
+    )
     return _load_model(path=spacy_model_file_path)

@@ -1,7 +1,6 @@
 from distutils.version import LooseVersion
 import os
 
-import pandas as pd
 import yaml
 
 import mlflow
@@ -9,8 +8,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
@@ -60,8 +57,12 @@ def load_model(model_uri, ctx):
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
 
-    model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
-    model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
+    model_arch_path = (
+        os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
+    )
+    model_params_path = (
+        os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
+    )
     symbol = sym.load(model_arch_path)
     inputs = sym.var("data", dtype="float32")
     net = gluon.SymbolBlock(symbol, inputs)
@@ -84,6 +85,7 @@ class _GluonModelWrapper:
                  can be extracted from the output DataFrame as `ndarray = mx.nd.array(df.values)`.
         """
         import mxnet as mx
+        import pandas as pd
 
         ndarray = mx.nd.array(df.values)
         return pd.DataFrame(self.gluon_model(ndarray).asnumpy())
@@ -107,8 +109,8 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Save a Gluon model to a path on the local file system.
@@ -178,6 +180,8 @@ def save_model(
         # Save the model as an MLflow Model
         mlflow.gluon.save_model(net, gluon_model_path)
     """
+    from mlflow.models.utils import _save_example
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -204,7 +208,9 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=conda_env_subpath)
+    pyfunc.add_to_model(
+        mlflow_model, loader_module="mlflow.gluon", env=conda_env_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
@@ -226,8 +232,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Log a Gluon model as an MLflow artifact for the current run.
@@ -312,7 +318,9 @@ def log_model(
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
+def autolog(
+    log_models=True, disable=False, exclusive=False
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from Gluon to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -332,7 +340,9 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
     from mxnet.gluon.nn import HybridSequential
 
     def getGluonCallback(metrics_logger):
-        class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass):
+        class __MLflowGluonCallback(
+            EpochEnd, TrainEnd, TrainBegin, metaclass=ExceptionSafeClass
+        ):
             def __init__(self):
                 self.current_epoch = 0
 
@@ -354,14 +364,20 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
                 if estimator.max_batch is not None:
                     try_mlflow_log(mlflow.log_param, "batches", estimator.max_batch)
                 try_mlflow_log(
-                    mlflow.log_param, "optimizer_name", type(estimator.trainer.optimizer).__name__
+                    mlflow.log_param,
+                    "optimizer_name",
+                    type(estimator.trainer.optimizer).__name__,
                 )
                 if hasattr(estimator.trainer.optimizer, "lr"):
                     try_mlflow_log(
-                        mlflow.log_param, "learning_rate", estimator.trainer.optimizer.lr
+                        mlflow.log_param,
+                        "learning_rate",
+                        estimator.trainer.optimizer.lr,
                     )
                 if hasattr(estimator.trainer.optimizer, "epsilon"):
-                    try_mlflow_log(mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon)
+                    try_mlflow_log(
+                        mlflow.log_param, "epsilon", estimator.trainer.optimizer.epsilon
+                    )
 
             def train_end(self, estimator, *args, **kwargs):
                 if isinstance(estimator.net, HybridSequential) and log_models:

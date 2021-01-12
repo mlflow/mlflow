@@ -28,10 +28,8 @@ from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -76,8 +74,8 @@ def save_model(
     path,
     conda_env=None,
     mlflow_model=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
 ):
     """
     Save a LightGBM model to a path on the local file system.
@@ -127,6 +125,8 @@ def save_model(
     """
     import lightgbm as lgb
 
+    from mlflow.models.utils import _save_example
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -158,7 +158,9 @@ def save_model(
         data=model_data_subpath,
         env=conda_env_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, lgb_version=lgb.__version__, data=model_data_subpath
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
@@ -167,8 +169,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
+    signature=None,
+    input_example=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     **kwargs
 ):
@@ -269,8 +271,12 @@ def load_model(model_uri):
     :return: A LightGBM model (an instance of `lightgbm.Booster`_).
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    lgb_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.lgb"))
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME
+    )
+    lgb_model_file_path = os.path.join(
+        local_model_path, flavor_conf.get("data", "model.lgb")
+    )
     return _load_model(path=lgb_model_file_path)
 
 
@@ -354,6 +360,8 @@ def autolog(
         original(self, *args, **kwargs)
 
     def train(original, *args, **kwargs):
+        from mlflow.models.signature import infer_signature
+
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -398,7 +406,9 @@ def autolog(
             tmpdir = tempfile.mkdtemp()
             try:
                 # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
+                filepath = os.path.join(
+                    tmpdir, "feature_importance_{}.png".format(imp_type)
+                )
                 fig.savefig(filepath)
                 try_mlflow_log(mlflow.log_artifact, filepath)
             finally:
@@ -450,7 +460,8 @@ def autolog(
             # as extra metrics with the max step + 1.
             early_stopping_index = all_arg_names.index("early_stopping_rounds")
             early_stopping = (
-                num_pos_args >= early_stopping_index + 1 or "early_stopping_rounds" in kwargs
+                num_pos_args >= early_stopping_index + 1
+                or "early_stopping_rounds" in kwargs
             )
             if early_stopping:
                 extra_step = len(eval_results)
@@ -477,7 +488,9 @@ def autolog(
             imp = {ft: imp for ft, imp in zip(features, importance.tolist())}
             tmpdir = tempfile.mkdtemp()
             try:
-                filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
+                filepath = os.path.join(
+                    tmpdir, "feature_importance_{}.json".format(imp_type)
+                )
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
                 try_mlflow_log(mlflow.log_artifact, filepath)
