@@ -5,7 +5,6 @@ import shutil
 import tempfile
 import urllib.parse
 import urllib.request
-import glob
 
 import docker
 
@@ -120,7 +119,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
     """
-    ignore_func = shutil.ignore_patterns(_get_paths_to_ignore(work_dir))
+    ignore_func = shutil.ignore_patterns(*_get_paths_to_ignore(work_dir))
     directory = tempfile.mkdtemp()
     try:
         dst_path = os.path.join(directory, "mlflow-project-contents")
