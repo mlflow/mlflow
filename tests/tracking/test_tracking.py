@@ -883,7 +883,7 @@ def test_search_runs():
     run_and_verify([experiment_id], "metrics.m1 > 0.0001", ["first", "second"])
 
     # 1 run with has metric "m1" > 0.002
-    run_and_verify[experiment_id], "metrics.m1 > 0.002", ["second"])
+    run_and_verify([experiment_id], "metrics.m1 > 0.002", ["second"])
 
     # no runs with metric "m1" > 0.1
     run_and_verify([experiment_id], "metrics.m1 > 0.1", [])
