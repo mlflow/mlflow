@@ -7,14 +7,12 @@ import warnings
 import click
 from click import UsageError
 
-import mlflow.azureml.cli
 import mlflow.db
 import mlflow.experiments
 import mlflow.models.cli
 import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
-import mlflow.sagemaker.cli
 import mlflow.store.artifact.cli
 from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -468,6 +466,9 @@ except ImportError as e:
     warnings.warn("Built in deployment plugins could not be loaded due to missing numpy "
                   "or pandas dependencies. %s." % e)
 else:
+    import mlflow.azureml.cli
+    import mlflow.sagemaker.cli
+
     cli.add_command(mlflow.azureml.cli.commands)
     cli.add_command(mlflow.sagemaker.cli.commands)
 
