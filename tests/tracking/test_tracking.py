@@ -872,14 +872,17 @@ def test_search_runs():
     # 2 runs in this experiment
     assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
 
-    def run_and_verify(experiment_ids, query, check):
-        runs = MlflowClient().search_runs(experiment_ids, query)
+    def run_and_verify(experiment_ids, query, check, view_type=None):
+        runs = MlflowClient().search_runs(experiment_ids, query, view_type=view_type)
 
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
 
         # verify as_pandas=False returns the same as mlflow_client.search_runs
         fluent_search_runs_run_ids = [run.info.run_id for run in
-                                      mlflow.search_runs(experiment_ids, query, as_pandas=False)]
+                                      mlflow.search_runs(experiment_ids,
+                                                         query,
+                                                         view_type=view_type,
+                                                         as_pandas=False)]
         assert fluent_search_runs_run_ids == [run.info.run_id for run in runs]
 
     # 2 runs that have metric "m1" > 0.001
@@ -895,14 +898,14 @@ def test_search_runs():
     run_and_verify([experiment_id], "metrics.m2 > 0", ["first"])
 
     # 1 run each with param "p1" and "p2"
-    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.ALL, ["first"])
-    run_and_verify([experiment_id], "params.p2 != 'a'", ViewType.ALL, ["second"])
-    run_and_verify([experiment_id], "params.p2 = 'aa'", ViewType.ALL, ["second"])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], ViewType.ALL)
+    run_and_verify([experiment_id], "params.p2 != 'a'", ["second"], ViewType.ALL)
+    run_and_verify([experiment_id], "params.p2 = 'aa'", ["second"], ViewType.ALL)
 
     # 1 run each with tag "t1" and "t2"
-    run_and_verify([experiment_id], "tags.t1 = 'first-tag-val'", ViewType.ALL, ["first"])
-    run_and_verify([experiment_id], "tags.t2 != 'qwerty'", ViewType.ALL, ["second"])
-    run_and_verify([experiment_id], "tags.t2 = 'second-tag-val'", ViewType.ALL, ["second"])
+    run_and_verify([experiment_id], "tags.t1 = 'first-tag-val'", ["first"], ViewType.ALL)
+    run_and_verify([experiment_id], "tags.t2 != 'qwerty'", ["second"], ViewType.ALL)
+    run_and_verify([experiment_id], "tags.t2 = 'second-tag-val'", ["second"], ViewType.ALL)
 
     # delete "first" run
     MlflowClient().delete_run(logged_runs["first"])
