@@ -909,11 +909,11 @@ def test_search_runs():
 
     # delete "first" run
     MlflowClient().delete_run(logged_runs["first"])
-    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.ALL, ["first"])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], ViewType.ALL)
 
-    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.DELETED_ONLY, ["first"])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], ViewType.DELETED_ONLY)
 
-    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.ACTIVE_ONLY, [])
+    run_and_verify([experiment_id], "params.p1 = 'a'", [], ViewType.ACTIVE_ONLY)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
