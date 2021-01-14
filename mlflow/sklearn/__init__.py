@@ -54,9 +54,10 @@ def get_default_conda_env(include_cloudpickle=False):
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
+    import scipy
     import sklearn
 
-    pip_deps = ["scikit-learn=={}".format(sklearn.__version__)]
+    pip_deps = ["scikit-learn=={}".format(sklearn.__version__), "scipy=={}".format(scipy.__version__)]
     if include_cloudpickle:
         import cloudpickle
 
