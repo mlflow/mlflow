@@ -867,56 +867,47 @@ def test_search_runs():
         mlflow.log_param("p2", "aa")
         mlflow.set_tag("t2", "second-tag-val")
 
-    def verify_runs(runs, expected_set):
-        assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in expected_set])
-
     experiment_id = MlflowClient().get_experiment_by_name("exp-for-search").experiment_id
 
     # 2 runs in this experiment
     assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
 
+    def run_and_verify(experiment_ids, query, check):
+        runs = MlflowClient().search_runs(experiment_ids, query)
+
+        # verify as_pandas=False returns the same as mlflow_client.search_runs
+        assert mlflow.search_runs(experiment_ids, query, as_pandas=False) == runs
+        assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
+
     # 2 runs that have metric "m1" > 0.001
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.0001")
-    verify_runs(runs, ["first", "second"])
+    run_and_verify([experiment_id], "metrics.m1 > 0.0001", ["first", "second"])
 
     # 1 run with has metric "m1" > 0.002
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.002")
-    verify_runs(runs, ["second"])
+    run_and_verify[experiment_id], "metrics.m1 > 0.002", ["second"])
 
     # no runs with metric "m1" > 0.1
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.1")
-    verify_runs(runs, [])
+    run_and_verify([experiment_id], "metrics.m1 > 0.1", [])
 
     # 1 run with metric "m2" > 0
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m2 > 0")
-    verify_runs(runs, ["first"])
+    run_and_verify([experiment_id], "metrics.m2 > 0", ["first"])
 
     # 1 run each with param "p1" and "p2"
-    runs = MlflowClient().search_runs([experiment_id], "params.p1 = 'a'", ViewType.ALL)
-    verify_runs(runs, ["first"])
-    runs = MlflowClient().search_runs([experiment_id], "params.p2 != 'a'", ViewType.ALL)
-    verify_runs(runs, ["second"])
-    runs = MlflowClient().search_runs([experiment_id], "params.p2 = 'aa'", ViewType.ALL)
-    verify_runs(runs, ["second"])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.ALL, ["first"])
+    run_and_verify([experiment_id], "params.p2 != 'a'", ViewType.ALL, ["second"])
+    run_and_verify([experiment_id], "params.p2 = 'aa'", ViewType.ALL, ["second"])
 
     # 1 run each with tag "t1" and "t2"
-    runs = MlflowClient().search_runs([experiment_id], "tags.t1 = 'first-tag-val'", ViewType.ALL)
-    verify_runs(runs, ["first"])
-    runs = MlflowClient().search_runs([experiment_id], "tags.t2 != 'qwerty'", ViewType.ALL)
-    verify_runs(runs, ["second"])
-    runs = MlflowClient().search_runs([experiment_id], "tags.t2 = 'second-tag-val'", ViewType.ALL)
-    verify_runs(runs, ["second"])
+    run_and_verify([experiment_id], "tags.t1 = 'first-tag-val'", ViewType.ALL, ["first"])
+    run_and_verify([experiment_id], "tags.t2 != 'qwerty'", ViewType.ALL, ["second"])
+    run_and_verify([experiment_id], "tags.t2 = 'second-tag-val'", ViewType.ALL, ["second"])
 
     # delete "first" run
     MlflowClient().delete_run(logged_runs["first"])
-    runs = MlflowClient().search_runs([experiment_id], "params.p1 = 'a'", ViewType.ALL)
-    verify_runs(runs, ["first"])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.ALL, ["first"])
 
-    runs = MlflowClient().search_runs([experiment_id], "params.p1 = 'a'", ViewType.DELETED_ONLY)
-    verify_runs(runs, ["first"])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.DELETED_ONLY, ["first"])
 
-    runs = MlflowClient().search_runs([experiment_id], "params.p1 = 'a'", ViewType.ACTIVE_ONLY)
-    verify_runs(runs, [])
+    run_and_verify([experiment_id], "params.p1 = 'a'", ViewType.ACTIVE_ONLY, [])
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
