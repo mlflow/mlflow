@@ -179,7 +179,7 @@ Now that you have your training code, you can package it so that other data scie
           entry_points:
             main:
               parameters:
-                alpha: float
+                alpha: {type: float, default: 0.5}
                 l1_ratio: {type: float, default: 0.1}
               command: "python train.py {alpha} {l1_ratio}"
 
@@ -194,11 +194,11 @@ Now that you have your training code, you can package it so that other data scie
           channels:
             - defaults
           dependencies:
-            - numpy=1.14.3
-            - pandas=0.22.0
-            - scikit-learn=0.19.1
+            - python=3.6
+            - scikit-learn=0.23.2
+            - pip
             - pip:
-              - mlflow
+              - mlflow>=1.0
 
       To run this project, invoke ``mlflow run examples/sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
