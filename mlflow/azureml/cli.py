@@ -5,7 +5,6 @@ import json
 
 import click
 
-import mlflow.azureml
 from mlflow.utils import cli_args
 from mlflow.utils.annotations import experimental
 
@@ -103,6 +102,8 @@ def build_image(
     # accessible for inspection rom Python 2. Therefore, we will only import from the SDK
     # upon command invocation.
     # pylint: disable=import-error
+    import mlflow.azureml
+
     from azureml.core import Workspace
 
     workspace = Workspace.get(name=workspace_name, subscription_id=subscription_id)
