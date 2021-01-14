@@ -872,7 +872,7 @@ def test_search_runs():
     # 2 runs in this experiment
     assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
 
-    def run_and_verify(experiment_ids, query, check, view_type=None):
+    def run_and_verify(experiment_ids, query, check, **kwargs):
         runs = MlflowClient().search_runs(experiment_ids, query, view_type)
 
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
@@ -898,22 +898,29 @@ def test_search_runs():
     run_and_verify([experiment_id], "metrics.m2 > 0", ["first"])
 
     # 1 run each with param "p1" and "p2"
-    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], ViewType.ALL)
-    run_and_verify([experiment_id], "params.p2 != 'a'", ["second"], ViewType.ALL)
-    run_and_verify([experiment_id], "params.p2 = 'aa'", ["second"], ViewType.ALL)
+    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"],
+                   run_view_type=ViewType.ALL)
+    run_and_verify([experiment_id], "params.p2 != 'a'", ["second"],
+                   run_view_type=ViewType.ALL)
+    run_and_verify([experiment_id], "params.p2 = 'aa'", ["second"],
+                   run_view_type=ViewType.ALL)
 
     # 1 run each with tag "t1" and "t2"
-    run_and_verify([experiment_id], "tags.t1 = 'first-tag-val'", ["first"], ViewType.ALL)
-    run_and_verify([experiment_id], "tags.t2 != 'qwerty'", ["second"], ViewType.ALL)
-    run_and_verify([experiment_id], "tags.t2 = 'second-tag-val'", ["second"], ViewType.ALL)
+    run_and_verify([experiment_id], "tags.t1 = 'first-tag-val'", ["first"],
+                   run_view_type=ViewType.ALL)
+    run_and_verify([experiment_id], "tags.t2 != 'qwerty'", ["second"],
+                   run_view_type=ViewType.ALL)
+    run_and_verify([experiment_id], "tags.t2 = 'second-tag-val'", ["second"],
+                   run_view_type=ViewType.ALL)
 
     # delete "first" run
     MlflowClient().delete_run(logged_runs["first"])
-    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], ViewType.ALL)
+    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], run_view_type=ViewType.ALL)
 
-    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"], ViewType.DELETED_ONLY)
+    run_and_verify([experiment_id], "params.p1 = 'a'", ["first"],
+                   run_view_type=ViewType.DELETED_ONLY)
 
-    run_and_verify([experiment_id], "params.p1 = 'a'", [], ViewType.ACTIVE_ONLY)
+    run_and_verify([experiment_id], "params.p1 = 'a'", [], run_view_type=ViewType.ACTIVE_ONLY)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
