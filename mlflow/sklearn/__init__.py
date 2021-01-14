@@ -57,7 +57,10 @@ def get_default_conda_env(include_cloudpickle=False):
     import scipy
     import sklearn
 
-    pip_deps = ["scikit-learn=={}".format(sklearn.__version__), "scipy=={}".format(scipy.__version__)]
+    pip_deps = [
+        "scikit-learn=={}".format(sklearn.__version__),
+        "scipy=={}".format(scipy.__version__),
+    ]
     if include_cloudpickle:
         import cloudpickle
 
