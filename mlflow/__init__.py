@@ -50,11 +50,9 @@ _model_flavors_supported = []
 try:
     import pandas  # noqa: E402
     import numpy  # noqa: E402
-except:
-    warnings.warn(
-        "Model flavors could not be loaded due to missing numpy "
-        "or pandas dependencies. Exception "
-    )
+except ImportError as e:
+    warnings.warn("Model flavors could not be loaded due to missing numpy "
+                  "or pandas dependencies. %." % e)
 else:
     _supports_flavors = True
     import mlflow.fastai as fastai  # noqa: E402

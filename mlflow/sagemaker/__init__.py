@@ -12,6 +12,7 @@ import platform
 
 import mlflow
 import mlflow.version
+from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -19,6 +20,8 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir
+from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
+from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 DEPLOYMENT_MODE_ADD = "add"
@@ -50,9 +53,6 @@ def _get_preferred_deployment_flavor(model_config):
     :param model_config: An MLflow model object
     :return: The name of the preferred deployment flavor for the specified model
     """
-    from mlflow import pyfunc, mleap
-    from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-
     if mleap.FLAVOR_NAME in model_config.flavors:
         return mleap.FLAVOR_NAME
     elif pyfunc.FLAVOR_NAME in model_config.flavors:
@@ -80,8 +80,6 @@ def _validate_deployment_flavor(model_config, flavor):
     :param model_config: An MLflow Model object
     :param flavor: The deployment flavor to validate
     """
-    from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-
     if flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
         raise MlflowException(
             message=(
@@ -671,8 +669,6 @@ def _get_deployment_config(flavor_name):
     """
     :return: The deployment configuration as a dictionary
     """
-    from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
-
     deployment_config = {DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME: flavor_name}
     return deployment_config
 

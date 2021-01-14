@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import logging
+import warnings
 
 import click
 from click import UsageError
@@ -455,12 +456,20 @@ def gc(backend_store_uri, run_ids):
 
 cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.deployments.cli.commands)
-cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
-cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+
+try:
+    import pandas  # noqa: E402
+    import numpy  # noqa: E402
+except ImportError as e:
+    warnings.warn("Built in deployment plugins could not be loaded due to missing numpy "
+                  "or pandas dependencies. %." % e)
+else:
+    cli.add_command(mlflow.azureml.cli.commands)
+    cli.add_command(mlflow.sagemaker.cli.commands)
 
 if __name__ == "__main__":
     cli()

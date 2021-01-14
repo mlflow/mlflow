@@ -11,6 +11,7 @@ import uuid
 from distutils.version import StrictVersion
 
 from mlflow import get_tracking_uri, get_registry_uri
+from mlflow import pyfunc
 from mlflow import register_model as mlflow_register_model
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -132,8 +133,6 @@ def build_image(
     # pylint: disable=import-error
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
-
-    from mlflow import pyfunc
 
     absolute_model_path = _download_artifact_from_uri(model_uri)
 
@@ -340,8 +339,6 @@ def deploy(
     from azureml.core import Environment as AzureEnvironment
     from azureml.core import VERSION as AZUREML_VERSION
     from azureml.core.webservice import AciWebservice
-
-    from mlflow import pyfunc
 
     absolute_model_path = _download_artifact_from_uri(model_uri)
 
@@ -595,8 +592,6 @@ def _load_pyfunc_conf_with_model(model_path):
     :param model_path: The absolute path to the model.
     :return: The model's `python_function` flavor configuration and the model.
     """
-    from mlflow import pyfunc
-
     model_path = os.path.abspath(model_path)
     model = Model.load(os.path.join(model_path, MLMODEL_FILE_NAME))
     if pyfunc.FLAVOR_NAME not in model.flavors:
@@ -664,6 +659,8 @@ def _create_mlflow_wheel(mlflow_dir, out_dir):
 
 
 SCORE_SRC = """
+import pandas as pd
+
 from azureml.core.model import Model
 from mlflow.pyfunc import load_model
 from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
