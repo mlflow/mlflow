@@ -875,9 +875,12 @@ def test_search_runs():
     def run_and_verify(experiment_ids, query, check):
         runs = MlflowClient().search_runs(experiment_ids, query)
 
-        # verify as_pandas=False returns the same as mlflow_client.search_runs
-        assert mlflow.search_runs(experiment_ids, query, as_pandas=False) == runs
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
+
+        # verify as_pandas=False returns the same as mlflow_client.search_runs
+        fluent_search_runs_run_ids = [run.info.run_id for run in
+                                      mlflow.search_runs(experiment_ids, query, as_pandas=False)]
+        assert fluent_search_runs_run_ids == [run.info.run_id for run in runs]
 
     # 2 runs that have metric "m1" > 0.001
     run_and_verify([experiment_id], "metrics.m1 > 0.0001", ["first", "second"])
