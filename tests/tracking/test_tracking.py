@@ -873,7 +873,7 @@ def test_search_runs():
     assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
 
     def run_and_verify(experiment_ids, query, check, **kwargs):
-        runs = MlflowClient().search_runs(experiment_ids, query, view_type)
+        runs = MlflowClient().search_runs(experiment_ids, query, **kwargs)
 
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
 
@@ -881,8 +881,8 @@ def test_search_runs():
         fluent_search_runs_run_ids = [run.info.run_id for run in
                                       mlflow.search_runs(experiment_ids,
                                                          query,
-                                                         view_type=view_type,
-                                                         as_pandas=False)]
+                                                         as_pandas=False,
+                                                         **kwargs)]
         assert fluent_search_runs_run_ids == [run.info.run_id for run in runs]
 
     # 2 runs that have metric "m1" > 0.001
