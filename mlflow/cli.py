@@ -463,8 +463,10 @@ try:
     import pandas  # noqa: E402
     import numpy  # noqa: E402
 except ImportError as e:
-    warnings.warn("Built in deployment plugins could not be loaded due to missing numpy "
-                  "or pandas dependencies. %s." % e)
+    warnings.warn(
+        "Built in deployment plugins could not be loaded due to missing numpy "
+        "or pandas dependencies. %s." % e
+    )
 else:
     import mlflow.azureml.cli
     import mlflow.sagemaker.cli
