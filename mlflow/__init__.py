@@ -46,22 +46,29 @@ import mlflow.projects as projects  # noqa: E402
 import mlflow.tracking as tracking  # noqa: E402
 
 # model flavors
-import mlflow.fastai as fastai  # noqa: E402
-import mlflow.gluon as gluon  # noqa: E402
-import mlflow.h2o as h2o  # noqa: E402
-import mlflow.keras as keras  # noqa: E402
-import mlflow.lightgbm as lightgbm  # noqa: E402
-import mlflow.mleap as mleap  # noqa: E402
-import mlflow.onnx as onnx  # noqa: E402
-import mlflow.pyfunc as pyfunc  # noqa: E402
-import mlflow.pytorch as pytorch  # noqa: E402
-import mlflow.sklearn as sklearn  # noqa: E402
-import mlflow.spacy as spacy  # noqa: E402
-import mlflow.spark as spark  # noqa: E402
-import mlflow.statsmodels as statsmodels  # noqa: E402
-import mlflow.tensorflow as tensorflow  # noqa: E402
-import mlflow.xgboost as xgboost  # noqa: E402
-import mlflow.shap as shap  # noqa: E402
+try:
+    import pandas  # noqa: E402
+    import numpy  # noqa: E402
+except:
+    warnings.warn("Model flavors could not be loaded due to missing numpy "
+                  "and pandas dependencies")
+else:
+    import mlflow.fastai as fastai  # noqa: E402
+    import mlflow.gluon as gluon  # noqa: E402
+    import mlflow.h2o as h2o  # noqa: E402
+    import mlflow.keras as keras  # noqa: E402
+    import mlflow.lightgbm as lightgbm  # noqa: E402
+    import mlflow.mleap as mleap  # noqa: E402
+    import mlflow.onnx as onnx  # noqa: E402
+    import mlflow.pyfunc as pyfunc  # noqa: E402
+    import mlflow.pytorch as pytorch  # noqa: E402
+    import mlflow.sklearn as sklearn  # noqa: E402
+    import mlflow.spacy as spacy  # noqa: E402
+    import mlflow.spark as spark  # noqa: E402
+    import mlflow.statsmodels as statsmodels  # noqa: E402
+    import mlflow.tensorflow as tensorflow  # noqa: E402
+    import mlflow.xgboost as xgboost  # noqa: E402
+    import mlflow.shap as shap  # noqa: E402
 
 
 _configure_mlflow_loggers(root_module_name=__name__)

@@ -17,6 +17,8 @@ import mlflow
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.utils import reraise
 from mlflow.utils.annotations import keyword_only
 
@@ -31,8 +33,8 @@ def log_model(
     sample_input,
     artifact_path,
     registered_model_name=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
@@ -124,8 +126,8 @@ def save_model(
     sample_input,
     path,
     mlflow_model=Model(),
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
@@ -183,13 +185,8 @@ def save_model(
 
 
     """
-    from mlflow.models.utils import _save_example
-
     add_to_model(
-        mlflow_model=mlflow_model,
-        path=path,
-        spark_model=spark_model,
-        sample_input=sample_input,
+        mlflow_model=mlflow_model, path=path, spark_model=spark_model, sample_input=sample_input
     )
     if signature is not None:
         mlflow_model.signature = signature
@@ -213,17 +210,13 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.sql import DataFrame
     import mleap.version
-    from mleap.pyspark.spark_support import (
-        SimpleSparkSerializer,
-    )  # pylint: disable=unused-variable
+    from mleap.pyspark.spark_support import SimpleSparkSerializer  # pylint: disable=unused-variable
     from py4j.protocol import Py4JError
 
     if not isinstance(spark_model, PipelineModel):
         raise Exception("Not a PipelineModel." " MLeap can save only PipelineModels.")
     if sample_input is None:
-        raise Exception(
-            "A sample input must be specified in order to add the MLeap flavor."
-        )
+        raise Exception("A sample input must be specified in order to add the MLeap flavor.")
     if not isinstance(sample_input, DataFrame):
         raise Exception(
             "The sample input must be a PySpark dataframe of type `{df_type}`".format(
@@ -239,9 +232,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     mleap_datapath_full = os.path.join(path, mleap_datapath_sub)
     if os.path.exists(mleap_path_full):
         raise Exception(
-            "MLeap model data path already exists at: {path}".format(
-                path=mleap_path_full
-            )
+            "MLeap model data path already exists at: {path}".format(path=mleap_path_full)
         )
     os.makedirs(mleap_path_full)
 
@@ -266,9 +257,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
         )
     except AttributeError:
         mleap_version = mleap.version
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, mleap_version=mleap_version, model_data=mleap_datapath_sub
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, mleap_version=mleap_version, model_data=mleap_datapath_sub)
 
 
 def _handle_py4j_error(reraised_error_type, reraised_error_text):

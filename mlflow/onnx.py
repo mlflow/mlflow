@@ -9,12 +9,17 @@ ONNX (native) format
 """
 import os
 import yaml
+import numpy as np
+
+import pandas as pd
 
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
@@ -53,8 +58,8 @@ def save_model(
     path,
     conda_env=None,
     mlflow_model=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     Save an ONNX model to a path on the local file system.
@@ -103,13 +108,10 @@ def save_model(
     """
     import onnx
 
-    from mlflow.models.utils import _save_example
-
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException(
-            message="Path '{}' already exists".format(path),
-            error_code=RESOURCE_ALREADY_EXISTS,
+            message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
     os.makedirs(path)
     if mlflow_model is None:
@@ -134,14 +136,9 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.onnx",
-        data=model_data_subpath,
-        env=conda_env_subpath,
+        mlflow_model, loader_module="mlflow.onnx", data=model_data_subpath, env=conda_env_subpath
     )
-    mlflow_model.add_flavor(
-        FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath
-    )
+    mlflow_model.add_flavor(FLAVOR_NAME, onnx_version=onnx.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
@@ -165,8 +162,6 @@ class _OnnxModelWrapper:
 
     @staticmethod
     def _cast_float64_to_float32(dataframe, column_names):
-        import numpy as np
-
         for input_name in column_names:
             if dataframe[input_name].values.dtype == np.float64:
                 dataframe[input_name] = dataframe[input_name].values.astype(np.float32)
@@ -195,9 +190,6 @@ class _OnnxModelWrapper:
         # client and the scoring server can introduce 64-bit floats. This is being tracked in
         # https://github.com/mlflow/mlflow/issues/1286. Meanwhile, we explicitly cast the input to
         # 32-bit floats when needed. TODO: Remove explicit casting when issue #1286 is fixed.
-        import pandas as pd
-        import numpy as np
-
         if len(self.inputs) > 1:
             cols = [name for (name, type) in self.inputs if type == "tensor(float)"]
         else:
@@ -251,9 +243,7 @@ def load_model(model_uri):
 
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(
-        model_path=local_model_path, flavor_name=FLAVOR_NAME
-    )
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     onnx_model_artifacts_path = os.path.join(local_model_path, flavor_conf["data"])
     return _load_model(model_file=onnx_model_artifacts_path)
 
@@ -264,8 +254,8 @@ def log_model(
     artifact_path,
     conda_env=None,
     registered_model_name=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """

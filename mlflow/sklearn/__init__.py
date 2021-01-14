@@ -21,6 +21,8 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -68,8 +70,8 @@ def save_model(
     conda_env=None,
     mlflow_model=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces an MLflow Model
@@ -151,7 +153,6 @@ def save_model(
                                   serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     import sklearn
-    from mlflow.models.utils import _save_example
 
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
@@ -218,8 +219,8 @@ def log_model(
     conda_env=None,
     serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """

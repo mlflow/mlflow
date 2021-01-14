@@ -4,6 +4,7 @@ from itertools import islice
 import inspect
 import logging
 from numbers import Number
+import numpy as np
 import time
 
 from mlflow.entities import Metric, Param
@@ -368,7 +369,6 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     :param fit_kwargs: Keyword arguments given to fit_func.
     :return: dictionary of (function name, computed value)
     """
-    import numpy as np
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)

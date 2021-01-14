@@ -32,6 +32,8 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -94,8 +96,8 @@ def log_model(
     dfs_tmpdir=None,
     sample_input=None,
     registered_model_name=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
@@ -366,8 +368,6 @@ def _save_model_metadata(
     """
     import pyspark
 
-    from mlflow.models.utils import _save_example
-
     if sample_input is not None:
         mleap.add_to_model(
             mlflow_model=mlflow_model,
@@ -423,8 +423,8 @@ def save_model(
     conda_env=None,
     dfs_tmpdir=None,
     sample_input=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     Save a Spark MLlib Model to a local path.

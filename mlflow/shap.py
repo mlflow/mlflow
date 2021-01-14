@@ -2,6 +2,8 @@ from contextlib import contextmanager
 import os
 import tempfile
 
+import numpy as np
+
 import mlflow
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import append_to_uri_path
@@ -29,8 +31,6 @@ def _log_numpy(numpy_obj, out_file, artifact_path=None):
     """
     Log a numpy object.
     """
-    import numpy as np
-
     with _log_artifact_contextmanager(out_file, artifact_path) as tmp_path:
         np.save(tmp_path, numpy_obj)
 

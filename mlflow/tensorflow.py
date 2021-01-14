@@ -17,6 +17,7 @@ import atexit
 import time
 import tempfile
 from collections import namedtuple
+import pandas
 from distutils.version import LooseVersion
 from threading import RLock
 
@@ -26,6 +27,8 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import keyword_only, experimental
@@ -85,8 +88,8 @@ def log_model(
     tf_signature_def_key,
     artifact_path,
     conda_env=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
     registered_model_name=None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
@@ -182,8 +185,8 @@ def save_model(
     path,
     mlflow_model=None,
     conda_env=None,
-    signature=None,
-    input_example=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
 ):
     """
     Save a *serialized* collection of TensorFlow graphs and variables as an MLflow model
@@ -240,8 +243,6 @@ def save_model(
                           base64-encoded.
 
     """
-    from mlflow.models.utils import _save_example
-
     _logger.info(
         "Validating the specified TensorFlow model by attempting to load it in a new TensorFlow"
         " graph..."
@@ -522,8 +523,6 @@ class _TFWrapper(object):
         }
 
     def predict(self, data):
-        import pandas
-
         with self.tf_graph.as_default():
             feed_dict = data
             if isinstance(data, dict):
@@ -560,7 +559,6 @@ class _TF2Wrapper(object):
         self.infer = infer
 
     def predict(self, data):
-        import pandas
         import tensorflow
 
         feed_dict = {}
