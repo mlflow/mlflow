@@ -73,7 +73,8 @@ tensorflow-2.x:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      pip install tf-nightly
+      # https://github.com/tensorflow/tensorflow/issues/46429
+      pip install 'tf-nightly==2.5.0.dev20210112'
 
   models:
     minimum: "2.0.0"
