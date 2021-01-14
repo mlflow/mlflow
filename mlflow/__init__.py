@@ -178,4 +178,4 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
-    ] + _model_flavors_supported
+] + _model_flavors_supported
