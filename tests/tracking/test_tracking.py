@@ -873,7 +873,7 @@ def test_search_runs():
     assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
 
     def run_and_verify(experiment_ids, query, check, view_type=None):
-        runs = MlflowClient().search_runs(experiment_ids, query, view_type=view_type)
+        runs = MlflowClient().search_runs(experiment_ids, query, view_type)
 
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
 
