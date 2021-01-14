@@ -12,7 +12,6 @@ import platform
 
 import mlflow
 import mlflow.version
-from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -53,6 +52,8 @@ def _get_preferred_deployment_flavor(model_config):
     :param model_config: An MLflow model object
     :return: The name of the preferred deployment flavor for the specified model
     """
+    from mlflow import pyfunc, mleap
+
     if mleap.FLAVOR_NAME in model_config.flavors:
         return mleap.FLAVOR_NAME
     elif pyfunc.FLAVOR_NAME in model_config.flavors:

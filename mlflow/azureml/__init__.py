@@ -341,6 +341,8 @@ def deploy(
     from azureml.core import VERSION as AZUREML_VERSION
     from azureml.core.webservice import AciWebservice
 
+    from mlflow import pyfunc
+
     absolute_model_path = _download_artifact_from_uri(model_uri)
 
     model_pyfunc_conf, model = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
