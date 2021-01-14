@@ -95,7 +95,9 @@ keras:
     install_dev: |
       # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
       # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
-      pip install tf-nightly 'keras>=2.4.0'
+      # Unpin `tf-nightly` once the following issue has been fixed:
+      # https://github.com/tensorflow/tensorflow/issues/46429
+      pip install 'tf-nightly==2.5.0.dev20210113' 'keras>=2.4.0'
 
   models:
     minimum: "2.2.4"
