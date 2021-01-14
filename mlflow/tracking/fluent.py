@@ -24,19 +24,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
-from mlflow import (
-    tensorflow,
-    keras,
-    gluon,
-    xgboost,
-    lightgbm,
-    statsmodels,
-    spark,
-    sklearn,
-    fastai,
-    pytorch,
-)
-
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
@@ -1323,6 +1310,19 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """
+    from mlflow import (
+        tensorflow,
+        keras,
+        gluon,
+        xgboost,
+        lightgbm,
+        statsmodels,
+        spark,
+        sklearn,
+        fastai,
+        pytorch,
+    )
+
     locals_copy = locals().items()
 
     # Mapping of library module name to specific autolog function
