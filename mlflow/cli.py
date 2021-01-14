@@ -460,6 +460,7 @@ cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
 
 try:
+    # pylint: disable=unused-import
     import pandas  # noqa: E402
     import numpy  # noqa: E402
 except ImportError as e:

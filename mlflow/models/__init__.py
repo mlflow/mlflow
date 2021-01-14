@@ -25,6 +25,7 @@ from .flavor_backend import FlavorBackend
 
 
 try:
+    # pylint: disable=unused-import
     from .signature import ModelSignature, infer_signature
     from .utils import ModelInputExample
 except ImportError:

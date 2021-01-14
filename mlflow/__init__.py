@@ -55,6 +55,8 @@ except ImportError as e:
         "Model flavors could not be loaded due to missing numpy " "or pandas dependencies. %s." % e
     )
 else:
+    # pylint: disable=unused-import
+
     _supports_flavors = True
     import mlflow.fastai as fastai  # noqa: E402
     import mlflow.gluon as gluon  # noqa: E402
