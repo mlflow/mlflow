@@ -46,13 +46,15 @@ import mlflow.projects as projects  # noqa: E402
 import mlflow.tracking as tracking  # noqa: E402
 
 # model flavors
+_model_flavors_supported = []
 try:
     import pandas  # noqa: E402
     import numpy  # noqa: E402
 except:
     warnings.warn("Model flavors could not be loaded due to missing numpy "
-                  "and pandas dependencies")
+                  "or pandas dependencies. Exception ")
 else:
+    _supports_flavors = True
     import mlflow.fastai as fastai  # noqa: E402
     import mlflow.gluon as gluon  # noqa: E402
     import mlflow.h2o as h2o  # noqa: E402
@@ -69,6 +71,25 @@ else:
     import mlflow.tensorflow as tensorflow  # noqa: E402
     import mlflow.xgboost as xgboost  # noqa: E402
     import mlflow.shap as shap  # noqa: E402
+
+    _model_flavors_supported = [
+        "fastai",
+        "gluon",
+        "h2o",
+        "keras",
+        "lightgbm",
+        "mleap",
+        "onnx",
+        "pyfunc",
+        "pytorch",
+        "sklearn",
+        "spacy",
+        "spark",
+        "statsmodels",
+        "tensorflow",
+        "xgboost",
+        "shap",
+    ]
 
 
 _configure_mlflow_loggers(root_module_name=__name__)
@@ -156,21 +177,5 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
-    # model flavors
-    "fastai",
-    "gluon",
-    "h2o",
-    "keras",
-    "lightgbm",
-    "mleap",
-    "onnx",
-    "pyfunc",
-    "pytorch",
-    "sklearn",
-    "spacy",
-    "spark",
-    "statsmodels",
-    "tensorflow",
-    "xgboost",
-    "shap",
-]
+    ] + _model_flavors_supported
+
