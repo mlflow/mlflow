@@ -14,9 +14,9 @@ import mlflow
 
 
 ModelWithExplanation = namedtuple(
-    "ModelWithExplanation", ["model", "X", "shap_values", "base_values"]
+    "ModelWithExplanation", ["model", "X", "shap_values", "base_values", "sampling_strategy"]
 )
-
+np.random.seed(0)
 
 def yield_artifacts(run_id, path=None):
     """
@@ -46,28 +46,30 @@ def get_boston():
     )
 
 
-@pytest.fixture(scope="module")
-def regressor():
+@pytest.fixture(scope="module", params=['random', 'kmeans'])
+def regressor(sampling_strategy):
     X, y = get_boston()
     model = RandomForestRegressor()
     model.fit(X, y)
 
-    explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, 100))
+    bg_data = shap.kmeans(X, 100) if sampling_strategy == 'kmeans' else X[np.random.choice(X.shape[0], 100, replace=False)]
+    explainer = shap.KernelExplainer(model.predict, bg_data)
     shap_values = explainer.shap_values(X)
 
-    return ModelWithExplanation(model, X, shap_values, explainer.expected_value)
+    return ModelWithExplanation(model, X, shap_values, explainer.expected_value, sampling_strategy)
 
 
-@pytest.fixture(scope="module")
-def classifier():
+@pytest.fixture(scope="module", params=['random', 'kmeans'])
+def classifier(sampling_strategy):
     X, y = get_iris()
     model = RandomForestClassifier()
     model.fit(X, y)
 
-    explainer = shap.KernelExplainer(model.predict_proba, shap.kmeans(X, 100))
+    bg_data = shap.kmeans(X, 100) if sampling_strategy == 'kmeans' else X[np.random.choice(X.shape[0], 100, replace=False)]
+    explainer = shap.KernelExplainer(model.predict_proba, bg_data)
     shap_values = explainer.shap_values(X)
 
-    return ModelWithExplanation(model, X, shap_values, explainer.expected_value)
+    return ModelWithExplanation(model, X, shap_values, explainer.expected_value, sampling_strategy)
 
 
 @pytest.mark.large
@@ -102,7 +104,7 @@ def test_log_explanation_with_regressor(regressor):
     X = regressor.X
 
     with mlflow.start_run() as run:
-        explanation_path = mlflow.shap.log_explanation(model.predict, X)
+        explanation_path = mlflow.shap.log_explanation(model.predict, X, sampling_strategy=regressor.sampling_strategy)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -129,7 +131,7 @@ def test_log_explanation_with_classifier(classifier):
     X = classifier.X
 
     with mlflow.start_run() as run:
-        explanation_uri = mlflow.shap.log_explanation(model.predict_proba, X)
+        explanation_uri = mlflow.shap.log_explanation(model.predict_proba, X, sampling_strategy=classifier.sampling_strategy)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -157,7 +159,7 @@ def test_log_explanation_with_artifact_path(regressor, artifact_path):
     X = regressor.X
 
     with mlflow.start_run() as run:
-        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path)
+        explanation_path = mlflow.shap.log_explanation(model.predict, X, artifact_path, sampling_strategy=regressor.sampling_strategy)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
@@ -183,7 +185,7 @@ def test_log_explanation_without_active_run(regressor):
     X = regressor.X.values
 
     try:
-        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+        explanation_uri = mlflow.shap.log_explanation(model.predict, X, sampling_strategy=regressor.sampling_strategy)
     finally:
         run = mlflow.active_run()
         mlflow.end_run()
@@ -213,7 +215,7 @@ def test_log_explanation_with_numpy_array(regressor):
     X = regressor.X.values
 
     with mlflow.start_run() as run:
-        explanation_uri = mlflow.shap.log_explanation(model.predict, X)
+        explanation_uri = mlflow.shap.log_explanation(model.predict, X, sampling_strategy=regressor.sampling_strategy)
 
     # Assert no figure is open
     assert len(plt.get_fignums()) == 0
