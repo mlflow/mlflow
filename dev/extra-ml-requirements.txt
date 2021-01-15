@@ -40,3 +40,4 @@ mleap
 pyspark==2.4.0
 # Required by mlflow.shap
 shap
+ipython
