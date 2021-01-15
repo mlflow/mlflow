@@ -139,9 +139,9 @@ def _run(
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "kubernetes"
         )
-        
+
         kube_config = _parse_kubernetes_config(backend_config)
-        if os.environ.get('IMAGE_DIGEST') is None or os.environ.get('IMAGE_TAG') is None:
+        if os.environ.get("IMAGE_DIGEST") is None or os.environ.get("IMAGE_TAG") is None:
             validate_docker_env(project)
             validate_docker_installation()
             image = build_docker_image(
@@ -153,13 +153,13 @@ def _run(
             image_digest = kb.push_image_to_registry(image.tags[0])
             image_tag = image.tags[0]
         else:
-            image_digest = os.environ.get('IMAGE_DIGEST')
-            image_tag = os.environ.get('IMAGE_TAG')
+            image_digest = os.environ.get("IMAGE_DIGEST")
+            image_tag = os.environ.get("IMAGE_TAG")
 
         run_env_vars = get_run_env_vars(
-                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
-            )
-        run_env_vars.update({'IMAGE_DIGEST':image_digest, 'IMAGE_TAG':image_tag}),
+            run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
+        )
+        run_env_vars.update({"IMAGE_DIGEST": image_digest, "IMAGE_TAG": image_tag})
 
         submitted_run = kb.run_kubernetes_job(
             project.name,
