@@ -48,6 +48,7 @@ import mlflow.tracking as tracking  # noqa: E402
 # model flavors
 _model_flavors_supported = []
 try:
+    # pylint: disable=unused-import
     import pandas  # noqa: E402
     import numpy  # noqa: E402
 except ImportError as e:
@@ -55,9 +56,9 @@ except ImportError as e:
         "Model flavors could not be loaded due to missing numpy " "or pandas dependencies. %s." % e
     )
 else:
-    # pylint: disable=unused-import
-
     _supports_flavors = True
+
+    # pylint: disable=unused-import
     import mlflow.fastai as fastai  # noqa: E402
     import mlflow.gluon as gluon  # noqa: E402
     import mlflow.h2o as h2o  # noqa: E402
