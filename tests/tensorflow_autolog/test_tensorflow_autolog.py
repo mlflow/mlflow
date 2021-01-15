@@ -225,6 +225,7 @@ def tf_keras_random_data_run_with_callback(
             patience=patience,
             min_delta=99999999,
             restore_best_weights=restore_weights,
+            verbose=1,
         )
     else:
         callback = tf.keras.callbacks.ProgbarLogger(count_mode="samples")
