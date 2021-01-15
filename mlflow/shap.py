@@ -3,6 +3,7 @@ import os
 import tempfile
 
 import numpy as np
+import pandas as pd
 
 import mlflow
 from mlflow.utils.annotations import experimental
@@ -44,7 +45,7 @@ def _log_matplotlib_figure(fig, out_file, artifact_path=None):
 
 
 @experimental
-def log_explanation(predict_function, features, artifact_path=None, sampling_strategy='random'):
+def log_explanation(predict_function, features, artifact_path=None, sampling_strategy="random"):
     r"""
     Given a ``predict_function`` capable of computing ML model output on the provided ``features``,
     computes and logs explanations of an ML model's output. Explanations are logged as a directory
@@ -171,16 +172,24 @@ def log_explanation(predict_function, features, artifact_path=None, sampling_str
     import matplotlib.pyplot as plt
     import shap
 
+    np.random.seed(0)  # For reproducibility
+
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
 
     sample_size = min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features))
     if sampling_strategy == "random":
-        background_data = features[np.random.choice(features.shape[0], sample_size, replace=False)]
+        sample = np.random.choice(features.shape[0], sample_size, replace=False)
+        if isinstance(features, pd.DataFrame):
+            background_data = features.iloc[sample]
+        else:
+            background_data = features[sample]
     elif sampling_strategy == "kmeans":
         background_data = shap.kmeans(features, sample_size)
     else:
         raise ValueError(
-            "Invalid value for `sampling_strategy`: {}. Must be one of {{'random', 'kmeans'}}".format(sampling_strategy)
+            "Invalid value for `sampling_strategy`: {}. Must be one of {{'random', 'kmeans'}}".format(
+                sampling_strategy
+            )
         )
 
     explainer = shap.KernelExplainer(predict_function, background_data)
