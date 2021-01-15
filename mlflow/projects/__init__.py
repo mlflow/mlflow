@@ -2,32 +2,31 @@
 The ``mlflow.projects`` module provides an API for running MLflow projects locally or remotely.
 """
 import json
-import logging
-import os
-
 import yaml
+import os
+import logging
 
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
-import mlflow.utils.uri
 from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.projects.backend import loader
-from mlflow.projects.submitted_run import SubmittedRun	
-from mlflow.projects.utils import (	
-    PROJECT_SYNCHRONOUS,	
-    get_entry_point_command,	
-    get_run_env_vars,	
-    fetch_and_validate_project,	
-    get_or_create_run,	
-    load_project,	
-    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,	
-    PROJECT_USE_CONDA,	
-    PROJECT_STORAGE_DIR,	
-    PROJECT_DOCKER_ARGS,	
+from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.projects.utils import (
+    PROJECT_SYNCHRONOUS,
+    get_entry_point_command,
+    get_run_env_vars,
+    fetch_and_validate_project,
+    get_or_create_run,
+    load_project,
+    MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
+    PROJECT_USE_CONDA,
+    PROJECT_STORAGE_DIR,
+    PROJECT_DOCKER_ARGS,
 )
+from mlflow.projects.backend import loader
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_PROJECT_BACKEND
+import mlflow.utils.uri
 
 _logger = logging.getLogger(__name__)
 
