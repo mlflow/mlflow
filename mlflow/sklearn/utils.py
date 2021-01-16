@@ -307,7 +307,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                     arguments=dict(
                         estimator=fitted_estimator,
                         X=X,
-                        y_true=y_pred,
+                        y_true=y_true,
                         sample_weight=sample_weight,
                         normalize="true",
                         cmap="Blues",
@@ -326,7 +326,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                         name=_TRAINING_PREFIX + "roc_curve",
                         function=sklearn.metrics.plot_roc_curve,
                         arguments=dict(
-                            estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
+                            estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
                         ),
                         title="ROC curve",
                     ),
@@ -334,7 +334,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                         name=_TRAINING_PREFIX + "precision_recall_curve",
                         function=sklearn.metrics.plot_precision_recall_curve,
                         arguments=dict(
-                            estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
+                            estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
                         ),
                         title="Precision recall curve",
                     ),
