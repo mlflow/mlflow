@@ -287,9 +287,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     import sklearn
 
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
-    )
+    X, y_true = _get_Xy(fit_args, fit_kwargs, *fit_arg_names[:2])
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         if _SAMPLE_WEIGHT in fit_arg_names
