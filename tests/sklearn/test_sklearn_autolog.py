@@ -659,13 +659,13 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         with pytest.raises(NotFittedError, match=msg):
             cv_model.predict([[0]])  # `[[0]]` is dummy data
 
-        # Extract warning calls originating from failed `predict`
-        warning_calls = [args for args in mock_warning.call_args_list if msg in args[0][0]]
+        # Count how many times `mock_warning` has been called on not-fitted `predict` failure
+        call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
         # `mock_warning` should have been called twice, once for metrics, once for artifacts.
-        # Otherwise, `mock_warning` should have been called once for metrics.
+        # Otherwise, only once for metrics.
         call_count_expected = 2 if mlflow.sklearn.utils._is_plotting_supported() else 1
-        assert len(warning_calls) == call_count_expected
+        assert call_count == call_count_expected
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
