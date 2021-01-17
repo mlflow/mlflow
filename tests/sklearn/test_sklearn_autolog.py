@@ -657,7 +657,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
             "predict is available only after refitting on the best parameters"
         )
         with pytest.raises(NotFittedError, match=msg):
-            cv_model.predict([[0]])  # `[[0]]` is dummy data
+            cv_model.predict([[0, 0, 0, 0]])
 
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
         call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
