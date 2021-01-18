@@ -1,17 +1,19 @@
 import logging
-import os
-import time
-from datetime import datetime
-from shlex import quote, split
-from threading import RLock
-
-from mlflow.entities import RunStatus
-from mlflow.exceptions import ExecutionException
-from mlflow.projects.submitted_run import SubmittedRun
-
 import docker
+import time
+import os
+from threading import RLock
+from datetime import datetime
+
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
+
+from mlflow.exceptions import ExecutionException
+from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.entities import RunStatus
+
+from shlex import split
+from shlex import quote
 
 _logger = logging.getLogger(__name__)
 
