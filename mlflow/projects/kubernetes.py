@@ -1,19 +1,17 @@
 import logging
-import docker
-import time
 import os
-from threading import RLock
+import time
 from datetime import datetime
+from shlex import quote, split
+from threading import RLock
 
-import kubernetes
-from kubernetes.config.config_exception import ConfigException
-
+from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.entities import RunStatus
 
-from shlex import split
-from shlex import quote
+import docker
+import kubernetes
+from kubernetes.config.config_exception import ConfigException
 
 _logger = logging.getLogger(__name__)
 
@@ -155,7 +153,7 @@ class KubernetesSubmittedRun(SubmittedRun):
                 kube_api.delete_namespaced_job(
                     name=self._job_name,
                     namespace=self._job_namespace,
-                    body=kubernetes.client.V1DeleteOptions(),
+                    body=kubernetes.client.V1DeleteOptions(propagation_policy="Background"),
                     pretty=True,
                 )
                 self._status = RunStatus.KILLED
