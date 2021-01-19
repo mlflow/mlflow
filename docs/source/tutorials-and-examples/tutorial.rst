@@ -168,37 +168,11 @@ Now that you have your training code, you can package it so that other data scie
       You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-      .. code-block:: yaml
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
 
-          # sklearn_elasticnet_wine/MLproject
+      ``sklearn_elasticnet_wine/conda.yaml`` file lists the dependencies:
 
-          name: tutorial
-
-          conda_env: conda.yaml
-
-          entry_points:
-            main:
-              parameters:
-                alpha: float
-                l1_ratio: {type: float, default: 0.1}
-              command: "python train.py {alpha} {l1_ratio}"
-
-
-      The Conda file lists the dependencies:
-
-      .. code-block:: yaml
-
-          # sklearn_elasticnet_wine/conda.yaml
-
-          name: tutorial
-          channels:
-            - defaults
-          dependencies:
-            - numpy=1.14.3
-            - pandas=0.22.0
-            - scikit-learn=0.19.1
-            - pip:
-              - mlflow
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/conda.yaml
 
       To run this project, invoke ``mlflow run examples/sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
