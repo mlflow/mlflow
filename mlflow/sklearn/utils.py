@@ -286,60 +286,56 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     """
     import sklearn
 
+    if not _is_plotting_supported():
+        return []
+
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
-    )
+    X, y_true = _get_Xy(fit_args, fit_kwargs, *fit_arg_names[:2])
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         if _SAMPLE_WEIGHT in fit_arg_names
         else None
     )
 
-    classifier_artifacts = []
-    if _is_plotting_supported():
-        labels = set(y_true)
+    classifier_artifacts = [
+        _SklearnArtifact(
+            name=_TRAINING_PREFIX + "confusion_matrix",
+            function=sklearn.metrics.plot_confusion_matrix,
+            arguments=dict(
+                estimator=fitted_estimator,
+                X=X,
+                y_true=y_true,
+                sample_weight=sample_weight,
+                normalize="true",
+                cmap="Blues",
+            ),
+            title="Normalized confusion matrix",
+        ),
+    ]
+
+    # The plot_roc_curve and plot_precision_recall_curve can only be
+    # supported for binary classifier
+    if len(set(y_true)) == 2:
         classifier_artifacts.extend(
             [
                 _SklearnArtifact(
-                    name=_TRAINING_PREFIX + "confusion_matrix",
-                    function=sklearn.metrics.plot_confusion_matrix,
+                    name=_TRAINING_PREFIX + "roc_curve",
+                    function=sklearn.metrics.plot_roc_curve,
                     arguments=dict(
-                        estimator=fitted_estimator,
-                        X=X,
-                        y_true=y_pred,
-                        sample_weight=sample_weight,
-                        normalize="true",
-                        cmap="Blues",
+                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
                     ),
-                    title="Normalized confusion matrix",
+                    title="ROC curve",
+                ),
+                _SklearnArtifact(
+                    name=_TRAINING_PREFIX + "precision_recall_curve",
+                    function=sklearn.metrics.plot_precision_recall_curve,
+                    arguments=dict(
+                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                    ),
+                    title="Precision recall curve",
                 ),
             ]
         )
-
-        # The plot_roc_curve and plot_precision_recall_curve can only be
-        # supported for binary classifier
-        if len(labels) == 2:
-            classifier_artifacts.extend(
-                [
-                    _SklearnArtifact(
-                        name=_TRAINING_PREFIX + "roc_curve",
-                        function=sklearn.metrics.plot_roc_curve,
-                        arguments=dict(
-                            estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
-                        ),
-                        title="ROC curve",
-                    ),
-                    _SklearnArtifact(
-                        name=_TRAINING_PREFIX + "precision_recall_curve",
-                        function=sklearn.metrics.plot_precision_recall_curve,
-                        arguments=dict(
-                            estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
-                        ),
-                        title="Precision recall curve",
-                    ),
-                ]
-            )
 
     return classifier_artifacts
 
