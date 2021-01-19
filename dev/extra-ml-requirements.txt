@@ -40,3 +40,5 @@ mleap
 pyspark==2.4.0
 # Required by mlflow.shap
 shap
+# Remove `ipython` once this issue: https://github.com/slundberg/shap/pull/1749 has been addressed
+ipython
