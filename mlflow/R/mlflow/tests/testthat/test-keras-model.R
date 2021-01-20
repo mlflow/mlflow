@@ -2,7 +2,7 @@ context("Model")
 
 library("keras")
 
-testthat_model_dir <- tempfile("model_")
+testthat_model_dir <- basename(tempfile("model_"))
 
 teardown({
   mlflow_clear_test_dir(testthat_model_dir)
@@ -25,7 +25,7 @@ test_that("mlflow can save keras model ", {
   model %>% mlflow_save_model(testthat_model_dir)
   expect_true(dir.exists(testthat_model_dir))
   detach("package:keras", unload = TRUE)
-  model_reloaded <- mlflow_load_model(testthat_model_dir)
+  model_reloaded <- mlflow_load_model(as_uri(testthat_model_dir))
   expect_equal(
     predict(model, train_x),
     predict(model_reloaded, train_x),

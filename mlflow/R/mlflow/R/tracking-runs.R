@@ -1,4 +1,5 @@
 #' @include tracking-globals.R
+#' @include utils.R
 NULL
 
 # Translate metric to value to safe format for REST.
@@ -421,13 +422,15 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
     },
     client = client
   )
-  gsub("\n", "", result$stdout)
+
+  extract_path(result$stdout)
 }
 
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
   result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
-  gsub("\n", "", result$stdout)
+
+  extract_path(result$stdout)
 }
 
 #' List Run Infos

@@ -9,6 +9,8 @@ teardown({
 })
 
 test_that("mlflow can save model function", {
+  skip_on_windows("ValueError: close_fds is not supported on Windows platforms if you redirect stdin/stdout/stderr")
+
   mlflow_clear_test_dir(testthat_model_name)
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
@@ -59,6 +61,8 @@ test_that("mlflow can save model function", {
 })
 
 test_that("mlflow can log model and load it back with a uri", {
+  skip_on_windows("ValueError: close_fds is not supported on Windows platforms if you redirect stdin/stdout/stderr")
+
   with(run <- mlflow_start_run(), {
     model <- structure(
       list(some = "stuff"),
@@ -89,6 +93,8 @@ test_that("mlflow can log model and load it back with a uri", {
 })
 
 test_that("mlflow log model records correct metadata with the tracking server", {
+  skip_on_windows("'conda' is not recognized as an internal or external command, operable program or batch file.")
+
   with(run <- mlflow_start_run(), {
     print(run$run_uuid[1])
     model <- structure(

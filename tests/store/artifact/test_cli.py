@@ -1,5 +1,6 @@
 import json
 import os
+import platform
 import posixpath
 
 from unittest import mock
@@ -42,14 +43,6 @@ def test_download_from_uri():
         ("/path", ("/", "path")),
         ("/path/", ("/path", "")),
         ("path/to/dir", ("path/to", "dir")),
-        ("file:", ("file:", "")),
-        ("file:path", ("file:", "path")),
-        ("file:path/", ("file:path", "")),
-        ("file:path/to/dir", ("file:path/to", "dir")),
-        ("file:/", ("file:///", "")),
-        ("file:/path", ("file:///", "path")),
-        ("file:/path/", ("file:///path", "")),
-        ("file:/path/to/dir", ("file:///path/to", "dir")),
         ("file:///", ("file:///", "")),
         ("file:///path", ("file:///", "path")),
         ("file:///path/", ("file:///path", "")),
@@ -61,6 +54,19 @@ def test_download_from_uri():
         ("s3://path/to", ("s3://path/", "to")),
         ("s3://path/to/dir", ("s3://path/to", "dir")),
     ]
+    if platform.system() != "Windows":
+        # Not applicable on Windows
+        pairs += [
+            ("file:", ("file:", "")),
+            ("file:path", ("file:", "path")),
+            ("file:path/", ("file:path", "")),
+            ("file:path/to/dir", ("file:path/to", "dir")),
+            ("file:/", ("file:///", "")),
+            ("file:/path", ("file:///", "path")),
+            ("file:/path/", ("file:///path", "")),
+            ("file:/path/to/dir", ("file:///path/to", "dir")),
+        ]
+
     with mock.patch(
         "mlflow.tracking.artifact_utils.get_artifact_repository"
     ) as get_artifact_repo_mock:

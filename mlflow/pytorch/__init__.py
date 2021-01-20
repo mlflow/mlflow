@@ -463,7 +463,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = "data"
-    model_data_path = os.path.join(path, model_data_subpath)
+    model_data_path = os.path.normpath(os.path.join(path, model_data_subpath))
     os.makedirs(model_data_path)
     # Persist the pickle module name as a file in the model's `data` directory. This is necessary
     # because the `data` directory is the only available parameter to `_load_pyfunc`, and it
@@ -472,11 +472,13 @@ def save_model(
     #
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
-    pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
+    pickle_module_path = os.path.normpath(
+        os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
+    )
     with open(pickle_module_path, "w") as f:
         f.write(pickle_module.__name__)
     # Save pytorch model
-    model_path = os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME)
+    model_path = os.path.normpath(os.path.join(model_data_path, _SERIALIZED_TORCH_MODEL_FILE_NAME))
     if isinstance(pytorch_model, torch.jit.ScriptModule):
         torch.jit.ScriptModule.save(pytorch_model, model_path)
     else:
@@ -518,7 +520,7 @@ def save_model(
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.normpath(os.path.join(path, conda_env_subpath)), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     if code_paths is not None:
@@ -542,7 +544,7 @@ def save_model(
         code=code_dir_subpath,
         env=conda_env_subpath,
     )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+    mlflow_model.save(os.path.normpath(os.path.join(path, MLMODEL_FILE_NAME)))
 
 
 def _load_model(path, **kwargs):
@@ -555,8 +557,8 @@ def _load_model(path, **kwargs):
     if os.path.isdir(path):
         # `path` is a directory containing a serialized PyTorch model and a text file containing
         # information about the pickle module that should be used by PyTorch to load it
-        model_path = os.path.join(path, "model.pth")
-        pickle_module_path = os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME)
+        model_path = os.path.normpath(os.path.join(path, "model.pth"))
+        pickle_module_path = os.path.normpath(os.path.join(path, _PICKLE_MODULE_INFO_FILE_NAME))
         with open(pickle_module_path, "r") as f:
             pickle_module_name = f.read()
         if "pickle_module" in kwargs and kwargs["pickle_module"].__name__ != pickle_module_name:
@@ -661,7 +663,7 @@ def load_model(model_uri, **kwargs):
     code_subpath = pyfunc_conf.get(pyfunc.CODE)
     if code_subpath is not None:
         pyfunc_utils._add_code_to_system_path(
-            code_path=os.path.join(local_model_path, code_subpath)
+            code_path=os.path.normpath(os.path.join(local_model_path, code_subpath))
         )
 
     pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -671,7 +673,9 @@ def load_model(model_uri, **kwargs):
             pytorch_conf["pytorch_version"],
             torch.__version__,
         )
-    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf["model_data"])
+    torch_model_artifacts_path = os.path.normpath(
+        os.path.join(local_model_path, pytorch_conf["model_data"])
+    )
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 

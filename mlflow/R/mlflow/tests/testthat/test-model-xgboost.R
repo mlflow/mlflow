@@ -16,7 +16,7 @@ model <- xgboost::xgboost(
   eta = 1, nthread = 2, nrounds = 2, objective = "binary:logistic"
 )
 
-testthat_model_dir <- tempfile("model_")
+testthat_model_dir <- basename(tempfile("model_"))
 
 teardown({
   mlflow_clear_test_dir(testthat_model_dir)
@@ -30,7 +30,7 @@ test_that("mlflow can save model", {
 
 test_that("can load model and predict with rfunc backend", {
 
-  loaded_back_model <- mlflow_load_model(testthat_model_dir)
+  loaded_back_model <- mlflow_load_model(as_uri(testthat_model_dir))
   prediction <- mlflow_predict(loaded_back_model, as.matrix(test$data))
   expect_equal(
     prediction,
@@ -40,15 +40,17 @@ test_that("can load model and predict with rfunc backend", {
 })
 
 test_that("can load and predict with python pyfunct and xgboost backend", {
+  skip_on_windows()
+
   pyfunc <- import("mlflow.pyfunc")
-  py_model <- pyfunc$load_model(testthat_model_dir)
+  py_model <- pyfunc$load_model(as_uri(testthat_model_dir))
   expect_equal(
     as.numeric(py_model$predict(test$data)),
     unname(predict(model, as.matrix(test$data)))
   )
 
   mlflow.xgboost <- import("mlflow.xgboost")
-  xgboost_native_model <- mlflow.xgboost$load_model(testthat_model_dir)
+  xgboost_native_model <- mlflow.xgboost$load_model(as_uri(testthat_model_dir))
   xgboost <- import("xgboost")
 
   expect_equivalent(
@@ -58,6 +60,8 @@ test_that("can load and predict with python pyfunct and xgboost backend", {
 })
 
 test_that("Can predict with cli backend", {
+  skip_on_windows("'conda' is not recognized as an internal or external command, operable program or batch file.")
+
   # # Test that we can score this model with pyfunc backend
   temp_in_csv <- tempfile(fileext = ".csv")
   temp_in_json <- tempfile(fileext = ".json")
@@ -65,7 +69,7 @@ test_that("Can predict with cli backend", {
   temp_out <- tempfile(fileext = ".json")
   write.csv(test$data, temp_in_csv, row.names = FALSE)
   mlflow_cli(
-    "models", "predict", "-m", testthat_model_dir, "-i", temp_in_csv,
+    "models", "predict", "-m", as_uri(testthat_model_dir), "-i", temp_in_csv,
     "-o", temp_out, "-t", "csv"
   )
   prediction <- unlist(jsonlite::read_json(temp_out))
@@ -77,7 +81,7 @@ test_that("Can predict with cli backend", {
   # json records
   jsonlite::write_json(test$data, temp_in_json)
   mlflow_cli(
-    "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json, "-o", temp_out,
+    "models", "predict", "-m", as_uri(testthat_model_dir), "-i", temp_in_json, "-o", temp_out,
     "-t", "json",
     "--json-format", "records"
   )
@@ -94,7 +98,7 @@ test_that("Can predict with cli backend", {
   )
   jsonlite::write_json(mtcars_split, temp_in_json_split)
   mlflow_cli(
-    "models", "predict", "-m", testthat_model_dir, "-i", temp_in_json_split,
+    "models", "predict", "-m", as_uri(testthat_model_dir), "-i", temp_in_json_split,
     "-o", temp_out, "-t",
     "json", "--json-format", "split"
   )

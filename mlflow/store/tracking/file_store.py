@@ -25,7 +25,10 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store.tracking import (
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.validation import (
     _validate_metric_name,
@@ -130,7 +133,9 @@ class FileStore(AbstractStore):
         super().__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
-        self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
+        self.trash_folder = os.path.normpath(
+            os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
+        )
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
@@ -173,20 +178,30 @@ class FileStore(AbstractStore):
         _validate_run_id(run_uuid)
         if not self._has_experiment(experiment_id):
             return None
-        return os.path.join(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
+        return os.path.normpath(
+            os.path.join(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
+        )
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
         _validate_metric_name(metric_key)
-        return os.path.join(
-            self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME, metric_key
+        return os.path.normpath(
+            os.path.join(
+                self._get_run_dir(experiment_id, run_uuid),
+                FileStore.METRICS_FOLDER_NAME,
+                metric_key,
+            )
         )
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
-        return os.path.join(
-            self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME, param_name
+        return os.path.normpath(
+            os.path.join(
+                self._get_run_dir(experiment_id, run_uuid),
+                FileStore.PARAMS_FOLDER_NAME,
+                param_name,
+            )
         )
 
     def _get_experiment_tag_path(self, experiment_id, tag_name):
@@ -194,17 +209,21 @@ class FileStore(AbstractStore):
         _validate_param_name(tag_name)
         if not self._has_experiment(experiment_id):
             return None
-        return os.path.join(
-            self._get_experiment_path(experiment_id, assert_exists=True),
-            FileStore.TAGS_FOLDER_NAME,
-            tag_name,
+        return os.path.normpath(
+            os.path.join(
+                self._get_experiment_path(experiment_id, assert_exists=True),
+                FileStore.TAGS_FOLDER_NAME,
+                tag_name,
+            )
         )
 
     def _get_tag_path(self, experiment_id, run_uuid, tag_name):
         _validate_run_id(run_uuid)
         _validate_tag_name(tag_name)
-        return os.path.join(
-            self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME, tag_name
+        return os.path.normpath(
+            os.path.join(
+                self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME, tag_name,
+            )
         )
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
@@ -264,7 +283,7 @@ class FileStore(AbstractStore):
         """Check the validity of an experiment name."""
         if name is None or name == "":
             raise MlflowException(
-                "Invalid experiment name '%s'" % name, databricks_pb2.INVALID_PARAMETER_VALUE
+                "Invalid experiment name '%s'" % name, databricks_pb2.INVALID_PARAMETER_VALUE,
             )
         experiment = self.get_experiment_by_name(name)
         if experiment is not None:
@@ -368,7 +387,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
-        meta_dir = os.path.join(self.root_directory, experiment_id)
+        meta_dir = os.path.normpath(os.path.join(self.root_directory, experiment_id))
         # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
@@ -389,7 +408,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE,
             )
         check_run_is_active(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
@@ -406,7 +425,7 @@ class FileStore(AbstractStore):
     def _get_deleted_runs(self):
         experiment_ids = self._get_active_experiments() + self._get_deleted_experiments()
         deleted_runs = self.search_runs(
-            experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY
+            experiment_ids=experiment_ids, filter_string="", run_view_type=ViewType.DELETED_ONLY,
         )
         return [deleted_run.info.run_uuid for deleted_run in deleted_runs]
 
@@ -414,7 +433,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE,
             )
         check_run_is_deleted(run_info)
         new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
@@ -498,7 +517,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         if run_info is None:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE,
             )
         return self._get_run_from_info(run_info)
 
@@ -520,7 +539,7 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info_from_dir(run_dir)
         if run_info.experiment_id != exp_id:
             raise MlflowException(
-                "Run '%s' metadata is in invalid state." % run_uuid, databricks_pb2.INVALID_STATE
+                "Run '%s' metadata is in invalid state." % run_uuid, databricks_pb2.INVALID_STATE,
             )
         return run_info
 
@@ -554,7 +573,7 @@ class FileStore(AbstractStore):
         file_names = []
         for root, _, files in os.walk(source_dirs[0]):
             for name in files:
-                abspath = os.path.join(root, name)
+                abspath = os.path.normpath(os.path.join(root, name))
                 file_names.append(os.path.relpath(abspath, source_dirs[0]))
         if sys.platform == "win32":
             # Turn metric relative path into metric name.
@@ -712,12 +731,12 @@ class FileStore(AbstractStore):
                 # trap malformed run exception and log warning
                 r_id = os.path.basename(r_dir)
                 logging.warning(
-                    "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True
+                    "Malformed run '%s'. Detailed error %s", r_id, str(rnfe), exc_info=True,
                 )
         return run_infos
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token,
     ):
         from mlflow.utils.search_utils import SearchUtils
 

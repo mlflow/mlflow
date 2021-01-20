@@ -2,6 +2,7 @@ import hashlib
 import json
 import logging
 import os
+import platform
 
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import process
@@ -16,7 +17,9 @@ _logger = logging.getLogger(__name__)
 
 def get_conda_command(conda_env_name):
     #  Checking for newer conda versions
-    if os.name != "nt" and ("CONDA_EXE" in os.environ or "MLFLOW_CONDA_HOME" in os.environ):
+    if platform.system() != "Windows" and (
+        "CONDA_EXE" in os.environ or "MLFLOW_CONDA_HOME" in os.environ
+    ):
         conda_path = get_conda_bin_executable("conda")
         activate_conda_env = [
             "source {}/../etc/profile.d/conda.sh".format(os.path.dirname(conda_path))
@@ -24,9 +27,8 @@ def get_conda_command(conda_env_name):
         activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
     else:
         activate_path = get_conda_bin_executable("activate")
-        # in case os name is not 'nt', we are not running on windows. It introduces
-        # bash command otherwise.
-        if os.name != "nt":
+        # If we are not running on Windows, then run a bash command
+        if platform.system() != "Windows":
             return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
         else:
             return ["conda activate %s" % (conda_env_name)]
@@ -45,11 +47,15 @@ def get_conda_bin_executable(executable_name):
     """
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
-        return os.path.join(conda_home, "bin/%s" % executable_name)
+        return (
+            os.path.normpath(os.path.join(conda_home, "Scripts", executable_name))
+            if platform.system() == "Windows"
+            else os.path.join(conda_home, "bin", executable_name)
+        )
     # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
     if "CONDA_EXE" in os.environ:
         conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
-        return os.path.join(conda_bin_dir, executable_name)
+        return os.path.normpath(os.path.join(conda_bin_dir, executable_name))
     return executable_name
 
 
@@ -71,7 +77,9 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
                    For example, when serving the model we may install additional dependencies to the
                    environment after the environment has been activated.
     """
-    conda_path = get_conda_bin_executable("conda")
+    conda_path = get_conda_bin_executable(
+        "conda.exe" if platform.system() == "Windows" else "conda"
+    )
     try:
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
@@ -96,6 +104,6 @@ def get_or_create_conda_env(conda_env_path, env_id=None):
             )
         else:
             process.exec_cmd(
-                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True
+                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True,
             )
     return project_env_name

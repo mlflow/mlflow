@@ -23,7 +23,7 @@ PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
+STATIC_DIR = os.path.normpath(os.path.join(app.root_path, REL_STATIC_DIR))
 
 
 for http_path, handler, methods in handlers.get_endpoints():
@@ -66,7 +66,7 @@ def serve_static_file(path):
 # Serve the index.html for the React App for all other routes.
 @app.route(_add_static_prefix("/"))
 def serve():
-    if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
+    if os.path.exists(os.path.normpath(os.path.join(STATIC_DIR, "index.html"))):
         return send_from_directory(STATIC_DIR, "index.html")
 
     text = textwrap.dedent(

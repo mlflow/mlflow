@@ -51,8 +51,8 @@ def list_all(root, filter_func=lambda x: True, full_path=False):
     """
     if not is_directory(root):
         raise Exception("Invalid parent directory '%s'" % root)
-    matches = [x for x in os.listdir(root) if filter_func(os.path.join(root, x))]
-    return [os.path.join(root, m) for m in matches] if full_path else matches
+    matches = [x for x in os.listdir(root) if filter_func(os.path.normpath(os.path.join(root, x)))]
+    return [os.path.normpath(os.path.join(root, m)) for m in matches] if full_path else matches
 
 
 def list_subdirs(dir_name, full_path=False):
@@ -92,7 +92,7 @@ def find(root, name, full_path=False):
 
     :return: list of matching files or directories
     """
-    path_name = os.path.join(root, name)
+    path_name = os.path.normpath(os.path.join(root, name))
     return list_all(root, lambda x: x == path_name, full_path)
 
 
@@ -105,7 +105,7 @@ def mkdir(root, name=None):  # noqa
 
     :return: Path to created directory
     """
-    target = os.path.join(root, name) if name is not None else root
+    target = os.path.normpath(os.path.join(root, name)) if name is not None else root
     try:
         os.makedirs(target)
     except OSError as e:
@@ -136,7 +136,7 @@ def write_yaml(root, file_name, data, overwrite=False):
     if not exists(root):
         raise MissingConfigException("Parent directory '%s' does not exist." % root)
 
-    file_path = os.path.join(root, file_name)
+    file_path = os.path.normpath(os.path.join(root, file_name))
     yaml_file_name = file_path if file_path.endswith(".yaml") else file_path + ".yaml"
 
     if exists(yaml_file_name) and not overwrite:
@@ -145,7 +145,11 @@ def write_yaml(root, file_name, data, overwrite=False):
     try:
         with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
             yaml.dump(
-                data, yaml_file, default_flow_style=False, allow_unicode=True, Dumper=YamlSafeDumper
+                data,
+                yaml_file,
+                default_flow_style=False,
+                allow_unicode=True,
+                Dumper=YamlSafeDumper,
             )
     except Exception as e:
         raise e
@@ -165,7 +169,7 @@ def read_yaml(root, file_name):
             "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root)
         )
 
-    file_path = os.path.join(root, file_name)
+    file_path = os.path.normpath(os.path.join(root, file_name))
     if not exists(file_path):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
     try:
@@ -201,7 +205,11 @@ class TempDir(object):
         assert os.path.exists(os.getcwd())
 
     def path(self, *path):
-        return os.path.join("./", *path) if self._chdr else os.path.join(self._path, *path)
+        return (
+            os.path.normpath(os.path.join("./", *path))
+            if self._chdr
+            else os.path.normpath(os.path.join(self._path, *path))
+        )
 
 
 def read_file_lines(parent_path, file_name):
@@ -213,7 +221,7 @@ def read_file_lines(parent_path, file_name):
 
     :return: All lines in the file as an array.
     """
-    file_path = os.path.join(parent_path, file_name)
+    file_path = os.path.normpath(os.path.join(parent_path, file_name))
     with codecs.open(file_path, mode="r", encoding=ENCODING) as f:
         return f.readlines()
 
@@ -227,7 +235,7 @@ def read_file(parent_path, file_name):
 
     :return: The contents of the file.
     """
-    file_path = os.path.join(parent_path, file_name)
+    file_path = os.path.normpath(os.path.join(parent_path, file_name))
     with codecs.open(file_path, mode="r", encoding=ENCODING) as f:
         return f.read()
 
@@ -308,7 +316,7 @@ def _copy_project(src_path, dst_path=""):
     """
 
     def _docker_ignore(mlflow_root):
-        docker_ignore = os.path.join(mlflow_root, ".dockerignore")
+        docker_ignore = os.path.normpath(os.path.join(mlflow_root, ".dockerignore"))
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore, "r") as f:
@@ -326,10 +334,14 @@ def _copy_project(src_path, dst_path=""):
 
     mlflow_dir = "mlflow-project"
     # check if we have project root
-    assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py"))
+    assert os.path.isfile(
+        os.path.normpath(os.path.join(src_path, "setup.py"))
+    ), "file not found " + str(os.path.abspath(os.path.join(src_path, "setup.py")))
+    shutil.copytree(
+        src_path,
+        os.path.normpath(os.path.join(dst_path, mlflow_dir)),
+        ignore=_docker_ignore(src_path),
     )
-    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir
 
 
@@ -339,8 +351,8 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     """
     dst_subpath = os.path.basename(os.path.abspath(src))
     if dst_dir is not None:
-        dst_subpath = os.path.join(dst_dir, dst_subpath)
-    dst_path = os.path.join(dst, dst_subpath)
+        dst_subpath = os.path.normpath(os.path.join(dst_dir, dst_subpath))
+    dst_path = os.path.normpath(os.path.join(dst, dst_subpath))
     if os.path.isfile(src):
         dst_dirpath = os.path.dirname(dst_path)
         if not os.path.exists(dst_dirpath):

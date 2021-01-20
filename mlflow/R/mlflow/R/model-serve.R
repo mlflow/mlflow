@@ -1,5 +1,8 @@
 # nocov start
 
+#' @include utils.R
+NULL
+
 #' Serve an RFunc MLflow Model
 #'
 #' Serves an RFunc MLflow model as a local REST API server. This interface provides similar
@@ -44,7 +47,8 @@ mlflow_rfunc_serve <- function(model_uri,
                                ...) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri)
   httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
-  serve_run(model_path, host, port, httpuv_start, browse && interactive(), ...)
+  local_model_uri <- paste0("file://", strip_prefix(model_path, "file://"))
+  serve_run(local_model_uri, host, port, httpuv_start, browse && interactive(), ...)
 }
 
 serve_content_type <- function(file_path) {

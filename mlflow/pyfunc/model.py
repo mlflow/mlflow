@@ -106,7 +106,7 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model()
+    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model(),
 ):
     """
     :param path: The path to which to save the Python model.
@@ -134,7 +134,7 @@ def _save_model_with_class_artifacts_params(
     }
     if isinstance(python_model, PythonModel):
         saved_python_model_subpath = "python_model.pkl"
-        with open(os.path.join(path, saved_python_model_subpath), "wb") as out:
+        with open(os.path.normpath(os.path.join(path, saved_python_model_subpath)), "wb") as out:
             cloudpickle.dump(python_model, out)
         custom_model_config_kwargs[CONFIG_KEY_PYTHON_MODEL] = saved_python_model_subpath
     else:
@@ -165,7 +165,10 @@ def _save_model_with_class_artifacts_params(
                     CONFIG_KEY_ARTIFACT_URI: artifact_uri,
                 }
 
-            shutil.move(tmp_artifacts_dir.path(), os.path.join(path, saved_artifacts_dir_subpath))
+            shutil.move(
+                tmp_artifacts_dir.path(),
+                os.path.normpath(os.path.join(path, saved_artifacts_dir_subpath)),
+            )
         custom_model_config_kwargs[CONFIG_KEY_ARTIFACTS] = saved_artifacts_config
 
     conda_env_subpath = "conda.yaml"
@@ -174,7 +177,7 @@ def _save_model_with_class_artifacts_params(
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
-    with open(os.path.join(path, conda_env_subpath), "w") as f:
+    with open(os.path.normpath(os.path.join(path, conda_env_subpath)), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     saved_code_subpath = None
@@ -190,7 +193,7 @@ def _save_model_with_class_artifacts_params(
         env=conda_env_subpath,
         **custom_model_config_kwargs
     )
-    mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+    mlflow_model.save(os.path.normpath(os.path.join(path, MLMODEL_FILE_NAME)))
 
 
 def _load_pyfunc(model_path):
@@ -219,15 +222,15 @@ def _load_pyfunc(model_path):
     python_model_subpath = pyfunc_config.get(CONFIG_KEY_PYTHON_MODEL, None)
     if python_model_subpath is None:
         raise MlflowException("Python model path was not specified in the model configuration")
-    with open(os.path.join(model_path, python_model_subpath), "rb") as f:
+    with open(os.path.normpath(os.path.join(model_path, python_model_subpath)), "rb") as f:
         python_model = cloudpickle.load(f)
 
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in pyfunc_config.get(
         CONFIG_KEY_ARTIFACTS, {}
     ).items():
-        artifacts[saved_artifact_name] = os.path.join(
-            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
+        artifacts[saved_artifact_name] = os.path.normpath(
+            os.path.join(model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH])
         )
 
     context = PythonModelContext(artifacts=artifacts)

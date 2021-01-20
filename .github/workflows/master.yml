@@ -31,10 +31,20 @@ jobs:
         source activate test-environment
         ./lint.sh
   r:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@master
-    - uses: r-lib/actions/setup-r@v1
+    - uses: r-lib/actions/setup-r@master
+    - name: Install Miniconda (Windows-only)
+      if: runner.os == 'windows'
+      uses: conda-incubator/setup-miniconda@v2.0.1
+      with:
+        auto-update-conda: true
+        python-version: 3.6
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
     - name: Query dependencies
@@ -46,7 +56,7 @@ jobs:
       shell: Rscript {0}
 
     - name: Cache R packages
-      if: runner.os != 'Windows'
+      if: runner.os != 'windows'
       uses: actions/cache@v2
       with:
         path: ${{ env.R_LIBS_USER }}
@@ -55,6 +65,7 @@ jobs:
         key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
         restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
     - name: Install system dependencies
+      if: runner.os == 'ubuntu-latest'
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
     - name: Install dependencies
@@ -64,30 +75,41 @@ jobs:
       shell: Rscript {0}
     - name: Create test environment
       run: |
+        cd "${GITHUB_WORKSPACE}"
         source ./dev/install-common-deps.sh
+        source ./dev/add-r-home-to-path-on-windows.sh
         cd mlflow/R/mlflow
         R CMD build .
         cd tests
         Rscript ../.create-test-env.R
+      shell: bash -l {0}
     - name: Run tests
       run: |
         export LINTR_COMMENT_BOT=false
-        cd mlflow/R/mlflow/tests
+        source "${GITHUB_WORKSPACE}"/dev/fix-path-variable-on-windows.sh
+        cd "${GITHUB_WORKSPACE}"/mlflow/R/mlflow/tests
         Rscript ../.run-tests.R
+      shell: bash -l {0}
     - name: Calculate code coverage
       if: ${{ success() }}
       run: |
-        export MLFLOW_HOME=$(pwd)
-        cd mlflow/R/mlflow/tests
-        Rscript -e 'covr::codecov()' || :
+        # for some reason this is prohibitively slow on Windows
+        if [[ "${OSTYPE}" == linux* ]]; then
+          export MLFLOW_HOME="${GITHUB_WORKSPACE}"
+          source "${GITHUB_WORKSPACE}"/dev/add-r-home-to-path-on-windows.sh
+          cd "${GITHUB_WORKSPACE}"/mlflow/R/mlflow/tests
+          Rscript -e 'covr::codecov()' || :
+        fi
       env:
         COVR_RUNNING: true
+      shell: bash -l {0}
     - name: Show 00check.log on failure
       if: ${{ failure() }}
       run: |
         LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
         [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
         cp "${LOG_FILE}" /tmp
+      shell: bash -l {0}
     - uses: actions/upload-artifact@v1
       if: failure()
       with:
