@@ -295,6 +295,9 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
     envs = {
         "AZURE_STORAGE_CONNECTION_STRING": os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
         "AZURE_STORAGE_ACCESS_KEY": os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
+        "AZURE_TENANT_ID": os.environ.get("AZURE_TENANT_ID"),
+        "AZURE_CLIENT_ID": os.environ.get("AZURE_CLIENT_ID"),
+        "AZURE_CLIENT_SECRET": os.environ.get("AZURE_CLIENT_SECRET"),
     }
     envs = dict((k, v) for k, v in envs.items() if v is not None)
     return [], envs

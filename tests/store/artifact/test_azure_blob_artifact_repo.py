@@ -33,6 +33,15 @@ def mock_client():
     old_conn_string = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
     if old_conn_string is not None:
         del os.environ["AZURE_STORAGE_CONNECTION_STRING"]
+    old_tenant_id = os.environ.get("AZURE_TENANT_ID")
+    if old_tenant_id is not None:
+        del os.environ["AZURE_TENANT_ID"]
+    old_client_id = os.environ.get("AZURE_CLIENT_ID")
+    if old_client_id is not None:
+        del os.environ["AZURE_CLIENT_ID"]
+    old_client_secret = os.environ.get("AZURE_CLIENT_SECRET")
+    if old_client_secret is not None:
+        del os.environ["AZURE_CLIENT_SECRET"]
 
     yield mock.MagicMock(autospec=BlobServiceClient)
 
@@ -40,6 +49,12 @@ def mock_client():
         os.environ["AZURE_STORAGE_ACCESS_KEY"] = old_access_key
     if old_conn_string is not None:
         os.environ["AZURE_STORAGE_CONNECTION_STRING"] = old_conn_string
+    if old_tenant_id is not None:
+        os.environ["AZURE_TENANT_ID"] = old_tenant_id
+    if old_client_id is not None:
+        os.environ["AZURE_CLIENT_ID"] = old_client_id
+    if old_client_secret is not None:
+        os.environ["AZURE_CLIENT_SECRET"] = old_client_secret
 
 
 def test_artifact_uri_factory(mock_client):
