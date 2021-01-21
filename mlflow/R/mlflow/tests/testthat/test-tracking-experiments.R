@@ -42,8 +42,8 @@ test_that("mlflow_get_experiment() not found error", {
 test_that("mlflow_list_experiments() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  mlflow_create_experiment(client = client, "foo1", "art_loc1")
-  mlflow_create_experiment(client = client, "foo2", "art_loc2")
+  ex1 <- mlflow_create_experiment(client = client, "foo1", "art_loc1")
+  ex2 <- mlflow_create_experiment(client = client, "foo2", "art_loc2")
 
   # client
   experiments_list <- mlflow_list_experiments(client = client)
@@ -65,6 +65,37 @@ test_that("mlflow_list_experiments() works properly", {
 
   # Returns NULL when no experiments found
   expect_null(mlflow_list_experiments("DELETED_ONLY"))
+
+  # experiment tags are returned if at least one experiment has tags
+  mlflow_set_experiment_tag("key2", "value2", experiment_id = ex2)
+  experiments <- mlflow_list_experiments()
+  expect_true("tags" %in% names(experiments))
+  expect_setequal(
+    experiments$tags, list(NA, NA, tibble::tibble(key = "key2", value = "value2"))
+  )
+
+  # experiment tags are returned if every experiment has tags
+  mlflow_set_experiment_tag("key1", "value1", experiment_id = ex1)
+  mlflow_set_experiment_tag("key0", "value0", experiment_id = "0")
+  experiments <- mlflow_list_experiments()
+  expect_true("tags" %in% names(experiments))
+  expect_setequal(experiments$tags, list(
+    tibble::tibble(key = "key0", value = "value0"),
+    tibble::tibble(key = "key1", value = "value1"),
+    tibble::tibble(key = "key2", value = "value2")
+  ))
+
+  # experiment tags are returned correctly if multiple tags are present in
+  # one experiment
+  mlflow_set_experiment_tag("key1.2", "value1.2", experiment_id = ex1)
+  experiments <- mlflow_list_experiments()
+  tags <- experiments$tags[experiments$experiment_id %in% ex1][[1]]
+  tags <- tags[order(tags$key),]
+
+  expect_equal(
+    tags,
+    tibble::tibble(key = c("key1", "key1.2"), value = c('value1', 'value1.2'))
+  )
 
   # `view_type` is respected
   mlflow_delete_experiment(experiment_id = "1")
