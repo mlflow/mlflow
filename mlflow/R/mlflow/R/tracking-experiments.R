@@ -39,27 +39,11 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 
   # Return `NULL` if no experiments
   if (!length(response)) return(NULL)
-
-  tags <- purrr::map(response$experiments, ~purrr::pluck(.x, 'tags')) %>%
-    unlist()
-  if (length(tags) > 0) {
-    # has any tags, make sure the all elements have tags set to avoid
-    # https://github.com/tidyverse/purrr/issues/397
-    for (experiment in seq_len(length(response$experiments))) {
-      if (is.null(response$experiments[[experiment]]$tags)) {
-        response$experiments[[experiment]]$tags <- list(NULL)
-      }
-    }
-  }
-  out <- purrr::transpose(response$experiments)
-  if (length(tags) > 0) {
-    # map over tags separately to ensure a list as output for this column
-    out$tags <- purrr::map(out$tags, unlist)
-  }
-  out %>%
-    purrr::map_at(setdiff(names(out), 'tags'), unlist) %>%
-    tibble::as_tibble()
-
+  purrr::map(response$experiments, function(x) {
+    x$tags <- parse_run_data(x$tags)
+    tibble::as_tibble(x)
+  }) %>%
+    do.call(rbind, .)
 }
 
 #' Set Experiment Tag

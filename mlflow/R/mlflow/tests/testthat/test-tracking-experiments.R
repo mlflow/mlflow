@@ -71,7 +71,7 @@ test_that("mlflow_list_experiments() works properly", {
   experiments <- mlflow_list_experiments()
   expect_true("tags" %in% names(experiments))
   expect_setequal(
-    experiments$tags, list(NULL, NULL, c(key = "key2", value = "value2"))
+    experiments$tags, list(NA, NA, tibble::tibble(key = "key2", value = "value2"))
   )
 
   # experiment tags are returned if every experiment has tags
@@ -80,18 +80,22 @@ test_that("mlflow_list_experiments() works properly", {
   experiments <- mlflow_list_experiments()
   expect_true("tags" %in% names(experiments))
   expect_setequal(experiments$tags, list(
-    c(key = "key0", value = "value0"),
-    c(key = "key1", value = "value1"),
-    c(key = "key2", value = "value2")
+    tibble::tibble(key = "key0", value = "value0"),
+    tibble::tibble(key = "key1", value = "value1"),
+    tibble::tibble(key = "key2", value = "value2")
   ))
 
   # experiment tags are returned correctly if multiple tags are present in
   # one experiment
   mlflow_set_experiment_tag("key1.2", "value1.2", experiment_id = ex1)
   experiments <- mlflow_list_experiments()
-  expect_setequal(experiments$tags[experiments$experiment_id %in% ex1], list(
-    c(key = "key1.2", value = "value1.2", key = "key1", value = 'value1')
-  ))
+  tags <- experiments$tags[experiments$experiment_id %in% ex1][[1]]
+  tags <- tags[order(tags$key),]
+
+  expect_equal(
+    tags,
+    tibble::tibble(key = c("key1", "key1.2"), value = c('value1', 'value1.2'))
+  )
 
   # `view_type` is respected
   mlflow_delete_experiment(experiment_id = "1")
