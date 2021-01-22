@@ -593,6 +593,7 @@ def test_search_runs_attributes():
 )
 def test_search_runs_data():
     import numpy as np
+    import pandas as pd
 
     runs = [
         create_run(
