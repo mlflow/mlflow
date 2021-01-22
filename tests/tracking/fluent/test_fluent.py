@@ -530,7 +530,11 @@ def validate_search_runs(results, data):
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
 
 def get_search_runs_timestamp():
-    return time.time() if "MLFLOW_SKINNY" in os.environ else pd.to_datetime(0, utc=True)
+    if "MLFLOW_SKINNY" in os.environ
+        return time.time()
+    else:
+        import pandas as pd
+        return pd.to_datetime(0, utc=True)
 
 def test_search_runs_attributes():
     runs = [
