@@ -959,7 +959,7 @@ def search_runs(
                       Default is "pandas".
 
     :return: If output_format is "pandas":  pandas.DataFrame of runs, where each metric, parameter,
-            and tag are expanded into their own columns named metrics.*, params.*, and tags.*
+             and tag are expanded into their own columns named metrics.*, params.*, and tags.*
              respectively. For runs that don't have a particular metric, parameter, or tag, their
              value will be (NumPy) Nan, None, or None respectively.
              If output_format is "list": List[mlflow.entitie.Run].
@@ -1014,7 +1014,6 @@ def search_runs(
     if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
     elif output_format == "pandas":
-
         import numpy as np
         import pandas as pd
 
