@@ -877,10 +877,10 @@ def test_search_runs():
 
         assert set([r.info.run_id for r in runs]) == set([logged_runs[r] for r in check])
 
-        # verify as_pandas=False returns the same as mlflow_client.search_runs
+        # verify output_fromat="list" returns the same as mlflow_client.search_runs
         fluent_search_runs_run_ids = [
             run.info.run_id
-            for run in mlflow.search_runs(experiment_ids, query, as_pandas=False, **kwargs)
+            for run in mlflow.search_runs(experiment_ids, query, output_format="list", **kwargs)
         ]
         assert fluent_search_runs_run_ids == [run.info.run_id for run in runs]
 
