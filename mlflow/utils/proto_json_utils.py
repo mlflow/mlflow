@@ -81,7 +81,7 @@ class NumpyEncoder(JSONEncoder):
 
 def _dataframe_from_json(
     path_or_str, schema=None, pandas_orient: str = "split", precise_float=False
-):  # -> pd.DataFrame
+):
     """
     Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
     make any necessary conversions (e.g. string -> binary for binary columns).

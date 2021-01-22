@@ -52,12 +52,10 @@ try:
     import pandas  # noqa: E402
     import numpy  # noqa: E402
 except ImportError as e:
-    warnings.warn(
-        "Model flavors could not be loaded due to missing numpy " "or pandas dependencies. %s." % e
-    )
+    # We are conditional loading these commands since the skinny client does
+    # not support them due to the pandas and numpy dependencies of MLflow Models
+    pass
 else:
-    _supports_flavors = True
-
     # pylint: disable=unused-import
     import mlflow.fastai as fastai  # noqa: E402
     import mlflow.gluon as gluon  # noqa: E402

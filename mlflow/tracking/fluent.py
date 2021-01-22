@@ -940,7 +940,7 @@ def search_runs(
     run_view_type=ViewType.ACTIVE_ONLY,
     max_results=SEARCH_MAX_RESULTS_PANDAS,
     order_by=None,
-    as_pandas=True,
+    format="pandas",
 ):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
@@ -954,15 +954,15 @@ def search_runs(
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
-    :param as_pandas: Bool to toggle returns between pandas.DataFrame and List[mlflow.entitie.Run].
+    :param format: The output format to be returned. If "pandas" a pandas.DataFrame and if "list" List[mlflow.entitie.Run].
                       Allows for mlflow.search_runs to work without pandas or numpy installed.
-                      Default is True.
+                      Default is "pandas".
 
-    :return: If as_pandas is True:  pandas.DataFrame of runs, where each metric, parameter, and tag
+    :return: If format is "pandas":  pandas.DataFrame of runs, where each metric, parameter, and tag
              are expanded into their own columns named metrics.*, params.*, and tags.*
              respectively. For runs that don't have a particular metric, parameter, or tag, their
              value will be (NumPy) Nan, None, or None respectively.
-             If as_pandas is False: List[mlflow.entitie.Run].
+             If format is "list": List[mlflow.entitie.Run].
 
     .. code-block:: python
         :caption: Example
@@ -1011,75 +1011,80 @@ def search_runs(
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
 
-    if not as_pandas:
+    output_format = format  # Avoid use of builtin internally
+    if output_format == "list":
         return runs  # List[mlflow.entities.run.Run]
+    elif output_format == "pandas":
 
-    import numpy as np
-    import pandas as pd
+        import numpy as np
+        import pandas as pd
 
-    info = {
-        "run_id": [],
-        "experiment_id": [],
-        "status": [],
-        "artifact_uri": [],
-        "start_time": [],
-        "end_time": [],
-    }
-    params, metrics, tags = ({}, {}, {})
-    PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
-    for i, run in enumerate(runs):
-        info["run_id"].append(run.info.run_id)
-        info["experiment_id"].append(run.info.experiment_id)
-        info["status"].append(run.info.status)
-        info["artifact_uri"].append(run.info.artifact_uri)
-        info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
-        info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
+        info = {
+            "run_id": [],
+            "experiment_id": [],
+            "status": [],
+            "artifact_uri": [],
+            "start_time": [],
+            "end_time": [],
+        }
+        params, metrics, tags = ({}, {}, {})
+        PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+        for i, run in enumerate(runs):
+            info["run_id"].append(run.info.run_id)
+            info["experiment_id"].append(run.info.experiment_id)
+            info["status"].append(run.info.status)
+            info["artifact_uri"].append(run.info.artifact_uri)
+            info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+            info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
 
-        # Params
-        param_keys = set(params.keys())
-        for key in param_keys:
-            if key in run.data.params:
-                params[key].append(run.data.params[key])
-            else:
-                params[key].append(PARAM_NULL)
-        new_params = set(run.data.params.keys()) - param_keys
-        for p in new_params:
-            params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
-            params[p].append(run.data.params[p])
+            # Params
+            param_keys = set(params.keys())
+            for key in param_keys:
+                if key in run.data.params:
+                    params[key].append(run.data.params[key])
+                else:
+                    params[key].append(PARAM_NULL)
+            new_params = set(run.data.params.keys()) - param_keys
+            for p in new_params:
+                params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
+                params[p].append(run.data.params[p])
 
-        # Metrics
-        metric_keys = set(metrics.keys())
-        for key in metric_keys:
-            if key in run.data.metrics:
-                metrics[key].append(run.data.metrics[key])
-            else:
-                metrics[key].append(METRIC_NULL)
-        new_metrics = set(run.data.metrics.keys()) - metric_keys
-        for m in new_metrics:
-            metrics[m] = [METRIC_NULL] * i
-            metrics[m].append(run.data.metrics[m])
+            # Metrics
+            metric_keys = set(metrics.keys())
+            for key in metric_keys:
+                if key in run.data.metrics:
+                    metrics[key].append(run.data.metrics[key])
+                else:
+                    metrics[key].append(METRIC_NULL)
+            new_metrics = set(run.data.metrics.keys()) - metric_keys
+            for m in new_metrics:
+                metrics[m] = [METRIC_NULL] * i
+                metrics[m].append(run.data.metrics[m])
 
-        # Tags
-        tag_keys = set(tags.keys())
-        for key in tag_keys:
-            if key in run.data.tags:
-                tags[key].append(run.data.tags[key])
-            else:
-                tags[key].append(TAG_NULL)
-        new_tags = set(run.data.tags.keys()) - tag_keys
-        for t in new_tags:
-            tags[t] = [TAG_NULL] * i
-            tags[t].append(run.data.tags[t])
+            # Tags
+            tag_keys = set(tags.keys())
+            for key in tag_keys:
+                if key in run.data.tags:
+                    tags[key].append(run.data.tags[key])
+                else:
+                    tags[key].append(TAG_NULL)
+            new_tags = set(run.data.tags.keys()) - tag_keys
+            for t in new_tags:
+                tags[t] = [TAG_NULL] * i
+                tags[t].append(run.data.tags[t])
 
-    data = {}
-    data.update(info)
-    for key in metrics:
-        data["metrics." + key] = metrics[key]
-    for key in params:
-        data["params." + key] = params[key]
-    for key in tags:
-        data["tags." + key] = tags[key]
-    return pd.DataFrame(data)
+        data = {}
+        data.update(info)
+        for key in metrics:
+            data["metrics." + key] = metrics[key]
+        for key in params:
+            data["params." + key] = params[key]
+        for key in tags:
+            data["tags." + key] = tags[key]
+        return pd.DataFrame(data)
+    else:
+        raise ValueError(
+            "Unsupported format string %s. Supported strings are 'pandas' or 'list'" % output_format)
 
 
 def list_run_infos(
