@@ -146,8 +146,8 @@ Scenario 4: MLflow with remote Tracking Server, backend and artifact stores
 ---------------------------------------------------------------------------
 
 This is a common MLflow setup where the tracking server is remote, to which clients
-send REST requests; a remote SQLAlchemy compatible database-backend store, to which the tracking
-server records MLflow entities; and a remote, supported and scalable artifact store, to which the clients
+send REST requests; a remote SQLAlchemy compatible `database-backend store <https://mlflow.org/docs/latest/tracking.html#backend-stores>`_, to which the tracking
+server records MLflow entities; and a remote, supported and scalable `artifact store <https://mlflow.org/docs/latest/tracking.html#artifact-stores>`_, to which the clients
 upload artifacts.
 
 .. figure:: _static/images/scenario_4.png
