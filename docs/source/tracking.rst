@@ -147,7 +147,7 @@ Scenario 4: MLflow with remote Tracking Server, backend and artifact stores
 
 This scenario is a common MLflow setup where tracking server is remote, to which clients
 send REST requests; a remote SQLAlchemy compatible database-backend store, to which the tracking
-server records MLflow entities; and a remote scalable artifact store, to which the clients uploads artifacts.
+server records MLflow entities; and a remote scalable artifact store, to which the clients upload artifacts.
 
 .. figure:: _static/images/scenario_4.png
 
@@ -169,7 +169,10 @@ For the artifacts, the `MLflowClient` interacts with the tracking server via a R
   * `MLflowClient` creates an instance of a `S3ArtifactRepository`, connects to the remote AWS using the
     `boto` client libraries, and uploads the artifacts to the S3 bucket URI location.
 
+.. note::
 
+    In all scenarios, the MLflow client directly pushes artifacts to the artifact store. It does not proxy these through the
+    tracking server.
 
 Logging Data to Runs
 ====================
