@@ -3,9 +3,9 @@ import os
 import random
 import uuid
 import inspect
+import time
 
 import numpy as np
-import pandas as pd
 import pytest
 from unittest import mock
 
@@ -518,6 +518,19 @@ def test_get_run():
         run = get_run(run_id)
         assert run.info.user_id == "my_user_id"
 
+def validate_search_runs(results, data):
+    if "MLFLOW_SKINNY" in os.environ:
+        pass
+        result_runs_by_id = {run.info.run_id: run for run in results}
+        data_runs_by_id = {run.info.run_id: run for run in data}
+        assert result_runs_by_id == data_runs_by_id
+    else:
+        import pandas as pd
+        expected_df = pd.DataFrame(data)
+        pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
+
+def get_search_runs_timestamp():
+    return time.time() if "MLFLOW_SKINNY" in os.environ else pd.to_datetime(0, utc=True)
 
 def test_search_runs_attributes():
     runs = [
@@ -531,13 +544,14 @@ def test_search_runs_attributes():
             "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
             "run_id": ["abc", "def"],
             "experiment_id": ["123", "321"],
-            "start_time": [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
-            "end_time": [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+            "start_time": [get_search_runs_timestamp(), get_search_runs_timestamp()],
+            "end_time": [get_search_runs_timestamp(), get_search_runs_timestamp()],
         }
-        expected_df = pd.DataFrame(data)
-        pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
+        validate_search_runs(pdf, data)
 
 
+@pytest.mark.skipif("MLFLOW_SKINNY" in os.environ,
+                    reason="Skinny client does not support the np or pandas dependencies")
 def test_search_runs_data():
     runs = [
         create_run(
@@ -578,8 +592,7 @@ def test_search_runs_data():
                 pd.to_datetime(1564783200000, unit="ms", utc=True),
             ],
         }
-        expected_df = pd.DataFrame(data)
-        pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
+        validate_search_runs(pdf, data)
 
 
 def test_search_runs_no_arguments():
