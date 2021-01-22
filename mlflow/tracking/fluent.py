@@ -1083,7 +1083,7 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported format string %s. Supported strings are 'pandas' or 'list'" % output_format)
+            "Unsupported format: %s. Supported strings are 'pandas' or 'list'" % output_format)
 
 
 def list_run_infos(
