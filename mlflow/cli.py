@@ -458,13 +458,6 @@ cli.add_command(mlflow.db.commands)
 
 try:
     # pylint: disable=unused-import
-    import pandas  # noqa: E402
-    import numpy  # noqa: E402
-except ImportError as e:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
-    pass
-else:
     import mlflow.models.cli
     import mlflow.azureml.cli
     import mlflow.sagemaker.cli
@@ -472,6 +465,10 @@ else:
     cli.add_command(mlflow.azureml.cli.commands)
     cli.add_command(mlflow.sagemaker.cli.commands)
     cli.add_command(mlflow.models.cli.commands)
+except ImportError as e:
+    # We are conditional loading these commands since the skinny client does
+    # not support them due to the pandas and numpy dependencies of MLflow Models
+    pass
 
 if __name__ == "__main__":
     cli()

@@ -49,14 +49,6 @@ import mlflow.tracking as tracking  # noqa: E402
 _model_flavors_supported = []
 try:
     # pylint: disable=unused-import
-    import pandas  # noqa: E402
-    import numpy  # noqa: E402
-except ImportError as e:
-    # We are conditional loading these commands since the skinny client does
-    # not support them due to the pandas and numpy dependencies of MLflow Models
-    pass
-else:
-    # pylint: disable=unused-import
     import mlflow.fastai as fastai  # noqa: E402
     import mlflow.gluon as gluon  # noqa: E402
     import mlflow.h2o as h2o  # noqa: E402
@@ -92,6 +84,10 @@ else:
         "xgboost",
         "shap",
     ]
+except ImportError as e:
+    # We are conditional loading these commands since the skinny client does
+    # not support them due to the pandas and numpy dependencies of MLflow Models
+    pass
 
 
 _configure_mlflow_loggers(root_module_name=__name__)
