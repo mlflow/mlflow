@@ -91,7 +91,7 @@ Scenario 1: MLflow on the localhost
 
 A common scenario among developers who want to develop locally, MLflow runs on a localhost or a laptop, where both the
 backend store and artifact store is a directory on the local filesystem ``./mlruns,`` as shown in the diagram.
-The `MLflowClient` directly interfaces with an instance of a `FileStore`.
+The `MLflowClient` directly interfaces with an instance of a `FileStore` and `LocalArtifactRepository`.
 
 .. figure:: _static/images/scenario_1.png
 
@@ -105,15 +105,15 @@ Scenario 2: MLflow on the localhost with SQLite
 -----------------------------------------------
 
 A slight variation from scenario 1, MLflow runs on a localhost or laptop but with backend store as an SQLAlchemy compatible
-database type: **SQLite**. Artifacts are stored locally under the local ``./mlruns`` directory, and MLflow entities are
-stored in an SQLite database file ``mlruns.db``.
+database type: **SQLite**. Artifacts are stored under the local ``./mlruns`` directory, and MLflow entities are
+inserted in an SQLite database file ``mlruns.db``.
 
 .. figure:: _static/images/scenario_2.png
 
 As above, `MLflowClient` is responsible to create respective instances:
 
  * `MLflowClient` creates an instance of a `LocalArtifactRepository` (to save artifacts)
- * `MLflowClient` creates an instance of a `SQLAlchemyStore` (to save MLflow entities) and writes to SQLite file ``mlruns.db``)
+ * `MLflowClient` creates an instance of an `SQLAlchemyStore` (to save MLflow entities) and writes to SQLite file ``mlruns.db``)
 
 Scenario 3: MLflow on the localhost with Tracking Server
 --------------------------------------------------------
@@ -139,34 +139,35 @@ For the artifacts, the `MLflowClient` interacts with the tracking server via a R
 
    * `MLflowClient` uses `RestStore` to send a REST request to fetch the artifact store URI location
    * Tracking Server responds with an artifact store URI location
-   * `MLflowClient` creates an instance of a `LocalArtifactRepository` (to save artifacts at the URI location)
+   * `MLflowClient` creates an instance of a `LocalArtifactRepository` (to save artifacts at the local URI location)
 
 
 Scenario 4: MLflow with remote Tracking Server, backend and artifact stores
 ---------------------------------------------------------------------------
 
-This scenario is a common MLflow setup where tracking server is remote, to which clients
+This is a common MLflow setup where the tracking server is remote, to which clients
 send REST requests; a remote SQLAlchemy compatible database-backend store, to which the tracking
-server records MLflow entities; and a remote scalable artifact store, to which the clients upload artifacts.
+server records MLflow entities; and a remote, supported and scalable artifact store, to which the clients
+upload artifacts.
 
 .. figure:: _static/images/scenario_4.png
 
-To store all runs' MLflow entities, the `MLflowClient` interacts with the tracking server via a series of REST requests:
+To record all runs' MLflow entities, the `MLflowClient` interacts with the tracking server via a series of REST requests:
 
  * **Part 1a and b**:
 
   * `MLflowClient` creates an instance of a `RestStore`
   * `MLflowClient` sends a REST API request to log MLflow entities
-  * The Tracking Server creates an instance of a `SQLAlchemyStore` and connects to the remote host to
-    record MLflow entities in the database.
+  * The Tracking Server creates an instance of an `SQLAlchemyStore` and connects to the remote host to
+    insert MLflow entities in the database.
 
-For the artifacts, the `MLflowClient` interacts with the tracking server via a REST request:
+For the artifacts, the `MLflowClient` first interacts with the tracking server via a REST request:
 
  * **Part 2a, b, and c**:
 
   * `MLflowClient` uses `RestStore` to send a REST request to fetch the artifact store URI location
-  * Tracking Server responds with an artifact store URI location, the location of the AWS S3 bucket
-  * `MLflowClient` creates an instance of a `S3ArtifactRepository`, connects to the remote AWS using the
+  * Tracking Server responds with an artifact store URI location, the name of the S3 bucket
+  * `MLflowClient` creates an instance of an `S3ArtifactRepository`, connects to the remote AWS host using the
     `boto` client libraries, and uploads the artifacts to the S3 bucket URI location.
 
 .. note::
@@ -183,7 +184,6 @@ shows the Python API.
 .. contents:: In this section:
   :depth: 1
   :local:
-
 
 
 Logging Functions
