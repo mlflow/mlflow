@@ -519,8 +519,10 @@ def test_get_run():
         run = get_run(run_id)
         assert run.info.user_id == "my_user_id"
 
+
 def call_search_runs():
     return search_runs(output_format="list") if "MLFLOW_SKINNY" in os.environ else search_runs()
+
 
 def validate_search_runs(results, data):
     if "MLFLOW_SKINNY" in os.environ:
@@ -536,25 +538,41 @@ def validate_search_runs(results, data):
         assert result_data == data
     else:
         import pandas as pd
+
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
+
 
 def get_search_runs_timestamp():
     if "MLFLOW_SKINNY" in os.environ:
         return time.time()
     else:
         import pandas as pd
+
         return pd.to_datetime(0, utc=True)
+
 
 def test_search_runs_attributes():
     start_times = [get_search_runs_timestamp(), get_search_runs_timestamp()]
     end_times = [get_search_runs_timestamp(), get_search_runs_timestamp()]
 
     runs = [
-        create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id="abc",
-                   exp_id="123", start=start_times[0], end=end_times[0]),
-        create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2",
-                   run_id="def", exp_id="321", start=start_times[1], end=end_times[1]),
+        create_run(
+            status=RunStatus.FINISHED,
+            a_uri="dbfs:/test",
+            run_id="abc",
+            exp_id="123",
+            start=start_times[0],
+            end=end_times[0],
+        ),
+        create_run(
+            status=RunStatus.SCHEDULED,
+            a_uri="dbfs:/test2",
+            run_id="def",
+            exp_id="321",
+            start=start_times[1],
+            end=end_times[1],
+        ),
     ]
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
         pdf = call_search_runs()
@@ -569,10 +587,13 @@ def test_search_runs_attributes():
         validate_search_runs(pdf, data)
 
 
-@pytest.mark.skipif("MLFLOW_SKINNY" in os.environ,
-                    reason="Skinny client does not support the np or pandas dependencies")
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
 def test_search_runs_data():
     import numpy as np
+
     runs = [
         create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],

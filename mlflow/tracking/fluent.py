@@ -954,9 +954,10 @@ def search_runs(
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
-    :param output_format: The output format to be returned. If "pandas" a pandas.DataFrame and if "list" List[mlflow.entitie.Run].
-                      Allows for mlflow.search_runs to work without pandas or numpy installed.
-                      Default is "pandas".
+    :param output_format: The output format to be returned. If "pandas" a pandas.DataFrame
+                          and if "list" List[mlflow.entitie.Run].
+                          Allows for mlflow.search_runs to work without pandas or numpy installed.
+                          Default is "pandas".
 
     :return: If output_format is "pandas":  pandas.DataFrame of runs, where each metric, parameter,
              and tag are expanded into their own columns named metrics.*, params.*, and tags.*
@@ -1082,7 +1083,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported format: %s. Supported strings are 'pandas' or 'list'" % output_format)
+            "Unsupported format: %s. Supported strings are 'pandas' or 'list'" % output_format
+        )
 
 
 def list_run_infos(

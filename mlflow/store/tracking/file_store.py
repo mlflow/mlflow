@@ -865,6 +865,7 @@ class FileStore(AbstractStore):
 
     def record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
+
         if not isinstance(mlflow_model, Model):
             raise TypeError(
                 "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(

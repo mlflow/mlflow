@@ -25,8 +25,9 @@ def test_list_run_experiment_id_required():
     assert "Missing option '--experiment-id'" in result.output
 
 
-@pytest.mark.skipif("MLFLOW_SKINNY" in os.environ,
-                    reason="Skinny Client does not support predict due to the pandas dependency",
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support predict due to the pandas dependency",
 )
 def test_csv_generation():
     import numpy as np
