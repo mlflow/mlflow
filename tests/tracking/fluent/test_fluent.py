@@ -1,11 +1,12 @@
+from collections import defaultdict
 from importlib import reload
+
 import os
 import random
 import uuid
 import inspect
 import time
 
-import numpy as np
 import pytest
 from unittest import mock
 
@@ -518,38 +519,52 @@ def test_get_run():
         run = get_run(run_id)
         assert run.info.user_id == "my_user_id"
 
+def call_search_runs():
+    return search_runs(output_format="list") if "MLFLOW_SKINNY" in os.environ else search_runs()
+
 def validate_search_runs(results, data):
     if "MLFLOW_SKINNY" in os.environ:
-        pass
-        result_runs_by_id = {run.info.run_id: run for run in results}
-        data_runs_by_id = {run.info.run_id: run for run in data}
-        assert result_runs_by_id == data_runs_by_id
+        result_data = defaultdict(list)
+        for run in results:
+            result_data["status"].append(run.info.status)
+            result_data["artifact_uri"].append(run.info.artifact_uri)
+            result_data["experiment_id"].append(run.info.experiment_id)
+            result_data["run_id"].append(run.info.run_id)
+            result_data["start_time"].append(run.info.start_time)
+            result_data["end_time"].append(run.info.end_time)
+
+        assert result_data == data
     else:
         import pandas as pd
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
 
 def get_search_runs_timestamp():
-    if "MLFLOW_SKINNY" in os.environ
+    if "MLFLOW_SKINNY" in os.environ:
         return time.time()
     else:
         import pandas as pd
         return pd.to_datetime(0, utc=True)
 
 def test_search_runs_attributes():
+    start_times = [get_search_runs_timestamp(), get_search_runs_timestamp()]
+    end_times = [get_search_runs_timestamp(), get_search_runs_timestamp()]
+
     runs = [
-        create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id="abc", exp_id="123"),
-        create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id="def", exp_id="321"),
+        create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id="abc",
+                   exp_id="123", start=start_times[0], end=end_times[0]),
+        create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2",
+                   run_id="def", exp_id="321", start=start_times[1], end=end_times[1]),
     ]
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
-        pdf = search_runs()
+        pdf = call_search_runs()
         data = {
             "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
             "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
             "run_id": ["abc", "def"],
             "experiment_id": ["123", "321"],
-            "start_time": [get_search_runs_timestamp(), get_search_runs_timestamp()],
-            "end_time": [get_search_runs_timestamp(), get_search_runs_timestamp()],
+            "start_time": start_times,
+            "end_time": end_times,
         }
         validate_search_runs(pdf, data)
 
@@ -557,6 +572,7 @@ def test_search_runs_attributes():
 @pytest.mark.skipif("MLFLOW_SKINNY" in os.environ,
                     reason="Skinny client does not support the np or pandas dependencies")
 def test_search_runs_data():
+    import numpy as np
     runs = [
         create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],
@@ -574,7 +590,7 @@ def test_search_runs_data():
         ),
     ]
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
-        pdf = search_runs()
+        pdf = call_search_runs()
         data = {
             "status": [RunStatus.FINISHED] * 2,
             "artifact_uri": [None] * 2,
@@ -609,7 +625,7 @@ def test_search_runs_no_arguments():
     )
     get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
-        search_runs()
+        call_search_runs()
         mlflow.tracking.fluent._paginate.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 
