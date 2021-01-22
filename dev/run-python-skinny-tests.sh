@@ -13,8 +13,9 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_SKINNY='true'
 
-pytest --verbose tests/test_skinny.py
+pytest --verbose tests/test_skinny_sql.py
 python -m pip install sqlalchemy alembic sqlparse
+pytest --verbose tests/test_skinny.py
 pytest --verbose tests/test_runs.py
 pytest --verbose tests/tracking/test_client.py
 pytest --verbose tests/tracking/test_tracking.py
