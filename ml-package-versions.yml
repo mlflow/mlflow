@@ -2,7 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git@master
+      pip install git+https://github.com/scikit-learn/scikit-learn.git@main
 
   models:
     minimum: "0.20.3"
