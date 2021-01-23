@@ -647,7 +647,7 @@ def test_search_runs_data():
                 pd.to_datetime(1564783200000, unit="ms", utc=True),
             ],
         }
-        validate_search_runs(pdf, data)
+        validate_search_runs(pdf, data, "pandas")
 
 
 def test_search_runs_no_arguments(search_runs_output_format):
