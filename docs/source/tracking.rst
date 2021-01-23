@@ -103,15 +103,15 @@ In this simple scenario, the MLflow client uses the following interfaces to reco
 Scenario 2: MLflow on localhost with SQLite
 -------------------------------------------
 
-Many users also run MLflow on their local machines with a `SQLAlchemy-compatible <https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls>`_ database: **SQLite**. In this case, artifacts
-are stored under the local ``./mlruns`` directory, and MLflow entities are inserted in a `SQLite <https://sqlite.org/docs.html>`_ database file ``mlruns.db``.
+Many users also run MLflow on their local machines with a `SQLAlchemy-compatible <https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls>`_ database: `SQLite <https://sqlite.org/docs.html>`_. In this case, artifacts
+are stored under the local ``./mlruns`` directory, and MLflow entities are inserted in a SQLite database file ``mlruns.db``.
 
 .. figure:: _static/images/scenario_2.png
 
 In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
 
  * An instance of a `LocalArtifactRepository` (to save artifacts)
- * An instance of an `SQLAlchemyStore` (to save MLflow entities to a SQLite file ``mlruns.db``)
+ * An instance of an `SQLAlchemyStore` (to store MLflow entities to a SQLite file ``mlruns.db``)
 
 Scenario 3: MLflow on localhost with Tracking Server
 ----------------------------------------------------
@@ -131,7 +131,7 @@ To store all runs' MLflow entities, the MLflow client interacts with the trackin
  * **Part 1a and b**:
 
   * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
-  * The Tracking Server creates an instance of a `FileStore` to save MLflow entities and writes directly to the local `mlruns` directory.
+  * The Tracking Server creates an instance of a `FileStore` to save MLflow entities and writes directly to the local `mlruns` directory
 
 For the artifacts, the MLflow client interacts with the tracking server via a REST request:
 
@@ -156,7 +156,7 @@ To record all runs' MLflow entities, the MLflow client interacts with the tracki
 
   * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
   * The Tracking Server creates an instance of an `SQLAlchemyStore` and connects to the remote host to
-    insert MLflow entities in the database.
+    insert MLflow entities in the database
 
 For artifact logging, the MLflow client interacts with the remote Tracking Server and artifact storage host:
 
@@ -165,12 +165,20 @@ For artifact logging, the MLflow client interacts with the remote Tracking Serve
   * The MLflow client uses `RestStore` to send a REST request to fetch the artifact store URI location from the Tracking Server
   * The Tracking Server responds with an artifact store URI location (an S3 storage URI in this case)
   * The MLflow client creates an instance of an `S3ArtifactRepository`, connects to the remote AWS host using the
-    `boto` client libraries, and uploads the artifacts to the S3 bucket URI location.
+    `boto client <https://boto3.amazonaws.com/v1/documentation/api/latest/index.html>`_ libraries, and uploads the artifacts to the S3 bucket URI location
 
 .. note::
 
     In all scenarios, the MLflow client directly logs artifacts to the remote artifact store. It does not proxy these through the
     tracking server.
+
+The `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py#L115>`_,
+`RestoreStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/rest_store.py#L39>`_,
+and `SQLAlchemyStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/sqlalchemy_store.py#L61>`_ are
+concrete implementations of the abstract class `AbstractStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/abstract_store.py>`_,
+and the `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/local_artifact_repo.py#L15>`_ and
+`S3ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/s3_artifact_repo.py#L14>`_ are
+concrete implementations of the abstract class `ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L13>`_.
 
 Logging Data to Runs
 ====================
