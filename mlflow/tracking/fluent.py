@@ -955,7 +955,7 @@ def search_runs(
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
     :param output_format: The output format to be returned. If "pandas" a pandas.DataFrame
-                          and if "list" List[mlflow.entitie.Run].
+                          and if "list" List[py:class:`mlflow.entitie.Run`].
                           Allows for mlflow.search_runs to work without pandas or numpy installed.
                           Default is "pandas".
 
@@ -963,7 +963,7 @@ def search_runs(
              and tag are expanded into their own columns named metrics.*, params.*, and tags.*
              respectively. For runs that don't have a particular metric, parameter, or tag, their
              value will be (NumPy) Nan, None, or None respectively.
-             If output_format is "list": List[mlflow.entitie.Run].
+             If output_format is "list": List[py:class:`mlflow.entitie.Run`].
 
     .. code-block:: python
         :caption: Example
@@ -1083,7 +1083,8 @@ def search_runs(
         return pd.DataFrame(data)
     else:
         raise ValueError(
-            "Unsupported format: %s. Supported strings are 'pandas' or 'list'" % output_format
+            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
+            % output_format
         )
 
 

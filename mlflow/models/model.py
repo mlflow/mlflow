@@ -30,7 +30,7 @@ class Model(object):
         run_id=None,
         utc_time_created=None,
         flavors=None,
-        signature=None,
+        signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
         **kwargs
     ):

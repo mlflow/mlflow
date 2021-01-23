@@ -110,6 +110,13 @@ def reload_context_registry():
     reload(mlflow.tracking.context.registry)
 
 
+@pytest.fixture(params=["list", "pandas"])
+def search_runs_output_format(request):
+    if "MLFLOW_SKINNY" in os.environ and request.param == "pandas":
+        pytest.skip("pandas output_format is not supported with skinny client")
+    return request.param
+
+
 def test_all_fluent_apis_are_included_in_dunder_all():
     def _is_function_or_class(obj):
         return callable(obj) or inspect.isclass(obj)
@@ -520,12 +527,8 @@ def test_get_run():
         assert run.info.user_id == "my_user_id"
 
 
-def call_search_runs():
-    return search_runs(output_format="list") if "MLFLOW_SKINNY" in os.environ else search_runs()
-
-
-def validate_search_runs(results, data):
-    if "MLFLOW_SKINNY" in os.environ:
+def validate_search_runs(results, data, output_format):
+    if output_format == "list":
         result_data = defaultdict(list)
         for run in results:
             result_data["status"].append(run.info.status)
@@ -536,25 +539,35 @@ def validate_search_runs(results, data):
             result_data["end_time"].append(run.info.end_time)
 
         assert result_data == data
-    else:
+    elif output_format == "pandas":
         import pandas as pd
 
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
-
-
-def get_search_runs_timestamp():
-    if "MLFLOW_SKINNY" in os.environ:
-        return time.time()
     else:
+        raise Exception("Invalid output format %s" % output_format)
+
+
+def get_search_runs_timestamp(output_format):
+    if output_format == "list":
+        return time.time()
+    elif output_format == "pandas":
         import pandas as pd
 
         return pd.to_datetime(0, utc=True)
+    else:
+        raise Exception("Invalid output format %s" % output_format)
 
 
-def test_search_runs_attributes():
-    start_times = [get_search_runs_timestamp(), get_search_runs_timestamp()]
-    end_times = [get_search_runs_timestamp(), get_search_runs_timestamp()]
+def test_search_runs_attributes(search_runs_output_format):
+    start_times = [
+        get_search_runs_timestamp(search_runs_output_format),
+        get_search_runs_timestamp(search_runs_output_format),
+    ]
+    end_times = [
+        get_search_runs_timestamp(search_runs_output_format),
+        get_search_runs_timestamp(search_runs_output_format),
+    ]
 
     runs = [
         create_run(
@@ -575,7 +588,7 @@ def test_search_runs_attributes():
         ),
     ]
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
-        pdf = call_search_runs()
+        pdf = search_runs(output_format=search_runs_output_format)
         data = {
             "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
             "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
@@ -584,7 +597,7 @@ def test_search_runs_attributes():
             "start_time": start_times,
             "end_time": end_times,
         }
-        validate_search_runs(pdf, data)
+        validate_search_runs(pdf, data, search_runs_output_format)
 
 
 @pytest.mark.skipif(
@@ -612,7 +625,7 @@ def test_search_runs_data():
         ),
     ]
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
-        pdf = call_search_runs()
+        pdf = search_runs()
         data = {
             "status": [RunStatus.FINISHED] * 2,
             "artifact_uri": [None] * 2,
@@ -637,7 +650,7 @@ def test_search_runs_data():
         validate_search_runs(pdf, data)
 
 
-def test_search_runs_no_arguments():
+def test_search_runs_no_arguments(search_runs_output_format):
     """
     When no experiment ID is specified, it should try to get the implicit one.
     """
@@ -647,7 +660,7 @@ def test_search_runs_no_arguments():
     )
     get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
-        call_search_runs()
+        search_runs(output_format=search_runs_output_format)
         mlflow.tracking.fluent._paginate.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 
