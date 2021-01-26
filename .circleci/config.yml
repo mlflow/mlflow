@@ -12,6 +12,7 @@ jobs:
           command: |
             apt-get update --yes
             apt-get install sudo git wget curl software-properties-common apt-transport-https --yes
+            sudo apt-get install default-jdk --yes
 
       - run:
           name: Install R
