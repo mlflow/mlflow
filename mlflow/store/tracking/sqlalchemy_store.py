@@ -317,6 +317,33 @@ class SqlAlchemyStore(AbstractStore):
                                       page_token=page_token,
                                       eager=True)
 
+    def _get_experiment(self, session, experiment_id, view_type, eager=False):
+        """
+        :param eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
+                      are not eagerly loaded and will be loaded if/when their corresponding
+                      object properties are accessed from the resulting ``SqlExperiment`` object.
+        """
+        experiment_id = experiment_id or SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
+        stages = LifecycleStage.view_type_to_stages(view_type)
+        query_options = self._get_eager_experiment_query_options() if eager else []
+
+        experiment = (
+            session.query(SqlExperiment)
+            .options(*query_options)
+            .filter(
+                SqlExperiment.experiment_id == experiment_id,
+                SqlExperiment.lifecycle_stage.in_(stages),
+            )
+            .one_or_none()
+        )
+
+        if experiment is None:
+            raise MlflowException(
+                "No Experiment with id={} exists".format(experiment_id), RESOURCE_DOES_NOT_EXIST
+            )
+
+        return experiment
+
     @staticmethod
     def _get_eager_experiment_query_options():
         """
