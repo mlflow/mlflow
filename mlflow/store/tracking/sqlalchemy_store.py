@@ -312,6 +312,14 @@ class SqlAlchemyStore(AbstractStore):
             return experiments
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
+        if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. "
+                "It must be at most {}, but got value {}".format(
+                    SEARCH_MAX_RESULTS_THRESHOLD, max_results
+                ),
+                INVALID_PARAMETER_VALUE,
+            )
         return self._list_experiments(view_type=view_type,
                                       max_results=max_results,
                                       page_token=page_token,
