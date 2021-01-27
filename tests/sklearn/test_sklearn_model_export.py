@@ -1,5 +1,5 @@
 import sys
-import mock
+from unittest import mock
 import os
 import pickle
 import pytest
@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
@@ -195,7 +196,9 @@ def test_log_model_calls_register_model(sklearn_logreg_model):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(sklearn_logreg_model):
@@ -529,3 +532,20 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
         sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
         reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+
+def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
+    from sklearn.cluster import AgglomerativeClustering
+
+    sk_model = AgglomerativeClustering()
+    assert not hasattr(sk_model, "predict")
+
+    mlflow.sklearn.save_model(
+        sk_model=sk_model,
+        path=model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+    )
+
+    model_conf_path = os.path.join(model_path, "MLmodel")
+    model_conf = Model.load(model_conf_path)
+    assert pyfunc.FLAVOR_NAME not in model_conf.flavors

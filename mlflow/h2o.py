@@ -8,6 +8,7 @@ H20 (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 import os
+import warnings
 import yaml
 
 import mlflow
@@ -108,7 +109,14 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # Save h2o-model
-    h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
+    if hasattr(h2o, "download_model"):
+        h2o_save_location = h2o.download_model(model=h2o_model, path=model_data_path)
+    else:
+        warnings.warn(
+            "If your cluster is remote, H2O may not store the model correctly. "
+            "Please upgrade H2O version to a newer version"
+        )
+        h2o_save_location = h2o.save_model(model=h2o_model, path=model_data_path, force=True)
     model_file = os.path.basename(h2o_save_location)
 
     # Save h2o-settings
@@ -215,7 +223,18 @@ def _load_model(path, init=False):
     if init:
         h2o.init(**(params["init"] if "init" in params else {}))
         h2o.no_progress()
-    return h2o.load_model(os.path.join(path, params["model_file"]))
+
+    model_path = os.path.join(path, params["model_file"])
+    if hasattr(h2o, "upload_model"):
+        model = h2o.upload_model(model_path)
+    else:
+        warnings.warn(
+            "If your cluster is remote, H2O may not load the model correctly. "
+            "Please upgrade H2O version to a newer version"
+        )
+        model = h2o.load_model(model_path)
+
+    return model
 
 
 class _H2OModelWrapper:

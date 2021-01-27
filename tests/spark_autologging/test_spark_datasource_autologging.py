@@ -1,7 +1,7 @@
-import mock
 import time
 
 import pytest
+from unittest import mock
 
 import mlflow
 import mlflow.spark
@@ -40,6 +40,10 @@ def _get_expected_table_info_row(path, data_format, version=None):
     return "path={path},version={version},format={format}".format(
         path=expected_path, version=version, format=data_format
     )
+
+
+# Note that the following tests run one-after-the-other and operate on the SAME spark_session
+#   (it is not reset between tests)
 
 
 @pytest.mark.large

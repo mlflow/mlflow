@@ -2,7 +2,7 @@ import logging
 import os
 
 import json
-import mock
+from unittest import mock
 import numpy as np
 import pandas as pd
 import pyspark
@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf, get_spark_session
@@ -117,6 +118,7 @@ def spark_model_transformer(iris_df):
 
 @pytest.fixture(scope="session")
 def spark_model_estimator(iris_df, spark_context):
+    # pylint: disable=unused-argument
     feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     features_df = assembler.transform(iris_spark_df)
@@ -391,6 +393,7 @@ def test_sparkml_estimator_model_log(tmpdir, spark_model_estimator):
 
 @pytest.mark.large
 def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
+    # pylint: disable=unused-argument
     with pytest.raises(MlflowException) as e:
         sparkm.log_model(spark_model=spark_model_transformer.model, artifact_path="model0")
     assert "Cannot serialize this model" in e.value.message
@@ -412,7 +415,9 @@ def test_log_model_calls_register_model(tmpdir, spark_model_iris):
             model_uri = "runs:/{run_id}/{artifact_path}".format(
                 run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
             )
-            mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+            mlflow.register_model.assert_called_once_with(
+                model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+            )
     finally:
         x = dfs_tmp_dir or sparkm.DFS_TMP
         shutil.rmtree(x)
@@ -600,7 +605,9 @@ def test_mleap_model_log(spark_model_iris):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(model_uri, "Model1")
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "Model1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     config_path = os.path.join(model_path, "MLmodel")
@@ -714,3 +721,19 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
         mleap.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
+
+
+def test_shutil_copytree_without_file_permissions(tmpdir):
+    src_dir = tmpdir.mkdir("src-dir")
+    dst_dir = tmpdir.mkdir("dst-dir")
+    # Test copying empty directory
+    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
+    assert len(os.listdir(dst_dir.strpath)) == 0
+    # Test copying directory with contents
+    src_dir.mkdir("subdir").join("subdir-file.txt").write("testing 123")
+    src_dir.join("top-level-file.txt").write("hi")
+    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
+    assert set(os.listdir(dst_dir.strpath)) == {"top-level-file.txt", "subdir"}
+    assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
+    assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
+    assert dst_dir.join("top-level-file.txt").read() == "hi"

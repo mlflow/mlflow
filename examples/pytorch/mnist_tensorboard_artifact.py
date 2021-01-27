@@ -11,6 +11,8 @@
 import argparse
 import os
 import mlflow
+import mlflow.pytorch
+import pickle
 import tempfile
 import torch
 import torch.nn as nn
@@ -100,7 +102,7 @@ test_loader = torch.utils.data.DataLoader(
 
 class Net(nn.Module):
     def __init__(self):
-        super(Net, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
         self.conv2_drop = nn.Dropout2d()
@@ -218,3 +220,23 @@ with mlflow.start_run():
         "\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s"
         % os.path.join(mlflow.get_artifact_uri(), "events")
     )
+
+    # Log the model as an artifact of the MLflow run.
+    print("\nLogging the trained model as a run artifact...")
+    mlflow.pytorch.log_model(model, artifact_path="pytorch-model", pickle_module=pickle)
+    print(
+        "\nThe model is logged at:\n%s" % os.path.join(mlflow.get_artifact_uri(), "pytorch-model")
+    )
+
+    # Since the model was logged as an artifact, it can be loaded to make predictions
+    loaded_model = mlflow.pytorch.load_model(mlflow.get_artifact_uri("pytorch-model"))
+
+    # Extract a few examples from the test dataset to evaulate on
+    eval_data, eval_labels = next(iter(test_loader))
+
+    # Make a few predictions
+    predictions = loaded_model(eval_data).data.max(1)[1]
+    template = 'Sample {} : Ground truth is "{}", model prediction is "{}"'
+    print("\nSample predictions")
+    for index in range(5):
+        print(template.format(index, eval_labels[index], predictions[index]))

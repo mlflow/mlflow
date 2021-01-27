@@ -1,0 +1,68 @@
+name: Cross version tests
+
+on:
+  schedule:
+    # Run this workflow daily at 7:00 UTC
+    - cron: "0 7 * * *"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install dependencies
+        run: |
+          pip install packaging pyyaml pytest
+      - name: Test set_matrix.py
+        run: |
+          pytest dev/set_matrix.py --doctest-modules --verbose
+      - id: set-matrix
+        name: Set matrix
+        run: |
+          if [ ! "$(git branch --show-current)" == "master" ]; then
+            git fetch origin master:master
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
+            CHANGED_FILES="$(git diff --name-only master..HEAD)"
+            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES"
+          else
+            python dev/set_matrix.py
+          fi
+  test:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Enable conda
+        run: |
+          echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+      - name: Update python
+        run: |
+          conda install python=3.6
+          python --version
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install -r dev/small-requirements.txt
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          pip freeze
+      - name: Run tests
+        run: |
+          ${{ matrix.run }}

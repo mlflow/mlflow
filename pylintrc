@@ -147,6 +147,9 @@ disable=print-statement,
         # redefined-outer-name disabled to avoid linting errors when using pytest fixtures
         # (see https://stackoverflow.com/questions/46089480/pytest-fixtures-redefining-name-from-outer-scope-pylint)
         redefined-outer-name,
+        # Ignore errors raised against `ExceptionSafeClass` and `ExceptionSafeAbstractClass`
+        invalid-metaclass,
+        broad-except,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -457,7 +460,7 @@ dummy-variables-rgx=_+$|(_[a-zA-Z0-9_]*[a-zA-Z0-9]+?$)|dummy|^ignored_|^unused_
 ignored-argument-names=_.*|^ignored_|^unused_
 
 # Tells whether we should check for unused import in __init__ files.
-init-import=no
+init-import=yes
 
 # List of qualified module names which can have objects that can redefine
 # builtins.

@@ -1,8 +1,8 @@
 import os
 
-import mock
 import pytest
-from six.moves import shlex_quote
+from shlex import quote
+from unittest import mock
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects._project_spec import EntryPoint
@@ -49,7 +49,7 @@ def test_entry_point_compute_command():
         # Test shell escaping
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
-        assert command == "python greeter.py %s %s" % (shlex_quote("hi"), shlex_quote(name_value))
+        assert command == "python greeter.py %s %s" % (quote("hi"), quote(name_value))
 
 
 def test_path_parameter():

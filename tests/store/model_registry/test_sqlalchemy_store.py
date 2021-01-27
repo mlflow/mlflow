@@ -1,8 +1,8 @@
 import os
 import unittest
 
-import mock
 import tempfile
+from unittest import mock
 import uuid
 
 import mlflow
@@ -43,13 +43,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
 
-    def _rm_maker(self, name, tags=None):
-        return self.store.create_registered_model(name, tags)
+    def _rm_maker(self, name, tags=None, description=None):
+        return self.store.create_registered_model(name, tags, description)
 
     def _mv_maker(
-        self, name, source="path/to/source", run_id=uuid.uuid4().hex, tags=None, run_link=None
+        self,
+        name,
+        source="path/to/source",
+        run_id=uuid.uuid4().hex,
+        tags=None,
+        run_link=None,
+        description=None,
     ):
-        return self.store.create_model_version(name, source, run_id, tags, run_link=run_link)
+        return self.store.create_model_version(
+            name, source, run_id, tags, run_link=run_link, description=description
+        )
 
     def _extract_latest_by_stage(self, latest_versions):
         return {mvd.current_stage: mvd.version for mvd in latest_versions}
@@ -58,6 +66,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         name = random_str() + "abCD"
         rm1 = self._rm_maker(name)
         self.assertEqual(rm1.name, name)
+        self.assertEqual(rm1.description, None)
 
         # error on duplicate
         with self.assertRaises(MlflowException) as exception_context:
@@ -81,6 +90,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(rm2.tags, {tag.key: tag.value for tag in tags})
         self.assertEqual(rmd2.name, name2)
         self.assertEqual(rmd2.tags, {tag.key: tag.value for tag in tags})
+
+        # create with description
+        name3 = random_str() + "-description"
+        description = "the best model ever"
+        rm3 = self._rm_maker(name3, description=description)
+        rmd3 = self.store.get_registered_model(name3)
+        self.assertEqual(rm3.name, name3)
+        self.assertEqual(rm3.description, description)
+        self.assertEqual(rmd3.name, name3)
+        self.assertEqual(rmd3.description, description)
 
         # invalid model name will fail
         with self.assertRaises(MlflowException) as exception_context:
@@ -458,6 +477,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd4.version, 4)
         self.assertEqual(mvd4.run_link, run_link)
 
+        # create model version with description
+        description = "the best model ever"
+        mv5 = self._mv_maker(name, description=description)
+        mvd5 = self.store.get_model_version(name, mv5.version)
+        self.assertEqual(mv5.version, 5)
+        self.assertEqual(mv5.description, description)
+        self.assertEqual(mvd5.version, 5)
+        self.assertEqual(mvd5.description, description)
+
+        # create model version without runId
+        mv6 = self._mv_maker(name, run_id=None)
+        mvd6 = self.store.get_model_version(name, mv6.version)
+        self.assertEqual(mv6.version, 6)
+        self.assertEqual(mv6.run_id, None)
+        self.assertEqual(mvd6.version, 6)
+        self.assertEqual(mvd6.run_id, None)
+
     def test_update_model_version(self):
         name = "test_for_update_MV"
         self._rm_maker(name)
@@ -581,6 +617,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(mvd3.current_stage, "Production")
         self.assertEqual(mvd2.last_updated_timestamp, mvd3.last_updated_timestamp)
 
+        for uncanonical_stage_name in ["STAGING", "staging", "StAgInG"]:
+            self.store.transition_model_version_stage(mv1.name, mv1.version, "Staging", False)
+            self.store.transition_model_version_stage(mv2.name, mv2.version, "None", False)
+
+            # stage names are case-insensitive and auto-corrected to system stage names
+            self.store.transition_model_version_stage(
+                mv2.name, mv2.version, uncanonical_stage_name, True
+            )
+
+            mvd1 = self.store.get_model_version(name=mv1.name, version=mv1.version)
+            mvd2 = self.store.get_model_version(name=mv2.name, version=mv2.version)
+            self.assertEqual(mvd1.current_stage, "Archived")
+            self.assertEqual(mvd2.current_stage, "Staging")
+
     def test_delete_model_version(self):
         name = "test_for_delete_MV"
         initial_tags = [
@@ -691,6 +741,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # search using run_id_2 should return versions 2 and 3
         self.assertEqual(set(search_versions("run_id='%s'" % run_id_2)), set([2, 3]))
 
+        # search using the IN operator should return all versions
+        self.assertEqual(
+            set(
+                search_versions(
+                    "run_id IN ('{run_id_1}','{run_id_2}')".format(
+                        run_id_1=run_id_1, run_id_2=run_id_2
+                    )
+                )
+            ),
+            set([1, 2, 3]),
+        )
+
+        # search using the IN operator with bad lists should return exceptions
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (1,2,3)")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "expected string value or punctuation" in exception_context.exception.message
+
+        # search using the IN operator with empty lists should return exceptions
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN ()")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "expected a non-empty list of string values" in exception_context.exception.message
+
+        # search using an ill-formed IN operator correctly throws exception
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid clause" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "Invalid filter" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN (,)")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "ill-formed list" in exception_context.exception.message
+
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions("run_id IN ('runid1',,'runid2')")
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "ill-formed list" in exception_context.exception.message
+
+        # search using the IN operator is not allowed with other additional filters
+        with self.assertRaises(MlflowException) as exception_context:
+            search_versions(
+                "name='{name}]' AND run_id IN ('{run_id_1}','{run_id_2}')".format(
+                    name=name, run_id_1=run_id_1, run_id_2=run_id_2
+                )
+            )
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        assert "contains multiple expressions" in exception_context.exception.message
+
         # search using source_path "A/D" should return version 3 and 4
         self.assertEqual(set(search_versions("source_path = 'A/D'")), set([3, 4]))
 
@@ -740,7 +845,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # create some registered models
         prefix = "test_for_search_"
         names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4a"]]
-        [self._rm_maker(name) for name in names]
+        for name in names:
+            self._rm_maker(name)
 
         # search with no filter should return all registered models
         rms, _ = self._search_registered_models(None)
@@ -842,6 +948,40 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self._search_registered_models("name ILIKE '{}%'".format(prefix + "RM4A")),
             ([names[4]], None),
         )
+
+    def test_parse_search_registered_models_order_by(self):
+        # test that "registered_models.name ASC" is returned by default
+        parsed = SqlAlchemyStore._parse_search_registered_models_order_by([])
+        self.assertEqual([str(x) for x in parsed], ["registered_models.name ASC"])
+
+        # test that the given 'name' replaces the default one ('registered_models.name ASC')
+        parsed = SqlAlchemyStore._parse_search_registered_models_order_by(["name DESC"])
+        self.assertEqual([str(x) for x in parsed], ["registered_models.name DESC"])
+
+        # test that an exception is raised when order_by contains duplicate fields
+        msg = "`order_by` contains duplicate fields:"
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ["last_updated_timestamp", "last_updated_timestamp"]
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(["timestamp", "timestamp"])
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ["timestamp", "last_updated_timestamp"],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ["last_updated_timestamp ASC", "last_updated_timestamp DESC"],
+            )
+
+        with self.assertRaisesRegex(MlflowException, msg):
+            SqlAlchemyStore._parse_search_registered_models_order_by(
+                ["last_updated_timestamp", "last_updated_timestamp DESC"],
+            )
 
     def test_search_registered_model_pagination(self):
         rms = [self._rm_maker("RM{:03}".format(i)).name for i in range(50)]

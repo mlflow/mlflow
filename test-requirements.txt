@@ -1,3 +1,4 @@
--r travis/small-requirements.txt
--r travis/large-requirements.txt
--r travis/lint-requirements.txt
+-r dev/small-requirements.txt
+-r dev/large-requirements.txt
+-r dev/extra-ml-requirements.txt
+-r dev/lint-requirements.txt

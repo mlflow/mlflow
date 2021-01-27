@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 import time
 
-import mock
+from unittest import mock
 import os
 import sys
 import pytest

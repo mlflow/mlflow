@@ -1,7 +1,6 @@
 # pep8: disable=E501
 
 import collections
-import mock
 import os
 import shutil
 import sys
@@ -9,6 +8,7 @@ import pytest
 import yaml
 import json
 import copy
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -28,10 +28,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-imxport
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
@@ -51,7 +52,7 @@ SavedModelInfo = collections.namedtuple(
 def saved_tf_iris_model(tmpdir):
     # Following code from
     # https://github.com/tensorflow/models/blob/master/samples/core/get_started/premade_estimator.py
-    (train_x, train_y), (test_x, test_y) = iris_data_utils.load_data()
+    train_x, train_y = iris_data_utils.load_data()[0]
 
     # Feature columns describe how to use the input.
     my_feature_columns = []
@@ -76,7 +77,6 @@ def saved_tf_iris_model(tmpdir):
     )
 
     # Generate predictions from the model
-    expected = ["Setosa", "Versicolor", "Virginica"]
     predict_x = {
         "SepalLength": [5.1, 5.9, 6.9],
         "SepalWidth": [3.3, 3.0, 3.1],
@@ -204,7 +204,7 @@ def saved_tf_categorical_model(tmpdir):
         path=saved_estimator_path,
         meta_graph_tags=["serve"],
         signature_def_key="predict",
-        inference_df=trainingFeatures,
+        inference_df=pd.DataFrame(trainingFeatures),
         expected_results_df=estimator_preds_df,
         raw_results=None,
         raw_df=None,
@@ -281,8 +281,8 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
         load_and_evaluate()
 
 
-def test_schema_and_examples_are_save_correctly(saved_tf_iris_model, model_path):
-    (train_x, train_y), _ = iris_data_utils.load_data()
+def test_schema_and_examples_are_save_correctly(saved_tf_iris_model):
+    train_x, train_y = iris_data_utils.load_data()[0]
     X = pd.DataFrame(train_x)
     y = pd.Series(train_y)
     for signature in (None, infer_signature(X, y)):
@@ -356,7 +356,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
     # loaded from the specified MLflow model path
     shutil.rmtree(saved_tf_iris_model.path)
 
-    model_function = mlflow.tensorflow.load_model(model_uri=model_path)
+    mlflow.tensorflow.load_model(model_uri=model_path)
 
 
 def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
@@ -385,7 +385,7 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
 
-    infer_fn = mlflow.tensorflow.load_model(model_uri=model_uri)
+    mlflow.tensorflow.load_model(model_uri=model_uri)
 
 
 def test_log_model_calls_register_model(saved_tf_iris_model):
@@ -402,7 +402,9 @@ def test_log_model_calls_register_model(saved_tf_iris_model):
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
         )
-        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(saved_tf_iris_model):
@@ -548,9 +550,28 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
     )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
+
+    # can call predict with a df
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
+    assert isinstance(results_df, pd.DataFrame)
     for key in results_df.keys():
         assert np.array_equal(results_df[key], saved_tf_iris_model.raw_df[key])
+
+    # can also call predict with a dict
+    inp_dict = {}
+    for df_col_name in list(saved_tf_iris_model.inference_df):
+        inp_dict[df_col_name] = saved_tf_iris_model.inference_df[df_col_name].values
+    results = pyfunc_wrapper.predict(inp_dict)
+    assert isinstance(results, dict)
+    for key in results.keys():
+        assert np.array_equal(results[key], saved_tf_iris_model.raw_df[key].tolist())
+
+    # can not call predict with a list
+    inp_list = []
+    for df_col_name in list(saved_tf_iris_model.inference_df):
+        inp_list.append(saved_tf_iris_model.inference_df[df_col_name].values)
+    with pytest.raises(TypeError):
+        results = pyfunc_wrapper.predict(inp_list)
 
 
 @pytest.mark.large
@@ -565,11 +586,32 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     )
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
+
+    # can call predict with a df
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     # Precision is less accurate for the categorical model when we load back the saved model.
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=3
     )
+
+    # can also call predict with a dict
+    inp_dict = {}
+    for df_col_name in list(saved_tf_categorical_model.inference_df):
+        inp_dict[df_col_name] = saved_tf_categorical_model.inference_df[df_col_name].values
+    results = pyfunc_wrapper.predict(inp_dict)
+    assert isinstance(results, dict)
+    pandas.testing.assert_frame_equal(
+        pandas.DataFrame.from_dict(data=results),
+        saved_tf_categorical_model.expected_results_df,
+        check_less_precise=3,
+    )
+
+    # can not call predict with a list
+    inp_list = []
+    for df_col_name in list(saved_tf_categorical_model.inference_df):
+        inp_list.append(saved_tf_categorical_model.inference_df[df_col_name].values)
+    with pytest.raises(TypeError):
+        results = pyfunc_wrapper.predict(inp_list)
 
 
 @pytest.mark.release

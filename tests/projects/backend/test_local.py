@@ -1,5 +1,5 @@
-import mock
 import os
+from unittest import mock
 
 from mlflow.projects.backend.local import _get_docker_artifact_storage_cmd_and_envs
 
@@ -9,6 +9,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_env():
         "AWS_SECRET_ACCESS_KEY": "mock_secret",
         "AWS_ACCESS_KEY_ID": "mock_access_key",
         "MLFLOW_S3_ENDPOINT_URL": "mock_endpoint",
+        "MLFLOW_S3_IGNORE_TLS": "false",
     }
     with mock.patch.dict("os.environ", mock_env), mock.patch(
         "posixpath.exists", return_value=False

@@ -30,7 +30,7 @@ def main():
     args = parse_args()
 
     # Download and untar the MNIST data set
-    path = vis.untar_data(vis.URLs.MNIST_SAMPLE)
+    path = vis.untar_data(vis.URLs.MNIST_TINY)
 
     # Prepare, transform, and normalize the data
     data = vis.ImageDataBunch.from_folder(path, ds_tfms=(vis.rand_pad(2, 28), []), bs=64)

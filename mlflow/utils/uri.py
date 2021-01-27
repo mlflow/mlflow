@@ -1,5 +1,5 @@
 import posixpath
-from six.moves import urllib
+import urllib.parse
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -10,6 +10,9 @@ _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
     "format specifications."
 )
+
+_DBFS_FUSE_PREFIX = "/dbfs/"
+_DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 
 def is_local_uri(uri):
@@ -40,7 +43,7 @@ def construct_db_uri_from_profile(profile):
 # Both scope and key_prefix should not contain special chars for URIs, like '/'
 # and ':'.
 def validate_db_scope_prefix_info(scope, prefix):
-    for c in ["/", ":"]:
+    for c in ["/", ":", " "]:
         if c in scope:
             raise MlflowException(
                 "Unsupported Databricks profile name: %s." % scope
@@ -51,6 +54,11 @@ def validate_db_scope_prefix_info(scope, prefix):
                 "Unsupported Databricks profile key prefix: %s." % prefix
                 + " Key prefixes cannot contain '%s'." % c
             )
+    if prefix is not None and prefix.strip() == "":
+        raise MlflowException(
+            "Unsupported Databricks profile key prefix: '%s'." % prefix
+            + " Key prefixes cannot be empty."
+        )
 
 
 def get_db_info_from_uri(uri):
@@ -232,6 +240,12 @@ def is_databricks_acled_artifacts_uri(artifact_uri):
     return artifact_uri_path.startswith(_ACLED_ARTIFACT_URI)
 
 
+def is_databricks_model_registry_artifacts_uri(artifact_uri):
+    _MODEL_REGISTRY_ARTIFACT_URI = "databricks/mlflow-registry/"
+    artifact_uri_path = extract_and_normalize_path(artifact_uri)
+    return artifact_uri_path.startswith(_MODEL_REGISTRY_ARTIFACT_URI)
+
+
 def construct_run_url(hostname, experiment_id, run_id, workspace_id=None):
     if not hostname or not experiment_id or not run_id:
         raise MlflowException(
@@ -254,3 +268,23 @@ def is_valid_dbfs_uri(uri):
     except MlflowException:
         db_profile_uri = None
     return not parsed.netloc or db_profile_uri is not None
+
+
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+    """
+    Converts the provided DBFS URI into a DBFS FUSE path
+    :param dbfs_uri: A DBFS URI like "dbfs:/my-directory". Can also be a scheme-less URI like
+                     "/my-directory" if running in an environment where the default HDFS filesystem
+                     is "dbfs:/" (e.g. Databricks)
+    :return A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+    """
+    if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
+        # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
+        dbfs_uri = "dbfs:" + dbfs_uri
+    if not dbfs_uri.startswith(_DBFS_HDFS_URI_PREFIX):
+        raise MlflowException(
+            "Path '%s' did not start with expected DBFS URI prefix '%s'"
+            % (dbfs_uri, _DBFS_HDFS_URI_PREFIX),
+        )
+
+    return _DBFS_FUSE_PREFIX + dbfs_uri[len(_DBFS_HDFS_URI_PREFIX) :]

@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_CLUSTER_ID
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext

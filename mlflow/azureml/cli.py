@@ -6,7 +6,8 @@ import json
 import click
 
 import mlflow.azureml
-from mlflow.utils import cli_args, experimental
+from mlflow.utils import cli_args
+from mlflow.utils.annotations import experimental
 
 
 @click.group("azureml")

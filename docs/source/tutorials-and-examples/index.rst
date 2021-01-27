@@ -31,9 +31,15 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `LightGBM <https://github.com/mlflow/mlflow/tree/master/examples/lightgbm>`_
 
+  - `Statsmodels <https://github.com/mlflow/mlflow/tree/master/examples/statsmodels>`_
+
   - `Glmnet (R) <https://github.com/mlflow/mlflow/tree/master/examples/r_wine>`_
 
   - `SpaCy <https://github.com/mlflow/mlflow/tree/master/examples/spacy>`_
+
+  - `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_
+
+  - `SHAP <https://github.com/mlflow/mlflow/tree/master/examples/shap>`_
 
   - scikit-learn
 
@@ -49,3 +55,6 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
     + `TensorFlow 2.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf2>`_
 
+  - RAPIDS
+
+    + `Random Forest Classifier <https://github.com/mlflow/mlflow/tree/master/examples/rapids>`_

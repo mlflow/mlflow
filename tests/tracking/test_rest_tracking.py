@@ -3,15 +3,15 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
 import json
-import mock
 import os
 import sys
 import posixpath
 import pytest
-from six.moves import urllib
 import shutil
 import time
 import tempfile
+from unittest import mock
+import urllib.parse
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException

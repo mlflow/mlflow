@@ -2,9 +2,13 @@ name: MLflow tests
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
 
 env:
   CONDA_DIR: /usr/share/miniconda
@@ -19,8 +23,8 @@ jobs:
         INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_SMALL_PYTHON_DEPS: true
       run: |
-        source ./travis/install-common-deps.sh
-        pip install -r ./travis/lint-requirements.txt
+        source ./dev/install-common-deps.sh
+        pip install -r ./dev/lint-requirements.txt
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
@@ -35,6 +39,7 @@ jobs:
     # as a cache key when caching/restoring R dependencies.
     - name: Query dependencies
       run: |
+        print(R.version)
         install.packages('remotes')
         saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
@@ -57,15 +62,18 @@ jobs:
         install.packages("devtools")
         remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
       shell: Rscript {0}
-    - name: Run tests
+    - name: Create test environment
       run: |
-        source ./travis/install-common-deps.sh
-        source activate test-environment
+        source ./dev/install-common-deps.sh
         cd mlflow/R/mlflow
         R CMD build .
-        export LINTR_COMMENT_BOT=false
         cd tests
-        Rscript ../.travis.R
+        Rscript ../.create-test-env.R
+    - name: Run tests
+      run: |
+        export LINTR_COMMENT_BOT=false
+        cd mlflow/R/mlflow/tests
+        Rscript ../.run-tests.R
     - name: Calculate code coverage
       if: ${{ success() }}
       run: |
@@ -85,20 +93,41 @@ jobs:
       with:
         name: 00check.log
         path: /tmp/00check.log
+
+  # python-skinny tests cover a subset of mlflow functionality
+  # that is meant to be supported with a smaller dependency footprint.
+  # The python skinny tests cover the subset of mlflow functionality
+  # while also verifying certain dependencies are omitted.
+  python-skinny:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      env:
+        INSTALL_SKINNY_PYTHON_DEPS: true
+        MLFLOW_SKINNY: true
+      run: |
+        source ./dev/install-common-deps.sh
+    - name: Run tests
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./dev/run-python-skinny-tests.sh
+
   python-small:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Install dependencies
       env:
-        INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
       run: |
-        source ./travis/install-common-deps.sh
+        source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
-        ./travis/run-small-python-tests.sh
+        ./dev/run-small-python-tests.sh
 
   python-large:
     runs-on: ubuntu-latest
@@ -107,15 +136,18 @@ jobs:
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
+        INSTALL_SMALL_PYTHON_DEPS: true
       run: |
-        source ./travis/install-common-deps.sh
+        source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
-        ./travis/run-large-python-tests.sh
-        ./travis/test-anaconda-compatibility.sh "anaconda3:2020.02"
-        ./travis/test-anaconda-compatibility.sh "anaconda3:2019.03"
+        ./dev/run-large-python-tests.sh
+    - name: Run anaconda compatibility tests
+      run: |
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
+        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
     runs-on: ubuntu-latest
@@ -127,7 +159,7 @@ jobs:
         java-version: 8
     - name: Install dependencies
       run: |
-        source ./travis/install-common-deps.sh
+        source ./dev/install-common-deps.sh
     - name: Run tests
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
@@ -177,12 +209,32 @@ jobs:
           INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
         run: |
-          source ./travis/install-common-deps.sh
+          source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
-          ./travis/run-python-flavor-tests.sh;
+          ./dev/run-python-flavor-tests.sh;
+
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.6'
+      - name: Install mlflow
+        run: |
+          pip install -e .
+      - name: Verify mlflow can be imported without errors
+        run: |
+          python -c "import mlflow"
+
+          # Just importing mlflow should not create `mlruns` directory
+          # See: https://github.com/mlflow/mlflow/issues/3400
+          if [ -d "./mlruns" ]; then
+            exit 1
+          fi
 
   tensorflow:
     runs-on: ubuntu-latest
@@ -193,12 +245,12 @@ jobs:
           INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
         run: |
-          source ./travis/install-common-deps.sh
+          source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
-          ./travis/run-python-tf-tests.sh;
+          ./dev/run-python-tf-tests.sh;
 
   sagemaker:
     runs-on: ubuntu-latest
@@ -209,12 +261,12 @@ jobs:
           INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
         run: |
-          source ./travis/install-common-deps.sh
+          source ./dev/install-common-deps.sh
       - name: Run tests
         run: |
           export PATH="$CONDA_DIR/bin:$PATH"
           source activate test-environment
-          ./travis/run-python-sagemaker-tests.sh;
+          ./dev/run-python-sagemaker-tests.sh;
 
   windows:
     runs-on: windows-latest
@@ -226,8 +278,8 @@ jobs:
       - name: Install dependecies
         run: |
           pip install -r dev-requirements.txt
-          pip install -r travis/small-requirements.txt
-          pip install -e .
+          pip install -r dev/small-requirements.txt
+          pip install -e .[extras]
       - name: Run tests
         run: |
           pytest --verbose --ignore-flavors --ignore=tests/projects tests

@@ -1,8 +1,8 @@
 import cloudpickle
 import os
 import json
-import mock
 from subprocess import Popen, PIPE
+from unittest import mock
 
 import numpy as np
 import pandas as pd
@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import (
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -49,7 +50,7 @@ def get_model_class():
             self.predict_fn = predict_fn
 
         def load_context(self, context):
-            super(CustomSklearnModel, self).load_context(context)
+            super().load_context(context)
             # pylint: disable=attribute-defined-outside-init
             self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
 
@@ -273,7 +274,9 @@ def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_cla
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
         )
-        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
         mlflow.end_run()
 
 
@@ -825,6 +828,23 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model", python_model=None, loader_module=None)
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
+
+
+@pytest.mark.large
+def test_repr_can_be_called_withtout_run_id_or_artifact_path():
+    model_meta = Model(
+        artifact_path=None,
+        run_id=None,
+        flavors={"python_function": {"loader_module": "someFlavour"}},
+    )
+
+    class TestModel(object):
+        def predict(self, model_input):
+            return model_input
+
+    model_impl = TestModel()
+
+    assert "flavor: someFlavour" in mlflow.pyfunc.PyFuncModel(model_meta, model_impl).__repr__()
 
 
 @pytest.mark.large

@@ -1,62 +1,105 @@
-import { ErrorWrapper, wrapDeferred } from '../common/utils/ActionUtils';
+import {
+  fetchMissingParents,
+  getParentRunIdsToFetch,
+  getParentRunTagName,
+  searchRunsPayload,
+} from './actions';
+import { MlflowService } from './sdk/MlflowService';
 
-/**
- * Returns mock Ajax function that sequentially responds with status codes in `responseStatusCodes`,
- * looping back to the start of the array of status codes if necessary.
- */
-const getMockAjax = (responseStatusCodes) => {
-  let i = 0;
-  return ({ success, error }) => {
-    const statusCode = responseStatusCodes[i % responseStatusCodes.length];
-    if (statusCode === 200) {
-      success({ requestIndex: i });
-    } else {
-      error({ status: statusCode });
-    }
-    i += 1;
-  };
+const a = {
+  info: { run_id: 'a' },
+  data: {
+    tags: [
+      {
+        key: getParentRunTagName(),
+        value: 'aParent',
+      },
+    ],
+  },
 };
+const b = {
+  info: { run_id: 'b' },
+  data: {
+    tags: [
+      {
+        key: getParentRunTagName(),
+        value: 'bParent',
+      },
+    ],
+  },
+};
+const aParent = { info: { run_id: 'aParent' } };
+const bParent = { info: { run_id: 'bParent' } };
 
-test('ErrorWrapper.getErrorCode does not fail on JSON decoding problems', () => {
-  new ErrorWrapper({ responseText: 'a{waefaw' });
+beforeAll(() => {
+  jest
+    .spyOn(MlflowService, 'searchRuns')
+    .mockImplementation(({ success }) => success({ runs: [a, b, aParent] }));
+
+  jest
+    .spyOn(MlflowService, 'getRun')
+    .mockImplementation(({ data, success }) => success({ run: { info: { run_id: data.run_id } } }));
 });
 
-test('wrapDeferred retries on 429s', (done) => {
-  wrapDeferred(getMockAjax([429, 429, 200]), {}, 1000, 10)
-    .then((result) => {
-      expect(result).toEqual({ requestIndex: 2 });
-    })
-    .then(() => done());
+afterAll(() => {
+  MlflowService.searchRuns.mockRestore();
+  MlflowService.getRun.mockRestore();
 });
 
-test('wrapDeferred responds with 429 after timeout period', (done) => {
-  // First request responds with 429, we then retry and receive another 429, but don't have time to
-  // retry again, so we propagate the 429
-  let caughtError = false;
-  wrapDeferred(getMockAjax([429, 429, 200]), {}, 10, 10)
-    .catch((result) => {
-      expect(result.xhr.status).toEqual(429);
-      caughtError = true;
-    })
-    .then(() => {
-      if (caughtError) {
-        done();
-      }
+describe('fetchMissingParents', () => {
+  it('should not explode if no runs', () => {
+    const res = { nextPageToken: 'something' };
+    expect(fetchMissingParents(res)).toBe(res);
+  });
+
+  it('should return res if runs empty', () => {
+    const res = {
+      runs: [],
+      nextPageToken: 'something',
+    };
+    expect(fetchMissingParents(res)).toEqual(res);
+  });
+
+  it('should merge received parent runs', () => {
+    const res = { runs: [a, b] };
+    return fetchMissingParents(res).then((runs) => {
+      expect(runs).toEqual({ runs: [a, b, aParent, bParent] });
     });
+  });
+
+  it('should return given runs even if no parent runs', () => {
+    const res = { runs: [a, b, aParent, bParent] };
+    return fetchMissingParents(res).then((runs) => {
+      expect(runs).toEqual({ runs: [a, b, aParent, bParent] });
+    });
+  });
 });
 
-test('wrapDeferred does not retry on 200s', (done) => {
-  wrapDeferred(getMockAjax([200]), {}, 1000, 10)
-    .then((result) => {
-      expect(result).toEqual({ requestIndex: 0 });
-    })
-    .then(() => done());
+describe('getParentRunIdsToFetch', () => {
+  it('should return empty array if no runs', () => {
+    expect(getParentRunIdsToFetch([])).toEqual([]);
+  });
+
+  it('should return an array of absent parents ids given an array of runs', () => {
+    expect(getParentRunIdsToFetch([a, b, bParent])).toEqual(['aParent']);
+    expect(getParentRunIdsToFetch([a, b])).toEqual(['aParent', 'bParent']);
+    expect(getParentRunIdsToFetch([a, b, aParent, bParent])).toEqual([]);
+    expect(getParentRunIdsToFetch([a, bParent])).toEqual(['aParent']);
+  });
 });
 
-test('wrapDeferred does not retry on non-429 error codes', (done) => {
-  wrapDeferred(getMockAjax([503]), {}, 10, 10)
-    .catch((result) => {
-      expect(result.xhr.status).toEqual(503);
-    })
-    .then(() => done());
+describe('searchRunsPayload', () => {
+  it('should fetch parents only if shouldFetchParents is true', async () => {
+    await searchRunsPayload({}).then((res) => {
+      expect(res).toEqual({ runs: [a, b, aParent] });
+    });
+
+    await searchRunsPayload({ shouldFetchParents: false }).then((res) => {
+      expect(res).toEqual({ runs: [a, b, aParent] });
+    });
+
+    await searchRunsPayload({ shouldFetchParents: true }).then((res) => {
+      expect(res).toEqual({ runs: [a, b, aParent, bParent] });
+    });
+  });
 });

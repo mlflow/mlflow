@@ -5,8 +5,7 @@ import subprocess
 import posixpath
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
-from mlflow.pyfunc import ENV
-from mlflow.pyfunc import scoring_server
+from mlflow.pyfunc import ENV, scoring_server
 
 from mlflow.utils.conda import get_or_create_conda_env, get_conda_bin_executable, get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -22,7 +21,7 @@ class PyFuncBackend(FlavorBackend):
     """
 
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
-        super(PyFuncBackend, self).__init__(config=config, **kwargs)
+        super().__init__(config=config, **kwargs)
         self._nworkers = workers or 1
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow

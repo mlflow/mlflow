@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 class FbProphetWrapper(mlflow.pyfunc.PythonModel):
     def __init__(self, model):
         self.model = model
-        super(FbProphetWrapper, self).__init__()
+        super().__init__()
 
     def load_context(self, context):
         from fbprophet import Prophet

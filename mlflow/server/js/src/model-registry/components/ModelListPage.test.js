@@ -18,9 +18,20 @@ describe('ModelListPage', () => {
 
   beforeEach(() => {
     mockAjax();
+    const location = {};
+
+    const history = {
+      location: {
+        pathName: '/models',
+        search: '',
+      },
+      push: jest.fn(),
+    };
     minimalProps = {
       models: [],
-      listRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
+      searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
+      history,
+      location,
     };
     const name = 'Model A';
     const versions = [

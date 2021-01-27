@@ -31,7 +31,7 @@ class ModelVersion(_ModelRegistryEntity):
         tags=None,
         run_link=None,
     ):
-        super(ModelVersion, self).__init__()
+        super().__init__()
         self._name = name
         self._version = version
         self._creation_time = creation_timestamp

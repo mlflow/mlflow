@@ -96,11 +96,11 @@ class SqlAlchemyStore(AbstractStore):
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
-        super(SqlAlchemyStore, self).__init__()
+        super().__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
@@ -845,6 +845,7 @@ def _get_orderby_clauses(order_by_list, session):
     clauses = []
     ordering_joins = []
     clause_id = 0
+    observed_order_by_clauses = set()
     # contrary to filters, it is not easily feasible to separately handle sorting
     # on attributes and on joined tables as we must keep all clauses in the same order
     if order_by_list:
@@ -889,11 +890,18 @@ def _get_orderby_clauses(order_by_list, session):
                     sql.case([(order_value.is_(None), 1)], else_=0).label("clause_%s" % clause_id)
                 )
 
+            if (key_type, key) in observed_order_by_clauses:
+                raise MlflowException(
+                    "`order_by` contains duplicate fields: {}".format(order_by_list)
+                )
+            observed_order_by_clauses.add((key_type, key))
+
             if ascending:
                 clauses.append(order_value)
             else:
                 clauses.append(order_value.desc())
 
-    clauses.append(SqlRun.start_time.desc())
+    if (SearchUtils._ATTRIBUTE_IDENTIFIER, SqlRun.start_time.key) not in observed_order_by_clauses:
+        clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
     return clauses, ordering_joins

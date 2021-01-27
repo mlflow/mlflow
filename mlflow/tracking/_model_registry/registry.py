@@ -17,7 +17,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
     """
 
     def __init__(self):
-        super(ModelRegistryStoreRegistry, self).__init__("mlflow.model_registry_store")
+        super().__init__("mlflow.model_registry_store")
 
     def get_store(self, store_uri=None):
         """Get a store from the registry based on the scheme of store_uri

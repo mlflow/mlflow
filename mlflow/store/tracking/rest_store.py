@@ -27,10 +27,13 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
+from mlflow.utils.rest_utils import (
+    call_endpoint,
+    extract_api_info_for_service,
+    _REST_API_PATH_PREFIX,
+)
 
-_PATH_PREFIX = "/api/2.0"
-_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 
 
 class RestStore(AbstractStore):
@@ -43,7 +46,7 @@ class RestStore(AbstractStore):
     """
 
     def __init__(self, get_host_creds):
-        super(RestStore, self).__init__()
+        super().__init__()
         self.get_host_creds = get_host_creds
 
     def _call_endpoint(self, api, json_body):

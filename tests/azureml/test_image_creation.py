@@ -3,9 +3,9 @@ import os
 import json
 import pytest
 import yaml
-import mock
 import numpy as np
-from mock import Mock
+from unittest import mock
+from unittest.mock import Mock
 
 import pandas as pd
 import pandas.testing

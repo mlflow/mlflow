@@ -82,9 +82,19 @@ def pytest_ignore_collect(path, config):
             "tests/gluon_autolog",
             "tests/xgboost",
             "tests/lightgbm",
+            "tests/statsmodels",
             "tests/spacy",
             "tests/spark_autologging",
             "tests/fastai",
+            "tests/models",
+            "tests/shap",
+            "tests/utils/test_model_utils.py",
+            # this test is included here because it imports many big libraries like tf, keras, etc
+            "tests/tracking/fluent/test_fluent_autolog.py",
+            # cross flavor autologging related tests.
+            "tests/autologging/test_autologging_safety_integration.py",
+            "tests/autologging/test_autologging_safety_unit.py",
+            "tests/autologging/test_autologging_utils.py",
         ]
 
         relpath = os.path.relpath(str(path))

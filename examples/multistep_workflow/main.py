@@ -13,7 +13,6 @@ import mlflow
 from mlflow.utils import mlflow_tags
 from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint
-import six
 
 from mlflow.tracking.fluent import _get_experiment_id
 
@@ -32,7 +31,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
         if tags.get(mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT, None) != entry_point_name:
             continue
         match_failed = False
-        for param_key, param_value in six.iteritems(parameters):
+        for param_key, param_value in parameters.items():
             run_value = full_run.data.params.get(param_key)
             if run_value != param_value:
                 match_failed = True

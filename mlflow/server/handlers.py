@@ -8,7 +8,6 @@ from functools import wraps
 
 from flask import Response, request, send_file
 from google.protobuf import descriptor
-from querystring_parser import parser
 
 from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
@@ -82,7 +81,7 @@ STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
     def __init__(self):
-        super(TrackingStoreRegistryWrapper, self).__init__()
+        super().__init__()
         self.register("", self._get_file_store)
         self.register("file", self._get_file_store)
         for scheme in DATABASE_ENGINES:
@@ -104,7 +103,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
     def __init__(self):
-        super(ModelRegistryStoreRegistryWrapper, self).__init__()
+        super().__init__()
         # NB: Model Registry does not support file based stores
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
@@ -155,6 +154,8 @@ def _get_request_json(flask_request=request):
 
 
 def _get_request_message(request_message, flask_request=request):
+    from querystring_parser import parser
+
     if flask_request.method == "GET" and len(flask_request.query_string) > 0:
         # This is a hack to make arrays of length 1 work with the parser.
         # for example experiment_ids%5B%5D=0 should be parsed to {experiment_ids: [0]}
@@ -239,6 +240,8 @@ _TEXT_EXTENSIONS = [
 
 @catch_mlflow_exception
 def get_artifact_handler():
+    from querystring_parser import parser
+
     query_string = request.query_string.decode("utf-8")
     request_dict = parser.parse(query_string, normalized=True)
     run_id = request_dict.get("run_id") or request_dict.get("run_uuid")
@@ -573,7 +576,9 @@ def _wrap_response(response_message):
 def _create_registered_model():
     request_message = _get_request_message(CreateRegisteredModel())
     registered_model = _get_model_registry_store().create_registered_model(
-        name=request_message.name, tags=request_message.tags
+        name=request_message.name,
+        tags=request_message.tags,
+        description=request_message.description,
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
@@ -685,6 +690,7 @@ def _create_model_version():
         run_id=request_message.run_id,
         run_link=request_message.run_link,
         tags=request_message.tags,
+        description=request_message.description,
     )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
@@ -692,6 +698,8 @@ def _create_model_version():
 
 @catch_mlflow_exception
 def get_model_version_artifact_handler():
+    from querystring_parser import parser
+
     query_string = request.query_string.decode("utf-8")
     request_dict = parser.parse(query_string, normalized=True)
     name = request_dict.get("name")

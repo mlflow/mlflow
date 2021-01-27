@@ -3,8 +3,8 @@ import git
 import shutil
 import yaml
 
-import mock
 import pytest
+from unittest import mock
 
 from databricks_cli.configure.provider import DatabricksConfig
 

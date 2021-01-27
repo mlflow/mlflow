@@ -11,22 +11,18 @@ import os
 import shutil
 import yaml
 import logging
-import gorilla
 import concurrent.futures
 import warnings
 import atexit
 import time
 import tempfile
 from collections import namedtuple
-
 import pandas
+from distutils.version import LooseVersion
+from threading import RLock
 
 import mlflow
-import tensorflow
 import mlflow.keras
-from distutils.version import LooseVersion
-from contextlib import contextmanager
-from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=import-error
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -35,12 +31,23 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import keyword_only, experimental
+from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging_utils import try_mlflow_log, log_fn_args_as_params
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    exception_safe_function,
+    ExceptionSafeClass,
+    PatchFunction,
+    try_mlflow_log,
+    log_fn_args_as_params,
+    batch_metrics_logger,
+)
 from mlflow.entities import Metric
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
 FLAVOR_NAME = "tensorflow"
@@ -51,6 +58,7 @@ _MAX_METRIC_QUEUE_SIZE = 500
 
 _LOG_EVERY_N_STEPS = 100
 
+_metric_queue_lock = RLock()
 _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -64,6 +72,8 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
+    import tensorflow
+
     return _mlflow_conda_env(
         additional_conda_deps=["tensorflow={}".format(tensorflow.__version__)],
         additional_pip_deps=None,
@@ -81,6 +91,7 @@ def log_model(
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     registered_model_name=None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
 ):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
@@ -148,6 +159,9 @@ def log_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+    :param await_registration_for: Number of seconds to wait for the model version to finish
+                            being created and is in ``READY`` status. By default, the function
+                            waits for five minutes. Specify 0 or None to skip waiting.
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -159,6 +173,7 @@ def log_model(
         registered_model_name=registered_model_name,
         signature=signature,
         input_example=input_example,
+        await_registration_for=await_registration_for,
     )
 
 
@@ -276,6 +291,8 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
     If the loading process fails, any exceptions thrown by TensorFlow are propagated.
     """
+    import tensorflow
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         validation_tf_graph = tensorflow.Graph()
         validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
@@ -340,6 +357,7 @@ def load_model(model_uri, tf_sess=None):
             output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
                                 for _, output_signature in signature_definition.outputs.items()]
     """
+    import tensorflow
 
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         if not tf_sess:
@@ -357,7 +375,7 @@ def load_model(model_uri, tf_sess=None):
         if tf_sess:
             warnings.warn(
                 "A TensorFlow session was passed into load_model, but the "
-                + "currently used version is TF 2.0 where sessions are deprecated. "
+                + "currently used version is TF >= 2.0 where sessions are deprecated. "
                 + "The tf_sess argument will be ignored.",
                 FutureWarning,
             )
@@ -402,6 +420,8 @@ def _load_tensorflow_saved_model(
              For TensorFlow versions >= 2.0.0:
              A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
+    import tensorflow
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
         loaded = tensorflow.saved_model.loader.load(
             sess=tf_sess, tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
@@ -448,6 +468,8 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
+    import tensorflow
+
     (
         tf_saved_model_dir,
         tf_meta_graph_tags,
@@ -500,16 +522,28 @@ class _TFWrapper(object):
             for sigdef_output, tnsr_info in signature_def.outputs.items()
         }
 
-    def predict(self, df):
+    def predict(self, data):
         with self.tf_graph.as_default():
-            # Build the feed dict, mapping input tensors to DataFrame column values.
-            feed_dict = {
-                self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
-                for tensor_column_name in self.input_tensor_mapping.keys()
-            }
+            feed_dict = data
+            if isinstance(data, dict):
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name]
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
+            elif isinstance(data, pandas.DataFrame):
+                # Build the feed dict, mapping input tensors to DataFrame column values.
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name].values
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
+            else:
+                raise TypeError("Only dict and DataFrame input types are supported")
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
-            return pandas.DataFrame(data=pred_dict)
+            if isinstance(data, pandas.DataFrame):
+                return pandas.DataFrame(data=pred_dict)
+            else:
+                return pred_dict
 
 
 class _TF2Wrapper(object):
@@ -524,17 +558,25 @@ class _TF2Wrapper(object):
         """
         self.infer = infer
 
-    def predict(self, df):
+    def predict(self, data):
+        import tensorflow
+
         feed_dict = {}
-        for df_col_name in list(df):
-            # If there are multiple columns with the same name, selecting the shared name
-            # from the DataFrame will result in another DataFrame containing the columns
-            # with the shared name. TensorFlow cannot make eager tensors out of pandas
-            # DataFrames, so we convert the DataFrame to a numpy array here.
-            val = df[df_col_name]
-            if isinstance(val, pandas.DataFrame):
-                val = val.values
-            feed_dict[df_col_name] = tensorflow.constant(val)
+        if isinstance(data, dict):
+            feed_dict = {k: tensorflow.constant(v) for k, v in data.items()}
+        elif isinstance(data, pandas.DataFrame):
+            for df_col_name in list(data):
+                # If there are multiple columns with the same name, selecting the shared name
+                # from the DataFrame will result in another DataFrame containing the columns
+                # with the shared name. TensorFlow cannot make eager tensors out of pandas
+                # DataFrames, so we convert the DataFrame to a numpy array here.
+                val = data[df_col_name]
+                if isinstance(val, pandas.DataFrame):
+                    val = val.values
+                feed_dict[df_col_name] = tensorflow.constant(val)
+        else:
+            raise TypeError("Only dict and DataFrame input types are supported")
+
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
@@ -543,112 +585,10 @@ class _TF2Wrapper(object):
             else:
                 pred_dict[col] = pred_dict[col].tolist()
 
-        return pandas.DataFrame.from_dict(data=pred_dict)
-
-
-class __MLflowTfKerasCallback(Callback):
-    """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
-        Records model structural information as params after training finishes.
-    """
-
-    def __init__(self):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-        opt = self.model.optimizer
-        if hasattr(opt, "_name"):
-            try_mlflow_log(mlflow.log_param, "optimizer_name", opt._name)
-        # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
-        elif hasattr(opt, "optimizer"):
-            # TensorFlow optimizer parameters are associated with the inner optimizer variable.
-            # Therefore, we assign opt to be opt.optimizer for logging parameters.
-            opt = opt.optimizer
-            try_mlflow_log(mlflow.log_param, "optimizer_name", type(opt).__name__)
-        if hasattr(opt, "lr"):
-            lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
-            try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-        elif hasattr(opt, "_lr"):
-            lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-            try_mlflow_log(mlflow.log_param, "learning_rate", lr)
-        if hasattr(opt, "epsilon"):
-            epsilon = (
-                opt.epsilon
-                if type(opt.epsilon) is float
-                else tensorflow.keras.backend.eval(opt.epsilon)
-            )
-            try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-        elif hasattr(opt, "_epsilon"):
-            epsilon = (
-                opt._epsilon
-                if type(opt._epsilon) is float
-                else tensorflow.keras.backend.eval(opt._epsilon)
-            )
-            try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
-
-        sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = "\n".join(sum_list)
-        tempdir = tempfile.mkdtemp()
-        try:
-            summary_file = os.path.join(tempdir, "model_summary.txt")
-            with open(summary_file, "w") as f:
-                f.write(summary)
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
-
-    def on_epoch_end(self, epoch, logs=None):
-        pass
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
-
-
-class __MLflowTfKeras2Callback(Callback):
-    """
-        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-        Records model structural information as params when training starts.
-    """
-
-    def __init__(self):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
-        config = self.model.optimizer.get_config()
-        for attribute in config:
-            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
-
-        sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = "\n".join(sum_list)
-        tempdir = tempfile.mkdtemp()
-        try:
-            summary_file = os.path.join(tempdir, "model_summary.txt")
-            with open(summary_file, "w") as f:
-                f.write(summary)
-            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
-
-    def on_epoch_end(self, epoch, logs=None):
-        if (epoch - 1) % _LOG_EVERY_N_STEPS == 0:
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+        if isinstance(data, dict):
+            return pred_dict
+        else:
+            return pandas.DataFrame.from_dict(data=pred_dict)
 
 
 def _log_artifacts_with_warning(**kwargs):
@@ -670,15 +610,22 @@ def _flush_queue():
     Flush the metric queue and log contents in batches to MLflow.
     Queue is divided into batches according to run id.
     """
-    global _metric_queue
-    client = mlflow.tracking.MlflowClient()
-    dic = _assoc_list_to_map(_metric_queue)
-    for key in dic:
-        try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
-    _metric_queue = []
-
-
-atexit.register(_flush_queue)
+    try:
+        # Multiple queue flushes may be scheduled simultaneously on different threads
+        # (e.g., if the queue is at its flush threshold and several more items
+        # are added before a flush occurs). For correctness and efficiency, only one such
+        # flush operation should proceed; all others are redundant and should be dropped
+        acquired_lock = _metric_queue_lock.acquire(blocking=False)
+        if acquired_lock:
+            global _metric_queue
+            client = mlflow.tracking.MlflowClient()
+            dic = _assoc_list_to_map(_metric_queue)
+            for key in dic:
+                try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
+            _metric_queue = []
+    finally:
+        if acquired_lock:
+            _metric_queue_lock.release()
 
 
 def _add_to_queue(key, value, step, time, run_id):
@@ -689,24 +636,23 @@ def _add_to_queue(key, value, step, time, run_id):
     met = Metric(key=key, value=value, timestamp=time, step=step)
     _metric_queue.append((run_id, met))
     if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        _flush_queue()
+        _thread_pool.submit(_flush_queue)
 
 
 def _log_event(event):
     """
     Extracts metric information from the event protobuf
     """
-    if not mlflow.active_run():
-        try_mlflow_log(mlflow.start_run)
-        global _AUTOLOG_RUN_ID
-        _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
     if event.WhichOneof("what") == "summary":
         summary = event.summary
         for v in summary.value:
             if v.HasField("simple_value"):
+                # NB: Most TensorFlow APIs use one-indexing for epochs, while tf.Keras
+                # uses zero-indexing. Accordingly, the modular arithmetic used here is slightly
+                # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
+                # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(
-                        _add_to_queue,
+                    _add_to_queue(
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
@@ -715,7 +661,10 @@ def _log_event(event):
                     )
 
 
+@exception_safe_function
 def _get_tensorboard_callback(lst):
+    import tensorflow
+
     for x in lst:
         if isinstance(x, tensorflow.keras.callbacks.TensorBoard):
             return x
@@ -729,15 +678,127 @@ def _get_tensorboard_callback(lst):
 _TensorBoardLogDir = namedtuple("_TensorBoardLogDir", ["location", "is_temp"])
 
 
-def _setup_callbacks(lst):
+def _setup_callbacks(lst, log_models, metrics_logger):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
     """
+    import tensorflow
+    from tensorflow.keras.callbacks import Callback, TensorBoard
+
+    class __MLflowTfKerasCallback(Callback, metaclass=ExceptionSafeClass):
+        """
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
+        Records model structural information as params after training finishes.
+        """
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+            import tensorflow
+
+            opt = self.model.optimizer
+            if hasattr(opt, "_name"):
+                try_mlflow_log(mlflow.log_param, "optimizer_name", opt._name)
+            # Elif checks are if the optimizer is a TensorFlow optimizer rather than a Keras one.
+            elif hasattr(opt, "optimizer"):
+                # TensorFlow optimizer parameters are associated with the inner optimizer variable.
+                # Therefore, we assign opt to be opt.optimizer for logging parameters.
+                opt = opt.optimizer
+                try_mlflow_log(mlflow.log_param, "optimizer_name", type(opt).__name__)
+            if hasattr(opt, "lr"):
+                lr = opt.lr if type(opt.lr) is float else tensorflow.keras.backend.eval(opt.lr)
+                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+            elif hasattr(opt, "_lr"):
+                lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
+                try_mlflow_log(mlflow.log_param, "learning_rate", lr)
+            if hasattr(opt, "epsilon"):
+                epsilon = (
+                    opt.epsilon
+                    if type(opt.epsilon) is float
+                    else tensorflow.keras.backend.eval(opt.epsilon)
+                )
+                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+            elif hasattr(opt, "_epsilon"):
+                epsilon = (
+                    opt._epsilon
+                    if type(opt._epsilon) is float
+                    else tensorflow.keras.backend.eval(opt._epsilon)
+                )
+                try_mlflow_log(mlflow.log_param, "epsilon", epsilon)
+
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = "\n".join(sum_list)
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, "w") as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            pass
+
+        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+            if log_models:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+
+    class __MLflowTfKeras2Callback(Callback, metaclass=ExceptionSafeClass):
+        """
+        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
+        Records model structural information as params when training starts.
+        """
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+            config = self.model.optimizer.get_config()
+            for attribute in config:
+                try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
+
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = "\n".join(sum_list)
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, "w") as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            # NB: tf.Keras uses zero-indexing for epochs, while other TensorFlow Estimator
+            # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
+            # used here is slightly different from the arithmetic used in `_log_event`, which
+            # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
+            if epoch % _LOG_EVERY_N_STEPS == 0:
+                metrics_logger.record_metrics(logs, epoch)
+
+        def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+            if log_models:
+                try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
+
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = _TensorBoardLogDir(location=tempfile.mkdtemp(), is_temp=True)
-        out_list = lst + [TensorBoard(log_dir.location)]
+
+        class _TensorBoard(TensorBoard, metaclass=ExceptionSafeClass):
+            pass
+
+        out_list = lst + [_TensorBoard(log_dir.location)]
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
@@ -749,7 +810,10 @@ def _setup_callbacks(lst):
 
 
 @experimental
-def autolog(every_n_iter=100):
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    every_n_iter=100, log_models=True, disable=False, exclusive=False
+):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables automatic logging from TensorFlow to MLflow.
@@ -803,15 +867,23 @@ def autolog(every_n_iter=100):
     :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
+                    enables the TensorFlow integration autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
     """
+    import tensorflow
+
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = every_n_iter
 
+    atexit.register(_flush_queue)
+
     if LooseVersion(tensorflow.__version__) < LooseVersion("1.12"):
-        warnings.warn(
-            "Could not log to MLflow. Only TensorFlow versions"
-            + "1.12 <= v <= 2.0.0 are supported."
-        )
+        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
     try:
@@ -820,56 +892,51 @@ def autolog(every_n_iter=100):
         from tensorflow.python.saved_model import tag_constants
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
-        warnings.warn(
-            "Could not log to MLflow. Only TensorFlow versions"
-            + "1.12 <= v <= 2.0.0 are supported."
-        )
+        warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
-    @contextmanager
-    def _manage_active_run():
-        if not mlflow.active_run():
-            try_mlflow_log(mlflow.start_run)
+    def train(original, self, *args, **kwargs):
+        active_run = mlflow.active_run()
+        if MLFLOW_AUTOLOGGING in active_run.data.tags:
             global _AUTOLOG_RUN_ID
-            if mlflow.active_run() is not None:  # defensive check in case `mlflow.start_run` fails
-                _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
-        yield mlflow.active_run()
-        if mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID:
-            try_mlflow_log(mlflow.end_run)
+            _AUTOLOG_RUN_ID = active_run.info.run_id
 
-    @gorilla.patch(tensorflow.estimator.Estimator)
-    def train(self, *args, **kwargs):
-        with _manage_active_run():
-            original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, "train")
+        # Checking step and max_step parameters for logging
+        if len(args) >= 3:
+            try_mlflow_log(mlflow.log_param, "steps", args[2])
+            if len(args) >= 4:
+                try_mlflow_log(mlflow.log_param, "max_steps", args[3])
+        if "steps" in kwargs:
+            try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
+        if "max_steps" in kwargs:
+            try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
 
-            # Checking step and max_step parameters for logging
-            if len(args) >= 3:
-                try_mlflow_log(mlflow.log_param, "steps", args[2])
-                if len(args) >= 4:
-                    try_mlflow_log(mlflow.log_param, "max_steps", args[3])
-            if "steps" in kwargs:
-                try_mlflow_log(mlflow.log_param, "steps", kwargs["steps"])
-            if "max_steps" in kwargs:
-                try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
+        result = original(self, *args, **kwargs)
 
-            result = original(self, *args, **kwargs)
+        return result
 
-            return result
+    def export_saved_model(original, self, *args, **kwargs):
+        def create_autologging_run():
+            autologging_run = mlflow.start_run(tags={MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+            _logger.info(
+                "Created MLflow autologging run with ID '%s', which will store the TensorFlow"
+                " model in MLflow Model format",
+                autologging_run.info.run_id,
+            )
 
-    @gorilla.patch(tensorflow.estimator.Estimator)
-    def export_saved_model(self, *args, **kwargs):
         auto_end = False
         if not mlflow.active_run():
             global _AUTOLOG_RUN_ID
             if _AUTOLOG_RUN_ID:
+                _logger.info(
+                    "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
+                    _AUTOLOG_RUN_ID,
+                )
                 try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
             else:
-                try_mlflow_log(mlflow.start_run)
+                try_mlflow_log(create_autologging_run)
                 auto_end = True
 
-        original = gorilla.get_original_attribute(
-            tensorflow.estimator.Estimator, "export_saved_model"
-        )
         serialized = original(self, *args, **kwargs)
         try_mlflow_log(
             log_model,
@@ -884,34 +951,7 @@ def autolog(every_n_iter=100):
             try_mlflow_log(mlflow.end_run)
         return serialized
 
-    @gorilla.patch(tensorflow.estimator.Estimator)
-    def export_savedmodel(self, *args, **kwargs):
-        auto_end = False
-        global _AUTOLOG_RUN_ID
-        if not mlflow.active_run():
-            if _AUTOLOG_RUN_ID:
-                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
-            else:
-                try_mlflow_log(mlflow.start_run)
-                auto_end = True
-
-        original = gorilla.get_original_attribute(
-            tensorflow.estimator.Estimator, "export_savedmodel"
-        )
-        serialized = original(self, *args, **kwargs)
-        try_mlflow_log(
-            log_model,
-            tf_saved_model_dir=serialized.decode("utf-8"),
-            tf_meta_graph_tags=[tag_constants.SERVING],
-            tf_signature_def_key="predict",
-            artifact_path="model",
-        )
-        if (
-            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
-        ) or auto_end:
-            try_mlflow_log(mlflow.end_run)
-        return serialized
-
+    @exception_safe_function
     def _early_stop_check(callbacks):
         for callback in callbacks:
             if isinstance(callback, tensorflow.keras.callbacks.EarlyStopping):
@@ -938,19 +978,22 @@ def autolog(every_n_iter=100):
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history):
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
         if callback:
             callback_attrs = _get_early_stop_callback_attrs(callback)
             if callback_attrs is None:
                 return
             stopped_epoch, restore_best_weights, patience = callback_attrs
-            try_mlflow_log(mlflow.log_metric, "stopped_epoch", stopped_epoch)
+            metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
+
             # Weights are restored only if early stopping occurs
             if stopped_epoch != 0 and restore_best_weights:
                 restored_epoch = stopped_epoch - max(1, patience)
-                try_mlflow_log(mlflow.log_metric, "restored_epoch", restored_epoch)
+                metrics_logger.record_metrics({"restored_epoch": restored_epoch})
+                restored_index = history.epoch.index(restored_epoch)
+
                 restored_metrics = {
-                    key: history.history[key][restored_epoch] for key in history.history.keys()
+                    key: history.history[key][restored_index] for key in history.history.keys()
                 }
                 # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
                 if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
@@ -962,107 +1005,149 @@ def autolog(every_n_iter=100):
                 metric_key = next(iter(history.history), None)
                 if metric_key is not None:
                     last_epoch = len(history.history[metric_key])
-                    try_mlflow_log(mlflow.log_metrics, restored_metrics, step=last_epoch)
+                    metrics_logger.record_metrics(restored_metrics, last_epoch)
 
-    @gorilla.patch(tensorflow.keras.Model)
-    def fit(self, *args, **kwargs):
-        with _manage_active_run():
-            original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit")
+    class FitPatch(PatchFunction):
+        def __init__(self):
+            self.log_dir = None
 
+        def _patch_implementation(
+            self, original, inst, *args, **kwargs
+        ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "x", "y", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
             early_stop_callback = None
 
-            # Checking if the 'callback' argument of fit() is set
-            if len(args) >= 6:
-                tmp_list = list(args)
-                early_stop_callback = _early_stop_check(tmp_list[5])
-                tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
-                args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
-                early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
-            else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
+            run_id = mlflow.active_run().info.run_id
+            with batch_metrics_logger(run_id) as metrics_logger:
+                # Checking if the 'callback' argument of fit() is set
+                if len(args) >= 6:
+                    tmp_list = list(args)
+                    early_stop_callback = _early_stop_check(tmp_list[5])
+                    tmp_list[5], self.log_dir = _setup_callbacks(
+                        tmp_list[5], log_models, metrics_logger
+                    )
+                    args = tuple(tmp_list)
+                elif kwargs.get("callbacks"):
+                    early_stop_callback = _early_stop_check(kwargs["callbacks"])
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                        kwargs["callbacks"], log_models, metrics_logger
+                    )
+                else:
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                        [], log_models, metrics_logger
+                    )
 
-            _log_early_stop_callback_params(early_stop_callback)
+                _log_early_stop_callback_params(early_stop_callback)
 
-            history = original(self, *args, **kwargs)
+                history = original(inst, *args, **kwargs)
 
-            _log_early_stop_callback_metrics(early_stop_callback, history)
+                _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
 
             _flush_queue()
             _log_artifacts_with_warning(
-                local_dir=log_dir.location, artifact_path="tensorboard_logs"
+                local_dir=self.log_dir.location, artifact_path="tensorboard_logs",
             )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+            if self.log_dir.is_temp:
+                shutil.rmtree(self.log_dir.location)
 
             return history
 
-    @gorilla.patch(tensorflow.keras.Model)
-    def fit_generator(self, *args, **kwargs):
-        with _manage_active_run():
-            original = gorilla.get_original_attribute(tensorflow.keras.Model, "fit_generator")
+        def _on_exception(self, exception):
+            if (
+                self.log_dir is not None
+                and self.log_dir.is_temp
+                and os.path.exists(self.log_dir.location)
+            ):
+                shutil.rmtree(self.log_dir.location)
 
+    class FitGeneratorPatch(PatchFunction):
+        """
+        NOTE: `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
+        To avoid unintentional creation of nested MLflow runs caused by a patched
+        `fit_generator()` method calling a patched `fit()` method, we only patch
+        `fit_generator()` in TF < 2.1.0.
+        """
+
+        def __init__(self):
+            self.log_dir = None
+
+        def _patch_implementation(
+            self, original, inst, *args, **kwargs
+        ):  # pylint: disable=arguments-differ
             unlogged_params = ["self", "generator", "callbacks", "validation_data", "verbose"]
 
             log_fn_args_as_params(original, args, kwargs, unlogged_params)
 
-            # Checking if the 'callback' argument of fit() is set
-            if len(args) >= 5:
-                tmp_list = list(args)
-                tmp_list[4], log_dir = _setup_callbacks(tmp_list[4])
-                args = tuple(tmp_list)
-            elif "callbacks" in kwargs:
-                kwargs["callbacks"], log_dir = _setup_callbacks(kwargs["callbacks"])
-            else:
-                kwargs["callbacks"], log_dir = _setup_callbacks([])
-            result = original(self, *args, **kwargs)
+            run_id = mlflow.active_run().info.run_id
+
+            with batch_metrics_logger(run_id) as metrics_logger:
+                # Checking if the 'callback' argument of fit() is set
+                if len(args) >= 5:
+                    tmp_list = list(args)
+                    tmp_list[4], self.log_dir = _setup_callbacks(
+                        tmp_list[4], log_models, metrics_logger
+                    )
+                    args = tuple(tmp_list)
+                elif kwargs.get("callbacks"):
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                        kwargs["callbacks"], log_models, metrics_logger
+                    )
+                else:
+                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
+                        [], log_models, metrics_logger
+                    )
+                result = original(inst, *args, **kwargs)
+
             _flush_queue()
             _log_artifacts_with_warning(
-                local_dir=log_dir.location, artifact_path="tensorboard_logs"
+                local_dir=self.log_dir.location, artifact_path="tensorboard_logs"
             )
-            if log_dir.is_temp:
-                shutil.rmtree(log_dir.location)
+            if self.log_dir.is_temp:
+                shutil.rmtree(self.log_dir.location)
 
             return result
 
-    @gorilla.patch(EventFileWriter)
-    def add_event(self, event):
+        def _on_exception(self, exception):
+            if (
+                self.log_dir is not None
+                and self.log_dir.is_temp
+                and os.path.exists(self.log_dir.location)
+            ):
+                shutil.rmtree(self.log_dir.location)
+
+    def add_event(original, self, event):
         _log_event(event)
-        original = gorilla.get_original_attribute(EventFileWriter, "add_event")
         return original(self, event)
 
-    @gorilla.patch(FileWriter)
-    def add_summary(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(FileWriter, "add_summary")
+    def add_summary(original, self, *args, **kwargs):
         result = original(self, *args, **kwargs)
         _flush_queue()
         return result
 
-    settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    patches = [
-        gorilla.Patch(EventFileWriter, "add_event", add_event, settings=settings),
-        gorilla.Patch(EventFileWriterV2, "add_event", add_event, settings=settings),
-        gorilla.Patch(tensorflow.estimator.Estimator, "train", train, settings=settings),
-        gorilla.Patch(tensorflow.keras.Model, "fit", fit, settings=settings),
-        gorilla.Patch(tensorflow.keras.Model, "fit_generator", fit_generator, settings=settings),
-        gorilla.Patch(
-            tensorflow.estimator.Estimator,
-            "export_saved_model",
-            export_saved_model,
-            settings=settings,
-        ),
-        gorilla.Patch(
-            tensorflow.estimator.Estimator,
-            "export_savedmodel",
-            export_savedmodel,
-            settings=settings,
-        ),
-        gorilla.Patch(FileWriter, "add_summary", add_summary, settings=settings),
+    managed = [
+        (tensorflow.estimator.Estimator, "train", train),
+        (tensorflow.keras.Model, "fit", FitPatch),
     ]
 
-    for x in patches:
-        gorilla.apply(x)
+    if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
+        # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
+        # To avoid unintentional creation of nested MLflow runs caused by a patched
+        # `fit_generator()` method calling a patched `fit()` method, we only patch
+        # `fit_generator()` in TF < 2.1.0
+        managed.append((tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
+
+    non_managed = [
+        (EventFileWriter, "add_event", add_event),
+        (EventFileWriterV2, "add_event", add_event),
+        (FileWriter, "add_summary", add_summary),
+        (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
+    ]
+
+    for p in managed:
+        safe_patch(FLAVOR_NAME, *p, manage_run=True)
+
+    for p in non_managed:
+        safe_patch(FLAVOR_NAME, *p)

@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 
 from mlflow.entities import SourceType
 from mlflow.utils.mlflow_tags import (
