@@ -41,10 +41,9 @@ SKINNY_REQUIREMENTS = [
     "databricks-cli>=0.8.7",
     "entrypoints",
     "gitpython>=2.1.0",
-    "numpy",
-    "pandas",
     "pyyaml",
     "protobuf>=3.6.0",
+    "pytz",
     "requests>=2.17.3",
 ]
 
@@ -61,6 +60,8 @@ CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "docker>=4.0.0",
     "Flask",
     "gunicorn; platform_system != 'Windows'",
+    "numpy",
+    "pandas",
     "prometheus-flask-exporter",
     "querystring_parser",
     # Pin sqlparse for: https://github.com/mlflow/mlflow/issues/3433

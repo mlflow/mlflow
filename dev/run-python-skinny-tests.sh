@@ -13,8 +13,18 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_SKINNY='true'
 
-pytest --verbose tests/test_skinny.py
+pytest --verbose tests/test_skinny_client_omits_sql_libs.py
+
+# After verifying skinny client does not include store specific requirements,
+# we are installing sqlalchemy store requirements as our example store for the test suite.
+# SQL Alchemy serves as a simple, fully featured option to test skinny client store scenarios.
 python -m pip install sqlalchemy alembic sqlparse
+
+# Given the example store does not delete dependencies, we verify non store related dependencies
+# after the example store setup. This verifies both the example store and skinny client do not add
+# unintended libraries.
+pytest --verbose tests/test_skinny_client_omits_data_science_libs.py
+
 pytest --verbose tests/test_runs.py
 pytest --verbose tests/tracking/test_client.py
 pytest --verbose tests/tracking/test_tracking.py
