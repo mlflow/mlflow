@@ -9,7 +9,6 @@ from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ModelSignature
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -31,7 +30,7 @@ class Model(object):
         run_id=None,
         utc_time_created=None,
         flavors=None,
-        signature: ModelSignature = None,
+        signature=None,  # ModelSignature
         saved_input_example_info: Dict[str, Any] = None,
         **kwargs
     ):
@@ -62,7 +61,7 @@ class Model(object):
         return self
 
     @property
-    def signature(self) -> Optional[ModelSignature]:
+    def signature(self):  # -> Optional[ModelSignature]
         return self._signature
 
     @signature.setter
@@ -115,6 +114,9 @@ class Model(object):
     @classmethod
     def from_dict(cls, model_dict):
         """Load a model from its YAML representation."""
+
+        from .signature import ModelSignature
+
         if "signature" in model_dict and isinstance(model_dict["signature"], dict):
             model_dict = model_dict.copy()
             model_dict["signature"] = ModelSignature.from_dict(model_dict["signature"])
