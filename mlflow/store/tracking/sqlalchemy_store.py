@@ -7,7 +7,6 @@ import sqlalchemy
 import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
@@ -755,6 +754,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
+        from mlflow.models import Model
+
         if not isinstance(mlflow_model, Model):
             raise TypeError(
                 "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(

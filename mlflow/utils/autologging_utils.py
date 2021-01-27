@@ -40,7 +40,7 @@ def try_mlflow_log(fn, *args, **kwargs):
     """
     try:
         return fn(*args, **kwargs)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         if _is_testing():
             raise
         else:
@@ -101,7 +101,7 @@ def _update_wrapper_extended(wrapper, wrapped):
     # One such example is the `tensorflow.estimator.Estimator.export_savedmodel()` function
     try:
         updated_wrapper.__signature__ = inspect.signature(wrapped)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         _logger.debug("Failed to restore original signature for wrapper around %s", wrapped)
     return updated_wrapper
 
@@ -175,7 +175,7 @@ def resolve_input_example_and_signature(
     if log_input_example or log_model_signature:
         try:
             input_example = get_input_example()
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             input_example_failure_msg = str(e)
             input_example_user_msg = "Failed to gather input example: " + str(e)
 
@@ -188,7 +188,7 @@ def resolve_input_example_and_signature(
                     "could not sample data to infer model signature: " + input_example_failure_msg
                 )
             model_signature = infer_model_signature(input_example)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             model_signature_user_msg = "Failed to infer model signature: " + str(e)
 
     if log_input_example and input_example_user_msg is not None:
@@ -330,17 +330,21 @@ def autologging_integration(name):
         default_params = {param.name: param.default for param in param_spec.values()}
 
         def autolog(*args, **kwargs):
-            try:
-                AutologgingEventLogger.get_logger().log_autolog_called(name, args, kwargs)
-            except Exception:  # pylint: disable=broad-except
-                pass
-
             config_to_store = dict(default_params)
             config_to_store.update(
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
             )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+
+            try:
+                # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
+                # event loggers to more easily identify important configuration parameters
+                # (e.g., `disable`) without examining positional arguments. Passing positional
+                # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
+                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
+            except Exception:
+                pass
 
             return _autolog(*args, **kwargs)
 
@@ -406,7 +410,7 @@ def exception_safe_function(function):
     def safe_function(*args, **kwargs):
         try:
             return function(*args, **kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             if _is_testing():
                 raise
             else:
@@ -508,7 +512,7 @@ class PatchFunction:
     def __call__(self, original, *args, **kwargs):
         try:
             return self._patch_implementation(original, *args, **kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             try:
                 self._on_exception(e)
             finally:
@@ -600,9 +604,21 @@ class AutologgingEventLogger:
         is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
 
         :param integration: The autologging integration for which `autolog()` was called.
-        :param config_args: The positional arguments passed to the `autolog()` call.
-        :param config_kwargs: The keyword arguments passed to the `autolog()` call.
+        :param call_args: **DEPRECATED** The positional arguments passed to the `autolog()` call.
+                          This field is empty in MLflow > 1.13.1; all arguments are passed in
+                          keyword form via `call_kwargs`.
+        :param call_kwargs: The arguments passed to the `autolog()` call in keyword form.
+                            Any positional arguments should also be converted to keyword form
+                            and passed via `call_kwargs`.
         """
+        if len(call_args) > 0:
+            warnings.warn(
+                "Received %d positional arguments via `call_args`. `call_args` is"
+                " deprecated in MLflow > 1.13.1, and all arguments should be passed"
+                " in keyword form via `call_kwargs`." % len(call_args),
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
         _logger.debug(
             "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
             integration,
@@ -794,15 +810,6 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
         )
         return managed_run
 
-    def print_autologging_info_for_active_run(active_run):
-        _logger.info(
-            "%s autologging will track hyperparameters, performance metrics, model artifacts,"
-            " and lineage information for the current %s workflow to the MLflow run with ID '%s'",
-            autologging_integration,
-            autologging_integration,
-            active_run.info.run_id,
-        )
-
     if inspect.isclass(patch_function):
 
         class PatchWithManagedRun(patch_function):
@@ -813,8 +820,6 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
             def _patch_implementation(self, original, *args, **kwargs):
                 if not mlflow.active_run():
                     self.managed_run = try_mlflow_log(create_managed_run)
-                else:
-                    print_autologging_info_for_active_run(mlflow.active_run())
 
                 result = super(PatchWithManagedRun, self)._patch_implementation(
                     original, *args, **kwargs
@@ -838,8 +843,6 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
             managed_run = None
             if not mlflow.active_run():
                 managed_run = try_mlflow_log(create_managed_run)
-            else:
-                print_autologging_info_for_active_run(mlflow.active_run())
 
             try:
                 result = patch_function(original, *args, **kwargs)
@@ -946,7 +949,7 @@ def safe_patch(
         def try_log_autologging_event(log_fn, *args):
             try:
                 log_fn(*args)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 _logger.debug("Failed to log autologging event via '%s'. Exception: %s", log_fn, e)
 
         with _augment_mlflow_warnings(
@@ -993,7 +996,7 @@ def safe_patch(
                         )
 
                         return original_result
-                    except Exception as e:  # pylint: disable=broad-except
+                    except Exception as e:
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_original_function_error,
                             session,
@@ -1035,7 +1038,7 @@ def safe_patch(
                     args,
                     kwargs,
                 )
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 # Exceptions thrown during execution of the original function should be propagated
                 # to the caller. Additionally, exceptions encountered during test mode should be
                 # reraised to detect bugs in autologging implementations

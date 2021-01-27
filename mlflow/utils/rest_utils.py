@@ -99,7 +99,7 @@ def _can_parse_as_json(string):
     try:
         json.loads(string)
         return True
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False
 
 

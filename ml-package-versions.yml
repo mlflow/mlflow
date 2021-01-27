@@ -38,6 +38,19 @@ pytorch:
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
 
+pytorch-lightning:
+  package_info:
+    pip_release: "pytorch-lightning"
+    install_dev: |
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@master
+
+  autologging:
+    minimum: "1.0.5"
+    maximum: "1.1.2"
+    requirements: ["torchvision", "scikit-learn"]
+    run: |
+      pytest tests/pytorch/test_pytorch_autolog.py --large
+
 tensorflow-1.x:
   package_info:
     pip_release: "tensorflow"
@@ -60,7 +73,9 @@ tensorflow-2.x:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      pip install tf-nightly
+      # Unpin `tf-nightly` once the following issue is addressed:
+      # https://github.com/tensorflow/tensorflow/issues/46429
+      pip install 'tf-nightly==2.5.0.dev20210112'
 
   models:
     minimum: "2.0.0"
@@ -82,7 +97,9 @@ keras:
     install_dev: |
       # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
       # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
-      pip install tf-nightly 'keras>=2.4.0'
+      # Unpin `tf-nightly` once the following issue is addressed:
+      # https://github.com/tensorflow/tensorflow/issues/46429
+      pip install 'tf-nightly==2.5.0.dev20210112' 'keras>=2.4.0'
 
   models:
     minimum: "2.2.4"
@@ -188,3 +205,21 @@ fastai-1.x:
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
+
+onnx:
+  package_info:
+    pip_release: "onnx"
+    install_dev: |
+      sudo apt-get install protobuf-compiler libprotoc-dev
+      temp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $temp_dir
+      cd $temp_dir
+      git submodule update --init --recursive
+      python setup.py install
+
+  models:
+    minimum: "1.5.0"
+    maximum: "1.8.0"
+    requirements: ["onnxruntime", "torch", "scikit-learn"]
+    run: |
+      pytest tests/onnx/test_onnx_model_export.py --large

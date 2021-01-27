@@ -634,6 +634,8 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
     refitted, while during the metric logging what ".predict()" expects is a fitted model.
     Thus, a warning will be logged.
     """
+    from sklearn.exceptions import NotFittedError
+
     mlflow.sklearn.autolog()
 
     metrics_size = 2
@@ -642,22 +644,28 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         for i in range(metrics_size)
     }
 
-    @functools.wraps(sklearn.model_selection.GridSearchCV.predict)
-    def throwing_predict():  # pylint: disable=unused-argument
-        raise Exception("EXCEPTION")
-
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
-    ) as mock_warning, mock.patch(
-        "sklearn.model_selection.GridSearchCV.predict", side_effect=throwing_predict
-    ):
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
-        # Will be called twice, once for metrics, once for artifacts
-        assert mock_warning.call_count == 2
+
+        # Ensure `cv_model.predict` fails with `NotFittedError`
+        msg = (
+            "This GridSearchCV instance was initialized with refit=False. "
+            "predict is available only after refitting on the best parameters"
+        )
+        with pytest.raises(NotFittedError, match=msg):
+            cv_model.predict([[0, 0, 0, 0]])
+
+        # Count how many times `mock_warning` has been called on not-fitted `predict` failure
+        call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
+        # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
+        # `mock_warning` should have been called twice, once for metrics, once for artifacts.
+        # Otherwise, only once for metrics.
+        call_count_expected = 2 if mlflow.sklearn.utils._is_plotting_supported() else 1
+        assert call_count == call_count_expected
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
@@ -881,7 +889,26 @@ def test_autolog_logs_signature_and_input_example(data_type):
     pyfunc_model = mlflow.pyfunc.load_model(model_path)
 
     assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
-    np.testing.assert_array_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
+
+    # On GitHub Actions, `pyfunc_model.predict` and `model.predict` sometimes return
+    # slightly different results:
+    #
+    # >>> pyfunc_model.predict(input_example)
+    # [[0.171504346208176  ]
+    #  [0.34346150441640155]  <- diff
+    #  [0.06895096846585114]  <- diff
+    #  [0.05925789882165455]
+    #  [0.03424907823290102]]
+    #
+    # >>> model.predict(X[:5])
+    # [[0.171504346208176  ]
+    #  [0.3434615044164018 ]  <- diff
+    #  [0.06895096846585136]  <- diff
+    #  [0.05925789882165455]
+    #  [0.03424907823290102]]
+    #
+    # As a workaround, use `assert_array_almost_equal` instead of `assert_array_equal`
+    np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
