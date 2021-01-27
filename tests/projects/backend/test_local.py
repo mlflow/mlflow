@@ -36,9 +36,6 @@ def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
         "AZURE_STORAGE_ACCESS_KEY": "mock_access_key",
-        "AZURE_TENANT_ID": "mock_tenant_id",
-        "AZURE_CLIENT_ID": "mock_client_id",
-        "AZURE_CLIENT_SECRET": "mock_client_secret",
     }
     wasbs_uri = "wasbs://container@account.blob.core.windows.net/some/path"
     with mock.patch.dict("os.environ", mock_env), mock.patch(

@@ -17,10 +17,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
     following the same URI scheme as Hadoop on Azure blob storage. It requires either that:
     - Azure storage connection string is in the env var ``AZURE_STORAGE_CONNECTION_STRING``
     - Azure storage access key is in the env var ``AZURE_STORAGE_ACCESS_KEY``
-    - Azure service principal credentials are in the env vars:
-        - ``AZURE_TENANT_ID``
-        - ``AZURE_CLIENT_ID``
-        - ``AZURE_CLIENT_SECRET``
+    - DefaultAzureCredential is configured
     """
 
     def __init__(self, artifact_uri, client=None):
@@ -43,25 +40,18 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             self.client = BlobServiceClient(
                 account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
             )
-        elif (
-            "AZURE_TENANT_ID" in os.environ
-            and "AZURE_CLIENT_ID" in os.environ
-            and "AZURE_CLIENT_SECRET" in os.environ
-        ):
-            from azure.identity import ClientSecretCredential
+        else:
+            try:
+                from azure.identity import DefaultAzureCredential
+            except ImportError as exc:
+                raise ImportError(
+                    "Using DefaultAzureCredential requires the azure-identity package. "
+                    "Please install it via: pip install azure-identity"
+                ) from exc
 
             account_url = "https://{account}.blob.core.windows.net".format(account=account)
-            credential = ClientSecretCredential(
-                tenant_id=os.environ.get("AZURE_TENANT_ID"),
-                client_id=os.environ.get("AZURE_CLIENT_ID"),
-                client_secret=os.environ.get("AZURE_CLIENT_SECRET"),
-            )
-            self.client = BlobServiceClient(account_url=account_url, credential=credential)
-        else:
-            raise Exception(
-                "You need to set one of AZURE_STORAGE_CONNECTION_STRING , "
-                "AZURE_STORAGE_ACCESS_KEY or AZURE_TENANT_ID "
-                "& AZURE_CLIENT_ID & AZURE_CLIENT_SECRET to access Azure storage."
+            self.client = BlobServiceClient(
+                account_url=account_url, credential=DefaultAzureCredential()
             )
 
     @staticmethod

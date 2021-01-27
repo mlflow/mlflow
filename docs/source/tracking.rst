@@ -718,14 +718,15 @@ Azure Blob Storage
 To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
-``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` or all three of
-``AZURE_TENANT_ID`` & ``AZURE_CLIENT_ID`` & ``AZURE_CLIENT_SECRET`` environment variables
-(preferring a connection string over the access key, and the access key over the client credentials),
-so you must set one of these variables on both your client application and your MLflow tracking server.
-Finally, you must run ``pip install azure-storage-blob`` separately (on both your client and the server)
-to access Azure Blob Storage using the connection string or access key,
-or ``pip install azure-storage-blob azure-identity`` to access the storage via client credentials;
-MLflow does not declare a dependency on these packages by default.
+``AZURE_STORAGE_CONNECTION_STRING``, ``AZURE_STORAGE_ACCESS_KEY`` environment variables
+or having your credentials configured such that the `DefaultAzureCredential() <https://github.com/Azure/azure-sdk-for-python/tree/azure-storage-blob_12.7.0/sdk/identity/azure-identity#defaultazurecredential>`_. class can pick them up.
+The order of precedence is:
+#. ``AZURE_STORAGE_CONNECTION_STRING``
+#. ``AZURE_STORAGE_ACCESS_KEY``
+#. ``DefaultAzureCredential()``
+You must set one of these options on both your client application and your MLflow tracking server.
+Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity`` to access the storage;
+MLflow does not declare a dependency on this package by default.
 
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^
