@@ -228,7 +228,7 @@ def parse_tf_serving_input(inp_dict):
 
 def predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
-    json.dump(predictions, output, cls=NumpyEncoder)
+    json.dump(predictions, output, cls=NumpyEncoder, separators=(",", ":"))
 
 
 def _handle_serving_error(error_message, error_code, include_traceback=True):
