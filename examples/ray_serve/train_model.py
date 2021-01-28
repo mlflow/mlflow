@@ -11,8 +11,11 @@ mlflow.sklearn.autolog()
 
 # Load data
 iris_dataset = load_iris()
-data, target, target_names = iris_dataset["data"], iris_dataset[
-    "target"], iris_dataset["target_names"]
+data, target, target_names = (
+    iris_dataset["data"],
+    iris_dataset["target"],
+    iris_dataset["target_names"],
+)
 
 # Instantiate model
 model = GradientBoostingClassifier()
