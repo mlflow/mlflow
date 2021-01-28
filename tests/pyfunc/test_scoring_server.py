@@ -619,3 +619,24 @@ def test_get_jsonnable_obj():
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
     np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
     assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+
+
+@pytest.mark.large
+def test_parse_json_input_including_path(model_path):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return 1
+    
+    mlflow.pyfunc.log_model(path = model_path, python_model=TestModel())
+
+    pandas_split_content = pd.DataFrame({
+        'url': ['http://foo.com', 'https://bar.com'],
+        'bad_protocol': ['aaa://bbb', 'address:/path'],
+    }).to_json(orient="split")
+
+    response_records_content_type = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pandas_split_content,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    )
+    assert response_records_content_type.status_code == 200
