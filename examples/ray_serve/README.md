@@ -30,7 +30,7 @@ Deploy our first instance using the following command:
 
 The `-t` parameter here is the deployment target, which in our case is Ray Serve.  
 
-We can now run a prediction on our deployed model as follows.  The file `input.json` contains a sample input.  Now we can get the prediction using the following command:
+We can now run a prediction on our deployed model as follows.  The file `input.json` contains a sample inpu containing the sepal length, sepal width, petal length, petal width of a sample flower.  Now we can get the prediction using the following command:
 
 `mlflow deployments predict -t ray-serve --name iris:v1 --input-path input.json`
 
