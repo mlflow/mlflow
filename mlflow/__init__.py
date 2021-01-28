@@ -51,6 +51,7 @@ import mlflow.gluon as gluon  # noqa: E402
 import mlflow.h2o as h2o  # noqa: E402
 import mlflow.keras as keras  # noqa: E402
 import mlflow.lightgbm as lightgbm  # noqa: E402
+import mlflow.catboost as catboost  # noqa: E402
 import mlflow.mleap as mleap  # noqa: E402
 import mlflow.onnx as onnx  # noqa: E402
 import mlflow.pyfunc as pyfunc  # noqa: E402
@@ -150,6 +151,7 @@ __all__ = [
     "list_run_infos",
     "autolog",
     # model flavors
+    "catboost",
     "fastai",
     "gluon",
     "h2o",
