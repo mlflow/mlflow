@@ -35,6 +35,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 FLAVOR_NAME = "catboost"
 _MODEL_TYPE_KEY = "model_type"
 _SAVE_FORMAT_KEY = "save_format"
+_MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.cb"
 
 
@@ -135,20 +136,18 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    model_bin = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.catboost",
-        data=_MODEL_BINARY_FILE_NAME,
-        env=conda_env_subpath,
+        mlflow_model, loader_module="mlflow.catboost", env=conda_env_subpath, **model_bin,
     )
 
-    model_type = cb_model.__class__.__name__
-    save_format = kwargs.get("format", "cbm")
+    flavor_conf = {
+        _MODEL_TYPE_KEY: cb_model.__class__.__name__,
+        _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
+        **model_bin,
+    }
     mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        catboost_version=cb.__version__,
-        data=_MODEL_BINARY_FILE_NAME,
-        **{_MODEL_TYPE_KEY: model_type, _SAVE_FORMAT_KEY: save_format}
+        FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -226,7 +225,7 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
-        **kwargs
+        **kwargs,
     )
 
 
@@ -286,7 +285,7 @@ def load_model(model_uri):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     cb_model_file_path = os.path.join(
-        local_model_path, flavor_conf.get("data", _MODEL_BINARY_FILE_NAME)
+        local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )
     return _load_model(
         cb_model_file_path, flavor_conf.get(_MODEL_TYPE_KEY), flavor_conf.get(_SAVE_FORMAT_KEY)
