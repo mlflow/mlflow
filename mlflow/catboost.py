@@ -146,7 +146,7 @@ def save_model(
     save_format = kwargs.get("format", "cbm")
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        cb_version=cb.__version__,
+        catboost_version=cb.__version__,
         data=_MODEL_BINARY_FILE_NAME,
         **{_MODEL_TYPE_KEY: model_type, _SAVE_FORMAT_KEY: save_format}
     )
