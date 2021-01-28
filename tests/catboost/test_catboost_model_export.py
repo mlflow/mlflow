@@ -6,7 +6,6 @@ from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-import pandas.testing
 import sklearn.datasets as datasets
 import catboost as cb
 
@@ -94,7 +93,7 @@ def test_model_save_load(cb_model, model_path):
 
 
 @pytest.mark.large
-def test_log_model_logs_model_type(cb_model, model_path):
+def test_log_model_logs_model_type(cb_model):
     with mlflow.start_run():
         artifact_path = "model"
         mlflow.catboost.log_model(cb_model.model, artifact_path)
@@ -113,7 +112,7 @@ save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
 
 @pytest.mark.large
 @pytest.mark.parametrize("save_format", save_formats)
-def test_log_model_logs_save_format(reg_model, model_path, save_format):
+def test_log_model_logs_save_format(reg_model, save_format):
     with mlflow.start_run():
         artifact_path = "model"
         mlflow.catboost.log_model(reg_model.model, artifact_path, format=save_format)
@@ -164,7 +163,7 @@ def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_buck
 
 
 @pytest.mark.large
-def test_log_model(cb_model, model_path, tmpdir):
+def test_log_model(cb_model, tmpdir):
     model, inference_dataframe = cb_model
     with mlflow.start_run():
         artifact_path = "model"
