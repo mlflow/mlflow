@@ -4,10 +4,11 @@ In this example, we will first train a model to classify the Iris dataset using 
 
 The plugin supports both a command line interface and a Python API.  Below we will use the command line interface.  For the full API documentation, see https://www.mlflow.org/docs/latest/cli.html#mlflow-deployments and https://www.mlflow.org/docs/latest/python_api/mlflow.deployments.html.
 
-# Installation
+## Plugin Installation
 
 Please follow the installation instructions for the Ray Serve deployment plugin: https://github.com/ray-project/mlflow-ray-serve
-# Instructions
+
+## Instructions
 
 First, run `train_model.py`.  This trains and saves our classifier and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
 ```
