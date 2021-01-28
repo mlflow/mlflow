@@ -1,0 +1,51 @@
+# MLflow-Ray-Serve deployment plugin
+
+In this example, we will first train a model to classify the Iris dataset using `sklearn`.  Next, we will deploy our model on Ray Serve and then scale it up, all using the MLflow Ray Serve plugin.
+
+The plugin supports both a command line interface and a Python API.  Below we will use the command line interface.  For the full API documentation, see https://www.mlflow.org/docs/latest/cli.html#mlflow-deployments and https://www.mlflow.org/docs/latest/python_api/mlflow.deployments.html.
+
+# Instructions
+
+First, run `train_model.py`.  This trains and saves our classifier and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
+```
+MSE: 1.04
+Target names:  ['setosa' 'versicolor' 'virginica']
+```
+
+Now we can deploy and test our model.
+
+First, start a Ray cluster with the following command:
+
+`ray start --head`
+
+Next, start a long-running Ray Serve instance on our Ray cluster:
+
+`serve start`
+
+Ray Serve is now running and ready to deploy MLflow models.  The MLflow Ray Serve plugin features both a Python API as well as a command-line interface. For this example, we'll use the command line interface.
+
+Deploy our first instance using the following command:
+
+`mlflow deployments create -t ray-serve -m iris_model --name iris:v1`
+
+The `-t` parameter here is the deployment target, which in our case is Ray Serve.  
+
+We can now run a prediction on our deployed model as follows.  The file `input.json` contains a sample input.  Now we can get the prediction using the following command:
+
+`mlflow deployments predict -t ray-serve --name iris:v1 --input-path input.json`
+
+This will output `[0]`, `[1]`, or `[2]`, corresponding to the species listed above in the target names.
+
+We can scale our deployed model up to use several replicas, improving throughput:
+
+`mlflow deployments update -t ray-serve --name iris:v1 --config num_replicas=2`
+
+Here we only used 2 replicas, but you can use as many as you like, depending on how many CPU cores are available in your Ray cluster.  
+
+The deployed model instance can be deleted as follows:
+
+`mlflow deployments delete -t ray-serve --name iris:v1`
+
+To tear down the Ray cluster, run the following command:
+
+`ray stop`
