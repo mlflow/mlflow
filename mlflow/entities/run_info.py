@@ -8,14 +8,16 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
 def check_run_is_active(run_info):
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
-        raise MlflowException("The run {} must be in 'active' lifecycle_stage."
-                              .format(run_info.run_id))
+        raise MlflowException(
+            "The run {} must be in 'active' lifecycle_stage.".format(run_info.run_id)
+        )
 
 
 def check_run_is_deleted(run_info):
     if run_info.lifecycle_stage != LifecycleStage.DELETED:
-        raise MlflowException("The run {} must be in 'deleted' lifecycle_stage."
-                              .format(run_info.run_id))
+        raise MlflowException(
+            "The run {} must be in 'deleted' lifecycle_stage.".format(run_info.run_id)
+        )
 
 
 class searchable_attribute(property):
@@ -35,8 +37,18 @@ class RunInfo(_MLflowObject):
     Metadata about a run.
     """
 
-    def __init__(self, run_uuid, experiment_id, user_id, status, start_time, end_time,
-                 lifecycle_stage, artifact_uri=None, run_id=None):
+    def __init__(
+        self,
+        run_uuid,
+        experiment_id,
+        user_id,
+        status,
+        start_time,
+        end_time,
+        lifecycle_stage,
+        artifact_uri=None,
+        run_id=None,
+    ):
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
         if experiment_id is None:
@@ -146,19 +158,32 @@ class RunInfo(_MLflowObject):
         # An absent end time is represented with a NoneType in the `RunInfo` class
         if end_time == 0:
             end_time = None
-        return cls(run_uuid=proto.run_uuid, run_id=proto.run_id, experiment_id=proto.experiment_id,
-                   user_id=proto.user_id, status=RunStatus.to_string(proto.status),
-                   start_time=proto.start_time, end_time=end_time,
-                   lifecycle_stage=proto.lifecycle_stage, artifact_uri=proto.artifact_uri)
+        return cls(
+            run_uuid=proto.run_uuid,
+            run_id=proto.run_id,
+            experiment_id=proto.experiment_id,
+            user_id=proto.user_id,
+            status=RunStatus.to_string(proto.status),
+            start_time=proto.start_time,
+            end_time=end_time,
+            lifecycle_stage=proto.lifecycle_stage,
+            artifact_uri=proto.artifact_uri,
+        )
 
     @classmethod
     def get_searchable_attributes(cls):
-        return sorted([p for p in cls.__dict__
-                       if isinstance(getattr(cls, p), searchable_attribute)])
+        return sorted(
+            [p for p in cls.__dict__ if isinstance(getattr(cls, p), searchable_attribute)]
+        )
 
     @classmethod
     def get_orderable_attributes(cls):
         # Note that all searchable attributes are also orderable.
-        return sorted([p for p in cls.__dict__
-                       if isinstance(getattr(cls, p), searchable_attribute) or
-                       isinstance(getattr(cls, p), orderable_attribute)])
+        return sorted(
+            [
+                p
+                for p in cls.__dict__
+                if isinstance(getattr(cls, p), searchable_attribute)
+                or isinstance(getattr(cls, p), orderable_attribute)
+            ]
+        )

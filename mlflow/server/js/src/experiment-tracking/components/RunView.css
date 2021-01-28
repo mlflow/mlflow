@@ -1,0 +1,146 @@
+/* BEGIN Header stuff. */
+.experiment-name {
+  display: inline-block;
+}
+
+.header-container {
+  display: flex;
+}
+
+.separator {
+  font-size: 16px;
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+.run-uuid {
+  display: inline-block;
+}
+/* END Header stuff. */
+
+/* BEGIN run-info stuff. */
+.run-info-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.run-info {
+  min-width: 450px;
+  margin-bottom: 8px;
+  margin-right: 12px;
+}
+
+.metadata-header {
+  font-size: 14px;
+  color: #888;
+}
+.metadata-info {
+  font-size: 14px;
+  color: #333;
+}
+
+/* END run-info stuff. */
+
+/* BEGIN table styling stuff */
+.table-name {
+  display: block;
+  padding-top: 6px;
+  cursor: pointer;
+}
+
+i.expander {
+  margin-right: 8px;
+}
+/* END table styling stuff */
+
+
+
+.RunView-label {
+  font-weight: bold;
+}
+
+.RunView-metadata {
+  padding: 5px;
+}
+
+.RunView-metricArea {
+  margin-left: 400px;
+}
+
+.RunView-info {
+  padding-right: 10px;
+}
+
+textarea.run-command {
+  width: 100%;
+  font-family: Menlo, Consolas, monospace;
+}
+
+.header-container .mlflow-menu > li.mlflow-menu-item:hover {
+  background-image: none;
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
+}
+
+.mlflow-menu .mlflow-menu-item > a:hover {
+  background-color: rgb(1, 147, 225);
+  color: #ffffff;
+}
+
+/** Menus in a header have negative margin-top to account for the header's margin-bottom */
+.mlflow-menu.header-menu {
+  margin-top: -22px;
+}
+
+.mlflow-dropdown {
+  margin-top: -5px;
+}
+
+.rename-run-form {
+  width: 480px;
+}
+
+.header-container .mlflow-dropdown .mlflow-dropdown-button,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:hover,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:active,
+.header-container .mlflow-dropdown .mlflow-dropdown-button:focus {
+    background-color: transparent;
+    border-color: transparent;
+    border: none;
+    box-shadow: none;
+    background-image: none;
+}
+
+.modal-close-link, .modal-close-link:hover, .modal-close-link:visited {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  color: black;
+}
+
+.modal-close-link:hover {
+  cursor: pointer
+}
+
+.rename-run-form .mlflow-save-button {
+  margin-left: 16px;
+}
+
+.mlflow-form-button {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.ReactModal__Overlay {
+    opacity: 0;
+    transition: opacity 200ms ease-in-out;
+}
+
+.ReactModal__Overlay--after-open{
+    opacity: 1;
+}
+
+.ReactModal__Overlay--before-close{
+    opacity: 0;
+}

@@ -13,7 +13,6 @@ import mlflow
 from mlflow.utils import mlflow_tags
 from mlflow.entities import RunStatus
 from mlflow.utils.logging_utils import eprint
-import six
 
 from mlflow.tracking.fluent import _get_experiment_id
 
@@ -32,7 +31,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
         if tags.get(mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT, None) != entry_point_name:
             continue
         match_failed = False
-        for param_key, param_value in six.iteritems(parameters):
+        for param_key, param_value in parameters.items():
             run_value = full_run.data.params.get(param_key)
             if run_value != param_value:
                 match_failed = True
@@ -41,14 +40,21 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
             continue
 
         if run_info.to_proto().status != RunStatus.FINISHED:
-            eprint(("Run matched, but is not FINISHED, so skipping "
-                    "(run_id=%s, status=%s)") % (run_info.run_id, run_info.status))
+            eprint(
+                ("Run matched, but is not FINISHED, so skipping " "(run_id=%s, status=%s)")
+                % (run_info.run_id, run_info.status)
+            )
             continue
 
         previous_version = tags.get(mlflow_tags.MLFLOW_GIT_COMMIT, None)
         if git_commit != previous_version:
-            eprint(("Run matched, but has a different source version, so skipping "
-                    "(found=%s, expected=%s)") % (previous_version, git_commit))
+            eprint(
+                (
+                    "Run matched, but has a different source version, so skipping "
+                    "(found=%s, expected=%s)"
+                )
+                % (previous_version, git_commit)
+            )
             continue
         return client.get_run(run_info.run_id)
     eprint("No matching run has been found.")
@@ -76,21 +82,20 @@ def workflow(als_max_iter, keras_hidden_units, max_row_limit):
     # Note: The entrypoint names are defined in MLproject. The artifact directories
     # are documented by each step's .py file.
     with mlflow.start_run() as active_run:
-        os.environ['SPARK_CONF_DIR'] = os.path.abspath('.')
+        os.environ["SPARK_CONF_DIR"] = os.path.abspath(".")
         git_commit = active_run.data.tags.get(mlflow_tags.MLFLOW_GIT_COMMIT)
         load_raw_data_run = _get_or_run("load_raw_data", {}, git_commit)
         ratings_csv_uri = os.path.join(load_raw_data_run.info.artifact_uri, "ratings-csv-dir")
-        etl_data_run = _get_or_run("etl_data",
-                                   {"ratings_csv": ratings_csv_uri,
-                                    "max_row_limit": max_row_limit},
-                                   git_commit)
+        etl_data_run = _get_or_run(
+            "etl_data", {"ratings_csv": ratings_csv_uri, "max_row_limit": max_row_limit}, git_commit
+        )
         ratings_parquet_uri = os.path.join(etl_data_run.info.artifact_uri, "ratings-parquet-dir")
 
         # We specify a spark-defaults.conf to override the default driver memory. ALS requires
         # significant memory. The driver memory property cannot be set by the application itself.
-        als_run = _get_or_run("als",
-                              {"ratings_data": ratings_parquet_uri, "max_iter": str(als_max_iter)},
-                              git_commit)
+        als_run = _get_or_run(
+            "als", {"ratings_data": ratings_parquet_uri, "max_iter": str(als_max_iter)}, git_commit
+        )
         als_model_uri = os.path.join(als_run.info.artifact_uri, "als-model")
 
         keras_params = {
@@ -101,5 +106,5 @@ def workflow(als_max_iter, keras_hidden_units, max_row_limit):
         _get_or_run("train_keras", keras_params, git_commit, use_cache=False)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     workflow()

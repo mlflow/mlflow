@@ -3,11 +3,11 @@ conda_env: conda.yaml
 entry_points:
   main:
     parameters:
-      conda-env: {type: path, default: conda.yaml}
-      colsample-bytree: {type: float, default: 1.0}
+      learning_rate: {type: float, default: 0.1}
+      colsample_bytree: {type: float, default: 1.0}
       subsample: {type: float, default: 1.0}
     command: |
         python train.py \
-          --conda-env={conda-env} \
-          --colsample-bytree={colsample-bytree} \
+          --learning-rate={learning_rate} \
+          --colsample-bytree={colsample_bytree} \
           --subsample={subsample}

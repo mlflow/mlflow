@@ -2,10 +2,12 @@ name: h2o_example
 channels:
   - defaults
   - anaconda
+  - conda-forge
 dependencies:
-  - python==3.6
-  - numpy==1.14.2
+  - python=3.6
+  - numpy=1.14.2
   - pandas
+  - pip
   - pip:
     - h2o
     - mlflow>=1.0

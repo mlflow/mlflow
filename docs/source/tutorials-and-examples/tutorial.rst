@@ -168,44 +168,18 @@ Now that you have your training code, you can package it so that other data scie
       You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
-      .. code-block:: yaml
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
 
-          # sklearn_elasticnet_wine/MLproject
+      ``sklearn_elasticnet_wine/conda.yaml`` file lists the dependencies:
 
-          name: tutorial
-
-          conda_env: conda.yaml
-
-          entry_points:
-            main:
-              parameters:
-                alpha: float
-                l1_ratio: {type: float, default: 0.1}
-              command: "python train.py {alpha} {l1_ratio}"
-
-
-      The Conda file lists the dependencies:
-
-      .. code-block:: yaml
-
-          # sklearn_elasticnet_wine/conda.yaml
-
-          name: tutorial
-          channels:
-            - defaults
-          dependencies:
-            - numpy=1.14.3
-            - pandas=0.22.0
-            - scikit-learn=0.19.1
-            - pip:
-              - mlflow
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/conda.yaml
 
       To run this project, invoke ``mlflow run examples/sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
       specified in ``conda.yaml``.
 
       If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
-      which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42``.
+      which you can run with ``mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0``.
 
     .. container:: R
 
@@ -312,7 +286,11 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
+          # On Linux and macOS
           curl -X POST -H "Content-Type:application/json; format=pandas-split" --data '{"columns":["alcohol", "chlorides", "citric acid", "density", "fixed acidity", "free sulfur dioxide", "pH", "residual sugar", "sulphates", "total sulfur dioxide", "volatile acidity"],"data":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}' http://127.0.0.1:1234/invocations
+
+          # On Windows
+          curl -X POST -H "Content-Type:application/json; format=pandas-split" --data "{\"columns\":[\"alcohol\", \"chlorides\", \"citric acid\", \"density\", \"fixed acidity\", \"free sulfur dioxide\", \"pH\", \"residual sugar\", \"sulphates\", \"total sulfur dioxide\", \"volatile acidity\"],\"data\":[[12.8, 0.029, 0.48, 0.98, 6.2, 29, 3.33, 1.2, 0.39, 75, 0.66]]}" http://127.0.0.1:1234/invocations
 
       the server should respond with output similar to::
 
@@ -381,6 +359,10 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
+          # On Linux and macOS
+          curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{"fixed acidity": 6.2, "volatile acidity": 0.66, "citric acid": 0.48, "residual sugar": 1.2, "chlorides": 0.029, "free sulfur dioxide": 29, "total sulfur dioxide": 75, "density": 0.98, "pH": 3.33, "sulphates": 0.39, "alcohol": 12.8}"
+
+          # On Windows
           curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
 
       the server should respond with output similar to::

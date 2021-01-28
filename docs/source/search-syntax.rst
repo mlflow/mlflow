@@ -121,7 +121,7 @@ Comparator
 There are two classes of comparators: numeric and string.
 
 - Numeric comparators (``metrics``): ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-- String comparators (``params``, ``tags``, and ``attributes``): ``=`` and ``!=``.
+- String comparators (``params``, ``tags``, and ``attributes``): ``=``, ``!=``, ``LIKE`` and ``ILIKE``.
 
 Constant
 ^^^^^^^^
@@ -184,6 +184,19 @@ To search all known experiments for any MLflow runs created using the Inception 
 
   all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
   runs = MlflowClient().search_runs(experiment_ids=all_experiments, filter_string="params.model = 'Inception'", run_view_type=ViewType.ALL)
+
+R
+^^^^^^
+The R API is similar to the Python API.
+
+.. code-block:: r
+
+  library(mlflow)
+  mlflow_search_runs(
+    filter = "metrics.rmse < 0.9 and tags.production = 'true'",
+    experiment_ids = as.character(1:2),
+    order_by = "params.lr DESC"
+  )
 
 Java
 ^^^^

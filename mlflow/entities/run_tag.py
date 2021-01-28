@@ -4,6 +4,7 @@ from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 
 class RunTag(_MLflowObject):
     """Tag object associated with a run."""
+
     def __init__(self, key, value):
         self._key = key
         self._value = value

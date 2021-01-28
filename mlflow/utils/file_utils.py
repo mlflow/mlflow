@@ -3,16 +3,23 @@ import errno
 import gzip
 import os
 import posixpath
+import requests
 import shutil
 import sys
 import tarfile
 import tempfile
 
-from six.moves.urllib.request import pathname2url
-from six.moves.urllib.parse import unquote
-from six.moves import urllib
+import urllib.parse
+import urllib.request
+from urllib.parse import unquote
+from urllib.request import pathname2url
 
 import yaml
+
+try:
+    from yaml import CSafeLoader as YamlSafeLoader, CSafeDumper as YamlSafeDumper
+except ImportError:
+    from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
@@ -136,8 +143,10 @@ def write_yaml(root, file_name, data, overwrite=False):
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
 
     try:
-        with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
-            yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
+        with codecs.open(yaml_file_name, mode="w", encoding=ENCODING) as yaml_file:
+            yaml.dump(
+                data, yaml_file, default_flow_style=False, allow_unicode=True, Dumper=YamlSafeDumper
+            )
     except Exception as e:
         raise e
 
@@ -153,14 +162,15 @@ def read_yaml(root, file_name):
     """
     if not exists(root):
         raise MissingConfigException(
-            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root))
+            "Cannot read '%s'. Parent dir '%s' does not exist." % (file_name, root)
+        )
 
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
     try:
-        with codecs.open(file_path, mode='r', encoding=ENCODING) as yaml_file:
-            return yaml.safe_load(yaml_file)
+        with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
+            return yaml.load(yaml_file, Loader=YamlSafeLoader)
     except Exception as e:
         raise e
 
@@ -204,7 +214,7 @@ def read_file_lines(parent_path, file_name):
     :return: All lines in the file as an array.
     """
     file_path = os.path.join(parent_path, file_name)
-    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
+    with codecs.open(file_path, mode="r", encoding=ENCODING) as f:
         return f.readlines()
 
 
@@ -218,7 +228,7 @@ def read_file(parent_path, file_name):
     :return: The contents of the file.
     """
     file_path = os.path.join(parent_path, file_name)
-    with codecs.open(file_path, mode='r', encoding=ENCODING) as f:
+    with codecs.open(file_path, mode="r", encoding=ENCODING) as f:
         return f.read()
 
 
@@ -277,8 +287,9 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0) \
-                as gzipped_tar, open(unzipped_filename, 'rb') as tar:
+        with gzip.GzipFile(
+            filename="", fileobj=open(output_filename, "wb"), mode="wb", mtime=0
+        ) as gzipped_tar, open(unzipped_filename, "rb") as tar:
             gzipped_tar.write(tar.read())
     finally:
         os.remove(unzipped_filename)
@@ -297,7 +308,7 @@ def _copy_project(src_path, dst_path=""):
     """
 
     def _docker_ignore(mlflow_root):
-        docker_ignore = os.path.join(mlflow_root, '.dockerignore')
+        docker_ignore = os.path.join(mlflow_root, ".dockerignore")
         patterns = []
         if os.path.exists(docker_ignore):
             with open(docker_ignore, "r") as f:
@@ -305,6 +316,7 @@ def _copy_project(src_path, dst_path=""):
 
         def ignore(_, names):
             import fnmatch
+
             res = set()
             for p in patterns:
                 res.update(set(fnmatch.filter(names, p)))
@@ -315,9 +327,9 @@ def _copy_project(src_path, dst_path=""):
     mlflow_dir = "mlflow-project"
     # check if we have project root
     assert os.path.isfile(os.path.join(src_path, "setup.py")), "file not found " + str(
-        os.path.abspath(os.path.join(src_path, "setup.py")))
-    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir),
-                    ignore=_docker_ignore(src_path))
+        os.path.abspath(os.path.join(src_path, "setup.py"))
+    )
+    shutil.copytree(src_path, os.path.join(dst_path, mlflow_dir), ignore=_docker_ignore(src_path))
     return mlflow_dir
 
 
@@ -389,3 +401,33 @@ def get_local_path_or_none(path_or_uri):
         return local_file_uri_to_path(path_or_uri)
     else:
         return None
+
+
+def yield_file_in_chunks(file, chunk_size=100000000):
+    """
+    Generator to chunk-ify the inputted file based on the chunk-size.
+    """
+    with open(file, "rb") as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if chunk:
+                yield chunk
+            else:
+                break
+
+
+def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    """
+    with requests.get(http_uri, stream=True) as response:
+        response.raise_for_status()
+        with open(download_path, "wb") as output_file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    break
+                output_file.write(chunk)

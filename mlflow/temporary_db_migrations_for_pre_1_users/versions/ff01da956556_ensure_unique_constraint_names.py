@@ -11,12 +11,19 @@ from alembic import op
 from sqlalchemy import column, CheckConstraint
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint)
+    Column,
+    String,
+    Float,
+    ForeignKey,
+    Integer,
+    CheckConstraint,
+    BigInteger,
+    PrimaryKeyConstraint,
+)
 from sqlalchemy.ext.declarative import declarative_base
 
 # revision identifiers, used by Alembic.
-revision = 'ff01da956556'
+revision = "ff01da956556"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -48,7 +55,8 @@ class SqlExperiment(Base):
     """
     DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
     """
-    __tablename__ = 'experiments'
+
+    __tablename__ = "experiments"
 
     experiment_id = Column(Integer, autoincrement=True)
     """
@@ -71,21 +79,20 @@ class SqlExperiment(Base):
     """
 
     __table_args__ = (
-        CheckConstraint(
-            lifecycle_stage.in_(["active", "deleted"]),
-            name='lifecycle_stage'),
-        PrimaryKeyConstraint('experiment_id', name='experiment_pk')
+        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]), name="lifecycle_stage"),
+        PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
     )
 
     def __repr__(self):
-        return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
+        return "<SqlExperiment ({}, {})>".format(self.experiment_id, self.name)
 
 
 class SqlRun(Base):
     """
     DB model for :py:class:`mlflow.entities.Run`. These are recorded in ``runs`` table.
     """
-    __tablename__ = 'runs'
+
+    __tablename__ = "runs"
 
     run_uuid = Column(String(32), nullable=False)
     """
@@ -138,21 +145,20 @@ class SqlRun(Base):
     """
     Default artifact location for this run: `String` (limit 200 characters).
     """
-    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
     """
     Experiment ID to which this run belongs to: *Foreign Key* into ``experiment`` table.
     """
-    experiment = relationship('SqlExperiment', backref=backref('runs', cascade='all'))
+    experiment = relationship("SqlExperiment", backref=backref("runs", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
     """
 
     __table_args__ = (
-        CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
-        CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
-                        name='lifecycle_stage'),
-        PrimaryKeyConstraint('run_uuid', name='run_pk')
+        CheckConstraint(source_type.in_(SourceTypes), name="source_type"),
+        CheckConstraint(status.in_(RunStatusTypes), name="status"),
+        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]), name="lifecycle_stage"),
+        PrimaryKeyConstraint("run_uuid", name="run_pk"),
     )
 
 
@@ -167,20 +173,20 @@ def upgrade():
     with op.batch_alter_table("experiments", copy_from=SqlExperiment.__table__) as batch_op:
         # We skip running drop_constraint for mysql, because it creates an invalid statement
         # in alembic<=1.0.10
-        if bind.engine.name != 'mysql':
-            batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
+        if bind.engine.name != "mysql":
+            batch_op.drop_constraint(constraint_name="lifecycle_stage", type_="check")
         batch_op.create_check_constraint(
             constraint_name="experiments_lifecycle_stage",
-            condition=column('lifecycle_stage').in_(["active", "deleted"])
+            condition=column("lifecycle_stage").in_(["active", "deleted"]),
         )
     with op.batch_alter_table("runs", copy_from=SqlRun.__table__) as batch_op:
         # We skip running drop_constraint for mysql, because it creates an invalid statement
         # in alembic<=1.0.10
-        if bind.engine.name != 'mysql':
-            batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
+        if bind.engine.name != "mysql":
+            batch_op.drop_constraint(constraint_name="lifecycle_stage", type_="check")
         batch_op.create_check_constraint(
             constraint_name="runs_lifecycle_stage",
-            condition=column('lifecycle_stage').in_(["active", "deleted"])
+            condition=column("lifecycle_stage").in_(["active", "deleted"]),
         )
 
 

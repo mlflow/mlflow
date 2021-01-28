@@ -1,0 +1,36 @@
+.editable-table .ant-form-explain {
+  position: absolute;
+  font-size: 12px;
+  margin-top: -4px;
+}
+
+
+/* for consistency with other bootstrap based tables, remove after antd take over */
+.editable-table .ant-table-thead > tr > th, .editable-table .ant-table-tbody > tr > td {
+  border-top: 1px solid #ddd;
+  border-bottom: none;
+}
+
+/* for consistency with other bootstrap based tables, remove after antd take over */
+.editable-table .ant-table-middle > .ant-table-content > .ant-table-body >
+table > .ant-table-tbody > tr > td:not(.editing-cell) {
+  padding: 8px;
+}
+
+/* for consistency with other bootstrap based tables, remove after antd take over */
+.editable-table .ant-table-middle > .ant-table-content > .ant-table-body >
+table > .ant-table-thead > tr > th {
+  padding: 8px;
+  color: #888888;
+}
+
+/* for consistency with other bootstrap based tables, remove after antd take over */
+.editable-table .ant-table-tbody > tr:hover:not(.ant-table-expanded-row) > td {
+  background-color: #f5f5f5;
+}
+
+.editable-table .ant-table-body {
+/* !important to override antd table inline style of overflowY: scroll */
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}

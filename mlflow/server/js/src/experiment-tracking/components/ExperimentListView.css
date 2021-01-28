@@ -1,0 +1,83 @@
+.experiment-list-outer-container {
+  padding-left: 64px;
+}
+
+.experiment-list-container {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  width: 220px;
+}
+
+.active-experiment-list-item {
+  background: rgba(67, 199, 234, 0.1);
+  font-weight: bold;
+}
+
+.experiment-list-item {
+  overflow:hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  height: 32px;
+  line-height: 32px;
+  padding-left: 12px;
+}
+
+.experiment-list-search-input {
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  width: 220px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+input.experiment-list-search-input[type="text"]:focus{
+  border-color: #258BD2;
+  outline: none;
+}
+
+.experiments-header {
+  font-weight: normal;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.collapser-container {
+  display: inline-block;
+  position: relative;
+  top: -2px;
+}
+
+.collapser {
+  display: inline-block;
+  background-color: #082142d6;
+  color: #FFFFFF;
+  font-size: 16px;
+  line-height: 24px;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  margin-left: 12px;
+  cursor: pointer;
+}
+
+.experiment-list-create-btn-container {
+  display: inline-block;
+  position: relative;
+  top: -2px;
+}
+
+.experiment-list-create-btn {
+  width: 24px;
+  height: 24px;
+  line-height: inherit;
+  color: #333333;
+  background-color: #f5f5f5;
+  border-color: #cccccc;
+  border-radius: 4px;
+  margin-left: 60px;
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}

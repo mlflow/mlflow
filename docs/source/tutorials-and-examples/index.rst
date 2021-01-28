@@ -5,7 +5,7 @@ Tutorials and Examples
 
 Below, you can find a number of tutorials and examples for various MLflow use cases.
 
-* :doc:`Train, Serve, and Score an Image-Classification Model <tutorial>`
+* :doc:`Train, Serve, and Score a Linear Regression Model <tutorial>`
 * `Hyperparameter Tuning <https://github.com/mlflow/mlflow/tree/master/examples/hyperparam>`_
 * `Orchestrating Multistep Workflows <https://github.com/mlflow/mlflow/tree/master/examples/multistep_workflow>`_
 * `Using the MLflow REST API Directly <https://github.com/mlflow/mlflow/tree/master/examples/rest_api>`_
@@ -14,7 +14,7 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
   - `Packaging Training Code in a Docker Environment <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_
 
   - :ref:`conda-example`
-* `Write & Use MLflow Plugins <https://github.com/mlflow/mlflow/tree/master/examples/plugins>`_
+* `Write & Use MLflow Plugins <https://mlflow.org/docs/latest/plugins.html#writing-your-own-mlflow-plugins>`_
 * Instrument ML training code with MLflow
 
   - `Gluon <https://github.com/mlflow/mlflow/tree/master/examples/gluon>`_
@@ -31,7 +31,15 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
   - `LightGBM <https://github.com/mlflow/mlflow/tree/master/examples/lightgbm>`_
 
+  - `Statsmodels <https://github.com/mlflow/mlflow/tree/master/examples/statsmodels>`_
+
   - `Glmnet (R) <https://github.com/mlflow/mlflow/tree/master/examples/r_wine>`_
+
+  - `SpaCy <https://github.com/mlflow/mlflow/tree/master/examples/spacy>`_
+
+  - `Fastai <https://github.com/mlflow/mlflow/tree/master/examples/fastai>`_
+
+  - `SHAP <https://github.com/mlflow/mlflow/tree/master/examples/shap>`_
 
   - scikit-learn
 
@@ -47,3 +55,6 @@ Below, you can find a number of tutorials and examples for various MLflow use ca
 
     + `TensorFlow 2.X <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow/tf2>`_
 
+  - RAPIDS
+
+    + `Random Forest Classifier <https://github.com/mlflow/mlflow/tree/master/examples/rapids>`_

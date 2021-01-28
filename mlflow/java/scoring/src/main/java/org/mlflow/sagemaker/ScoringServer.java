@@ -61,10 +61,10 @@ public class ScoringServer {
   }
 
   /**
-   * Loads the MLFlow model at the specified path as a {@link Predictor} and serves it on the local
+   * Loads the MLflow model at the specified path as a {@link Predictor} and serves it on the local
    * host at the specified port
    *
-   * @param modelPath The path to the MLFlow model to serve
+   * @param modelPath The path to the MLflow model to serve
    */
   public ScoringServer(String modelPath) throws PredictorLoadingException {
     this(loadPredictorFromPath(modelPath));
@@ -77,7 +77,7 @@ public class ScoringServer {
       return (new MLeapLoader()).load(config);
     } catch (IOException e) {
       throw new PredictorLoadingException(
-          "Failed to load the configuration for the MLFlow model at the specified path.");
+          "Failed to load the configuration for the MLflow model at the specified path.");
     }
   }
 
@@ -242,12 +242,12 @@ public class ScoringServer {
   }
 
   /**
-   * Entrypoint for locally serving MLFlow models with the MLeap flavor using the {@link
+   * Entrypoint for locally serving MLflow models with the MLeap flavor using the {@link
    * ScoringServer}
    *
-   * <p>This entrypoint expects the following arguments: 1. The path to the MLFlow model to serve.
+   * <p>This entrypoint expects the following arguments: 1. The path to the MLflow model to serve.
    * This model must have the MLeap flavor. 2. (Optional) the number of the port on which to serve
-   * the MLFlow model.
+   * the MLflow model.
    */
   public static void main(String[] args) throws IOException, PredictorLoadingException {
     String modelPath = args[0];

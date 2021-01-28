@@ -4,6 +4,7 @@ import tempfile
 from abc import abstractmethod, ABCMeta
 
 from mlflow.utils.validation import path_not_unique, bad_path_message
+from mlflow.utils.annotations import experimental
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
@@ -79,23 +80,8 @@ class ArtifactRepository:
 
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         #       without downloading it, or to get a pre-signed URL for cloud storage.
-        if dst_path is None:
-            dst_path = tempfile.mkdtemp()
-        dst_path = os.path.abspath(dst_path)
-        if not os.path.exists(dst_path):
-            raise MlflowException(
-                message=(
-                    "The destination path for downloaded artifacts does not"
-                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
-                error_code=RESOURCE_DOES_NOT_EXIST)
-        elif not os.path.isdir(dst_path):
-            raise MlflowException(
-                message=(
-                    "The destination path for downloaded artifacts must be a directory!"
-                    " Destination path: {dst_path}".format(dst_path=dst_path)),
-                error_code=INVALID_PARAMETER_VALUE)
-
         def download_file(fullpath):
+            fullpath = fullpath.rstrip("/")  # Prevents incorrect split if fullpath ends with a '/'
             dirpath, _ = posixpath.split(fullpath)
             local_dir_path = os.path.join(dst_path, dirpath)
             local_file_path = os.path.join(dst_path, fullpath)
@@ -107,8 +93,10 @@ class ArtifactRepository:
         def download_artifact_dir(dir_path):
             local_dir = os.path.join(dst_path, dir_path)
             dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
-                file_info for file_info in self.list_artifacts(dir_path) if
-                file_info.path != "." and file_info.path != dir_path]
+                file_info
+                for file_info in self.list_artifacts(dir_path)
+                if file_info.path != "." and file_info.path != dir_path
+            ]
             if not dir_content:  # empty dir
                 if not os.path.exists(local_dir):
                     os.makedirs(local_dir)
@@ -119,18 +107,27 @@ class ArtifactRepository:
                     else:
                         download_file(file_info.path)
             return local_dir
+
+        if dst_path is None:
+            dst_path = tempfile.mkdtemp()
+        dst_path = os.path.abspath(dst_path)
+
         if not os.path.exists(dst_path):
             raise MlflowException(
                 message=(
                     "The destination path for downloaded artifacts does not"
-                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
-                error_code=RESOURCE_DOES_NOT_EXIST)
+                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)
+                ),
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         elif not os.path.isdir(dst_path):
             raise MlflowException(
                 message=(
                     "The destination path for downloaded artifacts must be a directory!"
-                    " Destination path: {dst_path}".format(dst_path=dst_path)),
-                error_code=INVALID_PARAMETER_VALUE)
+                    " Destination path: {dst_path}".format(dst_path=dst_path)
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         # Check if the artifacts points to a directory
         if self._is_directory(artifact_path):
@@ -150,8 +147,19 @@ class ArtifactRepository:
         """
         pass
 
+    @experimental
+    def delete_artifacts(self, artifact_path=None):
+        """
+        Delete the artifacts at the specified location.
+        Supports the deletion of a single file or of a directory. Deletion of a directory
+        is recursive.
+        :param artifact_path: Path of the artifact to delete
+        """
+        pass
+
 
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
-        raise MlflowException("Invalid artifact path: '%s'. %s" % (artifact_path,
-                                                                   bad_path_message(artifact_path)))
+        raise MlflowException(
+            "Invalid artifact path: '%s'. %s" % (artifact_path, bad_path_message(artifact_path))
+        )

@@ -2,11 +2,12 @@ import React, { Component } from 'react';
 import { Alert, Button, Icon, Tooltip } from 'antd';
 import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
-import { getConverter, sanitizeConvertedHtml } from '../../utils/MarkdownUtils';
+import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
+import './EditableNote.css';
 
 const PROMPT_MESSAGE =
-  "Are you sure you want to navigate away? Your pending text changes will be lost.";
+  'Are you sure you want to navigate away? Your pending text changes will be lost.';
 
 export class EditableNote extends Component {
   static propTypes = {
@@ -16,13 +17,28 @@ export class EditableNote extends Component {
     onSubmit: PropTypes.func,
     onCancel: PropTypes.func,
     showEditor: PropTypes.bool,
+    saveText: PropTypes.string,
+    // React-MDE props
+    toolbarCommands: PropTypes.array,
+    maxEditorHeight: PropTypes.number,
+    minEditorHeight: PropTypes.number,
+    childProps: PropTypes.object,
   };
 
   static defaultProps = {
     defaultMarkdown: '',
     defaultSelectedTab: 'write',
     showEditor: false,
+    saveText: 'Save',
     confirmLoading: false,
+    toolbarCommands: [
+      ['header', 'bold', 'italic', 'strikethrough'],
+      ['link', 'quote', 'code', 'image'],
+      ['unordered-list', 'ordered-list', 'checked-list'],
+    ],
+    maxEditorHeight: 500,
+    minEditorHeight: 200,
+    childProps: {},
   };
 
   state = {
@@ -39,24 +55,25 @@ export class EditableNote extends Component {
 
   handleTabChange = (selectedTab) => {
     this.setState({ selectedTab });
-  }
+  };
 
   handleSubmitClick = () => {
     const { onSubmit } = this.props;
     const { markdown } = this.state;
     this.setState({ confirmLoading: true });
     if (onSubmit) {
-      Promise.resolve(onSubmit(markdown))
+      return Promise.resolve(onSubmit(markdown))
         .then(() => {
           this.setState({ confirmLoading: false, error: null });
         })
         .catch((e) => {
           this.setState({
             confirmLoading: false,
-            error: e.getMessageField ? e.getMessageField() : 'Failed to submit',
+            error: e && e.getMessageField ? e.getMessageField() : 'Failed to submit',
           });
         });
     }
+    return null;
   };
 
   handleCancelClick = () => {
@@ -86,7 +103,7 @@ export class EditableNote extends Component {
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
           >
-            {confirmLoading && <Icon type='loading' />} Save
+            {confirmLoading && <Icon type='loading' />} {this.props.saveText}
           </Button>
           <Button htmlType='button' onClick={this.handleCancelClick} disabled={confirmLoading}>
             Cancel
@@ -98,9 +115,7 @@ export class EditableNote extends Component {
 
   getSanitizedHtmlContent() {
     const { markdown } = this.state;
-    return markdown
-      ? sanitizeConvertedHtml(this.converter.makeHtml(markdown))
-      : null;
+    return markdown ? sanitizeConvertedHtml(this.converter.makeHtml(markdown)) : null;
   }
 
   render() {
@@ -114,12 +129,15 @@ export class EditableNote extends Component {
             <div className='note-view-text-area'>
               <ReactMde
                 value={markdown}
+                minEditorHeight={this.props.minEditorHeight}
+                maxEditorHeight={this.props.maxEditorHeight}
+                minPreviewHeight={50}
+                childProps={this.props.childProps}
+                toolbarCommands={this.props.toolbarCommands}
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
-                generateMarkdownPreview={(md) =>
-                  Promise.resolve(this.getSanitizedHtmlContent(md))
-                }
+                generateMarkdownPreview={(md) => Promise.resolve(this.getSanitizedHtmlContent(md))}
                 getIcon={(name) => <TooltipIcon name={name} />}
               />
             </div>
@@ -135,7 +153,7 @@ export class EditableNote extends Component {
             <Prompt when={this.contentHasChanged()} message={PROMPT_MESSAGE} />
           </React.Fragment>
         ) : (
-          <HTMLNoteContent content={htmlContent}/>
+          <HTMLNoteContent content={htmlContent} />
         )}
       </div>
     );
@@ -145,7 +163,7 @@ export class EditableNote extends Component {
 function TooltipIcon(props) {
   const { name } = props;
   return (
-    <Tooltip position="top" title={name}>
+    <Tooltip position='top' title={name}>
       <span>
         <SvgIcon icon={name} />
       </span>
@@ -156,13 +174,14 @@ function TooltipIcon(props) {
 function HTMLNoteContent(props) {
   const { content } = props;
   return content ? (
-    <div className="note-view-outer-container">
-      <div className="note-view-text-area">
-        <div className="note-view-preview note-editor-preview">
-          <div className="note-editor-preview-content"
+    <div className='note-view-outer-container'>
+      <div className='note-view-text-area'>
+        <div className='note-view-preview note-editor-preview'>
+          <div
+            className='note-editor-preview-content'
             // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: props.content }}>
-          </div>
+            dangerouslySetInnerHTML={{ __html: props.content }}
+          ></div>
         </div>
       </div>
     </div>

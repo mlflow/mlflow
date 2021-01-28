@@ -54,13 +54,14 @@ export class RunsTableCustomHeader extends React.Component {
 
     return (
       <div
+        role='columnheader'
         style={{ ...styles.headerLabelWrapper, ...JSON.parse(style) }}
         onClick={enableSorting ? () => onSortBy(canonicalSortKey, !orderByAsc) : undefined}
       >
         {enableSorting && canonicalSortKey === orderByKey ? (
           <SortByIcon orderByAsc={orderByAsc} />
         ) : null}
-        <span>{displayName}</span>
+        <span data-test-id={`sort-header-${displayName}`}>{displayName}</span>
       </div>
     );
   }

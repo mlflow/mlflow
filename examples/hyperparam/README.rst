@@ -51,15 +51,15 @@ Runs the Keras deep learning training with default parameters and log it in expe
 
 .. code-block:: bash
 
-    mlflow run -e random --experiment-id <hyperparam_experiment_id>  -P examples/hyperparam
+    mlflow run -e random --experiment-id <hyperparam_experiment_id> examples/hyperparam
 
 .. code-block:: bash
 
-    mlflow run -e gpyopt --experiment-id <hyperparam_experiment_id>  -P examples/hyperparam
+    mlflow run -e gpyopt --experiment-id <hyperparam_experiment_id> examples/hyperparam
 
 .. code-block:: bash
 
-    mlflow run -e hyperopt --experiment-id <hyperparam_experiment_id> -P examples/hyperparam
+    mlflow run -e hyperopt --experiment-id <hyperparam_experiment_id> examples/hyperparam
 
 Runs the hyperparameter tuning with either random search or GpyOpt or Hyperopt and log the
 results under ``hyperparam_experiment_id``.

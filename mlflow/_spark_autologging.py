@@ -7,12 +7,16 @@ import uuid
 from py4j.java_gateway import CallbackServerParameters
 
 from pyspark import SparkContext
-from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.utils.autologging_utils import (
+    autologging_is_disabled,
+    ExceptionSafeClass,
+)
+from mlflow.spark import FLAVOR_NAME
 
 _JAVA_PACKAGE = "org.mlflow.spark.autologging"
 _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
@@ -36,7 +40,8 @@ def _get_current_listener():
 def _get_table_info_string(path, version, data_format):
     if data_format == "delta":
         return "path={path},version={version},format={format}".format(
-            path=path, version=version, format=data_format)
+            path=path, version=version, format=data_format
+        )
     return "path={path},format={format}".format(path=path, format=data_format)
 
 
@@ -74,8 +79,9 @@ def _get_jvm_event_publisher():
 
 
 def _set_run_tag_async(run_id, path, version, data_format):
-    _thread_pool.submit(_set_run_tag, run_id=run_id, path=path, version=version,
-                        data_format=data_format)
+    _thread_pool.submit(
+        _set_run_tag, run_id=run_id, path=path, version=version, data_format=data_format
+    )
 
 
 def _set_run_tag(run_id, path, version, data_format):
@@ -87,56 +93,59 @@ def _set_run_tag(run_id, path, version, data_format):
     client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_table_info)
 
 
-def _get_active_spark_session():
-    try:
-        return SparkSession.builder.getActiveSession()
-    except Exception:  # pylint: disable=broad-except
-        return SparkSession._instantiatedSession
-
-
-def autolog():
-    """Implementation of Spark datasource autologging"""
+def _listen_for_spark_activity(spark_context):
     global _spark_table_info_listener
-    if _get_current_listener() is None:
-        active_session = _get_active_spark_session()
-        if active_session is None:
-            raise MlflowException(
-                "No active SparkContext found, refusing to enable Spark datasource "
-                "autologging. Please create a SparkSession e.g. via "
-                "SparkSession.builder.getOrCreate() (see API docs at "
-                "https://spark.apache.org/docs/latest/api/python/"
-                "pyspark.sql.html#pyspark.sql.SparkSession) "
-                "before attempting to enable autologging")
-        # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
-        if _get_spark_major_version(sc) < 3:
-            raise MlflowException(
-                "Spark autologging unsupported for Spark versions < 3")
-        gw = active_session.sparkContext._gateway
-        params = gw.callback_server_parameters
-        callback_server_params = CallbackServerParameters(
-            address=params.address, port=params.port, daemonize=True, daemonize_connections=True,
-            eager_load=params.eager_load, ssl_context=params.ssl_context,
-            accept_timeout=params.accept_timeout, read_timeout=params.read_timeout,
-            auth_token=params.auth_token)
-        gw.start_callback_server(callback_server_params)
+    if _get_current_listener() is not None:
+        return
 
+    if _get_spark_major_version(spark_context) < 3:
+        raise MlflowException("Spark autologging unsupported for Spark versions < 3")
+
+    gw = spark_context._gateway
+    params = gw.callback_server_parameters
+    callback_server_params = CallbackServerParameters(
+        address=params.address,
+        port=params.port,
+        daemonize=True,
+        daemonize_connections=True,
+        eager_load=params.eager_load,
+        ssl_context=params.ssl_context,
+        accept_timeout=params.accept_timeout,
+        read_timeout=params.read_timeout,
+        auth_token=params.auth_token,
+    )
+    callback_server_started = gw.start_callback_server(callback_server_params)
+
+    try:
         event_publisher = _get_jvm_event_publisher()
-        try:
-            event_publisher.init(1)
-            _spark_table_info_listener = PythonSubscriber()
-            _spark_table_info_listener.register()
-        except Exception as e:
-            raise MlflowException("Exception while attempting to initialize JVM-side state for "
-                                  "Spark datasource autologging. Please ensure you have the "
-                                  "mlflow-spark JAR attached to your Spark session as described "
-                                  "in http://mlflow.org/docs/latest/tracking.html#"
-                                  "automatic-logging-from-spark-experimental. Exception:\n%s"
-                                  % e)
+        event_publisher.init(1)
+        _spark_table_info_listener = PythonSubscriber()
+        event_publisher.register(_spark_table_info_listener)
+    except Exception as e:
+        if callback_server_started:
+            try:
+                gw.shutdown_callback_server()
+            except Exception as e:
+                _logger.warning(
+                    "Failed to shut down Spark callback server for autologging: %s", str(e)
+                )
+        _spark_table_info_listener = None
+        raise MlflowException(
+            "Exception while attempting to initialize JVM-side state for "
+            "Spark datasource autologging. Please create a new Spark session "
+            "and ensure you have the mlflow-spark JAR attached to your Spark "
+            "session as described in "
+            "http://mlflow.org/docs/latest/tracking.html#"
+            "automatic-logging-from-spark-experimental. "
+            "Exception:\n%s" % e
+        )
 
-        # Register context provider for Spark autologging
-        from mlflow.tracking.context.registry import _run_context_provider_registry
-        _run_context_provider_registry.register(SparkAutologgingContext)
+    # Register context provider for Spark autologging
+    from mlflow.tracking.context.registry import _run_context_provider_registry
+
+    _run_context_provider_registry.register(SparkAutologgingContext)
+
+    _logger.info("Autologging successfully enabled for spark.")
 
 
 def _get_repl_id():
@@ -154,7 +163,7 @@ def _get_repl_id():
     return "PythonSubscriber[{filename}][{id}]".format(filename=main_file, id=uuid.uuid4().hex)
 
 
-class PythonSubscriber(object):
+class PythonSubscriber(object, metaclass=ExceptionSafeClass):
     """
     Subscriber, intended to be instantiated once per Python process, that logs Spark table
     information propagated from Java to the current MLflow run, starting a run if necessary.
@@ -166,6 +175,7 @@ class PythonSubscriber(object):
     https://www.py4j.org/advanced_topics.html#implementing-java-interfaces-from-python-callback for
     more information.
     """
+
     def __init__(self):
         self._repl_id = _get_repl_id()
 
@@ -179,15 +189,20 @@ class PythonSubscriber(object):
     def notify(self, path, version, data_format):
         try:
             self._notify(path, version, data_format)
-        except Exception as e:  # pylint: disable=broad-except
-            _logger.error("Unexpected exception %s while attempting to log Spark datasource "
-                          "info. Exception:\n", e)
+        except Exception as e:
+            _logger.error(
+                "Unexpected exception %s while attempting to log Spark datasource "
+                "info. Exception:\n",
+                e,
+            )
 
     def _notify(self, path, version, data_format):
         """
         Method called by Scala SparkListener to propagate datasource read events to the current
         Python process
         """
+        if autologging_is_disabled(FLAVOR_NAME):
+            return
         # If there's an active run, simply set the tag on it
         # Note that there's a TOCTOU race condition here - active_run() here can actually throw
         # if the main thread happens to end the run & pop from the active run stack after we check
@@ -197,10 +212,6 @@ class PythonSubscriber(object):
             _set_run_tag_async(active_run.info.run_id, path, version, data_format)
         else:
             add_table_info_to_context_provider(path, version, data_format)
-
-    def register(self):
-        event_publisher = _get_jvm_event_publisher()
-        event_publisher.register(self)
 
     def replId(self):
         return self._repl_id
@@ -214,10 +225,14 @@ class SparkAutologgingContext(RunContextProvider):
     Context provider used when there's no active run. Accumulates datasource read information,
     then logs that information to the next-created run & clears the accumulated information.
     """
+
     def in_context(self):
         return True
 
     def tags(self):
+        # if autologging is disabled, then short circuit `tags()` and return empty dict.
+        if autologging_is_disabled(FLAVOR_NAME):
+            return {}
         with _lock:
             global _table_infos
             seen = set()
@@ -228,8 +243,9 @@ class SparkAutologgingContext(RunContextProvider):
                     seen.add(info)
             if len(_table_infos) > 0:
                 tags = {
-                    _SPARK_TABLE_INFO_TAG_NAME: "\n".join([_get_table_info_string(*info)
-                                                           for info in unique_infos])
+                    _SPARK_TABLE_INFO_TAG_NAME: "\n".join(
+                        [_get_table_info_string(*info) for info in unique_infos]
+                    )
                 }
             else:
                 tags = {}

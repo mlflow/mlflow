@@ -5291,7 +5291,7 @@ a .rst-content code {
 .rst-content .viewcode-link,
 .rst-content .viewcode-back {
     display: inline-block;
-    color: #27AE60;
+    color: #2980B9;
     font-size: 80%;
     padding-left: 24px
 }
@@ -5340,3 +5340,11 @@ a .rst-content code {
     src: local("Inconsolata Bold"), local("Inconsolata-Bold"), url(../fonts/Inconsolata-Bold.ttf) format("truetype")
 }
 /*# sourceMappingURL=theme.css.map */
+
+div.viewcode-block:target {
+    background-color: #d3f1f3;
+    border-top: 1px solid #44c1cb;
+    border-bottom: 1px solid #44c1cb;
+    margin: 0px -12px;
+    padding: 0px 12px;
+}

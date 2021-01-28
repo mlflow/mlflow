@@ -1,0 +1,225 @@
+sklearn:
+  package_info:
+    pip_release: "scikit-learn"
+    install_dev: |
+      pip install git+https://github.com/scikit-learn/scikit-learn.git@master
+
+  models:
+    minimum: "0.20.3"
+    maximum: "0.23.2"
+    run: |
+      pytest tests/sklearn/test_sklearn_model_export.py --large
+
+  autologging:
+    minimum: "0.20.3"
+    maximum: "0.23.2"
+    requirements: ["matplotlib"]
+    run: |
+      pytest tests/sklearn/test_sklearn_training_session.py --large
+      pytest tests/sklearn/test_sklearn_autolog.py --large
+
+pytorch:
+  package_info:
+    pip_release: "torch"
+    install_dev: |
+      pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+
+  models:
+    minimum: "1.4.0"
+    maximum: "1.7.0"
+    requirements: ["torchvision", "scikit-learn"]
+    run: |
+      pytest tests/pytorch/test_pytorch_model_export.py --large
+
+  autologging:
+    minimum: "1.4.0"
+    maximum: "1.7.0"
+    requirements: ["torchvision", "pytorch-lightning", "scikit-learn"]
+    run: |
+      pytest tests/pytorch/test_pytorch_autolog.py --large
+
+pytorch-lightning:
+  package_info:
+    pip_release: "pytorch-lightning"
+    install_dev: |
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@master
+
+  autologging:
+    minimum: "1.0.5"
+    maximum: "1.1.2"
+    requirements: ["torchvision", "scikit-learn"]
+    run: |
+      pytest tests/pytorch/test_pytorch_autolog.py --large
+
+tensorflow-1.x:
+  package_info:
+    pip_release: "tensorflow"
+
+  models:
+    minimum: "1.15.4"
+    maximum: "1.15.4"
+    requirements: ["h5py<3.0", "scikit-learn"]
+    run: |
+      pytest tests/tensorflow/test_tensorflow_model_export.py --large
+
+  autologging:
+    minimum: "1.15.4"
+    maximum: "1.15.4"
+    requirements: ["h5py<3.0"]
+    run: |
+      pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
+
+tensorflow-2.x:
+  package_info:
+    pip_release: "tensorflow"
+    install_dev: |
+      # Unpin `tf-nightly` once the following issue is addressed:
+      # https://github.com/tensorflow/tensorflow/issues/46429
+      pip install 'tf-nightly==2.5.0.dev20210112'
+
+  models:
+    minimum: "2.0.0"
+    maximum: "2.3.1"
+    run: |
+      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+
+  autologging:
+    minimum: "2.0.0"
+    maximum: "2.3.1"
+    requirements:
+      "< 2.2": ["h5py<3.0"]
+    run: |
+      pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+
+keras:
+  package_info:
+    pip_release: "keras"
+    install_dev: |
+      # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
+      # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
+      # Unpin `tf-nightly` once the following issue is addressed:
+      # https://github.com/tensorflow/tensorflow/issues/46429
+      pip install 'tf-nightly==2.5.0.dev20210112' 'keras>=2.4.0'
+
+  models:
+    minimum: "2.2.4"
+    maximum: "2.4.3"
+    requirements:
+      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "== dev": ["scikit-learn", "pyspark==2.4.0", "pyarrow"]
+    run: |
+      pytest tests/keras/test_keras_model_export.py --large
+
+  autologging:
+    minimum: "2.2.4"
+    maximum: "2.4.3"
+    requirements:
+      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0"]
+      # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
+      # https://github.com/tensorflow/tensorflow/issues/38589
+      "== 2.3.1": ["tensorflow==2.2.1"]
+      "> 2.3.1, != dev": ["tensorflow"]
+    run: |
+      pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
+
+xgboost:
+  package_info:
+    pip_release: "xgboost"
+    install_dev: |
+      temp_dir=$(mktemp -d)
+      git clone --recursive https://github.com/dmlc/xgboost $temp_dir
+      cd $temp_dir/python-package
+      python setup.py install
+
+  models:
+    minimum: "0.90"
+    maximum: "1.2.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/xgboost/test_xgboost_model_export.py --large
+
+  autologging:
+    minimum: "0.90"
+    maximum: "1.2.1"
+    requirements: ["scikit-learn", "matplotlib"]
+    run: |
+      pytest tests/xgboost/test_xgboost_autolog.py --large
+
+lightgbm:
+  package_info:
+    pip_release: "lightgbm"
+    install_dev: |
+      temp_dir=$(mktemp -d)
+      git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
+      cd $temp_dir/python-package
+      python setup.py install
+
+  models:
+    minimum: "2.3.1"
+    maximum: "3.1.0"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_model_export.py --large
+
+  autologging:
+    minimum: "2.3.1"
+    maximum: "3.1.0"
+    requirements: ["scikit-learn", "matplotlib"]
+    run: |
+      pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+gluon:
+  package_info:
+    pip_release: "mxnet"
+    install_dev: |
+      pip install --pre mxnet -f https://dist.mxnet.io/python/cpu
+
+  models:
+    minimum: "1.5.1"
+    maximum: "1.7.0.post1"
+    run: |
+      pytest tests/gluon/test_gluon_model_export.py --large
+
+  autologging:
+    minimum: "1.5.1"
+    maximum: "1.7.0.post1"
+    run: |
+      pytest tests/gluon_autolog/test_gluon_autolog.py --large
+
+fastai-1.x:
+  package_info:
+    pip_release: "fastai"
+
+  models:
+    minimum: "1.0.60"
+    maximum: "1.0.61"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/fastai/test_fastai_model_export.py --large
+
+  autologging:
+    minimum: "1.0.60"
+    maximum: "1.0.61"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/fastai/test_fastai_autolog.py --large
+
+onnx:
+  package_info:
+    pip_release: "onnx"
+    install_dev: |
+      sudo apt-get install protobuf-compiler libprotoc-dev
+      temp_dir=$(mktemp -d)
+      git clone https://github.com/onnx/onnx.git $temp_dir
+      cd $temp_dir
+      git submodule update --init --recursive
+      python setup.py install
+
+  models:
+    minimum: "1.5.0"
+    maximum: "1.8.0"
+    requirements: ["onnxruntime", "torch", "scikit-learn"]
+    run: |
+      pytest tests/onnx/test_onnx_model_export.py --large

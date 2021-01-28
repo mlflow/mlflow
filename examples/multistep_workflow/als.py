@@ -34,18 +34,20 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
     mlflow.log_metric("training_nrows", training_df.count())
     mlflow.log_metric("test_nrows", test_df.count())
 
-    print('Training: {0}, test: {1}'.format(training_df.count(), test_df.count()))
+    print("Training: {0}, test: {1}".format(training_df.count(), test_df.count()))
 
-    als = (ALS()
-           .setUserCol("userId")
-           .setItemCol("movieId")
-           .setRatingCol("rating")
-           .setPredictionCol("predictions")
-           .setMaxIter(max_iter)
-           .setSeed(seed)
-           .setRegParam(reg_param)
-           .setColdStartStrategy(cold_start_strategy)
-           .setRank(rank))
+    als = (
+        ALS()
+        .setUserCol("userId")
+        .setItemCol("movieId")
+        .setRatingCol("rating")
+        .setPredictionCol("predictions")
+        .setMaxIter(max_iter)
+        .setSeed(seed)
+        .setRegParam(reg_param)
+        .setColdStartStrategy(cold_start_strategy)
+        .setRank(rank)
+    )
 
     als_model = Pipeline(stages=[als]).fit(training_df)
 
@@ -56,12 +58,12 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
     test_mse = reg_eval.evaluate(predicted_test_dF)
     train_mse = reg_eval.evaluate(als_model.transform(training_df))
 
-    print('The model had a MSE on the test set of {0}'.format(test_mse))
-    print('The model had a MSE on the (train) set of {0}'.format(train_mse))
+    print("The model had a MSE on the test set of {0}".format(test_mse))
+    print("The model had a MSE on the (train) set of {0}".format(train_mse))
     mlflow.log_metric("test_mse", test_mse)
     mlflow.log_metric("train_mse", train_mse)
     mlflow.spark.log_model(als_model, "als-model")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     train_als()

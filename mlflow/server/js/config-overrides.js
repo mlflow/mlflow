@@ -51,7 +51,6 @@ module.exports = {
     });
     return config;
   },
-
   devServer: function(configFunction) {
     return function(proxy, allowedHost) {
       const config = configFunction(proxy, allowedHost);
@@ -73,6 +72,8 @@ module.exports = {
             rewriteCookies(proxyRes);
           },
         }];
+        config.host = 'localhost';
+        config.port = 3000;
       }
       return config;
     };

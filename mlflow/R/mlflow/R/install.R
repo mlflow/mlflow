@@ -8,7 +8,8 @@ mlflow_conda_env_name <- function() {
   paste("r-mlflow", mlflow_version(), sep = "-")
 }
 
-# Create conda env used by MLflow if it doesn't already exist
+#' Create conda env used by MLflow if it doesn't already exist
+#'
 #' @importFrom reticulate conda_install conda_create conda_list
 #' @param python_version Python version to use within conda environment created for
 #' installing the MLflow CLI.
@@ -17,13 +18,14 @@ mlflow_maybe_create_conda_env <- function(python_version) {
   conda <- mlflow_conda_bin()
   conda_env_name <- mlflow_conda_env_name()
   if (!conda_env_name %in% conda_list(conda = conda)$name) {
+    message("Creating conda environment ", conda_env_name)
     conda_create(conda_env_name, conda = conda, packages = packages)
   }
 }
 
 #' Install MLflow
 #'
-#' Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+#' Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
 #' one-time setup step, you must run install_mlflow() to install these
 #' dependencies before calling other MLflow APIs.
 #'

@@ -1,0 +1,21 @@
+name: Labeling
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+  pull_request_target:
+    types:
+      - opened
+      - edited
+
+jobs:
+  labeling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: harupy/auto-labeling@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          label-pattern: '- \[(.*?)\] ?`(.+?)`'

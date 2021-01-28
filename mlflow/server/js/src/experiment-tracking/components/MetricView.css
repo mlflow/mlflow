@@ -1,0 +1,53 @@
+div.MetricView {
+  display: block;
+  max-height: 10%;
+}
+
+div.MetricView h1 {
+  margin-bottom: 24px;
+}
+
+.metrics-plot-container {
+  display: flex;
+  width: 100%;
+}
+
+.metrics-plot-container .plot-controls .x-axis-radio {
+  display: block;
+  height: 30px;
+  line-height: 30px;
+}
+
+.metrics-plot-container .plot-controls .metrics-select {
+  width: 300px;
+  display: block;
+}
+
+.metrics-plot-container .plot-controls .metrics-select input[type='text'] {
+  padding: 0;
+}
+
+.metrics-plot-container .plot-controls {
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+.metrics-plot-container .plot-controls .inline-control {
+  margin-top: 25px;
+  display: flex;
+  align-items: center;
+}
+
+.metrics-plot-container .plot-controls .inline-control .control-label {
+  margin-right: 10px;
+}
+
+.metrics-plot-container .plot-controls .block-control {
+  margin-top: 25px;
+}
+
+.metrics-plot-container .metrics-plot-view-container {
+  min-height: 500px;
+  flex: 1;
+}

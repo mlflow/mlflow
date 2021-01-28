@@ -13,7 +13,7 @@ import org.mlflow.sagemaker.PredictorLoadingException;
  */
 public abstract class LoaderModule<T extends Flavor> {
   /**
-   * Loads an MLFlow model as a generic predictor that can be used for inference
+   * Loads an MLflow model as a generic predictor that can be used for inference
    *
    * Throws {@link PredictorLoadingException} for any failure encountered while attempting to load
    *     the model
@@ -38,11 +38,11 @@ public abstract class LoaderModule<T extends Flavor> {
   }
 
   /**
-   * Loads an MLFlow model as a generic predictor that can be used for inference
+   * Loads an MLflow model as a generic predictor that can be used for inference
    * Throws {@link PredictorLoadingException} for any failure encountered while attempting to load
    *     the model
    *
-   * @param modelRootPath The path to the root directory of the MLFlow model
+   * @param modelRootPath The path to the root directory of the MLflow model
    */
   public Predictor load(String modelRootPath) throws PredictorLoadingException {
     try {
@@ -51,17 +51,17 @@ public abstract class LoaderModule<T extends Flavor> {
     } catch (IOException e) {
       throw new PredictorLoadingException(
           "Failed to load the model configuration at the specified path. Please ensure that"
-              + " this is the path to the root directory of a valid MLFlow model");
+              + " this is the path to the root directory of a valid MLflow model");
     }
   }
 
   /**
-   * Creates a {@link Predictor} from an MLFlow model using the specified flavor configuration
+   * Creates a {@link Predictor} from an MLflow model using the specified flavor configuration
    *
    * <p>Implementations of this method are expected to throw a {@link PredictorLoadingException}
    * when errors are encountered while loading the model
    *
-   * @param modelRootPath The path to the root directory of the MLFlow model
+   * @param modelRootPath The path to the root directory of the MLflow model
    * @param flavor The flavor configuration to use when creating the {@link Predictor}. This
    *     configuration provides additional metadata that may be necessary for {@link Predictor}
    *     creation.

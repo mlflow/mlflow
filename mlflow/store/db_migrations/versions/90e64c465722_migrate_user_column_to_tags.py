@@ -13,8 +13,8 @@ from sqlalchemy.orm import relationship, backref
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 # revision identifiers, used by Alembic.
-revision = '90e64c465722'
-down_revision = '451aebb31d03'
+revision = "90e64c465722"
+down_revision = "451aebb31d03"
 branch_labels = None
 depends_on = None
 
@@ -23,26 +23,22 @@ Base = declarative_base()
 
 
 class SqlRun(Base):
-    __tablename__ = 'runs'
+    __tablename__ = "runs"
     run_uuid = Column(String(32), nullable=False)
     user_id = Column(String(256), nullable=True, default=None)
     experiment_id = Column(Integer)
 
-    __table_args__ = (
-        PrimaryKeyConstraint('experiment_id', name='experiment_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("experiment_id", name="experiment_pk"),)
 
 
 class SqlTag(Base):
-    __tablename__ = 'tags'
+    __tablename__ = "tags"
     key = Column(String(250))
     value = Column(String(250), nullable=True)
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
-    run = relationship('SqlRun', backref=backref('tags', cascade='all'))
+    run_uuid = Column(String(32), ForeignKey("runs.run_uuid"))
+    run = relationship("SqlRun", backref=backref("tags", cascade="all"))
 
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
-    )
+    __table_args__ = (PrimaryKeyConstraint("key", "run_uuid", name="tag_pk"),)
 
 
 def upgrade():

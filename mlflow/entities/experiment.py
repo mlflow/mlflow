@@ -1,17 +1,20 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.protos.service_pb2 import Experiment as ProtoExperiment,\
-    ExperimentTag as ProtoExperimentTag
+from mlflow.protos.service_pb2 import (
+    Experiment as ProtoExperiment,
+    ExperimentTag as ProtoExperimentTag,
+)
 
 
 class Experiment(_MLflowObject):
     """
     Experiment object.
     """
+
     DEFAULT_EXPERIMENT_NAME = "Default"
 
     def __init__(self, experiment_id, name, artifact_location, lifecycle_stage, tags=None):
-        super(Experiment, self).__init__()
+        super().__init__()
         self._experiment_id = experiment_id
         self._name = name
         self._artifact_location = artifact_location
@@ -51,10 +54,9 @@ class Experiment(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        experiment = cls(proto.experiment_id,
-                         proto.name,
-                         proto.artifact_location,
-                         proto.lifecycle_stage)
+        experiment = cls(
+            proto.experiment_id, proto.name, proto.artifact_location, proto.lifecycle_stage
+        )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
         return experiment
@@ -66,5 +68,6 @@ class Experiment(_MLflowObject):
         experiment.artifact_location = self.artifact_location
         experiment.lifecycle_stage = self.lifecycle_stage
         experiment.tags.extend(
-            [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()])
+            [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
+        )
         return experiment

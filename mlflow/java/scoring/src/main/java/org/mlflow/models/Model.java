@@ -11,10 +11,18 @@ import org.mlflow.utils.FileUtils;
 import org.mlflow.utils.SerializationUtils;
 
 /**
- * Represents an MLFlow model. This class includes utility functions for parsing a serialized MLFlow
+ * Represents an MLflow model. This class includes utility functions for parsing a serialized MLflow
  * model configuration (`MLModel`) as a {@link Model} object.
  */
 public class Model {
+
+  public static class Signature {
+    @JsonProperty("inputs")
+    private String inputsSchemaJson;
+    @JsonProperty("outputs")
+    private String outputSchemaJson;
+  }
+
   @JsonProperty("artifact_path")
   private String artifactPath;
 
@@ -27,12 +35,18 @@ public class Model {
   @JsonProperty("flavors")
   private Map<String, Object> flavors;
 
+  @JsonProperty("signature")
+  Signature signature;
+
+  @JsonProperty("input_example")
+  private Map<String, Object> input_example;
+
   private String rootPath;
 
   /**
-   * Loads the configuration of an MLFlow model and parses it as a {@link Model} object.
+   * Loads the configuration of an MLflow model and parses it as a {@link Model} object.
    *
-   * @param modelRootPath The path to the root directory of the MLFlow model
+   * @param modelRootPath The path to the root directory of the MLflow model
    */
   public static Model fromRootPath(String modelRootPath) throws IOException {
     String configPath = FileUtils.join(modelRootPath, "MLmodel");
@@ -40,7 +54,7 @@ public class Model {
   }
 
   /**
-   * Loads the configuration of an MLFlow model and parses it as a {@link Model} object.
+   * Loads the configuration of an MLflow model and parses it as a {@link Model} object.
    *
    * @param configPath The path to the `MLModel` configuration file
    */
@@ -53,22 +67,22 @@ public class Model {
     return model;
   }
 
-  /** @return The MLFlow model's artifact path */
+  /** @return The MLflow model's artifact path */
   public Optional<String> getArtifactPath() {
     return Optional.ofNullable(this.artifactPath);
   }
 
-  /** @return The MLFlow model's time of creation */
+  /** @return The MLflow model's time of creation */
   public Optional<String> getUtcTimeCreated() {
     return Optional.ofNullable(this.utcTimeCreated);
   }
 
-  /** @return The MLFlow model's run id */
+  /** @return The MLflow model's run id */
   public Optional<String> getRunId() {
     return Optional.ofNullable(this.runId);
   }
 
-  /** @return The path to the root directory of the MLFlow model */
+  /** @return The path to the root directory of the MLflow model */
   public Optional<String> getRootPath() {
     return Optional.ofNullable(this.rootPath);
   }

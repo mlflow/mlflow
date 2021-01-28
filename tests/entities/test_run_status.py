@@ -6,12 +6,15 @@ from mlflow.entities import RunStatus
 class TestRunStatus(unittest.TestCase):
     def test_all_status_covered(self):
         # ensure that all known status are returned. Test will fail if new status are added to PB
-        all_statuses = set([RunStatus.RUNNING,
-                            RunStatus.SCHEDULED,
-                            RunStatus.FINISHED,
-                            RunStatus.FAILED,
-                            RunStatus.KILLED,
-                            ])
+        all_statuses = set(
+            [
+                RunStatus.RUNNING,
+                RunStatus.SCHEDULED,
+                RunStatus.FINISHED,
+                RunStatus.FAILED,
+                RunStatus.KILLED,
+            ]
+        )
         self.assertSequenceEqual(all_statuses, set(RunStatus.all_status()))
 
     def test_status_mappings(self):

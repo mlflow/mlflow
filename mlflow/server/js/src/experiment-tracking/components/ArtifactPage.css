@@ -1,0 +1,32 @@
+.artifact-load-error-outer-container {
+  height: 200px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: solid 1px #ccc;
+  background-color: #fafafa;
+}
+
+.artifact-load-error-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 90%
+}
+
+.artifact-load-error-header {
+  width: 255px;
+  font-size: 24px;
+  margin: 0 auto;
+}
+
+.artifact-load-error-info {
+  font-size: 16px;
+  padding-top: 8px;
+  color: #6B6B6B;
+}
+
+.artifact-load-error-icon {
+  color: #DB1905;
+  margin-right: 4px;
+}

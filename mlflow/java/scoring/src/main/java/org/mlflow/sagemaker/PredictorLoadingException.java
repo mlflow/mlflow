@@ -2,7 +2,7 @@ package org.mlflow.sagemaker;
 
 /**
  * An exception indicating a failure during the process of creating a {@link
- * org.mlflow.sagemaker.Predictor} from an MLFlow model
+ * org.mlflow.sagemaker.Predictor} from an MLflow model
  */
 public class PredictorLoadingException extends RuntimeException {
   /**

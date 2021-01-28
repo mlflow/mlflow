@@ -36,3 +36,7 @@
 .ant-table-placeholder {
   z-index: 0;
 }
+
+.ant-collapse-borderless {
+  background-color: white;
+}

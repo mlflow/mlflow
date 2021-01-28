@@ -1,0 +1,13 @@
+name: fastai-example
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      lr: {type: float, default: 0.01}
+      epochs: {type: int, default: 5}
+    command: |
+        python train.py \
+            --lr {lr} \
+            --epochs {epochs}

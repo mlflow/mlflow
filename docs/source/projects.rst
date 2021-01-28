@@ -237,7 +237,7 @@ Docker container environment
   .. rubric:: Example 3: Image in a remote registry
 
   .. code-block:: yaml
-    
+  
     docker_env:
       image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
 
@@ -299,7 +299,7 @@ float
 path
     A path on the local file system. MLflow converts any relative ``path`` parameters to absolute 
     paths. MLflow also downloads any paths passed as distributed storage URIs 
-    (``s3://`` and ``dbfs://``) to local files. Use this type for programs that can only read local 
+    (``s3://``, ``dbfs://``, gs://, etc.) to local files. Use this type for programs that can only read local
     files.
 
 uri
@@ -368,67 +368,9 @@ Run an MLflow Project on Databricks
 
 You can run MLflow Projects remotely on Databricks. To use this feature, you must have an enterprise
 Databricks account (Community Edition is not supported) and you must have set up the
-`Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions
-in the Databricks docs
-(`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_,
-`Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
-of how to use the feature is as follows:
-
-1. Create a JSON file containing the
-`new cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-for your run. For example:
-
-  .. code-block:: json
-
-    {
-      "spark_version": "5.5.x-scala2.11",
-      "node_type_id": "i3.xlarge",
-      "aws_attributes": {"availability": "ON_DEMAND"},
-      "num_workers": 4
-    }
-
-2. Run your project using the following command:
-
-  .. code-block:: bash
-
-    mlflow run <project_uri> -b databricks --backend-config <json-new-cluster-spec>
-
-  where ``<project_uri>`` is a Git repository URI or a folder.
-
-.. important::
-
-  - Databricks execution for MLflow projects with Docker environments is *not* currently supported.
-
-  - You must use a *new cluster* specification when running an MLflow Project on Databricks. Running
-    Projects against existing clusters is not currently supported.
-
-Databricks Execution Tips
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When running an MLflow Project on Databricks, the following tips may be helpful.
-
-Using SparkR on Databricks
-##########################
-
-In order to use SparkR in an MLflow Project run on Databricks, your project code must first install
-and import SparkR as follows:
-
-.. code-block:: R
-
-  if (file.exists("/databricks/spark/R/pkg")) {
-    install.packages("/databricks/spark/R/pkg", repos = NULL)
-  } else {
-    install.packages("SparkR")
-  }
-
-  library(SparkR)
-
-Your project code can then proceed to initialize a SparkR session and use SparkR as normal:
-
-.. code-block:: R
-
-  sparkR.session()
-  ...
+`Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find detailed instructions
+in the Databricks docs (`Azure Databricks <https://docs.microsoft.com/en-us/azure/databricks/applications/mlflow/projects#run-an-mlflow-project>`_,
+`Databricks on AWS <https://docs.databricks.com/applications/mlflow/projects.html>`_).
 
 .. _kubernetes_execution:
 
@@ -475,7 +417,7 @@ You can run your MLflow Project on Kubernetes by following these steps:
      The `Kubernetes context
      <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
      where MLflow will run the job. If not provided, MLflow will use the current context.
-     If no context is available, MLFlow will assume it is running in a Kubernetes cluster
+     If no context is available, MLflow will assume it is running in a Kubernetes cluster
      and it will use the Kubernetes service account running the current pod ('in-cluster' configuration).
    - ``repository-uri``
      The URI of the docker repository where the Project execution Docker image will be uploaded
@@ -563,6 +505,7 @@ execution. Replaced fields are indicated using bracketed text.
         - name: "{replaced with MLflow Project name}"
           image: "{replaced with URI of Docker image created during Project execution}"
           command: ["{replaced with MLflow Project entry point command}"]
+          env: ["{appended with MLFLOW_TRACKING_URI, MLFLOW_RUN_ID and MLFLOW_EXPERIMENT_ID}"]
         resources:
           limits:
             memory: 512Mi
@@ -571,8 +514,10 @@ execution. Replaced fields are indicated using bracketed text.
         restartPolicy: Never
 
 The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
-the *first* container defined in the Job Spec. All subsequent container definitions are applied
-without modification.
+the *first* container defined in the Job Spec. Further, the ``MLFLOW_TRACKING_URI``, ``MLFLOW_RUN_ID``
+and ``MLFLOW_EXPERIMENT_ID`` are appended to ``container.env``. Use ``KUBE_MLFLOW_TRACKING_URI`` to
+pass a different tracking URI to the job container from the standard ``MLFLOW_TRACKING_URI``. All
+subsequent container definitions are applied without modification.
 
 Iterating Quickly
 -----------------
