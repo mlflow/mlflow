@@ -158,6 +158,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "regression.py"]),
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
+        ("ray_serve", ["python", "train_model.py"]),
     ],
 )
 def test_command_example(directory, command):
