@@ -77,6 +77,19 @@ def custom_env(tmpdir):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("model_type", ["CatBoost", "CatBoostClassifier", "CatBoostRegressor"])
+def test_init_model(model_type):
+    model = mlflow.catboost._init_model(model_type)
+    assert model.__class__.__name__ == model_type
+
+
+@pytest.mark.large
+def test_init_model_throws_for_invalid_model_type():
+    with pytest.raises(TypeError, match="Invalid model type"):
+        mlflow.catboost._init_model("unsupported")
+
+
+@pytest.mark.large
 def test_model_save_load(cb_model, model_path):
     model, inference_dataframe = cb_model
     mlflow.catboost.save_model(cb_model=model, path=model_path)
