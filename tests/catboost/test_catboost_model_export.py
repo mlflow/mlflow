@@ -77,6 +77,7 @@ def custom_env(tmpdir):
     return conda_env_path
 
 
+@pytest.mark.large
 def test_model_save_load(cb_model, model_path):
     model, inference_dataframe = cb_model
     mlflow.catboost.save_model(cb_model=model, path=model_path)
@@ -92,6 +93,7 @@ def test_model_save_load(cb_model, model_path):
     )
 
 
+@pytest.mark.large
 def test_log_model_logs_model_type(cb_model, model_path):
     with mlflow.start_run():
         artifact_path = "model"
@@ -109,6 +111,7 @@ SUPPORTS_DESERIALIZATION = ["cbm", "coreml", "json", "onnx"]
 save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
 
 
+@pytest.mark.large
 @pytest.mark.parametrize("save_format", save_formats)
 def test_log_model_logs_save_format(reg_model, model_path, save_format):
     with mlflow.start_run():
