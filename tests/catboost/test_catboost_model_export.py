@@ -103,11 +103,13 @@ def test_log_model_logs_model_type(cb_model, model_path):
     assert flavor_conf["model_type"] == cb_model.model.__class__.__name__
 
 
-SUPPORTS_DESERIALIZATION = ["cbm", "coreml", "json", "onnx"]
-
-# Possible values for `format` in `save_model`:
+# Supported serialization formats:
 # https://catboost.ai/docs/concepts/python-reference_catboost_save_model.html
-@pytest.mark.parametrize("save_format", SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"])
+SUPPORTS_DESERIALIZATION = ["cbm", "coreml", "json", "onnx"]
+save_formats = SUPPORTS_DESERIALIZATION + ["python", "cpp", "pmml"]
+
+
+@pytest.mark.parametrize("save_format", save_formats)
 def test_log_model_logs_save_format(reg_model, model_path, save_format):
     with mlflow.start_run():
         artifact_path = "model"
