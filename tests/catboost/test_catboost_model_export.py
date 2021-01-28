@@ -23,7 +23,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
-Dataset = namedtuple("Dataset", ["X", "y"])
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 
@@ -31,7 +30,7 @@ def get_iris():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
     y = pd.Series(iris.target)
-    return Dataset(X=X, y=y)
+    return X, y
 
 
 def read_yaml(path):
@@ -143,8 +142,8 @@ def test_log_model_logs_save_format(reg_model, save_format):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("signature", [None, infer_signature(get_iris().X)])
-@pytest.mark.parametrize("input_example", [None, get_iris().X.head(3)])
+@pytest.mark.parametrize("signature", [None, infer_signature(get_iris()[0])])
+@pytest.mark.parametrize("input_example", [None, get_iris()[0].head(3)])
 def test_signature_and_examples_are_saved_correctly(
     reg_model, model_path, signature, input_example
 ):
@@ -253,13 +252,13 @@ def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
 @pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_model, custom_env):
     artifact_path = "model"
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=custom_env)
-        model_uri = "runs:/{}/{}".format(run.info.run_id, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    pyfunc_conf = _get_flavor_configuration(model_path=local_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_conda_env_path = os.path.join(local_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != custom_env
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
@@ -280,10 +279,11 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     reg_model,
 ):
     artifact_path = "model"
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=None)
-        model_uri = "runs:/{}/{}".format(run.info.run_id, artifact_path)
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    pyfunc_conf = _get_flavor_configuration(model_path=local_path, flavor_name=pyfunc.FLAVOR_NAME)
+    conda_env_path = os.path.join(local_path, pyfunc_conf[pyfunc.ENV])
     assert read_yaml(conda_env_path) == mlflow.catboost.get_default_conda_env()
