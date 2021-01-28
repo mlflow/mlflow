@@ -46,23 +46,50 @@ import mlflow.projects as projects  # noqa: E402
 import mlflow.tracking as tracking  # noqa: E402
 
 # model flavors
-import mlflow.fastai as fastai  # noqa: E402
-import mlflow.gluon as gluon  # noqa: E402
-import mlflow.h2o as h2o  # noqa: E402
-import mlflow.keras as keras  # noqa: E402
-import mlflow.lightgbm as lightgbm  # noqa: E402
-import mlflow.catboost as catboost  # noqa: E402
-import mlflow.mleap as mleap  # noqa: E402
-import mlflow.onnx as onnx  # noqa: E402
-import mlflow.pyfunc as pyfunc  # noqa: E402
-import mlflow.pytorch as pytorch  # noqa: E402
-import mlflow.sklearn as sklearn  # noqa: E402
-import mlflow.spacy as spacy  # noqa: E402
-import mlflow.spark as spark  # noqa: E402
-import mlflow.statsmodels as statsmodels  # noqa: E402
-import mlflow.tensorflow as tensorflow  # noqa: E402
-import mlflow.xgboost as xgboost  # noqa: E402
-import mlflow.shap as shap  # noqa: E402
+_model_flavors_supported = []
+try:
+    # pylint: disable=unused-import
+    import mlflow.catboost as catboost  # noqa: E402
+    import mlflow.fastai as fastai  # noqa: E402
+    import mlflow.gluon as gluon  # noqa: E402
+    import mlflow.h2o as h2o  # noqa: E402
+    import mlflow.keras as keras  # noqa: E402
+    import mlflow.lightgbm as lightgbm  # noqa: E402
+    import mlflow.mleap as mleap  # noqa: E402
+    import mlflow.onnx as onnx  # noqa: E402
+    import mlflow.pyfunc as pyfunc  # noqa: E402
+    import mlflow.pytorch as pytorch  # noqa: E402
+    import mlflow.sklearn as sklearn  # noqa: E402
+    import mlflow.spacy as spacy  # noqa: E402
+    import mlflow.spark as spark  # noqa: E402
+    import mlflow.statsmodels as statsmodels  # noqa: E402
+    import mlflow.tensorflow as tensorflow  # noqa: E402
+    import mlflow.xgboost as xgboost  # noqa: E402
+    import mlflow.shap as shap  # noqa: E402
+
+    _model_flavors_supported = [
+        "catboost",
+        "fastai",
+        "gluon",
+        "h2o",
+        "keras",
+        "lightgbm",
+        "mleap",
+        "onnx",
+        "pyfunc",
+        "pytorch",
+        "sklearn",
+        "spacy",
+        "spark",
+        "statsmodels",
+        "tensorflow",
+        "xgboost",
+        "shap",
+    ]
+except ImportError as e:
+    # We are conditional loading these commands since the skinny client does
+    # not support them due to the pandas and numpy dependencies of MLflow Models
+    pass
 
 
 _configure_mlflow_loggers(root_module_name=__name__)
@@ -150,22 +177,4 @@ __all__ = [
     "set_registry_uri",
     "list_run_infos",
     "autolog",
-    # model flavors
-    "catboost",
-    "fastai",
-    "gluon",
-    "h2o",
-    "keras",
-    "lightgbm",
-    "mleap",
-    "onnx",
-    "pyfunc",
-    "pytorch",
-    "sklearn",
-    "spacy",
-    "spark",
-    "statsmodels",
-    "tensorflow",
-    "xgboost",
-    "shap",
-]
+] + _model_flavors_supported
