@@ -42,7 +42,7 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_endpoint_url = os.environ.get("MLFLOW_S3_ENDPOINT_URL")
         ignore_tls = os.environ.get("MLFLOW_S3_IGNORE_TLS")
 
-        verify = True
+        verify = None
         if ignore_tls:
             verify = ignore_tls.lower() not in ["true", "yes", "1"]
 
