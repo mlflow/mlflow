@@ -34,7 +34,7 @@ def load_model(artifact_uri):
     return torch.load(model_file_path)
 
 
-def prune_and_save_model(model, model_filename, amount):
+def prune_and_save_model(model,amount):
 
     for name, module in model.named_modules():
         # prune 20% of connections in all 2D-conv layers
@@ -50,9 +50,9 @@ def prune_and_save_model(model, model_filename, amount):
             m = prune.remove(module, "weight")
             name = m.weight
 
-    torch.save(model.state_dict(), model_filename)
-    m1 = torch.load(model_filename)
-    os.remove(model_filename)
+    mlflow.pytorch.save_state_dict(model.state_dict(),".")
+    m1 = torch.load("state_dict.pth")
+    os.remove("state_dict.pth")
     return m1
 
 
@@ -79,7 +79,7 @@ def count_model_parameters(model):
 
 
 def iterative_prune(
-    model, model_filename, parametrization, trainer, dm, testloader, iteration_count
+    model, parametrization, trainer, dm, testloader, iteration_count
 ):
     global pruning_amount
     if iteration_count == 0:
@@ -88,7 +88,7 @@ def iterative_prune(
         pruning_amount += 0.15
 
     mlflow.log_metric("PRUNING PERCENTAGE", pruning_amount)
-    pruned_model = prune_and_save_model(model, model_filename, pruning_amount)
+    pruned_model = prune_and_save_model(model,pruning_amount)
     model.load_state_dict(copy.deepcopy(pruned_model))
     summary, params = count_model_parameters(model)
     tempdir = tempfile.mkdtemp()
@@ -185,11 +185,10 @@ if __name__ == "__main__":
                 mlflow.set_tags({"AX_TRIAL": k})
 
                 trainer = pl.Trainer(max_epochs=int(args.max_epochs))
-                model_filename = "alexnet_pruned_version" + str(i) + ".pt"
 
                 # calling the model
                 test_accuracy = iterative_prune(
-                    model, model_filename, parameters, trainer, dm, testloader, i
+                    model, parameters, trainer, dm, testloader, i
                 )
 
                 # completion of trial
