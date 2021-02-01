@@ -1,6 +1,6 @@
 # pylint: disable=arguments-differ
 # pylint: disable=abstract-method
-# pylint attribute-defined-outside-init
+# pylint: disable=attribute-defined-outside-init
 
 
 import pytorch_lightning as pl
