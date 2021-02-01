@@ -627,7 +627,7 @@ def test_parse_json_input_including_path(model_path):
         def predict(self, context, model_input):
             return 1
 
-    mlflow.pyfunc.log_model(path=model_path, python_model=TestModel())
+    mlflow.pyfunc.log_model(model_path, python_model=TestModel())
 
     pandas_split_content = pd.DataFrame({
         'url': ['http://foo.com', 'https://bar.com'],
