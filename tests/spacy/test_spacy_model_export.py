@@ -28,7 +28,7 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
-    nlp.add_pipe(
+    textcat = nlp.add_pipe(
         "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}, last=True
     )
 
