@@ -28,7 +28,14 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
-    textcat = nlp.add_pipe("textcat", last=True)
+    textcat = nlp.add_pipe(
+        "textcat",
+        config={
+            "@architectures": "spacy.TextCatCNN.v1",
+            "exclusive_classes": True,
+        },
+        last=True,
+    )
 
     # Training the model to recognize between computer graphics and baseball in 20newsgroups dataset
     categories = ["comp.graphics", "rec.sport.baseball"]
