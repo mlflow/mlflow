@@ -188,7 +188,7 @@ class _OnnxModelWrapper:
         if isinstance(data, dict):
             feed_dict = data
         elif isinstance(data, np.ndarray):
-            # NB: we do allow scoring with a single tensor (ndarray) in order to be compatible with
+            # NB: We do allow scoring with a single tensor (ndarray) in order to be compatible with
             # supported pyfunc inputs iff the model has a single input. The passed tensor is
             # assumed to be the first input.
             if len(self.inputs) != 1:
