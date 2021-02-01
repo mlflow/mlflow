@@ -1,6 +1,6 @@
-# pylint: disable=W0221
-# pylint: disable=W0613
-# pylint: disable=W0223
+# pylint: disable=arguments-differ
+# pylint: disable=unused-argument
+# pylint: disable=abstract-method
 
 import pytorch_lightning as pl
 import torch

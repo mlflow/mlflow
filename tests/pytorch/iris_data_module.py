@@ -1,8 +1,7 @@
-# pylint: disable=W0221
-# pylint: disable=W0201
-# pylint: disable=W0223
 # pylint: disable=arguments-differ
 # pylint: disable=abstract-method
+# pylint attribute-defined-outside-init
+
 
 import pytorch_lightning as pl
 import torch

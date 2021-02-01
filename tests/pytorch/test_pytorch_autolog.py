@@ -1,5 +1,3 @@
-# pylint: disable=E0102
-
 from distutils.version import LooseVersion
 import pytest
 import pytorch_lightning as pl
@@ -206,15 +204,6 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert "stopped_epoch" in data.params
 
 
-@pytest.mark.parametrize("patience", [3])
-def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
-    _, run = pytorch_model_with_callback
-    data = run.data
-    assert "stopped_epoch" in data.metrics
-    assert "wait_count" in data.metrics
-    assert "restored_epoch" in data.metrics
-
-
 @pytest.mark.parametrize("patience", [0, 1, 5])
 def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience):
     _, run = pytorch_model_with_callback
@@ -225,15 +214,6 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert float(data.params["patience"]) == patience
     assert "min_delta" in data.params
     assert "stopped_epoch" in data.params
-
-
-@pytest.mark.parametrize("patience", [3])
-def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
-    _, run = pytorch_model_with_callback
-    data = run.data
-    assert "stopped_epoch" in data.metrics
-    assert "wait_count" in data.metrics
-    assert "restored_epoch" in data.metrics
 
 
 @pytest.mark.parametrize("patience", [3])
