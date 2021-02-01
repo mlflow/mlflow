@@ -204,18 +204,6 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert "stopped_epoch" in data.params
 
 
-@pytest.mark.parametrize("patience", [0, 1, 5])
-def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience):
-    _, run = pytorch_model_with_callback
-    data = run.data
-    assert "monitor" in data.params
-    assert "mode" in data.params
-    assert "patience" in data.params
-    assert float(data.params["patience"]) == patience
-    assert "min_delta" in data.params
-    assert "stopped_epoch" in data.params
-
-
 @pytest.mark.parametrize("patience", [3])
 def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
     patched_metrics_data = []
