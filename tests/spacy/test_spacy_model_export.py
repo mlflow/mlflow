@@ -1,6 +1,7 @@
 import os
 import random
 from collections import namedtuple
+from distutils.version import LooseVersion
 
 import pandas as pd
 import pytest
@@ -24,18 +25,26 @@ from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = LooseVersion(spacy.__version__) >= LooseVersion(
+    "3.0.0"
+)
+
+
 @pytest.fixture(scope="module")
 def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
-    textcat = nlp.add_pipe(
-        "textcat",
-        config={
-            "@architectures": "spacy.TextCatCNN.v1",
-            "exclusive_classes": True,
-        },
-        last=True,
-    )
+    if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
+        textcat = nlp.add_pipe(
+            "textcat",
+            config={"@architectures": "spacy.TextCatCNN.v1", "exclusive_classes": True},
+            last=True,
+        )
+    else:
+        textcat = nlp.create_pipe(
+            "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}
+        )
+        nlp.add_pipe(textcat, last=True)
 
     # Training the model to recognize between computer graphics and baseball in 20newsgroups dataset
     categories = ["comp.graphics", "rec.sport.baseball"]
@@ -265,7 +274,11 @@ def test_model_log_without_pyfunc_flavor():
     nlp = spacy.blank("en")
 
     # Add a component not compatible with pyfunc
-    nlp.add_pipe("ner", last=True)
+    if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
+        nlp.add_pipe("ner", last=True)
+    else:
+        ner = nlp.create_pipe("ner")
+        nlp.add_pipe(ner, last=True)
 
     # Ensure the pyfunc flavor is not present after logging and loading the model
     with mlflow.start_run():
@@ -288,7 +301,11 @@ def _train_model(nlp, train_data, n_iter=5):
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_sizes)
         for batch in batches:
-            nlp.update(batch, sgd=optimizer, drop=0.2, losses=losses)
+            if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
+                nlp.update(batch, sgd=optimizer, drop=0.2, losses=losses)
+            else:
+                texts, annotations = zip(*batch)
+                nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
 
 
 def _get_train_test_dataset(cats_to_fetch, limit=100):
