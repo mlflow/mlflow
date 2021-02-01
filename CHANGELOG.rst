@@ -1,5 +1,32 @@
 Changelog
 =========
+1.13.2.dev0 (2021-02-01)
+------------------------
+MLflow 1.13.2.dev0 includes several major features and improvements:
+
+Features:
+
+- Saving and Loading pytorch model as state dict (#3705, @shrinath-suresh)
+- wrote functionality and added tests for delete_artifacts (#3958, @sklingel)
+- Add support for tf serving input to REST API (#3894, @wentinghu)
+- Add support for np array-based tensors for Keras, Pytorch and TF flavors (#3808, @wentinghu)
+
+Bug fixes and documentation updates:
+
+- Fix mlflow_list_experiments() (#3942, @lorenzwalthert)
+- Fix bug in scikit-learn autologging where metrics plots are computed from incorrect target values (#3993, @mtrencseni)
+- Remove log (#3978, @dbczumar)
+- fix a bug with attributes of MLflow model flavor in R (#3872, @yitao-li)
+- [ML-12132] Fix persistence of Spark models on passthrough-enabled environments (#3443, @smurching)
+- Fix UI crashes / inconsistencies related to path normalization (#3928, @dbczumar)
+- Resolve bug in mlflow.azureml.deploy (#3922, @eedeleon)
+- Forward spark autologging configs from mlflow.autolog() (#3917, @dbczumar)
+- TensorFlow autologging: Fix longstanding race condition (#3914, @dbczumar)
+- Fixes & tests (#3913, @dbczumar)
+- Include scikit-learn as a pip dependency in conda_env.yml (#3896, @harupy)
+
+Small bug fixes and doc updates (#3992, #3990, #3981, #3949, #3948, #3937, #3834, #3906, #3774, #3916, #3907, #3938, #3929, #3900, #3902, #3899, #3901, #3891, #3889, @harupy; #3836, @t-henri; #3816, @lorenzwalthert; #3740, @jkthompson; #3946, @jimmyxu-db; #3982, @neo-anderson; #4014, #4001, @dmatrix; #3939, @pauldj54; #3976, @whiteh; #4021, @trangevi; #3947, @vperiyasamy; #3972, #3687, @eedeleon; #3957, @dbczumar; #3918, @danielfrg)
+
 1.13.1 (2020-12-30)
 -----------------
 MLflow 1.13.1 is a patch release containing bug fixes and small changes:
