@@ -281,8 +281,7 @@ def _train_model(nlp, train_data, n_iter=5):
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_sizes)
         for batch in batches:
-            texts, annotations = zip(*batch)
-            nlp.update(texts, annotations, sgd=optimizer, drop=0.2, losses=losses)
+            nlp.update(batch, sgd=optimizer, drop=0.2, losses=losses)
 
 
 def _get_train_test_dataset(cats_to_fetch, limit=100):
