@@ -16,8 +16,7 @@ if __name__ == "__main__":
 
     # create blank model and add ner to the pipeline
     nlp = spacy.blank("en")
-    ner = nlp.create_pipe("ner")
-    nlp.add_pipe(ner, last=True)
+    nlp.add_pipe("ner", last=True)
 
     # add labels
     for _, annotations in TRAIN_DATA:

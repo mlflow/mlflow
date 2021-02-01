@@ -28,10 +28,9 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
-    textcat = nlp.create_pipe(
-        "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}, validate=False,
+    nlp.add_pipe(
+        "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}, last=True
     )
-    nlp.add_pipe(textcat, last=True)
 
     # Training the model to recognize between computer graphics and baseball in 20newsgroups dataset
     categories = ["comp.graphics", "rec.sport.baseball"]
@@ -261,8 +260,7 @@ def test_model_log_without_pyfunc_flavor():
     nlp = spacy.blank("en")
 
     # Add a component not compatible with pyfunc
-    ner = nlp.create_pipe("ner")
-    nlp.add_pipe(ner, last=True)
+    nlp.add_pipe("ner", last=True)
 
     # Ensure the pyfunc flavor is not present after logging and loading the model
     with mlflow.start_run():
