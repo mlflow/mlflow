@@ -6,6 +6,9 @@ from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,
 )
 
+_logger = logging.getLogger(__name__)
+
+
 class RequestHeaderProviderRegistry(object):
     def __init__(self):
         self._registry = []
@@ -30,6 +33,8 @@ class RequestHeaderProviderRegistry(object):
 
 _request_header_provider_registry = RequestHeaderProviderRegistry()
 _request_header_provider_registry.register(DatabricksRequestHeaderProvider)
+
+_request_header_provider_registry.register_entrypoints()
 
 def resolve_request_headers(request_headers=None):
     """Generate a set of request headers from registered providers. Request headers are resolved in the order that
