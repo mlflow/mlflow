@@ -11,6 +11,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.tracking.request_header.registry import resolve_request_headers
 
 _REST_API_PATH_PREFIX = "/api/2.0"
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
@@ -42,7 +43,7 @@ def http_request(
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
 
-    headers = dict(_DEFAULT_HEADERS)
+    headers = dict(_DEFAULT_HEADERS, resolve_request_headers())
     if auth_str:
         headers["Authorization"] = auth_str
 
