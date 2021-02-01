@@ -1,6 +1,7 @@
 from distutils.version import LooseVersion
 import os
 
+import numpy as np
 import pandas as pd
 import yaml
 
@@ -76,7 +77,7 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
-    def predict(self, df):
+    def predict(self, data):
         """
         :param df: A Pandas DataFrame containing input array values. A DataFrame input,
                    `df` is converted to an MXNet ndarray via `ndarray = mx.nd.array(df.values)`.
@@ -85,8 +86,14 @@ class _GluonModelWrapper:
         """
         import mxnet as mx
 
-        ndarray = mx.nd.array(df.values)
-        return pd.DataFrame(self.gluon_model(ndarray).asnumpy())
+        if isinstance(data, pd.DataFrame):
+            ndarray = mx.nd.array(data.values)
+            return pd.DataFrame(self.gluon_model(ndarray).asnumpy())
+        elif isinstance(data, np.ndarray):
+            ndarray = mx.nd.array(data)
+            return self.gluon_model(ndarray).asnumpy()
+        else:
+            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
 
 
 def _load_pyfunc(path):

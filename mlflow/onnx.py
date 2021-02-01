@@ -160,17 +160,18 @@ class _OnnxModelWrapper:
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
         self.output_names = [outp.name for outp in self.rt.get_outputs()]
 
-    @staticmethod
-    def _cast_float64_to_float32(dataframe, column_names):
-        for input_name in column_names:
-            if dataframe[input_name].values.dtype == np.float64:
-                dataframe[input_name] = dataframe[input_name].values.astype(np.float32)
-        return dataframe
+    def _cast_float64_to_float32(self, feeds):
+        for input_name, input_type in self.inputs:
+            if input_type == "tensor(float)":
+                feed = feeds.get(input_name)
+                if feed is not None and feed.dtype == np.float64:
+                    feeds[input_name] = feed.astype(np.float32)
+        return feeds
 
     @experimental
-    def predict(self, dataframe):
+    def predict(self, data):
         """
-        :param dataframe: A Pandas DataFrame that is converted to a collection of ONNX Runtime
+        :param data: A Pandas DataFrame that is converted to a collection of ONNX Runtime
                           inputs. If the underlying ONNX model only defines a *single* input
                           tensor, the DataFrame's values are converted to a NumPy array
                           representation using the `DataFrame.values()
@@ -184,34 +185,47 @@ class _OnnxModelWrapper:
         :return: A Pandas DataFrame output. Each column of the DataFrame corresponds to an
                  output tensor produced by the underlying ONNX model.
         """
+        if isinstance(data, dict):
+            feed_dict = data
+        elif isinstance(data, np.ndarray):
+            # NB: we do allow scoring with a single tensor (ndarray) in order to be compatible with
+            # supported pyfunc inputs. The passed tensor is assumed to bethe first input.
+            feed_dict = {self.inputs[0][0]: data}
+        elif isinstance(data, pd.DataFrame):
+            if len(self.inputs) > 1:
+                feed_dict = {name: data[name].values for (name, _) in self.inputs}
+            else:
+                feed_dict = {self.inputs[0][0]: data.values}
+
+        else:
+            raise TypeError(
+                "Input should be a dictionary or a numpy array or a pandas.DataFrame, "
+                "got '{}'".format(type(data))
+            )
+
         # ONNXRuntime throws the following exception for some operators when the input
-        # dataframe contains float64 values. Unfortunately, even if the original user-supplied
-        # dataframe did not contain float64 values, the serialization/deserialization between the
+        # contains float64 values. Unfortunately, even if the original user-supplied input
+        # did not contain float64 values, the serialization/deserialization between the
         # client and the scoring server can introduce 64-bit floats. This is being tracked in
         # https://github.com/mlflow/mlflow/issues/1286. Meanwhile, we explicitly cast the input to
         # 32-bit floats when needed. TODO: Remove explicit casting when issue #1286 is fixed.
-        if len(self.inputs) > 1:
-            cols = [name for (name, type) in self.inputs if type == "tensor(float)"]
-        else:
-            cols = dataframe.columns if self.inputs[0][1] == "tensor(float)" else []
-
-        dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
-        if len(self.inputs) > 1:
-            feed_dict = {name: dataframe[name].values for (name, _) in self.inputs}
-        else:
-            feed_dict = {self.inputs[0][0]: dataframe.values}
+        feed_dict = self._cast_float64_to_float32(feed_dict)
         predicted = self.rt.run(self.output_names, feed_dict)
 
-        def format_output(data):
-            # Output can be list and it should be converted to a numpy array
-            # https://github.com/mlflow/mlflow/issues/2499
-            data = np.asarray(data)
-            return data.reshape(-1)
+        if isinstance(data, pd.DataFrame):
 
-        response = pd.DataFrame.from_dict(
-            {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
-        )
-        return response
+            def format_output(data):
+                # Output can be list and it should be converted to a numpy array
+                # https://github.com/mlflow/mlflow/issues/2499
+                data = np.asarray(data)
+                return data.reshape(-1)
+
+            response = pd.DataFrame.from_dict(
+                {c: format_output(p) for (c, p) in zip(self.output_names, predicted)}
+            )
+            return response
+        else:
+            return dict(zip(self.output_names, predicted))
 
 
 def _load_pyfunc(path):

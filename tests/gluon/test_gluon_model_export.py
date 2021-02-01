@@ -99,6 +99,9 @@ def test_model_save_load(gluon_model, model_data, model_path):
     test_pyfunc_data = pd.DataFrame(test_data.asnumpy())
     pyfunc_preds = pyfunc_loaded.predict(test_pyfunc_data)
     assert all(np.argmax(pyfunc_preds.values, axis=1) == expected.asnumpy())
+    # test with numpy array input
+    pyfunc_preds = pyfunc_loaded.predict(test_pyfunc_data.values)
+    assert all(np.argmax(pyfunc_preds, axis=1) == expected.asnumpy())
 
 
 @pytest.mark.large
