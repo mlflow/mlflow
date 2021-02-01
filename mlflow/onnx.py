@@ -189,7 +189,19 @@ class _OnnxModelWrapper:
             feed_dict = data
         elif isinstance(data, np.ndarray):
             # NB: we do allow scoring with a single tensor (ndarray) in order to be compatible with
-            # supported pyfunc inputs. The passed tensor is assumed to bethe first input.
+            # supported pyfunc inputs iff the model has a single input. The passed tensor is
+            # assumed to be the first input.
+            if len(self.inputs) != 1:
+                inputs = [x[0] for x in self.inputs]
+                raise MlflowException(
+                    f"Unable to map numpy array input to the expected model "
+                    f"input. "
+                    f"Numpy arrays can only be used as input for MLflow ONNX "
+                    f"models that have a single input. This model requires "
+                    f"{len(self.inputs)} inputs. Please pass in data as either a "
+                    f"dictionary or a DataFrame with the following tensors"
+                    f"(columns): {inputs}."
+                )
             feed_dict = {self.inputs[0][0]: data}
         elif isinstance(data, pd.DataFrame):
             if len(self.inputs) > 1:

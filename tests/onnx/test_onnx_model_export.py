@@ -16,6 +16,7 @@ import yaml
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
@@ -457,13 +458,17 @@ def test_model_save_evaluate_pyfunc_format_multi_tensor(multi_tensor_onnx_model,
         data, _ = data
         # get prediction
         feeds = {
-            "sepal_features": data[data.columns[:2]].values.astype(np.float32),
+            "sepal_features": data[data.columns[:2]].values,
             "petal_features": data[data.columns[2:4]].values.astype(np.float32),
         }
         preds = pyfunc_loaded.predict(feeds)["target"].flatten()
         assert np.allclose(
             preds, multi_tensor_model_prediction, rtol=1e-05, atol=1e-05
         )
+        # single numpy array input should fail with the right error message:
+        with pytest.raises(MlflowException, match="Unable to map numpy array input to the expected model "
+                                                  "input."):
+            pyfunc_loaded.predict(data.values)
 
 
 @pytest.mark.large
