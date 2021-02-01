@@ -29,7 +29,7 @@ def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
     textcat = nlp.create_pipe(
-        "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}
+        "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}, validate=False,
     )
     nlp.add_pipe(textcat, last=True)
 
