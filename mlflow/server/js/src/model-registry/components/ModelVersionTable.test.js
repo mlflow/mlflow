@@ -1,9 +1,10 @@
 import React from 'react';
-import { shallow } from 'enzyme';
+import { shallow, mount } from 'enzyme';
 import { ModelVersionTable } from './ModelVersionTable';
 import { mockModelVersionDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Table } from 'antd';
+import { RegisteringModelDocUrl } from '../../common/constants';
 
 describe('ModelVersionTable', () => {
   let wrapper;
@@ -20,6 +21,11 @@ describe('ModelVersionTable', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<ModelVersionTable {...minimalProps} />);
     expect(wrapper.length).toBe(1);
+  });
+
+  test('should render correct empty text', () => {
+    wrapper = mount(<ModelVersionTable {...minimalProps} />);
+    expect(wrapper.find(`a[href="${RegisteringModelDocUrl}"]`)).toHaveLength(1);
   });
 
   test('should render active versions when activeStageOnly is true', () => {

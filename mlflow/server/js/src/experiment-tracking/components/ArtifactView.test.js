@@ -301,6 +301,55 @@ describe('ArtifactView', () => {
     expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
   });
 
+  /**
+   * A model version's source may be semantically equivalent to a run artifact path
+   * but syntactically distinct; this occurs when there are redundant or trailing
+   * slashes present in the version source or run artifact path. This test verifies that,
+   * in these cases, model version information is still displayed correctly for a run artifact.
+   */
+  test('should render model version link for semantically equivalent artifact paths', () => {
+    expect(Utils.isModelRegistryEnabled()).toEqual(true);
+
+    // Construct a model version source that is semantically equivalent to a run artifact path
+    // but syntactically different because it contains extra slashes. We expect that the UI
+    // should still render the version source for this artifact
+    const modelVersionSource = 'test_root////dir2///';
+
+    const modelVersionsBySource = {
+      modelVersionSource: [
+        mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
+      ],
+    };
+    const props = { ...minimalProps, modelVersionsBySource };
+    const entities = {
+      ...minimalEntities,
+      modelVersionsByModel: {
+        'Model A': {
+          '1': {
+            ...mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
+            source: modelVersionSource,
+          },
+        },
+      },
+    };
+    const store = mockStore({
+      entities: entities,
+    });
+    wrapper = mount(
+      <Provider store={store}>
+        <BrowserRouter>
+          <ArtifactView {...props} />
+        </BrowserRouter>
+      </Provider>,
+    );
+    const dir2Element = wrapper.find('NodeHeader').at(2);
+    dir2Element.simulate('click');
+    expect(wrapper.find('.artifact-info-path').html()).toContain('test_root/dir2');
+    expect(wrapper.find('.model-version-info')).toHaveLength(1);
+    expect(wrapper.find('.model-version-link')).toHaveLength(1);
+    expect(wrapper.find('.model-version-link').props().title).toEqual('Model A, v1');
+  });
+
   test('should not render model version link for file under valid model version directory', () => {
     expect(Utils.isModelRegistryEnabled()).toEqual(true);
 

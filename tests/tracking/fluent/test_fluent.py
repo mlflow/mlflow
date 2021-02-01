@@ -1,11 +1,12 @@
+from collections import defaultdict
 from importlib import reload
+
 import os
 import random
 import uuid
 import inspect
+import time
 
-import numpy as np
-import pandas as pd
 import pytest
 from unittest import mock
 
@@ -107,6 +108,13 @@ def reset_experiment_id():
 def reload_context_registry():
     """Reload the context registry module to clear caches."""
     reload(mlflow.tracking.context.registry)
+
+
+@pytest.fixture(params=["list", "pandas"])
+def search_runs_output_format(request):
+    if "MLFLOW_SKINNY" in os.environ and request.param == "pandas":
+        pytest.skip("pandas output_format is not supported with skinny client")
+    return request.param
 
 
 def test_all_fluent_apis_are_included_in_dunder_all():
@@ -340,6 +348,55 @@ def test_start_run_defaults_databricks_notebook(
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
 
+@pytest.mark.usefixtures(empty_active_run_stack.__name__)
+def test_start_run_with_user_specified_tags():
+
+    mock_experiment_id = mock.Mock()
+    experiment_id_patch = mock.patch(
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+    )
+    databricks_notebook_patch = mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
+    )
+    mock_user = mock.Mock()
+    user_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
+    )
+    mock_source_name = mock.Mock()
+    source_name_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
+    )
+    source_type_patch = mock.patch(
+        "mlflow.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
+    )
+    mock_source_version = mock.Mock()
+    source_version_patch = mock.patch(
+        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
+    )
+    user_specified_tags = {
+        "ml_task": "regression",
+        "num_layers": 7,
+        mlflow_tags.MLFLOW_USER: "user_override",
+    }
+    expected_tags = {
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
+        mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
+        mlflow_tags.MLFLOW_USER: "user_override",
+        "ml_task": "regression",
+        "num_layers": 7,
+    }
+
+    create_run_patch = mock.patch.object(MlflowClient, "create_run")
+
+    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, source_type_patch, source_version_patch, create_run_patch:  # noqa
+        active_run = start_run(tags=user_specified_tags)
+        MlflowClient.create_run.assert_called_once_with(
+            experiment_id=mock_experiment_id, tags=expected_tags
+        )
+        assert is_from_run(active_run, MlflowClient.create_run.return_value)
+
+
 def test_start_run_with_parent():
 
     parent_run = mock.Mock()
@@ -470,26 +527,87 @@ def test_get_run():
         assert run.info.user_id == "my_user_id"
 
 
-def test_search_runs_attributes():
+def validate_search_runs(results, data, output_format):
+    if output_format == "list":
+        result_data = defaultdict(list)
+        for run in results:
+            result_data["status"].append(run.info.status)
+            result_data["artifact_uri"].append(run.info.artifact_uri)
+            result_data["experiment_id"].append(run.info.experiment_id)
+            result_data["run_id"].append(run.info.run_id)
+            result_data["start_time"].append(run.info.start_time)
+            result_data["end_time"].append(run.info.end_time)
+
+        assert result_data == data
+    elif output_format == "pandas":
+        import pandas as pd
+
+        expected_df = pd.DataFrame(data)
+        pd.testing.assert_frame_equal(results, expected_df, check_like=True, check_frame_type=False)
+    else:
+        raise Exception("Invalid output format %s" % output_format)
+
+
+def get_search_runs_timestamp(output_format):
+    if output_format == "list":
+        return time.time()
+    elif output_format == "pandas":
+        import pandas as pd
+
+        return pd.to_datetime(0, utc=True)
+    else:
+        raise Exception("Invalid output format %s" % output_format)
+
+
+def test_search_runs_attributes(search_runs_output_format):
+    start_times = [
+        get_search_runs_timestamp(search_runs_output_format),
+        get_search_runs_timestamp(search_runs_output_format),
+    ]
+    end_times = [
+        get_search_runs_timestamp(search_runs_output_format),
+        get_search_runs_timestamp(search_runs_output_format),
+    ]
+
     runs = [
-        create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id="abc", exp_id="123"),
-        create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id="def", exp_id="321"),
+        create_run(
+            status=RunStatus.FINISHED,
+            a_uri="dbfs:/test",
+            run_id="abc",
+            exp_id="123",
+            start=start_times[0],
+            end=end_times[0],
+        ),
+        create_run(
+            status=RunStatus.SCHEDULED,
+            a_uri="dbfs:/test2",
+            run_id="def",
+            exp_id="321",
+            start=start_times[1],
+            end=end_times[1],
+        ),
     ]
     with mock.patch("mlflow.tracking.fluent._paginate", return_value=runs):
-        pdf = search_runs()
+        pdf = search_runs(output_format=search_runs_output_format)
         data = {
             "status": [RunStatus.FINISHED, RunStatus.SCHEDULED],
             "artifact_uri": ["dbfs:/test", "dbfs:/test2"],
             "run_id": ["abc", "def"],
             "experiment_id": ["123", "321"],
-            "start_time": [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
-            "end_time": [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+            "start_time": start_times,
+            "end_time": end_times,
         }
-        expected_df = pd.DataFrame(data)
-        pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
+        validate_search_runs(pdf, data, search_runs_output_format)
 
 
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
 def test_search_runs_data():
+    import numpy as np
+    import pandas as pd
+
     runs = [
         create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],
@@ -529,11 +647,10 @@ def test_search_runs_data():
                 pd.to_datetime(1564783200000, unit="ms", utc=True),
             ],
         }
-        expected_df = pd.DataFrame(data)
-        pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
+        validate_search_runs(pdf, data, "pandas")
 
 
-def test_search_runs_no_arguments():
+def test_search_runs_no_arguments(search_runs_output_format):
     """
     When no experiment ID is specified, it should try to get the implicit one.
     """
@@ -543,7 +660,7 @@ def test_search_runs_no_arguments():
     )
     get_paginated_runs_patch = mock.patch("mlflow.tracking.fluent._paginate", return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
-        search_runs()
+        search_runs(output_format=search_runs_output_format)
         mlflow.tracking.fluent._paginate.assert_called_once()
         mlflow.tracking.fluent._get_experiment_id.assert_called_once()
 

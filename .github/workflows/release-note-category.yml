@@ -1,0 +1,27 @@
+# A workflow to validate at least one release-note category is selected
+
+name: Release-note category
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Validate
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // https://github.com/actions/github-script#run-a-separate-file
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/release-note-category.js`
+            );
+            script({ core, context });

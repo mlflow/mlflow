@@ -8,8 +8,6 @@ import atexit
 import time
 import logging
 import inspect
-import numpy as np
-import pandas as pd
 
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -19,24 +17,12 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
+from mlflow.utils.autologging_utils import _is_testing, autologging_integration
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
-
-from mlflow import (
-    tensorflow,
-    keras,
-    gluon,
-    xgboost,
-    lightgbm,
-    statsmodels,
-    spark,
-    sklearn,
-    fastai,
-    pytorch,
-)
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -111,7 +97,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return exc_type is None
 
 
-def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
+def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags=None):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -138,7 +124,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                           or the default experiment as defined by the tracking server.
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
-    :param nested: Controls whether run is nested in parent run. ``True`` creates a nest run.
+    :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
+    :param tags: An optional dictionary of string keys and values to set as tags on the new run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -224,7 +211,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
-        user_specified_tags = {}
+        user_specified_tags = tags or {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if run_name is not None:
@@ -644,7 +631,6 @@ def log_figure(figure, artifact_file):
     .. _plotly.graph_objects.Figure:
         https://plotly.com/python-api-reference/generated/plotly.graph_objects.Figure.html
 
-    :param run_id: String ID of the run.
     :param figure: Figure to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the figure is saved (e.g. "dir/file.png").
@@ -710,7 +696,6 @@ def log_image(image, artifact_file):
             - H x W x 3 (an RGB channel order is assumed)
             - H x W x 4 (an RGBA channel order is assumed)
 
-    :param run_id: String ID of the run.
     :param image: Image to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
                           the image is saved (e.g. "dir/image.png").
@@ -955,6 +940,7 @@ def search_runs(
     run_view_type=ViewType.ACTIVE_ONLY,
     max_results=SEARCH_MAX_RESULTS_PANDAS,
     order_by=None,
+    output_format="pandas",
 ):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
@@ -968,11 +954,16 @@ def search_runs(
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+    :param output_format: The output format to be returned. If ``pandas``, a ``pandas.DataFrame``
+                          is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
+                          is returned.
 
-    :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
-        are expanded into their own columns named metrics.*, params.*, and tags.*
-        respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be (NumPy) Nan, None, or None respectively.
+    :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
+             output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
+             parameter, and tag is expanded into its own column named metrics.*, params.*, or
+             tags.* respectively. For runs that don't have a particular metric, parameter, or tag,
+             the value for the corresponding column is (NumPy) ``Nan``, ``None``, or ``None``
+             respectively.
 
     .. code-block:: python
         :caption: Example
@@ -1016,74 +1007,85 @@ def search_runs(
     # full thing is a mess
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_runs(
-            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token
+            experiment_ids, filter_string, run_view_type, number_to_get, order_by, next_page_token,
         )
 
     runs = _paginate(pagination_wrapper_func, NUM_RUNS_PER_PAGE_PANDAS, max_results)
 
-    info = {
-        "run_id": [],
-        "experiment_id": [],
-        "status": [],
-        "artifact_uri": [],
-        "start_time": [],
-        "end_time": [],
-    }
-    params, metrics, tags = ({}, {}, {})
-    PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
-    for i, run in enumerate(runs):
-        info["run_id"].append(run.info.run_id)
-        info["experiment_id"].append(run.info.experiment_id)
-        info["status"].append(run.info.status)
-        info["artifact_uri"].append(run.info.artifact_uri)
-        info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
-        info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
+    if output_format == "list":
+        return runs  # List[mlflow.entities.run.Run]
+    elif output_format == "pandas":
+        import numpy as np
+        import pandas as pd
 
-        # Params
-        param_keys = set(params.keys())
-        for key in param_keys:
-            if key in run.data.params:
-                params[key].append(run.data.params[key])
-            else:
-                params[key].append(PARAM_NULL)
-        new_params = set(run.data.params.keys()) - param_keys
-        for p in new_params:
-            params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
-            params[p].append(run.data.params[p])
+        info = {
+            "run_id": [],
+            "experiment_id": [],
+            "status": [],
+            "artifact_uri": [],
+            "start_time": [],
+            "end_time": [],
+        }
+        params, metrics, tags = ({}, {}, {})
+        PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+        for i, run in enumerate(runs):
+            info["run_id"].append(run.info.run_id)
+            info["experiment_id"].append(run.info.experiment_id)
+            info["status"].append(run.info.status)
+            info["artifact_uri"].append(run.info.artifact_uri)
+            info["start_time"].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+            info["end_time"].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
 
-        # Metrics
-        metric_keys = set(metrics.keys())
-        for key in metric_keys:
-            if key in run.data.metrics:
-                metrics[key].append(run.data.metrics[key])
-            else:
-                metrics[key].append(METRIC_NULL)
-        new_metrics = set(run.data.metrics.keys()) - metric_keys
-        for m in new_metrics:
-            metrics[m] = [METRIC_NULL] * i
-            metrics[m].append(run.data.metrics[m])
+            # Params
+            param_keys = set(params.keys())
+            for key in param_keys:
+                if key in run.data.params:
+                    params[key].append(run.data.params[key])
+                else:
+                    params[key].append(PARAM_NULL)
+            new_params = set(run.data.params.keys()) - param_keys
+            for p in new_params:
+                params[p] = [PARAM_NULL] * i  # Fill in null values for all previous runs
+                params[p].append(run.data.params[p])
 
-        # Tags
-        tag_keys = set(tags.keys())
-        for key in tag_keys:
-            if key in run.data.tags:
-                tags[key].append(run.data.tags[key])
-            else:
-                tags[key].append(TAG_NULL)
-        new_tags = set(run.data.tags.keys()) - tag_keys
-        for t in new_tags:
-            tags[t] = [TAG_NULL] * i
-            tags[t].append(run.data.tags[t])
+            # Metrics
+            metric_keys = set(metrics.keys())
+            for key in metric_keys:
+                if key in run.data.metrics:
+                    metrics[key].append(run.data.metrics[key])
+                else:
+                    metrics[key].append(METRIC_NULL)
+            new_metrics = set(run.data.metrics.keys()) - metric_keys
+            for m in new_metrics:
+                metrics[m] = [METRIC_NULL] * i
+                metrics[m].append(run.data.metrics[m])
 
-    data = {}
-    data.update(info)
-    for key in metrics:
-        data["metrics." + key] = metrics[key]
-    for key in params:
-        data["params." + key] = params[key]
-    for key in tags:
-        data["tags." + key] = tags[key]
-    return pd.DataFrame(data)
+            # Tags
+            tag_keys = set(tags.keys())
+            for key in tag_keys:
+                if key in run.data.tags:
+                    tags[key].append(run.data.tags[key])
+                else:
+                    tags[key].append(TAG_NULL)
+            new_tags = set(run.data.tags.keys()) - tag_keys
+            for t in new_tags:
+                tags[t] = [TAG_NULL] * i
+                tags[t].append(run.data.tags[t])
+
+        data = {}
+        data.update(info)
+        for key in metrics:
+            data["metrics." + key] = metrics[key]
+        for key in params:
+            data["params." + key] = params[key]
+        for key in tags:
+            data["tags." + key] = tags[key]
+        return pd.DataFrame(data)
+    else:
+        raise ValueError(
+            "Unsupported output format: %s. Supported string values are 'pandas' or 'list'"
+            % output_format
+        )
 
 
 def list_run_infos(
@@ -1211,11 +1213,16 @@ def _get_experiment_id():
     ) or deprecated_default_exp_id
 
 
+@autologging_integration("mlflow")
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
 ):  # pylint: disable=unused-argument
     """
-    Enable autologging for all supported integrations.
+    Enables (or disables) and configures autologging for all supported integrations.
 
     The parameters are passed to any autologging integrations that support them.
 
@@ -1237,6 +1244,11 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
+                    enables all supported autologging integrations.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
 
     .. code-block:: python
         :caption: Example
@@ -1285,6 +1297,19 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
     """
+    from mlflow import (
+        tensorflow,
+        keras,
+        gluon,
+        xgboost,
+        lightgbm,
+        statsmodels,
+        spark,
+        sklearn,
+        fastai,
+        pytorch,
+    )
+
     locals_copy = locals().items()
 
     # Mapping of library module name to specific autolog function
@@ -1304,21 +1329,30 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
-    def setup_autologging(module):
-        autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+    def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
-            filtered = {k: v for k, v in locals_copy if k in needed_params}
-        except ValueError:
-            filtered = {}
+            return {k: v for k, v in locals_copy if k in needed_params}
+        except Exception:
+            return {}
 
+    def setup_autologging(module):
         try:
-            autolog_fn(**filtered)
+            autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+            autologging_params = get_autologging_params(autolog_fn)
+            autolog_fn(**autologging_params)
             _logger.info("Autologging successfully enabled for %s.", module.__name__)
-        except Exception as e:  # pylint: disable=broad-except
-            _logger.warning(
-                "Exception raised while enabling autologging for %s: %s", module.__name__, str(e)
-            )
+        except Exception as e:
+            if _is_testing():
+                # Raise unexpected exceptions in test mode in order to detect
+                # errors within dependent autologging integrations
+                raise
+            else:
+                _logger.warning(
+                    "Exception raised while enabling autologging for %s: %s",
+                    module.__name__,
+                    str(e),
+                )
 
     # for each autolog library (except pyspark), register a post-import hook.
     # this way, we do not send any errors to the user until we know they are using the library.
@@ -1330,11 +1364,17 @@ def autolog(
     # this is because on Databricks a SparkSession already exists and the user can directly
     #   interact with it, and this activity should be logged.
     try:
-        spark.autolog()
+        autologging_params = get_autologging_params(spark.autolog)
+        spark.autolog(**autologging_params)
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle
         #   of their session so we want to enable autologging once they do
         if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
-    except Exception as e:  # pylint: disable=broad-except
-        _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))
+    except Exception as e:
+        if _is_testing():
+            # Raise unexpected exceptions in test mode in order to detect
+            # errors within dependent autologging integrations
+            raise
+        else:
+            _logger.warning("Exception raised while enabling autologging for spark: %s", str(e))

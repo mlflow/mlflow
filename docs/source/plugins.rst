@@ -303,6 +303,7 @@ for usage instructions and examples.
 
 - `mlflow-redisai <https://github.com/RedisAI/mlflow-redisai>`_
 - `mlflow-torchserve <https://github.com/mlflow/mlflow-torchserve>`_
+- `mlflow-algorithmia <https://github.com/algorithmiaio/mlflow-algorithmia>`_
 
 
 Project Backend Plugins

@@ -63,13 +63,24 @@ def _validate_metric_name(name):
         )
 
 
+def _is_numeric(value):
+    """
+    Returns True if the passed-in value is numeric.
+    """
+    # Note that `isinstance(bool_value, numbers.Number)` returns `True` because `bool` is a
+    # subclass of `int`.
+    return not isinstance(value, bool) and isinstance(value, numbers.Number)
+
+
 def _validate_metric(key, value, timestamp, step):
     """
     Check that a param with the specified key, value, timestamp is valid and raise an exception if
     it isn't.
     """
     _validate_metric_name(key)
-    if not isinstance(value, numbers.Number):
+    # value must be a Number
+    # since bool is an instance of Number check for bool additionally
+    if not _is_numeric(value):
         raise MlflowException(
             "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
             "double (64-bit floating point)" % (value, key, timestamp),

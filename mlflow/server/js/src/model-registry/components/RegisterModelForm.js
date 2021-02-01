@@ -22,6 +22,7 @@ class RegisterModelFormComponent extends React.Component {
   static propTypes = {
     form: PropTypes.object.isRequired,
     modelByName: PropTypes.object,
+    onSearchRegisteredModels: PropTypes.func.isRequired,
   };
 
   state = {
@@ -66,6 +67,7 @@ class RegisterModelFormComponent extends React.Component {
               onChange={this.handleModelSelectChange}
               placeholder='Select a model'
               filterOption={this.handleFilterOption}
+              onSearch={this.props.onSearchRegisteredModels}
               showSearch
             >
               <Option value={CREATE_NEW_MODEL_OPTION_VALUE} className='create-new-model-option'>

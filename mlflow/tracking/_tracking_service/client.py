@@ -7,7 +7,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 import time
 import os
 
-from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.validation import (
@@ -246,6 +245,8 @@ class TrackingServiceClient(object):
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
     def _record_logged_model(self, run_id, mlflow_model):
+        from mlflow.models import Model
+
         if not isinstance(mlflow_model, Model):
             raise TypeError(
                 "Argument 'mlflow_model' should be of type mlflow.models.Model but was "

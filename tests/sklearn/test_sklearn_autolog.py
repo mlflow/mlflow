@@ -2,7 +2,6 @@ import functools
 import inspect
 from unittest import mock
 import os
-import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -25,14 +24,15 @@ from mlflow.sklearn.utils import (
     _get_arg_names,
     _truncate_dict,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
 )
+
+from tests.autologging.fixtures import test_mode_off
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -105,33 +105,6 @@ def assert_predict_equal(left, right, X):
 @pytest.fixture(params=FIT_FUNC_NAMES)
 def fit_func_name(request):
     return request.param
-
-
-@pytest.fixture(autouse=True, scope="function")
-def force_try_mlflow_log_to_fail(request):
-    # autolog contains multiple `try_mlflow_log`. They unexpectedly allow tests that
-    # should fail to pass (without us noticing). To prevent that, temporarily turns
-    # warnings emitted by `try_mlflow_log` into errors.
-    if "disable_force_try_mlflow_log_to_fail" in request.keywords:
-        yield
-    else:
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                "error", message=r"^Logging to MLflow failed", category=UserWarning,
-            )
-            yield
-
-
-@pytest.mark.xfail(strict=True, raises=UserWarning)
-def test_force_try_mlflow_log_to_fail():
-    with mlflow.start_run():
-        try_mlflow_log(lambda: 1 / 0)
-
-
-@pytest.mark.disable_force_try_mlflow_log_to_fail
-def test_no_force_try_mlflow_log_to_fail():
-    with mlflow.start_run():
-        try_mlflow_log(lambda: 1 / 0)
 
 
 def test_autolog_preserves_original_function_attributes():
@@ -661,6 +634,8 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
     refitted, while during the metric logging what ".predict()" expects is a fitted model.
     Thus, a warning will be logged.
     """
+    from sklearn.exceptions import NotFittedError
+
     mlflow.sklearn.autolog()
 
     metrics_size = 2
@@ -669,22 +644,28 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         for i in range(metrics_size)
     }
 
-    @functools.wraps(sklearn.model_selection.GridSearchCV.predict)
-    def throwing_predict():  # pylint: disable=unused-argument
-        raise Exception("EXCEPTION")
-
-    with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
-    ) as mock_warning, mock.patch(
-        "sklearn.model_selection.GridSearchCV.predict", side_effect=throwing_predict
-    ):
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         svc = sklearn.svm.SVC()
         cv_model = sklearn.model_selection.GridSearchCV(
             svc, {"C": [1]}, n_jobs=1, scoring=metrics_to_log, refit=False
         )
         cv_model.fit(*get_iris())
-        # Will be called twice, once for metrics, once for artifacts
-        assert mock_warning.call_count == 2
+
+        # Ensure `cv_model.predict` fails with `NotFittedError`
+        msg = (
+            "This GridSearchCV instance was initialized with refit=False. "
+            "predict is available only after refitting on the best parameters"
+        )
+        with pytest.raises(NotFittedError, match=msg):
+            cv_model.predict([[0, 0, 0, 0]])
+
+        # Count how many times `mock_warning` has been called on not-fitted `predict` failure
+        call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
+        # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
+        # `mock_warning` should have been called twice, once for metrics, once for artifacts.
+        # Otherwise, only once for metrics.
+        call_count_expected = 2 if mlflow.sklearn.utils._is_plotting_supported() else 1
+        assert call_count == call_count_expected
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
@@ -818,6 +799,7 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
         _, child_metrics, child_tags, _ = get_run_data(child_run.info.run_id)
         assert child_tags == get_expected_class_tags(svc)
+        assert child_run.data.tags.get(MLFLOW_AUTOLOGGING) == mlflow.sklearn.FLAVOR_NAME
         assert "mean_test_score" in child_metrics.keys()
         assert "std_test_score" in child_metrics.keys()
         # Ensure that we do not capture separate metrics for each cross validation split, which
@@ -852,7 +834,7 @@ def test_parameter_search_handles_large_volume_of_metric_outputs():
     assert len(child_run.data.metrics) >= metrics_size
 
 
-@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(
     "failing_specialization",
     [
@@ -871,7 +853,7 @@ def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_spec
         mock_func.assert_called_once()
 
 
-@pytest.mark.disable_force_try_mlflow_log_to_fail
+@pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(
     "func_to_fail",
     ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
@@ -907,7 +889,26 @@ def test_autolog_logs_signature_and_input_example(data_type):
     pyfunc_model = mlflow.pyfunc.load_model(model_path)
 
     assert model_conf.signature == infer_signature(X, model.predict(X[:5]))
-    np.testing.assert_array_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
+
+    # On GitHub Actions, `pyfunc_model.predict` and `model.predict` sometimes return
+    # slightly different results:
+    #
+    # >>> pyfunc_model.predict(input_example)
+    # [[0.171504346208176  ]
+    #  [0.34346150441640155]  <- diff
+    #  [0.06895096846585114]  <- diff
+    #  [0.05925789882165455]
+    #  [0.03424907823290102]]
+    #
+    # >>> model.predict(X[:5])
+    # [[0.171504346208176  ]
+    #  [0.3434615044164018 ]  <- diff
+    #  [0.06895096846585136]  <- diff
+    #  [0.05925789882165455]
+    #  [0.03424907823290102]]
+    #
+    # As a workaround, use `assert_array_almost_equal` instead of `assert_array_equal`
+    np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():

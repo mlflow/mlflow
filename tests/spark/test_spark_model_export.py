@@ -68,7 +68,7 @@ def spark_context():
         try:
             spark = get_spark_session(conf)
             return spark.sparkContext
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(
@@ -721,3 +721,19 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
         mleap.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
+
+
+def test_shutil_copytree_without_file_permissions(tmpdir):
+    src_dir = tmpdir.mkdir("src-dir")
+    dst_dir = tmpdir.mkdir("dst-dir")
+    # Test copying empty directory
+    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
+    assert len(os.listdir(dst_dir.strpath)) == 0
+    # Test copying directory with contents
+    src_dir.mkdir("subdir").join("subdir-file.txt").write("testing 123")
+    src_dir.join("top-level-file.txt").write("hi")
+    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
+    assert set(os.listdir(dst_dir.strpath)) == {"top-level-file.txt", "subdir"}
+    assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
+    assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
+    assert dst_dir.join("top-level-file.txt").read() == "hi"

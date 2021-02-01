@@ -53,7 +53,7 @@ def _get_context_tag(context_tag_key):
 def acl_path_of_acl_root():
     try:
         return _get_command_context().aclPathOfAclRoot().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_extra_context("aclPathOfAclRoot")
 
 
@@ -64,7 +64,7 @@ def _get_property_from_spark_context(key):
         task_context = TaskContext.get()
         if task_context:
             return task_context.getLocalProperty(key)
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return None
 
 
@@ -77,14 +77,14 @@ def is_in_databricks_notebook():
         return True
     try:
         return acl_path_of_acl_root().startswith("/workspace")
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False
 
 
 def is_in_databricks_job():
     try:
         return get_job_id() is not None and get_job_run_id() is not None
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False
 
 
@@ -97,7 +97,7 @@ def is_dbfs_fuse_available():
                 )
                 == 0
             )
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             return False
 
 
@@ -108,7 +108,7 @@ def is_in_cluster():
             spark_session is not None
             and spark_session.conf.get("spark.databricks.clusterUsageTags.clusterId") is not None
         )
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return False
 
 
@@ -130,7 +130,7 @@ def get_notebook_path():
         return path
     try:
         return _get_command_context().notebookPath().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_extra_context("notebook_path")
 
 
@@ -144,14 +144,14 @@ def get_cluster_id():
 def get_job_id():
     try:
         return _get_command_context().jobId().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_context_tag("jobId")
 
 
 def get_job_run_id():
     try:
         return _get_command_context().idInJob().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_context_tag("idInJob")
 
 
@@ -159,7 +159,7 @@ def get_job_type():
     """Should only be called if is_in_databricks_job is true"""
     try:
         return _get_command_context().jobTaskType().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_context_tag("jobTaskType")
 
 
@@ -170,21 +170,21 @@ def get_webapp_url():
         return url
     try:
         return _get_command_context().apiUrl().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_extra_context("api_url")
 
 
 def get_workspace_id():
     try:
         return _get_command_context().workspaceId().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_context_tag("orgId")
 
 
 def get_browser_hostname():
     try:
         return _get_command_context().browserHostName().get()
-    except Exception:  # pylint: disable=broad-except
+    except Exception:
         return _get_context_tag("browserHostName")
 
 

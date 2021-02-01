@@ -14,13 +14,19 @@ import { ClientSideRowModelModule } from '@ag-grid-community/client-side-row-mod
 import { RunsTableCustomHeader } from '../../common/components/ag-grid/RunsTableCustomHeader';
 import '@ag-grid-community/core/dist/styles/ag-grid.css';
 import '@ag-grid-community/core/dist/styles/ag-theme-balham.css';
+import registeredModelSvg from '../../common/static/registered-model.svg';
+import loggedModelSvg from '../../common/static/logged-model.svg';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import { LoadMoreBar } from './LoadMoreBar';
 import _ from 'lodash';
 import { Spinner } from '../../common/components/Spinner';
+import { ExperimentRunsTableEmptyOverlay } from '../../common/components/ExperimentRunsTableEmptyOverlay';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { AgGridPersistedState } from '../sdk/MlflowLocalStorageMessages';
 import { ColumnTypes } from '../constants';
+import { TrimmedText } from '../../common/components/TrimmedText';
+import { getModelVersionPageURL } from '../../model-registry/routes';
+import { css } from 'emotion';
 
 const PARAM_PREFIX = '$$$param$$$';
 const METRIC_PREFIX = '$$$metric$$$';
@@ -34,6 +40,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static propTypes = {
     experimentId: PropTypes.string,
     runInfos: PropTypes.arrayOf(PropTypes.instanceOf(RunInfo)).isRequired,
+    modelVersionsByRunUuid: PropTypes.object.isRequired,
     // List of list of params in all the visible runs
     paramsList: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.object)).isRequired,
     // List of list of metrics in all the visible runs
@@ -50,11 +57,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     orderByAsc: PropTypes.bool,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
-    nextPageToken: PropTypes.string,
+    numRunsFromLatestSearch: PropTypes.number,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
     isLoading: PropTypes.bool.isRequired,
     categorizedUncheckedKeys: PropTypes.object.isRequired,
+    nestChildren: PropTypes.bool,
   };
 
   static defaultColDef = {
@@ -73,9 +81,11 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   static frameworkComponents = {
     sourceCellRenderer: SourceCellRenderer,
     versionCellRenderer: VersionCellRenderer,
+    modelsCellRenderer: ModelsCellRenderer,
     dateCellRenderer: DateCellRenderer,
     agColumnHeader: RunsTableCustomHeader,
     loadingOverlayComponent: Spinner,
+    noRowsOverlayComponent: ExperimentRunsTableEmptyOverlay,
   };
 
   /**
@@ -183,6 +193,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
             canonicalSortKey: 'tags.`mlflow.source.git.commit`',
           },
         },
+        {
+          headerName: 'Models',
+          field: 'models',
+          cellRenderer: 'modelsCellRenderer',
+          width: 200,
+        },
       ].filter((c) => !categorizedUncheckedKeys[ColumnTypes.ATTRIBUTES].includes(c.headerName)),
       {
         headerName: 'Parameters',
@@ -248,18 +264,21 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       metricsList,
       paramKeyList,
       metricKeyList,
+      modelVersionsByRunUuid,
       tagsList,
+      numRunsFromLatestSearch,
       runsExpanded,
       onExpand,
-      nextPageToken,
       loadingMore,
       visibleTagKeyList,
+      nestChildren,
     } = this.props;
     const { getNameValueMapFromList } = ExperimentRunsTableMultiColumnView2;
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       tagsList,
       runsExpanded,
+      nestChildren,
     });
 
     const runs = mergedRows.map(({ idx, isParent, hasExpander, expanderOpen, childrenIds }) => {
@@ -284,6 +303,7 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
         runName,
         tags,
         queryParams,
+        modelVersionsByRunUuid,
         isParent,
         hasExpander,
         expanderOpen,
@@ -295,11 +315,12 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
       };
     });
 
-    // Handle "Load more" row
-    if (nextPageToken || loadingMore) {
+    // don't show LoadMoreBar if there are no runs at all
+    if (runs.length) {
       runs.push({
         isFullWidth: true,
         loadingMore,
+        numRunsFromLatestSearch,
       });
     }
 
@@ -329,12 +350,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     }
   };
 
+  // Please do not call handleLoadingOverlay here. It results in the component state duplicating the
+  // overlay, as a new overlay was added in https://github.com/databricks/universe/pull/66242.
   handleGridReady = (params) => {
     this.gridApi = params.api;
     this.columnApi = params.columnApi;
     this.applyRowSelectionFromProps();
     this.handleColumnSizeRefit();
-    this.handleLoadingOverlay();
     this.fitColumnsOnWindowResize = _.debounce(() => {
       this.gridApi.sizeColumnsToFit();
     }, 100);
@@ -383,6 +405,8 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
     if (!this.gridApi) return;
     if (this.props.isLoading) {
       this.gridApi.showLoadingOverlay();
+    } else if (this.props.runInfos.length === 0) {
+      this.gridApi.showNoRowsOverlay();
     } else {
       this.gridApi.hideOverlay();
     }
@@ -417,14 +441,13 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
   }
 
   render() {
-    const { handleLoadMoreRuns, loadingMore } = this.props;
+    const { handleLoadMoreRuns, loadingMore, numRunsFromLatestSearch, nestChildren } = this.props;
     const columnDefs = this.getColumnDefs();
     const {
       defaultColDef,
       frameworkComponents,
       isFullWidthCell,
     } = ExperimentRunsTableMultiColumnView2;
-
     return (
       <div className='ag-theme-balham multi-column-view'>
         <AgGridReact
@@ -442,27 +465,48 @@ export class ExperimentRunsTableMultiColumnView2 extends React.Component {
           enableCellTextSelection
           frameworkComponents={frameworkComponents}
           fullWidthCellRendererFramework={FullWidthCellRenderer}
-          fullWidthCellRendererParams={{ handleLoadMoreRuns, loadingMore }}
+          fullWidthCellRendererParams={{
+            handleLoadMoreRuns,
+            loadingMore,
+            numRunsFromLatestSearch,
+            nestChildren,
+          }}
           loadingOverlayComponent='loadingOverlayComponent'
           loadingOverlayComponentParams={{ showImmediately: true }}
           isFullWidthCell={isFullWidthCell}
           isRowSelectable={this.isRowSelectable}
+          noRowsOverlayComponent='noRowsOverlayComponent'
         />
       </div>
     );
   }
 }
 
-function FullWidthCellRenderer({ handleLoadMoreRuns, loadingMore }) {
+function FullWidthCellRenderer({
+  handleLoadMoreRuns,
+  loadingMore,
+  numRunsFromLatestSearch,
+  nestChildren,
+}) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <LoadMoreBar loadingMore={loadingMore} onLoadMore={handleLoadMoreRuns} />
+      <LoadMoreBar
+        loadingMore={loadingMore}
+        onLoadMore={handleLoadMoreRuns}
+        disableButton={ExperimentViewUtil.disableLoadMoreButton({
+          numRunsFromLatestSearch,
+        })}
+        nestChildren={nestChildren}
+      />
     </div>
   );
 }
+
 FullWidthCellRenderer.propTypes = {
   handleLoadMoreRuns: PropTypes.func,
   loadingMore: PropTypes.bool,
+  nestChildren: PropTypes.bool,
+  numRunsFromLatestSearch: PropTypes.number,
 };
 
 function DateCellRenderer(props) {
@@ -501,6 +545,7 @@ function DateCellRenderer(props) {
     </div>
   );
 }
+
 DateCellRenderer.propTypes = { data: PropTypes.object };
 
 function SourceCellRenderer(props) {
@@ -508,16 +553,91 @@ function SourceCellRenderer(props) {
   const sourceType = Utils.renderSource(tags, queryParams);
   return sourceType ? (
     <React.Fragment>
-      {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+      {Utils.renderSourceTypeIcon(tags)}
       {sourceType}
     </React.Fragment>
   ) : (
     <React.Fragment>{EMPTY_CELL_PLACEHOLDER}</React.Fragment>
   );
 }
+
 SourceCellRenderer.propTypes = { data: PropTypes.object };
 
 function VersionCellRenderer(props) {
   const { tags } = props.data;
   return Utils.renderVersion(tags) || EMPTY_CELL_PLACEHOLDER;
 }
+
+export function ModelsCellRenderer(props) {
+  const { runInfo, tags, modelVersionsByRunUuid } = props.data;
+  const runId = runInfo.run_uuid;
+  const registeredModels = modelVersionsByRunUuid[runId];
+  const loggedModels = Utils.getLoggedModelsFromTags(tags);
+  const imageStyle = {
+    wrapper: css({
+      img: {
+        height: '15px',
+        position: 'relative',
+        marginRight: '4px',
+      },
+    }),
+  };
+  if (loggedModels && loggedModels.length) {
+    let loggedModel = loggedModels[0];
+    let registeredModelDiv;
+    if (registeredModels && registeredModels.length) {
+      const {
+        name: registeredModelName,
+        source: registeredModelSource,
+        version,
+      } = registeredModels[0];
+
+      const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(
+        `${runId}/artifacts/`,
+      )[1];
+      const matchingModels = loggedModels.filter(
+        (model) => Utils.normalize(model['artifact_path']) === normalizedSourceArtifactPath,
+      );
+      if (matchingModels.length > 0) {
+        [loggedModel] = matchingModels;
+        registeredModelDiv = (
+          <>
+            {' - '}
+            <img
+              data-test-id='registered-model-icon'
+              alt='registered model icon'
+              title='Registered Model'
+              src={registeredModelSvg}
+            />
+            <a
+              href={getModelVersionPageURL(registeredModelName, version)}
+              className='model-version-link'
+              title={`${registeredModelName}, v${version}`}
+              target='_blank'
+            >
+              <TrimmedText text={registeredModelName} maxSize={10} className={'model-name'} />
+              {`/${version}`}
+            </a>
+          </>
+        );
+      }
+    }
+    const loggedModelFlavorText = loggedModel['flavors'] ? loggedModel['flavors'][0] : 'Model';
+    const loggedModelLink = Routes.getRunArtifactRoute(
+      runInfo.experiment_id,
+      runInfo.run_uuid,
+      loggedModel['artifact_path'],
+    );
+    return (
+      <div className={`logged-model-cell ${imageStyle.wrapper}`}>
+        <img data-test-id='logged-model-icon' alt='' title='Logged Model' src={loggedModelSvg} />
+        <Link to={loggedModelLink}>{loggedModelFlavorText}</Link>
+        {registeredModelDiv}
+        {loggedModels.length > 1 ? `, ${loggedModels.length - 1} more` : ''}
+      </div>
+    );
+  }
+  return EMPTY_CELL_PLACEHOLDER;
+}
+
+ModelsCellRenderer.propTypes = { data: PropTypes.object };

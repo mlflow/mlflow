@@ -3,11 +3,6 @@ import base64
 from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
-import numpy as np
-import pandas as pd
-
-from mlflow.types import DataType
-from mlflow.types.schema import Schema
 
 
 def message_to_json(message):
@@ -57,6 +52,8 @@ class NumpyEncoder(JSONEncoder):
     """
 
     def try_convert(self, o):
+        import numpy as np
+
         def encode_binary(x):
             return base64.encodebytes(x).decode("ascii")
 
@@ -83,8 +80,8 @@ class NumpyEncoder(JSONEncoder):
 
 
 def _dataframe_from_json(
-    path_or_str, schema: Schema = None, pandas_orient: str = "split", precise_float=False
-) -> pd.DataFrame:
+    path_or_str, schema=None, pandas_orient: str = "split", precise_float=False
+):
     """
     Parse json into pandas.DataFrame. User can pass schema to ensure correct type parsing and to
     make any necessary conversions (e.g. string -> binary for binary columns).
@@ -94,6 +91,10 @@ def _dataframe_from_json(
     :param pandas_orient: pandas data frame convention used to store the data.
     :return: pandas.DataFrame.
     """
+    import pandas as pd
+
+    from mlflow.types import DataType
+
     if schema is not None:
         dtypes = dict(zip(schema.column_names(), schema.pandas_types()))
         df = pd.read_json(
@@ -108,3 +109,25 @@ def _dataframe_from_json(
         return pd.read_json(
             path_or_str, orient=pandas_orient, dtype=False, precise_float=precise_float
         )
+
+
+def _get_jsonable_obj(data, pandas_orient="records"):
+    """Attempt to make the data json-able via standard library.
+    Look for some commonly used types that are not jsonable and convert them into json-able ones.
+    Unknown data types are returned as is.
+
+    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
+    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
+                          dictionary using this Pandas serialization orientation.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, pd.DataFrame):
+        return data.to_dict(orient=pandas_orient)
+    if isinstance(data, pd.Series):
+        return pd.DataFrame(data).to_dict(orient=pandas_orient)
+    else:  # by default just return whatever this is and hope for the best
+        return data

@@ -133,7 +133,7 @@ def _get_metrics_value_dict(metrics_list):
     for metric in metrics_list:
         try:
             metric_value = metric.function(**metric.arguments)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             _log_warning_for_metrics(metric.name, metric.function, e)
         else:
             metric_value_dict[metric.name] = metric_value
@@ -286,60 +286,56 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     """
     import sklearn
 
+    if not _is_plotting_supported():
+        return []
+
     fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
-    )
+    X, y_true = _get_Xy(fit_args, fit_kwargs, *fit_arg_names[:2])
     sample_weight = (
         _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
         if _SAMPLE_WEIGHT in fit_arg_names
         else None
     )
 
-    classifier_artifacts = []
-    if _is_plotting_supported():
-        labels = set(y_true)
+    classifier_artifacts = [
+        _SklearnArtifact(
+            name=_TRAINING_PREFIX + "confusion_matrix",
+            function=sklearn.metrics.plot_confusion_matrix,
+            arguments=dict(
+                estimator=fitted_estimator,
+                X=X,
+                y_true=y_true,
+                sample_weight=sample_weight,
+                normalize="true",
+                cmap="Blues",
+            ),
+            title="Normalized confusion matrix",
+        ),
+    ]
+
+    # The plot_roc_curve and plot_precision_recall_curve can only be
+    # supported for binary classifier
+    if len(set(y_true)) == 2:
         classifier_artifacts.extend(
             [
                 _SklearnArtifact(
-                    name=_TRAINING_PREFIX + "confusion_matrix",
-                    function=sklearn.metrics.plot_confusion_matrix,
+                    name=_TRAINING_PREFIX + "roc_curve",
+                    function=sklearn.metrics.plot_roc_curve,
                     arguments=dict(
-                        estimator=fitted_estimator,
-                        X=X,
-                        y_true=y_pred,
-                        sample_weight=sample_weight,
-                        normalize="true",
-                        cmap="Blues",
+                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
                     ),
-                    title="Normalized confusion matrix",
+                    title="ROC curve",
+                ),
+                _SklearnArtifact(
+                    name=_TRAINING_PREFIX + "precision_recall_curve",
+                    function=sklearn.metrics.plot_precision_recall_curve,
+                    arguments=dict(
+                        estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
+                    ),
+                    title="Precision recall curve",
                 ),
             ]
         )
-
-        # The plot_roc_curve and plot_precision_recall_curve can only be
-        # supported for binary classifier
-        if len(labels) == 2:
-            classifier_artifacts.extend(
-                [
-                    _SklearnArtifact(
-                        name=_TRAINING_PREFIX + "roc_curve",
-                        function=sklearn.metrics.plot_roc_curve,
-                        arguments=dict(
-                            estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
-                        ),
-                        title="ROC curve",
-                    ),
-                    _SklearnArtifact(
-                        name=_TRAINING_PREFIX + "precision_recall_curve",
-                        function=sklearn.metrics.plot_precision_recall_curve,
-                        arguments=dict(
-                            estimator=fitted_estimator, X=X, y=y_pred, sample_weight=sample_weight,
-                        ),
-                        title="Precision recall curve",
-                    ),
-                ]
-            )
 
     return classifier_artifacts
 
@@ -460,7 +456,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
 
         elif sklearn.base.is_regressor(fitted_estimator):
             name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
-    except Exception as err:  # pylint: disable=broad-except
+    except Exception as err:
         msg = (
             "Failed to autolog metrics for "
             + fitted_estimator.__class__.__name__
@@ -482,7 +478,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
     if sklearn.base.is_classifier(fitted_estimator):
         try:
             artifacts = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             msg = (
                 "Failed to autolog artifacts for "
                 + fitted_estimator.__class__.__name__
@@ -502,7 +498,7 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
                     import matplotlib.pyplot as plt
 
                     plt.close(display.figure_)
-                except Exception as e:  # pylint: disable=broad-except
+                except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
             try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
@@ -771,7 +767,9 @@ def _backported_all_estimators(type_filter=None):
     import sklearn
     from importlib import import_module
     from operator import itemgetter
-    from sklearn.utils.testing import ignore_warnings  # pylint: disable=no-name-in-module
+
+    # pylint: disable=no-name-in-module, import-error
+    from sklearn.utils.testing import ignore_warnings
     from sklearn.base import (
         BaseEstimator,
         ClassifierMixin,

@@ -119,8 +119,8 @@ There are three programmatic ways to add a model to the registry. First, you can
             registered_model_name="sk-learn-random-forest-reg-model"
         )
 
-If a registered model with the name doesn’t exist, the method registers a new model, creates Version 1, and returns a
-ModelVersion MLflow object. If a registered model with the name exists already, the method creates a new model version and returns the version object.
+In the above code snippet, if a registered model with the name doesn’t exist, the method registers a new model and creates Version 1.
+If a registered model with the name exists, the method creates a new model version.
 
 The second way is to use the :func:`mlflow.register_model` method, after all your experiment runs complete and when you have decided which model is most suitable to add to the registry.
 For this method, you will need the ``run_id`` as part of the ``runs:URI`` argument.
@@ -128,12 +128,12 @@ For this method, you will need the ``run_id`` as part of the ``runs:URI`` argume
 .. code-block:: py
 
     result = mlflow.register_model(
-        "runs:/d16076a3ec534311817565e6527539c0/artifacts/sklearn-model",
+        "runs:/d16076a3ec534311817565e6527539c0/sklearn-model",
         "sk-learn-random-forest-reg"
     )
 
 If a registered model with the name doesn’t exist, the method registers a new model, creates Version 1, and returns a ModelVersion MLflow object.
-If a registered model with the name exists already, the method creates a new model version and returns the version object.
+If a registered model with the name exists, the method creates a new model version and returns the version object.
 
 And finally, you can use the :meth:`~mlflow.tracking.MlflowClient.create_registered_model` to create a new registered model. If the model name exists,
 this method will throw an :class:`~mlflow.exceptions.MlflowException` because creating a new registered model requires a unique name.

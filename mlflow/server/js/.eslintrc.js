@@ -129,7 +129,7 @@ module.exports = {
       'ignoreTemplateLiterals': false,
       'ignorePattern': "^import\\s.+\\sfrom\\s'.+';",  // ignore import statements
     }],
-    'max-lines': [2, 1000],
+    'max-lines': [2, 1500],
     'max-nested-callbacks': 2,
     'max-params': [2, 12],
     'max-statements': 0,
