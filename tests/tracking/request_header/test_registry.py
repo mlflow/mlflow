@@ -3,9 +3,15 @@ from unittest import mock
 from importlib import reload
 
 import mlflow.tracking.request_header.registry
-from mlflow.tracking.request_header.registry import RequestHeaderProviderRegistry, resolve_request_headers
+from mlflow.tracking.request_header.registry import (
+    RequestHeaderProviderRegistry,
+    resolve_request_headers,
+)
 from mlflow.tracking.request_header.abstract_request_header_provider import RequestHeaderProvider
-from mlflow.tracking.request_header.databricks_request_header_provider import DatabricksRequestHeaderProvider
+from mlflow.tracking.request_header.databricks_request_header_provider import (
+    DatabricksRequestHeaderProvider,
+)
+
 
 def test_request_header_context_provider_registry_register():
     provider_class = mock.Mock()
@@ -14,6 +20,7 @@ def test_request_header_context_provider_registry_register():
     registry.register(provider_class)
 
     assert set(registry) == {provider_class.return_value}
+
 
 def test_request_header_provider_registry_register_entrypoints():
     provider_class = mock.Mock()
@@ -29,6 +36,7 @@ def test_request_header_provider_registry_register_entrypoints():
     assert set(registry) == {provider_class.return_value}
     mock_entrypoint.load.assert_called_once_with()
     mock_get_group_all.assert_called_once_with("mlflow.request_header_provider")
+
 
 @pytest.mark.parametrize(
     "exception", [AttributeError("test exception"), ImportError("test exception")]
@@ -103,7 +111,7 @@ def mock_request_header_providers():
     base_provider.request_headers.return_value = {
         "one": "one-val",
         "two": "two-val",
-        "three": "three-val"
+        "three": "three-val",
     }
 
     skipped_provider = mock.Mock()
@@ -124,7 +132,9 @@ def mock_request_header_providers():
 
     providers = [base_provider, skipped_provider, exception_provider, override_provider]
 
-    with mock.patch("mlflow.tracking.request_header.registry._request_header_provider_registry", providers):
+    with mock.patch(
+        "mlflow.tracking.request_header.registry._request_header_provider_registry", providers
+    ):
         yield
 
     skipped_provider.tags.assert_not_called()
