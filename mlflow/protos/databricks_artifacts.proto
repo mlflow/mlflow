@@ -55,6 +55,9 @@ enum ArtifactCredentialType {
   // https://docs.aws.amazon.com/AmazonS3/latest/dev/ShareObjectPreSignedURL.html
   AWS_PRESIGNED_URL = 2;
 
+  // The credential is a GCP Signed URL. For more information, see
+  // https://cloud.google.com/storage/docs/access-control/signed-urls
+  GCP_SIGNED_URL = 3;
 }
 
 message ArtifactCredentialInfo {
