@@ -72,15 +72,15 @@ def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
     assert schema == Schema([ColSpec(x) for x in pandas_df_with_all_types.columns])
 
     # test objects
-    schema = _infer_schema(np.array(["a"], dtype=np.object))
+    schema = _infer_schema(np.array(["a"], dtype=object))
     assert schema == Schema([ColSpec(DataType.string)])
-    schema = _infer_schema(np.array([bytes([1])], dtype=np.object))
+    schema = _infer_schema(np.array([bytes([1])], dtype=object))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(np.array([bytearray([1]), None], dtype=np.object))
+    schema = _infer_schema(np.array([bytearray([1]), None], dtype=object))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(np.array([True, None], dtype=np.object))
+    schema = _infer_schema(np.array([True, None], dtype=object))
     assert schema == Schema([ColSpec(DataType.boolean)])
-    schema = _infer_schema(np.array([1.1, None], dtype=np.object))
+    schema = _infer_schema(np.array([1.1, None], dtype=object))
     assert schema == Schema([ColSpec(DataType.double)])
 
     # test bytes

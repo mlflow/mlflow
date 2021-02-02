@@ -68,7 +68,7 @@ def _infer_schema(data: Any) -> Schema:
             raise TensorsNotSupportedException(
                 "Attempting to infer schema from numpy array with " "shape {}".format(data.shape)
             )
-        if data.dtype == np.object:
+        if data.dtype == object:
             data = pd.DataFrame(data).infer_objects()
             schema = Schema(
                 [ColSpec(type=_infer_numpy_array(data[col].values)) for col in data.columns]
@@ -129,7 +129,7 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
         return DataType.binary
     elif dtype.kind == "O":
         raise Exception(
-            "Can not infer np.object without looking at the values, call "
+            "Can not infer object without looking at the values, call "
             "_map_numpy_array instead."
         )
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
@@ -174,7 +174,7 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
             return DataType.double
         else:
             raise MlflowException(
-                "Unable to map 'np.object' type to MLflow DataType. np.object can"
+                "Unable to map 'object' type to MLflow DataType. object can"
                 "be mapped iff all values have identical data type which is one "
                 "of (string, (bytes or byterray),  int, float)."
             )

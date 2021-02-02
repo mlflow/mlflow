@@ -289,17 +289,17 @@ def _enforce_type(name, values: pandas.Series, t: DataType):
 
     The following type conversions are allowed:
 
-    1. np.object -> string
+    1. object -> string
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
 
     Any other type mismatch will raise error.
     """
-    if values.dtype == np.object and t not in (DataType.binary, DataType.string):
+    if values.dtype == object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 
-    if t == DataType.string and values.dtype == np.object:
+    if t == DataType.string and values.dtype == object:
         #  NB: strings are by default parsed and inferred as objects, but it is
         # recommended to use StringDtype extension type if available. See
         #
@@ -716,7 +716,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                 [np.byte, np.ubyte, np.short, np.ushort, np.int32]
             ).astype(np.int32)
         elif type(elem_type) == LongType:
-            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
+            result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int, np.long])
 
         elif type(elem_type) == FloatType:
             result = result.select_dtypes(include=(np.number,)).astype(np.float32)

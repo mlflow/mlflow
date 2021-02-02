@@ -146,7 +146,7 @@ def test_schema_enforcement():
     pdf = pd.DataFrame(
         data=[[1, 2, 3, 4, True, "x", bytes([1])]],
         columns=["b", "d", "a", "c", "e", "g", "f"],
-        dtype=np.object,
+        dtype=object,
     )
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.int64)
@@ -259,11 +259,11 @@ def test_schema_enforcement():
     assert "Incompatible input types" in str(ex)
 
     # 11. objects work
-    pdf["b"] = pdf["b"].astype(np.object)
-    pdf["d"] = pdf["d"].astype(np.object)
-    pdf["e"] = pdf["e"].astype(np.object)
-    pdf["f"] = pdf["f"].astype(np.object)
-    pdf["g"] = pdf["g"].astype(np.object)
+    pdf["b"] = pdf["b"].astype(object)
+    pdf["d"] = pdf["d"].astype(object)
+    pdf["e"] = pdf["e"].astype(object)
+    pdf["f"] = pdf["f"].astype(object)
+    pdf["g"] = pdf["g"].astype(object)
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 
