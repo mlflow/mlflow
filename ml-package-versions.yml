@@ -224,7 +224,6 @@ onnx:
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
 
-
 spacy:
   package_info:
     pip_release: "spacy"
