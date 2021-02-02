@@ -497,13 +497,13 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
-    model, model_path, data, predicted
+    tf_keras_model, model_path, data
 ):
     """
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
-    mlflow.keras.save_model(keras_model=model, path=model_path, save_format="h5")
+    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="h5")
     shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -513,7 +513,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(data[0].values) == predicted)
+    assert all(model_loaded.predict(data[0].values) == tf_keras_model.predict(data[0].values))
 
 
 @pytest.mark.release
