@@ -35,7 +35,13 @@ def spacy_model_with_data():
     # Creating blank model and setting up the spaCy pipeline
     nlp = spacy.blank("en")
     if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
-        model = {"@architectures": "spacy.TextCatCNN.v1", "exclusive_classes": True}
+        from spacy.pipeline.tok2vec import DEFAULT_TOK2VEC_MODEL
+
+        model = {
+            "@architectures": "spacy.TextCatCNN.v1",
+            "exclusive_classes": True,
+            "tok2vec": DEFAULT_TOK2VEC_MODEL,
+        }
         textcat = nlp.add_pipe("textcat", config={"model": model}, last=True,)
     else:
         textcat = nlp.create_pipe(
