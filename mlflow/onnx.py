@@ -194,13 +194,13 @@ class _OnnxModelWrapper:
             if len(self.inputs) != 1:
                 inputs = [x[0] for x in self.inputs]
                 raise MlflowException(
-                    f"Unable to map numpy array input to the expected model "
-                    f"input. "
-                    f"Numpy arrays can only be used as input for MLflow ONNX "
-                    f"models that have a single input. This model requires "
-                    f"{len(self.inputs)} inputs. Please pass in data as either a "
-                    f"dictionary or a DataFrame with the following tensors"
-                    f"(columns): {inputs}."
+                    "Unable to map numpy array input to the expected model "
+                    "input. "
+                    "Numpy arrays can only be used as input for MLflow ONNX "
+                    "models that have a single input. This model requires "
+                    "{0} inputs. Please pass in data as either a "
+                    "dictionary or a DataFrame with the following tensors"
+                    ": {1}.".format(len(self.inputs), inputs)
                 )
             feed_dict = {self.inputs[0][0]: data}
         elif isinstance(data, pd.DataFrame):
