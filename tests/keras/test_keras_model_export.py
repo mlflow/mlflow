@@ -503,8 +503,8 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
-    mlflow.keras.save_model(keras_model=model, path=model_path)
-    shutil.move(os.path.join(model_path, "data", "model"), os.path.join(model_path, "model"))
+    mlflow.keras.save_model(keras_model=model, path=model_path, save_format="h5")
+    shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
