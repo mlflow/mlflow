@@ -204,21 +204,23 @@ def test_that_keras_module_arg_works(model_path):
         path0 = os.path.join(model_path, "0")
         with pytest.raises(MlflowException):
             mlflow.keras.save_model(x, path0)
-        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
+        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
         y = mlflow.keras.load_model(path0)
         assert x == y
         path1 = os.path.join(model_path, "1")
-        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
+        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__, save_format="h5")
         z = mlflow.keras.load_model(path1)
         assert x == z
         # Tests model log
         with mlflow.start_run() as active_run:
             with pytest.raises(MlflowException):
                 mlflow.keras.log_model(x, "model0")
-            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule)
+            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
             a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
             assert x == a
-            mlflow.keras.log_model(x, "model1", keras_module=FakeKerasModule.__name__)
+            mlflow.keras.log_model(
+                x, "model1", keras_module=FakeKerasModule.__name__, save_format="h5"
+            )
             b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
             assert x == b
 
