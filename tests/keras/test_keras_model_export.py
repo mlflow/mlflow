@@ -502,7 +502,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
-    shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
+    shutil.move(os.path.join(model_path, "data", "model"), os.path.join(model_path, "model"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
@@ -555,7 +555,7 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     assert flavor_conf is not None
     assert flavor_conf.get("save_format") == "tf"
     assert not os.path.exists(
-        os.path.join(model_path, "data", "model.h5")
+        os.path.join(model_path, "data", "model")
     ), "TF model was saved with HDF5 format; expected SavedModel"
     assert os.path.isdir(
         os.path.join(model_path, "data", "model")
