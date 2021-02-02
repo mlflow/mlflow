@@ -58,7 +58,7 @@ def resolve_request_headers(request_headers=None):
             if provider.in_context():
                 all_request_headers.update(provider.request_headers())
         except Exception as e:
-            _logger.warning(f"Encountered unexpected error during resolving request headers: {e}")
+            _logger.warning("Encountered unexpected error during resolving request headers: %s", e)
 
     if request_headers is not None:
         all_request_headers.update(request_headers)
