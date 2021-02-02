@@ -57,6 +57,12 @@ def spacy_model_with_data():
     # Split train/test and train the model
     train_x, train_y, test_x, _ = _get_train_test_dataset(categories)
     train_data = list(zip(train_x, [{"cats": cats} for cats in train_y]))
+
+    if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
+        from spacy.training import Example
+
+        train_data = [Example.from_dict(nlp.make_doc(text), cats) for text, cats in train_data]
+
     _train_model(nlp, train_data)
     return ModelWithData(nlp, pd.DataFrame(test_x))
 
