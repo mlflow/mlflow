@@ -557,7 +557,7 @@ def test_save_and_load_model_with_tf_save_format(tf_keras_model, model_path):
     assert flavor_conf is not None
     assert flavor_conf.get("save_format") == "tf"
     assert not os.path.exists(
-        os.path.join(model_path, "data", "model")
+        os.path.join(model_path, "data", "model.h5")
     ), "TF model was saved with HDF5 format; expected SavedModel"
     assert os.path.isdir(
         os.path.join(model_path, "data", "model")
