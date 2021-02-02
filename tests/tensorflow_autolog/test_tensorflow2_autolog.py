@@ -725,6 +725,7 @@ def get_text_vec_model(train_samples):
         "Deserializing a model with `TextVectorization` and `Embedding`"
         "fails in tensorflow < 2.3.0. See this issue:"
         "https://github.com/tensorflow/tensorflow/issues/38250"
+    ),
 )
 def test_autolog_logs_text_vec_model(tmpdir):
     """
