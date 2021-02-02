@@ -96,20 +96,14 @@ def onnx_model(model, sample_input, tmpdir):
 
 @pytest.fixture(scope="module")
 def multi_tensor_model(dataset):
-    import torch.nn as nn
-
     class MyModel(nn.Module):
         def __init__(self, n):
             super(MyModel, self).__init__()
             self.linear = torch.nn.Linear(n, 1)
             self._train = True
 
-        def train(self, t=True):
-            super(MyModel, self).train(t)
-            self._train = t
-
         def forward(self, sepal_features, petal_features):
-            if not self._train:
+            if not self.training:
                 if isinstance(sepal_features, np.ndarray):
                     sepal_features = torch.from_numpy(sepal_features)
                 if isinstance(petal_features, np.ndarray):
@@ -153,7 +147,7 @@ def multi_tensor_onnx_model(multi_tensor_model, sample_input, tmpdir):
         multi_tensor_model,
         _sample_input,
         model_path,  # where to save the model (can be a file or file-like object)
-        dynamic_axes={"sepal_features": [0], "petal_features": [0],},
+        dynamic_axes={"sepal_features": [0], "petal_features": [0]},
         export_params=True,
         # store the trained parameter weights inside the model file
         do_constant_folding=True,
@@ -441,8 +435,6 @@ def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
 def test_model_save_evaluate_pyfunc_format_multi_tensor(
     multi_tensor_onnx_model, data, multi_tensor_model_prediction
 ):
-    from mlflow.utils.file_utils import TempDir
-
     with TempDir(chdr=True):
         path = "onnx_model"
         mlflow.onnx.save_model(onnx_model=multi_tensor_onnx_model, path=path)
