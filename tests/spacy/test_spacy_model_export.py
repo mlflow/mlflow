@@ -42,7 +42,7 @@ def spacy_model_with_data():
             "exclusive_classes": True,
             "tok2vec": DEFAULT_TOK2VEC_MODEL,
         }
-        textcat = nlp.add_pipe("textcat", config={"model": model}, last=True,)
+        textcat = nlp.add_pipe("textcat", config={"model": model}, last=True)
     else:
         textcat = nlp.create_pipe(
             "textcat", config={"exclusive_classes": True, "architecture": "simple_cnn"}
