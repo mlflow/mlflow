@@ -43,7 +43,7 @@ def http_request(
 
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
-    headers = dict(_DEFAULT_HEADERS, resolve_request_headers())
+    headers = dict({**_DEFAULT_HEADERS, **resolve_request_headers()})
     if auth_str:
         headers["Authorization"] = auth_str
 
