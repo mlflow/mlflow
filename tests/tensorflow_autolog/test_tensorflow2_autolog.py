@@ -727,10 +727,9 @@ def get_text_vec_model(train_samples):
         "https://github.com/tensorflow/tensorflow/issues/38250"
     ),
 )
-def test_autolog_logs_text_vec_model(tmpdir):
+def test_autolog_text_vec_model(tmpdir):
     """
-    Verifies autolog successfully saves a `TextVectorization` model that can't be saved
-    in the H5 format
+    Verifies autolog successfully saves a model that can't be saved in the H5 format
     """
     mlflow.tensorflow.autolog()
 
