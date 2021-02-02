@@ -71,6 +71,7 @@ Collate:
     'project-run.R'
     'project-source.R'
     'python.R'
+    'tracking-artifacts.R'
     'tracking-client.R'
     'tracking-experiments.R'
     'tracking-observer.R'
