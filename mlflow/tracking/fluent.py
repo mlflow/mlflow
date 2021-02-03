@@ -1341,7 +1341,8 @@ def autolog(
             autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
-            _logger.info("Autologging successfully enabled for %s.", module.__name__)
+            if 'disable' in autologging_params and not autologging_params['disable']:
+                _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
             if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
