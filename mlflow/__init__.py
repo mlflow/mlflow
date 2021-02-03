@@ -77,6 +77,7 @@ if sys.version_info[:2] == _version_to_deprecate:
             ver=".".join(map(str, _version_to_deprecate))
         ),
         FutureWarning,
+        stacklevel=2,
     )
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
