@@ -44,11 +44,12 @@ jobs:
         saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
       shell: Rscript {0}
+
     - name: Get OS name
       id: os-name
       run: |
+        # `os_name` looks like "Ubuntu-20.04.1-LTS"
         os_name=$(lsb_release -ds | sed 's/\s/-/g')
-        echo $os_name
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
       if: runner.os != 'Windows'
