@@ -76,7 +76,7 @@ if sys.version_info[:2] == _version_to_deprecate:
         "We recommend that you upgrade to Python 3.6 or newer.".format(
             ver=".".join(map(str, _version_to_deprecate))
         ),
-        DeprecationWarning,
+        FutureWarning,
     )
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
