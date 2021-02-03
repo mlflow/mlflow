@@ -70,7 +70,7 @@ _version_to_deprecate = (3, 5)
 if sys.version_info[:2] == _version_to_deprecate:
     warnings.warn(
         "MLflow support for Python {ver} is deprecated and will be dropped in "
-        "MLlfow 1.15.0 release. At that point, existing Python {ver} workflows "
+        "an upcoming release. At that point, existing Python {ver} workflows "
         "that use MLflow will continue to work without modification, but Python {ver} "
         "users will no longer get access to the latest MLflow features and bugfixes. "
         "We recommend that you upgrade to Python 3.6 or newer.".format(
