@@ -37,7 +37,10 @@ jobs:
     - uses: r-lib/actions/setup-r@v1
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
-    - run: echo ${{ toJson(runner) }}
+    - run: |
+        echo "${{ toJson(github) }}"
+        echo "${{ toJson(job) }}"
+        echo "${{ toJson(runner) }}"
     - name: Query dependencies
       run: |
         print(R.version)
