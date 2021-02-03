@@ -11,6 +11,7 @@ from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,
 )
 
+# pylint: disable=unused-argument
 
 def test_request_header_context_provider_registry_register():
     provider_class = mock.Mock()
