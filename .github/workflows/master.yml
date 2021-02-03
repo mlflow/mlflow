@@ -47,7 +47,8 @@ jobs:
     - name: Get OS name
       id: os-name
       run: |
-        os_name=$(lsb_release -ds | sed "s/ /-/g")
+        os_name=$(lsb_release -ds | sed 's/\s/-/g')
+        echo $os_name
         echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
       if: runner.os != 'Windows'
