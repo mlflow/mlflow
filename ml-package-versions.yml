@@ -223,3 +223,16 @@ onnx:
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
+
+spacy:
+  package_info:
+    pip_release: "spacy"
+    install_dev: |
+      pip install spacy-nightly
+
+  models:
+    minimum: "2.2.4"
+    maximum: "3.0.0"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/spacy/test_spacy_model_export.py --large
