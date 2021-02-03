@@ -74,7 +74,7 @@ if sys.version_info[:2] == _version_to_deprecate:
         "that use MLflow will continue to work without modification, but Python {ver} "
         "users will no longer get access to the latest MLflow features and bugfixes. "
         "We recommend that you upgrade to Python 3.6 or newer.".format(
-            ver=".".join(_version_to_deprecate)
+            ver=".".join(map(str, _version_to_deprecate))
         ),
         DeprecationWarning,
     )
