@@ -28,7 +28,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AExamples+event%3Aschedule
     :alt: Examples Action Status
 .. |cross-version-tests| image:: https://github.com/mlflow/mlflow/workflows/Cross%20version%20tests/badge.svg?event=schedule
-    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3A%22Cross+version+tests%22+event%3Aschedule
+    :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ACross%2Bversion%2Btests+event%3Aschedule
     :alt: Examples Action Status
 .. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
     :target: https://pypi.org/project/mlflow/
