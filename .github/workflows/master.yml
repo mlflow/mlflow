@@ -37,10 +37,6 @@ jobs:
     - uses: r-lib/actions/setup-r@v1
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
-    - run: |
-        echo "${{ toJson(github) }}"
-        echo "${{ toJson(job) }}"
-        echo "${{ toJson(runner) }}"
     - name: Query dependencies
       run: |
         print(R.version)
@@ -48,7 +44,11 @@ jobs:
         saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
       shell: Rscript {0}
-
+    - name: Get OS name
+      id: os-name
+      run: |
+        os_name=$(lsb_release -ds | sed "s/ /-/g")
+        echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
       if: runner.os != 'Windows'
       uses: actions/cache@v2
@@ -56,7 +56,7 @@ jobs:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
         restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
     - name: Install system dependencies
       run: |
