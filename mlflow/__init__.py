@@ -66,15 +66,20 @@ import mlflow.shap as shap  # noqa: E402
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-_version_to_deprecate = (3, 5)
-if sys.version_info[:2] == _version_to_deprecate:
+_major = 3
+_minor = 5
+_deprecated_version = (_major, _minor)
+_min_supported_version = (_major, _minor + 1)
+
+if sys.version_info[:2] == _deprecated_version:
     warnings.warn(
-        "MLflow support for Python {ver} is deprecated and will be dropped in "
-        "an upcoming release. At that point, existing Python {ver} workflows "
-        "that use MLflow will continue to work without modification, but Python {ver} "
+        "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
+        "an upcoming release. At that point, existing Python {dep_ver} workflows "
+        "that use MLflow will continue to work without modification, but Python {dep_ver} "
         "users will no longer get access to the latest MLflow features and bugfixes. "
-        "We recommend that you upgrade to Python 3.6 or newer.".format(
-            ver=".".join(map(str, _version_to_deprecate))
+        "We recommend that you upgrade to Python {min_ver} or newer.".format(
+            dep_ver=".".join(map(str, _deprecated_version)),
+            min_ver=".".join(map(str, _min_supported_version)),
         ),
         FutureWarning,
         stacklevel=2,
