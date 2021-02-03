@@ -7,7 +7,6 @@ from mlflow.tracking.request_header.registry import (
     RequestHeaderProviderRegistry,
     resolve_request_headers,
 )
-from mlflow.tracking.request_header.abstract_request_header_provider import RequestHeaderProvider
 from mlflow.tracking.request_header.databricks_request_header_provider import (
     DatabricksRequestHeaderProvider,
 )
@@ -97,8 +96,8 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
 
     assert PluginRequestHeaderProvider in _currently_registered_request_header_provider_classes()
 
-    # The test plugin's request header provider always returns False from in_context
-    # to avoid polluting request headers in developers' environments. The following mock overrides this to
+    # The test plugin's request header provider always returns False from in_contex to avoid
+    # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
     with mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True):
         assert resolve_request_headers()["test"] == "header"
