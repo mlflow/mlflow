@@ -1,9 +1,14 @@
 import random
+from distutils.version import LooseVersion
 
 import spacy
 from spacy.util import minibatch, compounding
 
 import mlflow.spacy
+
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = LooseVersion(spacy.__version__) >= LooseVersion(
+    "3.0.0"
+)
 
 # training data
 TRAIN_DATA = [
@@ -16,8 +21,11 @@ if __name__ == "__main__":
 
     # create blank model and add ner to the pipeline
     nlp = spacy.blank("en")
-    ner = nlp.create_pipe("ner")
-    nlp.add_pipe(ner, last=True)
+    if IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0:
+        ner = nlp.add_pipe("ner", last=True)
+    else:
+        ner = nlp.create_pipe("ner")
+        nlp.add_pipe(ner, last=True)
 
     # add labels
     for _, annotations in TRAIN_DATA:
