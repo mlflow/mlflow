@@ -43,7 +43,7 @@ jobs:
             export MLFLOW_SKINNY=true
           fi
 
-          python setup.py bdist_wheel sdist
+          python setup.py sdist bdist_wheel
           ls -lh dist
 
           # set outputs
