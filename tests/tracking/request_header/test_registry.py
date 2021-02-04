@@ -89,7 +89,7 @@ def test_registry_instance_loads_entrypoints():
 
 
 @pytest.mark.large
-def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
+def test_run_context_provider_registry_with_installed_plugin():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     reload(mlflow.tracking.request_header.registry)
