@@ -1,4 +1,4 @@
-name: Build wheel
+name: Test package build
 
 on:
   push:
