@@ -69,7 +69,12 @@ class SearchUtils(object):
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME]
     )
     VALID_ORDER_BY_KEYS_MODEL_VERSIONS = set(
-        [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP, ORDER_BY_KEY_MODEL_NAME, ORDER_BY_KEY_MODEL_VERSION]
+        [
+            ORDER_BY_KEY_TIMESTAMP,
+            ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP,
+            ORDER_BY_KEY_MODEL_NAME,
+            ORDER_BY_KEY_MODEL_VERSION
+        ]
     )
     VALID_TIMESTAMP_ORDER_BY_KEYS = set(
         [ORDER_BY_KEY_TIMESTAMP, ORDER_BY_KEY_LAST_UPDATED_TIMESTAMP]
@@ -425,11 +430,15 @@ class SearchUtils(object):
         if len(statement.tokens) == 1 and isinstance(statement[0], Identifier):
             token_value = statement.tokens[0].value
         elif len(statement.tokens) == 1 and statement.tokens[0].match(
-            ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP, cls.ORDER_BY_KEY_MODEL_VERSION]
+            ttype=TokenType.Keyword,
+            values=[cls.ORDER_BY_KEY_TIMESTAMP, cls.ORDER_BY_KEY_MODEL_VERSION]
         ):
             token_value = statement.tokens[0].value
         elif (
-            statement.tokens[0].match(ttype=TokenType.Keyword, values=[cls.ORDER_BY_KEY_TIMESTAMP, cls.ORDER_BY_KEY_MODEL_VERSION])
+            statement.tokens[0].match(
+                ttype=TokenType.Keyword,
+                values=[cls.ORDER_BY_KEY_TIMESTAMP, cls.ORDER_BY_KEY_MODEL_VERSION]
+            )
             and all([token.is_whitespace for token in statement.tokens[1:-1]])
             and statement.tokens[-1].ttype == TokenType.Keyword.Order
         ):

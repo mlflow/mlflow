@@ -844,15 +844,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_parse_search_model_versions_order_by(self):
         # test that "model_versions.name ASC model_versions.version DESC" is returned by default
         parsed = SqlAlchemyStore._parse_search_model_versions_order_by([])
-        self.assertEqual([str(x) for x in parsed], ["model_versions.name ASC", "model_versions.version DESC"])
+        self.assertEqual([str(x) for x in parsed], [
+            "model_versions.name ASC",
+            "model_versions.version DESC"
+        ])
 
         # test that the given 'name' replaces the default one ('model_versions.name ASC')
         parsed = SqlAlchemyStore._parse_search_model_versions_order_by(["name DESC"])
-        self.assertEqual([str(x) for x in parsed], ["model_versions.name DESC", "model_versions.version DESC"])
+        self.assertEqual([str(x) for x in parsed], [
+            "model_versions.name DESC",
+            "model_versions.version DESC"
+        ])
 
         # test that the given 'version' replaces the default one ('model_versions.version DESC')
         parsed = SqlAlchemyStore._parse_search_model_versions_order_by(["version ASC"])
-        self.assertEqual([str(x) for x in parsed], ["model_versions.version ASC", "model_versions.name ASC"])
+        self.assertEqual([str(x) for x in parsed], [
+            "model_versions.version ASC",
+            "model_versions.name ASC"
+        ])
 
         # test that an exception is raised when order_by contains duplicate fields
         msg = "`order_by` contains duplicate fields:"
@@ -892,15 +901,30 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertNotEqual(token1, None)
         self.assertEqual(result, mvs[0:5])
 
-        result, token2 = self._search_model_versions(query, order_by=["version ASC"], page_token=token1, max_results=10)
+        result, token2 = self._search_model_versions(
+            query,
+            order_by=["version ASC"],
+            page_token=token1,
+            max_results=10
+        )
         self.assertNotEqual(token2, None)
         self.assertEqual(result, mvs[5:15])
 
-        result, token3 = self._search_model_versions(query, order_by=["version ASC"], page_token=token2, max_results=20)
+        result, token3 = self._search_model_versions(
+            query,
+            order_by=["version ASC"],
+            page_token=token2,
+            max_results=20
+        )
         self.assertNotEqual(token3, None)
         self.assertEqual(result, mvs[15:35])
 
-        result, token4 = self._search_model_versions(query, order_by=["version ASC"], page_token=token3, max_results=100)
+        result, token4 = self._search_model_versions(
+            query,
+            order_by=["version ASC"],
+            page_token=token3,
+            max_results=100
+        )
         # assert that page token is None
         self.assertEqual(token4, None)
         self.assertEqual(result, mvs[35:])

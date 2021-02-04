@@ -731,12 +731,13 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name, version)
             return sql_model_version.source
 
-    def search_model_versions(self,
+    def search_model_versions(
+        self,
         filter_string=None,
         max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-        ):
+    ):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
@@ -837,7 +838,7 @@ class SqlAlchemyStore(AbstractStore):
                     attribute_token,
                     ascending,
                 ) = SearchUtils.parse_order_by_for_search_model_versions(order_by_clause)
-                
+
                 if attribute_token == SqlModelVersion.name.key:
                     field = SqlModelVersion.name
                 elif attribute_token == SqlModelVersion.version.key:
