@@ -108,6 +108,7 @@ setup(
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
     long_description=open("README.rst").read(),
+    long_description_content_type="text/x-rst",
     license="Apache License 2.0",
     classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
     keywords="ml ai databricks",
