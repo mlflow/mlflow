@@ -44,6 +44,7 @@ jobs:
           fi
 
           python setup.py bdist_wheel sdist
+          ls -lh dist
 
           # set outputs
           wheel_path=$(find dist -type f -name "*.whl")
