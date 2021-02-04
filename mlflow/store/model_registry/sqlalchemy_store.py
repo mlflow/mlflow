@@ -862,10 +862,6 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     clauses.append(field.desc())
 
-        if SqlModelVersion.name.key not in observed_order_by_clauses:
-            clauses.append(SqlModelVersion.name.asc())
-        if SqlModelVersion.version.key not in observed_order_by_clauses:
-            clauses.append(SqlModelVersion.version.desc())
         return clauses
 
     @classmethod

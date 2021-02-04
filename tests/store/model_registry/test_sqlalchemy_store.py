@@ -842,27 +842,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert mvds[0].description == "Online prediction model!"
 
     def test_parse_search_model_versions_order_by(self):
-        # test that "model_versions.name ASC model_versions.version DESC" is returned by default
-        parsed = SqlAlchemyStore._parse_search_model_versions_order_by([])
-        self.assertEqual([str(x) for x in parsed], [
-            "model_versions.name ASC",
-            "model_versions.version DESC"
-        ])
-
-        # test that the given 'name' replaces the default one ('model_versions.name ASC')
-        parsed = SqlAlchemyStore._parse_search_model_versions_order_by(["name DESC"])
-        self.assertEqual([str(x) for x in parsed], [
-            "model_versions.name DESC",
-            "model_versions.version DESC"
-        ])
-
-        # test that the given 'version' replaces the default one ('model_versions.version DESC')
-        parsed = SqlAlchemyStore._parse_search_model_versions_order_by(["version ASC"])
-        self.assertEqual([str(x) for x in parsed], [
-            "model_versions.version ASC",
-            "model_versions.name ASC"
-        ])
-
         # test that an exception is raised when order_by contains duplicate fields
         msg = "`order_by` contains duplicate fields:"
         with self.assertRaisesRegex(MlflowException, msg):
@@ -955,16 +934,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         returned_mvs = []
         query = "name='{}'".format(rm_name)
         result, token = self._search_model_versions(
-            query, page_token=None, order_by=["version ASC"], max_results=25
+            query, page_token=None, order_by=["version DESC"], max_results=25
         )
         returned_mvs.extend(result)
         while token:
             result, token = self._search_model_versions(
-                query, page_token=token, order_by=["version ASC"], max_results=25
+                query, page_token=token, order_by=["version DESC"], max_results=25
             )
             returned_mvs.extend(result)
         # version ascending should be the order of the current order
-        self.assertEqual(mvs, returned_mvs)
+        self.assertEqual(mvs[::-1], returned_mvs)
         # last_updated_timestamp descending should have the newest MVs first
         result, _ = self._search_model_versions(
             query, page_token=None, order_by=["last_updated_timestamp DESC"], max_results=100
@@ -990,11 +969,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             query, page_token=None, order_by=["timestamp"], max_results=100
         )
         self.assertEqual(mvs, result)
-        # name ascending should have the reverse order
+        # name ascending should have the original order
         result, _ = self._search_model_versions(
             query, page_token=None, order_by=["name ASC"], max_results=100
         )
-        self.assertEqual(mvs[::-1], result)
+        self.assertEqual(mvs, result)
         # test that no ASC/DESC defaults to ASC
         result, _ = self._search_model_versions(
             query, page_token=None, order_by=["last_updated_timestamp"], max_results=100
