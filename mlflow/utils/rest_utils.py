@@ -4,6 +4,8 @@ import logging
 import json
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 from mlflow import __version__
 from mlflow.protos import databricks_pb2
@@ -167,6 +169,54 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
+
+
+# Response codes that generally indicate transient network failures and merit client retries,
+# based on guidance from cloud service providers
+# (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
+TRANSIENT_FAILURE_RESPONSE_CODES = [
+    408, # Request Timeout
+    429, # Too Many Requests
+    500, # Internal Server Error
+    502, # Bad Gateway
+    503, # Service Unavailable
+    504, # Gateway Timeout
+]
+
+
+def cloud_storage_http_request(method, *args, **kwargs):
+    """
+    Performs an HTTP PUT/GET request using Python's `requests` module with an automatic retry
+    policy of `retry_attempts` using exponential backoff for the following response codes:
+
+        - 408 (Request Timeout)
+        - 429 (Too Many Requests)
+        - 500 (Internal Server Error)
+        - 502 (Bad Gateway)
+        - 503 (Service Unavailable)
+        - 504 (Gateway Timeout)
+
+    :method: string of 'PUT' or 'GET', specify to do http PUT or GET
+    :args: Positional arguments to pass to `requests.Session.put/get()`
+    :kwargs: Keyword arguments to pass to `requests.Session.put/get()`
+    """
+    retry_attempts = kwargs.get('retry_attempts', 5)
+    retry_strategy = Retry(
+        total=None,
+        status=retry_attempts,
+        status_forcelist=TRANSIENT_FAILURE_RESPONSE_CODES,
+        backoff_factor=1,
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    http = requests.Session()
+    http.mount("https://", adapter)
+    http.mount("http://", adapter)
+    if method.lower() == 'put':
+        return http.put(*args, **kwargs)
+    elif method.lower() == 'get':
+        return http.get(*args, **kwargs)
+    else:
+        raise ValueError('Illegal http method: ' + method)
 
 
 class MlflowHostCreds(object):
