@@ -98,7 +98,7 @@ def test_run_context_provider_registry_with_installed_plugin():
 
     assert PluginRequestHeaderProvider in _currently_registered_request_header_provider_classes()
 
-    # The test plugin's request header provider always returns False from in_contex to avoid
+    # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
     with mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True):
