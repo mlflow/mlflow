@@ -45,6 +45,12 @@ jobs:
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
       shell: Rscript {0}
 
+    - name: Get OS name
+      id: os-name
+      run: |
+        # `os_name` will be like "Ubuntu-20.04.1-LTS"
+        os_name=$(lsb_release -ds | sed 's/\s/-/g')
+        echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
       if: runner.os != 'Windows'
       uses: actions/cache@v2
@@ -52,8 +58,8 @@ jobs:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+        restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
@@ -133,6 +139,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/setup-java@v1
+      with:
+        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
+        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
+        java-version: 8
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
@@ -204,6 +215,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -240,6 +254,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -256,6 +273,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 8
       - name: Install dependencies
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
@@ -279,6 +299,7 @@ jobs:
         run: |
           pip install -r dev-requirements.txt
           pip install -r dev/small-requirements.txt
+          pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
       - name: Run tests
         run: |
