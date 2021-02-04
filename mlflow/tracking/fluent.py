@@ -104,10 +104,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
     will be logged. The return value can be used as a context manager within a ``with`` block;
     otherwise, you must call ``end_run()`` to terminate the current run.
 
-    If you pass a ``run_id`` or the ``
-    
-    
-    _ID`` environment variable is set,
+    If you pass a ``run_id`` or the ``MLFLOW_RUN_ID`` environment variable is set,
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
 
