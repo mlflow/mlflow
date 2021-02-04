@@ -45,6 +45,12 @@ jobs:
         writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
       shell: Rscript {0}
 
+    - name: Get OS name
+      id: os-name
+      run: |
+        # `os_name` will be like "Ubuntu-20.04.1-LTS"
+        os_name=$(lsb_release -ds | sed 's/\s/-/g')
+        echo "::set-output name=os-name::$os_name"
     - name: Cache R packages
       if: runner.os != 'Windows'
       uses: actions/cache@v2
@@ -52,8 +58,8 @@ jobs:
         path: ${{ env.R_LIBS_USER }}
         # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
         # R dependencies
-        key: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ runner.os }}-${{ hashFiles('.github/R-version') }}-1-
+        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
+        restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
