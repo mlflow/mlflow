@@ -74,7 +74,6 @@ jobs:
       shell: Rscript {0}
     - name: Create test environment
       run: |
-        env
         source ./dev/install-common-deps.sh
         cd mlflow/R/mlflow
         R CMD build .

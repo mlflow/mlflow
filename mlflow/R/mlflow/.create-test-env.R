@@ -16,6 +16,10 @@ reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
 reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 
 # Install MLeap runtime and required dependencies
+if (Sys.getenv("GITHUB_ACTIONS") != "") {
+  options(maven.home=Sys.getenv("M2_HOME"))
+}
+
 sparklyr::spark_install(version = "2.4.5")
-# mleap::install_maven()
+mleap::install_maven()
 mleap::install_mleap(version = "0.16.0")
