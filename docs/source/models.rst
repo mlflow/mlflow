@@ -368,6 +368,11 @@ You can save Spark models in MLflow format with the ``mleap`` flavor by specifyi
 defines :py:func:`save_model() <mlflow.mleap.save_model>` and
 :py:func:`log_model() <mlflow.mleap.log_model>` methods for saving MLeap models in MLflow format,
 but these methods do not include the ``python_function`` flavor in the models they produce.
+Similarly, ``mleap`` models can be saved in R with `mlflow_save_model <R-api.rst#mlflow-save-model>`
+and loaded with `mlflow_load_model <R-api.rst#mlflow-load-model>`, with
+`mlflow_save_model <R-api.rst#mlflow-save-model>` requiring `sample_input` to be specified as a
+sample Spark dataframe containing input data to the model is required by MLeap for data schema
+inference.
 
 A companion module for loading MLflow Models with the MLeap flavor is available in the
 ``mlflow/java`` package.
