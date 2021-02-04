@@ -714,7 +714,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
     def _search_model_versions(
-        self, filter_string, max_results=10, order_by=["version ASC"], page_token=None
+        self, filter_string, max_results=10, order_by=None, page_token=None
     ):
         result = self.store.search_model_versions(
             filter_string=filter_string,
@@ -888,19 +888,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         # test that pagination will return all valid results in sorted order
         # by version ascending
-        result, token1 = self._search_model_versions(query, max_results=5)
+        result, token1 = self._search_model_versions(query, order_by=["version ASC"], max_results=5)
         self.assertNotEqual(token1, None)
         self.assertEqual(result, mvs[0:5])
 
-        result, token2 = self._search_model_versions(query, page_token=token1, max_results=10)
+        result, token2 = self._search_model_versions(query, order_by=["version ASC"], page_token=token1, max_results=10)
         self.assertNotEqual(token2, None)
         self.assertEqual(result, mvs[5:15])
 
-        result, token3 = self._search_model_versions(query, page_token=token2, max_results=20)
+        result, token3 = self._search_model_versions(query, order_by=["version ASC"], page_token=token2, max_results=20)
         self.assertNotEqual(token3, None)
         self.assertEqual(result, mvs[15:35])
 
-        result, token4 = self._search_model_versions(query, page_token=token3, max_results=100)
+        result, token4 = self._search_model_versions(query, order_by=["version ASC"], page_token=token3, max_results=100)
         # assert that page token is None
         self.assertEqual(token4, None)
         self.assertEqual(result, mvs[35:])
