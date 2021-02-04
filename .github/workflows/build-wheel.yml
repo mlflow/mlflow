@@ -22,7 +22,7 @@ jobs:
           python-version: "3.7"
 
       - name: Build UI
-        if: ${{ matrix.type == "full" }}
+        if: ${{ matrix.type == 'full' }}
         working-directory: mlflow/server/js
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
