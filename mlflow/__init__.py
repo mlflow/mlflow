@@ -125,6 +125,7 @@ log_figure = mlflow.tracking.fluent.log_figure
 active_run = mlflow.tracking.fluent.active_run
 get_run = mlflow.tracking.fluent.get_run
 start_run = mlflow.tracking.fluent.start_run
+mlflow_run = mlflow.tracking.fluent.mlflow_run
 end_run = mlflow.tracking.fluent.end_run
 search_runs = mlflow.tracking.fluent.search_runs
 list_run_infos = mlflow.tracking.fluent.list_run_infos
@@ -165,6 +166,7 @@ __all__ = [
     "log_image",
     "active_run",
     "start_run",
+    "mlflow_run",
     "end_run",
     "search_runs",
     "get_artifact_uri",

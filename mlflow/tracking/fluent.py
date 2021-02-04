@@ -5,6 +5,7 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 import os
 
 import atexit
+import functools
 import time
 import logging
 import inspect
@@ -264,6 +265,51 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
 
 
 atexit.register(end_run)
+
+
+def mlflow_run(
+    _func=None, *, run_id=None, experiment_id=None, run_name=None, nested=False, tags=None,
+):
+    """
+        A convenience decorator which can be used in place of ``mlflow.start_run``, wrapping the
+        decorated function with a :py:class:`mlflow.ActiveRun` context manager.
+
+        The decorator can be used with or without arguments. If provided, parameters
+        are passed to ``mlflow.start_run``.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+
+            @mlflow.mlflow_run
+            def log_to_default_experiment(message):
+                 mlflow.log_param("message", message)
+
+            @mlflow.mlflow_run(experiment_id=MY_EXPERIMENT_ID)
+            def log_param_to_experiment(message):
+                mlflow.log_param("message", message)
+        """
+
+    def run_decorator(func):
+        @functools.wraps(func)
+        def run_wrapper(*args, **kwargs):
+            with start_run(
+                run_id=run_id,
+                experiment_id=experiment_id,
+                run_name=run_name,
+                nested=nested,
+                tags=tags,
+            ):
+                value = func(*args, **kwargs)
+            return value
+
+        return run_wrapper
+
+    if _func is None:
+        return run_decorator
+    else:
+        return run_decorator(_func)
 
 
 def active_run():
