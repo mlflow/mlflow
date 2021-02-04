@@ -36,7 +36,7 @@ jobs:
         run: |
           pip install wheel twine
 
-      - name: Build wheel
+      - name: Build distribution files
         id: build-wheel
         run: |
           if [ "${{ matrix.type }}" = "skinny" ]; then
