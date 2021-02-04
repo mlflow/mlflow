@@ -587,9 +587,7 @@ def test_get_model_version_download_uri(mock_get_request_message, mock_model_reg
 
 def test_search_model_versions(mock_get_request_message, mock_model_registry_store):
     mock_get_request_message.return_value = SearchModelVersions(
-        filter="source_path = 'A/B/CD'",
-        order_by=["version ASC"],
-        max_results=100
+        filter="source_path = 'A/B/CD'", order_by=["version ASC"], max_results=100
     )
     mvds = [
         ModelVersion(
@@ -652,7 +650,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
         "filter_string": "source_path = 'A/B/CD'",
         "max_results": 100,
         "order_by": ["version ASC"],
-        "page_token": ""
+        "page_token": "",
     }
     assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
 

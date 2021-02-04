@@ -325,11 +325,7 @@ class RestStore(AbstractStore):
         return response_proto.artifact_uri
 
     def search_model_versions(
-        self,
-        filter_string=None,
-        max_results=None,
-        order_by=None,
-        page_token=None
+        self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.

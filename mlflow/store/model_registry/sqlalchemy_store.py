@@ -776,6 +776,7 @@ class SqlAlchemyStore(AbstractStore):
                 final_offset = offset + max_results
                 next_token = SearchUtils.create_page_token(final_offset)
             return next_token
+
         if len(parsed_filter) == 0:
             conditions = []
         elif len(parsed_filter) == 1:

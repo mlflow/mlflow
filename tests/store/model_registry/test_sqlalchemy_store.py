@@ -713,9 +713,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.get_model_version_download_uri(name=mv.name, version=mv.version)
         assert exception_context.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-    def _search_model_versions(
-        self, filter_string, max_results=10, order_by=None, page_token=None
-    ):
+    def _search_model_versions(self, filter_string, max_results=10, order_by=None, page_token=None):
         result = self.store.search_model_versions(
             filter_string=filter_string,
             max_results=max_results,
@@ -881,28 +879,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(result, mvs[0:5])
 
         result, token2 = self._search_model_versions(
-            query,
-            order_by=["version ASC"],
-            page_token=token1,
-            max_results=10
+            query, order_by=["version ASC"], page_token=token1, max_results=10
         )
         self.assertNotEqual(token2, None)
         self.assertEqual(result, mvs[5:15])
 
         result, token3 = self._search_model_versions(
-            query,
-            order_by=["version ASC"],
-            page_token=token2,
-            max_results=20
+            query, order_by=["version ASC"], page_token=token2, max_results=20
         )
         self.assertNotEqual(token3, None)
         self.assertEqual(result, mvs[15:35])
 
         result, token4 = self._search_model_versions(
-            query,
-            order_by=["version ASC"],
-            page_token=token3,
-            max_results=100
+            query, order_by=["version ASC"], page_token=token3, max_results=100
         )
         # assert that page token is None
         self.assertEqual(token4, None)
