@@ -43,7 +43,7 @@ jobs:
             export MLFLOW_SKINNY=true
           fi
 
-          python setup.py bdist_wheel
+          python setup.py bdist_wheel sdist
 
           # set outputs
           wheel_path=$(find dist -type f -name "*.whl")
