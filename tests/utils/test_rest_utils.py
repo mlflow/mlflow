@@ -4,7 +4,6 @@ from unittest import mock
 import numpy
 import pytest
 
-from importlib import reload
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import (
@@ -175,7 +174,7 @@ def test_http_request_request_headers(request):
         request.assert_called_with(
             url="http://my-host/my/endpoint",
             verify="/some/path",
-            headers={**_DEFAULT_HEADERS, "test": "header",},
+            headers={**_DEFAULT_HEADERS, "test": "header"},
         )
 
 
