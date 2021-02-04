@@ -17,9 +17,10 @@ reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_n
 
 # Install MLeap runtime and required dependencies
 if (Sys.getenv("GITHUB_ACTIONS") != "") {
+  # On GitHub Actions, use pre-installed Maven:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#project-management
   options(maven.home=Sys.getenv("M2_HOME"))
 }
-
 sparklyr::spark_install(version = "2.4.5")
 mleap::install_maven()
 mleap::install_mleap(version = "0.16.0")
