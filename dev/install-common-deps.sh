@@ -58,6 +58,9 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
+# Install `mlflow-test-plugin` without dependencies
+pip install --no-dependencies tests/resources/mlflow-test-plugin
+
 # Print current environment info
 pip list
 which mlflow
