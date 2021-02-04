@@ -48,6 +48,11 @@ jobs:
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
+          # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
+          java-version: 8
       - name: Enable conda
         run: |
           echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
