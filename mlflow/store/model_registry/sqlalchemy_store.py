@@ -743,6 +743,7 @@ class SqlAlchemyStore(AbstractStore):
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
+        :param max_results: Maximum number of model versions desired.
         :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
                          matching search results.
         :param page_token: Token specifying the next page of results. It should be obtained from
