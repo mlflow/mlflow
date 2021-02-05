@@ -43,6 +43,7 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
+      # This installs pytorch-lightning from the default branch
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
