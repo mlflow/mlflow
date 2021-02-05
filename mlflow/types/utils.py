@@ -139,7 +139,9 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
         raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
 
-    if pd.api.types.is_bool_dtype(col):
+    if pd.api.types.infer_dtype(col) == "bytes":
+        return DataType.binary
+    elif pd.api.types.is_bool_dtype(col):
         return DataType.boolean
     elif pd.api.types.is_integer_dtype(col) and not pd.api.types.is_int64_dtype(col):
         return DataType.integer
