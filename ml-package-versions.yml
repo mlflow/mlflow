@@ -2,6 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
+      # This installs scikit-learn from the default branch
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
