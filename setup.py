@@ -112,6 +112,7 @@ setup(
     long_description=open("README.rst").read()
     if not _is_mlflow_skinny
     else open("README_SKINNY.rst").read() + open("README.rst").read(),
+    long_description_content_type="text/x-rst",
     license="Apache License 2.0",
     classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
     keywords="ml ai databricks",
