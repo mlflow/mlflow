@@ -58,10 +58,10 @@ def _infer_schema(data: Any) -> Schema:
                 )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        schema = Schema([ColSpec(type=_infer_numpy_array(data.values))])
+        schema = Schema([ColSpec(type=_infer_pandas_column(data))])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
-            [ColSpec(type=_infer_numpy_array(data[col].values), name=col) for col in data.columns]
+            [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
         )
     elif isinstance(data, np.ndarray):
         if len(data.shape) > 2:
@@ -133,6 +133,20 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
             "_map_numpy_array instead."
         )
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
+
+
+def _infer_pandas_column(col: pd.Series) -> DataType:
+    if not isinstance(col, pd.Series):
+        raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
+
+    if pd.api.types.is_bool_dtype(col):
+        return DataType.boolean
+    elif pd.api.types.is_integer_dtype(col):
+        return DataType.long
+    elif pd.api.types.is_float_dtype(col):
+        return DataType.double
+    elif pd.api.types.is_string_dtype(col):
+        return DataType.string
 
 
 def _infer_numpy_array(col: np.ndarray) -> DataType:
