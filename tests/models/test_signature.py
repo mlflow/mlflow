@@ -1,5 +1,4 @@
 import json
-
 import numpy as np
 
 from mlflow.models.signature import ModelSignature, infer_signature
@@ -32,7 +31,7 @@ def test_model_signature():
     signature4 = ModelSignature.from_dict(json.loads(as_json))
     assert signature1 == signature4
     signature5 = ModelSignature(
-        inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]), outputs=None,
+        inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]), outputs=None
     )
     as_json = json.dumps(signature5.to_dict())
     signature6 = ModelSignature.from_dict(json.loads(as_json))
