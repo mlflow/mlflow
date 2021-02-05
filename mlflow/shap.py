@@ -73,7 +73,7 @@ def get_default_conda_env():
     """
     :return: The default Conda environment for
              MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_model()`.
+             :func:`save_model()` and :func:`log_explainer()`.
     """
     import shap
 
