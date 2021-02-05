@@ -14,3 +14,8 @@ reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = 
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
 # Pin h2o to prevent version-mismatch between python and R
 reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
+
+# Install MLeap runtime and required dependencies
+sparklyr::spark_install(version = "2.4.5")
+mleap::install_maven()
+mleap::install_mleap(version = "0.16.0")

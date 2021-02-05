@@ -33,7 +33,21 @@ jobs:
   r:
     runs-on: ubuntu-latest
     steps:
+    - name: Uninstall default-jdk and adoptopenjdk-11-hotspot if present
+      run: |
+        # deleting other version(s) of JDK because they are not needed and they might interfere with JNI linker configuration in the 'setup-r' step
+        sudo apt-get -y remove --purge default-jdk adoptopenjdk-11-hotspot || :
     - uses: actions/checkout@master
+    - uses: actions/setup-java@v1
+      with:
+        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
+        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
+        java-version: 8
+    - name: Re-configure dynamic linker run-time bindings for adoptopenjdk-8-hotspot-amd64
+      run: |
+        sudo mkdir -p /etc/ld.so.conf.d
+        sudo bash -c "cat > /etc/ld.so.conf.d/jre.conf <<< '/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64/jre/lib/amd64/server'"
+        sudo ldconfig -v
     - uses: r-lib/actions/setup-r@v1
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
@@ -63,6 +77,7 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
+        sudo R CMD javareconf
     - name: Install dependencies
       run: |
         install.packages("devtools")
