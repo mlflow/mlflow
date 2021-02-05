@@ -16,9 +16,7 @@ MSE: 1.04
 Target names:  ['setosa' 'versicolor' 'virginica']
 ```
 
-Now we can deploy and test our model.
-
-First, start a Ray cluster with the following command:
+Second, start a Ray cluster with the following command:
 
 `ray start --head`
 
@@ -28,7 +26,7 @@ Next, start a long-running Ray Serve instance on our Ray cluster:
 
 Ray Serve is now running and ready to deploy MLflow models.  The MLflow Ray Serve plugin features both a Python API as well as a command-line interface. For this example, we'll use the command line interface.
 
-Deploy our first instance using the following command:
+Finally, we may deploy our model by creating an instance using the following command:
 
 `mlflow deployments create -t ray-serve -m iris_model --name iris:v1`
 
