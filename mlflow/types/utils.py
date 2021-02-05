@@ -141,12 +141,20 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
 
     if pd.api.types.is_bool_dtype(col):
         return DataType.boolean
-    elif pd.api.types.is_integer_dtype(col):
+    elif pd.api.types.is_integer_dtype(col) and not pd.api.types.is_int64_dtype(col):
+        return DataType.integer
+    elif pd.api.types.is_integer_dtype(col) and pd.api.types.is_int64_dtype(col):
         return DataType.long
-    elif pd.api.types.is_float_dtype(col):
+    elif pd.api.types.is_dtype_equal(col, np.float32):
+        return DataType.float
+    elif pd.api.types.is_dtype_equal(col, np.float64):
         return DataType.double
     elif pd.api.types.is_string_dtype(col):
         return DataType.string
+    else:
+        raise MlflowException(
+            "Unable to map col of type {} to MLflow DataType.".format(type(col))
+        )
 
 
 def _infer_numpy_array(col: np.ndarray) -> DataType:

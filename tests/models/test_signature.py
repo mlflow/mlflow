@@ -37,9 +37,9 @@ def test_pandas_signature_inference(pandas_df_with_all_types):
         inputs=Schema(
             [
                 ColSpec(DataType.boolean, "boolean"),
-                ColSpec(DataType.long, "integer"),
+                ColSpec(DataType.integer, "integer"),
                 ColSpec(DataType.long, "long"),
-                ColSpec(DataType.double, "float"),
+                ColSpec(DataType.float, "float"),
                 ColSpec(DataType.double, "double"),
                 ColSpec(DataType.string, "binary"),
                 ColSpec(DataType.string, "string"),
