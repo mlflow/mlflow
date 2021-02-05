@@ -104,18 +104,26 @@ downstream tooling:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs are
-described as a sequence of (optionally) named columns with type specified as one of the
-:py:class:`MLflow data types <mlflow.types.DataType>`. The signature is stored
-in JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs can
+be either column-based or tensor-based. There are two different signature types: column-based and
+tensor-based. Column-based inputs and outputs can be described as a sequence of (optionally) named
+columns with type specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`.
+Tensor-based inputs and outputs can be described as a sequence of (optionally) named tensors with
+type specified as one of the `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+The signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with
+other model metadata.
+
 Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
 which deploys a model as a REST API, validates inputs based on the model's signature.
 
-The following example displays an MLmodel file excerpt containing the model signature for a
-classification model trained on the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_.
-The input has 4 named, numeric columns. The output is an unnamed integer specifying the predicted
-class:
+Column-based Signature Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Each column-based input and output is represented by a type corresponding to one of 
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
+displays an MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
 
@@ -124,28 +132,45 @@ class:
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
         "petal width (cm)", "type": "double"}]'
       outputs: '[{"type": "integer"}]'
+      
+Tensor-based Signature Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Each tensor-based input and output is represented by a dtype corresponding to one of
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
+When specifying the shape, -1 is used for axes that may be variable in size.
+The following example displays an MLmodel file excerpt containing the model signature for a
+classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/mnist/>`_.
+The input has one named tensor where input sample is an image represented by a 28 × 28 × 1 array
+of float32 numbers. The output is an unnamed tensor that has 10 units specifying the
+likelihood corresponding to each of the 10 classes. Note that the first dimension of the input
+and the output is the batch size and is thus set to -1 to allow for variable batch sizes. 
+
+.. code-block:: yaml
+
+  signature:
+      inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
+      outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
-When scoring a model that includes a signature, inputs are validated based on the signature's input
-schema. This input schema enforcement checks input column ordering and column types, raising an
-exception if the input is not compatible. This enforcement is applied in MLflow before calling the
-underlying model implementation. Note that this enforcement only applies when using :ref:`MLflow
+Schema enforcement checks the provided input against the model's signature
+and raises an exception if the input is not compatible. This enforcement is applied in MLflow before
+calling the underlying model implementation. Note that this enforcement only applies when using :ref:`MLflow
 model deployment tools <built-in-deployment>` or when loading models as ``python_function``. In
 particular, it is not applied to models that are loaded in their native format (e.g. by calling
 :py:func:`mlflow.sklearn.load_model() <mlflow.sklearn.load_model>`).
 
-Column Ordering Enforcement
-"""""""""""""""""""""""""""
-The input columns are checked against the model signature. If there are any missing columns,
-MLflow will raise an exception. Extra columns that were not declared in the signature will be
-ignored. If the input schema in the signature defines column names, column matching is done by name
-and the columns are reordered to match the signature. If the input schema does not have column
-names, matching is done by position (i.e. MLflow will only check the number of columns).
+Name Ordering Enforcement
+"""""""""""""""""""""""""
+The input names are checked against the model signature. If there are any missing inputs,
+MLflow will raise an exception. Extra inputs that were not declared in the signature will be
+ignored. If the input schema in the signature defines input names, input matching is done by name
+and the inputs are reordered to match the signature. If the input schema does not have input
+names, matching is done by position (i.e. MLflow will only check the number of inputs).
 
-Column Type Enforcement
+Input Type Enforcement
 """""""""""""""""""""""
-The input column types are checked against the signature. MLflow will perform safe type conversions
+The input types are checked against the signature. MLflow will perform safe type conversions
 if necessary. Generally, only conversions that are guaranteed to be lossless are allowed. For
 example, int -> long or int -> double conversions are ok, long -> double is not. If the types cannot
 be made compatible, MLflow will raise an error.
@@ -170,8 +195,12 @@ To include a signature with your model, pass :py:class:`signature object
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. The model signature object can be created
 by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
 (e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
-predictions generated on the training dataset). The following example demonstrates how to store
-a model signature for a simple classifier trained on the ``Iris dataset``:
+predictions generated on the training dataset).
+
+Column-based Signature Example
+""""""""""""""""""""""""""""""
+The following example demonstrates how to store a model signature for a simple classifier trained
+on the ``Iris dataset``:
 
 .. code-block:: python
 
@@ -205,21 +234,76 @@ The same signature can be created explicitly as follows:
     output_schema = Schema([ColSpec("long")])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
+Tensor-based Signature Example
+""""""""""""""""""""""""""""""
+The following example demonstrates how to store a model signature for a simple classifier trained
+on the ``MNIST dataset``:
+
+.. code-block:: python
+
+    from keras.datasets import mnist
+    from keras.utils import to_categorical
+    from keras.models import Sequential
+    from keras.layers import Conv2D
+    from keras.layers import MaxPooling2D
+    from keras.layers import Dense
+    from keras.layers import Flatten
+    from keras.optimizers import SG
+    import mlflow
+    import mlflow.keras
+    from mlflow.models.signature import infer_signature
+
+    (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
+    trainX = train_X.reshape((train_X.shape[0], 28, 28, 1))
+    testX = test_X.reshape((test_X.shape[0], 28, 28, 1))
+    trainY = to_categorical(train_Y)
+    testY = to_categorical(test_Y)
+    
+    model = Sequential()
+    model.add(Conv2D(32, (3, 3), activation='relu', kernel_initializer='he_uniform', input_shape=(28, 28, 1)))
+    model.add(MaxPooling2D((2, 2)))
+    model.add(Flatten())
+    model.add(Dense(100, activation='relu', kernel_initializer='he_uniform'))
+    model.add(Dense(10, activation='softmax'))
+    opt = SGD(lr=0.01, momentum=0.9)
+    model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+    model.fit(trainX, trainY, epochs=10, batch_size=32, validation_data=(testX, testY))
+
+    signature = infer_signature(testX, model.predict(testX))
+    mlflow.keras.log_model(model, "mnist_cnn", signature=signature)
+
+The same signature can be created explicitly as follows:
+
+.. code-block:: python
+
+    from mlflow.models.signature import ModelSignature
+    from mlflow.types.schema import Schema, TensorSpec
+
+    input_schema = Schema([
+      TensorSpec("uint8", (-1, 28, 28, 1)),
+    ])
+    output_schema = Schema([TensorSpec("float32", (-1, 10))])
+    signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
 .. _input-example:
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-A model input example provides an instance of a valid model input. This may be a single record or a
-batch of records. Input examples are stored with the model as separate artifacts
-and are referenced in the the :ref:`MLmodel file <pyfunc-model-config>`.
+Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
+(i.e numpy.ndarrays). A model input example provides an instance of a valid model input.
+Input examples are stored with the model as separate artifacts and are referenced in the the
+:ref:`MLmodel file <pyfunc-model-config>`.
 
-How To Log Model With Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To include an input example with your model, add it to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. An example can be passed in as
-a Pandas DataFrame, Numpy array, list or dictionary. The given example will be converted to a
-Pandas DataFrame and then serialized to json using the Pandas split-oriented format. Bytes are
-base64-encoded. The following example demonstrates how you can log an input example with your model:
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`.
+
+How To Log Model With Column-based Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models accepting column-based inputs, an example can be a single record or a batch of records. The
+sample input can be passed in as a Pandas DataFrame, list or dictionary. The given
+example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
+format. Bytes are base64-encoded. The following example demonstrates how you can log a column-based
+input example with your model:
 
 .. code-block:: python
 
@@ -230,6 +314,28 @@ base64-encoded. The following example demonstrates how you can log an input exam
       "petal width (cm)": 0.2
     }
     mlflow.sklearn.log_model(..., input_example=input_example)
+
+How To Log Model With Tensor-based Example
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+For models accepting tensor-based inputs, an example must be a batch of inputs. By default, the axis 0
+is the batch axis unless specified otherwise in the model signature. The sample input can be passed in as
+a numpy ndarray or a dictionary mapping a string to a numpy array. The following example demonstrates how
+you can log a tensor-based input example with your model:
+
+.. code-block:: python
+
+    # each input has shape (4, 4)
+    input_example = np.array([
+       [[  0,   0,   0,   0],
+	[  0, 134,  25,  56],
+	[253, 242, 195,   6],
+	[  0,  93,  82,  82]],
+       [[  0,  23,  46,   0],
+	[ 33,  13,  36, 166],
+	[ 76,  75,   0, 255],
+	[ 33,  44,  11,  82]]
+    ], dtype=np.uint8)
+    mlflow.keras.log_model(..., input_example=input_example)
 
 .. _model-api:
 
@@ -299,8 +405,22 @@ automatic dependency management).
 Once loaded, you can score the model by calling the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>`
 method, which has the following signature::
 
-  predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  
+All model flavors will support pandas.DataFrame as input and some will also support tensor inputs in the form
+of numpy.ndarrays.
+  
+For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
+If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
+python `List` or a `numpy.ndarray` is provided as input for schemas with unnamed columns, MLflow will cast the
+input to a DataFrame. Schema enforcement and casting with respect to the expected data types is performed against
+the DataFrame and the output of a model with a column-based schema will always be a DataFrame.
 
+For models with a tensor-based schema, inputs are typically provided in the form of a `numpy.ndarray`, or a
+dictionary mapping the tensor name to its np.ndarray value.
+
+For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
+propogate any errors raised by the model if the model does not accept the provided input type.
 
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
