@@ -43,7 +43,10 @@ jobs:
             export MLFLOW_SKINNY=true
           fi
 
+          # Build distribution files
           python setup.py sdist bdist_wheel
+
+          # List distribution files and check their file sizes
           ls -lh dist
 
           # set outputs
