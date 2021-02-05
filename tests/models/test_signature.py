@@ -57,20 +57,20 @@ def test_model_signature():
     signature1 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
         outputs=Schema(
-            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double), ]
+            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double)]
         ),
     )
     signature2 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
         outputs=Schema(
-            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double), ]
+            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double)]
         ),
     )
     assert signature1 == signature2
     signature3 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
         outputs=Schema(
-            [ColSpec(name=None, type=DataType.float), ColSpec(name=None, type=DataType.double), ]
+            [ColSpec(name=None, type=DataType.float), ColSpec(name=None, type=DataType.double)]
         ),
     )
     assert signature3 != signature1
