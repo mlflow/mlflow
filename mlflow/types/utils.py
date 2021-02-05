@@ -153,7 +153,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         return DataType.string
     else:
         raise MlflowException(
-            "Unable to map col of type {} to MLflow DataType.".format(type(col))
+            "Unable to map col of type {} to MLflow DataType.".format(type(col.dtype))
         )
 
 
