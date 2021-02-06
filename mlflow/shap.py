@@ -40,31 +40,34 @@ def get_underlying_model_flavor(model):
     :param model: underlying model of the explainer.
     """
 
-    unwrapped_model = model.model
-    if isinstance(unwrapped_model, types.FunctionType):
-        return "python_function"
+    # checking if underlying model is wrapped
 
-    # check if passed model is a method of object
-    if isinstance(unwrapped_model, types.MethodType):
-        model_object = unwrapped_model.__self__
+    if hasattr(model, "model"):
+        unwrapped_model = model.model
+        if isinstance(unwrapped_model, types.FunctionType):
+            return "python_function"
 
-        # check if model object is of type sklearn
+        # check if passed model is a method of object
+        if isinstance(unwrapped_model, types.MethodType):
+            model_object = unwrapped_model.__self__
+
+            # check if model object is of type sklearn
+            try:
+                import sklearn
+
+                if issubclass(type(model_object), sklearn.base.BaseEstimator):
+                    return "sklearn"
+            except ImportError:
+                pass
+
+        # check if passed model is of type pytorch
         try:
-            import sklearn
+            import torch
 
-            if issubclass(type(model_object), sklearn.base.BaseEstimator):
-                return "sklearn"
+            if issubclass(type(unwrapped_model), torch.nn.Module):
+                return "pytorch"
         except ImportError:
             pass
-
-    # check if passed model is of type pytorch
-    try:
-        import torch
-
-        if issubclass(type(unwrapped_model), torch.nn.Module):
-            return "pytorch"
-    except ImportError:
-        pass
 
     return _UNKNOWN_MODEL_FLAVOR
 

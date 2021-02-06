@@ -2,6 +2,7 @@ import mlflow
 import shap
 import numpy as np
 import sklearn
+from mlflow.utils import PYTHON_VERSION
 
 
 def test_sklearn_log_explainer():
@@ -115,7 +116,7 @@ def test_merge_environment():
         "name": "mlflow-env",
         "channels": ["defaults", "conda-forge", "default", "conda-forge"],
         "dependencies": [
-            "python=3.8.5",
+            "python={}".format(PYTHON_VERSION),
             "pip",
             {"pip": ["mlflow", "cloudpickle==1.6.0", "shap==0.38.0", "scikit-learn==0.24.0"]},
         ],
