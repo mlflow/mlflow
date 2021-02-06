@@ -213,3 +213,13 @@ def test_mlflow_run():
         )
         mock_projects.run.assert_not_called()
         assert "Specify only one of 'experiment-name' or 'experiment-id' options." in result.output
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "51", "uri", "--synchronous"])
+        _, run_kwargs = mock_projects.run.call_args_list[0]
+        assert run_kwargs["synchronous"]
+
+    with mock.patch("mlflow.cli.projects") as mock_projects:
+        CliRunner().invoke(cli.run, ["--experiment-id", "51", "uri", "--asynchronous"])
+        _, run_kwargs = mock_projects.run.call_args_list[0]
+        assert not run_kwargs["synchronous"]
