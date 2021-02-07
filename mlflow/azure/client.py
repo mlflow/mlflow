@@ -3,6 +3,11 @@ import urllib
 
 from mlflow.utils import rest_utils
 
+"""
+This module provides utilities for performing Azure Blob Storage operations without requiring 
+the heavyweight azure-storage-blob library dependency
+"""
+
 _PUT_BLOCK_HEADERS = {
     "x-ms-blob-type": "BlockBlob",
 }

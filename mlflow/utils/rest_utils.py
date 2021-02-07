@@ -176,12 +176,12 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
 # based on guidance from cloud service providers
 # (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
 TRANSIENT_FAILURE_RESPONSE_CODES = [
-    408, # Request Timeout
-    429, # Too Many Requests
-    500, # Internal Server Error
-    502, # Bad Gateway
-    503, # Service Unavailable
-    504, # Gateway Timeout
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
 ]
 
 
@@ -205,11 +205,16 @@ def cloud_storage_http_request(method, *args, **kwargs):
     retry_attempts = kwargs.get('retry_attempts', 5)
     retry_strategy = Retry(
         total=None,
-        connect=0,  # Don't retry on connect-related errors raised before a request reaches a remote server
-        read=1,  # Retry once for errors reading the response from a remote server,
-        redirect=3,  # Limit the number of redirects to avoid infinite redirect loops
-        other=0,  # Don't retry for other, unclassified errors
-        status=retry_attempts,  # Retry a specified number of times for response codes indicating transient failures
+        # Don't retry on connect-related errors raised before a request reaches a remote server
+        connect=0,
+        # Retry once for errors reading the response from a remote server
+        read=1,
+        # Limit the number of redirects to avoid infinite redirect loops
+        redirect=3,
+        # Don't retry for other, unclassified errors
+        other=0,
+        # Retry a specified number of times for response codes indicating transient failures
+        status=retry_attempts,
         status_forcelist=TRANSIENT_FAILURE_RESPONSE_CODES,
         backoff_factor=1,
     )

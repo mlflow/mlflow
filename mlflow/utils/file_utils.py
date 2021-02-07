@@ -3,7 +3,6 @@ import errno
 import gzip
 import os
 import posixpath
-import requests
 import shutil
 import sys
 import tarfile

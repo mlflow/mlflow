@@ -1,9 +1,7 @@
 import os
 
-from azure.storage.blob import BlobClient
 import pytest
 import posixpath
-import requests
 from requests.models import Response
 from unittest import mock
 from unittest.mock import ANY

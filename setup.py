@@ -56,7 +56,6 @@ other capabilities.
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "alembic<=1.4.1",
     # Required
-    "azure-storage-blob>=12.0.0",
     "docker>=4.0.0",
     "Flask",
     "gunicorn; platform_system != 'Windows'",

@@ -163,7 +163,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     put_block(credentials.signed_uri, block_id, chunk, headers=headers)
                 except requests.HTTPError as e:
                     if e.response.status_code in [401, 403]:
-                        eprint(
+                        _logger.info(
                             "Failed to authorize request, possibly due to credential expiration."
                             "Refreshing credentials and trying again.."
                         )
@@ -178,7 +178,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
             except requests.HTTPError as e:
                 if e.response.status_code in [401, 403]:
-                    eprint(
+                    _logger.info(
                         "Failed to authorize request, possibly due to credential expiration."
                         "Refreshing credentials and trying again.."
                     )
