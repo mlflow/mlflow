@@ -3,10 +3,8 @@ import urllib
 
 from mlflow.utils import rest_utils
 
-"""
-This module provides utilities for performing Azure Blob Storage operations without requiring 
-the heavyweight azure-storage-blob library dependency
-"""
+# This module provides utilities for performing Azure Blob Storage operations without requiring
+# the heavyweight azure-storage-blob library dependency
 
 _PUT_BLOCK_HEADERS = {
     "x-ms-blob-type": "BlockBlob",
@@ -37,7 +35,8 @@ def put_block(sas_url, block_id, data, headers):
         }
     )
 
-    with rest_utils.cloud_storage_http_request('put', request_url, data, headers=headers) as response:
+    with rest_utils.cloud_storage_http_request(
+            'put', request_url, data, headers=headers) as response:
         response.raise_for_status()
 
 
@@ -61,7 +60,8 @@ def put_block_list(sas_url, block_list, headers):
     )
     data = _build_block_list_xml(block_list)
 
-    with rest_utils.cloud_storage_http_request('put', request_url, data, headers=headers) as response:
+    with rest_utils.cloud_storage_http_request(
+            'put', request_url, data, headers=headers) as response:
         response.raise_for_status()
 
 

@@ -237,7 +237,8 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with('put', MOCK_AZURE_SIGNED_URI, ANY, headers=expected_headers)
+            request_mock.assert_called_with(
+                'put', MOCK_AZURE_SIGNED_URI, ANY, headers=expected_headers)
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
@@ -304,7 +305,8 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with('put', MOCK_AWS_SIGNED_URI, ANY, headers=expected_headers)
+            request_mock.assert_called_with(
+                'put', MOCK_AWS_SIGNED_URI, ANY, headers=expected_headers)
 
     def test_log_artifact_aws_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
@@ -370,7 +372,8 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with('put', MOCK_GCP_SIGNED_URL, ANY, headers=expected_headers)
+            request_mock.assert_called_with(
+                'put', MOCK_GCP_SIGNED_URL, ANY, headers=expected_headers)
 
     def test_log_artifact_gcp_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
