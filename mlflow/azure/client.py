@@ -1,7 +1,7 @@
 from copy import deepcopy
 import urllib
 
-from mlflow.utils.rest_utils import cloud_storage_http_request
+from mlflow.utils import rest_utils
 
 _PUT_BLOCK_HEADERS = {
     "x-ms-blob-type": "BlockBlob",
@@ -32,7 +32,7 @@ def put_block(sas_url, block_id, data, headers):
         }
     )
 
-    with cloud_storage_http_request('put', request_url, data, headers=headers) as response:
+    with rest_utils.cloud_storage_http_request('put', request_url, data, headers=headers) as response:
         response.raise_for_status()
 
 
@@ -56,7 +56,7 @@ def put_block_list(sas_url, block_list, headers):
     )
     data = _build_block_list_xml(block_list)
 
-    with cloud_storage_http_request('put', request_url, data, headers=headers) as response:
+    with rest_utils.cloud_storage_http_request('put', request_url, data, headers=headers) as response:
         response.raise_for_status()
 
 

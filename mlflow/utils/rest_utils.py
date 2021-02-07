@@ -4,6 +4,7 @@ import logging
 import json
 
 import requests
+from contextlib import contextmanager
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
@@ -184,6 +185,7 @@ TRANSIENT_FAILURE_RESPONSE_CODES = [
 ]
 
 
+@contextmanager
 def cloud_storage_http_request(method, *args, **kwargs):
     """
     Performs an HTTP PUT/GET request using Python's `requests` module with an automatic retry
@@ -203,20 +205,27 @@ def cloud_storage_http_request(method, *args, **kwargs):
     retry_attempts = kwargs.get('retry_attempts', 5)
     retry_strategy = Retry(
         total=None,
-        status=retry_attempts,
+        connect=0,  # Don't retry on connect-related errors raised before a request reaches a remote server
+        read=1,  # Retry once for errors reading the response from a remote server,
+        redirect=3,  # Limit the number of redirects to avoid infinite redirect loops
+        other=0,  # Don't retry for other, unclassified errors
+        status=retry_attempts,  # Retry a specified number of times for response codes indicating transient failures
         status_forcelist=TRANSIENT_FAILURE_RESPONSE_CODES,
         backoff_factor=1,
     )
     adapter = HTTPAdapter(max_retries=retry_strategy)
-    http = requests.Session()
-    http.mount("https://", adapter)
-    http.mount("http://", adapter)
-    if method.lower() == 'put':
-        return http.put(*args, **kwargs)
-    elif method.lower() == 'get':
-        return http.get(*args, **kwargs)
-    else:
-        raise ValueError('Illegal http method: ' + method)
+    with requests.Session() as http:
+        http.mount("https://", adapter)
+        http.mount("http://", adapter)
+        if method.lower() == 'put':
+            response = http.put(*args, **kwargs)
+        elif method.lower() == 'get':
+            response = http.get(*args, **kwargs)
+        else:
+            raise ValueError('Illegal http method: ' + method)
+
+        with response as r:
+            yield r
 
 
 class MlflowHostCreds(object):

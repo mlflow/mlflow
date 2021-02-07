@@ -25,9 +25,9 @@ from mlflow.utils.file_utils import (
     yield_file_in_chunks,
 )
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils import rest_utils
 from mlflow.utils.rest_utils import (
     call_endpoint,
-    cloud_storage_http_request,
     extract_api_info_for_service,
     _REST_API_PATH_PREFIX,
 )
@@ -197,12 +197,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
             signed_write_uri = credentials.signed_uri
             # Putting an empty file in a request by reading file bytes gives 501 error.
             if os.stat(local_file).st_size == 0:
-                with cloud_storage_http_request(
+                with rest_utils.cloud_storage_http_request(
                         'put', signed_write_uri, "", headers=headers) as response:
                     response.raise_for_status()
             else:
                 with open(local_file, "rb") as file:
-                    with cloud_storage_http_request(
+                    with rest_utils.cloud_storage_http_request(
                             'put', signed_write_uri, file, headers=headers) as response:
                         response.raise_for_status()
         except Exception as err:
