@@ -218,8 +218,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         testnames = ["blue", "red", "green"]
 
         experiments = self._experiment_factory(testnames)
-        actual = self.store.list_experiments(max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                                             page_token=None)
+        actual = self.store.list_experiments(
+            max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None
+        )
 
         self.assertEqual(len(experiments) + 1, len(actual))  # default
 
@@ -284,8 +285,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         with self.assertRaises(MlflowException) as exception_context:
             self.store.list_experiments(page_token=None, max_results=int(1e15))
             assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self.assertIn("Invalid value for request parameter max_results",
-                      exception_context.exception.message)
+        self.assertIn(
+            "Invalid value for request parameter max_results", exception_context.exception.message
+        )
 
     def test_create_experiments(self):
         with self.store.ManagedSessionMaker() as session:

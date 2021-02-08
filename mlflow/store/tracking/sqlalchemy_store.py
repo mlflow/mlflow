@@ -253,8 +253,13 @@ class SqlAlchemyStore(AbstractStore):
         return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
 
     def _list_experiments(
-        self, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, max_results=None,
-        page_token=None, eager=False
+        self,
+        ids=None,
+        names=None,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=None,
+        page_token=None,
+        eager=False,
     ):
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
@@ -299,10 +304,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
             else:
                 queried_experiments = (
-                    session.query(SqlExperiment)
-                    .options(*query_options)
-                    .filter(*conditions)
-                    .all()
+                    session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
                 )
 
             experiments = [exp.to_mlflow_entity() for exp in queried_experiments]
@@ -320,10 +322,9 @@ class SqlAlchemyStore(AbstractStore):
                 ),
                 INVALID_PARAMETER_VALUE,
             )
-        return self._list_experiments(view_type=view_type,
-                                      max_results=max_results,
-                                      page_token=page_token,
-                                      eager=True)
+        return self._list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token, eager=True
+        )
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
         """

@@ -109,8 +109,9 @@ class TrackingServiceClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type=None, max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                         page_token=None):
+    def list_experiments(
+        self, view_type=None, max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None
+    ):
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
                             passed, all experiments will be returned.
@@ -120,8 +121,9 @@ class TrackingServiceClient(object):
         """
         final_view_type = ViewType.ACTIVE_ONLY if view_type is None else view_type
         # TODO consider constant limit
-        return self.store.list_experiments(view_type=final_view_type, max_results=max_results,
-                                           page_token=page_token)
+        return self.store.list_experiments(
+            view_type=final_view_type, max_results=max_results, page_token=page_token
+        )
 
     def get_experiment(self, experiment_id):
         """

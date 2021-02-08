@@ -63,15 +63,18 @@ class RestStore(AbstractStore):
                             a ``list_experiments`` call.
         :return: a PagedList of all known Experiment objects
         """
-        req_body = message_to_json(ListExperiments(view_type=view_type,
-                                                   max_results=max_results,
-                                                   page_token=page_token))
+        req_body = message_to_json(
+            ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)
+        )
         response_proto = self._call_endpoint(ListExperiments, req_body)
         if max_results is not None:
-            return PagedList([
-                Experiment.from_proto(experiment_proto)
-                for experiment_proto in response_proto.experiments
-            ], response_proto.next_page_token)
+            return PagedList(
+                [
+                    Experiment.from_proto(experiment_proto)
+                    for experiment_proto in response_proto.experiments
+                ],
+                response_proto.next_page_token,
+            )
         else:
             return [
                 Experiment.from_proto(experiment_proto)
