@@ -494,8 +494,11 @@ def _merge_environments(shap_environment, model_environment):
 
     # remove the default conda channels if present since its added later
 
-    merged_conda_channels.remove("default")
-    merged_conda_channels.remove("conda-forge")
+    if "default" in merged_conda_channels:
+        merged_conda_channels.remove("default")
+
+    if "conda-forge" in merged_conda_channels:
+        merged_conda_channels.remove("conda-forge")
 
     shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
     model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(model_environment)

@@ -26,7 +26,7 @@ def test_sklearn_log_explainer():
         explainer_loaded = mlflow.shap.load_explainer("runs:/" + run_id + "/test_explainer")
         shap_values_new = explainer_loaded(X[:5])
 
-        np.testing.array_equal(shap_values_original.base_values, shap_values_new.base_values)
+        np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
         np.testing.assert_allclose(shap_values_original.values, shap_values_new.values, rtol=100)
 
 
@@ -51,7 +51,7 @@ def test_sklearn_log_explainer_self_serialization():
         explainer_loaded = mlflow.shap.load_explainer("runs:/" + run_id + "/test_explainer")
         shap_values_new = explainer_loaded(X[:5])
 
-        np.testing.array_equal(shap_values_original.base_values, shap_values_new.base_values)
+        np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
         np.testing.assert_allclose(shap_values_original.values, shap_values_new.values, rtol=100)
 
 
