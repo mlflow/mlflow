@@ -12493,7 +12493,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Maximum number of registered models desired. Max threshold is 50K.
+     * Maximum number of experiments desired. Max threshold is 50K.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -12501,7 +12501,7 @@ public final class Service {
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of registered models desired. Max threshold is 50K.
+     * Maximum number of experiments desired. Max threshold is 50K.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -13773,7 +13773,7 @@ public final class Service {
     private long maxResults_;
     /**
      * <pre>
-     * Maximum number of registered models desired. Max threshold is 50K.
+     * Maximum number of experiments desired. Max threshold is 50K.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -13783,7 +13783,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Maximum number of registered models desired. Max threshold is 50K.
+     * Maximum number of experiments desired. Max threshold is 50K.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -14272,7 +14272,7 @@ public final class Service {
       private long maxResults_ = 50000L;
       /**
        * <pre>
-       * Maximum number of registered models desired. Max threshold is 50K.
+       * Maximum number of experiments desired. Max threshold is 50K.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -14282,7 +14282,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of registered models desired. Max threshold is 50K.
+       * Maximum number of experiments desired. Max threshold is 50K.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -14292,7 +14292,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of registered models desired. Max threshold is 50K.
+       * Maximum number of experiments desired. Max threshold is 50K.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 50000];</code>
@@ -14305,7 +14305,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of registered models desired. Max threshold is 50K.
+       * Maximum number of experiments desired. Max threshold is 50K.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 50000];</code>
