@@ -116,84 +116,171 @@ class ColSpec(object):
             return "{name}: {type}".format(name=repr(self.name), type=repr(self.type))
 
 
+class TensorSpec(object):
+    """
+    Specification used to represent a dataset stored as a Tensor.
+    """
+
+    def __init__(
+            self, type: np.dtype, shape: tuple, name: Optional[str] = None  # pylint: disable=redefined-builtin
+    ):
+        self._name = name
+        if not isinstance(type, np.dtype):
+            raise TypeError(
+                "Expected `type` to be instance of `{0}`, received `{1}`".format(np.dtype, type.__class__)
+            )
+        if not isinstance(shape, tuple):
+            raise TypeError(
+                "Expected `shape` to be instance of `{0}`, received `{1}`".format(tuple, shape.__class__)
+            )
+        self._type = type
+        self._shape = shape
+
+    @property
+    def type(self) -> np.dtype:
+        """The tensor data type."""
+        return self._type
+
+    @property
+    def name(self) -> Optional[str]:
+        """The tensor name or None if the tensor is unnamed."""
+        return self._name
+
+    @property
+    def shape(self) -> tuple:
+        """The tensor shape"""
+        return self._shape
+
+    def to_dict(self) -> Dict[str, Any]:
+        if self.name is None:
+            return {"type": self.type.name, "shape": self.shape}
+        else:
+            return {"name": self.name, "type": self.type.name, "shape": self.shape}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """ Deserialize from a json loaded dictionary."""
+        tensor_type = np.dtype(kwargs['type'])
+        tensor_shape = tuple(kwargs['shape'])
+        return cls(tensor_type, tensor_shape, kwargs['name'] if 'name' in kwargs else None)
+
+    def __eq__(self, other) -> bool:
+        names_eq = (self.name is None and other.name is None) or self.name == other.name
+        return names_eq and self.type == other.type and self.shape == other.shape
+
+    def __repr__(self) -> str:
+        rep = "Tensor => "
+        if self.name is None:
+            return rep + "({type}, {shape})".format(type=repr(self.type), shape=repr(self.shape))
+        else:
+            return rep + "({name}, {type}, {shape})".format(name=repr(self.name), type=repr(self.type), shape=repr(self.shape))
+
+
 class Schema(object):
     """
-    Specification of types and column names in a dataset.
+    Specification of a dataset.
 
-    Schema is represented as a list of :py:class:`ColSpec`. The columns in a schema can be named,
-    with unique non empty name for every column, or unnamed with implicit integer index defined by
-    their list indices. Combination of named and unnamed columns is not allowed.
+    Schema is represented as a list of :py:class:`ColSpec` or :py:class:`TensorSpec`. A combination
+    of `ColSpec` and `TensorSpec` is not allowed.
+
+    The dataset represented by a schema can be named, with unique non empty names for every input.
+    In the case of :py:class:`ColSpec`, the dataset columns can be unnamed with implicit integer
+    index defined by their list indices.
+    Combination of named and unnamed data inputs are not allowed.
     """
+    SchemaInput = Union[ColSpec, TensorSpec]
 
-    def __init__(self, cols: List[ColSpec]):
+    def __init__(self, dataset: List[SchemaInput]):
         if not (
-            all(map(lambda x: x.name is None, cols)) or all(map(lambda x: x.name is not None, cols))
+            all(map(lambda x: x.name is None, dataset)) or all(map(lambda x: x.name is not None, dataset))
         ):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed columns "
-                "is not allowed. Got column names {}".format([x.name for x in cols])
+                "is not allowed. Got column names {}".format([x.name for x in dataset])
             )
-        self._cols = cols
+        if not (
+            all(map(lambda x: isinstance(x, TensorSpec), dataset)) or
+            all(map(lambda x: isinstance(x, ColSpec), dataset))
+        ):
+            raise MlflowException(
+                "Creating Schema with a combination of {0} and {1} is not supported. "
+                "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
+            )
+        self._data_rep = dataset
 
     @property
-    def columns(self) -> List[ColSpec]:
-        """The list of columns that defines this schema."""
-        return self._cols
+    def data_rep(self) -> List[ColSpec]:
+        """Representation of a dataset that defines this schema."""
+        return self._data_rep
+
+    def is_tensor_spec(self) -> bool:
+        """Return true iff this schema is specified using TensorSpec"""
+        return self.data_rep and isinstance(self.data_rep[0], TensorSpec)
 
     def column_names(self) -> List[Union[str, int]]:
-        """Get list of column names or range of indices if the schema has no column names."""
-        return [x.name or i for i, x in enumerate(self.columns)]
+        """Get list of data names or range of indices if the schema has no names."""
+        return [x.name or i for i, x in enumerate(self.data_rep)]
 
     def has_column_names(self) -> bool:
-        """ Return true iff this schema declares column names, false otherwise. """
-        return self.columns and self.columns[0].name is not None
+        """Return true iff this schema declares names, false otherwise. """
+        return self.data_rep and self.data_rep[0].name is not None
 
-    def column_types(self) -> List[DataType]:
-        """ Get column types of the columns in the dataset."""
-        return [x.type for x in self._cols]
+    def column_types(self) -> List[Union[DataType, np.dtype]]:
+        """ Get types of the represented dataset"""
+        return [x.type for x in self.data_rep]
 
     def numpy_types(self) -> List[np.dtype]:
-        """ Convenience shortcut to get the datatypes as numpy types."""
-        return [x.type.to_numpy() for x in self.columns]
+        """ Convenience shortcut to get the datatypes as numpy types. Unsupported by TensorSpec."""
+        if self.is_tensor_spec():
+            raise MlflowException("Datatype conversion is not supported by TensorSpec")
+        return [x.type.to_numpy() for x in self.data_rep]
 
     def pandas_types(self) -> List[np.dtype]:
-        """ Convenience shortcut to get the datatypes as pandas types."""
-        return [x.type.to_pandas() for x in self.columns]
+        """ Convenience shortcut to get the datatypes as pandas types. Unsupported by TensorSpec."""
+        if self.is_tensor_spec():
+            raise MlflowException("Datatype conversion is not supported by TensorSpec")
+        return [x.type.to_pandas() for x in self.data_rep]
 
     def as_spark_schema(self):
         """Convert to Spark schema. If this schema is a single unnamed column, it is converted
         directly the corresponding spark data type, otherwise it's returned as a struct (missing
         column names are filled with an integer sequence).
+        Unsupported by TensorSpec.
         """
-        if len(self.columns) == 1 and self.columns[0].name is None:
-            return self.columns[0].type.to_spark()
+        if self.is_tensor_spec():
+            raise MlflowException("Datatype conversion is not supported by TensorSpec")
+        if len(self.data_rep) == 1 and self.data_rep[0].name is None:
+            return self.data_rep[0].type.to_spark()
         from pyspark.sql.types import StructType, StructField
 
         return StructType(
             [
                 StructField(name=col.name or str(i), dataType=col.type.to_spark())
-                for i, col in enumerate(self.columns)
+                for i, col in enumerate(self.data_rep)
             ]
         )
 
     def to_json(self) -> str:
         """Serialize into json string."""
-        return json.dumps([x.to_dict() for x in self.columns])
+        return json.dumps([x.to_dict() for x in self.data_rep])
 
     def to_dict(self) -> List[Dict[str, Any]]:
         """Serialize into a jsonable dictionary."""
-        return [x.to_dict() for x in self.columns]
+        return [x.to_dict() for x in self.data_rep]
 
     @classmethod
     def from_json(cls, json_str: str):
         """ Deserialize from a json string."""
-        return cls([ColSpec(**x) for x in json.loads(json_str)])
+        try:
+            return cls([ColSpec(**x) for x in json.loads(json_str)])
+        except:
+            return cls([TensorSpec.from_json_dict(**x) for x in json.loads(json_str)])
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Schema):
-            return self.columns == other.columns
+            return self.data_rep == other.data_rep
         else:
             return False
 
     def __repr__(self) -> str:
-        return repr(self.columns)
+        return repr(self.data_rep)
