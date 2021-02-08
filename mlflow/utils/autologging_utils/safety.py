@@ -48,7 +48,6 @@ def try_mlflow_log(fn, *args, **kwargs):
 def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
     """
     Log parameters explicitly passed to a function.
-
     :param fn: function whose parameters are to be logged
     :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
                  `self` should not be part of `args`; the caller is responsible for
@@ -89,7 +88,6 @@ def _update_wrapper_extended(wrapper, wrapped):
     Update a `wrapper` function to look like the `wrapped` function. This is an extension of
     `functools.update_wrapper` that applies the docstring *and* signature of `wrapped` to
     `wrapper`, producing a new function.
-
     :return: A new function with the same implementation as `wrapper` and the same docstring
              & signature as `wrapped`.
     """
@@ -107,10 +105,8 @@ def _update_wrapper_extended(wrapper, wrapped):
 def wrap_patch(destination, name, patch, settings=None):
     """
     Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
-
     TODO(dbczumar): Convert this to an internal method once existing `wrap_patch` calls
                     outside of `autologging_utils` have been converted to `safe_patch`
-
     :param destination: Patch destination
     :param name: Name of the attribute at the destination
     :param patch: Patch function
@@ -129,10 +125,8 @@ def wrap_patch(destination, name, patch, settings=None):
 class _InputExampleInfo:
     """
     Stores info about the input example collection before it is needed.
-
     For example, in xgboost and lightgbm, an InputExampleInfo object is attached to the dataset,
     where its value is read later by the train method.
-
     Exactly one of input_example or error_msg should be populated.
     """
 
@@ -147,7 +141,6 @@ def resolve_input_example_and_signature(
     """
     Handles the logic of calling functions to gather the input example and infer the model
     signature.
-
     :param get_input_example: function which returns an input example, usually sliced from a
                               dataset. This function can raise an exception, its message will be
                               shown to the user in a warning in the logs.
@@ -162,7 +155,6 @@ def resolve_input_example_and_signature(
     :param log_model_signature: whether to infer and return the model signature.
     :param logger: the logger instance used to log warnings to the user during input example
                    collection and model signature inference.
-
     :return: A tuple of input_example and signature. Either or both could be None based on the
              values of log_input_example and log_model_signature.
     """
@@ -256,7 +248,6 @@ class BatchMetricsLogger:
         Submit a set of metrics to be logged. The metrics may not be immediately logged, as this
         class will batch them in order to not increase execution time too much by logging
         frequently.
-
         :param metrics: dictionary containing key, value pairs of metrics to be logged.
         :param step: the training step that the metrics correspond to.
         """
@@ -290,12 +281,9 @@ def batch_metrics_logger(run_id):
     which point the accumulated metrics will be batch logged. The BatchMetricsLogger ensures
     that logging imposes no more than a 10% overhead on the training, where the training is
     measured by adding up the time elapsed between consecutive calls to record_metrics.
-
     If logging a batch fails, a warning will be emitted and subsequent metrics will continue to
     be collected.
-
     Once the context is closed, any metrics that have yet to be logged will be logged.
-
     :param run_id: ID of the run that the metrics will be logged to.
     """
 
@@ -307,7 +295,6 @@ def batch_metrics_logger(run_id):
 def autologging_integration(name):
     """
     **All autologging integrations should be decorated with this wrapper.**
-
     Wraps an autologging function in order to store its configuration arguments. This enables
     patch functions to broadly obey certain configurations (e.g., disable=True) without
     requiring specific logic to be present in each autologging integration.
@@ -348,7 +335,6 @@ def get_autologging_config(flavor_name, config_key, default_value=None):
     Returns a desired config value for a specified autologging integration.
     Returns `None` if specified `flavor_name` has no recorded configs.
     If `config_key` is not set on the config object, default value is returned.
-
     :param flavor_name: An autologging integration flavor name.
     :param config_key: The key for the desired config value.
     :param default_value: The default_value to return
@@ -363,7 +349,6 @@ def get_autologging_config(flavor_name, config_key, default_value=None):
 def autologging_is_disabled(flavor_name):
     """
     Returns a boolean flag of whether the autologging integration is disabled.
-
     :param flavor_name: An autologging integration flavor name.
     """
     return get_autologging_config(flavor_name, "disable", True)
@@ -374,7 +359,6 @@ def _is_testing():
     Indicates whether or not autologging functionality is running in test mode (as determined
     by the `MLFLOW_AUTOLOGGING_TESTING` environment variable). Test mode performs additional
     validation during autologging, including:
-
         - Checks for the exception safety of arguments passed to model training functions
           (i.e. all additional arguments should be "exception safe" functions or classes)
         - Disables exception handling for patched function logic, ensuring that patch code
@@ -420,13 +404,11 @@ def _exception_safe_class_factory(base_class):
         """
         Metaclass that wraps all functions defined on the specified class with broad error handling
         logic to guard against unexpected errors during autlogging.
-
         Rationale: Patched autologging functions commonly pass additional class instances as
         arguments to their underlying original training routines; for example, Keras autologging
         constructs a subclass of `keras.callbacks.Callback` and forwards it to `Model.fit()`.
         To prevent errors encountered during method execution within such classes from disrupting
         model training, this metaclass wraps all class functions in a broad try / catch statement.
-
         Note: `ExceptionSafeClass` does not handle exceptions in class methods or static methods,
         as these are not always Python callables and are difficult to wrap
         """
@@ -478,7 +460,6 @@ class PatchFunction:
     def _patch_implementation(self, original, *args, **kwargs):
         """
         Invokes the patch function code.
-
         :param original: The original, underlying function over which the `PatchFunction`
                          is being applied.
         :param *args: The positional arguments passed to the original function.
@@ -489,10 +470,8 @@ class PatchFunction:
     @abstractmethod
     def _on_exception(self, exception):
         """
-        Called when an unhandled standard Python exception (i.e. an exception inheriting from
-        `Exception`) or a `KeyboardInterrupt` prematurely terminates the execution of
-        `_patch_implementation`.
-
+        Called when an unhandled exception prematurely terminates the execution
+        of `_patch_implementation`.
         :param exception: The unhandled exception thrown by `_patch_implementation`.
         """
         pass
@@ -513,23 +492,259 @@ class PatchFunction:
                 raise e
 
 
-def with_managed_run(patch_function, tags=None):
+# Represents an active autologging session using two fields:
+# - integration: the name of the autologging integration corresponding to the session
+# - id: a unique session identifier (e.g., a UUID)
+AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
+
+
+class _AutologgingSessionManager:
+    _session = None
+
+    @classmethod
+    @contextmanager
+    def start_session(cls, integration):
+        try:
+            prev_session = cls._session
+            if prev_session is None:
+                session_id = uuid.uuid4().hex
+                cls._session = AutologgingSession(integration, session_id)
+            yield cls._session
+        finally:
+            # Only end the session upon termination of the context if we created
+            # the session; otherwise, leave the session open for later termination
+            # by its creator
+            if prev_session is None:
+                cls._end_session()
+
+    @classmethod
+    def active_session(cls):
+        return cls._session
+
+    @classmethod
+    def _end_session(cls):
+        cls._session = None
+
+
+class AutologgingEventLogger:
+    """
+    Provides instrumentation hooks for important autologging lifecycle events, including:
+        - Calls to `mlflow.autolog()` APIs
+        - Calls to patched APIs with associated termination states
+          ("success" and "failure due to error")
+        - Calls to original / underlying APIs made by patched function code with
+          associated termination states ("success" and "failure due to error")
+    Default implementations are included for each of these hooks, which emit corresponding
+    DEBUG-level logging statements. Developers can provide their own hook implementations
+    by subclassing `AutologgingEventLogger` and calling the static
+    `AutologgingEventLogger.set_logger()` method to supply a new event logger instance.
+    Callers fetch the configured logger via `AutologgingEventLogger.get_logger()`
+    and invoke one or more hooks (e.g., `AutologgingEventLogger.get_logger().log_autolog_called()`).
+    """
+
+    _event_logger = None
+
+    @staticmethod
+    def get_logger():
+        """
+        Fetches the configured `AutologgingEventLogger` instance for logging.
+        :return: The instance of `AutologgingEventLogger` specified via `set_logger`
+                 (if configured) or the default implementation of `AutologgingEventLogger`
+                 (if a logger was not configured via `set_logger`).
+        """
+        return AutologgingEventLogger._event_logger or AutologgingEventLogger()
+
+    @staticmethod
+    def set_logger(logger):
+        """
+        Configures the `AutologgingEventLogger` instance for logging. This instance
+        is exposed via `AutologgingEventLogger.get_logger()` and callers use it to invoke
+        logging hooks (e.g., AutologgingEventLogger.get_logger().log_autolog_called()).
+        :param logger: The instance of `AutologgingEventLogger` to use when invoking logging hooks.
+        """
+        AutologgingEventLogger._event_logger = logger
+
+    def log_autolog_called(self, integration, call_args, call_kwargs):
+        """
+        Called when the `autolog()` method for an autologging integration
+        is invoked (e.g., when a user invokes `mlflow.sklearn.autolog()`)
+        :param integration: The autologging integration for which `autolog()` was called.
+        :param call_args: **DEPRECATED** The positional arguments passed to the `autolog()` call.
+                          This field is empty in MLflow > 1.13.1; all arguments are passed in
+                          keyword form via `call_kwargs`.
+        :param call_kwargs: The arguments passed to the `autolog()` call in keyword form.
+                            Any positional arguments should also be converted to keyword form
+                            and passed via `call_kwargs`.
+        """
+        if len(call_args) > 0:
+            warnings.warn(
+                "Received %d positional arguments via `call_args`. `call_args` is"
+                " deprecated in MLflow > 1.13.1, and all arguments should be passed"
+                " in keyword form via `call_kwargs`." % len(call_args),
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+        _logger.debug(
+            "Called autolog() method for %s autologging with args '%s' and kwargs '%s'",
+            integration,
+            call_args,
+            call_kwargs,
+        )
+
+    def log_patch_function_start(self, session, patch_obj, function_name, call_args, call_kwargs):
+        """
+        Called upon invocation of a patched API associated with an autologging integration
+        (e.g., `sklearn.linear_model.LogisticRegression.fit()`).
+        :param session: The `AutologgingSession` associated with the patched API call.
+        :param patch_obj: The object (class, module, etc) on which the patched API was called.
+        :param function_name: The name of the patched API that was called.
+        :param call_args: The positional arguments passed to the patched API call.
+        :param call_kwargs: The keyword arguments passed to the patched API call.
+        """
+        _logger.debug(
+            "Invoked patched API '%s.%s' for %s autologging with args '%s' and kwargs '%s'",
+            patch_obj,
+            function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+        )
+
+    def log_patch_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
+        """
+        Called upon successful termination of a patched API associated with an autologging
+        integration (e.g., `sklearn.linear_model.LogisticRegression.fit()`).
+        :param session: The `AutologgingSession` associated with the patched API call.
+        :param patch_obj: The object (class, module, etc) on which the patched API was called.
+        :param function_name: The name of the patched API that was called.
+        :param call_args: The positional arguments passed to the patched API call.
+        :param call_kwargs: The keyword arguments passed to the patched API call.
+        """
+        _logger.debug(
+            "Patched API call '%s.%s' for %s autologging completed successfully. Patched ML"
+            " API was called with args '%s' and kwargs '%s'",
+            patch_obj,
+            function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+        )
+
+    def log_patch_function_error(
+        self, session, patch_obj, function_name, call_args, call_kwargs, exception
+    ):
+        """
+        Called when execution of a patched API associated with an autologging integration
+        (e.g., `sklearn.linear_model.LogisticRegression.fit()`) terminates with an exception.
+        :param session: The `AutologgingSession` associated with the patched API call.
+        :param patch_obj: The object (class, module, etc) on which the patched API was called.
+        :param function_name: The name of the patched API that was called.
+        :param call_args: The positional arguments passed to the patched API call.
+        :param call_kwargs: The keyword arguments passed to the patched API call.
+        :param exception: The exception that caused the patched API call to terminate.
+        """
+        _logger.debug(
+            "Patched API call '%s.%s' for %s autologging threw exception. Patched API was"
+            " called with args '%s' and kwargs '%s'. Exception: %s",
+            patch_obj,
+            function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+            exception,
+        )
+
+    def log_original_function_start(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
+        """
+        Called during the execution of a patched API associated with an autologging integration
+        when the original / underlying API is invoked. For example, this is called when
+        a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes
+        the original implementation of `sklearn.linear_model.LogisticRegression.fit()`.
+        :param session: The `AutologgingSession` associated with the patched API call.
+        :param patch_obj: The object (class, module, etc) on which the original API was called.
+        :param function_name: The name of the original API that was called.
+        :param call_args: The positional arguments passed to the original API call.
+        :param call_kwargs: The keyword arguments passed to the original API call.
+        """
+        _logger.debug(
+            "Original function invoked during execution of patched API '%s.%s' for %s"
+            " autologging. Original function was invoked with args '%s' and kwargs '%s'",
+            patch_obj,
+            function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+        )
+
+    def log_original_function_success(
+        self, session, patch_obj, function_name, call_args, call_kwargs
+    ):
+        """
+        Called during the execution of a patched API associated with an autologging integration
+        when the original / underlying API invocation terminates successfully. For example,
+        when a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes the
+        original / underlying implementation of `LogisticRegression.fit()`, then this function is
+        called if the original / underlying implementation successfully completes.
+        :param session: The `AutologgingSession` associated with the patched API call.
+        :param patch_obj: The object (class, module, etc) on which the original API was called.
+        :param function_name: The name of the original API that was called.
+        :param call_args: The positional arguments passed to the original API call.
+        :param call_kwargs: The keyword arguments passed to the original API call.
+        """
+        _logger.debug(
+            "Original function invocation completed successfully during execution of patched API"
+            " call '%s.%s' for %s autologging. Original function was invoked with with"
+            " args '%s' and kwargs '%s'",
+            patch_obj,
+            function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+        )
+
+    def log_original_function_error(
+        self, session, patch_obj, function_name, call_args, call_kwargs, exception
+    ):
+        """
+        Called during the execution of a patched API associated with an autologging integration
+        when the original / underlying API invocation terminates with an error. For example,
+        when a patched implementation of `sklearn.linear_model.LogisticRegression.fit()` invokes the
+        original / underlying implementation of `LogisticRegression.fit()`, then this function is
+        called if the original / underlying implementation terminates with an exception.
+        :param session: The `AutologgingSession` associated with the patched API call.
+        :param patch_obj: The object (class, module, etc) on which the original API was called.
+        :param function_name: The name of the original API that was called.
+        :param call_args: The positional arguments passed to the original API call.
+        :param call_kwargs: The keyword arguments passed to the original API call.
+        :param exception: The exception that caused the original API call to terminate.
+        """
+        _logger.debug(
+            "Original function invocation threw exception during execution of patched"
+            " API call '%s.%s' for %s autologging. Original function was invoked with"
+            " args '%s' and kwargs '%s'. Exception: %s",
+            patch_obj,
+            function_name,
+            session.integration,
+            call_args,
+            call_kwargs,
+            exception,
+        )
+
+
+def with_managed_run(autologging_integration, patch_function, tags=None):
     """
     Given a `patch_function`, returns an `augmented_patch_function` that wraps the execution of
     `patch_function` with an active MLflow run. The following properties apply:
-
         - An MLflow run is only created if there is no active run present when the
           patch function is executed
-
         - If an active run is created by the `augmented_patch_function`, it is terminated
           with the `FINISHED` state at the end of function execution
-
         - If an active run is created by the `augmented_patch_function`, it is terminated
           with the `FAILED` if an unhandled exception is thrown during function execution
-
     Note that, if nested runs or non-fluent runs are created by `patch_function`, `patch_function`
     is responsible for terminating them by the time it terminates (or in the event of an exception).
-
     :param autologging_integration: The autologging integration associated
                                     with the `patch_function`.
     :param patch_function: A `PatchFunction` class definition or a function object
@@ -607,9 +822,8 @@ def safe_patch(
 ):
     """
     Patches the specified `function_name` on the specified `destination` class for autologging
-    purposes, replacing its implementation with an error-safe copy of the specified patch
-    `function` with the following error handling behavior:
-
+    purposes, preceding its implementation with an error-safe copy of the specified patch
+    `patch_function` with the following error handling behavior:
         - Exceptions thrown from the underlying / original function
           (`<destination>.<function_name>`) are propagated to the caller.
         - Exceptions thrown from other parts of the patched implementation (`patch_function`)
@@ -720,6 +934,30 @@ def safe_patch(
             if failed_during_original or _is_testing():
                 raise
 
+@contextmanager
+def _augment_mlflow_warnings(autologging_integration):
+    """
+    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
+    API. In many cases, the user cannot remediate the cause of these warnings because
+    they result from the autologging patch implementation, rather than a user-facing API call.
+    Accordingly, this context manager is designed to augment MLflow warnings issued during
+    autologging patch code execution, explaining that such warnings were raised as a result of
+    MLflow's autologging implementation. MLflow warnings are also redirected from `sys.stderr`
+    to an MLflow logger with level WARNING. Warnings issued by code outside of MLflow are
+    not modified. When the context manager exits, the original output behavior for MLflow warnings
+    is restored.
+    :param autologging_integration: The name of the active autologging integration for which
+                                    MLflow warnings are to be augmented during patch code
+                                    execution.
+    """
+    original_showwarning = warnings.showwarning
+
+    def autologging_showwarning(message, category, filename, lineno, *args, **kwargs):
+        mlflow_root_path = Path(os.path.dirname(mlflow.__file__)).resolve()
+        warning_source_path = Path(filename).resolve()
+        # If the warning's source file is contained within the MLflow package's base
+        # directory, it is an MLflow warning and should be emitted via `logger.warning`
+        if mlflow_root_path in warning_source_path.parents:
             _logger.warning(
                 "Encountered unexpected error during %s autologging: %s", autologging_integration, e
             )
@@ -747,7 +985,6 @@ def _validate_autologging_run(autologging_integration, run_id):
     """
     For testing purposes, verifies that an MLflow run produced by an `autologging_integration`
     satisfies the following properties:
-
         - The run has an autologging tag whose value is the name of the autologging integration
         - The run has a terminal status (e.g., KILLED, FAILED, FINISHED)
     """
@@ -769,7 +1006,6 @@ def _validate_args(
     """
     Used for testing purposes to verify that, when a patched ML function calls its underlying
     / original ML function, the following properties are satisfied:
-
         - All arguments supplied to the patched ML function are forwarded to the
           original ML function
         - Any additional arguments supplied to the original function are exception safe (i.e.
@@ -781,7 +1017,6 @@ def _validate_args(
         """
         Validates a new input (arg or kwarg) introduced to the underlying / original ML function
         call during the execution of a patched ML function. The new input is valid if:
-
             - The new input is a function that has been decorated with `exception_safe_function`
             - OR the new input is a class with the `ExceptionSafeClass` metaclass
             - OR the new input is a list and each of its elements is valid according to the
@@ -813,7 +1048,6 @@ def _validate_args(
         are compatible. If `user_call_input` is `None`, then `autologging_call_input`
         is regarded as a new input added by autologging and is validated using
         `_validate_new_input`. Otherwise, the following properties must hold:
-
             - `autologging_call_input` and `user_call_input` must have the same type
               (referred to as "input type")
             - if the input type is a tuple, list or dictionary, then `autologging_call_input` must
@@ -862,16 +1096,3 @@ def _validate_args(
 
     _validate(autologging_call_args, user_call_args)
     _validate(autologging_call_kwargs, user_call_kwargs)
-
-
-__all__ = [
-    "try_mlflow_log",
-    "safe_patch",
-    "is_testing",
-    "exception_safe_function",
-    "ExceptionSafeClass",
-    "ExceptionSafeAbstractClass",
-    "PatchFunction",
-    "with_managed_run",
-    "update_wrapper_extended",
-]

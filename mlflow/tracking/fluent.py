@@ -18,12 +18,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import (
-    is_testing,
-    autologging_integration,
-    AUTOLOGGING_INTEGRATIONS,
-    autologging_is_disabled,
-)
+from mlflow.utils.autologging_utils import _is_testin, autologging_integration
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -1409,8 +1404,8 @@ def autolog(
                 autolog_fn.integration_name
             ) and not autologging_params.get("silent", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
-        except Exception as e:
-            if is_testing():
+        except Exception as e:t
+            if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise

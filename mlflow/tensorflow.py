@@ -935,39 +935,31 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
                 "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'", _AUTOLOG_RUN_ID
             )
 
-            serialized = original(self, *args, **kwargs)
+        auto_end = False
+        if not mlflow.active_run():
+            global _AUTOLOG_RUN_ID
+            if _AUTOLOG_RUN_ID:
+                _logger.info(
+                    "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
+                    _AUTOLOG_RUN_ID,
+                )
+                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
+            else:
+                try_mlflow_log(create_autologging_run))
+                auto_end = True
 
-            def log_model_without_starting_new_run():
-                """
-                Performs the exact same operations as `log_model` without starting a new run
-                """
-                with TempDir() as tmp:
-                    artifact_path = "model"
-                    local_path = tmp.path("model")
-                    mlflow_model = Model(artifact_path=artifact_path, run_id=_AUTOLOG_RUN_ID)
-                    save_model_kwargs = dict(
-                        tf_saved_model_dir=serialized.decode("utf-8"),
-                        tf_meta_graph_tags=[tag_constants.SERVING],
-                        tf_signature_def_key="predict",
-                    )
-                    save_model(path=local_path, mlflow_model=mlflow_model, **save_model_kwargs)
-                    client = MlflowClient()
-                    client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
-
-                    try:
-                        client._record_logged_model(_AUTOLOG_RUN_ID, mlflow_model)
-                    except MlflowException:
-                        # We need to swallow all mlflow exceptions to maintain backwards
-                        # compatibility with older tracking servers. Only print out a warning
-                        # for now.
-                        _logger.warning(
-                            _LOG_MODEL_METADATA_WARNING_TEMPLATE, get_artifact_uri(_AUTOLOG_RUN_ID),
-                        )
-
-            try_mlflow_log(log_model_without_starting_new_run)
-
-            _AUTOLOG_RUN_ID = None
-
+        serialized = original(self, *args, **kwargs)
+        try_mlflow_log(
+            log_model,
+            tf_saved_model_dir=serialized.decode("utf-8"),
+            tf_meta_graph_tags=[tag_constants.SERVING],
+            tf_signature_def_key="predict",
+            artifact_path="model",
+        )
+        if (
+            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
+        ) or auto_end:
+            try_mlflow_log(mlflow.end_run)
         return serialized
 
     @exception_safe_function
@@ -1184,7 +1176,7 @@ def autolog(every_n_iter=100, log_models=True, disable=False):  # pylint: disabl
         # `fit_generator()` in TF < 2.1.0
         managed.append((tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
 
-    non_managed = [
+    non_managed =
         (EventFileWriter, "add_event", add_event),
         (EventFileWriterV2, "add_event", add_event),
         (FileWriter, "add_summary", add_summary),

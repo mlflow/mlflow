@@ -140,7 +140,7 @@ def _infer_schema(data: Any) -> Schema:
     ):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "
-            "Python cannot represent missing values. If your input data contains "
+            "Python cannot represent missing values. If your input data contains"
             "missing values at inference time, it will be encoded as floats and will "
             "cause a schema enforcement error. The best way to avoid this problem is "
             "to infer the model schema based on a realistic data sample (training "
