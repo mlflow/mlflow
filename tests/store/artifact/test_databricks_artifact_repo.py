@@ -228,7 +228,7 @@ class TestDatabricksArtifactRepository(object):
         ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI,
-                type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+                type=ArtifactCredentialType.AZURE_SAS_URI,
                 headers=MOCK_HEADERS,
             )
             write_credentials_response_proto = GetCredentialsForWrite.Response(
@@ -239,7 +239,10 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
             request_mock.assert_called_with(
-                "put", MOCK_AZURE_SIGNED_URI, ANY, headers=expected_headers
+                "put",
+                MOCK_AZURE_SIGNED_URI + '?comp=blocklist',
+                ANY,
+                headers=expected_headers
             )
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
