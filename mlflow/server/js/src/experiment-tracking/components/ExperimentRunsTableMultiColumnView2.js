@@ -591,6 +591,7 @@ export function ModelsCellRenderer(props) {
         source: registeredModelSource,
         version,
       } = registeredModels[0];
+
       const normalizedSourceArtifactPath = Utils.normalize(registeredModelSource).split(
         `${runId}/artifacts/`,
       )[1];
