@@ -411,7 +411,7 @@ def save_model(
         underlying_model_flavor = get_underlying_model_flavor(explainer.model)
 
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
-            explainer.model.save = None
+            explainer.model.save = None  # this prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
 
         if underlying_model_flavor == "sklearn":
@@ -460,6 +460,28 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
+def _get_conda_and_pip_dependencies(conda_env):
+    """
+    Extract conda and pip dependencies from conda environments
+
+    :param conda_env: Conda environment
+    """
+
+    conda_deps = []
+    pip_deps = []
+
+    for dependency in conda_env["dependencies"]:
+        if isinstance(dependency, dict) and dependency["pip"]:
+            for pip_dependency in dependency["pip"]:
+                if pip_dependency != "mlflow":
+                    pip_deps.append(pip_dependency)
+        else:
+            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
+                conda_deps.append(dependency)
+
+    return conda_deps, pip_deps
+
+
 def _merge_environments(shap_environment, model_environment):
     """
     Merge conda environments of underlying model and shap.
@@ -469,29 +491,17 @@ def _merge_environments(shap_environment, model_environment):
     """
 
     merged_conda_channels = list(set(shap_environment["channels"] + model_environment["channels"]))
-    merged_conda_deps = set()
-    merged_pip_deps = set()
 
-    for dependency in shap_environment["dependencies"]:
-        if isinstance(dependency, dict) and dependency["pip"]:
-            for pip_dependency in dependency["pip"]:
-                if pip_dependency != "mlflow":
-                    merged_pip_deps.add(pip_dependency)
-        else:
-            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
-                merged_conda_deps.add(dependency)
+    # remove the default conda channels if present since its added later
 
-    for dependency in model_environment["dependencies"]:
-        if isinstance(dependency, dict) and dependency["pip"]:
-            for pip_dependency in dependency["pip"]:
-                if pip_dependency != "mlflow":
-                    merged_pip_deps.add(pip_dependency)
-        else:
-            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
-                merged_conda_deps.add(dependency)
+    merged_conda_channels.remove("default")
+    merged_conda_channels.remove("conda-forge")
 
-    merged_conda_deps = list(merged_conda_deps)
-    merged_pip_deps = list(merged_pip_deps)
+    shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
+    model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(model_environment)
+
+    merged_conda_deps = list(set(shap_conda_deps + model_conda_deps))
+    merged_pip_deps = list(set(shap_pip_deps + model_pip_deps))
 
     return _mlflow_conda_env(
         additional_conda_deps=merged_conda_deps,
@@ -553,9 +563,7 @@ def _load_explainer(explainer_file, model=None):
         return model
 
     with open(explainer_file, "rb") as explainer:
-        model_loader = None
-        if model is not None:
-            model_loader = inject_model_loader
+        model_loader = None if model is None else inject_model_loader
         explainer = shap.Explainer.load(explainer, model_loader=model_loader)
         return explainer
 
