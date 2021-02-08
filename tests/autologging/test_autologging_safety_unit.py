@@ -49,6 +49,7 @@ def turn_test_mode_off_by_default(test_mode_off):
     standard execution mode (i.e. where test mode is disabled). Accordingly, we turn off autologging
     test mode for this test module by default. Test cases that verify behaviors specific to test
     mode enable test mode explicitly by specifying the `test_mode_on` fixture.
+
     For more information about autologging test mode, see the docstring for
     :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
@@ -644,6 +645,7 @@ def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
     MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
     API. In many cases, the user cannot remediate the cause of these warnings because
     they result from the autologging patch implementation, rather than a user-facing API call.
+
     This test case verifies that, for user clarity, such MLflow warnings are augmented with
     context about their origin (i.e. MLflow's autologging patch implementation, rather than
     user behavior) during autologging patch code execution.

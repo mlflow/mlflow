@@ -728,18 +728,23 @@ class _PyTorchWrapper(object):
                 predicted = preds.numpy()
             return predicted
 
+
 @experimental
 def log_state_dict(state_dict, artifact_path, **kwargs):
     """
     Log a state_dict as an MLflow artifact for the current run.
+
     .. warning::
         This function just logs a state_dict as an artifact and doesn't generate
         an :ref:`MLflow Model <models>`.
+
     :param state_dict: state_dict to be saved.
     :param artifact_path: Run-relative artifact path.
     :param kwargs: kwargs to pass to ``torch.save``.
+
     .. code-block:: python
         :caption: Example
+
         # Log a model as a state_dict
         with mlflow.start_run():
             state_dict = model.state_dict()
@@ -765,6 +770,7 @@ def log_state_dict(state_dict, artifact_path, **kwargs):
 def save_state_dict(state_dict, path, **kwargs):
     """
     Save a state_dict to a path on the local file system
+
     :param state_dict: state_dict to be saved.
     :param path: Local path where the state_dict is to be saved.
     :param kwargs: kwargs to pass to ``torch.save``.
@@ -790,22 +796,28 @@ def save_state_dict(state_dict, path, **kwargs):
 def load_state_dict(state_dict_uri, **kwargs):
     """
     Load a state_dict from a local file or a run.
+
     :param state_dict_uri: The location, in URI format, of the state_dict, for example:
+
                     - ``/Users/me/path/to/local/state_dict``
                     - ``relative/path/to/local/state_dict``
                     - ``s3://my_bucket/path/to/state_dict``
                     - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
+
                     For more information about supported URI schemes, see
                     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                     artifact-locations>`_.
+
     :param kwargs: kwargs to pass to ``torch.load``.
     :return: A state_dict
+
     .. code-block:: python
         :caption: Example
         with mlflow.start_run():
             artifact_path = "model"
             mlflow.pytorch.log_state_dict(model.state_dict(), artifact_path)
             state_dict_uri = mlflow.get_artifact_uri(artifact_path)
+
         state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
     """
     import torch
