@@ -211,8 +211,6 @@ def cloud_storage_http_request(method, *args, **kwargs):
         read=1,
         # Limit the number of redirects to avoid infinite redirect loops
         redirect=3,
-        # Don't retry for other, unclassified errors
-        other=0,
         # Retry a specified number of times for response codes indicating transient failures
         status=retry_attempts,
         status_forcelist=TRANSIENT_FAILURE_RESPONSE_CODES,
