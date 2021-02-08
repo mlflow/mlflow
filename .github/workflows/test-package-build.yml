@@ -51,8 +51,10 @@ jobs:
 
           # Set step outputs
           wheel_path=$(find dist -type f -name "*.whl")
+          wheel_name=$(basename $wheel_path)
           wheel_size=$(stat -c %s $wheel_path)
           echo "::set-output name=wheel-path::${wheel_path}"
+          echo "::set-output name=wheel-name::${wheel_name}"
           echo "::set-output name=wheel-size::${wheel_size}"
 
       - name: Run twine check
