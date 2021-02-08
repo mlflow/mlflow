@@ -217,7 +217,10 @@ class TestDatabricksArtifactRepository(object):
     def test_log_artifact_azure_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
-        expected_headers = {header.name: header.value for header in MOCK_HEADERS}
+        mock_azure_headers = {
+            "x-ms-encryption-scope": "test-scope",
+            "x-ms-tags": "some-tags",
+        }
         mock_response = Response()
         mock_response.status_code = 200
         mock_response.close = lambda: None
@@ -229,7 +232,10 @@ class TestDatabricksArtifactRepository(object):
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_SAS_URI,
-                headers=MOCK_HEADERS,
+                headers=[
+                    ArtifactCredentialInfo.HttpHeader(name=header_name, value=header_value)
+                    for header_name, header_value in mock_azure_headers.items()
+                ],
             )
             write_credentials_response_proto = GetCredentialsForWrite.Response(
                 credentials=mock_credentials
@@ -239,7 +245,7 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
             request_mock.assert_called_with(
-                "put", MOCK_AZURE_SIGNED_URI + "?comp=blocklist", ANY, headers=expected_headers
+                "put", MOCK_AZURE_SIGNED_URI + "?comp=blocklist", ANY, headers=mock_azure_headers
             )
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):

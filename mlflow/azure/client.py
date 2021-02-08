@@ -58,7 +58,7 @@ def put_block_list(sas_url, block_list, headers):
 
     request_headers = {}
     for name, value in headers.items():
-        if _is_valid_put_block_header(name):
+        if _is_valid_put_block_list_header(name):
             request_headers[name] = value
         else:
             _logger.debug("Removed unsupported '%s' header for Put Block List operation", name)
