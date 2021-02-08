@@ -254,7 +254,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
 
     def test_list_experiments_paginated_returns_in_correct_order(self):
         testnames = ["randexp" + str(num) for num in random.sample(range(1, 100000), 20)]
-        experiments = self._experiment_factory(testnames)
+        self._experiment_factory(testnames)
 
         # test that pagination will return all valid results in sorted order
         # by name ascending
