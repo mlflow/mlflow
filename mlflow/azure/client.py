@@ -1,11 +1,14 @@
+"""
+This module provides utilities for performing Azure Blob Storage operations without requiring
+the heavyweight azure-storage-blob library dependency
+"""
 from copy import deepcopy
 import urllib
+import logging
 
 from mlflow.utils import rest_utils
 
-# This module provides utilities for performing Azure Blob Storage operations without requiring
-# the heavyweight azure-storage-blob library dependency
-
+_logger = logging.getLogger(__name__)
 _PUT_BLOCK_HEADERS = {
     "x-ms-blob-type": "BlockBlob",
 }
@@ -23,13 +26,17 @@ def put_block(sas_url, block_id, data, headers):
     :param headers: Additional headers to include in the Put Block request body
                     (the `x-ms-blob-type` header is always included automatically).
     """
-    headers = {name: value for name, value in headers.items() if _is_allowed_put_block_header(name)}
-    headers.update(_PUT_BLOCK_HEADERS)
-
     request_url = _append_query_parameters(sas_url, {"comp": "block", "blockid": block_id})
 
+    request_headers = deepcopy(_PUT_BLOCK_HEADERS)
+    for name, value in headers.items():
+        if _is_valid_put_block_header(name):
+            request_headers[name] = value
+        else:
+            _logger.debug("Removed unsupported '%s' header for Put Block operation", name)
+
     with rest_utils.cloud_storage_http_request(
-        "put", request_url, data, headers=headers
+        "put", request_url, data, headers=request_headers
     ) as response:
         response.raise_for_status()
 
@@ -49,13 +56,15 @@ def put_block_list(sas_url, block_list, headers):
     request_url = _append_query_parameters(sas_url, {"comp": "blocklist"})
     data = _build_block_list_xml(block_list)
 
-    # Filter out invalid headers for the `put_block_list` operation
-    headers = {
-        name: value for name, value in headers.items() if _is_allowed_put_block_list_header(name)
-    }
+    request_headers = {}
+    for name, value in headers.items():
+        if _is_valid_put_block_header(name):
+            request_headers[name] = value
+        else:
+            _logger.debug("Removed unsupported '%s' header for Put Block List operation", name)
 
     with rest_utils.cloud_storage_http_request(
-        "put", request_url, data, headers=headers
+        "put", request_url, data, headers=request_headers
     ) as response:
         response.raise_for_status()
 
@@ -81,7 +90,7 @@ def _build_block_list_xml(block_list):
     return xml
 
 
-def _is_allowed_put_block_list_header(header_name):
+def _is_valid_put_block_list_header(header_name):
     """
     :return: True if the specified header name is a valid header for the Put Block List operation,
              False otherwise. For a list of valid headers, see https://docs.microsoft.com/en-us/
@@ -117,10 +126,10 @@ def _is_allowed_put_block_list_header(header_name):
     )
 
 
-def _is_allowed_put_block_header(header_name):
+def _is_valid_put_block_header(header_name):
     """
-    :return: True if the specified header name is a valid header for the Put Block List operation,
-             False otherwise. For a list of valid headers, see
+    :return: True if the specified header name is a valid header for the Put Block operation, False
+             otherwise. For a list of valid headers, see
              https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#request-headers and
              https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#
              request-headers-customer-provided-encryption-keys.
