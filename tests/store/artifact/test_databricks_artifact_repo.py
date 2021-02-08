@@ -239,10 +239,7 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
             request_mock.assert_called_with(
-                "put",
-                MOCK_AZURE_SIGNED_URI + '?comp=blocklist',
-                ANY,
-                headers=expected_headers
+                "put", MOCK_AZURE_SIGNED_URI + "?comp=blocklist", ANY, headers=expected_headers
             )
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
