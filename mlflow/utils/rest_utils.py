@@ -202,7 +202,7 @@ def cloud_storage_http_request(method, *args, **kwargs):
     :args: Positional arguments to pass to `requests.Session.put/get()`
     :kwargs: Keyword arguments to pass to `requests.Session.put/get()`
     """
-    retry_attempts = kwargs.get('retry_attempts', 5)
+    retry_attempts = kwargs.get("retry_attempts", 5)
     retry_strategy = Retry(
         total=None,
         # Don't retry on connect-related errors raised before a request reaches a remote server
@@ -222,12 +222,12 @@ def cloud_storage_http_request(method, *args, **kwargs):
     with requests.Session() as http:
         http.mount("https://", adapter)
         http.mount("http://", adapter)
-        if method.lower() == 'put':
+        if method.lower() == "put":
             response = http.put(*args, **kwargs)
-        elif method.lower() == 'get':
+        elif method.lower() == "get":
             response = http.get(*args, **kwargs)
         else:
-            raise ValueError('Illegal http method: ' + method)
+            raise ValueError("Illegal http method: " + method)
 
         with response as r:
             yield r

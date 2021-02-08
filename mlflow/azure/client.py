@@ -27,16 +27,11 @@ def put_block(sas_url, block_id, data, headers):
     headers = deepcopy(headers)
     headers.update(_PUT_BLOCK_HEADERS)
 
-    request_url = _append_query_parameters(
-        sas_url,
-        {
-            "comp": "block",
-            "blockid": block_id,
-        }
-    )
+    request_url = _append_query_parameters(sas_url, {"comp": "block", "blockid": block_id,})
 
     with rest_utils.cloud_storage_http_request(
-            'put', request_url, data, headers=headers) as response:
+        "put", request_url, data, headers=headers
+    ) as response:
         response.raise_for_status()
 
 
@@ -52,16 +47,12 @@ def put_block_list(sas_url, block_list, headers):
                        https://docs.microsoft.com/en-us/rest/api/storageservices/put-block-list.
     :param headers: Headers to include in the Put Block request body.
     """
-    request_url = _append_query_parameters(
-        sas_url,
-        {
-            "comp": "blocklist",
-        }
-    )
+    request_url = _append_query_parameters(sas_url, {"comp": "blocklist",})
     data = _build_block_list_xml(block_list)
 
     with rest_utils.cloud_storage_http_request(
-            'put', request_url, data, headers=headers) as response:
+        "put", request_url, data, headers=headers
+    ) as response:
         response.raise_for_status()
 
 
