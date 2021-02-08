@@ -10,7 +10,6 @@ _PUT_BLOCK_HEADERS = {
     "x-ms-blob-type": "BlockBlob",
 }
 
-
 def put_block(sas_url, block_id, data, headers):
     """
     Performs an Azure `Put Block` operation
@@ -23,8 +22,11 @@ def put_block(sas_url, block_id, data, headers):
     :param headers: Additional headers to include in the Put Block request body
                     (the `x-ms-blob-type` header is always included automatically).
     """
-    # Copy the headers to avoid mutating the input `headers` dictionary
-    headers = deepcopy(headers)
+    headers = {
+        name: value
+        for name, value in headers.items()
+        if _is_allowed_put_block_header(name)
+    }
     headers.update(_PUT_BLOCK_HEADERS)
 
     request_url = _append_query_parameters(sas_url, {"comp": "block", "blockid": block_id})
@@ -49,6 +51,13 @@ def put_block_list(sas_url, block_list, headers):
     """
     request_url = _append_query_parameters(sas_url, {"comp": "blocklist"})
     data = _build_block_list_xml(block_list)
+
+    # Filter out invalid headers for the `put_block_list` operation
+    headers = {
+        name: value
+        for name, value in headers.items()
+        if _is_allowed_put_block_list_header(name)
+    }
 
     with rest_utils.cloud_storage_http_request(
         "put", request_url, data, headers=headers
@@ -75,3 +84,61 @@ def _build_block_list_xml(block_list):
         xml += "<Uncommitted>{}</Uncommitted>\n".format(block_id)
     xml += "</BlockList>"
     return xml
+
+
+def _is_allowed_put_block_list_header(header_name):
+    """
+    :return: True if the specified header name is a valid header for the Put Block List operation,
+             False otherwise. For a list of valid headers, see https://docs.microsoft.com/en-us/
+             rest/api/storageservices/put-block-list#request-headers and https://docs.microsoft.com/
+             en-us/rest/api/storageservices/
+             specifying-conditional-headers-for-blob-service-operations#Subheading1.
+    """
+    return header_name.startswith("x-ms-meta-") or header_name in set([
+        "Authorization",
+        "Date",
+        "x-ms-date",
+        "x-ms-version",
+        "Content-Length",
+        "Content-MD5",
+        "x-ms-content-crc64",
+        "x-ms-blob-cache-control",
+        "x-ms-blob-content-type",
+        "x-ms-blob-content-encoding",
+        "x-ms-blob-content-language",
+        "x-ms-blob-content-md5",
+        "x-ms-encryption-scope",
+        "x-ms-tags",
+        "x-ms-lease-id",
+        "x-ms-client-request-id",
+        "x-ms-blob-content-disposition",
+        "x-ms-access-tier",
+        "If-Modified-Since",
+        "If-Unmodified-Since",
+        "If-Match",
+        "If-None-Match",
+    ])
+
+
+def _is_allowed_put_block_header(header_name):
+    """
+    :return: True if the specified header name is a valid header for the Put Block List operation,
+             False otherwise. For a list of valid headers, see
+             https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#request-headers and
+             https://docs.microsoft.com/en-us/rest/api/storageservices/put-block#
+             request-headers-customer-provided-encryption-keys.
+    """
+    return header_name in set([
+        "Authorization",
+        "x-ms-date",
+        "x-ms-version",
+        "Content-Length",
+        "Content-MD5",
+        "x-ms-content-crc64",
+        "x-ms-encryption-scope",
+        "x-ms-lease-id",
+        "x-ms-client-request-id",
+        "x-ms-encryption-key",
+        "x-ms-encryption-key-sha256",
+        "x-ms-encryption-algorithm",
+    ])
