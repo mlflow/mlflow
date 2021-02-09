@@ -17,7 +17,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import _is_testing, autologging_integration
+from mlflow.utils.autologging_utils import _is_testing, autologging_integration, AUTOLOGGING_INTEGRATIONS
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -1315,18 +1315,18 @@ def autolog(
     # Mapping of library module name to specific autolog function
     # eg: mxnet.gluon is the actual library, mlflow.gluon.autolog is our autolog function for it
     LIBRARY_TO_AUTOLOG_FN = {
-        "tensorflow": tensorflow.autolog,
-        "keras": keras.autolog,
-        "mxnet.gluon": gluon.autolog,
-        "xgboost": xgboost.autolog,
-        "lightgbm": lightgbm.autolog,
-        "statsmodels": statsmodels.autolog,
+        # "tensorflow": tensorflow.autolog,
+        # "keras": keras.autolog,
+        # "mxnet.gluon": gluon.autolog,
+        # "xgboost": xgboost.autolog,
+        # "lightgbm": lightgbm.autolog,
+        # "statsmodels": statsmodels.autolog,
         "sklearn": sklearn.autolog,
-        "fastai": fastai.autolog,
-        "pyspark": spark.autolog,
-        # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
-        # Pytorch frameworks under mlflow.pytorch.autolog
-        "pytorch_lightning": pytorch.autolog,
+        # "fastai": fastai.autolog,
+        # "pyspark": spark.autolog,
+        # # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
+        # # Pytorch frameworks under mlflow.pytorch.autolog
+        # "pytorch_lightning": pytorch.autolog,
     }
 
     def get_autologging_params(autolog_fn):
@@ -1358,7 +1358,8 @@ def autolog(
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
     for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark"])):
-        register_post_import_hook(setup_autologging, module, overwrite=True)
+        if module in AUTOLOGGING_INTEGRATIONS and not AUTOLOGGING_INTEGRATIONS[module].get("disable", False):
+            register_post_import_hook(setup_autologging, module, overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
