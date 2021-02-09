@@ -220,6 +220,11 @@ class TestDatabricksArtifactRepository(object):
         mock_azure_headers = {
             "x-ms-encryption-scope": "test-scope",
             "x-ms-tags": "some-tags",
+            "x-ms-blob-type": "some-type",
+        }
+        filtered_azure_headers = {
+            "x-ms-encryption-scope": "test-scope",
+            "x-ms-tags": "some-tags",
         }
         mock_response = Response()
         mock_response.status_code = 200
@@ -245,7 +250,10 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
             request_mock.assert_called_with(
-                "put", MOCK_AZURE_SIGNED_URI + "?comp=blocklist", ANY, headers=mock_azure_headers
+                "put",
+                MOCK_AZURE_SIGNED_URI + "?comp=blocklist",
+                ANY,
+                headers=filtered_azure_headers,
             )
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
