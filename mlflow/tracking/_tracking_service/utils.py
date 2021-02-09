@@ -114,8 +114,9 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
     if artifact_uri is None:
-        artifact_uri = os.environ.get(_ARTIFACT_ROOT_ENV_VAR, None) or \
-            DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        artifact_uri = (
+            os.environ.get(_ARTIFACT_ROOT_ENV_VAR, None) or DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        )
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 
