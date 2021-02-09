@@ -86,8 +86,9 @@ def _infer_schema(data: Any) -> Schema:
             "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
             "but got '{}'".format(type(data))
         )
-    if not schema.is_tensor_spec() and \
-            any([t in (DataType.integer, DataType.long) for t in schema.column_types()]):
+    if not schema.is_tensor_spec() and any(
+        [t in (DataType.integer, DataType.long) for t in schema.column_types()]
+    ):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "
             "Python cannot represent missing values. If your input data contains "

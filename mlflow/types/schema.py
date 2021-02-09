@@ -122,18 +122,23 @@ class TensorSpec(object):
     """
 
     def __init__(
-            self, type: np.dtype, shape: tuple, name: Optional[str] = None  # pylint: disable=redefined-builtin
+        self,
+        type: np.dtype,
+        shape: tuple,
+        name: Optional[str] = None,  # pylint: disable=redefined-builtin
     ):
         self._name = name
         if not isinstance(type, np.dtype):
             raise TypeError(
-                "Expected `type` to be instance of `{0}`, received `{1}`"
-                    .format(np.dtype, type.__class__)
+                "Expected `type` to be instance of `{0}`, received `{1}`".format(
+                    np.dtype, type.__class__
+                )
             )
         if not isinstance(shape, tuple):
             raise TypeError(
-                "Expected `shape` to be instance of `{0}`, received `{1}`"
-                    .format(tuple, shape.__class__)
+                "Expected `shape` to be instance of `{0}`, received `{1}`".format(
+                    tuple, shape.__class__
+                )
             )
         self._type = type.char
         self._shape = shape
@@ -168,9 +173,9 @@ class TensorSpec(object):
         Deserialize from a json loaded dictionary.
         The dictionary is expected to contain `type` and `shape` keys.
         """
-        tensor_type = np.dtype(kwargs['type'])
-        tensor_shape = tuple(kwargs['shape'])
-        return cls(tensor_type, tensor_shape, kwargs['name'] if 'name' in kwargs else None)
+        tensor_type = np.dtype(kwargs["type"])
+        tensor_shape = tuple(kwargs["shape"])
+        return cls(tensor_type, tensor_shape, kwargs["name"] if "name" in kwargs else None)
 
     def __eq__(self, other) -> bool:
         names_eq = (self.name is None and other.name is None) or self.name == other.name
@@ -180,8 +185,9 @@ class TensorSpec(object):
         if self.name is None:
             return "({type}, {shape})".format(type=repr(self.type), shape=repr(self.shape))
         else:
-            return "({name}, {type}, {shape})".format(name=repr(self.name),
-                                                      type=repr(self.type), shape=repr(self.shape))
+            return "({name}, {type}, {shape})".format(
+                name=repr(self.name), type=repr(self.type), shape=repr(self.shape)
+            )
 
 
 class Schema(object):
@@ -196,20 +202,21 @@ class Schema(object):
     index defined by their list indices.
     Combination of named and unnamed data inputs are not allowed.
     """
+
     SchemaInput = Union[ColSpec, TensorSpec]
 
     def __init__(self, dataset: List[SchemaInput]):
         if not (
-            all(map(lambda x: x.name is None, dataset)) or
-            all(map(lambda x: x.name is not None, dataset))
+            all(map(lambda x: x.name is None, dataset))
+            or all(map(lambda x: x.name is not None, dataset))
         ):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed columns "
                 "is not allowed. Got column names {}".format([x.name for x in dataset])
             )
         if not (
-            all(map(lambda x: isinstance(x, TensorSpec), dataset)) or
-            all(map(lambda x: isinstance(x, ColSpec), dataset))
+            all(map(lambda x: isinstance(x, TensorSpec), dataset))
+            or all(map(lambda x: isinstance(x, ColSpec), dataset))
         ):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
