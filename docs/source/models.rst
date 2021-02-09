@@ -119,6 +119,8 @@ which deploys a model as a REST API, validates inputs based on the model's signa
 
 Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+All flavors support column-based signatures.
+
 Each column-based input and output is represented by a type corresponding to one of 
 :py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
 displays an MLmodel file excerpt containing the model signature for a classification model trained on
@@ -135,6 +137,8 @@ The output is an unnamed integer specifying the predicted class.
       
 Tensor-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
+
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
 When specifying the shape, -1 is used for axes that may be variable in size.
@@ -170,10 +174,15 @@ names, matching is done by position (i.e. MLflow will only check the number of i
 
 Input Type Enforcement
 """""""""""""""""""""""
-The input types are checked against the signature. MLflow will perform safe type conversions
+The input types are checked against the signature.
+
+For models with column-based signatures (i.e DataFrame inputs), MLflow will perform safe type conversions
 if necessary. Generally, only conversions that are guaranteed to be lossless are allowed. For
 example, int -> long or int -> double conversions are ok, long -> double is not. If the types cannot
 be made compatible, MLflow will raise an error.
+
+For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
+the input type does not match the type specified by the schema). 
 
 Handling Integers With Missing Values
 """""""""""""""""""""""""""""""""""""
@@ -407,17 +416,18 @@ method, which has the following signature::
 
   predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
   
-All model flavors will support pandas.DataFrame as input and some will also support tensor inputs in the form
-of numpy.ndarrays.
+All model flavors will support pandas.DataFrame as input and DL flavors will also support tensor inputs in the form
+of numpy.ndarrays. To verify whether a model flavor supports tensor inputs, please check the flavor's documentation.
   
 For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
 If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
 python `List` or a `numpy.ndarray` is provided as input for schemas with unnamed columns, MLflow will cast the
 input to a DataFrame. Schema enforcement and casting with respect to the expected data types is performed against
-the DataFrame and the output of a model with a column-based schema will always be a DataFrame.
+the DataFrame.
 
-For models with a tensor-based schema, inputs are typically provided in the form of a `numpy.ndarray`, or a
-dictionary mapping the tensor name to its np.ndarray value.
+For models with a tensor-based schema, inputs are typically provided in the form of a `numpy.ndarray` or a
+dictionary mapping the tensor name to its np.ndarray value. Schema enforcement will check the provided input's
+shape and type against the shape and type specified in the model's schema and throw an error if they do not match.
 
 For models where no schema is defined, no changes to the model inputs and outputs are made. MLflow will
 propogate any errors raised by the model if the model does not accept the provided input type.
@@ -443,7 +453,8 @@ The :py:mod:`mlflow.h2o` module defines :py:func:`save_model() <mlflow.h2o.save_
 `mlflow_log_model <R-api.html#mlflow-log-model>`__ in R for saving H2O models in MLflow Model
 format.
 These methods produce MLflow Models with the ``python_function`` flavor, allowing you to load them
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. When you load
+as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can be scored with only DataFrame input. When you load
 MLflow Models with the ``h2o`` flavor using :py:func:`mlflow.pyfunc.load_model()`,
 the `h2o.init() <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init>`_ method is
 called. Therefore, the correct version of ``h2o(-py)`` must be installed in the loader's
@@ -466,10 +477,10 @@ in MLflow Model format in Python. Similarly, in R, you can save or log the model
 `mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__. These functions serialize Keras
 models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
 produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
-as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. Finally, you
-can use the :py:func:`mlflow.keras.load_model()` function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__
-function in R to load MLflow Models with the ``keras`` flavor as
-`Keras Model objects <https://keras.io/models/about-keras-models/>`_.
+as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be
+scored with both DataFrame input and numpy array input. Finally, you can use the :py:func:`mlflow.keras.load_model()`
+function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__ function in R to load MLflow Models
+with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 For more information, see :py:mod:`mlflow.keras`.
 
@@ -510,7 +521,8 @@ The :py:mod:`mlflow.pytorch` module defines utilities for saving and loading MLf
 :py:func:`mlflow.pytorch.log_model()` methods to save PyTorch models in MLflow format; both of these
 functions use the `torch.save() <https://pytorch.org/docs/stable/torch.html#torch.save>`_ method to
 serialize PyTorch models. Additionally, you can use the :py:func:`mlflow.pytorch.load_model()`
-method to load MLflow Models with the ``pytorch`` flavor as PyTorch model objects. Finally, models
+method to load MLflow Models with the ``pytorch`` flavor as PyTorch model objects. This loaded
+PyFunc model can be scored with both DataFrame input and numpy array input. Finally, models
 produced by :py:func:`mlflow.pytorch.save_model()` and :py:func:`mlflow.pytorch.log_model()` contain
 the ``python_function`` flavor, allowing you to load them as generic Python functions for inference
 via :py:func:`mlflow.pyfunc.load_model()`.
@@ -527,8 +539,9 @@ models. The :py:mod:`mlflow.sklearn` module defines
 MLflow format, using either Python's pickle module (Pickle) or CloudPickle for model serialization.
 These functions produce MLflow Models with the ``python_function`` flavor, allowing them to
 be loaded as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-Finally, you can use the :py:func:`mlflow.sklearn.load_model()` method to load MLflow Models with
-the ``sklearn`` flavor as scikit-learn model objects.
+This loaded PyFunc model can only be scored with DataFrame input. Finally, you can use the
+:py:func:`mlflow.sklearn.load_model()` method to load MLflow Models with the ``sklearn`` flavor as
+scikit-learn model objects.
 
 For more information, see :py:mod:`mlflow.sklearn`.
 
@@ -541,6 +554,7 @@ The :py:mod:`mlflow.spark` module defines :py:func:`save_model() <mlflow.spark.s
 :py:func:`log_model() <mlflow.spark.log_model>` methods that save Spark MLlib pipelines in MLflow
 model format. MLflow Models produced by these functions contain the ``python_function`` flavor,
 allowing you to load them as generic Python functions via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame input.
 When a model with the ``spark`` flavor is loaded as a Python function via
 :py:func:`mlflow.pyfunc.load_model()`, a new
 `SparkContext <https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext>`_
@@ -564,7 +578,8 @@ The ``tensorflow`` model flavor allows serialized TensorFlow models in
 to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
 :py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
 flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. Finally, you can use the
+Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
+can be scored with both DataFrame input and numpy array input. Finally, you can use the
 :py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
 flavor as TensorFlow graphs.
 
@@ -576,7 +591,8 @@ The ``onnx`` model flavor enables logging of `ONNX models <http://onnx.ai/>`_ in
 the :py:func:`mlflow.onnx.save_model()` and :py:func:`mlflow.onnx.log_model()` methods. These
 methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. The ``python_function`` representation of an MLflow
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be scored with
+both DataFrame input and numpy array input. The ``python_function`` representation of an MLflow
 ONNX model uses the `ONNX Runtime execution engine <https://github.com/microsoft/onnxruntime>`_ for
 evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
 Models with the ``onnx`` flavor in native ONNX format.
@@ -590,7 +606,8 @@ The ``gluon`` model flavor enables logging of `Gluon models
 the :py:func:`mlflow.gluon.save_model()` and :py:func:`mlflow.gluon.log_model()` methods. These
 methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.gluon.load_model()`
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be scored with
+both DataFrame input and numpy array input. You can also use the :py:func:`mlflow.gluon.load_model()`
 method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
 
 For more information, see :py:mod:`mlflow.gluon`.
@@ -602,7 +619,8 @@ The ``xgboost`` model flavor enables logging of `XGBoost models
 in MLflow format via the :py:func:`mlflow.xgboost.save_model()` and :py:func:`mlflow.xgboost.log_model()` methods in python and `mlflow_save_model <R-api.html#mlflow-save-model-crate>`__ and `mlflow_log_model <R-api.html#mlflow-log-model>`__ in R respectively.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.xgboost.load_model()`
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
+You can also use the :py:func:`mlflow.xgboost.load_model()`
 method to load MLflow Models with the ``xgboost`` model flavor in native XGBoost format.
 
 Note that the ``xgboost`` model flavor only supports an instance of `xgboost.Booster
@@ -619,7 +637,8 @@ The ``lightgbm`` model flavor enables logging of `LightGBM models
 in MLflow format via the :py:func:`mlflow.lightgbm.save_model()` and :py:func:`mlflow.lightgbm.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.lightgbm.load_model()`
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
+You can also use the :py:func:`mlflow.lightgbm.load_model()`
 method to load MLflow Models with the ``lightgbm`` model flavor in native LightGBM format.
 
 Note that the ``lightgbm`` model flavor only supports an instance of `lightgbm.Booster
@@ -634,7 +653,8 @@ Spacy(``spaCy``)
 The ``spaCy`` model flavor enables logging of `spaCy models <https://spacy.io/models>`_ in MLflow format via
 the :py:func:`mlflow.spacy.save_model()` and :py:func:`mlflow.spacy.log_model()` methods. Additionally, these
 methods add the ``python_function`` flavor to the MLflow Models that they produce, allowing the models to be
-interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. You can
+interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with DataFrame input. You can
 also use the :py:func:`mlflow.spacy.load_model()` method to load MLflow Models with the ``spacy`` model flavor
 in native spaCy format.
 
@@ -645,9 +665,9 @@ Fastai(``fastai``)
 The ``fastai`` model flavor enables logging of `fastai Learner models <https://docs.fast.ai/training.html>`_ in MLflow format via
 the :py:func:`mlflow.fastai.save_model()` and :py:func:`mlflow.fastai.log_model()` methods. Additionally, these
 methods add the ``python_function`` flavor to the MLflow Models that they produce, allowing the models to be
-interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. You can
-also use the :py:func:`mlflow.fastai.load_model()` method to load MLflow Models with the ``fastai`` model flavor
-in native fastai format.
+interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can
+only be scored with DataFrame input. You can also use the :py:func:`mlflow.fastai.load_model()` method to
+load MLflow Models with the ``fastai`` model flavor in native fastai format.
 
 For more information, see :py:mod:`mlflow.fastai`.
 
@@ -658,7 +678,8 @@ The ``statsmodels`` model flavor enables logging of `Statsmodels models
 and :py:func:`mlflow.statsmodels.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.statsmodels.load_model()`
+:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
+You can also use the :py:func:`mlflow.statsmodels.load_model()`
 method to load MLflow Models with the ``statsmodels`` model flavor in native statsmodels format.
 
 As for now, automatic logging is restricted to parameters, metrics and models generated by a call to `fit`
