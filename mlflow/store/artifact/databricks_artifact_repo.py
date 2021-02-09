@@ -165,7 +165,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     if e.response.status_code in [401, 403]:
                         _logger.info(
                             "Failed to authorize request, possibly due to credential expiration."
-                            "Refreshing credentials and trying again.."
+                            " Refreshing credentials and trying again..."
                         )
                         credentials = self._get_write_credentials(
                             self.run_id, artifact_path
@@ -180,7 +180,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 if e.response.status_code in [401, 403]:
                     _logger.info(
                         "Failed to authorize request, possibly due to credential expiration."
-                        "Refreshing credentials and trying again.."
+                        " Refreshing credentials and trying again..."
                     )
                     credentials = self._get_write_credentials(
                         self.run_id, artifact_path
