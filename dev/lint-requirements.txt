@@ -6,4 +6,3 @@ rstcheck==3.2
 black==19.10b0
 # Pin isort version to prevent pylint from raising an error
 isort<5.0.0
-azure-storage-blob>=12.0.0
