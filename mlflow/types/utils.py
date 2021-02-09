@@ -139,7 +139,22 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
         raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
 
-    if pd.api.types.infer_dtype(col) == "bytes":
+    class IsInstanceOrNone(object):
+        def __init__(self, *args):
+            self.classes = args
+            self.seen_instances = 0
+
+        def __call__(self, x):
+            if x is None:
+                return True
+            elif any(map(lambda c: isinstance(x, c), self.classes)):
+                self.seen_instances += 1
+                return True
+            else:
+                return False
+
+    is_binary_test = IsInstanceOrNone(bytes, bytearray)
+    if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
         return DataType.binary
     elif pd.api.types.is_bool_dtype(col):
         return DataType.boolean
@@ -151,7 +166,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         return DataType.float
     elif pd.api.types.is_dtype_equal(col, np.float64):
         return DataType.double
-    elif pd.api.types.is_string_dtype(col):
+    elif pd.api.types.is_string_dtype(col) and not pd.api.types.infer_dtype(col) == "mixed":
         return DataType.string
     else:
         raise MlflowException(
