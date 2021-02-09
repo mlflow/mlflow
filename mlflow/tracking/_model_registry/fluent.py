@@ -66,7 +66,9 @@ def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLE
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-        create_version_response = client.create_model_version(name, source, run_id)
+        create_version_response = client.create_model_version(
+            name, source, run_id, await_creation_for=await_registration_for
+        )
     else:
         create_version_response = client.create_model_version(
             name, source=model_uri, run_id=None, await_creation_for=await_registration_for

@@ -191,7 +191,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _aws_upload_file(self, credentials, local_file):
+    def _signed_url_upload_file(self, credentials, local_file):
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
             signed_write_uri = credentials.signed_uri
@@ -208,8 +208,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _upload_to_cloud(self, cloud_credentials, local_file, artifact_path):
         if cloud_credentials.credentials.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(cloud_credentials.credentials, local_file, artifact_path)
-        elif cloud_credentials.credentials.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            self._aws_upload_file(cloud_credentials.credentials, local_file)
+        elif cloud_credentials.credentials.type in [
+            ArtifactCredentialType.AWS_PRESIGNED_URL,
+            ArtifactCredentialType.GCP_SIGNED_URL,
+        ]:
+            self._signed_url_upload_file(cloud_credentials.credentials, local_file)
         else:
             raise MlflowException(
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
@@ -231,6 +234,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         if cloud_credential.type not in [
             ArtifactCredentialType.AZURE_SAS_URI,
             ArtifactCredentialType.AWS_PRESIGNED_URL,
+            ArtifactCredentialType.GCP_SIGNED_URL,
         ]:
             raise MlflowException(
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
