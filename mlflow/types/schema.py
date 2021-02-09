@@ -127,18 +127,23 @@ class TensorSpec(object):
         self._name = name
         if not isinstance(type, np.dtype):
             raise TypeError(
-                "Expected `type` to be instance of `{0}`, received `{1}`".format(np.dtype, type.__class__)
+                "Expected `type` to be instance of `{0}`, received `{1}`"
+                    .format(np.dtype, type.__class__)
             )
         if not isinstance(shape, tuple):
             raise TypeError(
-                "Expected `shape` to be instance of `{0}`, received `{1}`".format(tuple, shape.__class__)
+                "Expected `shape` to be instance of `{0}`, received `{1}`"
+                    .format(tuple, shape.__class__)
             )
-        self._type = type
+        self._type = type.char
         self._shape = shape
 
     @property
-    def type(self) -> np.dtype:
-        """The tensor data type."""
+    def type(self) -> str:
+        """
+        A unique character code for each of the 21 different numpy built-in types.
+        See https://numpy.org/devdocs/reference/generated/numpy.dtype.html#numpy.dtype for details.
+        """
         return self._type
 
     @property
@@ -153,13 +158,16 @@ class TensorSpec(object):
 
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
-            return {"type": self.type.name, "shape": self.shape}
+            return {"type": self.type, "shape": self.shape}
         else:
-            return {"name": self.name, "type": self.type.name, "shape": self.shape}
+            return {"name": self.name, "type": self.type, "shape": self.shape}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
-        """ Deserialize from a json loaded dictionary."""
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `type` and `shape` keys.
+        """
         tensor_type = np.dtype(kwargs['type'])
         tensor_shape = tuple(kwargs['shape'])
         return cls(tensor_type, tensor_shape, kwargs['name'] if 'name' in kwargs else None)
@@ -169,11 +177,11 @@ class TensorSpec(object):
         return names_eq and self.type == other.type and self.shape == other.shape
 
     def __repr__(self) -> str:
-        rep = "Tensor => "
         if self.name is None:
-            return rep + "({type}, {shape})".format(type=repr(self.type), shape=repr(self.shape))
+            return "({type}, {shape})".format(type=repr(self.type), shape=repr(self.shape))
         else:
-            return rep + "({name}, {type}, {shape})".format(name=repr(self.name), type=repr(self.type), shape=repr(self.shape))
+            return "({name}, {type}, {shape})".format(name=repr(self.name),
+                                                      type=repr(self.type), shape=repr(self.shape))
 
 
 class Schema(object):
@@ -192,7 +200,8 @@ class Schema(object):
 
     def __init__(self, dataset: List[SchemaInput]):
         if not (
-            all(map(lambda x: x.name is None, dataset)) or all(map(lambda x: x.name is not None, dataset))
+            all(map(lambda x: x.name is None, dataset)) or
+            all(map(lambda x: x.name is not None, dataset))
         ):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed columns "
@@ -273,7 +282,7 @@ class Schema(object):
         """ Deserialize from a json string."""
         try:
             return cls([ColSpec(**x) for x in json.loads(json_str)])
-        except:
+        except TypeError:
             return cls([TensorSpec.from_json_dict(**x) for x in json.loads(json_str)])
 
     def __eq__(self, other) -> bool:

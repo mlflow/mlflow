@@ -7,25 +7,45 @@ import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 
-class TensorsNotSupportedException(MlflowException):
-    def __init__(self, msg):
-        super().__init__(
-            "Multidimensional arrays (aka tensors) are not supported. " "{}".format(msg)
-        )
+def _get_tensor_shape(data: np.ndarray) -> tuple:
+    """
+    Infer the shape of the inputted data.
+
+    This method creates the shape of the tensor to store in the TensorSpec. Always returns a shape
+    including a variable dimension. Assumes the variable dimension is the first dimension.
+
+    NB: For 1D tensors, the output is (-1, shape).
+
+    :param data: Dataset to infer from.
+    :return: tuple : Shape of the inputted data (including a variable dimension)
+    """
+    if not isinstance(data, np.ndarray):
+        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data)))
+    if len(data.shape) == 1:
+        variable_input_data_shape = [-1, data.shape[0]]
+    else:
+        variable_input_data_shape = list(data.shape)
+        variable_input_data_shape[0] = -1
+    return tuple(variable_input_data_shape)
 
 
 def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
 
-    This method captures the column names and data types from the user data. The signature
-    represents model input and output as data frames with (optionally) named columns and data
-    type specified as one of types defined in :py:class:`DataType`. This method will raise
-    an exception if the user data contains incompatible types or is not passed in one of the
-    supported formats (containers).
+    Data inputted as a numpy array or a dictionary is represented by :py:class:`TensorSpec`.
+    All other inputted data types are specified by :py:class:`ColSpec`.
+
+    A `TensorSpec` captures the data shape (default variable axis is 0), the data type (numpy.dtype)
+    and an optional name to represent the dataset.
+    A `ColSpec` captures the data type (defined in :py:class:`DataType`) and an optional name for
+    each individual column of the dataset.
+
+    This method will raise an exception if the user data contains incompatible types or is not
+    passed in one of the supported formats (containers).
 
     The input should be one of these:
       - pandas.DataFrame or pandas.Series
@@ -33,29 +53,17 @@ def _infer_schema(data: Any) -> Schema:
       - numpy.ndarray
       - pyspark.sql.DataFrame
 
-    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType`.
-
-    NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
-
     :param data: Dataset to infer from.
 
     :return: Schema
     """
-
     if isinstance(data, dict):
         res = []
-        for col in data.keys():
-            ary = data[col]
-            if not isinstance(ary, np.ndarray):
+        for name in data.keys():
+            ndarray = data[name]
+            if not isinstance(ndarray, np.ndarray):
                 raise TypeError("Data in the dictionary must be of type numpy.ndarray")
-            dims = len(ary.shape)
-            if dims == 1:
-                res.append(ColSpec(type=_infer_numpy_array(ary), name=col))
-            else:
-                raise TensorsNotSupportedException(
-                    "Data in the dictionary must be 1-dimensional, "
-                    "got shape {}".format(ary.shape)
-                )
+            res.append(TensorSpec(type=ndarray.dtype, shape=_get_tensor_shape(ndarray), name=name))
         schema = Schema(res)
     elif isinstance(data, pd.Series):
         schema = Schema([ColSpec(type=_infer_numpy_array(data.values))])
@@ -64,19 +72,7 @@ def _infer_schema(data: Any) -> Schema:
             [ColSpec(type=_infer_numpy_array(data[col].values), name=col) for col in data.columns]
         )
     elif isinstance(data, np.ndarray):
-        if len(data.shape) > 2:
-            raise TensorsNotSupportedException(
-                "Attempting to infer schema from numpy array with " "shape {}".format(data.shape)
-            )
-        if data.dtype == np.object:
-            data = pd.DataFrame(data).infer_objects()
-            schema = Schema(
-                [ColSpec(type=_infer_numpy_array(data[col].values)) for col in data.columns]
-            )
-        elif len(data.shape) == 1:
-            schema = Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))])
-        elif len(data.shape) == 2:
-            schema = Schema([ColSpec(type=_infer_numpy_dtype(data.dtype))] * data.shape[1])
+        schema = Schema([TensorSpec(type=data.dtype, shape=_get_tensor_shape(data))])
     elif _is_spark_df(data):
         schema = Schema(
             [
@@ -90,7 +86,8 @@ def _infer_schema(data: Any) -> Schema:
             "dictionary of (name -> numpy.ndarray), pyspark.sql.DataFrame) "
             "but got '{}'".format(type(data))
         )
-    if any([t in (DataType.integer, DataType.long) for t in schema.column_types()]):
+    if not schema.is_tensor_spec() and \
+            any([t in (DataType.integer, DataType.long) for t in schema.column_types()]):
         warnings.warn(
             "Hint: Inferred schema contains integer column(s). Integer columns in "
             "Python cannot represent missing values. If your input data contains "
