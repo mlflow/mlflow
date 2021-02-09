@@ -12,6 +12,7 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
+_ARTIFACT_ROOT_ENV_VAR = "MLFLOW_ARTIFACT_ROOT"
 
 # Extra environment variables which take precedence for setting the basic/bearer
 # auth on http requests.
@@ -113,7 +114,8 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
     if artifact_uri is None:
-        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        artifact_uri = os.environ.get(_ARTIFACT_ROOT_ENV_VAR, None) or \
+            DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 
