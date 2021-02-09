@@ -27,7 +27,9 @@ def test_sklearn_log_explainer():
         shap_values_new = explainer_loaded(X[:5])
 
         np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
-        np.testing.assert_allclose(shap_values_original.values, shap_values_new.values, rtol=100, atol=100)
+        np.testing.assert_allclose(
+            shap_values_original.values, shap_values_new.values, rtol=100, atol=100
+        )
 
 
 def test_sklearn_log_explainer_self_serialization():
@@ -52,7 +54,9 @@ def test_sklearn_log_explainer_self_serialization():
         shap_values_new = explainer_loaded(X[:5])
 
         np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
-        np.testing.assert_allclose(shap_values_original.values, shap_values_new.values, rtol=100, atol=100)
+        np.testing.assert_allclose(
+            shap_values_original.values, shap_values_new.values, rtol=100, atol=100
+        )
 
 
 def test_sklearn_log_explainer_pyfunc():
