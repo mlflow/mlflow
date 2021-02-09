@@ -97,6 +97,20 @@ def test_schema_creation_with_named_and_unnamed_spec():
     assert "Creating Schema with a combination of named and unnamed columns" in ex.value.message
 
 
+def test_get_schema_type(dict_of_ndarrays):
+    schema = _infer_schema(dict_of_ndarrays)
+    assert ["float64"]*4 == schema.numpy_types()
+    with pytest.raises(MlflowException) as ex:
+        schema.column_types()
+    assert "TensorSpec only supports numpy types" in ex.value.message
+    with pytest.raises(MlflowException) as ex:
+        schema.pandas_types()
+    assert "Datatype conversion is not supported by TensorSpec" in ex.value.message
+    with pytest.raises(MlflowException) as ex:
+        schema.as_spark_schema()
+    assert "Datatype conversion is not supported by TensorSpec" in ex.value.message
+
+
 def test_schema_inference_on_dataframe(pandas_df_with_all_types):
     schema = _infer_schema(pandas_df_with_all_types)
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])

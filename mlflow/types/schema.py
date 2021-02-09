@@ -140,11 +140,11 @@ class TensorSpec(object):
                     tuple, shape.__class__
                 )
             )
-        self._type = type.char
+        self._type = type
         self._shape = shape
 
     @property
-    def type(self) -> str:
+    def type(self) -> np.dtype:
         """
         A unique character code for each of the 21 different numpy built-in types.
         See https://numpy.org/devdocs/reference/generated/numpy.dtype.html#numpy.dtype for details.
@@ -163,9 +163,9 @@ class TensorSpec(object):
 
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
-            return {"type": self.type, "shape": self.shape}
+            return {"type": self.type.name, "shape": self.shape}
         else:
-            return {"name": self.name, "type": self.type, "shape": self.shape}
+            return {"name": self.name, "type": self.type.name, "shape": self.shape}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -183,10 +183,10 @@ class TensorSpec(object):
 
     def __repr__(self) -> str:
         if self.name is None:
-            return "({type}, {shape})".format(type=repr(self.type), shape=repr(self.shape))
+            return "({type}, {shape})".format(type=repr(self.type.name), shape=repr(self.shape))
         else:
             return "({name}, {type}, {shape})".format(
-                name=repr(self.name), type=repr(self.type), shape=repr(self.shape)
+                name=repr(self.name), type=repr(self.type.name), shape=repr(self.shape)
             )
 
 
@@ -241,14 +241,16 @@ class Schema(object):
         """Return true iff this schema declares names, false otherwise. """
         return self.data_rep and self.data_rep[0].name is not None
 
-    def column_types(self) -> List[Union[DataType, np.dtype]]:
+    def column_types(self) -> List[DataType]:
+        if self.is_tensor_spec():
+            raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
         """ Get types of the represented dataset"""
         return [x.type for x in self.data_rep]
 
     def numpy_types(self) -> List[np.dtype]:
         """ Convenience shortcut to get the datatypes as numpy types. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
-            raise MlflowException("Datatype conversion is not supported by TensorSpec")
+            return [x.type for x in self.data_rep]
         return [x.type.to_numpy() for x in self.data_rep]
 
     def pandas_types(self) -> List[np.dtype]:
