@@ -123,9 +123,9 @@ class TensorSpec(object):
 
     def __init__(
         self,
-        type: np.dtype,
+        type: np.dtype,  # pylint: disable=redefined-builtin
         shape: tuple,
-        name: Optional[str] = None,  # pylint: disable=redefined-builtin
+        name: Optional[str] = None,
     ):
         self._name = name
         if not isinstance(type, np.dtype):

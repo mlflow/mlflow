@@ -198,9 +198,13 @@ def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
         assert schema == Schema([TensorSpec(np.dtype(t), (-1, 3))])
 
     # test floats
-    for t in [np.float16, np.float32, np.float64, np.float128]:
+    for t in [np.float16, np.float32, np.float64]:
         schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=t))
         assert schema == Schema([TensorSpec(np.dtype(t), (-1, 3))])
+
+    if hasattr(np, "float128"):
+        schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=np.float128))
+        assert schema == Schema([TensorSpec(np.dtype(np.float128), (-1, 3))])
 
 
 @pytest.mark.large
