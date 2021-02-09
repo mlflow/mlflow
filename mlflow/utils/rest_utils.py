@@ -2,7 +2,6 @@ import base64
 import time
 import logging
 import json
-
 import requests
 
 from mlflow import __version__
@@ -42,7 +41,9 @@ def http_request(
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
 
-    headers = dict(_DEFAULT_HEADERS)
+    from mlflow.tracking.request_header.registry import resolve_request_headers
+
+    headers = dict({**_DEFAULT_HEADERS, **resolve_request_headers()})
     if auth_str:
         headers["Authorization"] = auth_str
 
