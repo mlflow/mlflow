@@ -490,7 +490,7 @@ def _merge_environments(shap_environment, model_environment):
 
     merged_conda_channels = list(
         set(shap_environment["channels"] + model_environment["channels"])
-        - set(["default", "conda-forge"])
+        - set(["defaults", "conda-forge"])
     )
 
     shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
