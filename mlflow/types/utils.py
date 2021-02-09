@@ -129,8 +129,7 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
         return DataType.binary
     elif dtype.kind == "O":
         raise Exception(
-            "Can not infer object without looking at the values, call "
-            "_map_numpy_array instead."
+            "Can not infer object without looking at the values, call " "_map_numpy_array instead."
         )
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
