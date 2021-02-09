@@ -234,9 +234,8 @@ def save_model(
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
         f.write(keras_module.__name__)
 
-    # By default, Keras uses the SavedModel format -- specified by "tf"
-    # However, we choose to align with prior default of mlflow, HDF5
-    save_format = kwargs.get("save_format", "h5")
+    # Use the SavedModel format if `save_format` is unspecified
+    save_format = kwargs.get("save_format", "tf")
 
     # save keras save_format to path/data/save_format.txt
     with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
