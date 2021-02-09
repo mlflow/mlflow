@@ -10,6 +10,13 @@ from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 
+class TensorsNotSupportedException(MlflowException):
+    def __init__(self, msg):
+        super().__init__(
+            "Multidimensional arrays (aka tensors) are not supported. " "{}".format(msg)
+        )
+
+
 def _get_tensor_shape(data: np.ndarray) -> tuple:
     """
     Infer the shape of the inputted data.
