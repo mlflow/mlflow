@@ -48,7 +48,9 @@ def test_sklearn_log_explainer_self_serialization():
         explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
         shap_values_original = explainer_original(X[:5])
 
-        mlflow.shap.log_explainer(explainer_original, "test_explainer", False)
+        mlflow.shap.log_explainer(
+            explainer_original, "test_explainer", serialize_model_using_mlflow=False
+        )
 
         explainer_loaded = mlflow.shap.load_explainer("runs:/" + run_id + "/test_explainer")
         shap_values_new = explainer_loaded(X[:5])
@@ -103,12 +105,12 @@ def test_load_pyfunc():
 def test_merge_environment():
 
     test_shap_env = {
-        "channels": ["default", "conda-forge"],
+        "channels": ["defaults", "conda-forge"],
         "dependencies": ["python=3.8.5", "pip", {"pip": ["mlflow", "shap==0.38.0"]}],
     }
 
     test_model_env = {
-        "channels": ["default", "conda-forge"],
+        "channels": ["defaults", "conda-forge"],
         "dependencies": [
             "python=3.8.5",
             "pip",

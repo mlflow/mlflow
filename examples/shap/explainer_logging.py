@@ -2,10 +2,6 @@ import mlflow
 import shap
 import sklearn
 
-mlflow.start_run()
-run = mlflow.active_run()
-run_id = run.info.run_id
-
 # prepare training data
 X, y = shap.datasets.boston()
 
@@ -17,15 +13,13 @@ model.fit(X, y)
 explainer_original = shap.Explainer(model.predict, X, algorithm="permutation",)
 
 # log an explainer
-mlflow.shap.log_explainer(explainer_original, artifact_path="shap_explainer")
+with mlflow.start_run() as run:
+    mlflow.shap.log_explainer(explainer_original, artifact_path="shap_explainer")
 
+    # load back the explainer
+    explainer_new = mlflow.shap.load_explainer("runs:/%s/shap_explainer" % run.info.run_id)
 
-# load back the explainer
-explainer_new = mlflow.shap.load_explainer("runs:/%s/shap_explainer" % run_id)
+    # run explainer on data
+    shap_values = explainer_new(X[:5])
 
-# run explainer on data
-shap_values = explainer_new(X[:5])
-
-print(shap_values)
-
-mlflow.end_run()
+    print(shap_values)

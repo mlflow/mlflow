@@ -44,8 +44,6 @@ def get_underlying_model_flavor(model):
 
     if hasattr(model, "model"):
         unwrapped_model = model.model
-        if isinstance(unwrapped_model, types.FunctionType):
-            return "python_function"
 
         # check if passed model is a method of object
         if isinstance(unwrapped_model, types.MethodType):
@@ -490,15 +488,10 @@ def _merge_environments(shap_environment, model_environment):
     :param model_environment: Underlying model conda environment.
     """
 
-    merged_conda_channels = list(set(shap_environment["channels"] + model_environment["channels"]))
-
-    # remove the default conda channels if present since its added later
-
-    if "default" in merged_conda_channels:
-        merged_conda_channels.remove("default")
-
-    if "conda-forge" in merged_conda_channels:
-        merged_conda_channels.remove("conda-forge")
+    merged_conda_channels = list(
+        set(shap_environment["channels"] + model_environment["channels"])
+        - set(["default", "conda-forge"])
+    )
 
     shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
     model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(model_environment)
