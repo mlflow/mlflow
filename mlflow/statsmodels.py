@@ -33,7 +33,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     autologging_integration,
     safe_patch,
-    get_autologging_config,
+    AutologgingConfigManager,
 )
 from mlflow.utils.validation import _is_numeric
 
@@ -472,7 +472,7 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
 
             if should_autolog:
                 # Log the model
-                if get_autologging_config(FLAVOR_NAME, "log_models", True):
+                if AutologgingConfigManager.get_config(FLAVOR_NAME, "log_models", True):
                     try_mlflow_log(log_model, model, artifact_path="model")
 
                 # Log the most common metrics

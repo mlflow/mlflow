@@ -20,7 +20,7 @@ from mlflow.utils.autologging_utils import (
     AutologgingSession,
     BatchMetricsLogger,
     autologging_integration,
-    get_autologging_config,
+    AutologgingConfigManager,
     autologging_is_disabled,
 )
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
@@ -533,6 +533,8 @@ def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_
 
 
 def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
+
+    get_autologging_config = AutologgingConfigManager.get_config
 
     assert get_autologging_config("nonexistent_integration", "foo") is None
 

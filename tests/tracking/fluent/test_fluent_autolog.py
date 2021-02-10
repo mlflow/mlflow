@@ -4,7 +4,7 @@ from unittest import mock
 
 import mlflow
 from mlflow.utils.autologging_utils import (
-    get_autologging_config,
+    AutologgingConfigManager,
     autologging_is_disabled,
     AutologgingEventLogger,
 )
@@ -124,7 +124,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     for arg_key, arg_value in args_to_test.items():
-        assert get_autologging_config(mlflow_module.FLAVOR_NAME, arg_key, None) == arg_value
+        assert AutologgingConfigManager.get_config(mlflow_module.FLAVOR_NAME, arg_key, None) == arg_value
 
 
 @pytest.mark.large

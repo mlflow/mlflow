@@ -20,7 +20,7 @@ from mlflow.utils import env
 from mlflow.utils.autologging_utils import (
     _is_testing,
     autologging_integration,
-    AUTOLOGGING_INTEGRATIONS,
+    AutologgingConfigManager,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
@@ -1333,20 +1333,30 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
-    def get_autologging_params(autolog_fn):
+    def get_autologging_params(integration, autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
-            return {k: v for k, v in locals_copy if k in needed_params}
+            param_spec = inspect.signature(autolog_fn).parameters
+            default_params = {param.name: param.default for param in param_spec.values()}
+            return {k: AutologgingConfigManager.get_config(integration, k, default_params[k]) for k in needed_params}
         except Exception:
             return {}
+
+    def set_mlflow_autolog_params_in_config(integration):
+        try:
+            needed_params = list(inspect.signature(autolog).parameters.keys())
+            [AutologgingConfigManager.set_mlflow_config(integration, k, v)
+             for k, v in locals_copy if k in needed_params]
+        except Exception:
+            pass
 
     def setup_autologging(module):
         try:
             autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
-            autologging_params = get_autologging_params(autolog_fn)
-            autologging_params.update(AUTOLOGGING_INTEGRATIONS[module.__name__])
+            autologging_params = get_autologging_params(module.__name__, autolog_fn)
+            autologging_params["_mlflow_called"] = True
             autolog_fn(**autologging_params)
-            if not autologging_params.get("disable", False):
+            if not AutologgingConfigManager.get_config(module.__name__, "disable", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
             if _is_testing():
@@ -1364,13 +1374,14 @@ def autolog(
     # this way, we do not send any errors to the user until we know they are using the library.
     # the post-import hook also retroactively activates for previously-imported libraries.
     for module in list(set(LIBRARY_TO_AUTOLOG_FN.keys()) - set(["pyspark"])):
+        set_mlflow_autolog_params_in_config(module)
         register_post_import_hook(setup_autologging, module, overwrite=True)
 
     # for pyspark, we activate autologging immediately, without waiting for a module import.
     # this is because on Databricks a SparkSession already exists and the user can directly
     #   interact with it, and this activity should be logged.
     try:
-        autologging_params = get_autologging_params(spark.autolog)
+        autologging_params = get_autologging_params("spark", spark.autolog)
         spark.autolog(**autologging_params)
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle

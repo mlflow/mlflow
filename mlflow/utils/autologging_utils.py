@@ -28,10 +28,56 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 )
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
-# Dict mapping integration name to its config.
-AUTOLOGGING_INTEGRATIONS = {}
 
 _logger = logging.getLogger(__name__)
+
+
+class AutologgingConfigManager:
+    """
+    Manages configurations for autologging integrations.
+    This class is the source of truth for patches to refer to
+    at call time to decide whether to run the original function
+    or the patched function.
+    """
+    # Dict mapping integration name to configs, set either by user or by default args.
+    _PER_INTEGRATION_CONFIG = {}
+    # Dict mapping integration name to configs, set by mlflow.autolog calls.
+    _MLFLOW_CONFIG = {}
+
+    @staticmethod
+    def set_integration_config(integration, key, value):
+        """
+        Sets a configuration key-value pair for a specific integration.
+        """
+        conf = AutologgingConfigManager._PER_INTEGRATION_CONFIG
+        if integration not in conf:
+            conf[integration] = {}
+        conf[integration][key] = value
+
+    @staticmethod
+    def set_mlflow_config(integration, key, value):
+        conf = AutologgingConfigManager._MLFLOW_CONFIG
+        if integration not in conf:
+            conf[integration] = {}
+        conf[integration][key] = value
+
+    @staticmethod
+    def get_config(integration, key, default_value=None):
+        """
+        Gets the config value for a specified integration with the specified key,
+        in decreasing order of precedence of:
+        - configs from explicit integration-autolog calls, ex. `mlflow.sklearn.autolog()`
+        - configs from `mlflow.autolog()` calls
+        """
+        per_integration_conf = AutologgingConfigManager._PER_INTEGRATION_CONFIG
+        mlflow_conf = AutologgingConfigManager._MLFLOW_CONFIG
+
+        if integration in per_integration_conf and key in per_integration_conf[integration]:
+            return per_integration_conf[integration][key]
+        elif integration in mlflow_conf and key in mlflow_conf[integration]:
+            return mlflow_conf[integration][key]
+        else:
+            return default_value
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -326,7 +372,6 @@ def autologging_integration(name):
         param_spec = inspect.signature(_autolog).parameters
         validate_param_spec(param_spec)
 
-        AUTOLOGGING_INTEGRATIONS[name] = {}
         default_params = {param.name: param.default for param in param_spec.values()}
 
         def autolog(*args, **kwargs):
@@ -334,9 +379,11 @@ def autologging_integration(name):
             config_to_store.update(
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
             )
+            if "_mlflow_called" in kwargs:
+                del kwargs["_mlflow_called"]
+            else:
+                [AutologgingConfigManager.set_integration_config(name, k, v) for k, v in config_to_store.items()]
             config_to_store.update(kwargs)
-            AUTOLOGGING_INTEGRATIONS[name] = config_to_store
-
             try:
                 # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
                 # event loggers to more easily identify important configuration parameters
@@ -354,30 +401,13 @@ def autologging_integration(name):
     return wrapper
 
 
-def get_autologging_config(flavor_name, config_key, default_value=None):
-    """
-    Returns a desired config value for a specified autologging integration.
-    Returns `None` if specified `flavor_name` has no recorded configs.
-    If `config_key` is not set on the config object, default value is returned.
-
-    :param flavor_name: An autologging integration flavor name.
-    :param config_key: The key for the desired config value.
-    :param default_value: The default_value to return
-    """
-    config = AUTOLOGGING_INTEGRATIONS.get(flavor_name)
-    if config is not None:
-        return config.get(config_key, default_value)
-    else:
-        return default_value
-
-
 def autologging_is_disabled(flavor_name):
     """
     Returns a boolean flag of whether the autologging integration is disabled.
 
     :param flavor_name: An autologging integration flavor name.
     """
-    return get_autologging_config(flavor_name, "disable", True)
+    return AutologgingConfigManager.get_config(flavor_name, "disable", True)
 
 
 def _is_testing():
@@ -922,12 +952,12 @@ def safe_patch(
 
         # If the autologging integration associated with this patch is disabled,
         # call the original function and return
-        if autologging_is_disabled(autologging_integration):
+        if AutologgingConfigManager.get_config(autologging_integration, "disable", True):
             return original(*args, **kwargs)
 
         # Whether or not to exclude auto-autologged content from content explicitly logged via
         # `mlflow.start_run()`
-        exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+        exclusive = AutologgingConfigManager.get_config(autologging_integration, "exclusive", False)
 
         active_run = mlflow.active_run()
 
