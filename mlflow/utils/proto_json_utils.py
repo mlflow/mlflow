@@ -1,5 +1,4 @@
 import base64
-import numpy as np
 
 from json import JSONEncoder
 
@@ -143,6 +142,8 @@ def parse_tf_serving_input(inp_dict):
                      serving API doc
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
     """
+    import numpy as np
+
     # pylint: disable=broad-except
     if "signature_name" in inp_dict:
         raise MlflowException(
