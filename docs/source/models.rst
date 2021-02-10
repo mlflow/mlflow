@@ -904,10 +904,15 @@ The REST API server accepts the following data formats as POST input to the ``/i
 * CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
   specified using a ``Content-Type`` request header value of ``text/csv``.
 
-* Numpy arrays formatted as described in `TF Serving's API docs
-  <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
-  This format is specified using a ``Content-Type`` request header value of ``application/json``
-  and the ``instances`` or ``inputs`` key in the request body dictionary.
+* Tensor input formatted as described in `TF Serving's API docs
+  <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
+  will be cast to Numpy arrays. This format is specified using a ``Content-Type`` request header
+  value of ``application/json`` and the ``instances`` or ``inputs`` key in the request body dictionary.
+
+If the ``Content-Type`` request header has a value of ``application/json``, MLflow will infer whether
+the input format is a pandas DataFrame or TF serving (i.e tensor) input based on the data in the request
+body. For pandas DataFrame input, the orient can  also be provided explicitly by specifying the format
+in the request header as shown in the record-oriented example below.
 
 Example requests:
 
