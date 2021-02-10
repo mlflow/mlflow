@@ -904,27 +904,49 @@ The REST API server accepts the following data formats as POST input to the ``/i
 * CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
   specified using a ``Content-Type`` request header value of ``text/csv``.
 
+* Numpy arrays formatted as described in `TF Serving's API docs
+  <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
+  This format is specified using a ``Content-Type`` request header value of ``application/json``
+  and the ``instances`` or ``inputs`` key in the request body dictionary.
+
 Example requests:
 
 .. code-block:: bash
 
-    # split-oriented
+    # split-oriented DataFrame input
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
         "columns": ["a", "b", "c"],
         "data": [[1, 2, 3], [4, 5, 6]]
     }'
 
-    # record-oriented (fine for vector rows, loses ordering for JSON records)
+    # record-oriented DataFrame input (fine for vector rows, loses ordering for JSON records)
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
         {"a": 1,"b": 2,"c": 3},
         {"a": 4,"b": 5,"c": 6}
     ]'
 
+    # numpy/tensor input using TF serving's "instances" format
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+        "instances": [
+            {"a": "s1", "b": 1, "c": [1, 2, 3]},
+            {"a": "s2", "b": 2, "c": [4, 5, 6]},
+            {"a": "s3", "b": 3, "c": [7, 8, 9]}
+        ]
+    }'
+
+    # numpy/tensor input using TF serving's "inputs" format
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
+    }'
+
 
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
 
-The predict command accepts the same input formats. The format is specified as command line arguments.
+For more information about serializing tensor inputs using the TF serving format, see
+`TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
+
+The predict command only accepts DataFrame inputs. The format is specified as command line arguments.
 
 Commands
 ~~~~~~~~
@@ -933,7 +955,7 @@ Commands
 * `build_docker <cli.html#mlflow-models-build-docker>`_ packages a REST API endpoint serving the
   model as a docker image.
 * `predict <cli.html#mlflow-models-predict>`_ uses the model to generate a prediction for a local
-  CSV or JSON file.
+  CSV or JSON file. Note that this method only supports DataFrame input.
 
 For more info, see:
 
