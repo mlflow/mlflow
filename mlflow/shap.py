@@ -54,7 +54,7 @@ def get_underlying_model_flavor(model):
                 import sklearn
 
                 if issubclass(type(model_object), sklearn.base.BaseEstimator):
-                    return "sklearn"
+                    return mlflow.sklearn.FLAVOR_NAME
             except ImportError:
                 pass
 
@@ -63,7 +63,7 @@ def get_underlying_model_flavor(model):
             import torch
 
             if issubclass(type(unwrapped_model), torch.nn.Module):
-                return "pytorch"
+                return mlflow.pytorch.FLAVOR_NAME
         except ImportError:
             pass
 
@@ -412,9 +412,9 @@ def save_model(
             explainer.model.save = None  # this prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
 
-        if underlying_model_flavor == "sklearn":
+        if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
             mlflow.sklearn.save_model(explainer.model.model.__self__, underlying_model_path)
-        elif underlying_model_flavor == "pytorch":
+        elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
             mlflow.pytorch.save_model(explainer.model.model, underlying_model_path)
 
     # saving the explainer object
@@ -535,9 +535,9 @@ def load_explainer(model_uri):
 
     if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
         underlying_model_path = os.path.join(explainer_path, _UNDERLYING_MODEL_SUBPATH)
-        if underlying_model_flavor == "sklearn":
+        if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
             model = mlflow.sklearn._load_pyfunc(underlying_model_path).predict
-        elif underlying_model_flavor == "pytorch":
+        elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
             model = mlflow.pytorch._load_model(os.path.join(underlying_model_path, "data"))
 
     return _load_explainer(explainer_file=explainer_artifacts_path, model=model)
@@ -572,9 +572,9 @@ class _SHAPWrapper:
         model = None
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
-            if underlying_model_flavor == "sklearn":
+            if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
                 model = mlflow.sklearn._load_pyfunc(underlying_model_path).predict
-            elif underlying_model_flavor == "pytorch":
+            elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
                 model = mlflow.pytorch._load_model(os.path.join(underlying_model_path, "data"))
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
