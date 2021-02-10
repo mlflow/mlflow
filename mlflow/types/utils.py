@@ -123,9 +123,22 @@ def _infer_schema(data: Any) -> Schema:
     return schema
 
 
-def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
-    if not isinstance(dtype, np.dtype):
-        raise TypeError("Expected numpy.dtype, got '{}'.".format(type(dtype)))
+def _infer_numpy_dtype(dtype) -> DataType:
+    supported_types = np.dtype
+
+    # noinspection PyBroadException
+    try:
+        from pandas.core.dtypes.base import ExtensionDtype
+
+        supported_types = (np.dtype, ExtensionDtype)
+    except ImportError:
+        # This version of pandas does not support extension types
+        pass
+    if not isinstance(dtype, supported_types):
+        raise TypeError(
+            "Expected numpy.dtype or pandas.ExtensionDtype, got '{}'.".format(type(dtype))
+        )
+
     if dtype.kind == "b":
         return DataType.boolean
     elif dtype.kind == "i" or dtype.kind == "u":
@@ -154,44 +167,7 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
 def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
         raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
-
-    class IsInstanceOrNone(object):
-        def __init__(self, *args):
-            self.classes = args
-            self.seen_instances = 0
-
-        def __call__(self, x):
-            if x is None:
-                return True
-            elif any(map(lambda c: isinstance(x, c), self.classes)):
-                self.seen_instances += 1
-                return True
-            else:
-                return False
-
-    is_binary_test = IsInstanceOrNone(bytes, bytearray)
-    if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
-        return DataType.binary
-    elif pd.api.types.is_bool_dtype(col):
-        return DataType.boolean
-    elif pd.api.types.is_integer_dtype(col) and not pd.api.types.is_int64_dtype(col):
-        return DataType.integer
-    elif pd.api.types.is_integer_dtype(col) and pd.api.types.is_int64_dtype(col):
-        return DataType.long
-    elif pd.api.types.is_dtype_equal(col, np.float32):
-        return DataType.float
-    elif pd.api.types.is_dtype_equal(col, np.float64):
-        return DataType.double
-    elif pd.api.types.is_string_dtype(col) and not pd.api.types.infer_dtype(col) == "mixed":
-        return DataType.string
-    else:
-        return _infer_numpy_dtype(col.dtype)
-
-
-def _infer_numpy_array(col: np.ndarray) -> DataType:
-    if not isinstance(col, np.ndarray):
-        raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(col)))
-    if len(col.shape) > 1:
+    if len(col.values.shape) > 1:
         raise MlflowException("Expected 1d array, got array with shape {}".format(col.shape))
 
     class IsInstanceOrNone(object):
@@ -209,22 +185,15 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
                 return False
 
     if col.dtype.kind == "O":
+        col = col.infer_objects()
+    if col.dtype.kind == "O":
+        # NB: Objects can be either binary or string. Pandas may consider binary data to be a string
+        # so we need to check for binary first.
         is_binary_test = IsInstanceOrNone(bytes, bytearray)
         if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
             return DataType.binary
-        is_string_test = IsInstanceOrNone(str)
-        if all(map(is_string_test, col)) and is_string_test.seen_instances > 0:
+        elif pd.api.types.is_string_dtype(col):
             return DataType.string
-        # NB: bool is also instance of int => boolean test must precede integer test.
-        is_boolean_test = IsInstanceOrNone(bool)
-        if all(map(is_boolean_test, col)) and is_boolean_test.seen_instances > 0:
-            return DataType.boolean
-        is_long_test = IsInstanceOrNone(int)
-        if all(map(is_long_test, col)) and is_long_test.seen_instances > 0:
-            return DataType.long
-        is_double_test = IsInstanceOrNone(float)
-        if all(map(is_double_test, col)) and is_double_test.seen_instances > 0:
-            return DataType.double
         else:
             raise MlflowException(
                 "Unable to map 'np.object' type to MLflow DataType. np.object can"
@@ -232,6 +201,7 @@ def _infer_numpy_array(col: np.ndarray) -> DataType:
                 "of (string, (bytes or byterray),  int, float)."
             )
     else:
+        # NB: The following works for numpy types as well as pandas extension types.
         return _infer_numpy_dtype(col.dtype)
 
 

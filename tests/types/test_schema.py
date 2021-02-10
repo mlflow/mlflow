@@ -150,7 +150,7 @@ def test_schema_inference_on_pandas_series():
     schema = _infer_schema(pd.Series(np.array([True, None], dtype=np.object)))
     assert schema == Schema([ColSpec(DataType.string)])
     schema = _infer_schema(pd.Series(np.array([1.1, None], dtype=np.object)))
-    assert schema == Schema([ColSpec(DataType.string)])
+    assert schema == Schema([ColSpec(DataType.double)])
 
     # test bytes
     schema = _infer_schema(pd.Series(np.array([bytes([1])], dtype=np.bytes_)))
@@ -164,24 +164,24 @@ def test_schema_inference_on_pandas_series():
     schema = _infer_schema(pd.Series(np.array([True], dtype=np.bool)))
     assert schema == Schema([ColSpec(DataType.boolean)])
 
-    # # test ints
-    # for t in [np.uint8, np.uint16, np.int8, np.int16, np.int32, np.uint32]:
-    #     schema = _infer_schema(pd.Series(np.array([1, 2, 3], dtype=t)))
-    #     assert schema == Schema([ColSpec("integer")])
-    #
-    # # test longs
-    # for t in [np.uint64]:
-    #     schema = _infer_schema(pd.Series(np.array([1, 2, 3], dtype=t)))
-    #     assert schema == Schema([ColSpec("long")])
-    #
-    # # # unsigned long is unsupported
-    # # with pytest.raises(MlflowException):
-    # #     _infer_schema(pd.Series(np.array([1, 2, 3], dtype=np.uint64)))
-    #
-    # # test floats
-    # for t in [np.float16, np.float32]:
-    #     schema = _infer_schema(pd.Series(np.array([1.1, 2.2, 3.3], dtype=t)))
-    #     assert schema == Schema([ColSpec("float")])
+    # test ints
+    for t in [np.uint8, np.uint16, np.int8, np.int16, np.int32]:
+        schema = _infer_schema(pd.Series(np.array([1, 2, 3], dtype=t)))
+        assert schema == Schema([ColSpec("integer")])
+
+    # test longs
+    for t in [np.uint32, np.int64]:
+        schema = _infer_schema(pd.Series(np.array([1, 2, 3], dtype=t)))
+        assert schema == Schema([ColSpec("long")])
+
+    # unsigned long is unsupported
+    with pytest.raises(MlflowException):
+        _infer_schema(pd.Series(np.array([1, 2, 3], dtype=np.uint64)))
+
+    # test floats
+    for t in [np.float16, np.float32]:
+        schema = _infer_schema(pd.Series(np.array([1.1, 2.2, 3.3], dtype=t)))
+        assert schema == Schema([ColSpec("float")])
 
     # test doubles
     schema = _infer_schema(pd.Series(np.array([1.1, 2.2, 3.3], dtype=np.float64)))
@@ -264,6 +264,9 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     import pyspark
     from pyspark.sql.types import _parse_datatype_string, StructField, StructType
 
+    pandas_df_with_all_types = pandas_df_with_all_types.drop(
+        columns=["boolean_ext", "integer_ext", "string_ext"]
+    )
     schema = _infer_schema(pandas_df_with_all_types)
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
     spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
@@ -296,6 +299,9 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     assert isinstance(DataType.double.to_spark(), DoubleType)
     assert isinstance(DataType.string.to_spark(), StringType)
     assert isinstance(DataType.binary.to_spark(), BinaryType)
+    pandas_df_with_all_types = pandas_df_with_all_types.drop(
+        columns=["boolean_ext", "integer_ext", "string_ext"]
+    )
     schema = _infer_schema(pandas_df_with_all_types)
     expected_spark_schema = StructType(
         [StructField(t.name, t.to_spark(), True) for t in schema.column_types()]
