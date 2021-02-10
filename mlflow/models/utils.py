@@ -74,11 +74,7 @@ class _Example(object):
             else:
                 input_example = pd.DataFrame(input_example)
         elif isinstance(input_example, np.ndarray):
-            if len(input_example.shape) > 2:
-                raise TensorsNotSupportedException(
-                    "Input array has shape {}".format(input_example.shape)
-                )
-            input_example = pd.DataFrame(input_example)
+            input_example = input_example
         elif not isinstance(input_example, pd.DataFrame):
             try:
                 import pyspark.sql.dataframe
@@ -97,18 +93,27 @@ class _Example(object):
                 "(pandas.DataFrame, numpy.ndarray, dict, list), "
                 "got {}".format(type(input_example))
             )
+
         example_filename = "input_example.json"
-        self.data = input_example.to_dict(orient="split")
-        # Do not include row index
-        del self.data["index"]
-        if all(input_example.columns == range(len(input_example.columns))):
-            # No need to write default column index out
-            del self.data["columns"]
-        self.info = {
-            "artifact_path": example_filename,
-            "type": "dataframe",
-            "pandas_orient": "split",
-        }
+        if isinstance(input_example, pd.DataFrame):
+            self.data = input_example.to_dict(orient="split")
+            # Do not include row index
+            del self.data["index"]
+            if all(input_example.columns == range(len(input_example.columns))):
+                # No need to write default column index out
+                del self.data["columns"]
+            self.info = {
+                "artifact_path": example_filename,
+                "type": "dataframe",
+                "pandas_orient": "split",
+            }
+        else:
+            self.data = {"instances": input_example}
+            self.info = {
+                "artifact_path": example_filename,
+                "type": "ndarray",
+                "format": "instances"
+            }
 
     def save(self, parent_dir_path: str):
         """Save the example as json at ``parent_dir_path``/`self.info['artifact_path']`.  """
@@ -146,10 +151,25 @@ def _read_example(mlflow_model: Model, path: str):
     if mlflow_model.saved_input_example_info is None:
         return None
     example_type = mlflow_model.saved_input_example_info["type"]
-    if example_type != "dataframe":
+    if example_type not in ["dataframe", "ndarray"]:
         raise MlflowException(
             "This version of mlflow can not load example of type {}".format(example_type)
         )
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
-    return _dataframe_from_json(path, schema=input_schema, precise_float=True)
+    if (example_type == "ndarray") or (input_schema and input_schema.is_tensor_spec()):
+        return _read_tensor_input_from_json(path)
+    else:
+        return _dataframe_from_json(path, schema=input_schema, precise_float=True)
+
+
+def _read_tensor_input_from_json(path_or_str):
+    import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+    with open(path_or_str, "r") as handle:
+        try:
+            inp_dict = json.load(handle)
+        except Exception:
+            raise MlflowException(
+                "Error when loading file containing input example stored at {0}".format(path_or_str)
+            )
+        return pyfunc_scoring_server.parse_tf_serving_input(inp_dict)

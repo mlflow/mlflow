@@ -99,7 +99,7 @@ def test_schema_creation_with_named_and_unnamed_spec():
 
 def test_get_schema_type(dict_of_ndarrays):
     schema = _infer_schema(dict_of_ndarrays)
-    assert ["float64"]*4 == schema.numpy_types()
+    assert ["float64"] * 4 == schema.numpy_types()
     with pytest.raises(MlflowException) as ex:
         schema.column_types()
     assert "TensorSpec only supports numpy types" in ex.value.message

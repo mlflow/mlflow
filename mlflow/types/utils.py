@@ -17,25 +17,20 @@ class TensorsNotSupportedException(MlflowException):
         )
 
 
-def _get_tensor_shape(data: np.ndarray) -> tuple:
+def _get_tensor_shape(data: np.ndarray, batch_dimension=0) -> tuple:
     """
     Infer the shape of the inputted data.
 
     This method creates the shape of the tensor to store in the TensorSpec. Always returns a shape
     including a variable dimension. Assumes the variable dimension is the first dimension.
 
-    NB: For 1D tensors, the output is (-1, shape).
-
     :param data: Dataset to infer from.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
     if not isinstance(data, np.ndarray):
         raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data)))
-    if len(data.shape) == 1:
-        variable_input_data_shape = [-1, data.shape[0]]
-    else:
-        variable_input_data_shape = list(data.shape)
-        variable_input_data_shape[0] = -1
+    variable_input_data_shape = list(data.shape)
+    variable_input_data_shape[batch_dimension] = -1
     return tuple(variable_input_data_shape)
 
 
