@@ -431,9 +431,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
 
     assert "outputs" in signature
     assert json.loads(signature["outputs"]) == [
-        {"type": "double"},
-        {"type": "double"},
-        {"type": "double"},
+        {'shape': [-1, 3], 'type': 'float64'},
     ]
 
 
