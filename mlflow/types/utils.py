@@ -58,10 +58,10 @@ def _infer_schema(data: Any) -> Schema:
                 )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        schema = Schema([ColSpec(type=_infer_numpy_array(data.values))])
+        schema = Schema([ColSpec(type=_infer_pandas_column(data))])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
-            [ColSpec(type=_infer_numpy_array(data[col].values), name=col) for col in data.columns]
+            [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
         )
     elif isinstance(data, np.ndarray):
         if len(data.shape) > 2:
@@ -133,6 +133,45 @@ def _infer_numpy_dtype(dtype: np.dtype) -> DataType:
             "_map_numpy_array instead."
         )
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
+
+
+def _infer_pandas_column(col: pd.Series) -> DataType:
+    if not isinstance(col, pd.Series):
+        raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
+
+    class IsInstanceOrNone(object):
+        def __init__(self, *args):
+            self.classes = args
+            self.seen_instances = 0
+
+        def __call__(self, x):
+            if x is None:
+                return True
+            elif any(map(lambda c: isinstance(x, c), self.classes)):
+                self.seen_instances += 1
+                return True
+            else:
+                return False
+
+    is_binary_test = IsInstanceOrNone(bytes, bytearray)
+    if all(map(is_binary_test, col)) and is_binary_test.seen_instances > 0:
+        return DataType.binary
+    elif pd.api.types.is_bool_dtype(col):
+        return DataType.boolean
+    elif pd.api.types.is_integer_dtype(col) and not pd.api.types.is_int64_dtype(col):
+        return DataType.integer
+    elif pd.api.types.is_integer_dtype(col) and pd.api.types.is_int64_dtype(col):
+        return DataType.long
+    elif pd.api.types.is_dtype_equal(col, np.float32):
+        return DataType.float
+    elif pd.api.types.is_dtype_equal(col, np.float64):
+        return DataType.double
+    elif pd.api.types.is_string_dtype(col) and not pd.api.types.infer_dtype(col) == "mixed":
+        return DataType.string
+    else:
+        raise MlflowException(
+            "Unable to map col of type {} to MLflow DataType.".format(type(col.dtype))
+        )
 
 
 def _infer_numpy_array(col: np.ndarray) -> DataType:
