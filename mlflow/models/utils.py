@@ -112,7 +112,7 @@ class _Example(object):
             self.info = {
                 "artifact_path": example_filename,
                 "type": "ndarray",
-                "format": "instances"
+                "format": "instances",
             }
 
     def save(self, parent_dir_path: str):
@@ -165,6 +165,7 @@ def _read_example(mlflow_model: Model, path: str):
 
 def _read_tensor_input_from_json(path_or_str):
     import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+
     with open(path_or_str, "r") as handle:
         try:
             inp_dict = json.load(handle)
