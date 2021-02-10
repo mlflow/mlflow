@@ -1,3 +1,4 @@
 ## Test-only dependencies
+numpy>=1.6
 pytest==3.2.1
 pytest-cov==2.6.0
