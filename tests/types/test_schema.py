@@ -196,29 +196,29 @@ def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
     for col in pandas_df_with_all_types:
         data = pandas_df_with_all_types[col].to_numpy()
         schema = _infer_schema(data)
-        assert schema == Schema([TensorSpec(type=data.dtype, shape=(-1, 3))])
+        assert schema == Schema([TensorSpec(type=data.dtype, shape=(-1,))])
 
     # test boolean
     schema = _infer_schema(np.array([True, False, True], dtype=np.bool_))
-    assert schema == Schema([TensorSpec(np.dtype(np.bool_), (-1, 3))])
+    assert schema == Schema([TensorSpec(np.dtype(np.bool_), (-1,))])
 
     # test bytes
     schema = _infer_schema(np.array([bytes([1])], dtype=np.bytes_))
-    assert schema == Schema([TensorSpec(np.dtype("S1"), (-1, 1))])
+    assert schema == Schema([TensorSpec(np.dtype("S1"), (-1,))])
 
     # test (u)ints
     for t in [np.uint8, np.int8, np.uint16, np.int16, np.uint32, np.int32, np.uint64, np.int64]:
         schema = _infer_schema(np.array([1, 2, 3], dtype=t))
-        assert schema == Schema([TensorSpec(np.dtype(t), (-1, 3))])
+        assert schema == Schema([TensorSpec(np.dtype(t), (-1,))])
 
     # test floats
     for t in [np.float16, np.float32, np.float64]:
         schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=t))
-        assert schema == Schema([TensorSpec(np.dtype(t), (-1, 3))])
+        assert schema == Schema([TensorSpec(np.dtype(t), (-1,))])
 
     if hasattr(np, "float128"):
         schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=np.float128))
-        assert schema == Schema([TensorSpec(np.dtype(np.float128), (-1, 3))])
+        assert schema == Schema([TensorSpec(np.dtype(np.float128), (-1,))])
 
 
 @pytest.mark.large
