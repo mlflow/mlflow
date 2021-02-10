@@ -25,6 +25,10 @@ metadata (MLmodel file). You can score the model by calling the :py:func:`predic
 
   predict(model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
+All model flavors will support `pandas.DataFrame` as input and DL flavors will also support tensor
+inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays` (unnamed
+tensors).
+
 
 .. _pyfunc-filesystem-format:
 
