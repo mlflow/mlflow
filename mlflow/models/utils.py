@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.types.utils import TensorsNotSupportedException
-from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
+from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, parse_tf_serving_input
 
 ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list]
 
@@ -55,16 +55,17 @@ class _Example(object):
             return np.isscalar(x) or x is None
 
         if isinstance(input_example, dict):
-            for x, y in input_example.items():
-                if isinstance(y, np.ndarray) and len(y.shape) > 1:
-                    raise TensorsNotSupportedException(
-                        "Column '{0}' has shape {1}".format(x, y.shape)
-                    )
-
             if all([_is_scalar(x) for x in input_example.values()]):
                 input_example = pd.DataFrame([input_example])
             else:
-                input_example = pd.DataFrame.from_dict(input_example)
+                res = {}
+                for name in input_example.keys():
+                    if not isinstance(input_example[name], np.ndarray):
+                        raise TypeError(
+                            "Data in the dictionary must be scalar or of type numpy.ndarray"
+                        )
+                    res[name] = input_example[name].tolist()
+                input_example = res
         elif isinstance(input_example, list):
             for i, x in enumerate(input_example):
                 if isinstance(x, np.ndarray) and len(x.shape) > 1:
@@ -95,7 +96,18 @@ class _Example(object):
             )
 
         example_filename = "input_example.json"
-        if isinstance(input_example, pd.DataFrame):
+        if isinstance(input_example, (np.ndarray, dict)):
+            if isinstance(input_example, np.ndarray):
+                input_example = input_example.tolist()
+                self.data = {"instances": input_example}
+            else:
+                self.data = {"inputs": input_example}
+            self.info = {
+                "artifact_path": example_filename,
+                "type": "ndarray",
+                "format": "tf-serving",
+            }
+        else:
             self.data = input_example.to_dict(orient="split")
             # Do not include row index
             del self.data["index"]
@@ -106,13 +118,6 @@ class _Example(object):
                 "artifact_path": example_filename,
                 "type": "dataframe",
                 "pandas_orient": "split",
-            }
-        else:
-            self.data = {"instances": input_example}
-            self.info = {
-                "artifact_path": example_filename,
-                "type": "ndarray",
-                "format": "instances",
             }
 
     def save(self, parent_dir_path: str):
@@ -163,14 +168,12 @@ def _read_example(mlflow_model: Model, path: str):
         return _dataframe_from_json(path, schema=input_schema, precise_float=True)
 
 
-def _read_tensor_input_from_json(path_or_str):
-    import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-
-    with open(path_or_str, "r") as handle:
+def _read_tensor_input_from_json(path):
+    with open(path, "r") as handle:
         try:
             inp_dict = json.load(handle)
         except Exception:
             raise MlflowException(
-                "Error when loading file containing input example stored at {0}".format(path_or_str)
+                "Error when loading file containing input example stored at {0}".format(path)
             )
-        return pyfunc_scoring_server.parse_tf_serving_input(inp_dict)
+        return parse_tf_serving_input(inp_dict)

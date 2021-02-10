@@ -106,8 +106,10 @@ class ColSpec(object):
             return {"name": self.name, "type": self.type.name}
 
     def __eq__(self, other) -> bool:
-        names_eq = (self.name is None and other.name is None) or self.name == other.name
-        return names_eq and self.type == other.type
+        if isinstance(other, ColSpec):
+            names_eq = (self.name is None and other.name is None) or self.name == other.name
+            return names_eq and self.type == other.type
+        return False
 
     def __repr__(self) -> str:
         if self.name is None:
@@ -124,7 +126,7 @@ class TensorSpec(object):
     def __init__(
         self,
         type: np.dtype,  # pylint: disable=redefined-builtin
-        shape: tuple,
+        shape: Union[tuple, list],
         name: Optional[str] = None,
     ):
         self._name = name
@@ -134,14 +136,14 @@ class TensorSpec(object):
                     np.dtype, type.__class__
                 )
             )
-        if not isinstance(shape, tuple):
+        if not isinstance(shape, (tuple, list)):
             raise TypeError(
                 "Expected `shape` to be instance of `{0}`, received `{1}`".format(
                     tuple, shape.__class__
                 )
             )
         self._type = type
-        self._shape = shape
+        self._shape = tuple(shape)
 
     @property
     def type(self) -> np.dtype:
@@ -178,8 +180,10 @@ class TensorSpec(object):
         return cls(tensor_type, tensor_shape, kwargs["name"] if "name" in kwargs else None)
 
     def __eq__(self, other) -> bool:
-        names_eq = (self.name is None and other.name is None) or self.name == other.name
-        return names_eq and self.type == other.type and self.shape == other.shape
+        if isinstance(other, TensorSpec):
+            names_eq = (self.name is None and other.name is None) or self.name == other.name
+            return names_eq and self.type == other.type and self.shape == other.shape
+        return False
 
     def __repr__(self) -> str:
         if self.name is None:
@@ -242,9 +246,9 @@ class Schema(object):
         return self.data_rep and self.data_rep[0].name is not None
 
     def column_types(self) -> List[DataType]:
+        """ Get types of the represented dataset"""
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        """ Get types of the represented dataset"""
         return [x.type for x in self.data_rep]
 
     def numpy_types(self) -> List[np.dtype]:
@@ -256,7 +260,7 @@ class Schema(object):
     def pandas_types(self) -> List[np.dtype]:
         """ Convenience shortcut to get the datatypes as pandas types. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
-            raise MlflowException("Datatype conversion is not supported by TensorSpec")
+            raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
         return [x.type.to_pandas() for x in self.data_rep]
 
     def as_spark_schema(self):
@@ -266,7 +270,7 @@ class Schema(object):
         Unsupported by TensorSpec.
         """
         if self.is_tensor_spec():
-            raise MlflowException("Datatype conversion is not supported by TensorSpec")
+            raise MlflowException("TensorSpec cannot be converted to spark dataframe")
         if len(self.data_rep) == 1 and self.data_rep[0].name is None:
             return self.data_rep[0].type.to_spark()
         from pyspark.sql.types import StructType, StructField

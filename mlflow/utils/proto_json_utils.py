@@ -1,8 +1,12 @@
 import base64
+import numpy as np
 
 from json import JSONEncoder
 
 from google.protobuf.json_format import MessageToJson, ParseDict
+
+from mlflow.exceptions import MlflowException
+from collections import defaultdict
 
 
 def message_to_json(message):
@@ -131,3 +135,57 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return pd.DataFrame(data).to_dict(orient=pandas_orient)
     else:  # by default just return whatever this is and hope for the best
         return data
+
+
+def parse_tf_serving_input(inp_dict):
+    """
+    :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
+                     serving API doc
+                     (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
+    """
+    # pylint: disable=broad-except
+    if "signature_name" in inp_dict:
+        raise MlflowException(
+            'Failed to parse data as TF serving input. "signature_name" is currently'
+            " not supported."
+        )
+
+    if not (list(inp_dict.keys()) == ["instances"] or list(inp_dict.keys()) == ["inputs"]):
+        raise MlflowException(
+            'Failed to parse data as TF serving input. One of "instances" and'
+            ' "inputs" must be specified (not both or any other keys).'
+        )
+
+    try:
+        if "instances" in inp_dict:
+            items = inp_dict["instances"]
+            if len(items) > 0 and isinstance(items[0], dict):
+                # convert items to column format (map column/input name to tensor)
+                data = defaultdict(list)
+                for item in items:
+                    for k, v in item.items():
+                        data[k].append(v)
+                data = {k: np.array(v) for k, v in data.items()}
+            else:
+                data = np.array(items)
+        else:
+            # items already in column format, convert values to tensor
+            items = inp_dict["inputs"]
+            data = {k: np.array(v) for k, v in items.items()}
+    except Exception:
+        raise MlflowException(
+            "Failed to parse data as TF serving input. Ensure that the input is"
+            " a valid JSON-formatted string that conforms to the request body for"
+            " TF serving's Predict API as documented at"
+            " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
+        )
+
+    if isinstance(data, dict):
+        # ensure all columns have the same number of items
+        expected_len = len(list(data.values())[0])
+        if not all(len(v) == expected_len for v in data.values()):
+            raise MlflowException(
+                "Failed to parse data as TF serving input. The length of values for"
+                " each input/column name are not the same"
+            )
+    return data

@@ -32,26 +32,28 @@ def test_col_spec():
 
 def test_tensor_spec():
     a1 = TensorSpec(np.dtype("float64"), (-1, 3, 3), "a")
-    a2 = TensorSpec(np.dtype("float"), (-1, 3, 3), "a")  # float defaults to 'fl
-    a3 = TensorSpec(np.dtype("int"), (-1, 3, 3), "a")
+    a2 = TensorSpec(np.dtype("float"), (-1, 3, 3), "a")  # float defaults to float64
+    a3 = TensorSpec(np.dtype("float"), [-1, 3, 3], "a")
+    a4 = TensorSpec(np.dtype("int"), (-1, 3, 3), "a")
     assert a1 == a2
-    assert a1 != a3
+    assert a1 == a3
+    assert a1 != a4
     b1 = TensorSpec(np.dtype("float64"), (-1, 3, 3), "b")
     assert b1 != a1
     with pytest.raises(TypeError) as ex1:
         TensorSpec("Unsupported", (-1, 3, 3), "a")
     assert "Expected `type` to be instance" in str(ex1.value)
     with pytest.raises(TypeError) as ex2:
-        TensorSpec(np.dtype("float64"), [-1, 3, 3], "b")
+        TensorSpec(np.dtype("float64"), np.array([-1, 2, 3]), "b")
     assert "Expected `shape` to be instance" in str(ex2.value)
 
-    a4 = TensorSpec.from_json_dict(**a1.to_dict())
-    assert a4 == a1
+    a5 = TensorSpec.from_json_dict(**a1.to_dict())
+    assert a5 == a1
     assert TensorSpec.from_json_dict(**json.loads(json.dumps(a1.to_dict()))) == a1
-    a5 = TensorSpec(np.dtype("float64"), (-1, 3, 3))
-    a6 = TensorSpec(np.dtype("float64"), (-1, 3, 3), None)
-    assert a5 == a6
-    assert TensorSpec.from_json_dict(**json.loads(json.dumps(a5.to_dict()))) == a5
+    a6 = TensorSpec(np.dtype("float64"), (-1, 3, 3))
+    a7 = TensorSpec(np.dtype("float64"), (-1, 3, 3), None)
+    assert a6 == a7
+    assert TensorSpec.from_json_dict(**json.loads(json.dumps(a6.to_dict()))) == a6
 
 
 @pytest.fixture
@@ -105,10 +107,10 @@ def test_get_schema_type(dict_of_ndarrays):
     assert "TensorSpec only supports numpy types" in ex.value.message
     with pytest.raises(MlflowException) as ex:
         schema.pandas_types()
-    assert "Datatype conversion is not supported by TensorSpec" in ex.value.message
+    assert "TensorSpec only supports numpy types" in ex.value.message
     with pytest.raises(MlflowException) as ex:
         schema.as_spark_schema()
-    assert "Datatype conversion is not supported by TensorSpec" in ex.value.message
+    assert "TensorSpec cannot be converted to spark dataframe" in ex.value.message
 
 
 def test_schema_inference_on_dataframe(pandas_df_with_all_types):
@@ -172,6 +174,21 @@ def test_schema_inference_on_pandas_series():
 
 def test_get_tensor_shape(dict_of_ndarrays):
     assert all([-1 == _get_tensor_shape(tensor)[0] for tensor in dict_of_ndarrays.values()])
+
+    data = dict_of_ndarrays["4D"]
+    # Specify variable dimension
+    for i in range(-4, 4):
+        assert _get_tensor_shape(data, i)[i] == -1
+
+    # Specify None
+    assert all([_get_tensor_shape(data, None) != -1])
+
+    # Out of bounds
+    with pytest.raises(MlflowException):
+        _get_tensor_shape(data, 10)
+    with pytest.raises(MlflowException):
+        _get_tensor_shape(data, -10)
+
     with pytest.raises(TypeError):
         _infer_schema({"x": 1})
 

@@ -3,7 +3,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-
+from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.types import DataType
@@ -17,20 +17,33 @@ class TensorsNotSupportedException(MlflowException):
         )
 
 
-def _get_tensor_shape(data: np.ndarray, batch_dimension=0) -> tuple:
+def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -> tuple:
     """
     Infer the shape of the inputted data.
 
-    This method creates the shape of the tensor to store in the TensorSpec. Always returns a shape
-    including a variable dimension. Assumes the variable dimension is the first dimension.
+    This method creates the shape of the tensor to store in the TensorSpec. The variable dimension
+    is assumed to be the first dimension by default. This assumption can be overridden by inputting
+    a different variable dimension or `None` to represent that the input tensor does not contain a
+    variable dimension.
 
     :param data: Dataset to infer from.
+    :param variable_dimension: An optional integer representing a variable dimension.
     :return: tuple : Shape of the inputted data (including a variable dimension)
     """
     if not isinstance(data, np.ndarray):
         raise TypeError("Expected numpy.ndarray, got '{}'.".format(type(data)))
-    variable_input_data_shape = list(data.shape)
-    variable_input_data_shape[batch_dimension] = -1
+    variable_input_data_shape = data.shape
+    if variable_dimension is not None:
+        try:
+            variable_input_data_shape = list(variable_input_data_shape)
+            variable_input_data_shape[variable_dimension] = -1
+        except IndexError:
+            raise MlflowException(
+                "The specified variable_dimension {0} is out of bounds with"
+                "respect to the number of dimensions {1} in the input dataset".format(
+                    variable_dimension, data.ndim
+                )
+            )
     return tuple(variable_input_data_shape)
 
 
@@ -54,6 +67,9 @@ def _infer_schema(data: Any) -> Schema:
       - dictionary of { name -> numpy.ndarray}
       - numpy.ndarray
       - pyspark.sql.DataFrame
+
+    The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
+    dataframes and to one of numpy types for tensors.
 
     :param data: Dataset to infer from.
 

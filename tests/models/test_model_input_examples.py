@@ -58,20 +58,24 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             .all()
         )
 
+    # NB: Drop columns whose values cannot be encoded using proto_json_utils.pyNumpyEncoder
+    new_df = pandas_df_with_all_types.drop(columns=["boolean", "binary", "string"])
+
     # pass the input as dictionary instead
     with TempDir() as tmp:
-        d = {
-            name: pandas_df_with_all_types[name].values for name in pandas_df_with_all_types.columns
-        }
+        d = {name: new_df[name].values for name in new_df.columns}
         example = _Example(d)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        parsed_df = _dataframe_from_json(tmp.path(filename), sig.inputs)
-        assert (pandas_df_with_all_types == parsed_df).all().all()
+        with open(tmp.path(filename), "r") as f:
+            data = json.load(f)
+            assert set(data.keys()) == set(("inputs",))
+        parsed_dict = _read_tensor_input_from_json(tmp.path(filename))
+        assert d.keys() == parsed_dict.keys()
+        for key in d:
+            assert np.array_equal(d[key], parsed_dict[key])
 
     # input passed as numpy array
-    # NB: Drop columns whose values cannot be encoded using proto_json_utils.pyNumpyEncoder
-    new_df = pandas_df_with_all_types.drop(columns=["boolean", "binary", "string"])
     for col in new_df:
         input_example = new_df[col].to_numpy()
         with TempDir() as tmp:
@@ -97,13 +101,10 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
             assert np.array_equal(parsed_ary, input_example)
 
-    # pass multidimensional array as a dictionary or list
-    with TempDir() as tmp:
-        example = np.array([[1, 2, 3]])
-        with pytest.raises(TensorsNotSupportedException):
-            _Example({"x": example, "y": example})
-        with pytest.raises(TensorsNotSupportedException):
-            _Example([example, example])
+    # pass multidimensional array as a list
+    example = np.array([[1, 2, 3]])
+    with pytest.raises(TensorsNotSupportedException):
+        _Example([example, example])
 
     # pass dict with scalars
     with TempDir() as tmp:

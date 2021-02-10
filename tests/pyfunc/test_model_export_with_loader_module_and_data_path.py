@@ -339,50 +339,49 @@ def test_missing_value_hint_is_displayed_when_it_should():
     assert hint not in str(ex.value.message)
 
 
-# TODO : @wendyhu/@arjundc fix this test in enforcement PR
-# def test_schema_enforcement_no_col_names():
-#     class TestModel(object):
-#         @staticmethod
-#         def predict(pdf):
-#             return pdf
-#
-#     m = Model()
-#     input_schema = Schema([ColSpec("double"), ColSpec("double"), ColSpec("double")])
-#     m.signature = ModelSignature(inputs=input_schema)
-#     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
-#     test_data = [[1.0, 2.0, 3.0]]
-#
-#     # Can call with just a list
-#     assert pyfunc_model.predict(test_data).equals(pd.DataFrame(test_data))
-#
-#     # Or can call with a DataFrame without column names
-#     assert pyfunc_model.predict(pd.DataFrame(test_data)).equals(pd.DataFrame(test_data))
-#
-#     # # Or can call with a np.ndarray
-#     assert pyfunc_model.predict(pd.DataFrame(test_data).values).equals(pd.DataFrame(test_data))
-#
-#     # Or with column names!
-#     pdf = pd.DataFrame(data=test_data, columns=["a", "b", "c"])
-#     assert pyfunc_model.predict(pdf).equals(pdf)
-#
-#     # Must provide the right number of arguments
-#     with pytest.raises(MlflowException) as ex:
-#         pyfunc_model.predict([[1.0, 2.0]])
-#     assert "the provided input only has 2 columns." in str(ex)
-#
-#     # Must provide the right types
-#     with pytest.raises(MlflowException) as ex:
-#         pyfunc_model.predict([[1, 2, 3]])
-#     assert "Can not safely convert int64 to float64" in str(ex)
-#
-#     # Can only provide data type that can be converted to dataframe...
-#     with pytest.raises(MlflowException) as ex:
-#         pyfunc_model.predict(set([1, 2, 3]))
-#     assert "Expected input to be DataFrame or list. Found: set" in str(ex)
-#
-#     # 9. dictionaries of str -> list/nparray work
-#     d = {"a": [1.0], "b": [2.0], "c": [3.0]}
-#     assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
+def test_schema_enforcement_no_col_names():
+    class TestModel(object):
+        @staticmethod
+        def predict(pdf):
+            return pdf
+
+    m = Model()
+    input_schema = Schema([ColSpec("double"), ColSpec("double"), ColSpec("double")])
+    m.signature = ModelSignature(inputs=input_schema)
+    pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
+    test_data = [[1.0, 2.0, 3.0]]
+
+    # Can call with just a list
+    assert pyfunc_model.predict(test_data).equals(pd.DataFrame(test_data))
+
+    # Or can call with a DataFrame without column names
+    assert pyfunc_model.predict(pd.DataFrame(test_data)).equals(pd.DataFrame(test_data))
+
+    # # Or can call with a np.ndarray
+    assert pyfunc_model.predict(pd.DataFrame(test_data).values).equals(pd.DataFrame(test_data))
+
+    # Or with column names!
+    pdf = pd.DataFrame(data=test_data, columns=["a", "b", "c"])
+    assert pyfunc_model.predict(pdf).equals(pdf)
+
+    # Must provide the right number of arguments
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict([[1.0, 2.0]])
+    assert "the provided input only has 2 columns." in str(ex)
+
+    # Must provide the right types
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict([[1, 2, 3]])
+    assert "Can not safely convert int64 to float64" in str(ex)
+
+    # Can only provide data type that can be converted to dataframe...
+    with pytest.raises(MlflowException) as ex:
+        pyfunc_model.predict(set([1, 2, 3]))
+    assert "Expected input to be DataFrame or list. Found: set" in str(ex)
+
+    # 9. dictionaries of str -> list/nparray work
+    d = {"a": [1.0], "b": [2.0], "c": [3.0]}
+    assert pyfunc_model.predict(d).equals(pd.DataFrame(d))
 
 
 @pytest.mark.large

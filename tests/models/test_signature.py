@@ -103,6 +103,23 @@ def test_model_signature_with_tensorspec():
     assert signature8 == signature9
 
 
+def test_model_signature_with_colspec_and_tensorspec():
+    signature1 = ModelSignature(inputs=Schema([ColSpec(DataType.double)]))
+    signature2 = ModelSignature(inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]))
+    assert signature1 != signature2
+    assert signature2 != signature1
+
+    signature3 = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
+    )
+    signature4 = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)]),
+    )
+    assert signature3 != signature4
+    assert signature4 != signature3
+
+
 def test_signature_inference_infers_input_and_output_as_expected():
     sig0 = infer_signature(np.array([1]))
     assert sig0.inputs is not None
