@@ -23,11 +23,13 @@ Python function models are loaded as an instance of :py:class:`PyFuncModel
 metadata (MLmodel file). You can score the model by calling the :py:func:`predict()
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
-  predict(model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  predict(
+    model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
+  ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
-All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support tensor
-inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays` (unnamed
-tensors).
+All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support
+tensor inputs in the form of Dict[str, numpy.ndarray] (named tensors) and `numpy.ndarrays`
+(unnamed tensors).
 
 
 .. _pyfunc-filesystem-format:
@@ -67,7 +69,9 @@ following parameters:
          directory. The model implementation is expected to be an object with a
          ``predict`` method with the following signature::
 
-           predict(model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+          predict(
+              model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]
+          ) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -438,7 +442,7 @@ class PyFuncModel(object):
 
     Wrapper around model implementation and metadata. This class is not meant to be constructed
     directly. Instead, instances of this class are constructed and returned from
-    py:func:`mlflow.pyfunc.load_model`.
+    :py:func:`load_model() <mlflow.pyfunc.load_model>`.
 
     ``model_impl`` can be any Python object that implements the `Pyfunc interface
     <https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#pyfunc-inference-api>`_, and is
@@ -464,7 +468,8 @@ class PyFuncModel(object):
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or Dict[str, numpy.ndarray]
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or
+                     Dict[str, numpy.ndarray]
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
