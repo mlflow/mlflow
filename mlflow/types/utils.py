@@ -185,9 +185,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
     elif pd.api.types.is_string_dtype(col) and not pd.api.types.infer_dtype(col) == "mixed":
         return DataType.string
     else:
-        raise MlflowException(
-            "Unable to map col of type {} to MLflow DataType.".format(type(col.dtype))
-        )
+        return _infer_numpy_dtype(col.dtype)
 
 
 def _infer_numpy_array(col: np.ndarray) -> DataType:

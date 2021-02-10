@@ -65,8 +65,8 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             .all()
         )
 
-    # NB: Drop columns whose values cannot be encoded using proto_json_utils.pyNumpyEncoder
-    new_df = pandas_df_with_all_types.drop(columns=["boolean", "binary", "string"])
+    # NB: Choose nparrays columns that can be encoded using proto_json_utils.pyNumpyEncoder
+    new_df = pandas_df_with_all_types[["integer", "long", "float", "double"]]
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
