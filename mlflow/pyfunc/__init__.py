@@ -23,7 +23,7 @@ Python function models are loaded as an instance of :py:class:`PyFuncModel
 metadata (MLmodel file). You can score the model by calling the :py:func:`predict()
 <mlflow.pyfunc.PyFuncModel.predict>` method, which has the following signature::
 
-  predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+  predict(model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
 
 .. _pyfunc-filesystem-format:
@@ -63,7 +63,7 @@ following parameters:
          directory. The model implementation is expected to be an object with a
          ``predict`` method with the following signature::
 
-           predict(model_input: pandas.DataFrame) -> [numpy.ndarray | pandas.(Series | DataFrame)]
+           predict(model_input: [pandas.DataFrame, Dict[str, numpy.ndarray], numpy.ndarray]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
 
 - code [optional]:
         Relative path to a directory containing the code packaged with this model.
@@ -460,7 +460,7 @@ class PyFuncModel(object):
         the input is passed to the model implementation as is. See `Model Signature Enforcement
         <https://www.mlflow.org/docs/latest/models.html#signature-enforcement>`_ for more details."
 
-        :param data: Model input
+        :param data: Model input as one of pandas.DataFrame, numpy.ndarray, or Dict[str, numpy.ndarray]
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
@@ -849,9 +849,10 @@ def save_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
     """
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
@@ -1028,9 +1029,10 @@ def log_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.

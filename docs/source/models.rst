@@ -416,8 +416,8 @@ method, which has the following signature::
 
   predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
   
-All model flavors will support pandas.DataFrame as input and DL flavors will also support tensor inputs in the form
-of numpy.ndarrays. To verify whether a model flavor supports tensor inputs, please check the flavor's documentation.
+All model flavors will support `pandas.DataFrame` as input and DL flavors will also support tensor inputs in the form
+of `numpy.ndarrays`. To verify whether a model flavor supports tensor inputs, please check the flavor's documentation.
   
 For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
 If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
