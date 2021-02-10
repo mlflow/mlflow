@@ -171,19 +171,27 @@ class _OnnxModelWrapper:
     @experimental
     def predict(self, data):
         """
-        :param data: A Pandas DataFrame that is converted to a collection of ONNX Runtime
-                          inputs. If the underlying ONNX model only defines a *single* input
-                          tensor, the DataFrame's values are converted to a NumPy array
-                          representation using the `DataFrame.values()
-                          <https://pandas.pydata.org/pandas-docs/stable/reference/api/
-                          pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method. If the
-                          underlying ONNX model defines *multiple* input tensors, each column
+        :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
+
+                     Dictionary input is expected to be a valid ONNX model feed dictionary.
+
+                     Numpy array input is supported iff the model has a single tensor input and is
+                     converted into an ONNX feed dictionary with the appropriate key.
+
+                     Pandas DataFrame is converted to ONNX inputs as follows:
+                        - If the underlying ONNX model only defines a *single* input tensor, the
+                          DataFrame's values are converted to a NumPy array representation using the
+                         `DataFrame.values()
+                         <https://pandas.pydata.org/pandas-docs/stable/reference/api/
+                          pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method.
+                        - If the underlying ONNX model defines *multiple* input tensors, each column
                           of the DataFrame is converted to a NumPy array representation.
-                          The corresponding NumPy array representation is then passed to the
-                          ONNX Runtime. For more information about the ONNX Runtime, see
-                          `<https://github.com/microsoft/onnxruntime>`_.
-        :return: A Pandas DataFrame output. Each column of the DataFrame corresponds to an
-                 output tensor produced by the underlying ONNX model.
+
+                      For more information about the ONNX Runtime, see
+                      `<https://github.com/microsoft/onnxruntime>`_.
+        :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
+                 in a pandas.DataFrame. If the input is a numpy array or a dictionary the
+                 predictions are returned in a dictionary.
         """
         if isinstance(data, dict):
             feed_dict = data

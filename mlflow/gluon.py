@@ -79,10 +79,14 @@ class _GluonModelWrapper:
 
     def predict(self, data):
         """
-        :param df: A Pandas DataFrame containing input array values. A DataFrame input,
-                   `df` is converted to an MXNet ndarray via `ndarray = mx.nd.array(df.values)`.
-        :return: A Pandas DataFrame containing output array values. The underlying MXNet array
-                 can be extracted from the output DataFrame as `ndarray = mx.nd.array(df.values)`.
+        :param data: Either a pandas DataFrame or a numpy array containing input array values.
+                     If the input is a DataFrame, it will be converted to an array first by a
+                     `ndarray = df.values`.
+        :return: Model predictions. If the input is a pandas.DataFrame, the predictions are returned
+                 in a pandas.DataFrame. If the input is a numpy array, the predictions are returned
+                 as either a numpy.ndarray or a plain list for hybrid models.
+
+
         """
         import mxnet as mx
 
