@@ -66,9 +66,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         )
 
     # NB: Drop columns that cannot be encoded by proto_json_utils.pyNumpyEncoder
-    new_df = pandas_df_with_all_types.drop(
-        columns=["boolean_ext", "integer_ext", "string_ext"]
-    )
+    new_df = pandas_df_with_all_types.drop(columns=["boolean_ext", "integer_ext", "string_ext"])
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
@@ -80,7 +78,7 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         assert d.keys() == parsed_dict.keys()
         # Asserting binary will fail since it is converted to base64 encoded strings.
         # The check above suffices that the binary input is stored.
-        del d['binary']
+        del d["binary"]
         for key in d:
             assert np.array_equal(d[key], parsed_dict[key])
 
