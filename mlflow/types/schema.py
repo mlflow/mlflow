@@ -207,9 +207,7 @@ class Schema(object):
     Combination of named and unnamed data inputs are not allowed.
     """
 
-    SchemaInput = Union[ColSpec, TensorSpec]
-
-    def __init__(self, dataset: List[SchemaInput]):
+    def __init__(self, dataset: List[Union[ColSpec, TensorSpec]]):
         if not (
             all(map(lambda x: x.name is None, dataset))
             or all(map(lambda x: x.name is not None, dataset))
@@ -229,7 +227,7 @@ class Schema(object):
         self._inputs = dataset
 
     @property
-    def inputs(self) -> List[SchemaInput]:
+    def inputs(self) -> List[Union[ColSpec, TensorSpec]]:
         """Representation of a dataset that defines this schema."""
         return self._inputs
 
