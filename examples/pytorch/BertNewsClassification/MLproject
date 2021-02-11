@@ -12,7 +12,7 @@ entry_points:
       num_workers: {type: int, default: 3}
       learning_rate: {type: float, default: 0.001}
       num_samples: {type: int, default: 15000}
-      dataset: {type: int, default: "20newsgroups"}
+      dataset: {type: str, default: "20newsgroups"}
 
     command: |
           python bert_classification.py \
