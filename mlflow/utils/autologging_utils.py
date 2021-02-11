@@ -39,6 +39,7 @@ class AutologgingConfigManager:
     at call time to decide whether to run the original function
     or the patched function.
     """
+
     # Dict mapping integration name to configs, set either by user or by default args.
     _PER_INTEGRATION_CONFIG = {}
     # Dict mapping integration name to configs, set by mlflow.autolog calls.
@@ -78,6 +79,14 @@ class AutologgingConfigManager:
             return mlflow_conf[integration][key]
         else:
             return default_value
+
+    @staticmethod
+    def integration_config_exists(integration):
+        return integration in AutologgingConfigManager._PER_INTEGRATION_CONFIG
+
+    @staticmethod
+    def mlflow_config_exists(integration):
+        return integration in AutologgingConfigManager._MLFLOW_CONFIG
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -380,10 +389,13 @@ def autologging_integration(name):
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
             )
             if "_mlflow_called" not in kwargs:
-                [AutologgingConfigManager.set_integration_config(name, k, v) for k, v in config_to_store.items()]
+                config_to_store.update(kwargs)
+                for k, v in config_to_store.items():
+                    AutologgingConfigManager.set_integration_config(name, k, v)
             else:
                 del kwargs["_mlflow_called"]
-            config_to_store.update(kwargs)
+                config_to_store.update(kwargs)
+
             try:
                 # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
                 # event loggers to more easily identify important configuration parameters

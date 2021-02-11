@@ -10,8 +10,8 @@ from mlflow.tracking import MlflowClient
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     safe_patch,
-    get_autologging_config,
     autologging_is_disabled,
+    AutologgingConfigManager,
 )
 
 
@@ -67,12 +67,12 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
         integration.autolog(disable=False)
 
     assert not autologging_is_disabled(integration.FLAVOR_NAME)
-    assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
+    assert not AutologgingConfigManager.get_config(integration.FLAVOR_NAME, "disable", True)
 
     integration.autolog(disable=True)
 
     assert autologging_is_disabled(integration.FLAVOR_NAME)
-    assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
+    assert AutologgingConfigManager.get_config(integration.FLAVOR_NAME, "disable", False)
 
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())

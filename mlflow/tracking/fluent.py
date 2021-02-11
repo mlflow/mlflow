@@ -1338,15 +1338,19 @@ def autolog(
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
             param_spec = inspect.signature(autolog_fn).parameters
             default_params = {param.name: param.default for param in param_spec.values()}
-            return {k: AutologgingConfigManager.get_config(integration, k, default_params[k]) for k in needed_params}
+            return {
+                k: AutologgingConfigManager.get_config(integration, k, default_params[k])
+                for k in needed_params
+            }
         except Exception:
             return {}
 
     def set_mlflow_autolog_params_in_config(integration):
         try:
             needed_params = list(inspect.signature(autolog).parameters.keys())
-            [AutologgingConfigManager.set_mlflow_config(integration, k, v)
-             for k, v in locals_copy if k in needed_params]
+            for k, v in locals_copy:
+                if k in needed_params:
+                    AutologgingConfigManager.set_mlflow_config(integration, k, v)
         except Exception:
             pass
 

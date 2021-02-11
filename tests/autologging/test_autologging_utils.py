@@ -23,7 +23,6 @@ from mlflow.utils.autologging_utils import (
     AutologgingConfigManager,
     autologging_is_disabled,
 )
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
 
 from tests.autologging.fixtures import test_mode_off
@@ -425,14 +424,20 @@ def test_autologging_integration_stores_and_updates_config():
     def autolog(foo=7, bar=10, disable=False):
         return foo
 
+    def test_params(arg_list):
+        param_list = ["foo", "bar", "disable"]
+        assert [
+            AutologgingConfigManager.get_config("test_integration", k) for k in param_list
+        ] == arg_list
+
     autolog()
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
+    test_params([7, 10, False])
     autolog(bar=11)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
+    test_params([7, 11, False])
     autolog(6, disable=True)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
+    test_params([6, 10, True])
     autolog(1, 2, False)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 1, "bar": 2, "disable": False}
+    test_params([1, 2, False])
 
 
 def test_autologging_integration_forwards_positional_and_keyword_arguments_as_expected():
@@ -460,7 +465,10 @@ def test_autologging_integration_validates_structure_of_autolog_function():
 
     # Failure to apply the @autologging_integration decorator should not create a
     # placeholder for configuration state
-    assert "test" not in AUTOLOGGING_INTEGRATIONS
+    assert not (
+        AutologgingConfigManager.integration_config_exists("test")
+        or AutologgingConfigManager.mlflow_config_exists("test")
+    )
 
 
 def test_autologging_integration_makes_expected_event_logging_calls():
@@ -532,7 +540,7 @@ def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_
     assert logger.logged_event
 
 
-def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
+def test_get_autologging_config_manager_returns_configured_values_or_defaults_as_expected():
 
     get_autologging_config = AutologgingConfigManager.get_config
 
@@ -557,6 +565,20 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
     autolog(foo="baz")
 
     assert get_autologging_config("test_integration_for_config", "foo") == "baz"
+
+
+def test_get_autologging_config_manager_sets_as_expected():
+
+    get_autologging_config = AutologgingConfigManager.get_config
+    set_mlflow_config = AutologgingConfigManager.set_mlflow_config
+    set_integration_config = AutologgingConfigManager.set_integration_config
+
+    assert get_autologging_config("test", "foo") is None
+    set_mlflow_config("test", "foo", 3)
+    assert get_autologging_config("test", "foo") == 3
+
+    set_integration_config("test", "foo", 4)
+    assert get_autologging_config("test", "foo") == 4
 
 
 def test_autologging_is_disabled_returns_expected_values():

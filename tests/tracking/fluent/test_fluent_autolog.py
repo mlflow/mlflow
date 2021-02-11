@@ -72,6 +72,34 @@ def disable_new_import_hook_firing_if_module_already_exists():
         yield
 
 
+def test_get_autologging_config_manager_returns_correcly_with_universal_autolog():
+
+    get_autologging_config = AutologgingConfigManager.get_config
+
+    # Should be no sklearn config anywhere before autolog call
+    assert AutologgingConfigManager.integration_config_exists("sklearn") is False
+    assert AutologgingConfigManager.mlflow_config_exists("sklearn") is False
+
+    # should only be a mlflow config here
+    mlflow.autolog()
+    assert AutologgingConfigManager.integration_config_exists("sklearn") is False
+    assert AutologgingConfigManager.mlflow_config_exists("sklearn")
+
+    # should still only be an mlflow config here. user did not explicitly
+    # call mlflow.sklearn.autolog
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert AutologgingConfigManager.integration_config_exists("sklearn") is False
+
+    mlflow.autolog(log_models=True)
+    assert get_autologging_config("sklearn", "log_models")
+    assert get_autologging_config("tensorflow", "log_models")
+
+    mlflow.sklearn.autolog(log_models=False)
+    assert AutologgingConfigManager.integration_config_exists("sklearn")
+    assert get_autologging_config("sklearn", "log_models") is False
+    assert get_autologging_config("tensorflow", "log_models")
+
+
 @pytest.mark.large
 @pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module.items())
@@ -124,7 +152,10 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     for arg_key, arg_value in args_to_test.items():
-        assert AutologgingConfigManager.get_config(mlflow_module.FLAVOR_NAME, arg_key, None) == arg_value
+        assert (
+            AutologgingConfigManager.get_config(mlflow_module.FLAVOR_NAME, arg_key, None)
+            == arg_value
+        )
 
 
 @pytest.mark.large
