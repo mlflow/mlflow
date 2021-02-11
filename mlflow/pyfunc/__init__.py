@@ -472,9 +472,9 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
                 for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
                     if not isinstance(pfInput[col_name], np.ndarray):
                         message = (
-                            "This model contains a tensor-based model signature with input names, which"
-                            " suggests a dictionary input mapping input name to a numpy array, but a dict with"
-                            " value type {0} was found."
+                            "This model contains a tensor-based model signature with input names,"
+                            " which suggests a dictionary input mapping input name to a numpy"
+                            " array, but a dict with value type {0} was found."
                         ).format(type(pfInput[col_name]))
                         raise MlflowException(message)
                     new_pfInput[col_name] = _enforce_tensor_spec(pfInput[col_name], tensor_spec)

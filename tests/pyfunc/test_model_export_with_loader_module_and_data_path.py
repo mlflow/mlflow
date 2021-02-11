@@ -453,7 +453,7 @@ def test_schema_enforcement_single_named_tensor_schema():
 def test_schema_enforcement_named_tensor_schema_1d():
     m = Model()
     input_schema = Schema(
-        [TensorSpec(np.dtype(np.uint64), (-1,), "a"), TensorSpec(np.dtype(np.float32), (-1,), "b"),]
+        [TensorSpec(np.dtype(np.uint64), (-1,), "a"), TensorSpec(np.dtype(np.float32), (-1,), "b")]
     )
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())

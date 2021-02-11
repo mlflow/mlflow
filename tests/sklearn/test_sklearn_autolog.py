@@ -908,8 +908,7 @@ def test_autolog_logs_signature_and_input_example(data_type):
     #  [0.03424907823290102]]
     #
     # As a workaround, use `assert_array_almost_equal` instead of `assert_array_equal`
-    np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example),
-    model.predict(X[:5]))
+    np.testing.assert_array_almost_equal(pyfunc_model.predict(input_example), model.predict(X[:5]))
 
 
 def test_autolog_does_not_throw_when_failing_to_sample_X():
