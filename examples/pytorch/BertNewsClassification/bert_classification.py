@@ -3,6 +3,7 @@
 # pylint: disable=abstract-method
 
 import os
+import time
 from argparse import ArgumentParser
 import mlflow.pytorch
 import numpy as np
@@ -122,6 +123,7 @@ class BertDataModule(pl.LightningDataModule):
                 break
             except Exception as e:
                 print("Attempt {}/{} failed: {}".format(attempt, max_attempts, e))
+                time.sleep(10)
         else:
             raise Exception("All attempts failed")
         extracted_files = extract_archive(dataset_tar)
