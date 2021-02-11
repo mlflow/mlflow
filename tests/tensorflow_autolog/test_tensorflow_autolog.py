@@ -542,7 +542,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
-    assert any(['tensorboard_logs' in a.path and a.is_dir for a in artifacts])
+    assert any(["tensorboard_logs" in a.path and a.is_dir for a in artifacts])
 
 
 @pytest.mark.large

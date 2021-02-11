@@ -914,12 +914,13 @@ def autolog(
         result = original(self, *args, **kwargs)
         # Logs Tensorboard to artifacts.
         for file in os.listdir(self.model_dir):
-            if 'tfevents' not in file:
+            if "tfevents" not in file:
                 continue
-            try_mlflow_log(mlflow.log_artifact,
-                           local_path=os.path.join(self.model_dir, file),
-                           artifact_path="tensorboard_logs",
-                           )
+            try_mlflow_log(
+                mlflow.log_artifact,
+                local_path=os.path.join(self.model_dir, file),
+                artifact_path="tensorboard_logs",
+            )
         return result
 
     def export_saved_model(original, self, *args, **kwargs):
