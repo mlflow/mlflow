@@ -349,6 +349,12 @@ def save_model(
 
     :param explainer: SHAP explainer to be saved.
     :param path: Local path where the explainer is to be saved.
+    :param serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
+                                         model and serialize it as a MLModel, otherwise it
+                                         uses SHAP's internal serialization. Defaults to True.
+                                         Currently MLFlow serialization is only supported for
+                                         models of 'sklearn' or 'pytorch' flavors.
+
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -487,6 +493,9 @@ def _merge_environments(shap_environment, model_environment):
     :param shap_environment: SHAP conda environment.
     :param model_environment: Underlying model conda environment.
     """
+
+    # merge the channels from the two environments and remove the default conda
+    # channels if present since its added later in `_mlflow_conda_env`
 
     merged_conda_channels = list(
         set(shap_environment["channels"] + model_environment["channels"])

@@ -10,7 +10,7 @@ model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
 model.fit(X, y)
 
 # create an explainer
-explainer_original = shap.Explainer(model.predict, X, algorithm="permutation",)
+explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
 
 # log an explainer
 with mlflow.start_run() as run:
