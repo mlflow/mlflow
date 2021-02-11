@@ -282,11 +282,13 @@ class Schema(object):
         return self._inputs
 
     @property
-    @deprecated(alternative="mlflow.types.schema.inputs", since="1.14")
+    @deprecated(alternative="mlflow.types.Schema.inputs", since="1.14")
     def columns(self) -> List[ColSpec]:
         """
         .. deprecated:: 1.14
+        Please use :func:`mlflow.types.Schema.inputs`
         The list of columns that defines this schema.
+
         """
         if self.is_tensor_spec():
             raise MlflowException("Not supported by TensorSpec, use `inputs` instead")
@@ -300,11 +302,13 @@ class Schema(object):
         """Get list of data names or range of indices if the schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs)]
 
-    @deprecated(alternative="mlflow.types.schema.input_names", since="1.14")
+    @deprecated(alternative="mlflow.types.Schema.input_names", since="1.14")
     def column_names(self) -> List[Union[str, int]]:
         """
         .. deprecated:: 1.14
+        Please use :func:`mlflow.types.Schema.input_names()`
         Get list of column names or range of indices if the schema has no column names.
+
         """
         if self.is_tensor_spec():
             raise MlflowException(
@@ -316,11 +320,13 @@ class Schema(object):
         """Return true iff this schema declares names, false otherwise. """
         return self.inputs and self.inputs[0].name is not None
 
-    @deprecated(alternative="mlflow.types.schema.has_input_names", since="1.14")
+    @deprecated(alternative="mlflow.types.Schema.has_input_names", since="1.14")
     def has_column_names(self) -> bool:
         """
         .. deprecated:: 1.14
+        Please use :func:`mlflow.types.Schema.has_input_names()`
         Return true iff this schema declares column names, false otherwise.
+
         """
         if self.is_tensor_spec():
             raise MlflowException(
@@ -332,11 +338,13 @@ class Schema(object):
         """ Get types of the represented dataset."""
         return [x.type for x in self.inputs]
 
-    @deprecated(alternative="mlflow.types.schema.input_types", since="1.14")
+    @deprecated(alternative="mlflow.types.Schema.input_types", since="1.14")
     def column_types(self) -> List[DataType]:
         """
         .. deprecated:: 1.14
+        Please use :func:`mlflow.types.Schema.input_types()`
         Get types of the represented dataset. Unsupported by TensorSpec.
+
         """
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
@@ -384,10 +392,9 @@ class Schema(object):
     @classmethod
     def from_json(cls, json_str: str):
         """ Deserialize from a json string."""
-        try:
-            return cls([ColSpec(**x) for x in json.loads(json_str)])
-        except TypeError:
-            return cls([TensorSpec.from_json_dict(**x) for x in json.loads(json_str)])
+        def read_input(x: dict):
+            return TensorSpec.from_json_dict(**x) if x["type"] == "tensor" else ColSpec(**x)
+        return cls([read_input(x) for x in json.loads(json_str)])
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Schema):

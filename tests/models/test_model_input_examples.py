@@ -65,8 +65,10 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             .all()
         )
 
-    # NB: Choose nparrays columns that can be encoded using proto_json_utils.pyNumpyEncoder
-    new_df = pandas_df_with_all_types[["integer", "long", "float", "double"]]
+    # NB: Drop columns that cannot be encoded by proto_json_utils.pyNumpyEncoder
+    new_df = pandas_df_with_all_types.drop(
+        columns=["boolean_ext", "integer_ext", "string_ext"]
+    )
 
     # pass the input as dictionary instead
     with TempDir() as tmp:
@@ -74,24 +76,22 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
         example = _Example(d)
         example.save(tmp.path())
         filename = example.info["artifact_path"]
-        with open(tmp.path(filename), "r") as f:
-            data = json.load(f)
-            assert set(data.keys()) == set(("inputs",))
         parsed_dict = _read_tensor_input_from_json(tmp.path(filename))
         assert d.keys() == parsed_dict.keys()
+        # Asserting binary will fail since it is converted to base64 encoded strings.
+        # The check above suffices that the binary input is stored.
+        del d['binary']
         for key in d:
             assert np.array_equal(d[key], parsed_dict[key])
 
     # input passed as numpy array
+    new_df = pandas_df_with_all_types.drop(columns=["binary"])
     for col in new_df:
         input_example = new_df[col].to_numpy()
         with TempDir() as tmp:
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            with open(tmp.path(filename), "r") as f:
-                data = json.load(f)
-                assert set(data.keys()) == set(("instances",))
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
             assert np.array_equal(parsed_ary, input_example)
 
@@ -102,9 +102,6 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             example = _Example(input_example)
             example.save(tmp.path())
             filename = example.info["artifact_path"]
-            with open(tmp.path(filename), "r") as f:
-                data = json.load(f)
-                assert set(data.keys()) == set(("instances",))
             parsed_ary = _read_tensor_input_from_json(tmp.path(filename))
             assert np.array_equal(parsed_ary, input_example)
 
