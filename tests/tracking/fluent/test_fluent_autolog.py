@@ -208,7 +208,7 @@ def test_autolog_obeys_disabled():
     mlflow.autolog(disable=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert not get_autologging_config("sklearn", "disable", False)
-    mlflow.tensorflow.autolog(disable=True)
+    mlflow.sklearn.autolog(disable=True)
     assert get_autologging_config("sklearn", "disable")
 
 
