@@ -57,7 +57,7 @@ def replace_mlflow_with_dev_version(yml_path):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def clean_envs_and_cache(capsys):
+def clean_envs_and_cache():
     yield
 
     if get_free_disk_space() < 5.0:  # unit: GiB
