@@ -1301,7 +1301,7 @@ def autolog(
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
 
-    Note that framework-specific configurations set at any poing will
+    Note that framework-specific configurations set at any point will
     take precedence over any configurations set by this function. For example:
 
     .. code-block:: python
