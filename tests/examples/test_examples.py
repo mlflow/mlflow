@@ -112,12 +112,12 @@ def test_mlflow_run_example(directory, params, tmpdir):
     for env in envs_to_remove:
         remove_conda_env(env)
 
+    cli_run_list = [tmp_example_dir] + params
+    invoke_cli_runner(cli.run, cli_run_list)
+
     if get_free_disk_space() < 5.0:  # unit: GiB
         stdout = process.exec_cmd(["./dev/remove-conda-envs.sh"])[1]
         print(stdout)
-
-    cli_run_list = [tmp_example_dir] + params
-    invoke_cli_runner(cli.run, cli_run_list)
 
 
 @pytest.mark.large
