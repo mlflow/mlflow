@@ -114,7 +114,16 @@ class BertDataModule(pl.LightningDataModule):
         :param stage: Stage - training or testing
         """
         # reading  the input
-        dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
+        # Workaround for this issue: https://github.com/pytorch/text/pull/1150
+        max_attempts = 5
+        for attempt in range(1, max_attempts + 1):
+            try:
+                dataset_tar = download_from_url(URLS["AG_NEWS"], root=".data")
+                break
+            except Exception as e:
+                print("Attempt {}/{} failed: {}".format(attempt, max_attempts, e))
+        else:
+            raise Exception("All attempts failed")
         extracted_files = extract_archive(dataset_tar)
 
         train_csv_path = None
