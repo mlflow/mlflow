@@ -37,7 +37,7 @@ def get_ag_news(num_samples):
     train_csv_path = list(filter(lambda x: x.endswith("train.csv"), extracted_files))[0]
     return (
         pd.read_csv(train_csv_path, usecols=[0, 2], names=["label", "description"])
-        .assign(label=lambda df: df["label"] - 1)
+        .assign(label=lambda df: df["label"] - 1)  # make labels zero-based
         .sample(n=num_samples)
     )
 
