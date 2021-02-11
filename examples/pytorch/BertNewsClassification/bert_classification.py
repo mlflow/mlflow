@@ -126,9 +126,10 @@ class BertDataModule(pl.LightningDataModule):
         """
 
         num_samples = self.args["num_samples"]
-        dataset = self.args["dataset"]
         df = (
-            get_20newsgroups(num_samples) if dataset == "20newsgroups" else get_ag_news(num_samples)
+            get_20newsgroups(num_samples)
+            if self.args["dataset"] == "20newsgroups"
+            else get_ag_news(num_samples)
         )
 
         self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
@@ -236,7 +237,12 @@ class BertNewsClassifier(pl.LightningModule):
             param.requires_grad = False
         self.drop = nn.Dropout(p=0.2)
         # assigning labels
-        n_classes = 4
+        self.class_names = (
+            ["alt.atheism", "talk.religion.misc", "comp.graphics", "sci.space"]
+            if kwargs["dataset"] == "20newsgroups"
+            else ["world", "Sports", "Business", "Sci/Tech"]
+        )
+        n_classes = len(self.class_names)
 
         self.fc1 = nn.Linear(self.bert_model.config.hidden_size, 512)
         self.out = nn.Linear(512, n_classes)
