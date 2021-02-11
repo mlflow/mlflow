@@ -6,6 +6,7 @@ import pandas as pd
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import deprecated
 
 
 def _pandas_string_type():
@@ -118,6 +119,63 @@ class ColSpec(object):
             return "{name}: {type}".format(name=repr(self.name), type=repr(self.type))
 
 
+class TensorInfo(object):
+    """
+    Representation of the shape and type of a Tensor.
+    """
+
+    def __init__(
+        self, dtype: np.dtype, shape: Union[tuple, list],
+    ):
+        if not isinstance(dtype, np.dtype):
+            raise TypeError(
+                "Expected `type` to be instance of `{0}`, received `{1}`".format(
+                    np.dtype, type.__class__
+                )
+            )
+        if not isinstance(shape, (tuple, list)):
+            raise TypeError(
+                "Expected `shape` to be instance of `{0}`, received `{1}`".format(
+                    tuple, shape.__class__
+                )
+            )
+        self._dtype = dtype
+        self._shape = tuple(shape)
+
+    @property
+    def dtype(self) -> np.dtype:
+        """
+        A unique character code for each of the 21 different numpy built-in types.
+        See https://numpy.org/devdocs/reference/generated/numpy.dtype.html#numpy.dtype for details.
+        """
+        return self._dtype
+
+    @property
+    def shape(self) -> tuple:
+        """The tensor shape"""
+        return self._shape
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {"dtype": self._dtype.name, "shape": self._shape}
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `dtype` and `shape` keys.
+        """
+        if not {"dtype", "shape"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in TensorSpec JSON. Expected to find keys `tensor-spec` and `type`"
+            )
+        tensor_type = np.dtype(kwargs["dtype"])
+        tensor_shape = tuple(kwargs["shape"])
+        return cls(tensor_type, tensor_shape)
+
+    def __repr__(self) -> str:
+        return "Tensor({type}, {shape})".format(type=repr(self.dtype.name), shape=repr(self.shape))
+
+
 class TensorSpec(object):
     """
     Specification used to represent a dataset stored as a Tensor.
@@ -130,20 +188,7 @@ class TensorSpec(object):
         name: Optional[str] = None,
     ):
         self._name = name
-        if not isinstance(type, np.dtype):
-            raise TypeError(
-                "Expected `type` to be instance of `{0}`, received `{1}`".format(
-                    np.dtype, type.__class__
-                )
-            )
-        if not isinstance(shape, (tuple, list)):
-            raise TypeError(
-                "Expected `shape` to be instance of `{0}`, received `{1}`".format(
-                    tuple, shape.__class__
-                )
-            )
-        self._type = type
-        self._shape = tuple(shape)
+        self._tensorInfo = TensorInfo(type, shape)
 
     @property
     def type(self) -> np.dtype:
@@ -151,7 +196,7 @@ class TensorSpec(object):
         A unique character code for each of the 21 different numpy built-in types.
         See https://numpy.org/devdocs/reference/generated/numpy.dtype.html#numpy.dtype for details.
         """
-        return self._type
+        return self._tensorInfo.dtype
 
     @property
     def name(self) -> Optional[str]:
@@ -161,23 +206,30 @@ class TensorSpec(object):
     @property
     def shape(self) -> tuple:
         """The tensor shape"""
-        return self._shape
+        return self._tensorInfo.shape
 
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
-            return {"type": self.type.name, "shape": self.shape}
+            return {"type": "tensor", "tensor-spec": self._tensorInfo.to_dict()}
         else:
-            return {"name": self.name, "type": self.type.name, "shape": self.shape}
+            return {"name": self.name, "type": "tensor", "tensor-spec": self._tensorInfo.to_dict()}
 
     @classmethod
     def from_json_dict(cls, **kwargs):
         """
         Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `type` and `shape` keys.
+        The dictionary is expected to contain `type` and `tensor-spec` keys.
         """
-        tensor_type = np.dtype(kwargs["type"])
-        tensor_shape = tuple(kwargs["shape"])
-        return cls(tensor_type, tensor_shape, kwargs["name"] if "name" in kwargs else None)
+        if not {"tensor-spec", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in TensorSpec JSON. Expected to find keys `tensor-spec` and `type`"
+            )
+        if kwargs["type"] != "tensor":
+            raise MlflowException("Type mismatch, TensorSpec expects `tensor` as the type")
+        tensor_info = TensorInfo.from_json_dict(**kwargs["tensor-spec"])
+        return cls(
+            tensor_info.dtype, tensor_info.shape, kwargs["name"] if "name" in kwargs else None
+        )
 
     def __eq__(self, other) -> bool:
         if isinstance(other, TensorSpec):
@@ -187,11 +239,9 @@ class TensorSpec(object):
 
     def __repr__(self) -> str:
         if self.name is None:
-            return "({type}, {shape})".format(type=repr(self.type.name), shape=repr(self.shape))
+            return repr(self._tensorInfo)
         else:
-            return "({name}, {type}, {shape})".format(
-                name=repr(self.name), type=repr(self.type.name), shape=repr(self.shape)
-            )
+            return "{name}: {info}".format(name=repr(self.name), info=repr(self._tensorInfo))
 
 
 class Schema(object):
@@ -207,28 +257,36 @@ class Schema(object):
     Combination of named and unnamed data inputs are not allowed.
     """
 
-    def __init__(self, dataset: List[Union[ColSpec, TensorSpec]]):
+    def __init__(self, inputs: List[Union[ColSpec, TensorSpec]]):
         if not (
-            all(map(lambda x: x.name is None, dataset))
-            or all(map(lambda x: x.name is not None, dataset))
+            all(map(lambda x: x.name is None, inputs))
+            or all(map(lambda x: x.name is not None, inputs))
         ):
             raise MlflowException(
                 "Creating Schema with a combination of named and unnamed columns "
-                "is not allowed. Got column names {}".format([x.name for x in dataset])
+                "is not allowed. Got column names {}".format([x.name for x in inputs])
             )
         if not (
-            all(map(lambda x: isinstance(x, TensorSpec), dataset))
-            or all(map(lambda x: isinstance(x, ColSpec), dataset))
+            all(map(lambda x: isinstance(x, TensorSpec), inputs))
+            or all(map(lambda x: isinstance(x, ColSpec), inputs))
         ):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
                 "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
             )
-        self._inputs = dataset
+        self._inputs = inputs
 
     @property
     def inputs(self) -> List[Union[ColSpec, TensorSpec]]:
         """Representation of a dataset that defines this schema."""
+        return self._inputs
+
+    @property
+    @deprecated(alternative="mlflow.types.schema.inputs", since="1.14")
+    def columns(self) -> List[ColSpec]:
+        """The list of columns that defines this schema."""
+        if self.is_tensor_spec():
+            raise MlflowException("columns not defined for TensorSpec, use inputs() instead")
         return self._inputs
 
     def is_tensor_spec(self) -> bool:
@@ -239,15 +297,38 @@ class Schema(object):
         """Get list of data names or range of indices if the schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs)]
 
+    @deprecated(alternative="mlflow.types.schema.input_names", since="1.14")
+    def column_names(self) -> List[Union[str, int]]:
+        """Get list of column names or range of indices if the schema has no column names."""
+        if self.is_tensor_spec():
+            raise MlflowException(
+                "column_names not defined for TensorSpec, use input_names()" "instead"
+            )
+        return [x.name or i for i, x in enumerate(self.columns)]
+
     def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise. """
         return self.inputs and self.inputs[0].name is not None
 
+    @deprecated(alternative="mlflow.types.schema.has_input_names", since="1.14")
+    def has_column_names(self) -> bool:
+        """ Return true iff this schema declares column names, false otherwise. """
+        if self.is_tensor_spec():
+            raise MlflowException(
+                "has_column_names not defined for TensorSpec, use" "has_input_names() instead"
+            )
+        return self.columns and self.columns[0].name is not None
+
+    def input_types(self) -> List[Union[DataType, np.dtype]]:
+        """ Get types of the represented dataset."""
+        return [x.type for x in self.inputs]
+
+    @deprecated(alternative="mlflow.types.schema.input_types", since="1.14")
     def column_types(self) -> List[DataType]:
         """ Get types of the represented dataset. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type for x in self.inputs]
+        return [x.type for x in self.columns]
 
     def numpy_types(self) -> List[np.dtype]:
         """ Convenience shortcut to get the datatypes as numpy types."""

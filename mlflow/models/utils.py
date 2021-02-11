@@ -32,7 +32,7 @@ class _Example(object):
     The _Example metadata contains the following information:
         - artifact_path: Relative path to the serialized example within the model directory.
         - type: Type of example data provided by the user. E.g. dataframe, ndarray.
-        - Metadata dependent on the type
+        - One of the following metadata based on the `type`:
             - pandas_orient: For dataframes, this attribute specifies how is the dataframe encoded
                              in json. For example, "split" value signals that the data is stored as
                              object with columns and data attributes.
@@ -96,7 +96,7 @@ class _Example(object):
                         raise MlflowException(
                             "Examples can not be provided as Spark Dataframe. "
                             "Please make sure your example is of a small size and "
-                            "turn it into a pandas DataFrame or a tensor."
+                            "turn it into a pandas DataFrame."
                         )
                 except ImportError:
                     pass
@@ -142,7 +142,7 @@ def _save_example(mlflow_model: Model, input_example: ModelInputExample, path: s
     The metadata is a dictionary with the following fields:
       - 'artifact_path': example path relative to the model directory.
       - 'type': Type of example. Currently the supported values are 'dataframe' and 'ndarray'
-      -  This field depends on the type of data being stored
+      -  One of the following metadata based on the `type`:
             - 'pandas_orient': Used to store dataframes. Determines the json encoding for dataframe
                                examples in terms of pandas orient convention. Defaults to 'split'.
             - 'format: Used to store tensors. Determines the standard used to store a tensor input
