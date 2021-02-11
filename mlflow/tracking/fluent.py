@@ -1305,6 +1305,7 @@ def autolog(
     take precedence over any configurations set by this function. For example:
 
     .. code-block:: python
+
         mlflow.autolog(log_models=False, exclusive=True)
         import sklearn
 
@@ -1312,6 +1313,7 @@ def autolog(
     but
 
     .. code-block:: python
+
         mlflow.autolog(log_models=False, exclusive=True)
         import sklearn
         mlflow.sklearn.autolog(log_models=True)
