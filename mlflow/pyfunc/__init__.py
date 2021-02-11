@@ -402,13 +402,16 @@ def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
 
 def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     """
-    Enforce column names and types match the input schema.
+    Enforces the provided input matches the model's input schema,
 
-    For column names, we check there are no missing columns and reorder the columns to match the
-    ordering declared in schema if necessary. Any extra columns are ignored.
+    For signatures with input names, we check there are no missing inputs and reorder the inputs to
+    match the ordering declared in schema if necessary. Any extra columns are ignored.
 
-    For column types, we make sure the types match schema or can be safely converted to match the
-    input schema.
+    For column-based signatures, we make sure the types of the input match the type specified in
+    the schema or if it can be safely converted to match the input schema.
+
+    For tensor-based signatures, we make sure the shape and type of the input matches the shape
+    and type specified in model's input schema.
     """
     if not input_schema.is_tensor_spec():
         if isinstance(pfInput, (list, np.ndarray, dict)):
@@ -427,12 +430,12 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
 
     if input_schema.has_input_names():
         # make sure there are no missing columns
-        col_names = input_schema.input_names()
-        expected_cols = set(col_names)
+        input_names = input_schema.input_names()
+        expected_cols = set(input_names)
         actual_cols = set()
         if len(expected_cols) == 1 and isinstance(pfInput, np.ndarray):
             # for schemas with a single column, match input with column
-            pfInput = {col_names[0]: pfInput}
+            pfInput = {input_names[0]: pfInput}
             actual_cols = expected_cols
         elif isinstance(pfInput, pandas.DataFrame):
             actual_cols = set(pfInput.columns)
@@ -442,7 +445,7 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
         extra_cols = actual_cols - expected_cols
         # Preserve order from the original columns, since missing/extra columns are likely to
         # be in same order.
-        missing_cols = [c for c in col_names if c in missing_cols]
+        missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
             message = (
@@ -502,13 +505,13 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
                 raise MlflowException(message)
     else:
         if input_schema.has_input_names():
-            col_names = input_schema.input_names()
+            input_names = input_schema.input_names()
         else:
-            col_names = pfInput.columns[: len(input_schema.inputs)]
-        col_types = input_schema.input_types()
+            input_names = pfInput.columns[: len(input_schema.inputs)]
+        input_types = input_schema.input_types()
         new_pfInput = pandas.DataFrame()
-        for i, x in enumerate(col_names):
-            new_pfInput[x] = _enforce_mlflow_type(x, pfInput[x], col_types[i])
+        for i, x in enumerate(input_names):
+            new_pfInput[x] = _enforce_mlflow_type(x, pfInput[x], input_types[i])
     return new_pfInput
 
 
