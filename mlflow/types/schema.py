@@ -286,7 +286,7 @@ class Schema(object):
     def columns(self) -> List[ColSpec]:
         """The list of columns that defines this schema."""
         if self.is_tensor_spec():
-            raise MlflowException("columns not defined for TensorSpec, use inputs() instead")
+            raise MlflowException("Not supported by TensorSpec, use `inputs` instead")
         return self._inputs
 
     def is_tensor_spec(self) -> bool:
@@ -302,7 +302,7 @@ class Schema(object):
         """Get list of column names or range of indices if the schema has no column names."""
         if self.is_tensor_spec():
             raise MlflowException(
-                "column_names not defined for TensorSpec, use input_names()" "instead"
+                "Not supported by TensorSpec, use input_names() instead"
             )
         return [x.name or i for i, x in enumerate(self.columns)]
 
@@ -315,7 +315,7 @@ class Schema(object):
         """ Return true iff this schema declares column names, false otherwise. """
         if self.is_tensor_spec():
             raise MlflowException(
-                "has_column_names not defined for TensorSpec, use" "has_input_names() instead"
+                "Not supported by TensorSpec, use has_input_names() instead"
             )
         return self.columns and self.columns[0].name is not None
 
