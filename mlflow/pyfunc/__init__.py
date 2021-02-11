@@ -691,7 +691,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
-                names = input_schema.column_names()
+                names = input_schema.input_names()
                 if len(args) > len(names):
                     args = args[: len(names)]
                 if len(args) < len(names):
