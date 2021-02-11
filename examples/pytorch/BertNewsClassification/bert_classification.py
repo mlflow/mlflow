@@ -114,7 +114,7 @@ class BertDataModule(pl.LightningDataModule):
         :param stage: Stage - training or testing
         """
         # reading  the input
-        # Workaround for this issue: https://github.com/pytorch/text/pull/1150
+        # `torchtext.download_from_url` is flaky: https://github.com/pytorch/text/pull/1150
         max_attempts = 5
         for attempt in range(1, max_attempts + 1):
             try:
