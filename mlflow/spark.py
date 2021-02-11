@@ -694,12 +694,11 @@ def autolog(disable=False):  # pylint: disable=unused-argument
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
     this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
 
-    Datasource information is logged under the current active MLflow run. If no active run
-    exists, datasource information is cached in memory & logged to the next-created active run
-    (but not to successive runs). Note that autologging of Spark ML (MLlib) models is not currently
-    supported via this API. Datasource-autologging is best-effort, meaning that if Spark is under
-    heavy load or MLflow logging fails for any reason (e.g., if the MLflow server is unavailable),
-    logging may be dropped.
+    Datasource information is cached in memory and logged to all subsequent MLflow runs,
+    including the active MLflow run (if one exists when the data is read). Note that autologging of
+    Spark ML (MLlib) models is not currently supported via this API. Datasource autologging is
+    best-effort, meaning that if Spark is under heavy load or MLflow logging fails for any reason
+    (e.g., if the MLflow server is unavailable), logging may be dropped.
 
     For any unexpected issues with autologging, check Spark driver and executor logs in addition
     to stderr & stdout generated from your MLflow code - datasource information is pulled from
