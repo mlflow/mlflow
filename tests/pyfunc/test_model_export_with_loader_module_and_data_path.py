@@ -120,7 +120,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
 def test_schema_enforcement():
@@ -162,9 +162,9 @@ def test_schema_enforcement():
 
     # test that columns are reordered, extra column is ignored
     res = pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
 
-    expected_types = dict(zip(input_schema.column_names(), input_schema.pandas_types()))
+    expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
 
@@ -178,14 +178,14 @@ def test_schema_enforcement():
     # 2. integer -> long works
     pdf["b"] = pdf["b"].astype(np.int32)
     res = pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
     assert res.dtypes.to_dict() == expected_types
     pdf["b"] = pdf["b"].astype(np.int64)
 
     # 3. unsigned int -> long works
     pdf["b"] = pdf["b"].astype(np.uint32)
     res = pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
     assert res.dtypes.to_dict() == expected_types
     pdf["b"] = pdf["b"].astype(np.int64)
 
@@ -225,7 +225,7 @@ def test_schema_enforcement():
     # 8. int -> double works
     pdf["d"] = pdf["d"].astype(np.int32)
     pyfunc_model.predict(pdf)
-    assert all((res == pdf[input_schema.column_names()]).all())
+    assert all((res == pdf[input_schema.input_names()]).all())
     assert res.dtypes.to_dict() == expected_types
 
     # 9. long -> double raises
