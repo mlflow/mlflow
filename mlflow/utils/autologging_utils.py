@@ -379,10 +379,10 @@ def autologging_integration(name):
             config_to_store.update(
                 {param.name: arg for arg, param in zip(args, param_spec.values())}
             )
-            if "_mlflow_called" in kwargs:
-                del kwargs["_mlflow_called"]
-            else:
+            if "_mlflow_called" not in kwargs:
                 [AutologgingConfigManager.set_integration_config(name, k, v) for k, v in config_to_store.items()]
+            else:
+                del kwargs["_mlflow_called"]
             config_to_store.update(kwargs)
             try:
                 # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
