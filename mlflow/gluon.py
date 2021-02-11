@@ -22,7 +22,7 @@ from mlflow.utils.autologging_utils import (
     batch_metrics_logger,
 )
 
-FLAVOR_NAME = "mxnet.gluon"
+FLAVOR_NAME = "gluon"
 _MODEL_SAVE_PATH = "net"
 
 

@@ -53,7 +53,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 
-FLAVOR_NAME = "pyspark"
+FLAVOR_NAME = "spark"
 
 # Default temporary directory on DFS. Used to write / read from Spark ML models.
 DFS_TMP = "/tmp/mlflow"

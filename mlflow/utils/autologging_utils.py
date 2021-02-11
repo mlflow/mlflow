@@ -44,23 +44,48 @@ class AutologgingConfigManager:
     _PER_INTEGRATION_CONFIG = {}
     # Dict mapping integration name to configs, set by mlflow.autolog calls.
     _MLFLOW_CONFIG = {}
+    # Useful for when a FLAVOR_NAME field doesn't exactly match the module name
+    # but should be considered the same.
+    _EQUIVALENT_INTEGRATION_NAMES = {
+        "pytorch": ["pytorch", "pytorch_lightning"],
+        "spark": ["spark", "pyspark"],
+        "gluon": ["gluon", "mxnet.gluon"],
+    }
+
+    @staticmethod
+    def _get_real_integration_name(integration):
+        return next(
+            (
+                k
+                for k, v in AutologgingConfigManager._EQUIVALENT_INTEGRATION_NAMES.items()
+                if integration in v
+            ),
+            integration,
+        )
 
     @staticmethod
     def set_integration_config(integration, key, value):
         """
-        Sets a configuration key-value pair for a specific integration.
+        Sets the per-integration autologging configuration
+        for the specified integration to be the given key-value pair.
         """
+        real_integration = AutologgingConfigManager._get_real_integration_name(integration)
         conf = AutologgingConfigManager._PER_INTEGRATION_CONFIG
-        if integration not in conf:
-            conf[integration] = {}
-        conf[integration][key] = value
+        if real_integration not in conf:
+            conf[real_integration] = {}
+        conf[real_integration][key] = value
 
     @staticmethod
     def set_mlflow_config(integration, key, value):
+        """
+        Sets an MLflow autologging configuration to be
+        the given key-value pair for a specified integration.
+        """
+        real_integration = AutologgingConfigManager._get_real_integration_name(integration)
         conf = AutologgingConfigManager._MLFLOW_CONFIG
-        if integration not in conf:
-            conf[integration] = {}
-        conf[integration][key] = value
+        if real_integration not in conf:
+            conf[real_integration] = {}
+        conf[real_integration][key] = value
 
     @staticmethod
     def get_config(integration, key, default_value=None):
@@ -69,27 +94,47 @@ class AutologgingConfigManager:
         in decreasing order of precedence of:
         - configs from explicit integration-autolog calls, ex. `mlflow.sklearn.autolog()`
         - configs from `mlflow.autolog()` calls
+        Return default_value if the integration has no configurations
+        or the key was not found in the integration's config.
         """
+        real_integration = AutologgingConfigManager._get_real_integration_name(integration)
+
         per_integration_conf = AutologgingConfigManager._PER_INTEGRATION_CONFIG
         mlflow_conf = AutologgingConfigManager._MLFLOW_CONFIG
 
-        if integration in per_integration_conf and key in per_integration_conf[integration]:
-            return per_integration_conf[integration][key]
-        elif integration in mlflow_conf and key in mlflow_conf[integration]:
-            return mlflow_conf[integration][key]
+        if (
+            real_integration in per_integration_conf
+            and key in per_integration_conf[real_integration]
+        ):
+            return per_integration_conf[real_integration][key]
+        elif real_integration in mlflow_conf and key in mlflow_conf[real_integration]:
+            return mlflow_conf[real_integration][key]
         else:
             return default_value
 
     @staticmethod
     def integration_config_exists(integration):
-        return integration in AutologgingConfigManager._PER_INTEGRATION_CONFIG
+        """
+        Return true if there is a per-integration autologging
+        config for the specified integration.
+        """
+        real_integration = AutologgingConfigManager._get_real_integration_name(integration)
+        return real_integration in AutologgingConfigManager._PER_INTEGRATION_CONFIG
 
     @staticmethod
     def mlflow_config_exists(integration):
-        return integration in AutologgingConfigManager._MLFLOW_CONFIG
+        """
+        Return true if there is an MLflow autologging config
+        for the specified integration.
+        """
+        real_integration = AutologgingConfigManager._get_real_integration_name(integration)
+        return real_integration in AutologgingConfigManager._MLFLOW_CONFIG
 
     @staticmethod
     def reset_state():
+        """
+        Resets all configurations.
+        """
         AutologgingConfigManager._MLFLOW_CONFIG = {}
         AutologgingConfigManager._PER_INTEGRATION_CONFIG = {}
 

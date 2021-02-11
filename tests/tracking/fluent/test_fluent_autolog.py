@@ -181,15 +181,10 @@ def test_universal_autolog_calls_pyspark_immediately():
 @pytest.mark.large
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
-    # Copy signature so that the "disable" argument propagates through
-    # AutologgingConfigManager properly; also so that `spark.autolog()` doesn't
-    # receive an unexpected arg "_mlflow_called" and error out the test, both of
-    # which would have been prevented if the function was decorated
-    # with @autologging_integration
-    def sig_func(disable=False, *args, **kwargs):
-        pass
-
-    spark_autolog_sig = signature(sig_func)
+    # Copy signature so that the AutologgingConfigManager
+    # receives"disable" argument as a config and not as
+    # a part of **kwargs
+    spark_autolog_sig = signature(mlflow.spark.autolog)
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         # Copy signature so that autolog config doesn't contain only "args, kwargs"
         autolog_mock.__signature__ = spark_autolog_sig
@@ -206,8 +201,8 @@ def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installe
 
         # assert autolog is called again once pyspark is imported
         assert autolog_mock.call_count == 2
+        # call args could include _mlflow_called, so won't be exactly equivalent
         assert all(item in autolog_mock.call_args[1].items() for item in config.items())
-        # assert autolog_mock.call_args_list[1] == config
 
 
 @pytest.mark.large

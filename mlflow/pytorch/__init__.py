@@ -36,7 +36,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
-FLAVOR_NAME = "pytorch_lightning"
+FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
