@@ -1300,6 +1300,24 @@ def autolog(
                   'training_mse': 1.9721522630525295e-31}
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
+
+    Note that framework-specific configurations set at any poing will
+    take precedence over any configurations set by this function. For example:
+
+    .. code-block:: python
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+
+    would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
+    but
+
+    .. code-block:: python
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+        mlflow.sklearn.autolog(log_models=True)
+
+    would enable autologging for `sklearn` with `log_models=True` and `exclusive=False`,
+    the latter resulting from the default value for `exclusive` in `mlflow.sklearn.autolog`.
     """
     from mlflow import (
         tensorflow,
