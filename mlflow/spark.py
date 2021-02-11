@@ -694,7 +694,7 @@ def autolog(disable=False):  # pylint: disable=unused-argument
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
     this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
 
-    Data source information is cached in memory and logged to all subsequent MLflow runs,
+    Datasource information is cached in memory and logged to all subsequent MLflow runs,
     including the active MLflow run (if one exists when the data is read). Note that autologging of
     Spark ML (MLlib) models is not currently supported via this API. Datasource-autologging is
     best-effort, meaning that if Spark is under heavy load or MLflow logging fails for any reason
