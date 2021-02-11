@@ -696,7 +696,7 @@ def autolog(disable=False):  # pylint: disable=unused-argument
 
     Datasource information is cached in memory and logged to all subsequent MLflow runs,
     including the active MLflow run (if one exists when the data is read). Note that autologging of
-    Spark ML (MLlib) models is not currently supported via this API. Datasource-autologging is
+    Spark ML (MLlib) models is not currently supported via this API. Datasource autologging is
     best-effort, meaning that if Spark is under heavy load or MLflow logging fails for any reason
     (e.g., if the MLflow server is unavailable), logging may be dropped.
 
