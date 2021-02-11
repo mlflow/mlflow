@@ -393,9 +393,9 @@ def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
         message = "Expected input to be DataFrame or list. Found: %s" % type(pdf).__name__
         raise MlflowException(message)
 
-    if input_schema.has_column_names():
+    if input_schema.has_input_names():
         # make sure there are no missing columns
-        col_names = input_schema.column_names()
+        col_names = input_schema.input_names()
         expected_names = set(col_names)
         actual_names = set(pdf.columns)
         missing_cols = expected_names - actual_names
@@ -412,15 +412,15 @@ def _enforce_schema(pdf: PyFuncInput, input_schema: Schema):
             raise MlflowException(message)
     else:
         # The model signature does not specify column names => we can only verify column count.
-        if len(pdf.columns) < len(input_schema.data_rep):
+        if len(pdf.columns) < len(input_schema.inputs):
             message = (
                 "Model input is missing input columns. The model signature declares "
                 "{0} input columns but the provided input only has "
                 "{1} columns. Note: the columns were not named in the signature so we can "
                 "only verify their count."
-            ).format(len(input_schema.data_rep), len(pdf.columns))
+            ).format(len(input_schema.inputs), len(pdf.columns))
             raise MlflowException(message)
-        col_names = pdf.columns[: len(input_schema.data_rep)]
+        col_names = pdf.columns[: len(input_schema.inputs)]
     col_types = input_schema.column_types()
     new_pdf = pandas.DataFrame()
     for i, x in enumerate(col_names):

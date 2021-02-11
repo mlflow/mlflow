@@ -99,12 +99,12 @@ def _dataframe_from_json(
     from mlflow.types import DataType
 
     if schema is not None:
-        dtypes = dict(zip(schema.column_names(), schema.pandas_types()))
+        dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
         df = pd.read_json(
             path_or_str, orient=pandas_orient, dtype=dtypes, precise_float=precise_float
         )
         actual_cols = set(df.columns)
-        for type_, name in zip(schema.column_types(), schema.column_names()):
+        for type_, name in zip(schema.column_types(), schema.input_names()):
             if type_ == DataType.binary and name in actual_cols:
                 df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
         return df

@@ -402,7 +402,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
     df = pyfunc_scoring_server.parse_json_input(json_str, orient="split", schema=schema)
     json_str = json.dumps(df.to_dict(orient="records"), cls=NumpyEncoder)
     df = pyfunc_scoring_server.parse_json_input(json_str, orient="records", schema=schema)
-    assert schema == infer_signature(df[schema.column_names()]).inputs
+    assert schema == infer_signature(df[schema.input_names()]).inputs
 
     # The current behavior with pandas json parse with type hints is weird. In some cases, the
     # types are forced ignoting overflow and loss of precision:

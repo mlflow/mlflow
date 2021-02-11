@@ -226,42 +226,42 @@ class Schema(object):
                 "Creating Schema with a combination of {0} and {1} is not supported. "
                 "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
             )
-        self._data_rep = dataset
+        self._inputs = dataset
 
     @property
-    def data_rep(self) -> List[ColSpec]:
+    def inputs(self) -> List[SchemaInput]:
         """Representation of a dataset that defines this schema."""
-        return self._data_rep
+        return self._inputs
 
     def is_tensor_spec(self) -> bool:
         """Return true iff this schema is specified using TensorSpec"""
-        return self.data_rep and isinstance(self.data_rep[0], TensorSpec)
+        return self.inputs and isinstance(self.inputs[0], TensorSpec)
 
-    def column_names(self) -> List[Union[str, int]]:
+    def input_names(self) -> List[Union[str, int]]:
         """Get list of data names or range of indices if the schema has no names."""
-        return [x.name or i for i, x in enumerate(self.data_rep)]
+        return [x.name or i for i, x in enumerate(self.inputs)]
 
-    def has_column_names(self) -> bool:
+    def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise. """
-        return self.data_rep and self.data_rep[0].name is not None
+        return self.inputs and self.inputs[0].name is not None
 
     def column_types(self) -> List[DataType]:
-        """ Get types of the represented dataset"""
+        """ Get types of the represented dataset. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type for x in self.data_rep]
+        return [x.type for x in self.inputs]
 
     def numpy_types(self) -> List[np.dtype]:
-        """ Convenience shortcut to get the datatypes as numpy types. Unsupported by TensorSpec."""
+        """ Convenience shortcut to get the datatypes as numpy types."""
         if self.is_tensor_spec():
-            return [x.type for x in self.data_rep]
-        return [x.type.to_numpy() for x in self.data_rep]
+            return [x.type for x in self.inputs]
+        return [x.type.to_numpy() for x in self.inputs]
 
     def pandas_types(self) -> List[np.dtype]:
         """ Convenience shortcut to get the datatypes as pandas types. Unsupported by TensorSpec."""
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec only supports numpy types, use numpy_types() instead")
-        return [x.type.to_pandas() for x in self.data_rep]
+        return [x.type.to_pandas() for x in self.inputs]
 
     def as_spark_schema(self):
         """Convert to Spark schema. If this schema is a single unnamed column, it is converted
@@ -271,24 +271,24 @@ class Schema(object):
         """
         if self.is_tensor_spec():
             raise MlflowException("TensorSpec cannot be converted to spark dataframe")
-        if len(self.data_rep) == 1 and self.data_rep[0].name is None:
-            return self.data_rep[0].type.to_spark()
+        if len(self.inputs) == 1 and self.inputs[0].name is None:
+            return self.inputs[0].type.to_spark()
         from pyspark.sql.types import StructType, StructField
 
         return StructType(
             [
                 StructField(name=col.name or str(i), dataType=col.type.to_spark())
-                for i, col in enumerate(self.data_rep)
+                for i, col in enumerate(self.inputs)
             ]
         )
 
     def to_json(self) -> str:
         """Serialize into json string."""
-        return json.dumps([x.to_dict() for x in self.data_rep])
+        return json.dumps([x.to_dict() for x in self.inputs])
 
     def to_dict(self) -> List[Dict[str, Any]]:
         """Serialize into a jsonable dictionary."""
-        return [x.to_dict() for x in self.data_rep]
+        return [x.to_dict() for x in self.inputs]
 
     @classmethod
     def from_json(cls, json_str: str):
@@ -300,9 +300,9 @@ class Schema(object):
 
     def __eq__(self, other) -> bool:
         if isinstance(other, Schema):
-            return self.data_rep == other.data_rep
+            return self.inputs == other.inputs
         else:
             return False
 
     def __repr__(self) -> str:
-        return repr(self.data_rep)
+        return repr(self.inputs)

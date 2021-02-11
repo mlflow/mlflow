@@ -55,7 +55,7 @@ def _infer_schema(data: Any) -> Schema:
     All other inputted data types are specified by :py:class:`ColSpec`.
 
     A `TensorSpec` captures the data shape (default variable axis is 0), the data type (numpy.dtype)
-    and an optional name to represent the dataset.
+    and an optional name for each individual tensor of the dataset.
     A `ColSpec` captures the data type (defined in :py:class:`DataType`) and an optional name for
     each individual column of the dataset.
 

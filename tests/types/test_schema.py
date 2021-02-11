@@ -314,7 +314,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     assert schema == schema2
 
     # test unnamed columns
-    schema = Schema([ColSpec(col.type) for col in schema.data_rep])
+    schema = Schema([ColSpec(col.type) for col in schema.inputs])
     expected_spark_schema = StructType(
         [StructField(str(i), t.to_spark(), True) for i, t in enumerate(schema.column_types())]
     )
