@@ -57,6 +57,14 @@ def replace_mlflow_with_dev_version(yml_path):
 
 
 @pytest.fixture(scope="function", autouse=True)
+def clean_envs_and_cache(capsys):
+    yield
+
+    if get_free_disk_space() < 5.0:  # unit: GiB
+        process.exec_cmd(["./dev/remove-conda-envs.sh"])[1]
+
+
+@pytest.fixture(scope="function", autouse=True)
 def report_free_disk_space(capsys):
     yield
 
@@ -114,10 +122,6 @@ def test_mlflow_run_example(directory, params, tmpdir):
 
     cli_run_list = [tmp_example_dir] + params
     invoke_cli_runner(cli.run, cli_run_list)
-
-    if get_free_disk_space() < 5.0:  # unit: GiB
-        stdout = process.exec_cmd(["./dev/remove-conda-envs.sh"])[1]
-        print(stdout)
 
 
 @pytest.mark.large
