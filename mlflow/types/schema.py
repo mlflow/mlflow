@@ -166,7 +166,7 @@ class TensorInfo(object):
         """
         if not {"dtype", "shape"} <= set(kwargs.keys()):
             raise MlflowException(
-                "Missing keys in TensorSpec JSON. Expected to find keys `tensor-spec` and `type`"
+                "Missing keys in TensorSpec JSON. Expected to find keys `dtype` and `shape`"
             )
         tensor_type = np.dtype(kwargs["dtype"])
         tensor_shape = tuple(kwargs["shape"])
@@ -286,7 +286,6 @@ class Schema(object):
     def columns(self) -> List[ColSpec]:
         """
         .. deprecated:: 1.14
-        Please use :func:`mlflow.types.schema.inputs`
         The list of columns that defines this schema.
         """
         if self.is_tensor_spec():
@@ -305,7 +304,6 @@ class Schema(object):
     def column_names(self) -> List[Union[str, int]]:
         """
         .. deprecated:: 1.14
-        Please use :func:`mlflow.types.schema.input_names()`
         Get list of column names or range of indices if the schema has no column names.
         """
         if self.is_tensor_spec():
@@ -322,7 +320,6 @@ class Schema(object):
     def has_column_names(self) -> bool:
         """
         .. deprecated:: 1.14
-        Please use :func:`mlflow.types.schema.has_input_names()`
         Return true iff this schema declares column names, false otherwise.
         """
         if self.is_tensor_spec():
@@ -339,7 +336,6 @@ class Schema(object):
     def column_types(self) -> List[DataType]:
         """
         .. deprecated:: 1.14
-        Please use :func:`mlflow.types.schema.input_types()`
         Get types of the represented dataset. Unsupported by TensorSpec.
         """
         if self.is_tensor_spec():
