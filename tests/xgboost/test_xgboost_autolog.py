@@ -435,9 +435,7 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
 
     assert "outputs" in signature
     assert json.loads(signature["outputs"]) == [
-        {"type": "float"},
-        {"type": "float"},
-        {"type": "float"},
+        {"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 3]}},
     ]
 
 
