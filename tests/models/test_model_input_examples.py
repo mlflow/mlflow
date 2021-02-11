@@ -13,7 +13,7 @@ from mlflow.utils.proto_json_utils import _dataframe_from_json
 
 @pytest.fixture
 def pandas_df_with_all_types():
-    return pd.DataFrame(
+    df = pd.DataFrame(
         {
             "boolean": [True, False, True],
             "integer": np.array([1, 2, 3], np.int32),
@@ -22,8 +22,15 @@ def pandas_df_with_all_types():
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
             "binary": [bytes([1, 2, 3]), bytes([4, 5, 6]), bytes([7, 8, 9])],
             "string": ["a", "b", "c"],
+            "boolean_ext": [True, False, True],
+            "integer_ext": [1, 2, 3],
+            "string_ext": ["a", "b", "c"],
         }
     )
+    df["boolean_ext"] = df["boolean_ext"].astype("boolean")
+    df["integer_ext"] = df["integer_ext"].astype("Int64")
+    df["string_ext"] = df["string_ext"].astype("string")
+    return df
 
 
 def test_input_examples(pandas_df_with_all_types):
