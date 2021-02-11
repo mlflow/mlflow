@@ -194,18 +194,36 @@ def test_universal_autolog_makes_expected_event_logging_calls():
     assert {"disable": True, "exclusive": True}.items() <= call.call_kwargs.items()
 
 
+def test_autolog_obeys_disabled():
+    mlflow.autolog(disable=True)
+    mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+    assert get_autologging_config("tensorflow", "disable")
+
+    mlflow.autolog()
+    mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+    mlflow.autolog(disable=True)
+    mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+    assert get_autologging_config("tensorflow", "disable")
+
+    mlflow.autolog(disable=False)
+    mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+    assert not get_autologging_config("tensorflow", "disable", False)
+    mlflow.tensorflow.autolog(disable=True)
+    assert get_autologging_config("tensorflow", "disable")
+
+
 def test_autolog_success_message_obeys_disabled():
     with mock.patch("mlflow.tracking.fluent._logger.info") as autolog_logger_mock:
         mlflow.autolog(disable=True)
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(sklearn)
         autolog_logger_mock.assert_not_called()
 
         mlflow.autolog()
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(sklearn)
         autolog_logger_mock.assert_called()
 
         autolog_logger_mock.reset_mock()
 
         mlflow.autolog(disable=False)
-        mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
+        mlflow.utils.import_hooks.notify_module_loaded(sklearn)
         autolog_logger_mock.assert_called()

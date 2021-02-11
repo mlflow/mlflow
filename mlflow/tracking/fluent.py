@@ -17,7 +17,11 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import _is_testing, autologging_integration
+from mlflow.utils.autologging_utils import (
+    _is_testing,
+    autologging_integration,
+    AUTOLOGGING_INTEGRATIONS,
+)
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -1329,6 +1333,8 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
+    CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
+
     def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1339,8 +1345,27 @@ def autolog(
     def setup_autologging(module):
         try:
             autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+
+            # Only call integration's autolog function with `mlflow.autolog` configs
+            # if the integration's autolog function has not already been called.
+            # Logic is as follows:
+            # - if a previous_config exists, that means either `mlflow.autolog` or
+            #   `mlflow.integration.autolog` was called.
+            # - if the config contains `CONF_KEY_IS_GLOBALLY_CONFIGURED`, the configuration
+            #   was set by `mlflow.autolog`, and so we can safely call `autolog_fn` with
+            #   `autologging_params`.
+            # - if the config doesn't contain this key, the configuration was set by an
+            #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
+            #   new configs.
+            prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
+            if prev_config and not prev_config.get(CONF_KEY_IS_GLOBALLY_CONFIGURED, False):
+                return
+
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
+            AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
+                CONF_KEY_IS_GLOBALLY_CONFIGURED
+            ] = True
             if not autologging_params.get("disable", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:

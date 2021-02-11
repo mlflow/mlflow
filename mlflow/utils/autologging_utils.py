@@ -349,6 +349,7 @@ def autologging_integration(name):
             return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
+        wrapped_autolog.integration_name = name
         return wrapped_autolog
 
     return wrapper
