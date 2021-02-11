@@ -102,7 +102,7 @@ def report_free_disk_space(capsys):
         (os.path.join("pytorch", "MNIST/example2"), ["-P", "max_epochs=1"]),
         (
             os.path.join("pytorch", "BertNewsClassification"),
-            ["-P", "max_epochs=1", "-P", "num_samples=100"],
+            ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "datasest=20newsgroups"],
         ),
     ],
 )
