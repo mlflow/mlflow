@@ -1233,6 +1233,29 @@ def autolog(
     See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
     integrations.
 
+    Note that framework-specific configurations set at any point will take precedence over
+    any configurations set by this function. For example:
+
+    .. code-block:: python
+
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+
+    would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
+    but
+
+    .. code-block:: python
+
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+        mlflow.sklearn.autolog(log_models=True)
+
+    would enable autologging for `sklearn` with `log_models=True` and `exclusive=False`,
+    the latter resulting from the default value for `exclusive` in `mlflow.sklearn.autolog`;
+    other framework autolog functions (e.g. `mlflow.tensorflow.autolog`) would use the
+    configurations set by `mlflow.autolog` (in this instance, `log_models=False`, `exclusive=True`),
+    until they are explicitly called by the user.
+
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with model artifacts during training. If ``False``,
                                input examples are not logged.
@@ -1300,26 +1323,6 @@ def autolog(
                   'training_mse': 1.9721522630525295e-31}
         tags: {'estimator_class': 'sklearn.linear_model._base.LinearRegression',
                'estimator_name': 'LinearRegression'}
-
-    Note that framework-specific configurations set at any point will
-    take precedence over any configurations set by this function. For example:
-
-    .. code-block:: python
-
-        mlflow.autolog(log_models=False, exclusive=True)
-        import sklearn
-
-    would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
-    but
-
-    .. code-block:: python
-
-        mlflow.autolog(log_models=False, exclusive=True)
-        import sklearn
-        mlflow.sklearn.autolog(log_models=True)
-
-    would enable autologging for `sklearn` with `log_models=True` and `exclusive=False`,
-    the latter resulting from the default value for `exclusive` in `mlflow.sklearn.autolog`.
     """
     from mlflow import (
         tensorflow,
