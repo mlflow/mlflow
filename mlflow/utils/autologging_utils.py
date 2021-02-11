@@ -88,6 +88,11 @@ class AutologgingConfigManager:
     def mlflow_config_exists(integration):
         return integration in AutologgingConfigManager._MLFLOW_CONFIG
 
+    @staticmethod
+    def reset_state():
+        AutologgingConfigManager._MLFLOW_CONFIG = {}
+        AutologgingConfigManager._PER_INTEGRATION_CONFIG = {}
+
 
 def try_mlflow_log(fn, *args, **kwargs):
     """

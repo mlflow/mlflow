@@ -1385,7 +1385,9 @@ def autolog(
     # this is because on Databricks a SparkSession already exists and the user can directly
     #   interact with it, and this activity should be logged.
     try:
-        autologging_params = get_autologging_params("spark", spark.autolog)
+        set_mlflow_autolog_params_in_config("pyspark")
+        autologging_params = get_autologging_params("pyspark", spark.autolog)
+        autologging_params["_mlflow_called"] = True
         spark.autolog(**autologging_params)
     except ImportError as ie:
         # if pyspark isn't installed, a user could potentially install it in the middle
