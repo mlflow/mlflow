@@ -104,7 +104,7 @@ def _dataframe_from_json(
             path_or_str, orient=pandas_orient, dtype=dtypes, precise_float=precise_float
         )
         actual_cols = set(df.columns)
-        for type_, name in zip(schema.column_types(), schema.input_names()):
+        for type_, name in zip(schema.input_types(), schema.input_names()):
             if type_ == DataType.binary and name in actual_cols:
                 df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
         return df
@@ -136,7 +136,7 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return data
 
 
-def parse_tf_serving_input(inp_dict):
+def parse_tf_serving_input(inp_dict, schema = None):
     """
     :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
                      serving API doc
@@ -157,6 +157,7 @@ def parse_tf_serving_input(inp_dict):
             ' "inputs" must be specified (not both or any other keys).'
         )
 
+    # Read the JSON
     try:
         if "instances" in inp_dict:
             items = inp_dict["instances"]
@@ -172,7 +173,10 @@ def parse_tf_serving_input(inp_dict):
         else:
             # items already in column format, convert values to tensor
             items = inp_dict["inputs"]
-            data = {k: np.array(v) for k, v in items.items()}
+            if len(items) > 0 and isinstance(items, dict):
+                data = {k: np.array(v) for k, v in items.items()}
+            else:
+                data = np.array(items)
     except Exception:
         raise MlflowException(
             "Failed to parse data as TF serving input. Ensure that the input is"
@@ -181,6 +185,7 @@ def parse_tf_serving_input(inp_dict):
             " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
         )
 
+    # Sanity check inputted data
     if isinstance(data, dict):
         # ensure all columns have the same number of items
         expected_len = len(list(data.values())[0])
@@ -189,4 +194,16 @@ def parse_tf_serving_input(inp_dict):
                 "Failed to parse data as TF serving input. The length of values for"
                 " each input/column name are not the same"
             )
+
+    # Attempt casting
+    if schema is not None:
+        if schema.has_input_names():
+            input_names = schema.input_names()
+            if len(input_names) == 1 and isinstance(data, np.ndarray):
+                # for schemas with a single column, match input with column
+                data = {input_names[0]: data}
+            for col_name, tensor_spec in zip(schema.input_names(), schema.inputs):
+                data[col_name] = data[col_name].astype(tensor_spec.type, casting="unsafe")
+        else:
+            data = data.astype(schema.inputs[0].type, casting="unsafe")
     return data

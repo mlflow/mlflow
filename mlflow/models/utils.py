@@ -68,7 +68,7 @@ class _Example(object):
                     result[name] = input_tensor[name].tolist()
                 return {"inputs": result}
             else:
-                return {"instances": input_example.tolist()}
+                return {"inputs": input_example.tolist()}
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
@@ -176,12 +176,12 @@ def _read_example(mlflow_model: Model, path: str):
     input_schema = mlflow_model.signature.inputs if mlflow_model.signature is not None else None
     path = os.path.join(path, mlflow_model.saved_input_example_info["artifact_path"])
     if example_type == "ndarray":
-        return _read_tensor_input_from_json(path)
+        return _read_tensor_input_from_json(path, schema=input_schema)
     else:
         return _dataframe_from_json(path, schema=input_schema, precise_float=True)
 
 
-def _read_tensor_input_from_json(path):
+def _read_tensor_input_from_json(path, schema=None):
     with open(path, "r") as handle:
         inp_dict = json.load(handle)
-        return parse_tf_serving_input(inp_dict)
+        return parse_tf_serving_input(inp_dict, schema)
