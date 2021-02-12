@@ -120,7 +120,7 @@ def test_schema_creation():
     # multiple unnamed tensor specs is not allowed
     with pytest.raises(MlflowException) as ex:
         Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
-    assert "Creating Schema with multiple unnamed TensorSpecs is not allowed" in ex.value.message
+    assert "Creating Schema with multiple unnamed TensorSpecs is not supported" in ex.value.message
 
 
 def test_get_schema_type(dict_of_ndarrays):
