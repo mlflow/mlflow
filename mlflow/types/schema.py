@@ -280,8 +280,8 @@ class Schema(object):
             and any(map(lambda x: x.name is None, inputs))
         ):
             raise MlflowException(
-                "Creating Schema with multiple unnamed TensorSpecs is not allowed. "
-                "Please provide names for each TensorSpec or use a single unnamed TensorSpec."
+                "Creating Schema with multiple unnamed TensorSpecs is not supported. "
+                "Please provide names for each TensorSpec."
             )
         self._inputs = inputs
 

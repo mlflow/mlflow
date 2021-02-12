@@ -41,13 +41,13 @@ def test_model_signature_with_colspec():
 def test_model_signature_with_tensorspec():
     signature1 = ModelSignature(
         inputs=Schema(
-            [TensorSpec(np.dtype("float"), (-1, 28, 28)), TensorSpec(np.dtype("int"), (-1, 10))]
+            [TensorSpec(np.dtype("float"), (-1, 28, 28))]
         ),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10))]),
     )
     signature2 = ModelSignature(
         inputs=Schema(
-            [TensorSpec(np.dtype("float"), (-1, 28, 28)), TensorSpec(np.dtype("int"), (-1, 10))]
+            [TensorSpec(np.dtype("float"), (-1, 28, 28))]
         ),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10))]),
     )
@@ -55,7 +55,7 @@ def test_model_signature_with_tensorspec():
     assert signature1 == signature2
     signature3 = ModelSignature(
         inputs=Schema(
-            [TensorSpec(np.dtype("float"), (-1, 28, 28)), TensorSpec(np.dtype("int"), (-1, 10))]
+            [TensorSpec(np.dtype("float"), (-1, 28, 28))]
         ),
         outputs=Schema([TensorSpec(np.dtype("int"), (-1, 10))]),
     )
@@ -63,7 +63,7 @@ def test_model_signature_with_tensorspec():
     # Name mismatch
     signature4 = ModelSignature(
         inputs=Schema(
-            [TensorSpec(np.dtype("float"), (-1, 28, 28)), TensorSpec(np.dtype("int"), (-1, 10))]
+            [TensorSpec(np.dtype("float"), (-1, 28, 28))]
         ),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "misMatch")]),
     )
