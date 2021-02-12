@@ -4,9 +4,6 @@ from collections import namedtuple
 
 
 def iterate_python_scripts(directory):
-    """
-    Generator yielding python scripts
-    """
     for root, _, files in os.walk(directory):
         yield from (os.path.join(root, f) for f in files if f.endswith(".py"))
 
