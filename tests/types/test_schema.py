@@ -88,22 +88,39 @@ def dict_of_ndarrays():
     }
 
 
-def test_schema_creation_with_tensor_and_col_spec():
+def test_schema_creation():
+    # can create schema with named col specs
+    Schema([ColSpec("double", "a"), ColSpec("integer", "b")])
+
+    # can create schema with unnamed col specs
+    Schema([ColSpec("double"), ColSpec("integer")])
+
+    # can create schema with multiple named tensor specs
+    Schema([TensorSpec(np.dtype("float64"), (-1,), "a"), TensorSpec(np.dtype("uint8"), (-1,), "b")])
+
+    # can create schema with single unnamed tensor spec
+    Schema([TensorSpec(np.dtype("float64"), (-1,))])
+
+    # combination of tensor and col spec is not allowed
     with pytest.raises(MlflowException) as ex:
         Schema([TensorSpec(np.dtype("float64"), (-1,)), ColSpec("double")])
     assert "Please choose one of" in ex.value.message
 
-
-def test_schema_creation_with_named_and_unnamed_spec():
+    # combination of named and unnamed inputs is not allowed
     with pytest.raises(MlflowException) as ex:
         Schema(
             [TensorSpec(np.dtype("float64"), (-1,), "blah"), TensorSpec(np.dtype("float64"), (-1,))]
         )
-    assert "Creating Schema with a combination of named and unnamed columns" in ex.value.message
+    assert "Creating Schema with a combination of named and unnamed inputs" in ex.value.message
 
     with pytest.raises(MlflowException) as ex:
         Schema([ColSpec("double", "blah"), ColSpec("double")])
-    assert "Creating Schema with a combination of named and unnamed columns" in ex.value.message
+    assert "Creating Schema with a combination of named and unnamed inputs" in ex.value.message
+
+    # multiple unnamed tensor specs is not allowed
+    with pytest.raises(MlflowException) as ex:
+        Schema([TensorSpec(np.dtype("double"), (-1,)), TensorSpec(np.dtype("double"), (-1,))])
+    assert "Creating Schema with multiple unnamed TensorSpecs is not allowed" in ex.value.message
 
 
 def test_get_schema_type(dict_of_ndarrays):

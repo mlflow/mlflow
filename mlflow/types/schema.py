@@ -263,8 +263,8 @@ class Schema(object):
             or all(map(lambda x: x.name is not None, inputs))
         ):
             raise MlflowException(
-                "Creating Schema with a combination of named and unnamed columns "
-                "is not allowed. Got column names {}".format([x.name for x in inputs])
+                "Creating Schema with a combination of named and unnamed inputs "
+                "is not allowed. Got input names {}".format([x.name for x in inputs])
             )
         if not (
             all(map(lambda x: isinstance(x, TensorSpec), inputs))
@@ -273,6 +273,15 @@ class Schema(object):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
                 "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
+            )
+        if (
+            all(map(lambda x: isinstance(x, TensorSpec), inputs))
+            and len(inputs) > 1
+            and any(map(lambda x: x.name is None, inputs))
+        ):
+            raise MlflowException(
+                "Creating Schema with multiple unnamed TensorSpecs is not allowed. "
+                "Please provide names for each TensorSpec or use a single unnamed TensorSpec."
             )
         self._inputs = inputs
 
