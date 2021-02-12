@@ -136,11 +136,12 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return data
 
 
-def parse_tf_serving_input(inp_dict, schema = None):
+def parse_tf_serving_input(inp_dict, schema=None):
     """
     :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
                      serving API doc
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
+    :param schema: Mlflow schema used when parsing the data.
     """
     import numpy as np
 
