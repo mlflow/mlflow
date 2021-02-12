@@ -372,7 +372,7 @@ def _enforce_mlflow_type(name, values: pandas.Series, t: DataType):
 
 def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
     """
-    Enforce the input tensor shape and type matches the declared in model input schema.
+    Enforce the input tensor shape and type matches the provided tensor spec.
     """
     expected_shape = tensor_spec.shape
     actual_shape = values.shape
@@ -400,6 +400,60 @@ def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
     return values
 
 
+def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
+    """Enforce the input columns conform to the model's column-based signature."""
+    if input_schema.has_input_names():
+        input_names = input_schema.input_names()
+    else:
+        input_names = pfInput.columns[: len(input_schema.inputs)]
+    input_types = input_schema.input_types()
+    new_pfInput = pandas.DataFrame()
+    for i, x in enumerate(input_names):
+        new_pfInput[x] = _enforce_mlflow_type(x, pfInput[x], input_types[i])
+    return new_pfInput
+
+
+def _enforce_tensor_schema(pfInput: PyFuncInput, input_schema: Schema):
+    """Enforce the input tensor(s) conforms to the model's tensor-based signature."""
+    if input_schema.has_input_names():
+        if isinstance(pfInput, dict):
+            new_pfInput = dict()
+            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
+                if not isinstance(pfInput[col_name], np.ndarray):
+                    raise MlflowException(
+                        "This model contains a tensor-based model signature with input names,"
+                        " which suggests a dictionary input mapping input name to a numpy"
+                        " array, but a dict with value type {0} was found.".format(
+                            type(pfInput[col_name])
+                        )
+                    )
+                new_pfInput[col_name] = _enforce_tensor_spec(pfInput[col_name], tensor_spec)
+        elif isinstance(pfInput, pandas.DataFrame):
+            new_pfInput = dict()
+            for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
+                new_pfInput[col_name] = _enforce_tensor_spec(
+                    np.array(pfInput[col_name], dtype=tensor_spec.type), tensor_spec
+                )
+        else:
+            raise MlflowException(
+                "This model contains a tensor-based model signature with input names, which"
+                " suggests a dictionary input mapping input name to tensor, but an input of"
+                " type {0} was found.".format(type(pfInput))
+            )
+    else:
+        if isinstance(pfInput, pandas.DataFrame):
+            new_pfInput = _enforce_tensor_spec(pfInput.to_numpy(), input_schema.inputs[0])
+        elif isinstance(pfInput, np.ndarray):
+            new_pfInput = _enforce_tensor_spec(pfInput, input_schema.inputs[0])
+        else:
+            raise MlflowException(
+                "This model contains a tensor-based model signature with no input names,"
+                " which suggests a numpy array input, but an input of type {0} was"
+                " found.".format(type(pfInput))
+            )
+    return new_pfInput
+
+
 def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
     """
     Enforces the provided input matches the model's input schema,
@@ -418,15 +472,15 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
             try:
                 pfInput = pandas.DataFrame(pfInput)
             except Exception as e:
-                message = (
+                raise MlflowException(
                     "This model contains a column-based signature, which suggests a DataFrame"
                     " input. There was an error casting the input data to a DataFrame:"
                     " {0}".format(str(e))
                 )
-                raise MlflowException(message)
         if not isinstance(pfInput, pandas.DataFrame):
-            message = "Expected input to be DataFrame or list. Found: %s" % type(pfInput).__name__
-            raise MlflowException(message)
+            raise MlflowException(
+                "Expected input to be DataFrame or list. Found: %s" % type(pfInput).__name__
+            )
 
     if input_schema.has_input_names():
         # make sure there are no missing columns
@@ -448,71 +502,26 @@ def _enforce_schema(pfInput: PyFuncInput, input_schema: Schema):
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = (
+            raise MlflowException(
                 "Model is missing inputs {0}."
                 " Note that there were extra inputs: {1}".format(missing_cols, extra_cols)
             )
-            raise MlflowException(message)
     elif not input_schema.is_tensor_spec():
         # The model signature does not specify column names => we can only verify column count.
         num_actual_columns = len(pfInput.columns)
         if num_actual_columns < len(input_schema.inputs):
-            message = (
+            raise MlflowException(
                 "Model inference is missing inputs. The model signature declares "
                 "{0} inputs  but the provided value only has "
                 "{1} inputs. Note: the inputs were not named in the signature so we can "
-                "only verify their count."
-            ).format(len(input_schema.inputs), num_actual_columns)
-            raise MlflowException(message)
+                "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
+            )
 
-    if input_schema.is_tensor_spec():
-        if input_schema.has_input_names():
-            if isinstance(pfInput, dict):
-                new_pfInput = dict()
-                for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
-                    if not isinstance(pfInput[col_name], np.ndarray):
-                        message = (
-                            "This model contains a tensor-based model signature with input names,"
-                            " which suggests a dictionary input mapping input name to a numpy"
-                            " array, but a dict with value type {0} was found."
-                        ).format(type(pfInput[col_name]))
-                        raise MlflowException(message)
-                    new_pfInput[col_name] = _enforce_tensor_spec(pfInput[col_name], tensor_spec)
-            elif isinstance(pfInput, pandas.DataFrame):
-                new_pfInput = dict()
-                for col_name, tensor_spec in zip(input_schema.input_names(), input_schema.inputs):
-                    new_pfInput[col_name] = _enforce_tensor_spec(
-                        np.array(pfInput[col_name], dtype=tensor_spec.type), tensor_spec
-                    )
-            else:
-                message = (
-                    "This model contains a tensor-based model signature with input names, which"
-                    " suggests a dictionary input mapping input name to tensor, but an input of"
-                    " type {0} was found.".format(type(pfInput))
-                )
-                raise MlflowException(message)
-        else:
-            if isinstance(pfInput, pandas.DataFrame):
-                new_pfInput = _enforce_tensor_spec(pfInput.to_numpy(), input_schema.inputs[0])
-            elif isinstance(pfInput, np.ndarray):
-                new_pfInput = _enforce_tensor_spec(pfInput, input_schema.inputs[0])
-            else:
-                message = (
-                    "This model contains a tensor-based model signature with no input names,"
-                    " which suggests a numpy array input, but an input of type {0} was"
-                    " found.".format(type(pfInput))
-                )
-                raise MlflowException(message)
-    else:
-        if input_schema.has_input_names():
-            input_names = input_schema.input_names()
-        else:
-            input_names = pfInput.columns[: len(input_schema.inputs)]
-        input_types = input_schema.input_types()
-        new_pfInput = pandas.DataFrame()
-        for i, x in enumerate(input_names):
-            new_pfInput[x] = _enforce_mlflow_type(x, pfInput[x], input_types[i])
-    return new_pfInput
+    return (
+        _enforce_tensor_schema(pfInput, input_schema)
+        if input_schema.is_tensor_spec()
+        else _enforce_col_schema(pfInput, input_schema)
+    )
 
 
 class PyFuncModel(object):
@@ -782,13 +791,12 @@ def spark_udf(spark, model_uri, result_type="double"):
                 if len(args) > len(names):
                     args = args[: len(names)]
                 if len(args) < len(names):
-                    message = (
+                    raise MlflowException(
                         "Model input is missing columns. Expected {0} input columns {1},"
                         " but the model received only {2} unnamed input columns"
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
-                    raise MlflowException(message)
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
         result = model.predict(pdf)
