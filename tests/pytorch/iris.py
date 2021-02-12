@@ -45,7 +45,7 @@ class IrisClassification(pl.LightningModule):
         x, y = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y)
-        self.val_acc(logits, y)
+        self.val_acc(torch.argmax(logits, dim=1), y)
         self.log("val_acc", self.val_acc.compute())
         self.log("val_loss", loss, sync_dist=True)
 
@@ -53,8 +53,7 @@ class IrisClassification(pl.LightningModule):
         x, y = batch
         logits = self.forward(x)
         loss = F.cross_entropy(logits, y)
-        _, y_hat = torch.max(logits, dim=1)
-        self.test_acc(y_hat, y)
+        self.test_acc(torch.argmax(logits, dim=1), y)
         self.log("test_loss", loss)
         self.log("test_acc", self.test_acc.compute())
 
