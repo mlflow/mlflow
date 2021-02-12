@@ -283,7 +283,7 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def _enforce_mlflow_type(name, values: pandas.Series, t: DataType):
+def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     """
     Enforce the input column type matches the declared in model input schema.
 
@@ -409,7 +409,7 @@ def _enforce_col_schema(pfInput: PyFuncInput, input_schema: Schema):
     input_types = input_schema.input_types()
     new_pfInput = pandas.DataFrame()
     for i, x in enumerate(input_names):
-        new_pfInput[x] = _enforce_mlflow_type(x, pfInput[x], input_types[i])
+        new_pfInput[x] = _enforce_mlflow_datatype(x, pfInput[x], input_types[i])
     return new_pfInput
 
 
