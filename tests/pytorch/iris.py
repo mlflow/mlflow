@@ -36,7 +36,7 @@ class IrisClassification(pl.LightningModule):
         x, y = batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
-        self.train_acc(logits, y)
+        self.train_acc(torch.argmax(logits, dim=1), y)
         self.log("train_acc", self.train_acc.compute(), on_step=False, on_epoch=True)
         self.log("loss", loss)
         return {"loss": loss}

@@ -112,13 +112,13 @@ def pytorch_model_with_callback(patience):
     )
 
     with TempDir() as tmp:
+        kwargs = (
+            {"dirpath": tmp.path()}
+            if LooseVersion(pl.__version__) >= LooseVersion("1.2.0")
+            else {"filepath": tmp.path()}
+        )
         checkpoint_callback = ModelCheckpoint(
-            filepath=tmp.path(),
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **kwargs, save_top_k=1, verbose=True, monitor="val_loss", mode="min", prefix="",
         )
 
         trainer = pl.Trainer(
