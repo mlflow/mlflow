@@ -912,7 +912,7 @@ def autolog(
             try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
 
         result = original(self, *args, **kwargs)
-        # Logs Tensorboard to artifacts.
+        # Log Tensorboard event files as artifacts
         for file in os.listdir(self.model_dir):
             if "tfevents" not in file:
                 continue
