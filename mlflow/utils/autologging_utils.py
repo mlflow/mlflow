@@ -349,6 +349,9 @@ def autologging_integration(name):
             return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
+        # Set the autologging integration name as a function attribute on the wrapped autologging
+        # function, allowing the integration name to be extracted from the function. This is used
+        # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
         return wrapped_autolog
 
