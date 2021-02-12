@@ -145,6 +145,24 @@ def parse_tf_serving_input(inp_dict, schema=None):
     """
     import numpy as np
 
+    def cast_schema_type(input_data):
+        if schema is not None:
+            if schema.has_input_names():
+                input_names = schema.input_names()
+                if len(input_names) == 1 and isinstance(input_data, (np.ndarray, list)):
+                    # for schemas with a single column, match input with column
+                    input_data = {input_names[0]: input_data}
+                for col_name, tensor_spec in zip(schema.input_names(), schema.inputs):
+                    input_data[col_name] = np.array(input_data[col_name], dtype=tensor_spec.type)
+            else:
+                input_data = np.array(input_data, dtype=schema.inputs[0].type)
+        else:
+            if isinstance(input_data, dict):
+                input_data = {k: np.array(v) for k, v in input_data.items()}
+            else:
+                input_data = np.array(input_data)
+        return input_data
+
     # pylint: disable=broad-except
     if "signature_name" in inp_dict:
         raise MlflowException(
@@ -168,16 +186,13 @@ def parse_tf_serving_input(inp_dict, schema=None):
                 for item in items:
                     for k, v in item.items():
                         data[k].append(v)
-                data = {k: np.array(v) for k, v in data.items()}
+                data = cast_schema_type(data)
             else:
-                data = np.array(items)
+                data = cast_schema_type(items)
         else:
             # items already in column format, convert values to tensor
             items = inp_dict["inputs"]
-            if len(items) > 0 and isinstance(items, dict):
-                data = {k: np.array(v) for k, v in items.items()}
-            else:
-                data = np.array(items)
+            data = cast_schema_type(items)
     except Exception:
         raise MlflowException(
             "Failed to parse data as TF serving input. Ensure that the input is"
@@ -196,15 +211,4 @@ def parse_tf_serving_input(inp_dict, schema=None):
                 " each input/column name are not the same"
             )
 
-    # Attempt casting
-    if schema is not None:
-        if schema.has_input_names():
-            input_names = schema.input_names()
-            if len(input_names) == 1 and isinstance(data, np.ndarray):
-                # for schemas with a single column, match input with column
-                data = {input_names[0]: data}
-            for col_name, tensor_spec in zip(schema.input_names(), schema.inputs):
-                data[col_name] = data[col_name].astype(tensor_spec.type, casting="unsafe")
-        else:
-            data = data.astype(schema.inputs[0].type, casting="unsafe")
     return data

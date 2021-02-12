@@ -96,10 +96,11 @@ def test_parse_tf_serving_dictionary():
     }
     # Without Schema
     result = parse_tf_serving_input(tfserving_input)
-    expected_result_no_schema = {}
-    expected_result_no_schema["a"] = np.array(["s1", "s2", "s3"])
-    expected_result_no_schema["b"] = np.array([1.1, 2.2, 3.3], dtype="float64")
-    expected_result_no_schema["c"] = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64")
+    expected_result_no_schema = {
+        "a": np.array(["s1", "s2", "s3"]),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float64"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64"),
+    }
     assert_result(result, expected_result_no_schema)
 
     # With schema
@@ -111,10 +112,11 @@ def test_parse_tf_serving_dictionary():
         ]
     )
     result = parse_tf_serving_input(tfserving_input, schema)
-    expected_result_schema = {}
-    expected_result_schema["a"] = np.array(["s1", "s2", "s3"])
-    expected_result_schema["b"] = np.array([1.1, 2.2, 3.3], dtype="float32")
-    expected_result_schema["c"] = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int32")
+    expected_result_schema = {
+        "a": np.array(["s1", "s2", "s3"]),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float32"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int32"),
+    }
     assert_result(result, expected_result_schema)
 
     # input provided as a dict
@@ -178,7 +180,7 @@ def test_parse_tf_serving_single_array():
 
 def test_parse_tf_serving_raises_expected_errors():
     # input is bad if a column value is missing for a row/instance
-    tfserving_input_instances = {
+    tfserving_instances = {
         "instances": [
             {"a": "s1", "b": 1},
             {"a": "s2", "b": 2, "c": [4, 5, 6]},
@@ -188,15 +190,15 @@ def test_parse_tf_serving_raises_expected_errors():
     with pytest.raises(
         MlflowException, match="The length of values for each input/column name are not the same"
     ):
-        parse_tf_serving_input(tfserving_input_instances)
+        parse_tf_serving_input(tfserving_instances)
 
-    tfserving_input_inputs = {
+    tfserving_inputs = {
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6]]}
     }
     with pytest.raises(
         MlflowException, match="The length of values for each input/column name are not the same"
     ):
-        parse_tf_serving_input(tfserving_input_inputs)
+        parse_tf_serving_input(tfserving_inputs)
 
     # cannot specify both instance and inputs
     tfserving_input = {
