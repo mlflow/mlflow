@@ -194,6 +194,24 @@ def test_universal_autolog_makes_expected_event_logging_calls():
     assert {"disable": True, "exclusive": True}.items() <= call.call_kwargs.items()
 
 
+def test_autolog_obeys_disabled():
+    mlflow.autolog(disable=True)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert get_autologging_config("sklearn", "disable")
+
+    mlflow.autolog()
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    mlflow.autolog(disable=True)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert get_autologging_config("sklearn", "disable")
+
+    mlflow.autolog(disable=False)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert not get_autologging_config("sklearn", "disable", False)
+    mlflow.sklearn.autolog(disable=True)
+    assert get_autologging_config("sklearn", "disable")
+
+
 def test_autolog_success_message_obeys_disabled():
     with mock.patch("mlflow.tracking.fluent._logger.info") as autolog_logger_mock:
         mlflow.autolog(disable=True)
