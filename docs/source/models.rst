@@ -105,13 +105,12 @@ downstream tooling:
 Model Signature
 ^^^^^^^^^^^^^^^
 The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs can
-be either column-based or tensor-based. There are two different signature types: column-based and
-tensor-based. Column-based inputs and outputs can be described as a sequence of (optionally) named
-columns with type specified as one of the :py:class:`MLflow data types <mlflow.types.DataType>`.
-Tensor-based inputs and outputs can be described as a sequence of (optionally) named tensors with
-type specified as one of the `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
-The signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with
-other model metadata.
+be either column-based or tensor-based. Column-based inputs and outputs can be described as a
+sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
+described as a sequence of (optionally) named tensors with type specified as one of the
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. The signature is stored in
+JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
 
 Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
@@ -414,8 +413,9 @@ method, which has the following signature::
 
   predict(model_input: [pandas.DataFrame, numpy.ndarray, Dict[str, np.ndarray]]) -> [numpy.ndarray | pandas.(Series | DataFrame)]
   
-All PyFunc models will support `pandas.DataFrame` as input and DL PyFunc models will also support tensor
-inputs in the form of `numpy.ndarrays`. To verify whether a model flavor supports tensor inputs, please check the flavor's documentation.
+All PyFunc models will support `pandas.DataFrame` as an input. In addition to `pandas.DataFrame`,
+DL PyFunc models will also support tensor inputs in the form of `numpy.ndarrays`. To verify
+whether a model flavor supports tensor inputs, please check the flavor's documentation.
   
 For models with a column-based schema, inputs are typically provided in the form of a `pandas.DataFrame`.
 If a dictionary mapping column name to values is provided as input for schemas with named columns or if a
@@ -949,10 +949,10 @@ For more information about serializing pandas DataFrames, see
 For more information about serializing tensor inputs using the TF serving format, see
 `TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
 
-The predict command only accepts DataFrame inputs. The format is specified as command line arguments.
+Command Line Interface
+~~~~~~~~~~~~~~~~~~~~~~
 
-Commands
-~~~~~~~~
+MLflow also has a CLI that supports the following commands:
 
 * `serve <cli.html#mlflow-models-serve>`_ deploys the model as a local REST API server.
 * `build_docker <cli.html#mlflow-models-build-docker>`_ packages a REST API endpoint serving the
