@@ -906,14 +906,17 @@ The REST API server accepts the following data formats as POST input to the ``/i
   <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_ where the provided inputs
   will be cast to Numpy arrays. This format is specified using a ``Content-Type`` request header
   value of ``application/json`` and the ``instances`` or ``inputs`` key in the request body dictionary.
-  For models with tensor-based schemas, the Numpy array input will be cast to the type specified in
-  the model's schema. We recommend that DL PyFunc models have have a schema to guarantee it can be
-  served correctly. Otherwise, failures may occur at inference time due to type mismatches.
 
 If the ``Content-Type`` request header has a value of ``application/json``, MLflow will infer whether
 the input format is a pandas DataFrame or TF serving (i.e tensor) input based on the data in the request
 body. For pandas DataFrame input, the orient can  also be provided explicitly by specifying the format
 in the request header as shown in the record-oriented example below.
+
+.. note:: Since JSON loses type information, MLflow will cast the JSON input to the input type specified
+    in the model's schema if available. If your model is sensitive to input types, it is recommended that
+    a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
+    In particular, DL models are typically strict about input types and will need model schema in order
+    for the model to score correctly.
 
 Example requests:
 
