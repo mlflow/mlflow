@@ -253,11 +253,8 @@ on the ``MNIST dataset``:
     from keras.datasets import mnist
     from keras.utils import to_categorical
     from keras.models import Sequential
-    from keras.layers import Conv2D
-    from keras.layers import MaxPooling2D
-    from keras.layers import Dense
-    from keras.layers import Flatten
-    from keras.optimizers import SG
+    from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
+    from keras.optimizers import SGD
     import mlflow
     import mlflow.keras
     from mlflow.models.signature import infer_signature
@@ -285,13 +282,14 @@ The same signature can be created explicitly as follows:
 
 .. code-block:: python
 
+    import numpy as np
     from mlflow.models.signature import ModelSignature
     from mlflow.types.schema import Schema, TensorSpec
 
     input_schema = Schema([
-      TensorSpec("uint8", (-1, 28, 28, 1)),
+      TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1)),
     ])
-    output_schema = Schema([TensorSpec("float32", (-1, 10))])
+    output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 .. _input-example:
