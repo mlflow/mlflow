@@ -2,7 +2,8 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git@master
+      # This installs scikit-learn from the default branch
+      pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.20.3"
@@ -42,7 +43,8 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@master
+      # This installs pytorch-lightning from the default branch
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.0.5"

@@ -158,6 +158,27 @@ def test_autologging_multiple_reads_same_run(spark_session, format_to_file_path)
 
 
 @pytest.mark.large
+def test_autologging_multiple_runs_same_data(spark_session, format_to_file_path):
+    mlflow.spark.autolog()
+    data_format = list(format_to_file_path.keys())[0]
+    file_path = format_to_file_path[data_format]
+    df = (
+        spark_session.read.format(data_format)
+        .option("header", "true")
+        .option("inferSchema", "true")
+        .load(file_path)
+    )
+    df.collect()
+
+    for _ in range(2):
+        with mlflow.start_run():
+            time.sleep(1)
+            run_id = mlflow.active_run().info.run_id
+            run = mlflow.get_run(run_id)
+            _assert_spark_data_logged(run=run, path=file_path, data_format=data_format)
+
+
+@pytest.mark.large
 def test_autologging_does_not_start_run(spark_session, format_to_file_path):
     try:
         mlflow.spark.autolog()
