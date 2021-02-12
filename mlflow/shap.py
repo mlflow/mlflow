@@ -273,6 +273,12 @@ def log_explainer(
 
     :param explainer: SHAP explainer to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
+                                        model and serialize it as an MLmodel, otherwise it
+                                        uses SHAP's internal serialization. Defaults to True.
+                                        Currently MLflow serialization is only supported for
+                                        models of 'sklearn' or 'pytorch' flavors.
+
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -350,9 +356,9 @@ def save_model(
     :param explainer: SHAP explainer to be saved.
     :param path: Local path where the explainer is to be saved.
     :param serialize_model_using_mlflow: When set to True, MLflow will extract the underlying
-                                         model and serialize it as a MLModel, otherwise it
+                                         model and serialize it as an MLmodel, otherwise it
                                          uses SHAP's internal serialization. Defaults to True.
-                                         Currently MLFlow serialization is only supported for
+                                         Currently MLflow serialization is only supported for
                                          models of 'sklearn' or 'pytorch' flavors.
 
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
