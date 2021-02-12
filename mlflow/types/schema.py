@@ -45,7 +45,7 @@ class DataType(Enum):
     """64b floating point numbers. """
     string = (6, np.dtype("str"), "StringType", _pandas_string_type())
     """Text data."""
-    binary = (7, np.dtype("bytes"), "BinaryType", np.object)
+    binary = (7, np.dtype("bytes"), "BinaryType", object)
     """Sequence of raw bytes."""
 
     def __repr__(self):
