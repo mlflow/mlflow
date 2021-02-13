@@ -675,7 +675,9 @@ def test_flush_queue_is_thread_safe():
     from mlflow.entities import Metric
     from mlflow.tensorflow import _flush_queue, _metric_queue_lock
 
-    metric_queue_item = ("run_id1", Metric("foo", 0.1, 100, 1))
+    client = mlflow.tracking.MlflowClient()
+    run = client.create_run(experiment_id="0")
+    metric_queue_item = (run.info.run_id, Metric("foo", 0.1, 100, 1))
     mlflow.tensorflow._metric_queue.append(metric_queue_item)
 
     # Verify that, if another thread holds a lock on the metric queue leveraged by
