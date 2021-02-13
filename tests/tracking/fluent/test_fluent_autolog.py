@@ -39,22 +39,32 @@ library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark:
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    for key in AUTOLOGGING_INTEGRATIONS.keys():
+        AUTOLOGGING_INTEGRATIONS[key].clear()
+
     for integration_name in library_to_mlflow_module.keys():
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
             pass
 
+    assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
     yield
 
+    for key in AUTOLOGGING_INTEGRATIONS.keys():
+        AUTOLOGGING_INTEGRATIONS[key].clear()
+
     for integration_name in library_to_mlflow_module.keys():
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
             pass
 
+    assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
 
