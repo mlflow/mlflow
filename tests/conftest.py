@@ -44,4 +44,4 @@ def enable_test_mode_by_default_for_autologging_integrations():
     are raised and detected. For more information about autologging test mode, see the docstring
     for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
-    test_mode_on()
+    yield from test_mode_on()
