@@ -94,13 +94,13 @@ class _GluonModelWrapper:
             ndarray = mx.nd.array(data.values)
             preds = self.gluon_model(ndarray)
             if isinstance(preds, mx.ndarray.ndarray.NDArray):
-                preds = preds.tonumpy()
+                preds = preds.asnumpy()
             return pd.DataFrame(preds)
         elif isinstance(data, np.ndarray):
             ndarray = mx.nd.array(data)
             preds = self.gluon_model(ndarray)
             if isinstance(preds, mx.ndarray.ndarray.NDArray):
-                preds = preds.tonumpy()
+                preds = preds.asnumpy()
             return preds
         else:
             raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
