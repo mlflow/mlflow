@@ -5,6 +5,7 @@ import posixpath
 import requests
 import uuid
 
+from mlflow.azure.client import put_block, put_block_list
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -24,6 +25,7 @@ from mlflow.utils.file_utils import (
     yield_file_in_chunks,
 )
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils import rest_utils
 from mlflow.utils.rest_utils import (
     call_endpoint,
     extract_api_info_for_service,
@@ -142,52 +144,50 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _azure_upload_file(self, credentials, local_file, artifact_path):
         """
         Uploads a file to a given Azure storage location.
-
         The function uses a file chunking generator with 100 MB being the size limit for each chunk.
         This limit is imposed by the stage_block API in azure-storage-blob.
         In the case the file size is large and the upload takes longer than the validity of the
         given credentials, a new set of credentials are generated and the operation continues. This
         is the reason for the first nested try-except block
-
         Finally, since the prevailing credentials could expire in the time between the last
         stage_block and the commit, a second try-except block refreshes credentials if needed.
         """
-        from azure.core.exceptions import ClientAuthenticationError
-        from azure.storage.blob import BlobClient
-
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            service = BlobClient.from_blob_url(
-                blob_url=credentials.signed_uri, credential=None, headers=headers
-            )
             uploading_block_list = list()
             for chunk in yield_file_in_chunks(local_file, _AZURE_MAX_BLOCK_CHUNK_SIZE):
-                block_id = base64.b64encode(uuid.uuid4().hex.encode())
+                # Base64-encode a UUID, producing a UTF8-encoded bytestring. Then, decode
+                # the bytestring for compliance with Azure Blob Storage API requests
+                block_id = base64.b64encode(uuid.uuid4().hex.encode()).decode("utf-8")
                 try:
-                    service.stage_block(block_id, chunk, headers=headers)
-                except ClientAuthenticationError:
-                    _logger.warning(
+                    put_block(credentials.signed_uri, block_id, chunk, headers=headers)
+                except requests.HTTPError as e:
+                    if e.response.status_code in [401, 403]:
+                        _logger.info(
+                            "Failed to authorize request, possibly due to credential expiration."
+                            " Refreshing credentials and trying again..."
+                        )
+                        credentials = self._get_write_credentials(
+                            self.run_id, artifact_path
+                        ).credentials
+                        put_block(credentials.signed_uri, block_id, chunk, headers=headers)
+                    else:
+                        raise e
+                uploading_block_list.append(block_id)
+            try:
+                put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
+            except requests.HTTPError as e:
+                if e.response.status_code in [401, 403]:
+                    _logger.info(
                         "Failed to authorize request, possibly due to credential expiration."
-                        "Refreshing credentials and trying again.."
+                        " Refreshing credentials and trying again..."
                     )
                     credentials = self._get_write_credentials(
                         self.run_id, artifact_path
-                    ).credentials.signed_uri
-                    service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
-                    service.stage_block(block_id, chunk, headers=headers)
-                uploading_block_list.append(block_id)
-            try:
-                service.commit_block_list(uploading_block_list, headers=headers)
-            except ClientAuthenticationError:
-                _logger.warning(
-                    "Failed to authorize request, possibly due to credential expiration."
-                    "Refreshing credentials and trying again.."
-                )
-                credentials = self._get_write_credentials(
-                    self.run_id, artifact_path
-                ).credentials.signed_uri
-                service = BlobClient.from_blob_url(blob_url=credentials, credential=None)
-                service.commit_block_list(uploading_block_list, headers=headers)
+                    ).credentials
+                    put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
+                else:
+                    raise e
         except Exception as err:
             raise MlflowException(err)
 
@@ -197,11 +197,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
             signed_write_uri = credentials.signed_uri
             # Putting an empty file in a request by reading file bytes gives 501 error.
             if os.stat(local_file).st_size == 0:
-                put_request = requests.put(signed_write_uri, "", headers=headers)
+                with rest_utils.cloud_storage_http_request(
+                    "put", signed_write_uri, "", headers=headers
+                ) as response:
+                    response.raise_for_status()
             else:
                 with open(local_file, "rb") as file:
-                    put_request = requests.put(signed_write_uri, file, headers=headers)
-            put_request.raise_for_status()
+                    with rest_utils.cloud_storage_http_request(
+                        "put", signed_write_uri, file, headers=headers
+                    ) as response:
+                        response.raise_for_status()
         except Exception as err:
             raise MlflowException(err)
 

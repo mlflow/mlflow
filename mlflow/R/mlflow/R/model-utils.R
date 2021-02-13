@@ -1,3 +1,4 @@
+#' @include model.R
 #' @include model-python.R
 NULL
 

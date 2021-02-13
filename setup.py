@@ -56,7 +56,6 @@ other capabilities.
 CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + [
     "alembic<=1.4.1",
     # Required
-    "azure-storage-blob>=12.0.0",
     "docker>=4.0.0",
     "Flask",
     "gunicorn; platform_system != 'Windows'",
@@ -75,11 +74,13 @@ _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
 setup(
-    name="mlflow",
+    name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    package_data={"mlflow": js_files + models_container_server_files + alembic_files},
-    install_requires=SKINNY_REQUIREMENTS if _is_mlflow_skinny else CORE_REQUIREMENTS,
+    package_data={"mlflow": js_files + models_container_server_files + alembic_files}
+    if not _is_mlflow_skinny
+    else {},
+    install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
             "scikit-learn",
@@ -107,7 +108,10 @@ setup(
     zip_safe=False,
     author="Databricks",
     description="MLflow: A Platform for ML Development and Productionization",
-    long_description=open("README.rst").read(),
+    long_description=open("README.rst").read()
+    if not _is_mlflow_skinny
+    else open("README_SKINNY.rst").read() + open("README.rst").read(),
+    long_description_content_type="text/x-rst",
     license="Apache License 2.0",
     classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
     keywords="ml ai databricks",
