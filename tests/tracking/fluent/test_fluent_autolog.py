@@ -149,6 +149,7 @@ def test_universal_autolog_calls_pyspark_immediately():
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
+        autolog_mock.integration_name = "spark"
         # simulate pyspark not being installed
         autolog_mock.side_effect = ImportError("no module named pyspark blahblah")
 
