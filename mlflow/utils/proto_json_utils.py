@@ -154,18 +154,20 @@ def parse_tf_serving_input(inp_dict, schema=None):
                     input_data = {input_names[0]: input_data}
                 if not isinstance(input_data, dict):
                     raise MlflowException(
-                        "This model contains a tensor-based model signature with input names, which"
-                        " suggests a dictionary input mapping input name to tensor, but an input of"
-                        " type {0} was found.".format(type(input_data))
+                        "Failed to parse input data. This model contains a tensor-based model"
+                        " signature with input names, which suggests a dictionary input mapping"
+                        " input name to tensor, but an input of type {0} was found.".format(
+                            type(input_data)
+                        )
                     )
                 for col_name, tensor_spec in zip(schema.input_names(), schema.inputs):
                     input_data[col_name] = np.array(input_data[col_name], dtype=tensor_spec.type)
             else:
                 if not isinstance(input_data, list):
                     raise MlflowException(
-                        "This model contains an un-named tensor-based model signature which"
-                        " expects a single n-dimensional array as input, however, an input of"
-                        " type {0} was found.".format(type(input_data))
+                        "Failed to parse input data. This model contains an un-named tensor-based"
+                        " model signature which expects a single n-dimensional array as input,"
+                        " however, an input of type {0} was found.".format(type(input_data))
                     )
                 input_data = np.array(input_data, dtype=schema.inputs[0].type)
         else:
