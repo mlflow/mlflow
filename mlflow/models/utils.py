@@ -68,7 +68,7 @@ class _Example(object):
                     result[name] = input_tensor[name].tolist()
                 return {"inputs": result}
             else:
-                return {"inputs": input_example.tolist()}
+                return {"inputs": input_tensor.tolist()}
 
         def _handle_dataframe_input(input_ex):
             if isinstance(input_ex, dict):
