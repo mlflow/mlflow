@@ -138,17 +138,12 @@ def test_merge_environment():
     expected_conda_deps = []
     actual_conda_deps = []
 
-    for dep in expected_merged_env["dependencies"]:
-        if isinstance(dep, dict):
-            expected_conda_deps = dep["pip"]
-        else:
-            expected_pip_deps.append(dep)
-
-    for dep in actual_merged_env["dependencies"]:
-        if isinstance(dep, dict):
-            actual_conda_deps = dep["pip"]
-        else:
-            actual_pip_deps.append(dep)
+    expected_conda_deps, expected_pip_deps = mlflow.shap._get_conda_and_pip_dependencies(
+        expected_merged_env
+    )
+    actual_conda_deps, actual_pip_deps = mlflow.shap._get_conda_and_pip_dependencies(
+        actual_merged_env
+    )
 
     assert sorted(expected_pip_deps) == sorted(actual_pip_deps)
     assert sorted(expected_conda_deps) == sorted(actual_conda_deps)
