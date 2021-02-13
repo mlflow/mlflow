@@ -93,13 +93,13 @@ class _GluonModelWrapper:
         if isinstance(data, pd.DataFrame):
             ndarray = mx.nd.array(data.values)
             preds = self.gluon_model(ndarray)
-            if isinstance(preds, mxnet.ndarray.ndarray.NDArray):
+            if isinstance(preds, mx.ndarray.ndarray.NDArray):
                 preds = preds.tonumpy()
             return pd.DataFrame(preds)
         elif isinstance(data, np.ndarray):
             ndarray = mx.nd.array(data)
             preds = self.gluon_model(ndarray)
-            if isinstance(preds, mxnet.ndarray.ndarray.NDArray):
+            if isinstance(preds, mx.ndarray.ndarray.NDArray):
                 preds = preds.tonumpy()
             return preds
         else:
