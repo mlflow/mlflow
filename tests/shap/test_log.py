@@ -86,7 +86,7 @@ def test_sklearn_log_explainer_pyfunc():
         np.testing.assert_allclose(shap_values_original.values, shap_values_new, rtol=100, atol=100)
 
 
-def test_load_pyfunc():
+def test_load_pyfunc(tmpdir):
 
     X, y = shap.datasets.boston()
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
@@ -94,9 +94,10 @@ def test_load_pyfunc():
 
     explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
     shap_values_original = explainer_original(X[:2])
-    mlflow.shap.save_model(explainer_original, "pyfunc_test")
+    path = tmpdir.join("pyfunc_test").strpath
+    mlflow.shap.save_model(explainer_original, path)
 
-    explainer_pyfunc = mlflow.shap._load_pyfunc("pyfunc_test")
+    explainer_pyfunc = mlflow.shap._load_pyfunc(path)
     shap_values_new = explainer_pyfunc.predict(X[:2])
 
     np.testing.assert_allclose(shap_values_original.values, shap_values_new, rtol=100, atol=100)
@@ -131,12 +132,6 @@ def test_merge_environment():
     actual_merged_env = mlflow.shap._merge_environments(test_shap_env, test_model_env)
 
     assert sorted(expected_merged_env["channels"]) == sorted(actual_merged_env["channels"])
-
-    expected_pip_deps = []
-    actual_pip_deps = []
-
-    expected_conda_deps = []
-    actual_conda_deps = []
 
     expected_conda_deps, expected_pip_deps = mlflow.shap._get_conda_and_pip_dependencies(
         expected_merged_env
