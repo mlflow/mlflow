@@ -39,22 +39,32 @@ library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark:
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    for key in AUTOLOGGING_INTEGRATIONS.keys():
+        AUTOLOGGING_INTEGRATIONS[key].clear()
+
     for integration_name in library_to_mlflow_module.keys():
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
             pass
 
+    assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
     yield
 
+    for key in AUTOLOGGING_INTEGRATIONS.keys():
+        AUTOLOGGING_INTEGRATIONS[key].clear()
+
     for integration_name in library_to_mlflow_module.keys():
         try:
             del mlflow.utils.import_hooks._post_import_hooks[integration_name.__name__]
         except Exception:
             pass
 
+    assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
 
@@ -149,6 +159,7 @@ def test_universal_autolog_calls_pyspark_immediately():
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
+        autolog_mock.integration_name = "spark"
         # simulate pyspark not being installed
         autolog_mock.side_effect = ImportError("no module named pyspark blahblah")
 
