@@ -3,7 +3,6 @@ import errno
 import gzip
 import os
 import posixpath
-import requests
 import shutil
 import sys
 import tarfile
@@ -23,6 +22,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.utils.rest_utils import cloud_storage_http_request
 
 ENCODING = "utf-8"
 
@@ -424,7 +424,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
     Note : This function is meant to download files using presigned urls from various cloud
             providers.
     """
-    with requests.get(http_uri, stream=True) as response:
+    with cloud_storage_http_request("get", http_uri, stream=True) as response:
         response.raise_for_status()
         with open(download_path, "wb") as output_file:
             for chunk in response.iter_content(chunk_size=chunk_size):
