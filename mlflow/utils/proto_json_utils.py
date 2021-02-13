@@ -104,7 +104,7 @@ def _dataframe_from_json(
             path_or_str, orient=pandas_orient, dtype=dtypes, precise_float=precise_float
         )
         actual_cols = set(df.columns)
-        for type_, name in zip(schema.column_types(), schema.input_names()):
+        for type_, name in zip(schema.input_types(), schema.input_names()):
             if type_ == DataType.binary and name in actual_cols:
                 df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
         return df
@@ -136,13 +136,46 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return data
 
 
-def parse_tf_serving_input(inp_dict):
+def parse_tf_serving_input(inp_dict, schema=None):
     """
     :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
                      serving API doc
                      (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
+    :param schema: Mlflow schema used when parsing the data.
     """
     import numpy as np
+
+    def cast_schema_type(input_data):
+        if schema is not None:
+            if schema.has_input_names():
+                input_names = schema.input_names()
+                if len(input_names) == 1 and isinstance(input_data, list):
+                    # for schemas with a single column, match input with column
+                    input_data = {input_names[0]: input_data}
+                if not isinstance(input_data, dict):
+                    raise MlflowException(
+                        "Failed to parse input data. This model contains a tensor-based model"
+                        " signature with input names, which suggests a dictionary input mapping"
+                        " input name to tensor, but an input of type {0} was found.".format(
+                            type(input_data)
+                        )
+                    )
+                for col_name, tensor_spec in zip(schema.input_names(), schema.inputs):
+                    input_data[col_name] = np.array(input_data[col_name], dtype=tensor_spec.type)
+            else:
+                if not isinstance(input_data, list):
+                    raise MlflowException(
+                        "Failed to parse input data. This model contains an un-named tensor-based"
+                        " model signature which expects a single n-dimensional array as input,"
+                        " however, an input of type {0} was found.".format(type(input_data))
+                    )
+                input_data = np.array(input_data, dtype=schema.inputs[0].type)
+        else:
+            if isinstance(input_data, dict):
+                input_data = {k: np.array(v) for k, v in input_data.items()}
+            else:
+                input_data = np.array(input_data)
+        return input_data
 
     # pylint: disable=broad-except
     if "signature_name" in inp_dict:
@@ -157,6 +190,7 @@ def parse_tf_serving_input(inp_dict):
             ' "inputs" must be specified (not both or any other keys).'
         )
 
+    # Read the JSON
     try:
         if "instances" in inp_dict:
             items = inp_dict["instances"]
@@ -166,13 +200,13 @@ def parse_tf_serving_input(inp_dict):
                 for item in items:
                     for k, v in item.items():
                         data[k].append(v)
-                data = {k: np.array(v) for k, v in data.items()}
+                data = cast_schema_type(data)
             else:
-                data = np.array(items)
+                data = cast_schema_type(items)
         else:
             # items already in column format, convert values to tensor
             items = inp_dict["inputs"]
-            data = {k: np.array(v) for k, v in items.items()}
+            data = cast_schema_type(items)
     except Exception:
         raise MlflowException(
             "Failed to parse data as TF serving input. Ensure that the input is"
@@ -181,6 +215,7 @@ def parse_tf_serving_input(inp_dict):
             " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
         )
 
+    # Sanity check inputted data
     if isinstance(data, dict):
         # ensure all columns have the same number of items
         expected_len = len(list(data.values())[0])
@@ -189,4 +224,5 @@ def parse_tf_serving_input(inp_dict):
                 "Failed to parse data as TF serving input. The length of values for"
                 " each input/column name are not the same"
             )
+
     return data

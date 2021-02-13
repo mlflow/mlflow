@@ -87,7 +87,7 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
     elif isinstance(decoded_input, dict):
         if "instances" in decoded_input or "inputs" in decoded_input:
             try:
-                return parse_tf_serving_input(decoded_input)
+                return parse_tf_serving_input(decoded_input, schema=schema)
             except MlflowException as ex:
                 _handle_serving_error(
                     error_message=(ex.message), error_code=MALFORMED_REQUEST,

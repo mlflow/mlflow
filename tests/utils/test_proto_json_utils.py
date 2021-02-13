@@ -6,6 +6,7 @@ from mlflow.entities import Experiment, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
+from mlflow.types import Schema, TensorSpec
 
 from mlflow.utils.proto_json_utils import (
     message_to_json,
@@ -79,22 +80,107 @@ def test_back_compat():
     assert exp_json == in_json
 
 
-def test_parse_tf_serving_input():
+def test_parse_tf_serving_dictionary():
+    def assert_result(result, expected_result):
+        assert result.keys() == expected_result.keys()
+        for key in result:
+            assert (result[key] == expected_result[key]).all()
+
     # instances are correctly aggregated to dict of input name -> tensor
     tfserving_input = {
         "instances": [
-            {"a": "s1", "b": 1, "c": [1, 2, 3]},
-            {"a": "s2", "b": 2, "c": [4, 5, 6]},
-            {"a": "s3", "b": 3, "c": [7, 8, 9]},
+            {"a": "s1", "b": 1.1, "c": [1, 2, 3]},
+            {"a": "s2", "b": 2.2, "c": [4, 5, 6]},
+            {"a": "s3", "b": 3.3, "c": [7, 8, 9]},
         ]
     }
+    # Without Schema
     result = parse_tf_serving_input(tfserving_input)
-    assert (result["a"] == np.array(["s1", "s2", "s3"])).all()
-    assert (result["b"] == np.array([1, 2, 3])).all()
-    assert (result["c"] == np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).all()
+    expected_result_no_schema = {
+        "a": np.array(["s1", "s2", "s3"]),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float64"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64"),
+    }
+    assert_result(result, expected_result_no_schema)
 
-    # input is bad if a column value is missing for a row/instance
+    # With schema
+    schema = Schema(
+        [
+            TensorSpec(np.dtype("object"), [-1], "a"),
+            TensorSpec(np.dtype("float32"), [-1], "b"),
+            TensorSpec(np.dtype("int32"), [-1], "c"),
+        ]
+    )
+    result = parse_tf_serving_input(tfserving_input, schema)
+    expected_result_schema = {
+        "a": np.array(["s1", "s2", "s3"]),
+        "b": np.array([1.1, 2.2, 3.3], dtype="float32"),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int32"),
+    }
+    assert_result(result, expected_result_schema)
+
+    # input provided as a dict
     tfserving_input = {
+        "inputs": {
+            "a": ["s1", "s2", "s3"],
+            "b": [1.1, 2.2, 3.3],
+            "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        }
+    }
+    # Without Schema
+    result = parse_tf_serving_input(tfserving_input)
+    assert_result(result, expected_result_no_schema)
+
+    # With Schema
+    result = parse_tf_serving_input(tfserving_input, schema)
+    assert_result(result, expected_result_schema)
+
+
+def test_parse_tf_serving_single_array():
+    def assert_result(result, expected_result):
+        assert (result == expected_result).all()
+
+    # values for each column are properly converted to a tensor
+    arr = [
+        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
+        [[3, 2, 1], [6, 5, 4], [9, 8, 7]],
+    ]
+    tfserving_instances = {"instances": arr}
+    tfserving_inputs = {"inputs": arr}
+
+    # Without schema
+    instance_result = parse_tf_serving_input(tfserving_instances)
+    assert instance_result.shape == (2, 3, 3)
+    assert_result(instance_result, np.array(arr, dtype="int64"))
+
+    input_result = parse_tf_serving_input(tfserving_inputs)
+    assert input_result.shape == (2, 3, 3)
+    assert_result(input_result, np.array(arr, dtype="int64"))
+
+    # Unnamed schema
+    schema = Schema([TensorSpec(np.dtype("float32"), [-1])])
+    instance_result = parse_tf_serving_input(tfserving_instances, schema)
+    assert_result(instance_result, np.array(arr, dtype="float32"))
+
+    input_result = parse_tf_serving_input(tfserving_inputs, schema)
+    assert_result(input_result, np.array(arr, dtype="float32"))
+
+    # named schema
+    schema = Schema([TensorSpec(np.dtype("float32"), [-1], "a")])
+    instance_result = parse_tf_serving_input(tfserving_instances, schema)
+    assert isinstance(instance_result, dict)
+    assert len(instance_result.keys()) == 1 and "a" in instance_result
+    assert_result(instance_result["a"], np.array(arr, dtype="float32"))
+
+    input_result = parse_tf_serving_input(tfserving_inputs, schema)
+    assert isinstance(input_result, dict)
+    assert len(input_result.keys()) == 1 and "a" in input_result
+    assert_result(input_result["a"], np.array(arr, dtype="float32"))
+
+
+def test_parse_tf_serving_raises_expected_errors():
+    # input is bad if a column value is missing for a row/instance
+    tfserving_instances = {
         "instances": [
             {"a": "s1", "b": 1},
             {"a": "s2", "b": 2, "c": [4, 5, 6]},
@@ -104,36 +190,19 @@ def test_parse_tf_serving_input():
     with pytest.raises(
         MlflowException, match="The length of values for each input/column name are not the same"
     ):
-        parse_tf_serving_input(tfserving_input)
+        parse_tf_serving_input(tfserving_instances)
 
-    # values for each column are properly converted to a tensor
-    arr = [
-        [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
-        [[3, 2, 1], [6, 5, 4], [9, 8, 7]],
-    ]
-    tfserving_input = {"instances": arr}
-    result = parse_tf_serving_input(tfserving_input)
-    assert result.shape == (2, 3, 3)
-    assert (result == np.array(arr)).all()
-
-    # input data specified via "inputs" must be a dictionary
-    tfserving_input = {"inputs": arr}
-    with pytest.raises(MlflowException) as ex:
-        parse_tf_serving_input(tfserving_input)
-    assert "Failed to parse data as TF serving input." in str(ex)
-
-    # input can be provided in column format
-    tfserving_input = {
-        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]}
+    tfserving_inputs = {
+        "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6]]}
     }
-    result = parse_tf_serving_input(tfserving_input)
-    assert (result["a"] == np.array(["s1", "s2", "s3"])).all()
-    assert (result["b"] == np.array([1, 2, 3])).all()
-    assert (result["c"] == np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).all()
+    with pytest.raises(
+        MlflowException, match="The length of values for each input/column name are not the same"
+    ):
+        parse_tf_serving_input(tfserving_inputs)
 
     # cannot specify both instance and inputs
     tfserving_input = {
-        "instances": arr,
+        "instances": [[1, 2, 3], [4, 5, 6], [7, 8, 9]],
         "inputs": {"a": ["s1", "s2", "s3"], "b": [1, 2, 3], "c": [[1, 2, 3], [4, 5, 6], [7, 8, 9]]},
     }
     with pytest.raises(MlflowException) as ex:
