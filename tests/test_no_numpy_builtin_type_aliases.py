@@ -2,6 +2,8 @@
 # import os
 # from collections import namedtuple
 
+# import pytest
+
 
 # def iterate_python_scripts(directory):
 #     for root, _, files in os.walk(directory):
@@ -13,14 +15,14 @@
 #         return f.read()
 
 
-# def is_builtin_type_alias(attr_node):
+# def is_builtin_type_alias(attr_node, numpy_imported_as):
 #     """
 #     Returns True if the passed-in attribute node represents a NumPy's built-in type alias
 #     (e.g. np.int)
 #     """
 #     return (
 #         isinstance(attr_node.value, ast.Name)
-#         and attr_node.value.id in ["numpy", "np"]
+#         and attr_node.value.id == numpy_imported_as
 #         and attr_node.attr
 #         in ["bool", "complex", "float", "int", "long", "object", "str", "unicode"]
 #     )
@@ -39,9 +41,19 @@
 #         super().__init__()
 #         self.found = []
 #         self.path = None
+#         self.numpy_imported_as = None
+
+#     def visit_Import(self, node):
+#         if self.numpy_imported_as is None:
+#             for imp in node.names:
+#                 if imp.name == "numpy":
+#                     self.numpy_imported_as = imp.asname or imp.name
+#                     break
+
+#         self.generic_visit(node)
 
 #     def visit_Attribute(self, node):
-#         if is_builtin_type_alias(node):
+#         if self.numpy_imported_as and is_builtin_type_alias(node, self.numpy_imported_as):
 #             self.found.append(NodeWithPath(node=node, path=self.path))
 #         self.generic_visit(node)
 
@@ -54,14 +66,74 @@
 #         return "\n".join(map(str, self.found))
 
 
-# def test_finder(tmpdir):
+# @pytest.mark.parametrize("numpy_imported_as", ["numpy", "np"])
+# def test_finder(numpy_imported_as, tmpdir):
 #     src = """
-# a = np.object
-# b = numpy.int
-# c = np.float(1.0)
+# import numpy as {asname}
 
-# def func(x=np.bool):
-#     pass
+# a = {asname}.object
+# b = {asname}.int
+# c = {asname}.float(1.0)
+
+# def func(d={asname}.bool):
+#     e = {asname}.str
+# """.format(
+#         asname=numpy_imported_as
+#     )
+#     tmp_path = tmpdir.join("test.py").strpath
+#     with open(tmp_path, "w") as f:
+#         f.write(src)
+
+#     finder = NumpyBuiltinAliasFinder()
+#     finder.find(tmp_path)
+
+#     attrs_expected = [
+#         "object",
+#         "int",
+#         "float",
+#         "bool",
+#         "str",
+#     ]
+
+#     assert finder.numpy_imported_as == numpy_imported_as
+#     assert len(finder.found) == len(attrs_expected)
+#     for (node, path), attr_expected in zip(finder.found, attrs_expected):
+#         assert node.value.id == numpy_imported_as
+#         assert node.attr == attr_expected
+#         assert path == path
+
+
+# @pytest.mark.parametrize("numpy_imported_as", ["numpy", "np"])
+# def test_finder_when_numpy_is_lazily_imported_within_function(numpy_imported_as, tmpdir):
+#     src = """
+# def func():
+#     import numpy as {asname}
+
+#     a = {asname}.object
+# """.format(
+#         asname=numpy_imported_as
+#     )
+#     tmp_path = tmpdir.join("test.py").strpath
+#     with open(tmp_path, "w") as f:
+#         f.write(src)
+
+#     finder = NumpyBuiltinAliasFinder()
+#     finder.find(tmp_path)
+
+#     attrs_expected = ["object"]
+#     assert finder.numpy_imported_as == numpy_imported_as
+#     assert len(finder.found) == len(attrs_expected)
+#     for (node, path), attr_expected in zip(finder.found, attrs_expected):
+#         assert node.value.id == numpy_imported_as
+#         assert node.attr == attr_expected
+#         assert path == path
+
+
+# def test_finder_when_np_is_not_numpy(tmpdir):
+#     src = """
+# np = NP()
+
+# a = np.object
 # """
 #     tmp_path = tmpdir.join("test.py").strpath
 #     with open(tmp_path, "w") as f:
@@ -70,17 +142,8 @@
 #     finder = NumpyBuiltinAliasFinder()
 #     finder.find(tmp_path)
 
-#     expected = [
-#         ("np", "object"),
-#         ("numpy", "int"),
-#         ("np", "float"),
-#         ("np", "bool"),
-#     ]
-#     assert len(finder.found) == len(expected)
-#     for (node, path), (id_expected, attr_expected) in zip(finder.found, expected):
-#         assert node.value.id == id_expected
-#         assert node.attr == attr_expected
-#         assert path == path
+#     assert finder.numpy_imported_as is None
+#     assert len(finder.found) == 0
 
 
 # def test_no_numpy_builtin_type_aliases():
