@@ -15,19 +15,6 @@
 #         return f.read()
 
 
-# def is_builtin_type_alias(attr_node, numpy_imported_as):
-#     """
-#     Returns True if the passed-in attribute node represents a NumPy's built-in type alias
-#     (e.g. np.int)
-#     """
-#     return (
-#         isinstance(attr_node.value, ast.Name)
-#         and attr_node.value.id == numpy_imported_as
-#         and attr_node.attr
-#         in ["bool", "complex", "float", "int", "long", "object", "str", "unicode"]
-#     )
-
-
 # class NodeWithPath(namedtuple("NodeWithPath", ["node", "path"])):
 #     def __str__(self):
 #         node, path = self
@@ -53,9 +40,17 @@
 #         self.generic_visit(node)
 
 #     def visit_Attribute(self, node):
-#         if self.numpy_imported_as and is_builtin_type_alias(node, self.numpy_imported_as):
+#         if self.numpy_imported_as and self.is_builtin_type_alias(node):
 #             self.found.append(NodeWithPath(node=node, path=self.path))
 #         self.generic_visit(node)
+
+#     def is_builtin_type_alias(self, attr_node):
+#         return (
+#             isinstance(attr_node.value, ast.Name)
+#             and attr_node.value.id == self.numpy_imported_as
+#             and attr_node.attr
+#             in ["bool", "complex", "float", "int", "long", "object", "str", "unicode"]
+#         )
 
 #     def find(self, path):
 #         assert path.endswith(".py")
