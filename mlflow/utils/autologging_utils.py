@@ -17,7 +17,6 @@ import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 from mlflow.utils import gorilla
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
@@ -805,7 +804,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     """
 
     def create_managed_run():
-        run_id_env_var_exists = _RUN_ID_ENV_VAR in os.environ
+        run_id_env_var_exists = mlflow.tracking._RUN_ID_ENV_VAR in os.environ
         managed_run = mlflow.start_run(tags=tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
