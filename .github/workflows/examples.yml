@@ -46,6 +46,8 @@ jobs:
         echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
 
     - run: |
+        conda create -n test python=3.6
+        conda activate test
         pip install numpy
         pip install -r requirements.txt
 
