@@ -112,7 +112,7 @@ class MLflowCheckpoint(Callback):
 @click.argument("training_data")
 def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
     warnings.filterwarnings("ignore")
-    data = pd.read_csv(training_data, sep=";").sample(frac=0.1, random_state=0)
+    data = pd.read_csv(training_data, sep=";").sample(frac=0.1, random_state=0).iloc[:, :4]
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data, random_state=seed)
     train, valid = train_test_split(train, random_state=seed)
@@ -146,7 +146,6 @@ def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
                         input_shape=(train_x.shape[1],),
                     )
                 )
-                model.add(Dense(16, activation="relu", kernel_initializer="normal"))
                 model.add(Dense(16, activation="relu", kernel_initializer="normal"))
                 model.add(Dense(1, kernel_initializer="normal", activation="linear"))
                 model.compile(
