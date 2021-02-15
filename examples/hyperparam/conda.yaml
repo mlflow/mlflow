@@ -5,10 +5,10 @@ channels:
   - conda-forge
 dependencies:
   - python=3.6
-  - numpy=1.14.3
-  - pandas=0.22.0
-  - scikit-learn=0.19.1
-  - matplotlib=2.2.2
+  - numpy==1.14.3
+  - pandas==0.22.0
+  - scikit-learn==0.19.1
+  - matplotlib==2.2.2
   - keras==2.2.2
   - pip
   - pip:
