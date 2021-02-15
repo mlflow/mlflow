@@ -45,6 +45,9 @@ jobs:
       run: |
         echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
 
+    - run:
+        pip install -r requirements.txt
+
     - name: Install dependencies
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
       env:
