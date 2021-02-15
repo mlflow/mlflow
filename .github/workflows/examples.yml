@@ -47,7 +47,7 @@ jobs:
 
     - run: |
         conda create --yes -n test python=3.6
-        conda activate test
+        source activate test
         pip install numpy
         pip install -r requirements.txt
 
