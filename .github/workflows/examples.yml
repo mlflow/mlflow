@@ -46,6 +46,7 @@ jobs:
         echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
 
     - run:
+        pip install numpy
         pip install -r requirements.txt
 
     - name: Install dependencies
