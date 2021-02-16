@@ -649,6 +649,7 @@ def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
     assert "model" in artifacts
     mlflow.tensorflow.load_model("runs:/" + tf_estimator_v1_run.info.run_id + "/model")
 
+
 @pytest.mark.large
 @pytest.mark.parametrize("export", [True, False])
 def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
