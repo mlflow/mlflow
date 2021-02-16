@@ -16,6 +16,8 @@ import warnings
 import atexit
 import time
 import tempfile
+from glob import glob
+import numpy as np
 from collections import namedtuple
 import pandas
 from distutils.version import LooseVersion
@@ -926,7 +928,68 @@ def autolog(
                 )
         return result
 
+    def evaluate(original, self, *args, **kwargs):
+        active_run = mlflow.active_run()
+        if MLFLOW_AUTOLOGGING in active_run.data.tags:
+            global _AUTOLOG_RUN_ID
+            _AUTOLOG_RUN_ID = active_run.info.run_id
+
+        # Add eval checkpoint files as artifacts
+        if 'checkpoint_path' in kwargs:
+            checkpoint_artifacts = glob('{}*'.format(kwargs['checkpoint_path']))
+            print('checkpoint_artifacts:{}'.format(checkpoint_artifacts))
+            for checkpoint_artifact in checkpoint_artifacts:
+                try_mlflow_log(mlflow.log_artifact, checkpoint_artifact)
+
+        result = original(self, *args, **kwargs)
+
+        # log eval metrics
+        step = result['global_step'] if 'global_step' in result.keys() else None
+        for key, value in result.items():
+            # Only log numbers
+            if isinstance(value, np.number):
+                # Filter out characters that can't be used in metric name
+                metric_name = 'Eval/{}'.format(''.join(filter(lambda c: c not in '()[]@', key)))
+                try_mlflow_log(mlflow.log_metric, metric_name, value, step=step)
+        return result
+
     def export_saved_model(original, self, *args, **kwargs):
+        def create_autologging_run():
+            autologging_run = mlflow.start_run(tags={MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+            _logger.info(
+                "Created MLflow autologging run with ID '%s', which will store the TensorFlow"
+                " model in MLflow Model format",
+                autologging_run.info.run_id,
+            )
+
+        auto_end = False
+        if not mlflow.active_run():
+            global _AUTOLOG_RUN_ID
+            if _AUTOLOG_RUN_ID:
+                _logger.info(
+                    "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
+                    _AUTOLOG_RUN_ID,
+                )
+                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
+            else:
+                try_mlflow_log(create_autologging_run)
+                auto_end = True
+
+        serialized = original(self, *args, **kwargs)
+        try_mlflow_log(
+            log_model,
+            tf_saved_model_dir=serialized.decode("utf-8"),
+            tf_meta_graph_tags=[tag_constants.SERVING],
+            tf_signature_def_key="serving_default",
+            artifact_path="model",
+        )
+        if (
+            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
+        ) or auto_end:
+            try_mlflow_log(mlflow.end_run)
+        return serialized
+
+    def export_savedmodel(original, self, *args, **kwargs):
         def create_autologging_run():
             autologging_run = mlflow.start_run(tags={MLFLOW_AUTOLOGGING: FLAVOR_NAME})
             _logger.info(
@@ -1138,6 +1201,7 @@ def autolog(
 
     managed = [
         (tensorflow.estimator.Estimator, "train", train),
+        (tensorflow.estimator.Estimator, "evaluate", evaluate),
         (tensorflow.keras.Model, "fit", FitPatch),
     ]
 
@@ -1153,7 +1217,7 @@ def autolog(
         (EventFileWriterV2, "add_event", add_event),
         (FileWriter, "add_summary", add_summary),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
-        (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
+        (tensorflow.estimator.Estimator, "export_savedmodel", export_savedmodel),
     ]
 
     for p in managed:
