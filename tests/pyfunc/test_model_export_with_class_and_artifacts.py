@@ -245,7 +245,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):

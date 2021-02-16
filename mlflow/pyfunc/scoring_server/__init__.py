@@ -10,7 +10,7 @@ Defines two endpoints:
     /ping used for health check
     /invocations used for scoring
 """
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 import flask
 import json
 import logging
@@ -27,7 +27,12 @@ import traceback
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
-from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json, _get_jsonable_obj
+from mlflow.utils.proto_json_utils import (
+    NumpyEncoder,
+    _dataframe_from_json,
+    _get_jsonable_obj,
+    parse_tf_serving_input,
+)
 
 try:
     from mlflow.pyfunc import load_model, PyFuncModel
@@ -81,7 +86,12 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
         return parse_json_input(json_input=json_input, orient="records", schema=schema)
     elif isinstance(decoded_input, dict):
         if "instances" in decoded_input or "inputs" in decoded_input:
-            return parse_tf_serving_input(decoded_input)
+            try:
+                return parse_tf_serving_input(decoded_input, schema=schema)
+            except MlflowException as ex:
+                _handle_serving_error(
+                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
+                )
         else:
             return parse_json_input(json_input=json_input, orient="split", schema=schema)
     else:
@@ -159,71 +169,6 @@ def parse_split_oriented_json_input_to_numpy(json_input):
             ),
             error_code=MALFORMED_REQUEST,
         )
-
-
-def parse_tf_serving_input(inp_dict):
-    """
-    :param inp_dict: A dict deserialized from a JSON string formatted as described in TF's
-                     serving API doc
-                     (https://www.tensorflow.org/tfx/serving/api_rest#request_format_2)
-    """
-    # pylint: disable=broad-except
-    if "signature_name" in inp_dict:
-        _handle_serving_error(
-            error_message=(
-                'Failed to parse data as TF serving input. "signature_name" is currently'
-                " not supported."
-            ),
-            error_code=MALFORMED_REQUEST,
-        )
-    if not (list(inp_dict.keys()) == ["instances"] or list(inp_dict.keys()) == ["inputs"]):
-        _handle_serving_error(
-            error_message=(
-                'Failed to parse data as TF serving input. One of "instances" and'
-                ' "inputs" must be specified (not both or any other keys).'
-            ),
-            error_code=MALFORMED_REQUEST,
-        )
-
-    try:
-        if "instances" in inp_dict:
-            items = inp_dict["instances"]
-            if len(items) > 0 and isinstance(items[0], dict):
-                # convert items to column format (map column/input name to tensor)
-                data = defaultdict(list)
-                for item in items:
-                    for k, v in item.items():
-                        data[k].append(v)
-                data = {k: np.array(v) for k, v in data.items()}
-            else:
-                data = np.array(items)
-        else:
-            # items already in column format, convert values to tensor
-            items = inp_dict["inputs"]
-            data = {k: np.array(v) for k, v in items.items()}
-    except Exception:
-        _handle_serving_error(
-            error_message=(
-                "Failed to parse data as TF serving input. Ensure that the input is"
-                " a valid JSON-formatted string that conforms to the request body for"
-                " TF serving's Predict API as documented at"
-                " https://www.tensorflow.org/tfx/serving/api_rest#request_format_2"
-            ),
-            error_code=MALFORMED_REQUEST,
-        )
-
-    if isinstance(data, dict):
-        # ensure all columns have the same number of items
-        expected_len = len(list(data.values())[0])
-        if not all(len(v) == expected_len for v in data.values()):
-            _handle_serving_error(
-                error_message=(
-                    "Failed to parse data as TF serving input. The length of values for"
-                    " each input/column name are not the same"
-                ),
-                error_code=MALFORMED_REQUEST,
-            )
-    return data
 
 
 def predictions_to_json(raw_predictions, output):

@@ -323,6 +323,7 @@ nitpick_ignore = [
     ("py:class", "pyspark.sql.dataframe.DataFrame"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
+    ("py:class", "mlflow.types.schema.TensorSpec"),
     ("py:class", "mlflow.types.schema.Schema"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
