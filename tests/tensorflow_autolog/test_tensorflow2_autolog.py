@@ -619,10 +619,13 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert all((x.step - 1) % 100 == 0 for x in metrics)
 
 
-def test_tf_estimator_v1_autolog_logs_metrics(tmpdir):
+@pytest.mark.large
+@pytest.mark.parametrize("export", [True, False])
+def test_tf_estimator_v1_autolog_logs_metrics(tmpdir, export):
+    directory = tmpdir.mkdir("test")
     mlflow.tensorflow.autolog()
 
-    create_tf_estimator_model(tmpdir, export=False, use_v1_estimator=True)
+    create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
     client = mlflow.tracking.MlflowClient()
     tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
 
