@@ -620,7 +620,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
-def test_tf_estimator_v1_autolog_logs_metrics(tmpdir, export):
+def test_tf_estimator_v1_autolog_logs_metrics(tmpdir):
     mlflow.tensorflow.autolog()
 
     create_tf_estimator_model(tmpdir, export=False, use_v1_estimator=True)
