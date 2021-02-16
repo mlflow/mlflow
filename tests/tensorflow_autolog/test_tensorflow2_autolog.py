@@ -522,7 +522,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def create_tf_estimator_model(directory, export, training_steps=500):
+def create_tf_estimator_model(directory, export, training_steps=500, use_v1_estimator=False):
     CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
 
     train = pd.read_csv(
@@ -553,14 +553,28 @@ def create_tf_estimator_model(directory, export, training_steps=500):
         feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
-    classifier = tf.estimator.DNNClassifier(
-        feature_columns=my_feature_columns,
-        # Two hidden layers of 10 nodes each.
-        hidden_units=[30, 10],
-        # The model must choose between 3 classes.
-        n_classes=3,
-        model_dir=directory,
-    )
+
+    # If flag set to true, then use the v1 classifier that extends Estimator
+    # If flag set to false, then use the v2 classifier that extends EstimatorV2
+    if use_v1_estimator:
+        classifier = tf.compat.v1.estimator.DNNClassifier(
+            feature_columns=my_feature_columns,
+            # Two hidden layers of 10 nodes each.
+            hidden_units=[30, 10],
+            # The model must choose between 3 classes.
+            n_classes=3,
+            model_dir=directory,
+        )
+    else:
+        classifier = tf.estimator.DNNClassifier(
+            feature_columns=my_feature_columns,
+            # Two hidden layers of 10 nodes each.
+            hidden_units=[30, 10],
+            # The model must choose between 3 classes.
+            n_classes=3,
+            model_dir=directory,
+        )
+
     classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
     if export:
         classifier.export_saved_model(directory, receiver_fn)
@@ -602,6 +616,21 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert "steps" in tf_estimator_random_data_run.data.params
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
+    assert all((x.step - 1) % 100 == 0 for x in metrics)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("export", [True, False])
+def test_tf_estimator_v1_autolog_logs_metrics(tmpdir, export):
+    mlflow.tensorflow.autolog()
+
+    create_tf_estimator_model(tmpdir, export, use_v1_estimator=True)
+    client = mlflow.tracking.MlflowClient()
+    tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+    assert "loss" in tf_estimator_v1_run.data.metrics
+    assert "steps" in tf_estimator_v1_run.data.params
+    metrics = client.get_metric_history(tf_estimator_v1_run.info.run_id, "loss")
     assert all((x.step - 1) % 100 == 0 for x in metrics)
 
 
