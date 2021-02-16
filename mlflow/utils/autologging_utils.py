@@ -804,8 +804,8 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     """
 
     def create_managed_run():
-        run_id_env_var_exists = mlflow.tracking._RUN_ID_ENV_VAR in os.environ
-        managed_run = mlflow.start_run(tags=tags)
+        managed_run = mlflow.start_run()
+        try_mlflow_log(mlflow.set_tags, tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
             " performance metrics, model artifacts, and lineage information for the"
@@ -813,8 +813,6 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
             managed_run.info.run_id,
             autologging_integration,
         )
-        if run_id_env_var_exists:
-            try_mlflow_log(mlflow.set_tags, tags)
         return managed_run
 
     if inspect.isclass(patch_function):
