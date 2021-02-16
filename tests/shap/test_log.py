@@ -95,7 +95,7 @@ def test_load_pyfunc(tmpdir):
     explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
     shap_values_original = explainer_original(X[:2])
     path = tmpdir.join("pyfunc_test").strpath
-    mlflow.shap.save_model(explainer_original, path)
+    mlflow.shap.save_explainer(explainer_original, path)
 
     explainer_pyfunc = mlflow.shap._load_pyfunc(path)
     shap_values_new = explainer_pyfunc.predict(X[:2])

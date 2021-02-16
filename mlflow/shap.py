@@ -74,7 +74,7 @@ def get_default_conda_env():
     """
     :return: The default Conda environment for
              MLflow Models produced by calls to
-             :func:`save_model()` and :func:`log_explainer()`.
+             :func:`save_explainer()` and :func:`log_explainer()`.
     """
     import shap
 
@@ -337,7 +337,7 @@ def log_explainer(
 
 
 @experimental
-def save_model(
+def save_explainer(
     explainer,
     path,
     serialize_model_using_mlflow=True,
@@ -468,6 +468,10 @@ def save_model(
     )
 
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+
+# Defining save_model (Required by Model.log) to refer to save_explainer
+save_model = save_explainer
 
 
 def _get_conda_and_pip_dependencies(conda_env):
