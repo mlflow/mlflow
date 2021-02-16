@@ -636,6 +636,20 @@ def test_tf_estimator_v1_autolog_logs_metrics(tmpdir, export):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize("export", [True])
+def test_tf_estimator_v1_autolog_can_load_from_artifact(tmpdir, export):
+    directory = tmpdir.mkdir("test")
+    mlflow.tensorflow.autolog()
+
+    create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
+    client = mlflow.tracking.MlflowClient()
+    tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    artifacts = client.list_artifacts(tf_estimator_v1_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert "model" in artifacts
+    mlflow.tensorflow.load_model("runs:/" + tf_estimator_v1_run.info.run_id + "/model")
+
+@pytest.mark.large
 @pytest.mark.parametrize("export", [True, False])
 def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
