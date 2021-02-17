@@ -171,9 +171,11 @@ def parse_tf_serving_input(inp_dict, schema=None):
                             type(input_data)
                         )
                     )
-                for col_name, col_type in zip(schema.input_names(), schema.numpy_types()):
-                    if col_name in input_data:
-                        input_data[col_name] = np.array(input_data[col_name], dtype=col_type)
+                type_dict = dict(zip(schema.input_names(), schema.numpy_types()))
+                for col_name in input_data.keys():
+                    input_data[col_name] = np.array(
+                        input_data[col_name], dtype=type_dict.get(col_name)
+                    )
             else:
                 if not isinstance(input_data, list):
                     raise MlflowException(
@@ -181,7 +183,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
                         " model signature which expects a single n-dimensional array as input,"
                         " however, an input of type {0} was found.".format(type(input_data))
                     )
-                input_data = np.array(input_data, dtype=schema.inputs[0].type)
+                input_data = np.array(input_data, dtype=schema.numpy_types()[0])
         else:
             if isinstance(input_data, dict):
                 input_data = {k: np.array(v) for k, v in input_data.items()}
