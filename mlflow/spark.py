@@ -515,7 +515,7 @@ def save_model(
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
         databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
-    if copying_from_dbfs:
+    if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
