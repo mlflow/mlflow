@@ -115,7 +115,7 @@ def test_parse_tf_serving_dictionary():
             TensorSpec(np.dtype("int32"), [-1], "c"),
         ]
     )
-    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c"),])
+    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
     result = parse_tf_serving_input(tfserving_input, schema)
     expected_result_schema = {
         "a": np.array(["s1", "s2", "s3"], dtype=np.dtype("str")),
