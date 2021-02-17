@@ -102,7 +102,7 @@ def _dataframe_from_json(
         if schema.is_tensor_spec():
             # The schema can be either:
             #  - a single tensor: attempt to parse all columns with the same dtype
-            #  - a dictionary of tensors: each column gets the type from ____ named tensor
+            #  - a dictionary of tensors: each column gets the type from an equally named tensor
             if len(schema.inputs) == 1:
                 dtypes = schema.numpy_types()[0]
             else:
