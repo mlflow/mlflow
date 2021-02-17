@@ -10,13 +10,17 @@ Please follow the installation instructions for the Ray Serve deployment plugin:
 
 ## Instructions
 
-First, run `train_model.py`.  This trains and saves our classifier and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
+First, run `train_model.py`.  This trains and saves our classifier to the MLflow Model Registry and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
 ```
 MSE: 1.04
 Target names:  ['setosa' 'versicolor' 'virginica']
 ```
 
-Second, start a Ray cluster with the following command:
+Second, set the MLflow Tracking URI environment variable to the location where the Model Registry resides:
+
+`export MLFLOW_TRACKING_URI=sqlite:///mlruns.db`
+
+Now start a Ray cluster with the following command:
 
 `ray start --head`
 
