@@ -102,8 +102,8 @@ def test_parse_tf_serving_dictionary():
     result = parse_tf_serving_input(tfserving_input)
     expected_result_no_schema = {
         "a": np.array(["s1", "s2", "s3"]),
-        "b": np.array([1.1, 2.2, 3.3], dtype="float64"),
-        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64"),
+        "b": np.array([1.1, 2.2, 3.3]),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
     }
     assert_result(result, expected_result_no_schema)
 
