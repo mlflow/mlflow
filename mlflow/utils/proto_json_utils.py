@@ -172,7 +172,8 @@ def parse_tf_serving_input(inp_dict, schema=None):
                         )
                     )
                 for col_name, col_type in zip(schema.input_names(), schema.numpy_types()):
-                    input_data[col_name] = np.array(input_data[col_name], dtype=col_type)
+                    if col_name in input_data:
+                        input_data[col_name] = np.array(input_data[col_name], dtype=col_type)
             else:
                 if not isinstance(input_data, list):
                     raise MlflowException(
