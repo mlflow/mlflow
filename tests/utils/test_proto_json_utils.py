@@ -253,7 +253,6 @@ def test_dataframe_from_json():
 
     jsonable_df = pd.DataFrame(source, copy=True)
     jsonable_df["binary"] = jsonable_df["binary"].map(base64.b64encode)
-    print(jsonable_df)
     schema = Schema(
         [
             ColSpec("boolean", "boolean"),
@@ -278,12 +277,10 @@ def test_dataframe_from_json():
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
     )
     assert parsed.equals(source)
-    assert dict(expected_dtypes) == dict(parsed.dtypes)
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=schema
     )
     assert parsed.equals(source)
-    assert dict(expected_dtypes) == dict(parsed.dtypes)
     # try parsing with tensor schema
     tensor_schema = Schema(
         [
@@ -302,11 +299,30 @@ def test_dataframe_from_json():
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
     assert parsed.equals(jsonable_df)
-    assert dict(expected_dtypes) == dict(parsed.dtypes)
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
     )
 
     # NB: tensor schema does not automatically decode base64 encoded bytes.
     assert parsed.equals(jsonable_df)
-    assert dict(expected_dtypes) == dict(parsed.dtypes)
+
+    # Test parse with TesnorSchema with a single tensor
+    tensor_schema = Schema([TensorSpec(np.dtype("float32"), [-1, 3])])
+    source = pd.DataFrame(
+        {
+            "a": np.array([1, 2, 3], dtype=np.float32),
+            "b": np.array([4, 5, 6], dtype=np.float32),
+            "c": np.array([7, 8, 9], dtype=np.float32),
+        },
+        columns=["a", "b", "c"],
+    )
+    assert source.equals(
+        _dataframe_from_json(
+            source.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
+        )
+    )
+    assert source.equals(
+        _dataframe_from_json(
+            source.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
+        )
+    )
