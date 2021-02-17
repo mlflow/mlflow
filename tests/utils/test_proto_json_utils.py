@@ -264,15 +264,6 @@ def test_dataframe_from_json():
             ColSpec("binary", "binary"),
         ]
     )
-    expected_dtypes = {
-        "boolean": DataType.boolean.to_pandas(),
-        "string": np.dtype("object"),
-        "float": DataType.float.to_pandas(),
-        "double": DataType.double.to_pandas(),
-        "integer": DataType.integer.to_pandas(),
-        "long": DataType.long.to_pandas(),
-        "binary": np.dtype("object"),
-    }
     parsed = _dataframe_from_json(
         jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
     )
@@ -311,7 +302,7 @@ def test_dataframe_from_json():
     source = pd.DataFrame(
         {
             "a": np.array([1, 2, 3], dtype=np.float32),
-            "b": np.array([4, 5, 6], dtype=np.float32),
+            "b": np.array([4.1, 5.2, 6.3], dtype=np.float32),
             "c": np.array([7, 8, 9], dtype=np.float32),
         },
         columns=["a", "b", "c"],
