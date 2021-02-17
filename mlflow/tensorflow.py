@@ -899,7 +899,7 @@ def autolog(
 
     def train(original, self, *args, **kwargs):
         active_run = mlflow.active_run()
-        if MLFLOW_AUTOLOGGING in active_run.data.tags:
+        if active_run:
             global _AUTOLOG_RUN_ID
             _AUTOLOG_RUN_ID = active_run.info.run_id
 
