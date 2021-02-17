@@ -899,9 +899,8 @@ def autolog(
 
     def train(original, self, *args, **kwargs):
         active_run = mlflow.active_run()
-        if active_run:
-            global _AUTOLOG_RUN_ID
-            _AUTOLOG_RUN_ID = active_run.info.run_id
+        global _AUTOLOG_RUN_ID
+        _AUTOLOG_RUN_ID = active_run.info.run_id
 
         # Checking step and max_step parameters for logging
         if len(args) >= 3:
