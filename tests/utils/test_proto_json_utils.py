@@ -8,7 +8,7 @@ from mlflow.entities import Experiment, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.types import Schema, TensorSpec, ColSpec, DataType
+from mlflow.types import Schema, TensorSpec, ColSpec
 
 from mlflow.utils.proto_json_utils import (
     message_to_json,
