@@ -349,6 +349,10 @@ def autologging_integration(name):
             return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
+        # Set the autologging integration name as a function attribute on the wrapped autologging
+        # function, allowing the integration name to be extracted from the function. This is used
+        # during the execution of import hooks for `mlflow.autolog()`.
+        wrapped_autolog.integration_name = name
         return wrapped_autolog
 
     return wrapper
@@ -800,7 +804,8 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     """
 
     def create_managed_run():
-        managed_run = mlflow.start_run(tags=tags)
+        managed_run = mlflow.start_run()
+        try_mlflow_log(mlflow.set_tags, tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
             " performance metrics, model artifacts, and lineage information for the"

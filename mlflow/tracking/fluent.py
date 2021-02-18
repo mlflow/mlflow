@@ -17,7 +17,11 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import _is_testing, autologging_integration
+from mlflow.utils.autologging_utils import (
+    _is_testing,
+    autologging_integration,
+    AUTOLOGGING_INTEGRATIONS,
+)
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -126,6 +130,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
                      Used only when ``run_id`` is unspecified.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
     :param tags: An optional dictionary of string keys and values to set as tags on the new run.
+                 If an existing run is being resumed, this argument is ignored.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 
@@ -1229,6 +1234,29 @@ def autolog(
     See the :ref:`tracking docs <automatic-logging>` for a list of supported autologging
     integrations.
 
+    Note that framework-specific configurations set at any point will take precedence over
+    any configurations set by this function. For example:
+
+    .. code-block:: python
+
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+
+    would enable autologging for `sklearn` with `log_models=False` and `exclusive=True`,
+    but
+
+    .. code-block:: python
+
+        mlflow.autolog(log_models=False, exclusive=True)
+        import sklearn
+        mlflow.sklearn.autolog(log_models=True)
+
+    would enable autologging for `sklearn` with `log_models=True` and `exclusive=False`,
+    the latter resulting from the default value for `exclusive` in `mlflow.sklearn.autolog`;
+    other framework autolog functions (e.g. `mlflow.tensorflow.autolog`) would use the
+    configurations set by `mlflow.autolog` (in this instance, `log_models=False`, `exclusive=True`),
+    until they are explicitly called by the user.
+
     :param log_input_examples: If ``True``, input examples from training datasets are collected and
                                logged along with model artifacts during training. If ``False``,
                                input examples are not logged.
@@ -1329,6 +1357,8 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
     }
 
+    CONF_KEY_IS_GLOBALLY_CONFIGURED = "globally_configured"
+
     def get_autologging_params(autolog_fn):
         try:
             needed_params = list(inspect.signature(autolog_fn).parameters.keys())
@@ -1339,9 +1369,29 @@ def autolog(
     def setup_autologging(module):
         try:
             autolog_fn = LIBRARY_TO_AUTOLOG_FN[module.__name__]
+
+            # Only call integration's autolog function with `mlflow.autolog` configs
+            # if the integration's autolog function has not already been called by the user.
+            # Logic is as follows:
+            # - if a previous_config exists, that means either `mlflow.autolog` or
+            #   `mlflow.integration.autolog` was called.
+            # - if the config contains `CONF_KEY_IS_GLOBALLY_CONFIGURED`, the configuration
+            #   was set by `mlflow.autolog`, and so we can safely call `autolog_fn` with
+            #   `autologging_params`.
+            # - if the config doesn't contain this key, the configuration was set by an
+            #   `mlflow.integration.autolog` call, so we should not call `autolog_fn` with
+            #   new configs.
+            prev_config = AUTOLOGGING_INTEGRATIONS.get(autolog_fn.integration_name)
+            if prev_config and not prev_config.get(CONF_KEY_IS_GLOBALLY_CONFIGURED, False):
+                return
+
             autologging_params = get_autologging_params(autolog_fn)
             autolog_fn(**autologging_params)
-            _logger.info("Autologging successfully enabled for %s.", module.__name__)
+            AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
+                CONF_KEY_IS_GLOBALLY_CONFIGURED
+            ] = True
+            if not autologging_params.get("disable", False):
+                _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
             if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect

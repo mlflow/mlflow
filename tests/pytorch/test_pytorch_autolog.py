@@ -1,5 +1,4 @@
 from distutils.version import LooseVersion
-
 import pytest
 import pytorch_lightning as pl
 import torch
@@ -9,6 +8,7 @@ import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
+from iris_data_module import IrisDataModule
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
 from unittest.mock import patch
@@ -20,8 +20,11 @@ NUM_EPOCHS = 20
 def pytorch_model():
     mlflow.pytorch.autolog()
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run
@@ -32,8 +35,11 @@ def pytorch_model():
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
@@ -76,8 +82,12 @@ def test_pytorch_autolog_persists_manually_created_run():
     with mlflow.start_run() as manual_run:
         mlflow.pytorch.autolog()
         model = IrisClassification()
+        dm = IrisDataModule()
+        dm.prepare_data()
+        dm.setup(stage="fit")
         trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-        trainer.fit(model)
+        trainer.fit(model, dm)
+        trainer.test()
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
@@ -90,6 +100,9 @@ def test_pytorch_autolog_ends_auto_created_run(pytorch_model):
 def pytorch_model_with_callback(patience):
     mlflow.pytorch.autolog()
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     early_stopping = EarlyStopping(
         monitor="val_loss",
         mode="min",
@@ -99,8 +112,9 @@ def pytorch_model_with_callback(patience):
     )
 
     with TempDir() as tmp:
+        keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            filepath=tmp.path(),
+            **{keyword: tmp.path()},
             save_top_k=1,
             verbose=True,
             monitor="val_loss",
@@ -113,7 +127,7 @@ def pytorch_model_with_callback(patience):
             callbacks=[early_stopping],
             checkpoint_callback=checkpoint_callback,
         )
-        trainer.fit(model)
+        trainer.fit(model, dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -149,11 +163,15 @@ def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callbac
 def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_models, patience):
     mlflow.pytorch.autolog(log_models=log_models)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
 
     with TempDir() as tmp:
+        keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            filepath=tmp.path(),
+            **{keyword: tmp.path()},
             save_top_k=1,
             verbose=True,
             monitor="val_loss",
@@ -166,7 +184,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
             callbacks=[early_stopping],
             checkpoint_callback=checkpoint_callback,
         )
-        trainer.fit(model)
+        trainer.fit(model, dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -186,15 +204,6 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert float(data.params["patience"]) == patience
     assert "min_delta" in data.params
     assert "stopped_epoch" in data.params
-
-
-@pytest.mark.parametrize("patience", [3])
-def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
-    _, run = pytorch_model_with_callback
-    data = run.data
-    assert "stopped_epoch" in data.metrics
-    assert "wait_count" in data.metrics
-    assert "restored_epoch" in data.metrics
 
 
 @pytest.mark.parametrize("patience", [3])
@@ -238,9 +247,11 @@ def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
 @pytest.fixture
 def pytorch_model_tests():
     model = IrisClassification()
-
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model, dm)
     trainer.test()
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)

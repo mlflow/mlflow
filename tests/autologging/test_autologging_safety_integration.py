@@ -3,6 +3,7 @@
 import importlib
 import pytest
 from unittest import mock
+from itertools import permutations
 
 import mlflow
 from mlflow.tracking import MlflowClient
@@ -136,3 +137,35 @@ def test_autolog_respects_disable_flag(setup_keras_model):
     metrics, params = run_data.metrics, run_data.params
     assert metrics
     assert params
+
+
+def test_autolog_respects_disable_flag_across_import_orders():
+    def test():
+        from sklearn import svm, datasets
+
+        iris = datasets.load_iris()
+        svc = svm.SVC(C=2.0, degree=5, kernel="rbf")
+        run = mlflow.start_run()
+        svc.fit(iris.data, iris.target)
+        mlflow.end_run()
+        run_data = MlflowClient().get_run(run.info.run_id).data
+        metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+        assert not metrics
+        assert not params
+        assert all("mlflow." in key for key in tags)
+
+    def import_sklearn():
+        import sklearn  # pylint: disable=unused-variable
+
+    def disable_autolog():
+        mlflow.sklearn.autolog(disable=True)
+
+    def mlflow_autolog():
+        mlflow.autolog()
+
+    import_list = [import_sklearn, disable_autolog, mlflow_autolog]
+
+    for func_order_list in permutations(import_list):
+        for fun in func_order_list:
+            fun()
+        test()

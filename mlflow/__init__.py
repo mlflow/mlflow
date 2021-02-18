@@ -92,15 +92,23 @@ except ImportError as e:
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
-if sys.version_info.major == 2:
+_major = 3
+_minor = 5
+_deprecated_version = (_major, _minor)
+_min_supported_version = (_major, _minor + 1)
+
+if sys.version_info[:2] == _deprecated_version:
     warnings.warn(
-        "MLflow support for Python 2 is deprecated and will be dropped in a future "
-        "release. At that point, existing Python 2 workflows that use MLflow will "
-        "continue to work without modification, but Python 2 users will no longer "
-        "get access to the latest MLflow features and bugfixes. We recommend that "
-        "you upgrade to Python 3 - see https://docs.python.org/3/howto/pyporting.html "
-        "for a migration guide.",
-        DeprecationWarning,
+        "MLflow support for Python {dep_ver} is deprecated and will be dropped in "
+        "an upcoming release. At that point, existing Python {dep_ver} workflows "
+        "that use MLflow will continue to work without modification, but Python {dep_ver} "
+        "users will no longer get access to the latest MLflow features and bugfixes. "
+        "We recommend that you upgrade to Python {min_ver} or newer.".format(
+            dep_ver=".".join(map(str, _deprecated_version)),
+            min_ver=".".join(map(str, _min_supported_version)),
+        ),
+        FutureWarning,
+        stacklevel=2,
     )
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
