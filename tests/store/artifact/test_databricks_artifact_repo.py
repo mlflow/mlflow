@@ -1,6 +1,5 @@
 import os
 
-from azure.storage.blob import BlobClient
 import pytest
 import posixpath
 from requests.models import Response
@@ -218,34 +217,44 @@ class TestDatabricksArtifactRepository(object):
     def test_log_artifact_azure_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
-        expected_headers = {header.name: header.value for header in MOCK_HEADERS}
-        mock_blob_service = mock.MagicMock(autospec=BlobClient)
+        mock_azure_headers = {
+            "x-ms-encryption-scope": "test-scope",
+            "x-ms-tags": "some-tags",
+            "x-ms-blob-type": "some-type",
+        }
+        filtered_azure_headers = {
+            "x-ms-encryption-scope": "test-scope",
+            "x-ms-tags": "some-tags",
+        }
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
         ) as write_credentials_mock, mock.patch(
-            "azure.storage.blob.BlobClient.from_blob_url"
-        ) as mock_create_blob_client:
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_SAS_URI,
-                headers=MOCK_HEADERS,
+                headers=[
+                    ArtifactCredentialInfo.HttpHeader(name=header_name, value=header_value)
+                    for header_name, header_value in mock_azure_headers.items()
+                ],
             )
             write_credentials_response_proto = GetCredentialsForWrite.Response(
                 credentials=mock_credentials
             )
             write_credentials_mock.return_value = write_credentials_response_proto
-
-            mock_create_blob_client.return_value = mock_blob_service
-            mock_blob_service.stage_block.side_effect = None
-            mock_blob_service.commit_block_list.side_effect = None
-
+            request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            mock_create_blob_client.assert_called_with(
-                blob_url=MOCK_AZURE_SIGNED_URI, credential=None, headers=expected_headers
+            request_mock.assert_called_with(
+                "put",
+                MOCK_AZURE_SIGNED_URI + "?comp=blocklist",
+                ANY,
+                headers=filtered_azure_headers,
             )
-            mock_blob_service.stage_block.assert_called_with(ANY, ANY, headers=expected_headers)
-            mock_blob_service.commit_block_list.assert_called_with(ANY, headers=expected_headers)
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
@@ -271,9 +280,12 @@ class TestDatabricksArtifactRepository(object):
     ):
         mock_response = Response()
         mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
@@ -284,7 +296,7 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with(MOCK_AWS_SIGNED_URI, ANY, headers={})
+            request_mock.assert_called_with("put", MOCK_AWS_SIGNED_URI, ANY, headers={})
 
     @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
     def test_log_artifact_aws_with_headers(
@@ -293,9 +305,12 @@ class TestDatabricksArtifactRepository(object):
         expected_headers = {header.name: header.value for header in MOCK_HEADERS}
         mock_response = Response()
         mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI,
                 type=ArtifactCredentialType.AWS_PRESIGNED_URL,
@@ -308,12 +323,16 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with(MOCK_AWS_SIGNED_URI, ANY, headers=expected_headers)
+            request_mock.assert_called_with(
+                "put", MOCK_AWS_SIGNED_URI, ANY, headers=expected_headers
+            )
 
     def test_log_artifact_aws_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
@@ -332,9 +351,12 @@ class TestDatabricksArtifactRepository(object):
     ):
         mock_response = Response()
         mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
             )
@@ -345,7 +367,7 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with(MOCK_GCP_SIGNED_URL, ANY, headers={})
+            request_mock.assert_called_with("put", MOCK_GCP_SIGNED_URL, ANY, headers={})
 
     @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
     def test_log_artifact_gcp_with_headers(
@@ -354,9 +376,12 @@ class TestDatabricksArtifactRepository(object):
         expected_headers = {header.name: header.value for header in MOCK_HEADERS}
         mock_response = Response()
         mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL,
                 type=ArtifactCredentialType.GCP_SIGNED_URL,
@@ -369,12 +394,16 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with(MOCK_GCP_SIGNED_URL, ANY, headers=expected_headers)
+            request_mock.assert_called_with(
+                "put", MOCK_GCP_SIGNED_URL, ANY, headers=expected_headers
+            )
 
     def test_log_artifact_gcp_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
             )

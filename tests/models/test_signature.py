@@ -3,10 +3,10 @@ import numpy as np
 
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 
-def test_model_signature():
+def test_model_signature_with_colspec():
     signature1 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
         outputs=Schema(
@@ -36,6 +36,80 @@ def test_model_signature():
     as_json = json.dumps(signature5.to_dict())
     signature6 = ModelSignature.from_dict(json.loads(as_json))
     assert signature5 == signature6
+
+
+def test_model_signature_with_tensorspec():
+    signature1 = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10))]),
+    )
+    signature2 = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10))]),
+    )
+    # Single type mismatch
+    assert signature1 == signature2
+    signature3 = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
+        outputs=Schema([TensorSpec(np.dtype("int"), (-1, 10))]),
+    )
+    assert signature3 != signature1
+    # Name mismatch
+    signature4 = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), "misMatch")]),
+    )
+    assert signature3 != signature4
+    as_json = json.dumps(signature1.to_dict())
+    signature5 = ModelSignature.from_dict(json.loads(as_json))
+    assert signature1 == signature5
+
+    # Test with name
+    signature6 = ModelSignature(
+        inputs=Schema(
+            [
+                TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
+                TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
+            ]
+        ),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), name="outputs")]),
+    )
+    signature7 = ModelSignature(
+        inputs=Schema(
+            [
+                TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
+                TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
+            ]
+        ),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), name="outputs")]),
+    )
+    assert signature6 == signature7
+    assert signature1 != signature6
+
+    # Test w/o output
+    signature8 = ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]), outputs=None
+    )
+    as_json = json.dumps(signature8.to_dict())
+    signature9 = ModelSignature.from_dict(json.loads(as_json))
+    assert signature8 == signature9
+
+
+def test_model_signature_with_colspec_and_tensorspec():
+    signature1 = ModelSignature(inputs=Schema([ColSpec(DataType.double)]))
+    signature2 = ModelSignature(inputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]))
+    assert signature1 != signature2
+    assert signature2 != signature1
+
+    signature3 = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]),
+        outputs=Schema([TensorSpec(np.dtype("float"), (-1, 28, 28))]),
+    )
+    signature4 = ModelSignature(
+        inputs=Schema([ColSpec(DataType.double)]), outputs=Schema([ColSpec(DataType.double)]),
+    )
+    assert signature3 != signature4
+    assert signature4 != signature3
 
 
 def test_signature_inference_infers_input_and_output_as_expected():
