@@ -16,6 +16,14 @@ _logger = logging.getLogger(__name__)
 
 
 MLMODEL_FILE_NAME = "MLmodel"
+_LOG_MODEL_METADATA_WARNING_TEMPLATE = (
+    "Logging model metadata to the tracking server has failed, possibly due older "
+    "server version. The model artifacts have been logged successfully under %s. "
+    "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
+    "attempt to record model metadata to the  tracking store. If logging to a "
+    "mlflow server via REST, consider  upgrading the server version to MLflow "
+    "1.7.0 or above."
+)
 
 
 class Model(object):
@@ -178,15 +186,7 @@ class Model(object):
             except MlflowException:
                 # We need to swallow all mlflow exceptions to maintain backwards compatibility with
                 # older tracking servers. Only print out a warning for now.
-                _logger.warning(
-                    "Logging model metadata to the tracking server has failed, possibly due older "
-                    "server version. The model artifacts have been logged successfully under %s. "
-                    "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
-                    "attempt to record model metadata to the  tracking store. If logging to a "
-                    "mlflow server via REST, consider  upgrading the server version to MLflow "
-                    "1.7.0 or above.",
-                    mlflow.get_artifact_uri(),
-                )
+                _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
             if registered_model_name is not None:
                 run_id = mlflow.tracking.fluent.active_run().info.run_id
                 mlflow.register_model(
