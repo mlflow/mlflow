@@ -25,8 +25,8 @@ import mlflow
 import mlflow.keras
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, _LOG_MODEL_METADATA_WARNING_TEMPLATE
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
