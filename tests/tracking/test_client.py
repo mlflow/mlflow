@@ -3,6 +3,7 @@ from unittest import mock
 
 from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -17,6 +18,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
 )
 from mlflow.utils.uri import construct_run_url
+
 
 
 @pytest.fixture
@@ -297,7 +299,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     run_id = "runid"
     client = MlflowClient(tracking_uri="http://10.123.1231.11")
     mock_registry_store.create_model_version.return_value = ModelVersion(
-        "name", 1, 0, 1, source="source", run_id=run_id
+        "name", 1, 0, 1, source="source", run_id=run_id,
     )
     model_version = client.create_model_version("name", "source", "runid")
     assert model_version.name == "name"
