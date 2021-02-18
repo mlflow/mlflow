@@ -4,15 +4,19 @@ Changelog
 -------------------
 MLflow 1.14.0 includes several major features and improvements:
 
-Features:
+Support for tensor inputs using the TF serving format:
 
-- Add tensor input support for ONNX and gluon flavors (#4041, @tomasatdatabricks)
 - Add support for TF serving input to REST API (#3894, @wentinghu)
 - Add support for np array-based tensors for Keras, PyTorch and TensorFlow flavors (#3808, @wentinghu)
+- Add tensor input support for ONNX and gluon flavors (#4041, @tomasatdatabricks)
 - Add support for tensor-based model signatures in schema enforcement (#4084, @wentinghu)
 
+For more information, see https://mlflow.org/docs/latest/models.html#deploy-mlflow-models
+
+More features and improvements:
+
 - Add SHAP Explainer logging integration (#3989, @vivekchettiar)
-- Support skinny client package build (#4049, @eedeleon)
+- Enable skinny client package build & release (#4049, @eedeleon)
 - Update client to pass request headers created by all ``RequestHeaderProviders`` (#4042, @jimmyxu-db)
 - Use ``SavedModel`` format by default in ``mlflow.keras.log_model`` (#4043, @harupy)
 - Add support for MLeap in R (#3819, @yitao-li)
@@ -21,19 +25,18 @@ Features:
 
 Bug fixes and documentation updates:
 
-- Add monkey patching for old and new tf.Estimator classes (#4097, @mohamad-arabi)
+- Add monkey patching for old and new ``tf.Estimator`` classes (#4097, @mohamad-arabi)
 - Improve method to parse tf-serving json (#4099, @arjundc-db)
 - Fix for universal autolog configs overriding integration-specific configs (#4093, @dbczumar)
 - Allow ``infer_signature`` to read pandas ``ExtensionDtype`` (#4069, @caleboverman)
 - Fix missing client parameter in ``mlflow_restore_run`` (#4003, @yitao-li)
-- Fix bug where scoring on served model fails when request data contains string that looks  (#3921, @Secbone)
+- Fix bug where scoring on served model fails when request data contains string that looks like URL  (#3921, @Secbone)
 - Fix bug causing ``mlflow_list_experiments`` to fail when experiments contain tags (#3942, @lorenzwalthert)
-- Fix bug in scikit-learn autologging where metrics plots are computed from incorrect target values (#3993, @mtrencseni)
+- Fix bug where metrics plots are computed from incorrect target values in scikit-learn autologging (#3993, @mtrencseni)
 - Remove redundant / verbose python event logging message in autologging (#3978, @dbczumar)
 - Fix a bug with attributes of MLflow model flavor in R (#3872, @yitao-li)
 - Update documentation with support for tensor-input types (#4068, @wentinghu)
 - Fix persistence of Spark models on passthrough-enabled environments (#3443, @smurching)
-- Fix UI crashes / inconsistencies related to path normalization (#3928, @dbczumar)
 
 Small bug fixes and doc updates (#4102, #4101, #4096, #4091, #4067, #4059, #4016, #4054, #4052, #4051, #4038, #3992, #3990, #3981, #3949, #3948, #3937, #3834, #3906, #3774, #3916, #3907, #3938, #3929, #3900, #3902, #3899, #3901, #3891, #3889, @harupy; #4014, #4001, @dmatrix; #4028, #3957, @dbczumar; #3816, @lorenzwalthert; #3939, @pauldj54; #3740, @jkthompson; #4070, #3946, @jimmyxu-db; #3836, @t-henri; #3982, @neo-anderson; #3972, #3687, #3922, @eedeleon; #4044, @WeichenXu123; #4063, @yitao-li; #3976, @whiteh; #4110, @tomasatdatabricks; #4050, @apurva-koti; #4100, #4084, @wentinghu; #3947, @vperiyasamy; #4021, @trangevi; #3773, @ankan94; #4090, @jinzhang21; #3918, @danielfrg)
 
