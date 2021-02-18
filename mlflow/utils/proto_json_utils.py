@@ -99,14 +99,25 @@ def _dataframe_from_json(
     from mlflow.types import DataType
 
     if schema is not None:
-        dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+        if schema.is_tensor_spec():
+            # The schema can be either:
+            #  - a single tensor: attempt to parse all columns with the same dtype
+            #  - a dictionary of tensors: each column gets the type from an equally named tensor
+            if len(schema.inputs) == 1:
+                dtypes = schema.numpy_types()[0]
+            else:
+                dtypes = dict(zip(schema.input_names(), schema.numpy_types()))
+        else:
+            dtypes = dict(zip(schema.input_names(), schema.pandas_types()))
+
         df = pd.read_json(
             path_or_str, orient=pandas_orient, dtype=dtypes, precise_float=precise_float
         )
-        actual_cols = set(df.columns)
-        for type_, name in zip(schema.input_types(), schema.input_names()):
-            if type_ == DataType.binary and name in actual_cols:
-                df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
+        if not schema.is_tensor_spec():
+            actual_cols = set(df.columns)
+            for type_, name in zip(schema.input_types(), schema.input_names()):
+                if type_ == DataType.binary and name in actual_cols:
+                    df[name] = df[name].map(lambda x: base64.decodebytes(bytes(x, "utf8")))
         return df
     else:
         return pd.read_json(
@@ -160,8 +171,11 @@ def parse_tf_serving_input(inp_dict, schema=None):
                             type(input_data)
                         )
                     )
-                for col_name, tensor_spec in zip(schema.input_names(), schema.inputs):
-                    input_data[col_name] = np.array(input_data[col_name], dtype=tensor_spec.type)
+                type_dict = dict(zip(schema.input_names(), schema.numpy_types()))
+                for col_name in input_data.keys():
+                    input_data[col_name] = np.array(
+                        input_data[col_name], dtype=type_dict.get(col_name)
+                    )
             else:
                 if not isinstance(input_data, list):
                     raise MlflowException(
@@ -169,7 +183,7 @@ def parse_tf_serving_input(inp_dict, schema=None):
                         " model signature which expects a single n-dimensional array as input,"
                         " however, an input of type {0} was found.".format(type(input_data))
                     )
-                input_data = np.array(input_data, dtype=schema.inputs[0].type)
+                input_data = np.array(input_data, dtype=schema.numpy_types()[0])
         else:
             if isinstance(input_data, dict):
                 input_data = {k: np.array(v) for k, v in input_data.items()}
