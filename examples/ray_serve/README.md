@@ -10,13 +10,15 @@ Please follow the installation instructions for the Ray Serve deployment plugin:
 
 ## Instructions
 
-First, run `train_model.py`.  This trains and saves our classifier to the MLflow Model Registry and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
+First, navigate to the directory for this example, `/mlflow/examples/ray_serve/`.
+
+Second, run `python train_model.py`.  This trains and saves our classifier to the MLflow Model Registry and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
 ```
 MSE: 1.04
 Target names:  ['setosa' 'versicolor' 'virginica']
 ```
 
-Second, set the MLflow Tracking URI environment variable to the location where the Model Registry resides:
+Next, set the MLflow Tracking URI environment variable to the location where the Model Registry resides:
 
 `export MLFLOW_TRACKING_URI=sqlite:///mlruns.db`
 
@@ -32,9 +34,9 @@ Ray Serve is now running and ready to deploy MLflow models.  The MLflow Ray Serv
 
 Finally, we may deploy our model by creating an instance using the following command:
 
-`mlflow deployments create -t ray-serve -m iris_model --name iris:v1`
+`mlflow deployments create -t ray-serve -m models:/RayMLflowIntegration/1 --name iris:v1`
 
-The `-t` parameter here is the deployment target, which in our case is Ray Serve.  
+The `-t` parameter here is the deployment target, which in our case is Ray Serve.  The `-m` parameter is the Model URI, which consists of the model name and model version.
 
 We can now run a prediction on our deployed model as follows.  The file `input.json` contains a sample input containing the sepal length, sepal width, petal length, petal width of a sample flower.  Now we can get the prediction using the following command:
 

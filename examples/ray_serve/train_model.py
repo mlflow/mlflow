@@ -53,4 +53,3 @@ if __name__ == "__main__":
     mv = mlflow.register_model(model_uri, registered_model_name)
     print("Name: {}".format(mv.name))
     print("Version: {}".format(mv.version))
-
