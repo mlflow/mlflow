@@ -20,7 +20,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.uri import construct_run_url
 
 
-
 @pytest.fixture
 def mock_store():
     with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
@@ -350,7 +349,7 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
         )
 
 
-def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store,):
+def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
     experiment_id = "test-exp-id"
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
@@ -377,6 +376,23 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         mock_registry_store.create_model_version.assert_called_once_with(
             "name", "source", "runid", [], workspace_url, None
         )
+
+
+def test_create_model_version_non_ready_model(mock_registry_store):
+    run_id = "runid"
+    client = MlflowClient(tracking_uri="http://10.123.1231.11")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id=run_id,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
+    )
+    with pytest.raises(MlflowException) as exc:
+        client.create_model_version("name", "source")
+        assert "Failed to successfully create the model version" in exc.value
 
 
 def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
