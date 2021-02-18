@@ -573,7 +573,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None):
     if dfs_tmpdir_base is None:
         dfs_tmpdir_base = DFS_TMP
     dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
-    if databricks_utils.is_in_cluster():
+    if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(model_uri, dfs_tmpdir)
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
     return PipelineModel.load(model_uri)
