@@ -1,4 +1,4 @@
-name: Build wheel
+name: Test package build
 
 on:
   push:
@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        type: ["full", "skinny"]
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
@@ -19,6 +22,7 @@ jobs:
           python-version: "3.7"
 
       - name: Build UI
+        if: ${{ matrix.type == 'full' }}
         working-directory: mlflow/server/js
         env:
           # Prevent warnings (emitted from react-pdf) from being treated as errors
@@ -28,23 +32,39 @@ jobs:
           npm install
           npm run build
 
-      - name: Build wheel
+      - name: Install dependencies
+        run: |
+          pip install wheel twine
+
+      - name: Build distribution files
         id: build-wheel
         run: |
-          pip install wheel
-          python setup.py bdist_wheel
+          if [ "${{ matrix.type }}" = "skinny" ]; then
+            export MLFLOW_SKINNY="true"
+          fi
 
-          # set outputs
-          wheel_path=$(find dist -type f)
+          # Build distribution files
+          python setup.py sdist bdist_wheel
+
+          # List distribution files and check their file sizes
+          ls -lh dist
+
+          # Set step outputs
+          wheel_path=$(find dist -type f -name "*.whl")
           wheel_name=$(basename $wheel_path)
           wheel_size=$(stat -c %s $wheel_path)
           echo "::set-output name=wheel-path::${wheel_path}"
           echo "::set-output name=wheel-name::${wheel_name}"
           echo "::set-output name=wheel-size::${wheel_size}"
 
-      - name: Verify wheel can be installed
+      - name: Run twine check
+        run: |
+          twine check --strict ${{ steps.build-wheel.outputs.wheel-path }}
+
+      - name: Test installation
         run: |
           pip install ${{ steps.build-wheel.outputs.wheel-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Store wheel

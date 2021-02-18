@@ -16,6 +16,7 @@ import yaml
 import mlflow.onnx
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
@@ -24,7 +25,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-
 
 TEST_DIR = "tests"
 TEST_ONNX_RESOURCES_DIR = os.path.join(TEST_DIR, "resources", "onnx")
@@ -95,6 +95,70 @@ def onnx_model(model, sample_input, tmpdir):
 
 
 @pytest.fixture(scope="module")
+def multi_tensor_model(dataset):
+    class MyModel(nn.Module):
+        def __init__(self, n):
+            super(MyModel, self).__init__()
+            self.linear = torch.nn.Linear(n, 1)
+            self._train = True
+
+        def forward(self, sepal_features, petal_features):
+            if not self.training:
+                if isinstance(sepal_features, np.ndarray):
+                    sepal_features = torch.from_numpy(sepal_features)
+                if isinstance(petal_features, np.ndarray):
+                    petal_features = torch.from_numpy(petal_features)
+                with torch.no_grad():
+                    return self.linear(torch.cat((sepal_features, petal_features), dim=-1))
+            else:
+                return self.linear(torch.cat((sepal_features, petal_features), dim=-1))
+
+    model = MyModel(4)
+    model.train()
+    dataloader = DataLoader(dataset, batch_size=16, num_workers=1, shuffle=True, drop_last=False)
+    criterion = nn.MSELoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+    for _ in range(5):
+        for batch in dataloader:
+            optimizer.zero_grad()
+            y_pred = model(*torch.split(batch[0], 2, 1)).squeeze(dim=1)
+            loss = criterion(y_pred, batch[1])
+            loss.backward()
+            optimizer.step()
+    model.train(False)
+    return model
+
+
+@pytest.fixture(scope="module")
+def multi_tensor_model_prediction(multi_tensor_model, data):
+    x, _ = data
+    feeds = {
+        "sepal_features": x[x.columns[:2]].values.astype(np.float32),
+        "petal_features": x[x.columns[2:4]].values.astype(np.float32),
+    }
+    return multi_tensor_model(**feeds).numpy().flatten()
+
+
+@pytest.fixture
+def multi_tensor_onnx_model(multi_tensor_model, sample_input, tmpdir):
+    model_path = os.path.join(str(tmpdir), "multi_tensor_onnx")
+    _sample_input = torch.split(sample_input, 2, 1)
+    torch.onnx.export(
+        multi_tensor_model,
+        _sample_input,
+        model_path,  # where to save the model (can be a file or file-like object)
+        dynamic_axes={"sepal_features": [0], "petal_features": [0]},
+        export_params=True,
+        # store the trained parameter weights inside the model file
+        do_constant_folding=True,
+        # whether to execute constant folding for optimization
+        input_names=["sepal_features", "petal_features"],  # the model's input names
+        output_names=["target"],  # the model's output names
+    )
+    return onnx.load(model_path)
+
+
+@pytest.fixture(scope="module")
 def onnx_sklearn_model():
     """
     A scikit-learn model in ONNX format that is used to test the behavior
@@ -159,15 +223,6 @@ def onnx_custom_env(tmpdir):
         conda_env, additional_conda_deps=["pytest", "torch"], additional_pip_deps=["onnx"],
     )
     return conda_env
-
-
-@pytest.mark.large
-def test_cast_float64_to_float32():
-    df = pd.DataFrame([[1.0, 2.1], [True, False]], columns=["col1", "col2"])
-    df["col1"] = df["col1"].astype(np.float64)
-    df["col2"] = df["col2"].astype(np.bool)
-    df2 = mlflow.onnx._OnnxModelWrapper._cast_float64_to_float32(df, df.columns)
-    assert df2["col1"].dtype == np.float32 and df2["col2"].dtype == np.bool
 
 
 @pytest.mark.large
@@ -351,24 +406,53 @@ def test_log_model_no_registered_model_name(onnx_model, onnx_custom_env):
 def test_model_log_evaluate_pyfunc_format(onnx_model, data, predicted):
     x = data[0]
 
-    # should_start_run tests whether or not calling log_model() automatically starts a run.
-    for should_start_run in [False, True]:
-        try:
-            if should_start_run:
-                mlflow.start_run()
-            artifact_path = "onnx_model"
-            mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
-            model_uri = "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
+    with mlflow.start_run() as run:
+        artifact_path = "onnx_model"
+        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=run.info.run_id, artifact_path=artifact_path
+        )
 
-            # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
-            assert np.allclose(
-                pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
-            )
-        finally:
-            mlflow.end_run()
+        # Loading pyfunc model
+        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+        assert np.allclose(
+            pyfunc_loaded.predict(x).values.flatten(), predicted, rtol=1e-05, atol=1e-05
+        )
+        # test with a single numpy array
+        np_ary = x.values
+
+        # NB: Onnx wrapper returns a dictionary for non-dataframe inputs, we want to get the
+        # numpy array belonging to the first (and only) model output.
+        def get_ary_output(args):
+            return next(iter(pyfunc_loaded.predict(args).values())).flatten()
+
+        assert np.allclose(get_ary_output(np_ary), predicted, rtol=1e-05, atol=1e-05)
+        # test with a dict with a single tensor
+        assert np.allclose(get_ary_output({"input": np_ary}), predicted, rtol=1e-05, atol=1e-05)
+
+
+@pytest.mark.large
+def test_model_save_evaluate_pyfunc_format_multi_tensor(
+    multi_tensor_onnx_model, data, multi_tensor_model_prediction
+):
+    with TempDir(chdr=True):
+        path = "onnx_model"
+        mlflow.onnx.save_model(onnx_model=multi_tensor_onnx_model, path=path)
+        # Loading pyfunc model
+        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=path)
+        data, _ = data
+        # get prediction
+        feeds = {
+            "sepal_features": data[data.columns[:2]].values,
+            "petal_features": data[data.columns[2:4]].values.astype(np.float32),
+        }
+        preds = pyfunc_loaded.predict(feeds)["target"].flatten()
+        assert np.allclose(preds, multi_tensor_model_prediction, rtol=1e-05, atol=1e-05)
+        # single numpy array input should fail with the right error message:
+        with pytest.raises(
+            MlflowException, match="Unable to map numpy array input to the expected model " "input."
+        ):
+            pyfunc_loaded.predict(data.values)
 
 
 @pytest.mark.large

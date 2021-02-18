@@ -2,7 +2,8 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git@master
+      # This installs scikit-learn from the default branch
+      pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.20.3"
@@ -42,7 +43,8 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@master
+      # This installs pytorch-lightning from the default branch
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "1.0.5"
@@ -223,3 +225,16 @@ onnx:
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
+
+spacy:
+  package_info:
+    pip_release: "spacy"
+    install_dev: |
+      pip install spacy-nightly
+
+  models:
+    minimum: "2.2.4"
+    maximum: "3.0.0"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/spacy/test_spacy_model_export.py --large
