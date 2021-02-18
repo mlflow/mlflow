@@ -25,7 +25,7 @@ import mlflow
 import mlflow.keras
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -955,16 +955,11 @@ def autolog(
                     try:
                         client._record_logged_model(_AUTOLOG_RUN_ID, mlflow_model)
                     except MlflowException:
-                        # We need to swallow all mlflow exceptions to maintain backwards compatibility with
-                        # older tracking servers. Only print out a warning for now.
+                        # We need to swallow all mlflow exceptions to maintain backwards
+                        # compatibility with older tracking servers. Only print out a warning
+                        # for now.
                         _logger.warning(
-                            "Logging model metadata to the tracking server has failed, possibly due older "
-                            "server version. The model artifacts have been logged successfully under %s. "
-                            "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
-                            "attempt to record model metadata to the  tracking store. If logging to a "
-                            "mlflow server via REST, consider  upgrading the server version to MLflow "
-                            "1.7.0 or above.",
-                            get_artifact_uri(_AUTOLOG_RUN_ID),
+                            _LOG_MODEL_METADATA_WARNING_TEMPLATE, get_artifact_uri(_AUTOLOG_RUN_ID),
                         )
 
             try_mlflow_log(log_model_without_starting_new_run)
