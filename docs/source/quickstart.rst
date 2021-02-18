@@ -34,7 +34,7 @@ you may need to install extra libraries. For example, the ``mlflow.tensorflow`` 
 See https://github.com/mlflow/mlflow/blob/master/EXTRA_DEPENDENCIES.rst for more details
 
 MLflow skinny will also need installation of extra dependencies for certain MLflow modules and functionality. For example, 
-``mlflow.set_tracking_uri("sqlite://my.db")`` requires ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
+``mlflow.set_tracking_uri("sqlite:///my.db")`` requires ``pip install mlflow-skinny sqlalchemy alembic sqlparse``.
 
 At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
 can leverage MLflow in your daily workflow.
