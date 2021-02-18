@@ -30,10 +30,11 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking import MlflowClient
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.autologging_utils import (
@@ -926,39 +927,50 @@ def autolog(
         return result
 
     def export_saved_model(original, self, *args, **kwargs):
-        def create_autologging_run():
-            autologging_run = mlflow.start_run(tags={MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+        global _AUTOLOG_RUN_ID
+        if _AUTOLOG_RUN_ID:
             _logger.info(
-                "Created MLflow autologging run with ID '%s', which will store the TensorFlow"
-                " model in MLflow Model format",
-                autologging_run.info.run_id,
+                "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'", _AUTOLOG_RUN_ID
             )
 
-        auto_end = False
-        if not mlflow.active_run():
-            global _AUTOLOG_RUN_ID
-            if _AUTOLOG_RUN_ID:
-                _logger.info(
-                    "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'",
-                    _AUTOLOG_RUN_ID,
-                )
-                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
-            else:
-                try_mlflow_log(create_autologging_run)
-                auto_end = True
+            serialized = original(self, *args, **kwargs)
 
-        serialized = original(self, *args, **kwargs)
-        try_mlflow_log(
-            log_model,
-            tf_saved_model_dir=serialized.decode("utf-8"),
-            tf_meta_graph_tags=[tag_constants.SERVING],
-            tf_signature_def_key="predict",
-            artifact_path="model",
-        )
-        if (
-            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
-        ) or auto_end:
-            try_mlflow_log(mlflow.end_run)
+            def log_model_without_starting_new_run():
+                """
+                Performs the exact same operations as `log_model` without starting a new run
+                """
+                with TempDir() as tmp:
+                    artifact_path = "model"
+                    local_path = tmp.path("model")
+                    mlflow_model = Model(artifact_path=artifact_path, run_id=_AUTOLOG_RUN_ID)
+                    save_model_kwargs = dict(
+                        tf_saved_model_dir=serialized.decode("utf-8"),
+                        tf_meta_graph_tags=[tag_constants.SERVING],
+                        tf_signature_def_key="predict",
+                    )
+                    save_model(path=local_path, mlflow_model=mlflow_model, **save_model_kwargs)
+                    client = MlflowClient()
+                    client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
+
+                    try:
+                        client._record_logged_model(_AUTOLOG_RUN_ID, mlflow_model)
+                    except MlflowException:
+                        # We need to swallow all mlflow exceptions to maintain backwards compatibility with
+                        # older tracking servers. Only print out a warning for now.
+                        _logger.warning(
+                            "Logging model metadata to the tracking server has failed, possibly due older "
+                            "server version. The model artifacts have been logged successfully under %s. "
+                            "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
+                            "attempt to record model metadata to the  tracking store. If logging to a "
+                            "mlflow server via REST, consider  upgrading the server version to MLflow "
+                            "1.7.0 or above.",
+                            get_artifact_uri(_AUTOLOG_RUN_ID),
+                        )
+
+            try_mlflow_log(log_model_without_starting_new_run)
+
+            _AUTOLOG_RUN_ID = None
+
         return serialized
 
     @exception_safe_function
