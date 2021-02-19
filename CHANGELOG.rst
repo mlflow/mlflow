@@ -21,7 +21,7 @@ More features and improvements:
 - ``mlflow.keras.log_model`` now saves models in ``SavedModel`` format by default instead of XYZ (#4043, @harupy)
 - Add support for MLeap in R (#3819, @yitao-li)
 - Added ``mlflow.pytorch.log_state_dict``, ``mlflow.pytorch.load_state_dict`` for logging / loading PyTorch state dicts (#3705, @shrinath-suresh)
-- Implement ``delete_artifacts`` for ``S3ArtifactRepository``  (#3958, @sklingel)
+- `mlflow gc` can now garbage-collect artifacts stored in S3 (#3958, @sklingel)
 
 Bug fixes and documentation updates:
 
