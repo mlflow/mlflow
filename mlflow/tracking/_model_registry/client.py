@@ -216,8 +216,10 @@ class ModelRegistryClient(object):
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
             if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
                 raise MlflowException(
-                    "Failed to successfully create the model version. \
-                Please check that the source location of the model is correct."
+                    "Model version creation failed for model name: {} version: {} with status: {} \
+                    and message: {}".format(
+                        mv.name, mv.version, mv.status, mv.status_message
+                    )
                 )
         return mv
 

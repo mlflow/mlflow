@@ -392,7 +392,7 @@ def test_create_model_version_non_ready_model(mock_registry_store):
     )
     with pytest.raises(MlflowException) as exc:
         client.create_model_version("name", "source")
-        assert "Failed to successfully create the model version" in exc.value
+        assert "Model version creation failed for model name" in exc.value
 
 
 def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
