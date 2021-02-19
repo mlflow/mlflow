@@ -92,13 +92,13 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
 
 def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_without_validation):
-    _, run = pytorch_model_without_validation
-    data = run.data
-    client = mlflow.tracking.MlflowClient()
+    trainer, run = pytorch_model_without_validation
+    assert not trainer.enable_validation
 
+    client = mlflow.tracking.MlflowClient()
     for metric_key in ["loss", "train_acc"]:
-        assert metric_key in data.metrics
-        metric_history = client.get_metric_history(run.info.run_id, "loss")
+        assert metric_key in run.data.metrics
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
         assert len(metric_history) == NUM_EPOCHS
 
 
