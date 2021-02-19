@@ -15,7 +15,7 @@ For more information, see https://mlflow.org/docs/latest/models.html#deploy-mlfl
 
 More features and improvements:
 
-- Add SHAP Explainer logging integration (#3989, @vivekchettiar)
+- Added new `mlflow.shap.log_explainer`, `mlflow.shap.load_explainer` APIs for logging and loading shap.Explainer instances (#3989, @vivekchettiar)
 - Enable skinny client package build & release (#4049, @eedeleon)
 - Update client to pass request headers created by all ``RequestHeaderProviders`` (#4042, @jimmyxu-db)
 - Use ``SavedModel`` format by default in ``mlflow.keras.log_model`` (#4043, @harupy)
