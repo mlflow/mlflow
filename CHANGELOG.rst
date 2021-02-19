@@ -8,7 +8,7 @@ MLflow 1.14.0 includes several major features and improvements:
 - Add new ``mlflow.shap.log_explainer``, ``mlflow.shap.load_explainer`` APIs for logging and loading ``shap.Explainer`` instances (#3989, @vivekchettiar)
 - The MLflow Python client is now available with a reduced dependency set via the ``mlflow-skinny`` PyPI package (#4049, @eedeleon)
 - Add new ``RequestHeaderProvider`` plugin interface for passing custom request headers with REST API requests made by the MLflow Python client (#4042, @jimmyxu-db)
-- ``mlflow.keras.log_model`` now saves models in ``SavedModel`` format by default instead of XYZ (#4043, @harupy)
+- ``mlflow.keras.log_model`` now saves models in the TensorFlow SavedModel format by default instead of the older Keras H5 format (#4043, @harupy)
 - ``mlflow_log_model`` now supports logging MLeap models in R (#3819, @yitao-li)
 - Add ``mlflow.pytorch.log_state_dict``, ``mlflow.pytorch.load_state_dict`` for logging and loading PyTorch state dicts (#3705, @shrinath-suresh)
 - ``mlflow gc`` can now garbage-collect artifacts stored in S3 (#3958, @sklingel)
