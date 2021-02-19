@@ -120,10 +120,7 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                 :param trainer: pytorch lightning trainer instance
                 :param pl_module: pytorch lightning base module
                 """
-                # pytorch-lightning runs a few steps of validation in the beginning of training
-                # as a sanity check during which we should avoid logging metrics
-                if not trainer.running_sanity_check:
-                    self._log_metrics(trainer, pl_module)
+                self._log_metrics(trainer, pl_module)
 
             def on_train_start(self, trainer, pl_module):
                 """
