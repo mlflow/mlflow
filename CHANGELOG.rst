@@ -5,7 +5,7 @@ Changelog
 MLflow 1.14.0 includes several major features and improvements:
 
 - MLflow's model inference APIs (``mlflow.pyfunc.predict``), built-in model serving tools (``mlflow models serve``), and model signatures now support tensor inputs. In particular, MLflow now provides built-in support for scoring PyTorch, TensorFlow, Keras, ONNX, and Gluon models with tensor inputs. For more information, see https://mlflow.org/docs/latest/models.html#deploy-mlflow-models (#3808, #3894, #4084, #4068 @wentinghu; #4041 @tomasatdatabricks, #4099, @arjundc-db)
-- Add new `mlflow.shap.log_explainer`, `mlflow.shap.load_explainer` APIs for logging and loading ``shap.Explainer`` instances (#3989, @vivekchettiar)
+- Add new ``mlflow.shap.log_explainer``, ``mlflow.shap.load_explainer`` APIs for logging and loading ``shap.Explainer`` instances (#3989, @vivekchettiar)
 - The MLflow Python client is now available with a reduced dependency set via the ``mlflow-skinny`` PyPI package (#4049, @eedeleon)
 - Add new ``RequestHeaderProvider`` plugin interface for passing custom request headers with REST API requests made by the MLflow Python client (#4042, @jimmyxu-db)
 - ``mlflow.keras.log_model`` now saves models in ``SavedModel`` format by default instead of XYZ (#4043, @harupy)
@@ -18,8 +18,8 @@ Bug fixes and documentation updates:
 - Enable autologging for TensorFlow estimators that extend ``tensorflow.compat.v1.estimator.Estimator`` (#4097, @mohamad-arabi)
 - Fix for universal autolog configs overriding integration-specific configs (#4093, @dbczumar)
 - Allow ``mlflow.models.infer_signature`` to read pandas ``ExtensionDtype`` (#4069, @caleboverman)
-- Fix bug where ``mlflow_restore_run`` fails to pass the ``client`` parameter to ``mlflow_get_run`` (#4003, @yitao-li)
-- Fix bug where scoring on served model fails when request data contains string that looks like URL  (#3921, @Secbone)
+- Fix bug where ``mlflow_restore_run`` doesn't propagate the ``client`` parameter to ``mlflow_get_run`` (#4003, @yitao-li)
+- Fix bug where scoring on served model fails when request data contains a string that looks like URL and pandas version is later than 1.1.0 (#3921, @Secbone)
 - Fix bug causing ``mlflow_list_experiments`` to fail listing experiments with tags (#3942, @lorenzwalthert)
 - Fix bug where metrics plots are computed from incorrect target values in scikit-learn autologging (#3993, @mtrencseni)
 - Remove redundant / verbose Python event logging message in autologging (#3978, @dbczumar)
