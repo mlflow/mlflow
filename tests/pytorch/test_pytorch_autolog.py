@@ -78,7 +78,7 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
     # Checking if metrics are logged
     assert "loss" in data.metrics
-    assert "train_acc" in data.metrics
+    assert "val_loss" in data.metrics
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
