@@ -1,5 +1,6 @@
 import os
 import abc
+import importlib
 import inspect
 import itertools
 import functools
@@ -8,10 +9,13 @@ import logging
 import time
 import contextlib
 import uuid
+import yaml
 from collections import namedtuple
 from contextlib import contextmanager
 from abc import abstractmethod
+from distutils.version import LooseVersion
 from pathlib import Path
+from pkg_resources import resource_filename
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
@@ -306,6 +310,27 @@ def batch_metrics_logger(run_id):
     batch_metrics_logger.flush()
 
 
+def is_autologging_tested(name):
+    name_to_key_map = {
+        'fastai': 'fastai-1.x'
+    }
+    if name in name_to_key_map:
+        key = name_to_key_map[name]
+    else:
+        key = name
+
+    version_file_path = resource_filename(__name__, '../ml-package-versions.yml')
+    with open(version_file_path) as f:
+        result = yaml.load(f, Loader=yaml.SafeLoader)
+
+    min_version = result[key]['autologging']['minimum']
+    max_version = result[key]['autologging']['maximum']
+
+    pkg_ver = importlib.import_module(name).__version__
+
+    return LooseVersion(min_version) <= LooseVersion(pkg_ver) <= LooseVersion(max_version)
+
+
 def autologging_integration(name):
     """
     **All autologging integrations should be decorated with this wrapper.**
@@ -381,7 +406,15 @@ def autologging_is_disabled(flavor_name):
 
     :param flavor_name: An autologging integration flavor name.
     """
-    return get_autologging_config(flavor_name, "disable", True)
+    explicit_disabled = get_autologging_config(flavor_name, "disable", False)
+    if explicit_disabled:
+        return True
+
+    if get_autologging_config(flavor_name, "disable_for_untested_versions", False):
+        if not is_autologging_tested(flavor_name):
+            return True
+
+    return False
 
 
 def _is_testing():

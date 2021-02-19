@@ -301,6 +301,7 @@ def autolog(
     log_models=True,
     disable=False,
     exclusive=False,
+    disable_for_untested_versions=False
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -337,6 +338,7 @@ def autolog(
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_untested_versions: Disable for untested versions
     """
     import xgboost
     import numpy as np
