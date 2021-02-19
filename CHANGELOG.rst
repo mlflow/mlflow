@@ -18,7 +18,7 @@ More features and improvements:
 - Added new `mlflow.shap.log_explainer`, `mlflow.shap.load_explainer` APIs for logging and loading shap.Explainer instances (#3989, @vivekchettiar)
 - The MLflow Python client is now available with a reduced dependency set via the ``mlflow-skinny`` PyPI package (#4049, @eedeleon)
 - Update client to pass request headers created by all ``RequestHeaderProviders`` (#4042, @jimmyxu-db)
-- Use ``SavedModel`` format by default in ``mlflow.keras.log_model`` (#4043, @harupy)
+- ``mlflow.keras.log_model`` now saves models in ``SavedModel`` format by default instead of XYZ (#4043, @harupy)
 - Add support for MLeap in R (#3819, @yitao-li)
 - Add ``log_state_dict`` / ``load_state_dict`` for logging / loading PyTorch state dict (#3705, @shrinath-suresh)
 - Implement ``delete_artifacts`` for ``S3ArtifactRepository``  (#3958, @sklingel)
