@@ -311,20 +311,18 @@ def batch_metrics_logger(run_id):
 
 
 def is_autologging_tested(name):
-    name_to_key_map = {
-        'fastai': 'fastai-1.x'
-    }
+    name_to_key_map = {"fastai": "fastai-1.x"}
     if name in name_to_key_map:
         key = name_to_key_map[name]
     else:
         key = name
 
-    version_file_path = resource_filename(__name__, '../ml-package-versions.yml')
+    version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
     with open(version_file_path) as f:
         result = yaml.load(f, Loader=yaml.SafeLoader)
 
-    min_version = result[key]['autologging']['minimum']
-    max_version = result[key]['autologging']['maximum']
+    min_version = result[key]["autologging"]["minimum"]
+    max_version = result[key]["autologging"]["maximum"]
 
     pkg_ver = importlib.import_module(name).__version__
 

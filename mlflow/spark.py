@@ -682,8 +682,7 @@ class _PyFuncModelWrapper(object):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(disable=False,
-            disable_for_untested_versions=False):  # pylint: disable=unused-argument
+def autolog(disable=False, disable_for_untested_versions=False):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures logging of Spark datasource paths, versions
     (if applicable), and formats when they are read. This method is not threadsafe and assumes a

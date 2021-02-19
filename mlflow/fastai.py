@@ -380,8 +380,9 @@ def load_model(model_uri):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False, exclusive=False,
-            disable_for_untested_versions=False):  # pylint: disable=unused-argument
+def autolog(
+    log_models=True, disable=False, exclusive=False, disable_for_untested_versions=False
+):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
     Logs loss and any other metrics specified in the fit

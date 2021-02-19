@@ -571,8 +571,9 @@ def load_model(model_uri, **kwargs):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False, exclusive=False,
-            disable_for_untested_versions=False):  # pylint: disable=unused-argument
+def autolog(
+    log_models=True, disable=False, exclusive=False, disable_for_untested_versions=False
+):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables (or disables) and configures autologging from Keras to MLflow. Autologging captures

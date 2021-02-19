@@ -814,7 +814,10 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    every_n_iter=100, log_models=True, disable=False, exclusive=False,
+    every_n_iter=100,
+    log_models=True,
+    disable=False,
+    exclusive=False,
     disable_for_untested_versions=False,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611

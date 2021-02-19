@@ -28,7 +28,7 @@ alembic_files = [
     "../mlflow/store/db_migrations/alembic.ini",
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
-extra_files = ['../mlflow/ml-package-versions.yml']
+extra_files = ["../mlflow/ml-package-versions.yml"]
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
@@ -80,7 +80,7 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files + extra_files}
     if not _is_mlflow_skinny
-    else {extra_files},
+    else {"mlflow": extra_files},
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
