@@ -17,7 +17,7 @@ Bug fixes and documentation updates:
 
 - Enable autologging for TensorFlow estimators that extend ``tensorflow.compat.v1.estimator.Estimator`` (#4097, @mohamad-arabi)
 - Fix for universal autolog configs overriding integration-specific configs (#4093, @dbczumar)
-- Allow ``mlflow.models.infer_signature`` to read pandas ``ExtensionDtype`` (#4069, @caleboverman)
+- Allow ``mlflow.models.infer_signature`` to handle dataframes containing ``pandas.api.extensions.ExtensionDtype`` (#4069, @caleboverman)
 - Fix bug where ``mlflow_restore_run`` doesn't propagate the ``client`` parameter to ``mlflow_get_run`` (#4003, @yitao-li)
 - Fix bug where scoring on served model fails when request data contains a string that looks like URL and pandas version is later than 1.1.0 (#3921, @Secbone)
 - Fix bug causing ``mlflow_list_experiments`` to fail listing experiments with tags (#3942, @lorenzwalthert)
