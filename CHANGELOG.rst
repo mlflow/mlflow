@@ -4,7 +4,7 @@ Changelog
 -------------------
 MLflow 1.14.0 includes several major features and improvements:
 
-Support for tensor inputs using the TF serving format:
+- MLflow's model inference APIs  (`mlflow.pyfunc.predict`), built-in model serving tools (`mlflow models serve`), and model signatures now support tensor inputs. In particular, MLflow now provides built-in support for scoring PyTorch, TensorFlow, Keras, ONNX, and Gluon models with tensor inputs. For more information, see https://mlflow.org/docs/latest/models.html#deploy-mlflow-models (#3894 @wentinghu ...)
 
 - Add support for TF serving input to REST API (#3894, @wentinghu)
 - Add support for np array-based tensors for Keras, PyTorch and TensorFlow flavors (#3808, @wentinghu)
