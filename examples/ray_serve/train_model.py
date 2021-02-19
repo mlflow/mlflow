@@ -1,22 +1,9 @@
-import numpy as np
-from pathlib import Path
-
 import mlflow
-from mlflow.models import Model
 
 from sklearn.datasets import load_iris
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import mean_squared_error
 from sklearn.utils import shuffle
-
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-
-
-def print_model_info(m_uri, x):
-    loaded_model = mlflow.sklearn.load_model(m_uri)
-    res = loaded_model.predict(x)
-    print("model_uri: {}".format(m_uri))
-    print("model predictions: {}".format(res))
 
 
 if __name__ == "__main__":

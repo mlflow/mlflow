@@ -10,7 +10,7 @@ Please follow the installation instructions for the Ray Serve deployment plugin:
 
 ## Instructions
 
-First, navigate to the directory for this example, `/mlflow/examples/ray_serve/`.
+First, navigate to the directory for this example, `mlflow/examples/ray_serve/`.
 
 Second, run `python train_model.py`.  This trains and saves our classifier to the MLflow Model Registry and sets up automatic logging to MLflow.  It also prints the mean squared error and the target names, which are species of iris:
 ```
@@ -26,17 +26,17 @@ Now start a Ray cluster with the following command:
 
 `ray start --head`
 
-Next, start a long-running Ray Serve instance on our Ray cluster:
+Next, start a long-running Ray Serve instance on your Ray cluster:
 
 `serve start`
 
 Ray Serve is now running and ready to deploy MLflow models.  The MLflow Ray Serve plugin features both a Python API as well as a command-line interface. For this example, we'll use the command line interface.
 
-Finally, we may deploy our model by creating an instance using the following command:
+Finally, we can deploy our model by creating an instance using the following command:
 
 `mlflow deployments create -t ray-serve -m models:/RayMLflowIntegration/1 --name iris:v1`
 
-The `-t` parameter here is the deployment target, which in our case is Ray Serve.  The `-m` parameter is the Model URI, which consists of the model name and model version.
+The `-t` parameter here is the deployment target, which in our case is Ray Serve.  The `-m` parameter is the Model URI, which consists of the registered model name and version in the Model Registry.
 
 We can now run a prediction on our deployed model as follows.  The file `input.json` contains a sample input containing the sepal length, sepal width, petal length, petal width of a sample flower.  Now we can get the prediction using the following command:
 
