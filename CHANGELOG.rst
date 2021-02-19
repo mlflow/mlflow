@@ -23,8 +23,8 @@ Bug fixes and documentation updates:
 - Fix bug causing ``mlflow_list_experiments`` to fail listing experiments with tags (#3942, @lorenzwalthert)
 - Fix bug where metrics plots are computed from incorrect target values in scikit-learn autologging (#3993, @mtrencseni)
 - Remove redundant / verbose Python event logging message in autologging (#3978, @dbczumar)
-- Fix bug where ``mlflow_load_model`` doesn't load associated attributes of MLflow model flavor in R (#3872, @yitao-li)
-- Fixes ``mlflow.spark.log_model``, ``mlflow.spark.load_model`` APIs on passthrough-enabled environments against ACL'd artifact locations (#3443, @smurching)
+- Fix bug where ``mlflow_load_model`` doesn't load metadata associated to MLflow model flavor in R (#3872, @yitao-li)
+- Fix ``mlflow.spark.log_model``, ``mlflow.spark.load_model`` APIs on passthrough-enabled environments against ACL'd artifact locations (#3443, @smurching)
 
 Small bug fixes and doc updates (#4102, #4101, #4096, #4091, #4067, #4059, #4016, #4054, #4052, #4051, #4038, #3992, #3990, #3981, #3949, #3948, #3937, #3834, #3906, #3774, #3916, #3907, #3938, #3929, #3900, #3902, #3899, #3901, #3891, #3889, @harupy; #4014, #4001, @dmatrix; #4028, #3957, @dbczumar; #3816, @lorenzwalthert; #3939, @pauldj54; #3740, @jkthompson; #4070, #3946, @jimmyxu-db; #3836, @t-henri; #3982, @neo-anderson; #3972, #3687, #3922, @eedeleon; #4044, @WeichenXu123; #4063, @yitao-li; #3976, @whiteh; #4110, @tomasatdatabricks; #4050, @apurva-koti; #4100, #4084, @wentinghu; #3947, @vperiyasamy; #4021, @trangevi; #3773, @ankan94; #4090, @jinzhang21; #3918, @danielfrg)
 
