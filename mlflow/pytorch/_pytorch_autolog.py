@@ -110,7 +110,7 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                 """
                 # If validation loop is enabled (meaning `validation_step` is overridden),
                 # log metrics in `on_validaion_epoch_end` to avoid duplicate logging of metrics
-                if not trainer.enable_validation:
+                if trainer.disable_validation:
                     self._log_metrics(trainer, pl_module)
 
             def on_validation_epoch_end(self, trainer, pl_module):
