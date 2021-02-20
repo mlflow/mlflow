@@ -4,7 +4,6 @@ import mlflow.pytorch
 import os
 import shutil
 import tempfile
-from distutils.version import LooseVersion
 import pytorch_lightning as pl
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
