@@ -136,7 +136,7 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
                 Related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986
 
-                As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` isntead
+                As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
                 in pytorch-lightning >= 1.2.0.
 
                 :param trainer: pytorch lightning trainer instance
