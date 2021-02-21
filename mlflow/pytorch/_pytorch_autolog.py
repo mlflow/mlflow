@@ -87,9 +87,6 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
             def __init__(self):
                 self.early_stopping = False
-                self._is_pytorch_lightning_older_than_1_2_0 = LooseVersion(
-                    pl.__version__
-                ) < LooseVersion("1.2.0")
 
             def _log_metrics(self, trainer, pl_module):
                 if (pl_module.current_epoch + 1) % every_n_epoch == 0:
@@ -104,44 +101,44 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                     if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
                         self._early_stop_check(callback)
 
-            def on_train_epoch_end(self, trainer, pl_module, _):
-                """
-                Log loss and other metrics values after each train epoch
+            # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
+            # metrics records because `on_epoch_end` is called after both train and validation
+            # epochs (related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986)
+            # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
+            # in pytorch-lightning >= 1.2.0.
+            if LooseVersion(pl.__version__) >= LooseVersion("1.2.0"):
 
-                :param trainer: pytorch lightning trainer instance
-                :param pl_module: pytorch lightning base module
-                """
-                # If validation loop is enabled (meaning `validation_step` is overridden),
-                # log metrics in `on_validaion_epoch_end` to avoid duplicate logging of metrics
-                if not self._is_pytorch_lightning_older_than_1_2_0 and trainer.disable_validation:
+                def on_train_epoch_end(self, trainer, pl_module, _):
+                    """
+                    Log loss and other metrics values after each train epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    # If validation loop is enabled (meaning `validation_step` is overridden),
+                    # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
+                    # records twice
+                    if trainer.disable_validation:
+                        self._log_metrics(trainer, pl_module)
+
+                def on_validation_epoch_end(self, trainer, pl_module):
+                    """
+                    Log loss and other metrics values after each validation epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
                     self._log_metrics(trainer, pl_module)
 
-            def on_validation_epoch_end(self, trainer, pl_module):
-                """
-                Log loss and other metrics values after each validation epoch
+            else:
 
-                :param trainer: pytorch lightning trainer instance
-                :param pl_module: pytorch lightning base module
-                """
-                if not self._is_pytorch_lightning_older_than_1_2_0:
-                    self._log_metrics(trainer, pl_module)
+                def on_epoch_end(self, trainer, pl_module):
+                    """
+                    Log loss and other metrics values after each epoch
 
-            def on_epoch_end(self, trainer, pl_module):
-                """
-                Log loss and other metrics values after each epoch
-
-                In pytorch-lightning >= 1.2.0, this callback is called twice, once after train epoch
-                and once after validation epoch. This behavior produces duplicate metrics records.
-
-                Related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986
-
-                As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
-                in pytorch-lightning >= 1.2.0.
-
-                :param trainer: pytorch lightning trainer instance
-                :param pl_module: pytorch lightning base module
-                """
-                if self._is_pytorch_lightning_older_than_1_2_0:
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
                     self._log_metrics(trainer, pl_module)
 
             def on_train_start(self, trainer, pl_module):
