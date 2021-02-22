@@ -26,7 +26,7 @@ class ModelVersion(_ModelRegistryEntity):
         current_stage=None,
         source=None,
         run_id=None,
-        status=None,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.READY),
         status_message=None,
         tags=None,
         run_link=None,
