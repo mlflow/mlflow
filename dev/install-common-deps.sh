@@ -28,7 +28,8 @@ conda create -q -n test-environment python=3.6
 source activate test-environment
 
 python --version
-pip install --upgrade pip==19.3.1
+pip install --upgrade pip
+pip --version
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
   pip install . --upgrade
