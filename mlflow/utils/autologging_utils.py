@@ -13,7 +13,7 @@ import yaml
 from collections import namedtuple
 from contextlib import contextmanager
 from abc import abstractmethod
-from packaging.version import Version
+from distutils.version import LooseVersion
 from pathlib import Path
 from pkg_resources import resource_filename
 
@@ -317,7 +317,7 @@ def _check_autologging_tested(module_name, lib_key, version_file_json):
     pkg_ver = importlib.import_module(module_name).__version__
 
     def get_minor_version(v):
-        return Version(pkg_ver).release[:2]
+        return LooseVersion(v).version[:2]
 
     return get_minor_version(min_version) <= get_minor_version(pkg_ver) \
         <= get_minor_version(max_version)
