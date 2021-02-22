@@ -511,7 +511,6 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
                     try_mlflow_log(mlflow.log_param, "train_bn", self.train_bn)
 
                 summary = model_summary(self.learner)
-                try_mlflow_log(mlflow.set_tag, "model_summary", summary)
 
                 tempdir = tempfile.mkdtemp()
                 try:

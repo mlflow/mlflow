@@ -130,6 +130,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
                      Used only when ``run_id`` is unspecified.
     :param nested: Controls whether run is nested in parent run. ``True`` creates a nested run.
     :param tags: An optional dictionary of string keys and values to set as tags on the new run.
+                 If an existing run is being resumed, this argument is ignored.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
 

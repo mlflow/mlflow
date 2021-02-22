@@ -1,18 +1,21 @@
+import base64
 import json
 import numpy as np
+import pandas as pd
 import pytest
 
 from mlflow.entities import Experiment, Metric
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
-from mlflow.types import Schema, TensorSpec
+from mlflow.types import Schema, TensorSpec, ColSpec
 
 from mlflow.utils.proto_json_utils import (
     message_to_json,
     parse_dict,
     _stringify_all_experiment_ids,
     parse_tf_serving_input,
+    _dataframe_from_json,
 )
 
 
@@ -85,6 +88,7 @@ def test_parse_tf_serving_dictionary():
         assert result.keys() == expected_result.keys()
         for key in result:
             assert (result[key] == expected_result[key]).all()
+            assert result[key].dtype == expected_result[key].dtype
 
     # instances are correctly aggregated to dict of input name -> tensor
     tfserving_input = {
@@ -98,25 +102,29 @@ def test_parse_tf_serving_dictionary():
     result = parse_tf_serving_input(tfserving_input)
     expected_result_no_schema = {
         "a": np.array(["s1", "s2", "s3"]),
-        "b": np.array([1.1, 2.2, 3.3], dtype="float64"),
-        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int64"),
+        "b": np.array([1.1, 2.2, 3.3]),
+        "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]),
     }
     assert_result(result, expected_result_no_schema)
 
     # With schema
     schema = Schema(
         [
-            TensorSpec(np.dtype("object"), [-1], "a"),
+            TensorSpec(np.dtype("str"), [-1], "a"),
             TensorSpec(np.dtype("float32"), [-1], "b"),
             TensorSpec(np.dtype("int32"), [-1], "c"),
         ]
     )
+    dfSchema = Schema([ColSpec("string", "a"), ColSpec("float", "b"), ColSpec("integer", "c")])
     result = parse_tf_serving_input(tfserving_input, schema)
     expected_result_schema = {
-        "a": np.array(["s1", "s2", "s3"]),
+        "a": np.array(["s1", "s2", "s3"], dtype=np.dtype("str")),
         "b": np.array([1.1, 2.2, 3.3], dtype="float32"),
         "c": np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype="int32"),
     }
+    assert_result(result, expected_result_schema)
+    # With df Schema
+    result = parse_tf_serving_input(tfserving_input, dfSchema)
     assert_result(result, expected_result_schema)
 
     # input provided as a dict
@@ -133,6 +141,10 @@ def test_parse_tf_serving_dictionary():
 
     # With Schema
     result = parse_tf_serving_input(tfserving_input, schema)
+    assert_result(result, expected_result_schema)
+
+    # With df Schema
+    result = parse_tf_serving_input(tfserving_input, dfSchema)
     assert_result(result, expected_result_schema)
 
 
@@ -222,4 +234,86 @@ def test_parse_tf_serving_raises_expected_errors():
     assert (
         'Failed to parse data as TF serving input. "signature_name" is currently not supported'
         in str(ex)
+    )
+
+
+def test_dataframe_from_json():
+    source = pd.DataFrame(
+        {
+            "boolean": [True, False, True],
+            "string": ["a", "b", "c"],
+            "float": np.array([1.2, 2.3, 3.4], dtype=np.float32),
+            "double": np.array([1.2, 2.3, 3.4], dtype=np.float64),
+            "integer": np.array([3, 4, 5], dtype=np.int32),
+            "long": np.array([3, 4, 5], dtype=np.int64),
+            "binary": [bytes([1, 2, 3]), bytes([4, 5]), bytes([6])],
+        },
+        columns=["boolean", "string", "float", "double", "integer", "long", "binary"],
+    )
+
+    jsonable_df = pd.DataFrame(source, copy=True)
+    jsonable_df["binary"] = jsonable_df["binary"].map(base64.b64encode)
+    schema = Schema(
+        [
+            ColSpec("boolean", "boolean"),
+            ColSpec("string", "string"),
+            ColSpec("float", "float"),
+            ColSpec("double", "double"),
+            ColSpec("integer", "integer"),
+            ColSpec("long", "long"),
+            ColSpec("binary", "binary"),
+        ]
+    )
+    parsed = _dataframe_from_json(
+        jsonable_df.to_json(orient="split"), pandas_orient="split", schema=schema
+    )
+    assert parsed.equals(source)
+    parsed = _dataframe_from_json(
+        jsonable_df.to_json(orient="records"), pandas_orient="records", schema=schema
+    )
+    assert parsed.equals(source)
+    # try parsing with tensor schema
+    tensor_schema = Schema(
+        [
+            TensorSpec(np.dtype("bool"), [-1], "boolean"),
+            TensorSpec(np.dtype("str"), [-1], "string"),
+            TensorSpec(np.dtype("float32"), [-1], "float"),
+            TensorSpec(np.dtype("float64"), [-1], "double"),
+            TensorSpec(np.dtype("int32"), [-1], "integer"),
+            TensorSpec(np.dtype("int64"), [-1], "long"),
+            TensorSpec(np.dtype(bytes), [-1], "binary"),
+        ]
+    )
+    parsed = _dataframe_from_json(
+        jsonable_df.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
+    )
+
+    # NB: tensor schema does not automatically decode base64 encoded bytes.
+    assert parsed.equals(jsonable_df)
+    parsed = _dataframe_from_json(
+        jsonable_df.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
+    )
+
+    # NB: tensor schema does not automatically decode base64 encoded bytes.
+    assert parsed.equals(jsonable_df)
+
+    # Test parse with TesnorSchema with a single tensor
+    tensor_schema = Schema([TensorSpec(np.dtype("float32"), [-1, 3])])
+    source = pd.DataFrame(
+        {
+            "a": np.array([1, 2, 3], dtype=np.float32),
+            "b": np.array([4.1, 5.2, 6.3], dtype=np.float32),
+            "c": np.array([7, 8, 9], dtype=np.float32),
+        },
+        columns=["a", "b", "c"],
+    )
+    assert source.equals(
+        _dataframe_from_json(
+            source.to_json(orient="split"), pandas_orient="split", schema=tensor_schema
+        )
+    )
+    assert source.equals(
+        _dataframe_from_json(
+            source.to_json(orient="records"), pandas_orient="records", schema=tensor_schema
+        )
     )
