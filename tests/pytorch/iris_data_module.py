@@ -9,7 +9,7 @@ from sklearn.datasets import load_iris
 from torch.utils.data import DataLoader, random_split, TensorDataset
 
 
-class IrisDataModule(pl.LightningDataModule):
+class IrisDataModuleBase(pl.LightningDataModule):
     def __init__(self):
         super().__init__()
         self.columns = None
@@ -35,11 +35,21 @@ class IrisDataModule(pl.LightningDataModule):
         if stage == "test" or stage is None:
             self.train_set, self.test_set = random_split(self.train_set, [110, 20])
 
+
+class IrisDataModule(IrisDataModuleBase):
     def train_dataloader(self):
         return DataLoader(self.train_set, batch_size=4)
 
     def val_dataloader(self):
         return DataLoader(self.val_set, batch_size=4)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_set, batch_size=4)
+
+
+class IrisDataModuleWithoutValidation(IrisDataModuleBase):
+    def train_dataloader(self):
+        return DataLoader(self.train_set, batch_size=4)
 
     def test_dataloader(self):
         return DataLoader(self.test_set, batch_size=4)
