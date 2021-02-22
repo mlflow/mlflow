@@ -166,6 +166,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "regression.py"]),
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
+        ("shap", ["python", "explainer_logging.py"]),
     ],
 )
 def test_command_example(directory, command):
