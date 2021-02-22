@@ -13,7 +13,7 @@ import yaml
 from collections import namedtuple
 from contextlib import contextmanager
 from abc import abstractmethod
-from distutils.version import LooseVersion
+from packaging.version import Version
 from pathlib import Path
 from pkg_resources import resource_filename
 
@@ -310,23 +310,34 @@ def batch_metrics_logger(run_id):
     batch_metrics_logger.flush()
 
 
-def is_autologging_tested(name):
-    name_to_key_map = {"fastai": "fastai-1.x"}
-    if name in name_to_key_map:
-        key = name_to_key_map[name]
-    else:
-        key = name
+def _check_autologging_tested(module_name, lib_key, version_file_json):
+    min_version = version_file_json[lib_key]["autologging"]["minimum"]
+    max_version = version_file_json[lib_key]["autologging"]["maximum"]
 
+    pkg_ver = importlib.import_module(module_name).__version__
+
+    def get_minor_version(v):
+        return Version(pkg_ver).release[:2]
+
+    return get_minor_version(min_version) <= get_minor_version(pkg_ver) \
+        <= get_minor_version(max_version)
+
+
+def is_autologging_tested(flavor_name):
     version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
     with open(version_file_path) as f:
-        result = yaml.load(f, Loader=yaml.SafeLoader)
+        version_file_json = yaml.load(f, Loader=yaml.SafeLoader)
 
-    min_version = result[key]["autologging"]["minimum"]
-    max_version = result[key]["autologging"]["maximum"]
+    if flavor_name == 'pytorch':
+        return _check_autologging_tested('torch', 'pytorch', version_file_json) and \
+            _check_autologging_tested('pytorch_lightning', 'pytorch-lightning', version_file_json)
+    else:
+        module_name = flavor_name
+        lib_key = flavor_name
+        if flavor_name == 'fastai':
+            lib_key = 'fastai-1.x'
 
-    pkg_ver = importlib.import_module(name).__version__
-
-    return LooseVersion(min_version) <= LooseVersion(pkg_ver) <= LooseVersion(max_version)
+        return _check_autologging_tested(module_name, lib_key, version_file_json)
 
 
 def autologging_integration(name):
