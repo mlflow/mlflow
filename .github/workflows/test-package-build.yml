@@ -21,6 +21,11 @@ jobs:
         with:
           python-version: "3.7"
 
+      - name: Set environment variable for skinny client build
+        if: ${{ matrix.type == 'skinny' }}
+        run: |
+          echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
+
       - name: Build UI
         if: ${{ matrix.type == 'full' }}
         working-directory: mlflow/server/js
@@ -37,12 +42,8 @@ jobs:
           pip install wheel twine
 
       - name: Build distribution files
-        id: build-wheel
+        id: build-dist
         run: |
-          if [ "${{ matrix.type }}" = "skinny" ]; then
-            export MLFLOW_SKINNY="true"
-          fi
-
           # Build distribution files
           python setup.py sdist bdist_wheel
 
@@ -50,20 +51,27 @@ jobs:
           ls -lh dist
 
           # Set step outputs
+          sdist_path=$(find dist -type f -name "*.tar.gz")
           wheel_path=$(find dist -type f -name "*.whl")
           wheel_name=$(basename $wheel_path)
           wheel_size=$(stat -c %s $wheel_path)
+          echo "::set-output name=sdist-path::${sdist_path}"
           echo "::set-output name=wheel-path::${wheel_path}"
           echo "::set-output name=wheel-name::${wheel_name}"
           echo "::set-output name=wheel-size::${wheel_size}"
 
       - name: Run twine check
         run: |
-          twine check --strict ${{ steps.build-wheel.outputs.wheel-path }}
+          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
 
-      - name: Test installation
+      - name: Test installation from tarball
         run: |
-          pip install ${{ steps.build-wheel.outputs.wheel-path }}
+          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+
+      - name: Test installation from wheel
+        run: |
+          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
           python -c "import mlflow; print(mlflow.__version__)"
 
       # Anyone with read access can download the uploaded wheel on GitHub.
@@ -71,14 +79,14 @@ jobs:
         uses: actions/upload-artifact@v2
         if: github.event_name == 'push'
         with:
-          name: ${{ steps.build-wheel.outputs.wheel-name }}
-          path: ${{ steps.build-wheel.outputs.wheel-path }}
+          name: ${{ steps.build-dist.outputs.wheel-name }}
+          path: ${{ steps.build-dist.outputs.wheel-path }}
 
       - name: Remove old wheels
         uses: actions/github-script@v3
         if: github.event_name == 'push'
         env:
-          WHEEL_SIZE: ${{ steps.build-wheel.outputs.wheel-size }}
+          WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
