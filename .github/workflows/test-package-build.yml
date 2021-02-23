@@ -71,7 +71,7 @@ jobs:
 
       - name: Test installation from wheel
         run: |
-          pip install ${{ steps.build-wheel.outputs.wheel-path }}
+          pip install --force-reinstall ${{ steps.build-wheel.outputs.wheel-path }}
           python -c "import mlflow; print(mlflow.__version__)"
 
       # Anyone with read access can download the uploaded wheel on GitHub.
