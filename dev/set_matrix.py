@@ -397,7 +397,7 @@ def expand_config(config):
             versions = filter_versions(
                 all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
             )
-            versions = select_latest_micro_versions(versions)
+            # versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
             if cfg["minimum"] not in versions:
