@@ -120,7 +120,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
 @pytest.mark.large

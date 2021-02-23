@@ -56,16 +56,12 @@ def get_default_conda_env(include_cloudpickle=False):
     """
     import sklearn
 
-    pip_deps = None
+    pip_deps = ["scikit-learn=={}".format(sklearn.__version__)]
     if include_cloudpickle:
         import cloudpickle
 
-        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
-    return _mlflow_conda_env(
-        additional_conda_deps=["scikit-learn={}".format(sklearn.__version__)],
-        additional_pip_deps=pip_deps,
-        additional_conda_channels=None,
-    )
+        pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
+    return _mlflow_conda_env(additional_pip_deps=pip_deps, additional_conda_channels=None)
 
 
 def save_model(
@@ -817,7 +813,7 @@ def autolog(
             try:
                 score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
                 training_score = estimator.score(*score_args)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 msg = (
                     estimator.score.__qualname__
                     + " failed. The 'training_score' metric will not be recorded. Scoring error: "
@@ -898,7 +894,7 @@ def autolog(
                         parent_run=mlflow.active_run(),
                         child_tags=child_tags,
                     )
-                except Exception as e:  # pylint: disable=broad-except
+                except Exception as e:
 
                     msg = (
                         "Encountered exception during creation of child runs for parameter search."
@@ -911,7 +907,7 @@ def autolog(
                     _log_parameter_search_results_as_artifact(
                         cv_results_df, mlflow.active_run().info.run_id
                     )
-                except Exception as e:  # pylint: disable=broad-except
+                except Exception as e:
 
                     msg = (
                         "Failed to log parameter search results as an artifact."

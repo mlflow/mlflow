@@ -84,9 +84,13 @@ def train_model(model, data):
             optimizer.step()
 
 
+def get_sequential_model():
+    return nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1))
+
+
 @pytest.fixture
 def sequential_model(data, scripted_model):
-    model = nn.Sequential(nn.Linear(4, 3), nn.ReLU(), nn.Linear(3, 1),)
+    model = get_sequential_model()
     if scripted_model:
         model = torch.jit.script(model)
 
@@ -308,6 +312,37 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
     np.testing.assert_array_almost_equal(
         pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4
     )
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_pyfunc_model_works_with_np_input_type(
+    sequential_model, model_path, data, sequential_predicted
+):
+    mlflow.pytorch.save_model(sequential_model, model_path)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+
+    # predict works with dataframes
+    df_result = pyfunc_loaded.predict(data[0])
+    assert type(df_result) == pd.DataFrame
+    np.testing.assert_array_almost_equal(df_result.values[:, 0], sequential_predicted, decimal=4)
+
+    # predict works with numpy ndarray
+    np_result = pyfunc_loaded.predict(data[0].values.astype(np.float32))
+    assert type(np_result) == np.ndarray
+    np.testing.assert_array_almost_equal(np_result[:, 0], sequential_predicted, decimal=4)
+
+    # predict does not work with lists
+    with pytest.raises(TypeError) as exc_info:
+        pyfunc_loaded.predict([1, 2, 3, 4])
+    assert "The PyTorch flavor does not support List or Dict input types" in str(exc_info)
+
+    # predict does not work with scalars
+    with pytest.raises(TypeError) as exc_info:
+        pyfunc_loaded.predict(4)
+    assert "Input data should be pandas.DataFrame or numpy.ndarray" in str(exc_info)
 
 
 @pytest.mark.large
@@ -751,9 +786,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
 
     mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.Unpickler
 
-    pickle_call_results = {
-        "mlflow_torch_pickle_load_called": False,
-    }
+    pickle_call_results = {"mlflow_torch_pickle_load_called": False}
 
     def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
         pickle_call_results["mlflow_torch_pickle_load_called"] = True
@@ -876,7 +909,7 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
     with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file,
+            pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file
         )
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
@@ -1001,3 +1034,86 @@ def test_log_model_invalid_extra_file_type(sequential_model):
             conda_env=None,
             extra_files="inexistent_file.txt",
         )
+
+
+def state_dict_equal(state_dict1, state_dict2):
+    for key1 in state_dict1:
+        if key1 not in state_dict2:
+            return False
+
+        value1 = state_dict1[key1]
+        value2 = state_dict2[key1]
+
+        if type(value1) != type(value2):
+            return False
+        elif isinstance(value1, dict):
+            if not state_dict_equal(value1, value2):
+                return False
+        elif isinstance(value1, torch.Tensor):
+            if not torch.equal(value1, value2):
+                return False
+        elif value1 != value2:
+            return False
+        else:
+            continue
+
+    return True
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_save_state_dict(sequential_model, model_path, data):
+    state_dict = sequential_model.state_dict()
+    mlflow.pytorch.save_state_dict(state_dict, model_path)
+
+    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
+    assert state_dict_equal(loaded_state_dict, state_dict)
+    model = get_sequential_model()
+    model.load_state_dict(loaded_state_dict)
+    np.testing.assert_array_almost_equal(
+        _predict(model, data), _predict(sequential_model, data), decimal=4,
+    )
+
+
+@pytest.mark.large
+def test_save_state_dict_can_save_nested_state_dict(model_path):
+    """
+    This test ensures that `save_state_dict` supports a use case described in the page below
+    where a user bundles multiple objects (e.g., model, optimizer, learning-rate scheduler)
+    into a single nested state_dict and loads it back later for inference or re-training:
+    https://pytorch.org/tutorials/recipes/recipes/saving_and_loading_a_general_checkpoint.html
+    """
+    model = get_sequential_model()
+    optim = torch.optim.Adam(model.parameters())
+    state_dict = {"model": model.state_dict(), "optim": optim.state_dict()}
+    mlflow.pytorch.save_state_dict(state_dict, model_path)
+
+    loaded_state_dict = mlflow.pytorch.load_state_dict(model_path)
+    assert state_dict_equal(loaded_state_dict, state_dict)
+    model.load_state_dict(loaded_state_dict["model"])
+    optim.load_state_dict(loaded_state_dict["optim"])
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
+def test_save_state_dict_throws_for_invalid_object_type(not_state_dict, model_path):
+    with pytest.raises(TypeError, match="Invalid object type for `state_dict`"):
+        mlflow.pytorch.save_state_dict(not_state_dict, model_path)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_log_state_dict(sequential_model, data):
+    artifact_path = "model"
+    state_dict = sequential_model.state_dict()
+    with mlflow.start_run():
+        mlflow.pytorch.log_state_dict(state_dict, artifact_path)
+        state_dict_uri = mlflow.get_artifact_uri(artifact_path)
+
+    loaded_state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
+    assert state_dict_equal(loaded_state_dict, state_dict)
+    model = get_sequential_model()
+    model.load_state_dict(loaded_state_dict)
+    np.testing.assert_array_almost_equal(
+        _predict(model, data), _predict(sequential_model, data), decimal=4,
+    )

@@ -59,6 +59,6 @@ net.hybridize()
 trainer = Trainer(net.collect_params(), "sgd", {"learning_rate": 0.1})
 
 est = estimator.Estimator(
-    net=net, loss=SoftmaxCrossEntropyLoss(), metrics=Accuracy(), trainer=trainer
+    net=net, loss=SoftmaxCrossEntropyLoss(), train_metrics=Accuracy(), trainer=trainer
 )
 est.fit(train_data=train_data, epochs=2, val_data=valid_data)

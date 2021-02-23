@@ -57,6 +57,14 @@ def replace_mlflow_with_dev_version(yml_path):
 
 
 @pytest.fixture(scope="function", autouse=True)
+def clean_envs_and_cache():
+    yield
+
+    if get_free_disk_space() < 7.0:  # unit: GiB
+        process.exec_cmd(["./dev/remove-conda-envs.sh"])
+
+
+@pytest.fixture(scope="function", autouse=True)
 def report_free_disk_space(capsys):
     yield
 
@@ -94,7 +102,7 @@ def report_free_disk_space(capsys):
         (os.path.join("pytorch", "MNIST/example2"), ["-P", "max_epochs=1"]),
         (
             os.path.join("pytorch", "BertNewsClassification"),
-            ["-P", "max_epochs=1", "-P", "num_samples=100"],
+            ["-P", "max_epochs=1", "-P", "num_samples=100", "-P", "dataset=20newsgroups"],
         ),
     ],
 )
@@ -158,6 +166,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "regression.py"]),
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
+        ("shap", ["python", "explainer_logging.py"]),
     ],
 )
 def test_command_example(directory, command):

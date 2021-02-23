@@ -44,6 +44,12 @@ Integrations
 - [ ] `integrations/sagemaker`: SageMaker integrations
 - [ ] `integrations/databricks`: Databricks integrations
 
+<!--
+Insert an empty named anchor here to allow jumping to this section with a fragment URL
+(e.g. https://github.com/mlflow/mlflow/pull/123#user-content-release-note-category).
+Note that GitHub prefixes anchor names in markdown with "user-content-".
+-->
+<a name="release-note-category"></a>
 ### How should the PR be classified in the release notes? Choose one:
 
 - [ ] `rn/breaking-change` - The PR will be mentioned in the "Breaking Changes" section

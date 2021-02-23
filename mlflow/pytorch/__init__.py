@@ -39,6 +39,7 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
+_TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
@@ -166,9 +167,10 @@ def log_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
 
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
@@ -360,9 +362,10 @@ def save_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
 
     :param requirements_file: A string containing the path to requirements file. Remote URIs
                       are resolved to absolute filesystem paths.
@@ -588,7 +591,7 @@ def _load_model(path, **kwargs):
         try:
             # load the model as an eager model.
             return torch.load(model_path, **kwargs)
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             # If fails, assume the model as a scripted model
             return torch.jit.load(model_path)
 
@@ -695,21 +698,134 @@ class _PyTorchWrapper(object):
     def predict(self, data, device="cpu"):
         import torch
 
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError("Input data should be pandas.DataFrame")
+        if isinstance(data, pd.DataFrame):
+            inp_data = data.values.astype(np.float32)
+        elif isinstance(data, np.ndarray):
+            inp_data = data
+        elif isinstance(data, (list, dict)):
+            raise TypeError(
+                "The PyTorch flavor does not support List or Dict input types. "
+                "Please use a pandas.DataFrame or a numpy.ndarray"
+            )
+        else:
+            raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
+
         self.pytorch_model.to(device)
         self.pytorch_model.eval()
         with torch.no_grad():
-            input_tensor = torch.from_numpy(data.values.astype(np.float32)).to(device)
+            input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
                     "but got output of type '{}'".format(type(preds))
                 )
-            predicted = pd.DataFrame(preds.numpy())
-            predicted.index = data.index
+            if isinstance(data, pd.DataFrame):
+                predicted = pd.DataFrame(preds.numpy())
+                predicted.index = data.index
+            else:
+                predicted = preds.numpy()
             return predicted
+
+
+@experimental
+def log_state_dict(state_dict, artifact_path, **kwargs):
+    """
+    Log a state_dict as an MLflow artifact for the current run.
+
+    .. warning::
+        This function just logs a state_dict as an artifact and doesn't generate
+        an :ref:`MLflow Model <models>`.
+
+    :param state_dict: state_dict to be saved.
+    :param artifact_path: Run-relative artifact path.
+    :param kwargs: kwargs to pass to ``torch.save``.
+
+    .. code-block:: python
+        :caption: Example
+
+        # Log a model as a state_dict
+        with mlflow.start_run():
+            state_dict = model.state_dict()
+            mlflow.pytorch.log_state_dict(state_dict, artifact_path="model")
+
+        # Log a checkpoint as a state_dict
+        with mlflow.start_run():
+            state_dict = {
+                "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "epoch": epoch,
+                "loss": loss,
+            }
+            mlflow.pytorch.log_state_dict(state_dict, artifact_path="checkpoint")
+    """
+
+    with TempDir() as tmp:
+        local_path = tmp.path()
+        save_state_dict(state_dict=state_dict, path=local_path, **kwargs)
+        mlflow.log_artifacts(local_path, artifact_path)
+
+
+@experimental
+def save_state_dict(state_dict, path, **kwargs):
+    """
+    Save a state_dict to a path on the local file system
+
+    :param state_dict: state_dict to be saved.
+    :param path: Local path where the state_dict is to be saved.
+    :param kwargs: kwargs to pass to ``torch.save``.
+    """
+    import torch
+
+    # The object type check here aims to prevent a scenario where a user accidentally passees
+    # a model instead of a state_dict and `torch.save` (which accepts both model and state_dict)
+    # successfully completes, leaving the user unaware of the mistake.
+    if not isinstance(state_dict, dict):
+        raise TypeError(
+            "Invalid object type for `state_dict`: {}. Must be an instance of `dict`".format(
+                type(state_dict)
+            )
+        )
+
+    os.makedirs(path, exist_ok=True)
+    state_dict_path = os.path.join(path, _TORCH_STATE_DICT_FILE_NAME)
+    torch.save(state_dict, state_dict_path, **kwargs)
+
+
+@experimental
+def load_state_dict(state_dict_uri, **kwargs):
+    """
+    Load a state_dict from a local file or a run.
+
+    :param state_dict_uri: The location, in URI format, of the state_dict, for example:
+
+                    - ``/Users/me/path/to/local/state_dict``
+                    - ``relative/path/to/local/state_dict``
+                    - ``s3://my_bucket/path/to/state_dict``
+                    - ``runs:/<mlflow_run_id>/run-relative/path/to/state_dict``
+
+                    For more information about supported URI schemes, see
+                    `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                    artifact-locations>`_.
+
+    :param kwargs: kwargs to pass to ``torch.load``.
+    :return: A state_dict
+
+    .. code-block:: python
+        :caption: Example
+
+        with mlflow.start_run():
+            artifact_path = "model"
+            mlflow.pytorch.log_state_dict(model.state_dict(), artifact_path)
+            state_dict_uri = mlflow.get_artifact_uri(artifact_path)
+
+        state_dict = mlflow.pytorch.load_state_dict(state_dict_uri)
+    """
+    import torch
+
+    local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
+    state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
+    return torch.load(state_dict_path, **kwargs)
 
 
 @experimental

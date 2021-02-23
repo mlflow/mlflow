@@ -40,3 +40,16 @@ def get_unique_resource_id(max_length=None):
     if max_length is not None:
         unique_id = unique_id[: int(max_length)]
     return unique_id
+
+
+def reraise(tp, value, tb=None):
+    # Taken from: https://github.com/benjaminp/six/blob/1.15.0/six.py#L694-L700
+    try:
+        if value is None:
+            value = tp()
+        if value.__traceback__ is not tb:
+            raise value.with_traceback(tb)
+        raise value
+    finally:
+        value = None
+        tb = None

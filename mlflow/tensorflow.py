@@ -19,22 +19,23 @@ import tempfile
 from collections import namedtuple
 import pandas
 from distutils.version import LooseVersion
+from threading import RLock
 
 import mlflow
 import mlflow.keras
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.model import MLMODEL_FILE_NAME, _LOG_MODEL_METADATA_WARNING_TEMPLATE
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking import MlflowClient
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import _copy_file_or_tree
+from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -57,6 +58,7 @@ _MAX_METRIC_QUEUE_SIZE = 500
 
 _LOG_EVERY_N_STEPS = 100
 
+_metric_queue_lock = RLock()
 _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -154,9 +156,10 @@ def log_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -236,9 +239,10 @@ def save_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
 
     """
     _logger.info(
@@ -520,16 +524,28 @@ class _TFWrapper(object):
             for sigdef_output, tnsr_info in signature_def.outputs.items()
         }
 
-    def predict(self, df):
+    def predict(self, data):
         with self.tf_graph.as_default():
-            # Build the feed dict, mapping input tensors to DataFrame column values.
-            feed_dict = {
-                self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
-                for tensor_column_name in self.input_tensor_mapping.keys()
-            }
+            feed_dict = data
+            if isinstance(data, dict):
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name]
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
+            elif isinstance(data, pandas.DataFrame):
+                # Build the feed dict, mapping input tensors to DataFrame column values.
+                feed_dict = {
+                    self.input_tensor_mapping[tensor_column_name]: data[tensor_column_name].values
+                    for tensor_column_name in self.input_tensor_mapping.keys()
+                }
+            else:
+                raise TypeError("Only dict and DataFrame input types are supported")
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
-            return pandas.DataFrame(data=pred_dict)
+            if isinstance(data, pandas.DataFrame):
+                return pandas.DataFrame(data=pred_dict)
+            else:
+                return pred_dict
 
 
 class _TF2Wrapper(object):
@@ -544,19 +560,25 @@ class _TF2Wrapper(object):
         """
         self.infer = infer
 
-    def predict(self, df):
+    def predict(self, data):
         import tensorflow
 
         feed_dict = {}
-        for df_col_name in list(df):
-            # If there are multiple columns with the same name, selecting the shared name
-            # from the DataFrame will result in another DataFrame containing the columns
-            # with the shared name. TensorFlow cannot make eager tensors out of pandas
-            # DataFrames, so we convert the DataFrame to a numpy array here.
-            val = df[df_col_name]
-            if isinstance(val, pandas.DataFrame):
-                val = val.values
-            feed_dict[df_col_name] = tensorflow.constant(val)
+        if isinstance(data, dict):
+            feed_dict = {k: tensorflow.constant(v) for k, v in data.items()}
+        elif isinstance(data, pandas.DataFrame):
+            for df_col_name in list(data):
+                # If there are multiple columns with the same name, selecting the shared name
+                # from the DataFrame will result in another DataFrame containing the columns
+                # with the shared name. TensorFlow cannot make eager tensors out of pandas
+                # DataFrames, so we convert the DataFrame to a numpy array here.
+                val = data[df_col_name]
+                if isinstance(val, pandas.DataFrame):
+                    val = val.values
+                feed_dict[df_col_name] = tensorflow.constant(val)
+        else:
+            raise TypeError("Only dict and DataFrame input types are supported")
+
         raw_preds = self.infer(**feed_dict)
         pred_dict = {col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()}
         for col in pred_dict.keys():
@@ -565,7 +587,10 @@ class _TF2Wrapper(object):
             else:
                 pred_dict[col] = pred_dict[col].tolist()
 
-        return pandas.DataFrame.from_dict(data=pred_dict)
+        if isinstance(data, dict):
+            return pred_dict
+        else:
+            return pandas.DataFrame.from_dict(data=pred_dict)
 
 
 def _log_artifacts_with_warning(**kwargs):
@@ -587,12 +612,22 @@ def _flush_queue():
     Flush the metric queue and log contents in batches to MLflow.
     Queue is divided into batches according to run id.
     """
-    global _metric_queue
-    client = mlflow.tracking.MlflowClient()
-    dic = _assoc_list_to_map(_metric_queue)
-    for key in dic:
-        try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
-    _metric_queue = []
+    try:
+        # Multiple queue flushes may be scheduled simultaneously on different threads
+        # (e.g., if the queue is at its flush threshold and several more items
+        # are added before a flush occurs). For correctness and efficiency, only one such
+        # flush operation should proceed; all others are redundant and should be dropped
+        acquired_lock = _metric_queue_lock.acquire(blocking=False)
+        if acquired_lock:
+            global _metric_queue
+            client = mlflow.tracking.MlflowClient()
+            dic = _assoc_list_to_map(_metric_queue)
+            for key in dic:
+                try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
+            _metric_queue = []
+    finally:
+        if acquired_lock:
+            _metric_queue_lock.release()
 
 
 def _add_to_queue(key, value, step, time, run_id):
@@ -603,7 +638,7 @@ def _add_to_queue(key, value, step, time, run_id):
     met = Metric(key=key, value=value, timestamp=time, step=step)
     _metric_queue.append((run_id, met))
     if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        _flush_queue()
+        _thread_pool.submit(_flush_queue)
 
 
 def _log_event(event):
@@ -619,8 +654,7 @@ def _log_event(event):
                 # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
                 # which provides metric logging hooks for tf.Keras
                 if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(
-                        _add_to_queue,
+                    _add_to_queue(
                         key=v.tag,
                         value=v.simple_value,
                         step=event.step,
@@ -865,9 +899,8 @@ def autolog(
 
     def train(original, self, *args, **kwargs):
         active_run = mlflow.active_run()
-        if MLFLOW_AUTOLOGGING in active_run.data.tags:
-            global _AUTOLOG_RUN_ID
-            _AUTOLOG_RUN_ID = active_run.info.run_id
+        global _AUTOLOG_RUN_ID
+        _AUTOLOG_RUN_ID = active_run.info.run_id
 
         # Checking step and max_step parameters for logging
         if len(args) >= 3:
@@ -880,32 +913,58 @@ def autolog(
             try_mlflow_log(mlflow.log_param, "max_steps", kwargs["max_steps"])
 
         result = original(self, *args, **kwargs)
-
+        # Log Tensorboard event files as artifacts
+        if os.path.exists(self.model_dir):
+            for file in os.listdir(self.model_dir):
+                if "tfevents" not in file:
+                    continue
+                try_mlflow_log(
+                    mlflow.log_artifact,
+                    local_path=os.path.join(self.model_dir, file),
+                    artifact_path="tensorboard_logs",
+                )
         return result
 
     def export_saved_model(original, self, *args, **kwargs):
-        auto_end = False
-        if not mlflow.active_run():
-            global _AUTOLOG_RUN_ID
-            if _AUTOLOG_RUN_ID:
-                try_mlflow_log(mlflow.start_run, _AUTOLOG_RUN_ID)
-            else:
-                try_mlflow_log(mlflow.start_run)
-                try_mlflow_log(mlflow.set_tag, MLFLOW_AUTOLOGGING, FLAVOR_NAME)
-                auto_end = True
+        global _AUTOLOG_RUN_ID
+        if _AUTOLOG_RUN_ID:
+            _logger.info(
+                "Logging TensorFlow Estimator as MLflow Model to run with ID '%s'", _AUTOLOG_RUN_ID
+            )
 
-        serialized = original(self, *args, **kwargs)
-        try_mlflow_log(
-            log_model,
-            tf_saved_model_dir=serialized.decode("utf-8"),
-            tf_meta_graph_tags=[tag_constants.SERVING],
-            tf_signature_def_key="predict",
-            artifact_path="model",
-        )
-        if (
-            mlflow.active_run() is not None and mlflow.active_run().info.run_id == _AUTOLOG_RUN_ID
-        ) or auto_end:
-            try_mlflow_log(mlflow.end_run)
+            serialized = original(self, *args, **kwargs)
+
+            def log_model_without_starting_new_run():
+                """
+                Performs the exact same operations as `log_model` without starting a new run
+                """
+                with TempDir() as tmp:
+                    artifact_path = "model"
+                    local_path = tmp.path("model")
+                    mlflow_model = Model(artifact_path=artifact_path, run_id=_AUTOLOG_RUN_ID)
+                    save_model_kwargs = dict(
+                        tf_saved_model_dir=serialized.decode("utf-8"),
+                        tf_meta_graph_tags=[tag_constants.SERVING],
+                        tf_signature_def_key="predict",
+                    )
+                    save_model(path=local_path, mlflow_model=mlflow_model, **save_model_kwargs)
+                    client = MlflowClient()
+                    client.log_artifacts(_AUTOLOG_RUN_ID, local_path, artifact_path)
+
+                    try:
+                        client._record_logged_model(_AUTOLOG_RUN_ID, mlflow_model)
+                    except MlflowException:
+                        # We need to swallow all mlflow exceptions to maintain backwards
+                        # compatibility with older tracking servers. Only print out a warning
+                        # for now.
+                        _logger.warning(
+                            _LOG_MODEL_METADATA_WARNING_TEMPLATE, get_artifact_uri(_AUTOLOG_RUN_ID),
+                        )
+
+            try_mlflow_log(log_model_without_starting_new_run)
+
+            _AUTOLOG_RUN_ID = None
+
         return serialized
 
     @exception_safe_function
@@ -997,7 +1056,6 @@ def autolog(
                     )
 
                 _log_early_stop_callback_params(early_stop_callback)
-
                 history = original(inst, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
@@ -1084,11 +1142,8 @@ def autolog(
         return result
 
     managed = [
-        (EventFileWriter, "add_event", add_event),
-        (EventFileWriterV2, "add_event", add_event),
         (tensorflow.estimator.Estimator, "train", train),
         (tensorflow.keras.Model, "fit", FitPatch),
-        (FileWriter, "add_summary", add_summary),
     ]
 
     if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
@@ -1099,9 +1154,23 @@ def autolog(
         managed.append((tensorflow.keras.Model, "fit_generator", FitGeneratorPatch))
 
     non_managed = [
+        (EventFileWriter, "add_event", add_event),
+        (EventFileWriterV2, "add_event", add_event),
+        (FileWriter, "add_summary", add_summary),
         (tensorflow.estimator.Estimator, "export_saved_model", export_saved_model),
         (tensorflow.estimator.Estimator, "export_savedmodel", export_saved_model),
     ]
+
+    # Add compat.v1 Estimator patching for versions of tensfor that are 2.0+.
+    if LooseVersion(tensorflow.__version__) >= LooseVersion("2.0.0"):
+        old_estimator_class = tensorflow.compat.v1.estimator.Estimator
+        v1_train = (old_estimator_class, "train", train)
+        v1_export_saved_model = (old_estimator_class, "export_saved_model", export_saved_model)
+        v1_export_savedmodel = (old_estimator_class, "export_savedmodel", export_saved_model)
+
+        managed.append(v1_train)
+        non_managed.append(v1_export_saved_model)
+        non_managed.append(v1_export_savedmodel)
 
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
