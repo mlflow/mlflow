@@ -25,6 +25,6 @@ pytest --verbose tests/fastai --large
 pytest --verbose tests/shap --large
 pytest --verbose tests/utils/test_model_utils.py --large
 pytest --verbose tests/tracking/fluent/test_fluent_autolog.py --large
-
+pytest --verbose tests/autologging --large
 
 test $err = 0

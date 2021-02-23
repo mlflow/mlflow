@@ -65,6 +65,7 @@ def pytest_ignore_collect(path, config):
     if not outcome.get_result() and config.getoption("ignore_flavors"):
         # If not ignored by the default hook and `--ignore-flavors` specified
 
+        # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             "tests/h2o",
             "tests/keras",
