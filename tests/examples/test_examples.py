@@ -167,6 +167,10 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "binary_classification.py"]),
         ("shap", ["python", "multiclass_classification.py"]),
         ("shap", ["python", "explainer_logging.py"]),
+        (
+            os.path.join("pytorch", "AxHyperOptimizationPTL"),
+            ["python", "AxHyperOptimizationPTL.py", "--max_epochs", "1", "--total_trials", "1"],
+        ),
     ],
 )
 def test_command_example(directory, command):
