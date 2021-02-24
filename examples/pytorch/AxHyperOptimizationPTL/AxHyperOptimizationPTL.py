@@ -1,8 +1,22 @@
 import argparse
 import mlflow
 from ax.service.ax_client import AxClient
-import classifier
+from tests.pytorch.iris import IrisClassification
+from tests.pytorch.iris_data_module import IrisDataModule
 import pytorch_lightning as pl
+
+
+def train_evaluate(params, max_epochs=100):
+    model = IrisClassification(**params)
+    dm = IrisDataModule()
+    dm.prepare_data()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=max_epochs)
+    mlflow.pytorch.autolog()
+    trainer.fit(model, dm)
+    trainer.test(datamodule=dm)
+    test_accuracy = trainer.callback_metrics.get("test_acc")
+    return test_accuracy
 
 
 def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
@@ -18,16 +32,13 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
     :param tracking_uri: Mlflow tracking_uri
     """
     mlflow.start_run(run_name="Parent Run")
-    dm = classifier.DataModule()
-    model = classifier.LeNet(kwargs=params)
-    classifier.train_evaluate(dm=dm, model=model, max_epochs=max_epochs)
+    train_evaluate(params=params, max_epochs=max_epochs)
 
     ax_client = AxClient()
     ax_client.create_experiment(
         parameters=[
             {"name": "lr", "type": "range", "bounds": [1e-3, 0.15], "log_scale": True},
             {"name": "weight_decay", "type": "range", "bounds": [1e-4, 1e-3]},
-            {"name": "nesterov", "type": "choice", "values": [True, False]},
             {"name": "momentum", "type": "range", "bounds": [0.7, 1.0]},
         ],
         objective_name="test_accuracy",
@@ -38,12 +49,9 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
     for i in range(total_trials):
         with mlflow.start_run(nested=True, run_name="Trial " + str(i)) as child_run:
             parameters, trial_index = ax_client.get_next_trial()
-            dm = classifier.DataModule()
-            model = classifier.LeNet(kwargs=parameters)
-            # calling the model
-            test_accuracy = classifier.train_evaluate(
-                parameterization=None, dm=dm, model=model, max_epochs=max_epochs
-            )
+            test_accuracy = train_evaluate(params=parameters, max_epochs=max_epochs)
+            print("*" * 100)
+            print(f"Test Accuracy {test_accuracy} and type {type(test_accuracy)}")
 
             # completion of trial
             ax_client.complete_trial(trial_index=trial_index, raw_data=test_accuracy.item())
@@ -67,8 +75,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    params = {"lr": 0.011, "momentum": 0.9, "weight_decay": 0, "nesterov": False}
+    if "max_epochs" in args:
+        max_epochs = args.max_epochs
+    else:
+        max_epochs = 100
+
+    params = {"lr": 0.1, "momentum": 0.9, "weight_decay": 0}
 
     model_training_hyperparameter_tuning(
-        max_epochs=int(args.max_epochs), total_trials=int(args.total_trials), params=params
+        max_epochs=int(max_epochs), total_trials=int(args.total_trials), params=params
     )
