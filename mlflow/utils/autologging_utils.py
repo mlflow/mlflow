@@ -310,34 +310,50 @@ def batch_metrics_logger(run_id):
     batch_metrics_logger.flush()
 
 
-def _check_autologging_tested(module_name, lib_key, version_file_json):
+def _check_autologging_supported(
+        module_name,
+        lib_key,
+        version_file_json,
+        get_model_version_fn):
     min_version = version_file_json[lib_key]["autologging"]["minimum"]
     max_version = version_file_json[lib_key]["autologging"]["maximum"]
 
-    pkg_ver = importlib.import_module(module_name).__version__
-
-    def get_minor_version(v):
-        return LooseVersion(v).version[:2]
-
-    return get_minor_version(min_version) <= get_minor_version(pkg_ver) \
-        <= get_minor_version(max_version)
+    pkg_ver = get_model_version_fn(module_name)
+    return LooseVersion(min_version) <= LooseVersion(pkg_ver) \
+        <= LooseVersion(max_version)
 
 
-def is_autologging_tested(flavor_name):
+def _is_autologging_supported(flavor_name, get_model_version_fn):
     version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
     with open(version_file_path) as f:
         version_file_json = yaml.load(f, Loader=yaml.SafeLoader)
 
     if flavor_name == 'pytorch':
-        return _check_autologging_tested('torch', 'pytorch', version_file_json) and \
-            _check_autologging_tested('pytorch_lightning', 'pytorch-lightning', version_file_json)
+        return _check_autologging_supported('torch', 'pytorch', version_file_json) and \
+            _check_autologging_supported('pytorch_lightning', 'pytorch-lightning', version_file_json)
     else:
         module_name = flavor_name
         lib_key = flavor_name
         if flavor_name == 'fastai':
             lib_key = 'fastai-1.x'
+        elif flavor_name == 'gluon':
+            module_name = 'mxnet'
 
-        return _check_autologging_tested(module_name, lib_key, version_file_json)
+        return _check_autologging_supported(
+            module_name, lib_key, version_file_json, get_model_version_fn)
+
+
+# A map FLAVOR_NAME -> True/False represent whether the flavor package version is supported.
+_is_autologging_supported_cache = {}
+
+
+def is_autologging_supported(flavor_name):
+    if flavor_name not in _is_autologging_supported_cache:
+        _is_autologging_supported_cache[flavor_name] = _is_autologging_supported(
+            flavor_name,
+            lambda module_name: importlib.import_module(module_name).__version__
+        )
+    return _is_autologging_supported_cache[flavor_name]
 
 
 def autologging_integration(name):
@@ -419,8 +435,8 @@ def autologging_is_disabled(flavor_name):
     if explicit_disabled:
         return True
 
-    if get_autologging_config(flavor_name, "disable_for_untested_versions", False):
-        if not is_autologging_tested(flavor_name):
+    if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):
+        if not is_autologging_supported(flavor_name):
             return True
 
     return False
