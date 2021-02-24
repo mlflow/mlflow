@@ -648,71 +648,87 @@ def test_autologging_event_logger_default_impl_warns_for_log_autolog_called_with
 
 
 def test_is_autologging_supported():
-    assert _check_version_in_range('1.0.2', '1.0.1', '1.0.3')
-    assert _check_version_in_range('1.0.1', '1.0.1', '1.0.3')
-    assert _check_version_in_range('1.0.3', '1.0.1', '1.0.3')
-    assert not _check_version_in_range('1.0.0', '1.0.1', '1.0.3')
-    assert not _check_version_in_range('1.0.4', '1.0.1', '1.0.3')
-    assert not _check_version_in_range('0.99.99', '1.0.1', '1.0.3')
-    assert not _check_version_in_range('1.1.0', '1.0.1', '1.0.3')
-    assert _check_version_in_range('1.0.3', '1.0.1', '1.0.3.post1')
+    assert _check_version_in_range("1.0.2", "1.0.1", "1.0.3")
+    assert _check_version_in_range("1.0.1", "1.0.1", "1.0.3")
+    assert _check_version_in_range("1.0.3", "1.0.1", "1.0.3")
+    assert not _check_version_in_range("1.0.0", "1.0.1", "1.0.3")
+    assert not _check_version_in_range("1.0.4", "1.0.1", "1.0.3")
+    assert not _check_version_in_range("0.99.99", "1.0.1", "1.0.3")
+    assert not _check_version_in_range("1.1.0", "1.0.1", "1.0.3")
+    assert _check_version_in_range("1.0.3", "1.0.1", "1.0.3.post1")
 
     def gen_get_module_version_fn(module_name_to_version_map):
         def get_model_version_fn(module_name):
             if module_name in module_name_to_version_map:
                 return module_name_to_version_map[module_name]
-            raise ValueError('Test error: unknown module name: ' + module_name)
+            raise ValueError("Test error: unknown module name: " + module_name)
+
         return get_model_version_fn
 
-    assert _is_autologging_supported('fastai', gen_get_module_version_fn({'fastai': '1.0.60'}))
-    assert not _is_autologging_supported('fastai', gen_get_module_version_fn({'fastai': '1.0.50'}))
+    assert _is_autologging_supported("fastai", gen_get_module_version_fn({"fastai": "1.0.60"}))
+    assert not _is_autologging_supported("fastai", gen_get_module_version_fn({"fastai": "1.0.50"}))
 
-    assert _is_autologging_supported('gluon', gen_get_module_version_fn({'mxnet': '1.6.1'}))
-    assert not _is_autologging_supported('gluon', gen_get_module_version_fn({'mxnet': '1.5.0'}))
+    assert _is_autologging_supported("gluon", gen_get_module_version_fn({"mxnet": "1.6.1"}))
+    assert not _is_autologging_supported("gluon", gen_get_module_version_fn({"mxnet": "1.5.0"}))
 
-    assert _is_autologging_supported('keras', gen_get_module_version_fn({'keras': '2.2.4'}))
-    assert not _is_autologging_supported('keras', gen_get_module_version_fn({'keras': '2.2.3'}))
+    assert _is_autologging_supported("keras", gen_get_module_version_fn({"keras": "2.2.4"}))
+    assert not _is_autologging_supported("keras", gen_get_module_version_fn({"keras": "2.2.3"}))
 
-    assert _is_autologging_supported('lightgbm', gen_get_module_version_fn({'lightgbm': '2.3.1'}))
-    assert not _is_autologging_supported('lightgbm', gen_get_module_version_fn({'lightgbm': '2.3.0'}))
+    assert _is_autologging_supported("lightgbm", gen_get_module_version_fn({"lightgbm": "2.3.1"}))
+    assert not _is_autologging_supported(
+        "lightgbm", gen_get_module_version_fn({"lightgbm": "2.3.0"})
+    )
 
-    assert _is_autologging_supported('statsmodels', gen_get_module_version_fn({'statsmodels': '0.8.0'}))
-    assert not _is_autologging_supported('statsmodels', gen_get_module_version_fn({'statsmodels': '0.7.0'}))
+    assert _is_autologging_supported(
+        "statsmodels", gen_get_module_version_fn({"statsmodels": "0.8.0"})
+    )
+    assert not _is_autologging_supported(
+        "statsmodels", gen_get_module_version_fn({"statsmodels": "0.7.0"})
+    )
 
-    assert _is_autologging_supported('tensorflow', gen_get_module_version_fn({'tensorflow': '1.15.4'}))
-    assert not _is_autologging_supported('tensorflow', gen_get_module_version_fn({'tensorflow': '1.15.3'}))
+    assert _is_autologging_supported(
+        "tensorflow", gen_get_module_version_fn({"tensorflow": "1.15.4"})
+    )
+    assert not _is_autologging_supported(
+        "tensorflow", gen_get_module_version_fn({"tensorflow": "1.15.3"})
+    )
 
-    assert _is_autologging_supported('xgboost', gen_get_module_version_fn({'xgboost': '0.90'}))
-    assert not _is_autologging_supported('xgboost', gen_get_module_version_fn({'xgboost': '0.89'}))
+    assert _is_autologging_supported("xgboost", gen_get_module_version_fn({"xgboost": "0.90"}))
+    assert not _is_autologging_supported("xgboost", gen_get_module_version_fn({"xgboost": "0.89"}))
 
-    assert _is_autologging_supported('sklearn', gen_get_module_version_fn({'sklearn': '0.20.3'}))
-    assert not _is_autologging_supported('sklearn', gen_get_module_version_fn({'sklearn': '0.20.2'}))
+    assert _is_autologging_supported("sklearn", gen_get_module_version_fn({"sklearn": "0.20.3"}))
+    assert not _is_autologging_supported(
+        "sklearn", gen_get_module_version_fn({"sklearn": "0.20.2"})
+    )
 
-    assert _is_autologging_supported('pytorch', gen_get_module_version_fn(
-        {'torch': '1.4.0', 'pytorch_lightning': '1.0.5'}))
-    assert not _is_autologging_supported('pytorch', gen_get_module_version_fn(
-        {'torch': '1.3.9', 'pytorch_lightning': '1.0.5'}))
-    assert not _is_autologging_supported('pytorch', gen_get_module_version_fn(
-        {'torch': '1.4.0', 'pytorch_lightning': '1.0.4'}))
+    assert _is_autologging_supported(
+        "pytorch", gen_get_module_version_fn({"torch": "1.4.0", "pytorch_lightning": "1.0.5"})
+    )
+    assert not _is_autologging_supported(
+        "pytorch", gen_get_module_version_fn({"torch": "1.3.9", "pytorch_lightning": "1.0.5"})
+    )
+    assert not _is_autologging_supported(
+        "pytorch", gen_get_module_version_fn({"torch": "1.4.0", "pytorch_lightning": "1.0.4"})
+    )
 
 
 def test_disable_for_unsupported_versions_sklearn_integration():
     mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
 
-    with mock.patch('sklearn.__version__', '0.20.3'):
+    with mock.patch("sklearn.__version__", "0.20.3"):
         _is_autologging_supported_cache.clear()
-        assert not autologging_is_disabled('sklearn')
+        assert not autologging_is_disabled("sklearn")
 
-    with mock.patch('sklearn.__version__', '0.20.2'):
+    with mock.patch("sklearn.__version__", "0.20.2"):
         _is_autologging_supported_cache.clear()
-        assert autologging_is_disabled('sklearn')
+        assert autologging_is_disabled("sklearn")
 
     mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
 
-    with mock.patch('sklearn.__version__', '0.20.3'):
+    with mock.patch("sklearn.__version__", "0.20.3"):
         _is_autologging_supported_cache.clear()
-        assert not autologging_is_disabled('sklearn')
+        assert not autologging_is_disabled("sklearn")
 
-    with mock.patch('sklearn.__version__', '0.20.2'):
+    with mock.patch("sklearn.__version__", "0.20.2"):
         _is_autologging_supported_cache.clear()
-        assert not autologging_is_disabled('sklearn')
+        assert not autologging_is_disabled("sklearn")

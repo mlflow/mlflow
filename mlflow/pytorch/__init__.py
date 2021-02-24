@@ -831,7 +831,11 @@ def load_state_dict(state_dict_uri, **kwargs):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_every_n_epoch=1, log_models=True, disable=False, exclusive=False, disable_for_unsupported_versions=False,
+    log_every_n_epoch=1,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
