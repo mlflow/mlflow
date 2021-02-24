@@ -314,47 +314,74 @@ def _check_version_in_range(ver, min_ver, max_ver):
     return LooseVersion(min_ver) <= LooseVersion(ver) <= LooseVersion(max_ver)
 
 
-def _check_autologging_supported(module_ver, lib_key, version_file_json):
-    min_version = version_file_json[lib_key]["autologging"]["minimum"]
-    max_version = version_file_json[lib_key]["autologging"]["maximum"]
+def _load_version_file_json():
+    version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
+    with open(version_file_path) as f:
+        return yaml.load(f, Loader=yaml.SafeLoader)
 
-    return _check_version_in_range(module_ver, min_version, max_version)
+
+_version_file_json = _load_version_file_json()
+
+
+# A map FLAVOR_NAME -> list of dependent (module_name, key_in_version_file_json)
+_flavor_to_module_name_and_json_key = {
+    "fastai": [("fastai", "fastai-1.x")],
+    "gluon": [("mxnet", "gluon")],
+    "keras": [("keras", "keras")],
+    "lightgbm": [("lightgbm", "lightgbm")],
+    "statsmodels": [("statsmodels", "statsmodels")],
+    "tensorflow": [("tensorflow", "tensorflow")],
+    "xgboost": [("xgboost", "xgboost")],
+    "sklearn": [("sklearn", "sklearn")],
+    "pytorch": [("torch", "pytorch"), ("pytorch_lightning", "pytorch-lightning")],
+}
+
+
+def _get_min_max_version_and_pip_release(json_key):
+    min_version = _version_file_json[json_key]["autologging"]["minimum"]
+    max_version = _version_file_json[json_key]["autologging"]["maximum"]
+    pip_release = _version_file_json[json_key]["package_info"]["pip_release"]
+    return min_version, max_version, pip_release
 
 
 def _is_autologging_supported(flavor_name, get_module_version_fn):
-    version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
-    with open(version_file_path) as f:
-        version_file_json = yaml.load(f, Loader=yaml.SafeLoader)
+    def _check_autologging_supported(module_name, json_key):
+        min_version, max_version, _ = _get_min_max_version_and_pip_release(json_key)
+        return _check_version_in_range(get_module_version_fn(module_name), min_version, max_version)
 
-    if flavor_name == "pytorch":
-        return _check_autologging_supported(
-            get_module_version_fn("torch"), "pytorch", version_file_json
-        ) and _check_autologging_supported(
-            get_module_version_fn("pytorch_lightning"), "pytorch-lightning", version_file_json
-        )
-    else:
-        module_name = flavor_name
-        lib_key = flavor_name
-        if flavor_name == "fastai":
-            lib_key = "fastai-1.x"
-        elif flavor_name == "gluon":
-            module_name = "mxnet"
-
-        return _check_autologging_supported(
-            get_module_version_fn(module_name), lib_key, version_file_json
-        )
-
-
-# A map FLAVOR_NAME -> True/False represent whether the flavor package version is supported.
-_is_autologging_supported_cache = {}
+    return all(
+        [
+            _check_autologging_supported(module_name, json_key)
+            for module_name, json_key in _flavor_to_module_name_and_json_key[flavor_name]
+        ]
+    )
 
 
 def is_autologging_supported(flavor_name):
-    if flavor_name not in _is_autologging_supported_cache:
-        _is_autologging_supported_cache[flavor_name] = _is_autologging_supported(
-            flavor_name, lambda module_name: importlib.import_module(module_name).__version__
+    def get_module_version(module_name):
+        return importlib.import_module(module_name).__version__
+
+    return _is_autologging_supported(flavor_name, get_module_version)
+
+
+def gen_autologging_package_version_requirements_doc(flavor_name):
+    def _gen_single_requirement(json_key):
+        min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(json_key)
+        return "{min_ver}<={pip_release}<={max_ver}".format(
+            min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
         )
-    return _is_autologging_supported_cache[flavor_name]
+
+    required_pkg_versions = ",".join(
+        [
+            _gen_single_requirement(json_key)
+            for _, json_key in _flavor_to_module_name_and_json_key[flavor_name]
+        ]
+    )
+
+    return (
+        ".. Note:: Only supported autologging integration with the following package versions: "
+        + required_pkg_versions
+    )
 
 
 def autologging_integration(name):
@@ -404,6 +431,11 @@ def autologging_integration(name):
         # function, allowing the integration name to be extracted from the function. This is used
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
+
+        if name in _flavor_to_module_name_and_json_key:
+            wrapped_autolog.__doc__ = (
+                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+            )
         return wrapped_autolog
 
     return wrapper

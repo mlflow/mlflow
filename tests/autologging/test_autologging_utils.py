@@ -24,7 +24,6 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     _is_autologging_supported,
     _check_version_in_range,
-    _is_autologging_supported_cache,
 )
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
@@ -680,10 +679,10 @@ def test_is_autologging_supported():
     )
 
     assert _is_autologging_supported(
-        "statsmodels", gen_get_module_version_fn({"statsmodels": "0.8.0"})
+        "statsmodels", gen_get_module_version_fn({"statsmodels": "0.11.1"})
     )
     assert not _is_autologging_supported(
-        "statsmodels", gen_get_module_version_fn({"statsmodels": "0.7.0"})
+        "statsmodels", gen_get_module_version_fn({"statsmodels": "0.11.0"})
     )
 
     assert _is_autologging_supported(
@@ -716,19 +715,15 @@ def test_disable_for_unsupported_versions_sklearn_integration():
     mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
 
     with mock.patch("sklearn.__version__", "0.20.3"):
-        _is_autologging_supported_cache.clear()
         assert not autologging_is_disabled("sklearn")
 
     with mock.patch("sklearn.__version__", "0.20.2"):
-        _is_autologging_supported_cache.clear()
         assert autologging_is_disabled("sklearn")
 
     mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
 
     with mock.patch("sklearn.__version__", "0.20.3"):
-        _is_autologging_supported_cache.clear()
         assert not autologging_is_disabled("sklearn")
 
     with mock.patch("sklearn.__version__", "0.20.2"):
-        _is_autologging_supported_cache.clear()
         assert not autologging_is_disabled("sklearn")
