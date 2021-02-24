@@ -415,7 +415,7 @@ def autologging_is_disabled(flavor_name):
 
     :param flavor_name: An autologging integration flavor name.
     """
-    explicit_disabled = get_autologging_config(flavor_name, "disable", False)
+    explicit_disabled = get_autologging_config(flavor_name, "disable", True)
     if explicit_disabled:
         return True
 
