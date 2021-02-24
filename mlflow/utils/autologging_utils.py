@@ -805,7 +805,8 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
     def create_managed_run():
         managed_run = mlflow.start_run()
-        try_mlflow_log(mlflow.set_tags, tags)
+        if tags:
+            try_mlflow_log(mlflow.set_tags, tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
             " performance metrics, model artifacts, and lineage information for the"
