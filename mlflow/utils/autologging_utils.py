@@ -310,27 +310,33 @@ def batch_metrics_logger(run_id):
     batch_metrics_logger.flush()
 
 
+def _check_version_in_range(ver, min_ver, max_ver):
+    return LooseVersion(min_ver) <= LooseVersion(ver) \
+        <= LooseVersion(max_ver)
+
+
 def _check_autologging_supported(
-        module_name,
+        module_ver,
         lib_key,
-        version_file_json,
-        get_model_version_fn):
+        version_file_json):
     min_version = version_file_json[lib_key]["autologging"]["minimum"]
     max_version = version_file_json[lib_key]["autologging"]["maximum"]
 
-    pkg_ver = get_model_version_fn(module_name)
-    return LooseVersion(min_version) <= LooseVersion(pkg_ver) \
-        <= LooseVersion(max_version)
+    return _check_version_in_range(module_ver, min_version, max_version)
 
 
-def _is_autologging_supported(flavor_name, get_model_version_fn):
+def _is_autologging_supported(flavor_name, get_module_version_fn):
     version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
     with open(version_file_path) as f:
         version_file_json = yaml.load(f, Loader=yaml.SafeLoader)
 
     if flavor_name == 'pytorch':
-        return _check_autologging_supported('torch', 'pytorch', version_file_json) and \
-            _check_autologging_supported('pytorch_lightning', 'pytorch-lightning', version_file_json)
+        return _check_autologging_supported(
+                get_module_version_fn('torch'),
+                'pytorch', version_file_json) and \
+            _check_autologging_supported(
+                get_module_version_fn('pytorch_lightning'),
+                'pytorch-lightning', version_file_json)
     else:
         module_name = flavor_name
         lib_key = flavor_name
@@ -340,7 +346,7 @@ def _is_autologging_supported(flavor_name, get_model_version_fn):
             module_name = 'mxnet'
 
         return _check_autologging_supported(
-            module_name, lib_key, version_file_json, get_model_version_fn)
+            get_module_version_fn(module_name), lib_key, version_file_json)
 
 
 # A map FLAVOR_NAME -> True/False represent whether the flavor package version is supported.
@@ -435,10 +441,13 @@ def autologging_is_disabled(flavor_name):
     if explicit_disabled:
         return True
 
-    if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):
-        if not is_autologging_supported(flavor_name):
+    if not is_autologging_supported(flavor_name):
+        if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):
             return True
-
+        else:
+            _logger.warning('You are using an unsupported library version for flavor %s, you can upgrade MLflow version or downgrade relative library version if you encounter errors during autologging.',
+                            flavor_name)
+            return False
     return False
 
 

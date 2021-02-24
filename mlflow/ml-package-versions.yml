@@ -255,5 +255,6 @@ statsmodels:
   autologging:
     minimum: "0.11.1"
     maximum: "0.12.2"
+
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
