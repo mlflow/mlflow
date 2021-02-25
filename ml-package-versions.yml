@@ -246,3 +246,22 @@ spacy:
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
+
+statsmodels:
+  package_info:
+    pip_release: "statsmodels"
+
+  install_dev: |
+    pip install git+https://github.com/statsmodels/statsmodels
+
+  models:
+    minimum: "0.11.1"
+    maximum: "0.12.2"
+  run: |
+      pytest tests/statsmodels/test_statsmodels_model_export.py --large
+
+  autologging:
+    minimum: "0.11.1"
+    maximum: "0.12.2"
+    run: |
+      pytest tests/statsmodels/test_statsmodels_autolog.py --large
