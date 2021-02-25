@@ -49,9 +49,6 @@ class IrisClassificationBase(pl.LightningModule):
 
 
 class IrisClassification(IrisClassificationBase):
-    def __init__(self, **kwargs):
-        super(IrisClassification, self).__init__(**kwargs)
-
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
