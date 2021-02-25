@@ -1,3 +1,8 @@
+import sys, os
+
+current_file = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(1, current_file.split("examples")[0])
+
 import argparse
 import mlflow
 from ax.service.ax_client import AxClient
