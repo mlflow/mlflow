@@ -50,8 +50,6 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
         with mlflow.start_run(nested=True, run_name="Trial " + str(i)) as child_run:
             parameters, trial_index = ax_client.get_next_trial()
             test_accuracy = train_evaluate(params=parameters, max_epochs=max_epochs)
-            print("*" * 100)
-            print(f"Test Accuracy {test_accuracy} and type {type(test_accuracy)}")
 
             # completion of trial
             ax_client.complete_trial(trial_index=trial_index, raw_data=test_accuracy.item())
