@@ -48,7 +48,7 @@ def pytorch_model_without_validation():
 @pytest.mark.parametrize("log_models", [True, False])
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
-    model = IrisClassificationWithoutValidation()
+    model = IrisClassification()
     dm = IrisDataModule()
     dm.prepare_data()
     dm.setup(stage="fit")
@@ -139,12 +139,7 @@ def pytorch_model_with_callback(patience):
     with TempDir() as tmp:
         keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            **{keyword: tmp.path()},
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
 
         trainer = pl.Trainer(
@@ -196,12 +191,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
     with TempDir() as tmp:
         keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            **{keyword: tmp.path()},
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
 
         trainer = pl.Trainer(
