@@ -250,9 +250,8 @@ spacy:
 statsmodels:
   package_info:
     pip_release: "statsmodels"
-
-  install_dev: |
-    pip install git+https://github.com/statsmodels/statsmodels
+    install_dev: |
+      pip install git+https://github.com/statsmodels/statsmodels
 
   models:
     minimum: "0.11.1"
