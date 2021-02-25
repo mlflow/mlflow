@@ -254,7 +254,7 @@ spark:
   autologging:
     minimum: "3.0.0"
     maximum: "3.0.2"
-    requirements: ["keras"]
+    requirements: ["keras", "tensorflow"]
     run: |
       pytest tests/spark_autologging --large
 
