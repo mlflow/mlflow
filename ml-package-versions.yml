@@ -256,7 +256,7 @@ spark:
     maximum: "3.0.2"
     requirements: ["keras", "tensorflow"]
     run: |
-      pytest tests/spark_autologging --large
+      ./dev/test-spark-autologging.sh
 
 statsmodels:
   package_info:
