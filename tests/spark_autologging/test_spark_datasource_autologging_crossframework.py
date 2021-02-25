@@ -28,7 +28,7 @@ def _fit_keras(pandas_df, epochs):
     x = pandas_df.values
     y = np.array([4] * len(x))
     keras_model = Sequential()
-    keras_model.add(Dense(1))
+    keras_model.add(Dense(1), input_shape=(2,))
     keras_model.compile(loss="mean_squared_error", optimizer="SGD")
     keras_model.fit(x, y, epochs=epochs)
     # Sleep to allow time for datasource read event to fire asynchronously from the JVM & for
