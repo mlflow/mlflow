@@ -68,6 +68,8 @@ def test_pytorch_autolog_logs_default_params(pytorch_model):
     assert "lr" in data.params
     assert "optimizer_name" in data.params
     assert "weight_decay" in data.params
+    assert "momentum" in data.params
+    assert "nesterov" in data.params
 
 
 def test_pytorch_autolog_logs_expected_data(pytorch_model):
