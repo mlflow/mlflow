@@ -139,12 +139,7 @@ def pytorch_model_with_callback(patience):
     with TempDir() as tmp:
         keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            **{keyword: tmp.path()},
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
 
         trainer = pl.Trainer(
@@ -196,12 +191,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
     with TempDir() as tmp:
         keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            **{keyword: tmp.path()},
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
 
         trainer = pl.Trainer(
