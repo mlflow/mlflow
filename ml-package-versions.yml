@@ -246,3 +246,19 @@ spacy:
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
+
+spark:
+  package_info:
+    pip_release: "pyspark"
+
+  models:
+    minimum: "3.0.0"
+    maximum: "3.0.2"
+    run: |
+      pytest tests/spark --large
+
+  autologging:
+    minimum: "3.0.0"
+    maximum: "3.0.2"
+    run: |
+      pytest tests/spark_autologging --large
