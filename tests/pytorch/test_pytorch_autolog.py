@@ -66,10 +66,8 @@ def test_pytorch_autolog_logs_default_params(pytorch_model):
     _, run = pytorch_model
     data = run.data
     assert "lr" in data.params
-    assert "eps" in data.params
     assert "optimizer_name" in data.params
     assert "weight_decay" in data.params
-    assert "betas" in data.params
 
 
 def test_pytorch_autolog_logs_expected_data(pytorch_model):
@@ -82,7 +80,7 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
-    assert data.params["optimizer_name"] == "Adam"
+    assert data.params["optimizer_name"] == "SGD"
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()
