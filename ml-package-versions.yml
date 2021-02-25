@@ -254,6 +254,7 @@ spark:
   models:
     minimum: "3.0.0"
     maximum: "3.0.2"
+    requirements: ["scikit-learn"]
     run: |
       pytest tests/spark --large
 
