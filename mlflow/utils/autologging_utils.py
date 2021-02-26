@@ -344,24 +344,26 @@ def _get_min_max_version_and_pip_release(json_key):
     return min_version, max_version, pip_release
 
 
-def _is_autologging_supported(flavor_name, get_module_version_fn):
-    def _check_autologging_supported(module_name, json_key):
+def _is_autologging_integration_supported(flavor_name, get_module_version_fn):
+    def _check_supported(module_name, json_key):
         min_version, max_version, _ = _get_min_max_version_and_pip_release(json_key)
         return _check_version_in_range(get_module_version_fn(module_name), min_version, max_version)
 
     return all(
         [
-            _check_autologging_supported(module_name, json_key)
-            for module_name, json_key in _cross_tested_flavor_to_module_name_and_json_key[flavor_name]
+            _check_supported(module_name, json_key)
+            for module_name, json_key in _cross_tested_flavor_to_module_name_and_json_key[
+                flavor_name
+            ]
         ]
     )
 
 
-def is_autologging_supported(flavor_name):
+def is_autologging_integration_supported(flavor_name):
     def get_module_version(module_name):
         return importlib.import_module(module_name).__version__
 
-    return _is_autologging_supported(flavor_name, get_module_version)
+    return _is_autologging_integration_supported(flavor_name, get_module_version)
 
 
 def gen_autologging_package_version_requirements_doc(flavor_name):
@@ -379,10 +381,28 @@ def gen_autologging_package_version_requirements_doc(flavor_name):
     )
 
     return (
-        "    .. note:: Autologging is known to be compatible with the following package versions: "
+        "    .. Note:: Autologging is known to be compatible with the following package versions: "
         + required_pkg_versions
         + ". Autologging may not succeed when used with package versions outside of this range..\n\n"
     )
+
+
+def _log_warning_for_unsupported_integration(flavor_name):
+    _logger.warning(
+        "You are using an unsupported version of %s. If you encounter errors during autologging, try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
+        flavor_name,
+        flavor_name,
+    )
+
+
+def check_and_log_warning_for_unsupported_integration(flavor_name):
+    if (
+        flavor_name in _cross_tested_flavor_to_module_name_and_json_key
+        and not get_autologging_config(flavor_name, "disable", True)
+        and not get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
+        and not is_autologging_integration_supported(flavor_name)
+    ):
+        _log_warning_for_unsupported_integration(flavor_name)
 
 
 def autologging_integration(name):
@@ -425,6 +445,8 @@ def autologging_integration(name):
             except Exception:
                 pass
 
+            check_and_log_warning_for_unsupported_integration(name)
+
             return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
@@ -435,8 +457,7 @@ def autologging_integration(name):
 
         if name in _cross_tested_flavor_to_module_name_and_json_key:
             wrapped_autolog.__doc__ = (
-                gen_autologging_package_version_requirements_doc(name) +
-                wrapped_autolog.__doc__
+                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
         return wrapped_autolog
 
@@ -470,14 +491,13 @@ def autologging_is_disabled(flavor_name):
     if explicit_disabled:
         return True
 
-    if flavor_name in _cross_tested_flavor_to_module_name_and_json_key and not is_autologging_supported(flavor_name):
+    if (
+        flavor_name in _cross_tested_flavor_to_module_name_and_json_key
+        and not is_autologging_integration_supported(flavor_name)
+    ):
         if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):
             return True
         else:
-            _logger.warning(
-                "You are using an unsupported version of %s. If you encounter errors during autologging, try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
-                flavor_name, flavor_name
-            )
             return False
     return False
 

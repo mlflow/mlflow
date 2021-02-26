@@ -21,6 +21,7 @@ from mlflow.utils.autologging_utils import (
     _is_testing,
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
+    check_and_log_warning_for_unsupported_integration,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
@@ -1394,6 +1395,7 @@ def autolog(
             ] = True
             if not autologging_params.get("disable", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
+            check_and_log_warning_for_unsupported_integration(autolog_fn.integration_name)
         except Exception as e:
             if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
