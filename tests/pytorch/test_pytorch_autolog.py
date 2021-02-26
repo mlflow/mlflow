@@ -143,9 +143,7 @@ def pytorch_model_with_callback(patience):
         )
 
         trainer = pl.Trainer(
-            max_epochs=NUM_EPOCHS * 2,
-            callbacks=[early_stopping],
-            checkpoint_callback=checkpoint_callback,
+            max_epochs=NUM_EPOCHS * 2, callbacks=[early_stopping, checkpoint_callback],
         )
         trainer.fit(model, dm)
 
@@ -195,9 +193,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
         )
 
         trainer = pl.Trainer(
-            max_epochs=NUM_EPOCHS * 2,
-            callbacks=[early_stopping],
-            checkpoint_callback=checkpoint_callback,
+            max_epochs=NUM_EPOCHS * 2, callbacks=[early_stopping, checkpoint_callback],
         )
         trainer.fit(model, dm)
 
