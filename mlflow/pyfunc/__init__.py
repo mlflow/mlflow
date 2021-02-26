@@ -225,6 +225,7 @@ from mlflow.pyfunc.model import PythonModel, PythonModelContext  # pylint: disab
 from mlflow.pyfunc.model import get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
+from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
@@ -399,7 +400,7 @@ def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
                     actual_shape, expected_shape
                 )
             )
-    if values.dtype != tensor_spec.type:
+    if clean_tensor_type(values.dtype) != tensor_spec.type:
         raise MlflowException(
             "dtype of input {0} does not match expected dtype {1}".format(
                 values.dtype, tensor_spec.type
