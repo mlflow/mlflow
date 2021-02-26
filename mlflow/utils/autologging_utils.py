@@ -324,7 +324,7 @@ _version_file_json = _load_version_file_json()
 
 
 # A map FLAVOR_NAME -> list of dependent (module_name, key_in_version_file_json)
-_flavor_to_module_name_and_json_key = {
+_cross_tested_flavor_to_module_name_and_json_key = {
     "fastai": [("fastai", "fastai-1.x")],
     "gluon": [("mxnet", "gluon")],
     "keras": [("keras", "keras")],
@@ -352,7 +352,7 @@ def _is_autologging_supported(flavor_name, get_module_version_fn):
     return all(
         [
             _check_autologging_supported(module_name, json_key)
-            for module_name, json_key in _flavor_to_module_name_and_json_key[flavor_name]
+            for module_name, json_key in _cross_tested_flavor_to_module_name_and_json_key[flavor_name]
         ]
     )
 
@@ -374,7 +374,7 @@ def gen_autologging_package_version_requirements_doc(flavor_name):
     required_pkg_versions = ",".join(
         [
             _gen_single_requirement(json_key)
-            for _, json_key in _flavor_to_module_name_and_json_key[flavor_name]
+            for _, json_key in _cross_tested_flavor_to_module_name_and_json_key[flavor_name]
         ]
     )
 
@@ -432,7 +432,7 @@ def autologging_integration(name):
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
 
-        if name in _flavor_to_module_name_and_json_key:
+        if name in _cross_tested_flavor_to_module_name_and_json_key:
             wrapped_autolog.__doc__ = (
                 gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
@@ -468,7 +468,7 @@ def autologging_is_disabled(flavor_name):
     if explicit_disabled:
         return True
 
-    if not is_autologging_supported(flavor_name):
+    if flavor_name in _cross_tested_flavor_to_module_name_and_json_key and not is_autologging_supported(flavor_name):
         if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):
             return True
         else:
