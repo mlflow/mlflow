@@ -380,7 +380,7 @@ def gen_autologging_package_version_requirements_doc(flavor_name):
 
     return (
         ".. Note:: Only supported autologging integration with the following package versions: "
-        + required_pkg_versions
+        + required_pkg_versions + "\n"
     )
 
 
