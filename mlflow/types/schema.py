@@ -139,7 +139,7 @@ class TensorInfo(object):
             raise MlflowException(
                 "MLflow does not support size information in flexible numpy data types. Try"
                 " converting input datatype `{0}` to `{1}`".format(
-                    dtype, np.dtype(dtype.name.rstrip(string.digits))
+                    dtype, dtype.name.rstrip(string.digits)
                 )
             )
 
