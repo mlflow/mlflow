@@ -293,7 +293,7 @@ def test_all_numpy_dtypes():
         "ulonglong",
     ]
     floating = ["half", "float16", "single", "float32", "double", "float_", "float64"]
-    complex = [
+    complex_ = [
         "csingle",
         "singlecomplex",
         "complex64",
@@ -301,14 +301,16 @@ def test_all_numpy_dtypes():
         "cfloat",
         "complex_",
         "complex128",
-        "clongdouble",
-        "clongfloat",
-        "longcomplex",
-        "complex256",
     ]
     bytes_ = ["bytes_", "string_"]
     str_ = ["str_", "unicode_"]
     platform_dependent = [
+        # Complex
+        "clongdouble",
+        "clongfloat",
+        "longcomplex",
+        "complex256",
+        # Float
         "longdouble",
         "longfloat",
         "float128",
@@ -340,18 +342,24 @@ def test_all_numpy_dtypes():
         test_dtype(np.array([1.1, -2.2, 3.3, 5.12], dtype=dtype), dtype)
 
     # test complex
-    for dtype in complex:
+    for dtype in complex_:
         test_dtype(np.array([1 + 2j, -2.2 - 3.6j], dtype=dtype), dtype)
 
     # test bytes_
     for dtype in bytes_:
         test_dtype(np.array([bytes([1, 255, 12, 34])], dtype=dtype), dtype)
+        # Explicitly giving size information for flexible dtype bytes
+    test_dtype(np.array([bytes([1, 255, 12, 34])], dtype='S10'), 'S')
+    test_dtype(np.array([bytes([1, 255, 12, 34])], dtype='S10'), 'bytes')
 
     # str_
     for dtype in str_:
         test_dtype(np.array(["m", "l", "f", "l", "o", "w"], dtype=dtype), dtype)
         test_dtype(np.array(["mlflow"], dtype=dtype), dtype)
         test_dtype(np.array(["mlflow is the best"], dtype=dtype), dtype)
+    # Explicitly giving size information for flexible dtype str_
+    test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "str")
+    test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "U")
 
     # platform_dependent
     for dtype in platform_dependent:
