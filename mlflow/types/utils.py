@@ -64,13 +64,10 @@ def clean_tensor_type(dtype: np.dtype):
         )
 
     # Special casing for np.str_ and np.bytes_
-    if dtype.char in ["U", "S"]:
-        warnings.warn(
-            "MLflow does not support handling the size of flexible datatypes such as np.str_"
-            " and np.bytes_. Stripping the size information from input tensor dtype.",
-            stacklevel=2,
-        )
-        dtype = np.dtype(dtype.str.rstrip(string.digits))
+    if dtype.char == "U":
+        return np.dtype("str")
+    elif dtype.char == "S":
+        return np.dtype("bytes")
     return dtype
 
 

@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc import _enforce_tensor_spec
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _infer_schema, _get_tensor_shape
@@ -257,6 +258,7 @@ def test_schema_inference_on_basic_numpy(pandas_df_with_all_types):
         assert schema == Schema([TensorSpec(type=data.dtype, shape=(-1,))])
 
 
+# Todo: arjundc : Remove _enforce_tensor_spec and move to its own test file.
 def test_all_numpy_dtypes():
     def test_dtype(nparray, dtype):
         schema = _infer_schema(nparray)
@@ -264,6 +266,8 @@ def test_all_numpy_dtypes():
         spec = schema.inputs[0]
         recreated_spec = TensorSpec.from_json_dict(**spec.to_dict())
         assert spec == recreated_spec
+        enforced_array = _enforce_tensor_spec(nparray, spec)
+        assert isinstance(enforced_array, np.ndarray)
 
     bool_ = ["bool", "bool_", "bool8"]
     object_ = ["object"]

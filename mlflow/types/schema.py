@@ -137,10 +137,8 @@ class TensorInfo(object):
         # Throw if size information exists flexible numpy data types
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
             raise MlflowException(
-                "MLflow does not support size information in flexible numpy data types. Try"
-                " converting input datatype `{0}` to `{1}`".format(
-                    dtype, dtype.name.rstrip(string.digits)
-                )
+                "MLflow does not support size information in flexible numpy data types. Use"
+                ' np.dtype("{0}") instead'.format(dtype.name.rstrip(string.digits))
             )
 
         if not isinstance(shape, (tuple, list)):
