@@ -18,7 +18,7 @@ from mlflow.utils.autologging_utils import try_mlflow_log
 mlflow.start_run(run_name="CaptumExample")
 
 
-nlp = spacy.load("en")
+nlp = spacy.load("en_core_web_sm")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -114,7 +114,7 @@ def forward_with_sigmoid(input):
 
 # https://ai.stanford.edu/~amaas/data/sentiment/
 
-TEXT = torchtext.data.Field(lower=True, tokenize="spacy")
+TEXT = torchtext.data.Field(lower=True, tokenize="spacy",tokenizer_language="en_core_web_sm")
 Label = torchtext.data.LabelField(dtype=torch.float)
 
 train, test = torchtext.datasets.IMDB.splits(
