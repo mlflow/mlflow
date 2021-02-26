@@ -320,7 +320,7 @@ def _load_version_file_json():
         return yaml.load(f, Loader=yaml.SafeLoader)
 
 
-_version_file_json = _load_version_file_json()
+_module_version_info_dict = _load_version_file_json()
 
 
 # A map FLAVOR_NAME -> list of dependent (module_name, key_in_version_file_json)
@@ -338,9 +338,9 @@ _cross_tested_flavor_to_module_name_and_json_key = {
 
 
 def _get_min_max_version_and_pip_release(json_key):
-    min_version = _version_file_json[json_key]["autologging"]["minimum"]
-    max_version = _version_file_json[json_key]["autologging"]["maximum"]
-    pip_release = _version_file_json[json_key]["package_info"]["pip_release"]
+    min_version = _module_version_info_dict[json_key]["autologging"]["minimum"]
+    max_version = _module_version_info_dict[json_key]["autologging"]["maximum"]
+    pip_release = _module_version_info_dict[json_key]["package_info"]["pip_release"]
     return min_version, max_version, pip_release
 
 

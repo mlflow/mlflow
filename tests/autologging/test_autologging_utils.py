@@ -645,6 +645,7 @@ def test_autologging_event_logger_default_impl_warns_for_log_autolog_called_with
             call_kwargs={"b": "c"},
         )
 
+
 def test_check_version_in_range():
     assert _check_version_in_range("1.0.2", "1.0.1", "1.0.3")
     assert _check_version_in_range("1.0.1", "1.0.1", "1.0.3")
@@ -656,29 +657,76 @@ def test_check_version_in_range():
     assert _check_version_in_range("1.0.3", "1.0.1", "1.0.3.post1")
 
 
-@pytest.mark.parametrize("flavor,module_version_dict,expected_result", [
-    ("fastai", {"fastai": "1.0.30"}, True),
-    ("fastai", {"fastai": "1.0.20"}, False),
-    ("gluon", {"mxnet": "1.6.1"}, True),
-    ("gluon", {"mxnet": "1.5.0"}, False),
-    ("keras", {"keras": "2.2.4"}, True),
-    ("keras", {"keras": "2.2.3"}, False),
-    ("lightgbm", {"lightgbm": "2.3.1"}, True),
-    ("lightgbm", {"lightgbm": "2.3.0"}, False),
-    ("statsmodels", {"statsmodels": "0.11.1"}, True),
-    ("statsmodels", {"statsmodels": "0.11.0"}, False),
-    ("tensorflow", {"tensorflow": "1.15.4"}, True),
-    ("tensorflow", {"tensorflow": "1.15.3"}, False),
-    ("xgboost", {"xgboost": "0.90"}, True),
-    ("xgboost", {"xgboost": "0.89"}, False),
-    ("sklearn", {"sklearn": "0.20.3"}, True),
-    ("sklearn", {"sklearn": "0.20.2"}, False),
-    ("pytorch", {"torch": "1.4.0", "pytorch_lightning": "1.0.5"}, True),
-    ("pytorch", {"torch": "1.3.9", "pytorch_lightning": "1.0.5"}, False),
-    ("pytorch", {"torch": "1.4.0", "pytorch_lightning": "1.0.4"}, False),
-])
+@pytest.mark.parametrize(
+    "flavor,module_version_dict,expected_result",
+    [
+        ("fastai", {"fastai": "1.0.60"}, True),
+        ("fastai", {"fastai": "1.0.50"}, False),
+        ("gluon", {"mxnet": "1.6.1"}, True),
+        ("gluon", {"mxnet": "1.5.0"}, False),
+        ("keras", {"keras": "2.2.4"}, True),
+        ("keras", {"keras": "2.2.3"}, False),
+        ("lightgbm", {"lightgbm": "2.3.1"}, True),
+        ("lightgbm", {"lightgbm": "2.3.0"}, False),
+        ("statsmodels", {"statsmodels": "0.11.1"}, True),
+        ("statsmodels", {"statsmodels": "0.11.0"}, False),
+        ("tensorflow", {"tensorflow": "1.15.4"}, True),
+        ("tensorflow", {"tensorflow": "1.15.3"}, False),
+        ("xgboost", {"xgboost": "0.90"}, True),
+        ("xgboost", {"xgboost": "0.89"}, False),
+        ("sklearn", {"sklearn": "0.20.3"}, True),
+        ("sklearn", {"sklearn": "0.20.2"}, False),
+        ("pytorch", {"torch": "1.4.0", "pytorch_lightning": "1.0.5"}, True),
+        ("pytorch", {"torch": "1.3.9", "pytorch_lightning": "1.0.5"}, False),
+        ("pytorch", {"torch": "1.4.0", "pytorch_lightning": "1.0.4"}, False),
+    ],
+)
+@mock.patch(
+    "mlflow.utils.autologging_utils._module_version_info_dict",
+    {
+        "sklearn": {
+            "package_info": {"pip_release": "scikit-learn",},
+            "autologging": {"minimum": "0.20.3", "maximum": "0.23.2",},
+        },
+        "pytorch": {
+            "package_info": {"pip_release": "torch",},
+            "autologging": {"minimum": "1.4.0", "maximum": "1.7.0",},
+        },
+        "pytorch-lightning": {
+            "package_info": {"pip_release": "pytorch-lightning",},
+            "autologging": {"minimum": "1.0.5", "maximum": "1.1.2",},
+        },
+        "tensorflow": {
+            "package_info": {"pip_release": "tensorflow",},
+            "autologging": {"minimum": "1.15.4", "maximum": "2.3.1",},
+        },
+        "keras": {
+            "package_info": {"pip_release": "keras",},
+            "autologging": {"minimum": "2.2.4", "maximum": "2.4.3",},
+        },
+        "xgboost": {
+            "package_info": {"pip_release": "xgboost",},
+            "autologging": {"minimum": "0.90", "maximum": "1.2.1",},
+        },
+        "lightgbm": {
+            "package_info": {"pip_release": "lightgbm",},
+            "autologging": {"minimum": "2.3.1", "maximum": "3.1.0",},
+        },
+        "gluon": {
+            "package_info": {"pip_release": "mxnet",},
+            "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1",},
+        },
+        "fastai-1.x": {
+            "package_info": {"pip_release": "fastai"},
+            "autologging": {"minimum": "1.0.60", "maximum": "1.0.61",},
+        },
+        "statsmodels": {
+            "package_info": {"pip_release": "statsmodels",},
+            "autologging": {"minimum": "0.11.1", "maximum": "0.12.2",},
+        },
+    },
+)
 def test_is_autologging_integration_supported(flavor, module_version_dict, expected_result):
-
     def gen_get_module_version_fn(module_name_to_version_map):
         def get_model_version_fn(module_name):
             if module_name in module_name_to_version_map:
