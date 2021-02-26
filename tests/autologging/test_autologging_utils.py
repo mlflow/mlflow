@@ -657,8 +657,8 @@ def test_check_version_in_range():
 
 
 @pytest.mark.parametrize("flavor,module_version_dict,expected_result", [
-    ("fastai", {"fastai": "1.0.60"}, True),
-    ("fastai", {"fastai": "1.0.50"}, False),
+    ("fastai", {"fastai": "1.0.30"}, True),
+    ("fastai", {"fastai": "1.0.20"}, False),
     ("gluon", {"mxnet": "1.6.1"}, True),
     ("gluon", {"mxnet": "1.5.0"}, False),
     ("keras", {"keras": "2.2.4"}, True),
