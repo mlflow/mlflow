@@ -156,6 +156,7 @@ class TensorInfo(object):
         return self._shape
 
     def to_dict(self) -> Dict[str, Any]:
+
         return {"dtype": self._dtype.name, "shape": self._shape}
 
     @classmethod
