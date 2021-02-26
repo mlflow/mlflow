@@ -367,7 +367,7 @@ def is_autologging_supported(flavor_name):
 def gen_autologging_package_version_requirements_doc(flavor_name):
     def _gen_single_requirement(json_key):
         min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(json_key)
-        return "{min_ver}<={pip_release}<={max_ver}".format(
+        return "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
             min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
         )
 
@@ -379,8 +379,9 @@ def gen_autologging_package_version_requirements_doc(flavor_name):
     )
 
     return (
-        ".. Note:: Only supported autologging integration with the following package versions: "
-        + required_pkg_versions + "\n"
+        "    .. note:: Autologging is known to be compatible with the following package versions: "
+        + required_pkg_versions
+        + ". Autologging may not succeed when used with package versions outside of this range..\n\n"
     )
 
 
@@ -434,7 +435,8 @@ def autologging_integration(name):
 
         if name in _cross_tested_flavor_to_module_name_and_json_key:
             wrapped_autolog.__doc__ = (
-                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+                gen_autologging_package_version_requirements_doc(name) +
+                wrapped_autolog.__doc__
             )
         return wrapped_autolog
 
@@ -473,8 +475,8 @@ def autologging_is_disabled(flavor_name):
             return True
         else:
             _logger.warning(
-                "You are using an unsupported library version for flavor %s, you can upgrade MLflow version or downgrade relative library version if you encounter errors during autologging.",
-                flavor_name,
+                "You are using an unsupported version of %s. If you encounter errors during autologging, try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
+                flavor_name, flavor_name
             )
             return False
     return False
