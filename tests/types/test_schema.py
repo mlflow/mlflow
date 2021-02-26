@@ -348,7 +348,7 @@ def test_all_numpy_dtypes():
     # test bytes_
     for dtype in bytes_:
         test_dtype(np.array([bytes([1, 255, 12, 34])], dtype=dtype), dtype)
-        # Explicitly giving size information for flexible dtype bytes
+    # Explicitly giving size information for flexible dtype bytes
     test_dtype(np.array([bytes([1, 255, 12, 34])], dtype="S10"), "S")
     test_dtype(np.array([bytes([1, 255, 12, 34])], dtype="S10"), "bytes")
 
