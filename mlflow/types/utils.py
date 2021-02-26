@@ -3,6 +3,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import string
 from typing import Optional
 
 from mlflow.exceptions import MlflowException
@@ -47,6 +48,32 @@ def _get_tensor_shape(data: np.ndarray, variable_dimension: Optional[int] = 0) -
     return tuple(variable_input_data_shape)
 
 
+def clean_tensor_type(dtype: np.dtype):
+    """
+    This method strips away the size information stored in flexible datatypes such as np.str_ and
+    np.bytes_. Other numpy dtypes are returned unchanged.
+
+    :param dtype: Numpy dtype of a tensor
+    :return: dtype: Cleaned numpy dtype
+    """
+    if not isinstance(dtype, np.dtype):
+        raise TypeError(
+            "Expected `type` to be instance of `{0}`, received `{1}`".format(
+                np.dtype, type.__class__
+            )
+        )
+
+    # Special casing for np.str_ and np.bytes_
+    if dtype.char in ["U", "S"]:
+        warnings.warn(
+            "MLflow does not support handling the size of flexible datatypes such as np.str_"
+            " and np.bytes_. Stripping the size information from input tensor dtype.",
+            stacklevel=2,
+        )
+        dtype = np.dtype(dtype.str.rstrip(string.digits))
+    return dtype
+
+
 def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
@@ -81,7 +108,13 @@ def _infer_schema(data: Any) -> Schema:
             ndarray = data[name]
             if not isinstance(ndarray, np.ndarray):
                 raise TypeError("Data in the dictionary must be of type numpy.ndarray")
-            res.append(TensorSpec(type=ndarray.dtype, shape=_get_tensor_shape(ndarray), name=name))
+            res.append(
+                TensorSpec(
+                    type=clean_tensor_type(ndarray.dtype),
+                    shape=_get_tensor_shape(ndarray),
+                    name=name,
+                )
+            )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
         schema = Schema([ColSpec(type=_infer_pandas_column(data))])
@@ -90,7 +123,9 @@ def _infer_schema(data: Any) -> Schema:
             [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
         )
     elif isinstance(data, np.ndarray):
-        schema = Schema([TensorSpec(type=data.dtype, shape=_get_tensor_shape(data))])
+        schema = Schema(
+            [TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))]
+        )
     elif _is_spark_df(data):
         schema = Schema(
             [
