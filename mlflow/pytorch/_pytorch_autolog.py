@@ -89,6 +89,11 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                 self.early_stopping = False
 
             def _log_metrics(self, trainer, pl_module):
+                # pytorch-lightning runs a few steps of validation in the beginning of training
+                # as a sanity check. During this phase, we should avoid logging metrics.
+                if trainer.running_sanity_check:
+                    return
+
                 if (pl_module.current_epoch + 1) % every_n_epoch == 0:
                     # `trainer.callback_metrics` contains both training and validation metrics
                     cur_metrics = trainer.callback_metrics
