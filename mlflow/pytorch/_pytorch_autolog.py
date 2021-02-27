@@ -90,7 +90,7 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
             def _log_metrics(self, trainer, pl_module):
                 # pytorch-lightning runs a few steps of validation in the beginning of training
-                # as a sanity check. During this phase, we should avoid logging metrics.
+                # as a sanity check. During this phase, we should skip logging metrics.
                 if trainer.running_sanity_check:
                     return
 
