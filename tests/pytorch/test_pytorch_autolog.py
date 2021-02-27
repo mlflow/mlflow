@@ -250,9 +250,11 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     trainer, run = pytorch_model
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, "loss")
+    loss_metric_history = client.get_metric_history(run.info.run_id, "loss")
+    val_loss_metric_history = client.get_metric_history(run.info.run_id, "val_loss")
     assert trainer.max_epochs == NUM_EPOCHS
-    assert len(metric_history) == NUM_EPOCHS
+    assert len(loss_metric_history) == NUM_EPOCHS
+    assert len(val_metric_history) == NUM_EPOCHS
 
 
 @pytest.fixture
