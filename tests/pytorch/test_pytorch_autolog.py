@@ -77,8 +77,10 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     data = run.data
 
     # Checking if metrics are logged
-    assert "loss" in data.metrics
-    assert "val_loss" in data.metrics
+    for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
+        assert metric_key in run.data.metrics
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
+        assert len(metric_history) == NUM_EPOCHS
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
