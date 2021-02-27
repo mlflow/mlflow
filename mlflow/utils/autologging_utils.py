@@ -344,10 +344,11 @@ def _get_min_max_version_and_pip_release(json_key):
     return min_version, max_version, pip_release
 
 
-def _is_autologging_integration_supported(flavor_name, get_module_version_fn):
+def is_autologging_integration_supported(flavor_name):
     def _check_supported(module_name, json_key):
+        actual_version = importlib.import_module(module_name).__version__
         min_version, max_version, _ = _get_min_max_version_and_pip_release(json_key)
-        return _check_version_in_range(get_module_version_fn(module_name), min_version, max_version)
+        return _check_version_in_range(actual_version, min_version, max_version)
 
     return all(
         [
@@ -357,13 +358,6 @@ def _is_autologging_integration_supported(flavor_name, get_module_version_fn):
             ]
         ]
     )
-
-
-def is_autologging_integration_supported(flavor_name):
-    def get_module_version(module_name):
-        return importlib.import_module(module_name).__version__
-
-    return _is_autologging_integration_supported(flavor_name, get_module_version)
 
 
 def gen_autologging_package_version_requirements_doc(flavor_name):

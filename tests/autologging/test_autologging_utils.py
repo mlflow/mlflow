@@ -4,6 +4,7 @@ import inspect
 import time
 import pytest
 from collections import namedtuple
+from contextlib import ExitStack
 from unittest.mock import Mock, call
 from unittest import mock
 
@@ -22,7 +23,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
     autologging_is_disabled,
-    _is_autologging_integration_supported,
+    is_autologging_integration_supported,
     _check_version_in_range,
 )
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
@@ -657,6 +658,50 @@ def test_check_version_in_range():
     assert _check_version_in_range("1.0.3", "1.0.1", "1.0.3.post1")
 
 
+_module_version_info_dict_patch = {
+        "sklearn": {
+            "package_info": {"pip_release": "scikit-learn", },
+            "autologging": {"minimum": "0.20.3", "maximum": "0.23.2", },
+        },
+        "pytorch": {
+            "package_info": {"pip_release": "torch", },
+            "autologging": {"minimum": "1.4.0", "maximum": "1.7.0", },
+        },
+        "pytorch-lightning": {
+            "package_info": {"pip_release": "pytorch-lightning", },
+            "autologging": {"minimum": "1.0.5", "maximum": "1.1.2", },
+        },
+        "tensorflow": {
+            "package_info": {"pip_release": "tensorflow", },
+            "autologging": {"minimum": "1.15.4", "maximum": "2.3.1", },
+        },
+        "keras": {
+            "package_info": {"pip_release": "keras", },
+            "autologging": {"minimum": "2.2.4", "maximum": "2.4.3", },
+        },
+        "xgboost": {
+            "package_info": {"pip_release": "xgboost", },
+            "autologging": {"minimum": "0.90", "maximum": "1.2.1", },
+        },
+        "lightgbm": {
+            "package_info": {"pip_release": "lightgbm", },
+            "autologging": {"minimum": "2.3.1", "maximum": "3.1.0", },
+        },
+        "gluon": {
+            "package_info": {"pip_release": "mxnet", },
+            "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1", },
+        },
+        "fastai-1.x": {
+            "package_info": {"pip_release": "fastai"},
+            "autologging": {"minimum": "1.0.60", "maximum": "1.0.61", },
+        },
+        "statsmodels": {
+            "package_info": {"pip_release": "statsmodels", },
+            "autologging": {"minimum": "0.11.1", "maximum": "0.12.2", },
+        },
+    }
+
+
 @pytest.mark.parametrize(
     "flavor,module_version_dict,expected_result",
     [
@@ -683,64 +728,21 @@ def test_check_version_in_range():
 )
 @mock.patch(
     "mlflow.utils.autologging_utils._module_version_info_dict",
-    {
-        "sklearn": {
-            "package_info": {"pip_release": "scikit-learn",},
-            "autologging": {"minimum": "0.20.3", "maximum": "0.23.2",},
-        },
-        "pytorch": {
-            "package_info": {"pip_release": "torch",},
-            "autologging": {"minimum": "1.4.0", "maximum": "1.7.0",},
-        },
-        "pytorch-lightning": {
-            "package_info": {"pip_release": "pytorch-lightning",},
-            "autologging": {"minimum": "1.0.5", "maximum": "1.1.2",},
-        },
-        "tensorflow": {
-            "package_info": {"pip_release": "tensorflow",},
-            "autologging": {"minimum": "1.15.4", "maximum": "2.3.1",},
-        },
-        "keras": {
-            "package_info": {"pip_release": "keras",},
-            "autologging": {"minimum": "2.2.4", "maximum": "2.4.3",},
-        },
-        "xgboost": {
-            "package_info": {"pip_release": "xgboost",},
-            "autologging": {"minimum": "0.90", "maximum": "1.2.1",},
-        },
-        "lightgbm": {
-            "package_info": {"pip_release": "lightgbm",},
-            "autologging": {"minimum": "2.3.1", "maximum": "3.1.0",},
-        },
-        "gluon": {
-            "package_info": {"pip_release": "mxnet",},
-            "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1",},
-        },
-        "fastai-1.x": {
-            "package_info": {"pip_release": "fastai"},
-            "autologging": {"minimum": "1.0.60", "maximum": "1.0.61",},
-        },
-        "statsmodels": {
-            "package_info": {"pip_release": "statsmodels",},
-            "autologging": {"minimum": "0.11.1", "maximum": "0.12.2",},
-        },
-    },
+    _module_version_info_dict_patch
 )
 def test_is_autologging_integration_supported(flavor, module_version_dict, expected_result):
-    def gen_get_module_version_fn(module_name_to_version_map):
-        def get_model_version_fn(module_name):
-            if module_name in module_name_to_version_map:
-                return module_name_to_version_map[module_name]
-            raise ValueError("Test error: unknown module name: " + module_name)
-
-        return get_model_version_fn
-
-    assert expected_result == _is_autologging_integration_supported(
-        flavor, gen_get_module_version_fn(module_version_dict)
-    )
+    with ExitStack() as stack:
+        for module_name in module_version_dict:
+            stack.enter_context(
+                mock.patch(module_name + '.__version__', module_version_dict[module_name]))
+        assert expected_result == is_autologging_integration_supported(flavor)
 
 
-def test_disable_for_unsupported_versions_sklearn_integration(logger):
+@mock.patch(
+    "mlflow.utils.autologging_utils._module_version_info_dict",
+    _module_version_info_dict_patch
+)
+def test_disable_for_unsupported_versions_sklearn_integration():
     log_warn_fn_name = "mlflow.utils.autologging_utils._log_warning_for_unsupported_integration"
 
     with mock.patch("sklearn.__version__", "0.20.3"):
@@ -748,39 +750,47 @@ def test_disable_for_unsupported_versions_sklearn_integration(logger):
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
             assert not autologging_is_disabled("sklearn")
-            log_warn_fn.assert_not_called()
+            with pytest.raises(AssertionError):
+                log_warn_fn.assert_any_call("sklearn")
+        AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert not autologging_is_disabled("sklearn")
-            log_warn_fn.assert_not_called()
+            with pytest.raises(AssertionError):
+                log_warn_fn.assert_any_call("sklearn")
 
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=True)
             assert not autologging_is_disabled("sklearn")
-            log_warn_fn.assert_not_called()
+            with pytest.raises(AssertionError):
+                log_warn_fn.assert_any_call("sklearn")
+        AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=False)
             assert not autologging_is_disabled("sklearn")
-            log_warn_fn.assert_not_called()
+            with pytest.raises(AssertionError):
+                log_warn_fn.assert_any_call("sklearn")
 
     with mock.patch("sklearn.__version__", "0.20.2"):
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
             assert autologging_is_disabled("sklearn")
-            log_warn_fn.assert_not_called()
+            with pytest.raises(AssertionError):
+                log_warn_fn.assert_any_call("sklearn")
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             assert not autologging_is_disabled("sklearn")
-            log_warn_fn.assert_called()
+            log_warn_fn.assert_any_call("sklearn")
 
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=True)
             assert autologging_is_disabled("sklearn")
-            log_warn_fn.assert_not_called()
+            with pytest.raises(AssertionError):
+                log_warn_fn.assert_any_call("sklearn")
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=False)
             assert not autologging_is_disabled("sklearn")
-            log_warn_fn.assert_called()
+            log_warn_fn.assert_any_call("sklearn")
