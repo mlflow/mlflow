@@ -256,7 +256,7 @@ def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     val_loss_metric_history = client.get_metric_history(run.info.run_id, "val_loss")
     assert trainer.max_epochs == NUM_EPOCHS
     assert len(loss_metric_history) == NUM_EPOCHS
-    assert len(val_metric_history) == NUM_EPOCHS
+    assert len(val_loss_metric_history) == NUM_EPOCHS
 
 
 @pytest.fixture
