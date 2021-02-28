@@ -196,7 +196,7 @@ fastai-1.x:
     pip_release: "fastai"
 
   models:
-    minimum: "1.0.30"
+    minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
     run: |

@@ -324,7 +324,7 @@ _module_version_info_dict = _load_version_file_json()
 
 
 # A map FLAVOR_NAME -> list of dependent (module_name, key_in_version_file_json)
-_cross_tested_flavor_to_module_name_and_json_key = {
+_cross_tested_flavor_to_module_name_and_module_key = {
     "fastai": [("fastai", "fastai-1.x")],
     "gluon": [("mxnet", "gluon")],
     "keras": [("keras", "keras")],
@@ -337,23 +337,23 @@ _cross_tested_flavor_to_module_name_and_json_key = {
 }
 
 
-def _get_min_max_version_and_pip_release(json_key):
-    min_version = _module_version_info_dict[json_key]["autologging"]["minimum"]
-    max_version = _module_version_info_dict[json_key]["autologging"]["maximum"]
-    pip_release = _module_version_info_dict[json_key]["package_info"]["pip_release"]
+def _get_min_max_version_and_pip_release(module_key):
+    min_version = _module_version_info_dict[module_key]["autologging"]["minimum"]
+    max_version = _module_version_info_dict[module_key]["autologging"]["maximum"]
+    pip_release = _module_version_info_dict[module_key]["package_info"]["pip_release"]
     return min_version, max_version, pip_release
 
 
 def is_autologging_integration_supported(flavor_name):
-    def _check_supported(module_name, json_key):
+    def _check_supported(module_name, module_key):
         actual_version = importlib.import_module(module_name).__version__
-        min_version, max_version, _ = _get_min_max_version_and_pip_release(json_key)
+        min_version, max_version, _ = _get_min_max_version_and_pip_release(module_key)
         return _check_version_in_range(actual_version, min_version, max_version)
 
     return all(
         [
-            _check_supported(module_name, json_key)
-            for module_name, json_key in _cross_tested_flavor_to_module_name_and_json_key[
+            _check_supported(module_name, module_key)
+            for module_name, module_key in _cross_tested_flavor_to_module_name_and_module_key[
                 flavor_name
             ]
         ]
@@ -361,29 +361,31 @@ def is_autologging_integration_supported(flavor_name):
 
 
 def gen_autologging_package_version_requirements_doc(flavor_name):
-    def _gen_single_requirement(json_key):
-        min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(json_key)
+    def _gen_single_requirement(module_key):
+        min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(module_key)
         return "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
             min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
         )
 
     required_pkg_versions = ",".join(
         [
-            _gen_single_requirement(json_key)
-            for _, json_key in _cross_tested_flavor_to_module_name_and_json_key[flavor_name]
+            _gen_single_requirement(module_key)
+            for _, module_key in _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
         ]
     )
 
     return (
         "    .. Note:: Autologging is known to be compatible with the following package versions: "
         + required_pkg_versions
-        + ". Autologging may not succeed when used with package versions outside of this range..\n\n"
+        + ". Autologging may not succeed when used with package versions outside of this range."
+        + "\n\n"
     )
 
 
 def _log_warning_for_unsupported_integration(flavor_name):
     _logger.warning(
-        "You are using an unsupported version of %s. If you encounter errors during autologging, try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
+        "You are using an unsupported version of %s. If you encounter errors during autologging, "
+        + "try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
         flavor_name,
         flavor_name,
     )
@@ -391,7 +393,7 @@ def _log_warning_for_unsupported_integration(flavor_name):
 
 def check_and_log_warning_for_unsupported_integration(flavor_name):
     if (
-        flavor_name in _cross_tested_flavor_to_module_name_and_json_key
+        flavor_name in _cross_tested_flavor_to_module_name_and_module_key
         and not get_autologging_config(flavor_name, "disable", True)
         and not get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
         and not is_autologging_integration_supported(flavor_name)
@@ -449,7 +451,7 @@ def autologging_integration(name):
         # during the execution of import hooks for `mlflow.autolog()`.
         wrapped_autolog.integration_name = name
 
-        if name in _cross_tested_flavor_to_module_name_and_json_key:
+        if name in _cross_tested_flavor_to_module_name_and_module_key:
             wrapped_autolog.__doc__ = (
                 gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
@@ -486,7 +488,7 @@ def autologging_is_disabled(flavor_name):
         return True
 
     if (
-        flavor_name in _cross_tested_flavor_to_module_name_and_json_key
+        flavor_name in _cross_tested_flavor_to_module_name_and_module_key
         and not is_autologging_integration_supported(flavor_name)
     ):
         if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):

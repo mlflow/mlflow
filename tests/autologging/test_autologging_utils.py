@@ -659,47 +659,47 @@ def test_check_version_in_range():
 
 
 _module_version_info_dict_patch = {
-        "sklearn": {
-            "package_info": {"pip_release": "scikit-learn", },
-            "autologging": {"minimum": "0.20.3", "maximum": "0.23.2", },
-        },
-        "pytorch": {
-            "package_info": {"pip_release": "torch", },
-            "autologging": {"minimum": "1.4.0", "maximum": "1.7.0", },
-        },
-        "pytorch-lightning": {
-            "package_info": {"pip_release": "pytorch-lightning", },
-            "autologging": {"minimum": "1.0.5", "maximum": "1.1.2", },
-        },
-        "tensorflow": {
-            "package_info": {"pip_release": "tensorflow", },
-            "autologging": {"minimum": "1.15.4", "maximum": "2.3.1", },
-        },
-        "keras": {
-            "package_info": {"pip_release": "keras", },
-            "autologging": {"minimum": "2.2.4", "maximum": "2.4.3", },
-        },
-        "xgboost": {
-            "package_info": {"pip_release": "xgboost", },
-            "autologging": {"minimum": "0.90", "maximum": "1.2.1", },
-        },
-        "lightgbm": {
-            "package_info": {"pip_release": "lightgbm", },
-            "autologging": {"minimum": "2.3.1", "maximum": "3.1.0", },
-        },
-        "gluon": {
-            "package_info": {"pip_release": "mxnet", },
-            "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1", },
-        },
-        "fastai-1.x": {
-            "package_info": {"pip_release": "fastai"},
-            "autologging": {"minimum": "1.0.60", "maximum": "1.0.61", },
-        },
-        "statsmodels": {
-            "package_info": {"pip_release": "statsmodels", },
-            "autologging": {"minimum": "0.11.1", "maximum": "0.12.2", },
-        },
-    }
+    "sklearn": {
+        "package_info": {"pip_release": "scikit-learn"},
+        "autologging": {"minimum": "0.20.3", "maximum": "0.23.2"},
+    },
+    "pytorch": {
+        "package_info": {"pip_release": "torch"},
+        "autologging": {"minimum": "1.4.0", "maximum": "1.7.0"},
+    },
+    "pytorch-lightning": {
+        "package_info": {"pip_release": "pytorch-lightning"},
+        "autologging": {"minimum": "1.0.5", "maximum": "1.1.2"},
+    },
+    "tensorflow": {
+        "package_info": {"pip_release": "tensorflow"},
+        "autologging": {"minimum": "1.15.4", "maximum": "2.3.1"},
+    },
+    "keras": {
+        "package_info": {"pip_release": "keras"},
+        "autologging": {"minimum": "2.2.4", "maximum": "2.4.3"},
+    },
+    "xgboost": {
+        "package_info": {"pip_release": "xgboost"},
+        "autologging": {"minimum": "0.90", "maximum": "1.2.1"},
+    },
+    "lightgbm": {
+        "package_info": {"pip_release": "lightgbm"},
+        "autologging": {"minimum": "2.3.1", "maximum": "3.1.0"},
+    },
+    "gluon": {
+        "package_info": {"pip_release": "mxnet"},
+        "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
+    },
+    "fastai-1.x": {
+        "package_info": {"pip_release": "fastai"},
+        "autologging": {"minimum": "1.0.60", "maximum": "1.0.61"},
+    },
+    "statsmodels": {
+        "package_info": {"pip_release": "statsmodels"},
+        "autologging": {"minimum": "0.11.1", "maximum": "0.12.2"},
+    },
+}
 
 
 @pytest.mark.parametrize(
@@ -727,20 +727,19 @@ _module_version_info_dict_patch = {
     ],
 )
 @mock.patch(
-    "mlflow.utils.autologging_utils._module_version_info_dict",
-    _module_version_info_dict_patch
+    "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
 )
 def test_is_autologging_integration_supported(flavor, module_version_dict, expected_result):
     with ExitStack() as stack:
         for module_name in module_version_dict:
             stack.enter_context(
-                mock.patch(module_name + '.__version__', module_version_dict[module_name]))
+                mock.patch(module_name + ".__version__", module_version_dict[module_name])
+            )
         assert expected_result == is_autologging_integration_supported(flavor)
 
 
 @mock.patch(
-    "mlflow.utils.autologging_utils._module_version_info_dict",
-    _module_version_info_dict_patch
+    "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
 )
 def test_disable_for_unsupported_versions_warning_sklearn_integration():
     log_warn_fn_name = "mlflow.utils.autologging_utils._log_warning_for_unsupported_integration"
