@@ -2,17 +2,9 @@ Changelog
 =========
 1.14.1 (2021-03-01)
 -------------------
-MLflow 1.14.1 includes several major features and improvements:
+MLflow 1.14.1 is a patch release containing the following bug fix:
 
-Features:
-
-
-
-Bug fixes and documentation updates:
-
-
-
-Small bug fixes and doc updates ()
+- Fix issues in handling flexible numpy datatypes in TensorSpec (#4147, @arjundc-db)
 
 1.14.0 (2021-02-18)
 -------------------
