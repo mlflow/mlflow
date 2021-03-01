@@ -415,13 +415,14 @@ def save_explainer(
 
     underlying_model_flavor = None
     underlying_model_path = None
+    model_saver = None
 
     # saving the underlying model if required
     if serialize_model_using_mlflow:
         underlying_model_flavor = get_underlying_model_flavor(explainer.model)
 
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
-            explainer.model.save = None  # this prevents SHAP from serializing the underlying model
+            model_saver = False  # this prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
@@ -433,7 +434,7 @@ def save_explainer(
     explainer_data_subpath = "explainer.shap"
     explainer_output_path = os.path.join(path, explainer_data_subpath)
     with open(explainer_output_path, "wb") as explainer_output_file_handle:
-        explainer.save(explainer_output_file_handle)
+        explainer.save(explainer_output_file_handle, model_saver=model_saver)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -574,7 +575,6 @@ def _load_explainer(explainer_file, model=None):
     import shap
 
     def inject_model_loader(in_file):
-        pickle.load(in_file)  # No-Op to move file pointer forward
         return model
 
     with open(explainer_file, "rb") as explainer:
