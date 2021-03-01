@@ -314,13 +314,13 @@ def _check_version_in_range(ver, min_ver, max_ver):
     return LooseVersion(min_ver) <= LooseVersion(ver) <= LooseVersion(max_ver)
 
 
-def _load_version_file_json():
+def _load_version_file_as_dict():
     version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 
 
-_module_version_info_dict = _load_version_file_json()
+_module_version_info_dict = _load_version_file_as_dict()
 
 
 # A map FLAVOR_NAME -> list of dependent (module_name, key_in_version_file_json)

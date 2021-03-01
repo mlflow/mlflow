@@ -730,6 +730,8 @@ _module_version_info_dict_patch = {
     "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
 )
 def test_is_autologging_integration_supported(flavor, module_version_dict, expected_result):
+    # Using `ExitStack` to enter a variable list of context, essentially it does something like:
+    # with mock.patch('lib1.__version', 'xxx'),  mock.patch('lib2.__version', 'xxx'), ...
     with ExitStack() as stack:
         for module_name in module_version_dict:
             stack.enter_context(
@@ -748,31 +750,26 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
-            with pytest.raises(AssertionError):
-                log_warn_fn.assert_called_once_with("sklearn")
+            assert len(log_warn_fn.call_args_list) == 0
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
-            with pytest.raises(AssertionError):
-                log_warn_fn.assert_called_once_with("sklearn")
+            assert len(log_warn_fn.call_args_list) == 0
 
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=True)
-            with pytest.raises(AssertionError):
-                log_warn_fn.assert_any_call("sklearn")
+            assert all(args[0] != "sklearn" for args in log_warn_fn.call_args_list)
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=False)
-            with pytest.raises(AssertionError):
-                log_warn_fn.assert_any_call("sklearn")
+            assert all(args[0] != "sklearn" for args in log_warn_fn.call_args_list)
 
     with mock.patch("sklearn.__version__", "0.20.2"):
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
-            with pytest.raises(AssertionError):
-                log_warn_fn.assert_called_once_with("sklearn")
+            assert len(log_warn_fn.call_args_list) == 0
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
             log_warn_fn.assert_called_once_with("sklearn")
@@ -780,8 +777,7 @@ def test_disable_for_unsupported_versions_warning_sklearn_integration():
         AUTOLOGGING_INTEGRATIONS.clear()
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=True)
-            with pytest.raises(AssertionError):
-                log_warn_fn.assert_any_call("sklearn")
+            assert all(args[0] != "sklearn" for args in log_warn_fn.call_args_list)
         with mock.patch(log_warn_fn_name) as log_warn_fn:
             mlflow.autolog(disable_for_unsupported_versions=False)
             log_warn_fn.assert_any_call("sklearn")
