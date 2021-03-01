@@ -3,6 +3,7 @@ from enum import Enum
 
 import numpy as np
 import pandas as pd
+import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
@@ -133,10 +134,17 @@ class TensorInfo(object):
                     np.dtype, type.__class__
                 )
             )
+        # Throw if size information exists flexible numpy data types
+        if dtype.char in ["U", "S"] and not dtype.name.isalpha():
+            raise MlflowException(
+                "MLflow does not support size information in flexible numpy data types. Use"
+                ' np.dtype("{0}") instead'.format(dtype.name.rstrip(string.digits))
+            )
+
         if not isinstance(shape, (tuple, list)):
             raise TypeError(
-                "Expected `shape` to be instance of `{0}`, received `{1}`".format(
-                    tuple, shape.__class__
+                "Expected `shape` to be instance of `{0}` or `{1}`, received `{2}`".format(
+                    tuple, list, shape.__class__
                 )
             )
         self._dtype = dtype
