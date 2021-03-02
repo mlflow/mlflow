@@ -1,4 +1,4 @@
-name: alexnet-cifar10-classification
+name: mnist-classification-iterative-pruning
 
 conda_env: conda.yaml
 
@@ -6,9 +6,9 @@ entry_points:
   main:
     parameters:
       max_epochs: {type: int, default: 3}
-      mlflow_run_name: {type: str, default: 'BaseModel'}
+      total_trials: {type: int, default: 3}
 
     command: |
-          python alexnet.py \
+          python iterative_prune_mnist.py \
             --max_epochs {max_epochs} \
-            --mlflow_run_name {mlflow_run_name}
+            --total_trials {total_trials}
