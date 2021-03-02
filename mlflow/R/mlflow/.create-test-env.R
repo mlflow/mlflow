@@ -20,6 +20,6 @@ options(timeout=60 * 30)
 
 # Install MLeap runtime and required dependencies
 sparklyr::spark_install(version = "2.4.5", verbose = TRUE)
-# Downloaded file will be cached by GitHub Actions (See the r job in `.github/workflows/master.yml`)
+# Downloaded spark archive will be cached by GitHub Actions (See the r job in `.github/workflows/master.yml`)
 mleap::install_maven()
 mleap::install_mleap(version = "0.16.0")

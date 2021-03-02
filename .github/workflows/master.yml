@@ -74,7 +74,7 @@ jobs:
         # R dependencies
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
         restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
-    # Cache spark downloaded in `mlflow/R/mlflow/.create-test-env.R` to stabilize the job
+    # Cache spark archive downloaded in `mlflow/R/mlflow/.create-test-env.R` to stabilize the job
     - name: Cache spark
       uses: actions/cache@v2
       with:
