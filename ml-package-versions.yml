@@ -32,13 +32,6 @@ pytorch:
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
 
-  autologging:
-    minimum: "1.4.0"
-    maximum: "1.7.0"
-    requirements: ["torchvision", "pytorch-lightning", "scikit-learn"]
-    run: |
-      pytest tests/pytorch/test_pytorch_autolog.py --large
-
 pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
