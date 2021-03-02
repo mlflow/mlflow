@@ -323,17 +323,17 @@ def _load_version_file_as_dict():
 _module_version_info_dict = _load_version_file_as_dict()
 
 
-# A map FLAVOR_NAME -> list of dependent (module_name, key_in_version_file_json)
+# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
 _cross_tested_flavor_to_module_name_and_module_key = {
-    "fastai": [("fastai", "fastai-1.x")],
-    "gluon": [("mxnet", "gluon")],
-    "keras": [("keras", "keras")],
-    "lightgbm": [("lightgbm", "lightgbm")],
-    "statsmodels": [("statsmodels", "statsmodels")],
-    "tensorflow": [("tensorflow", "tensorflow")],
-    "xgboost": [("xgboost", "xgboost")],
-    "sklearn": [("sklearn", "sklearn")],
-    "pytorch": [("torch", "pytorch"), ("pytorch_lightning", "pytorch-lightning")],
+    "fastai": ("fastai", "fastai-1.x"),
+    "gluon": ("mxnet", "gluon"),
+    "keras": ("keras", "keras"),
+    "lightgbm": ("lightgbm", "lightgbm"),
+    "statsmodels": ("statsmodels", "statsmodels"),
+    "tensorflow": ("tensorflow", "tensorflow"),
+    "xgboost": ("xgboost", "xgboost"),
+    "sklearn": ("sklearn", "sklearn"),
+    "pytorch-lightning": ("pytorch_lightning", "pytorch-lightning"),
 }
 
 
@@ -345,33 +345,17 @@ def _get_min_max_version_and_pip_release(module_key):
 
 
 def is_autologging_integration_supported(flavor_name):
-    def _check_supported(module_name, module_key):
-        actual_version = importlib.import_module(module_name).__version__
-        min_version, max_version, _ = _get_min_max_version_and_pip_release(module_key)
-        return _check_version_in_range(actual_version, min_version, max_version)
-
-    return all(
-        [
-            _check_supported(module_name, module_key)
-            for module_name, module_key in _cross_tested_flavor_to_module_name_and_module_key[
-                flavor_name
-            ]
-        ]
-    )
+    module_name, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
+    actual_version = importlib.import_module(module_name).__version__
+    min_version, max_version, _ = _get_min_max_version_and_pip_release(module_key)
+    return _check_version_in_range(actual_version, min_version, max_version)
 
 
 def gen_autologging_package_version_requirements_doc(flavor_name):
-    def _gen_single_requirement(module_key):
-        min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(module_key)
-        return "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
-            min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
-        )
-
-    required_pkg_versions = ",".join(
-        [
-            _gen_single_requirement(module_key)
-            for _, module_key in _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
-        ]
+    _, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
+    min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(module_key)
+    required_pkg_versions = "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
+        min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
     )
 
     return (

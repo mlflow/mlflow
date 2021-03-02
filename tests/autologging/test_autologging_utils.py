@@ -4,7 +4,6 @@ import inspect
 import time
 import pytest
 from collections import namedtuple
-from contextlib import ExitStack
 from unittest.mock import Mock, call
 from unittest import mock
 
@@ -25,6 +24,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     is_autologging_integration_supported,
     _check_version_in_range,
+    _cross_tested_flavor_to_module_name_and_module_key,
 )
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
@@ -663,10 +663,6 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "scikit-learn"},
         "autologging": {"minimum": "0.20.3", "maximum": "0.23.2"},
     },
-    "pytorch": {
-        "package_info": {"pip_release": "torch"},
-        "autologging": {"minimum": "1.4.0", "maximum": "1.7.0"},
-    },
     "pytorch-lightning": {
         "package_info": {"pip_release": "pytorch-lightning"},
         "autologging": {"minimum": "1.0.5", "maximum": "1.1.2"},
@@ -703,40 +699,34 @@ _module_version_info_dict_patch = {
 
 
 @pytest.mark.parametrize(
-    "flavor,module_version_dict,expected_result",
+    "flavor,module_version,expected_result",
     [
-        ("fastai", {"fastai": "1.0.60"}, True),
-        ("fastai", {"fastai": "1.0.50"}, False),
-        ("gluon", {"mxnet": "1.6.1"}, True),
-        ("gluon", {"mxnet": "1.5.0"}, False),
-        ("keras", {"keras": "2.2.4"}, True),
-        ("keras", {"keras": "2.2.3"}, False),
-        ("lightgbm", {"lightgbm": "2.3.1"}, True),
-        ("lightgbm", {"lightgbm": "2.3.0"}, False),
-        ("statsmodels", {"statsmodels": "0.11.1"}, True),
-        ("statsmodels", {"statsmodels": "0.11.0"}, False),
-        ("tensorflow", {"tensorflow": "1.15.4"}, True),
-        ("tensorflow", {"tensorflow": "1.15.3"}, False),
-        ("xgboost", {"xgboost": "0.90"}, True),
-        ("xgboost", {"xgboost": "0.89"}, False),
-        ("sklearn", {"sklearn": "0.20.3"}, True),
-        ("sklearn", {"sklearn": "0.20.2"}, False),
-        ("pytorch", {"torch": "1.4.0", "pytorch_lightning": "1.0.5"}, True),
-        ("pytorch", {"torch": "1.3.9", "pytorch_lightning": "1.0.5"}, False),
-        ("pytorch", {"torch": "1.4.0", "pytorch_lightning": "1.0.4"}, False),
+        ("fastai", "1.0.60", True),
+        ("fastai", "1.0.50", False),
+        ("gluon", "1.6.1", True),
+        ("gluon", "1.5.0", False),
+        ("keras", "2.2.4", True),
+        ("keras", "2.2.3", False),
+        ("lightgbm", "2.3.1", True),
+        ("lightgbm", "2.3.0", False),
+        ("statsmodels", "0.11.1", True),
+        ("statsmodels", "0.11.0", False),
+        ("tensorflow", "1.15.4", True),
+        ("tensorflow", "1.15.3", False),
+        ("xgboost", "0.90", True),
+        ("xgboost", "0.89", False),
+        ("sklearn", "0.20.3", True),
+        ("sklearn", "0.20.2", False),
+        ("pytorch-lightning", "1.0.5", True),
+        ("pytorch-lightning", "1.0.4", False),
     ],
 )
 @mock.patch(
     "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
 )
-def test_is_autologging_integration_supported(flavor, module_version_dict, expected_result):
-    # Using `ExitStack` to enter a variable list of context, essentially it does something like:
-    # with mock.patch('lib1.__version', 'xxx'),  mock.patch('lib2.__version', 'xxx'), ...
-    with ExitStack() as stack:
-        for module_name in module_version_dict:
-            stack.enter_context(
-                mock.patch(module_name + ".__version__", module_version_dict[module_name])
-            )
+def test_is_autologging_integration_supported(flavor, module_version, expected_result):
+    module_name, _ = _cross_tested_flavor_to_module_name_and_module_key[flavor]
+    with mock.patch(module_name + ".__version__", module_version):
         assert expected_result == is_autologging_integration_supported(flavor)
 
 
