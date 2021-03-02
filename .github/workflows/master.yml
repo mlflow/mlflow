@@ -75,7 +75,7 @@ jobs:
         key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
         restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
     # Cache spark archive downloaded in `mlflow/R/mlflow/.create-test-env.R` to stabilize the job
-    - name: Cache spark
+    - name: Cache spark archive
       uses: actions/cache@v2
       with:
         path: ~/spark/spark-2.4.5-bin-hadoop2.7
