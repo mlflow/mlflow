@@ -382,15 +382,6 @@ def gen_autologging_package_version_requirements_doc(flavor_name):
     )
 
 
-def _log_warning_for_unsupported_integration(flavor_name):
-    _logger.warning(
-        "You are using an unsupported version of %s. If you encounter errors during autologging, "
-        + "try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
-        flavor_name,
-        flavor_name,
-    )
-
-
 def check_and_log_warning_for_unsupported_integration(flavor_name):
     if (
         flavor_name in _cross_tested_flavor_to_module_name_and_module_key
@@ -398,7 +389,12 @@ def check_and_log_warning_for_unsupported_integration(flavor_name):
         and not get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
         and not is_autologging_integration_supported(flavor_name)
     ):
-        _log_warning_for_unsupported_integration(flavor_name)
+        _logger.warning(
+            "You are using an unsupported version of %s. If you encounter errors during autologging, "
+            + "try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
+            flavor_name,
+            flavor_name,
+        )
 
 
 def autologging_integration(name):

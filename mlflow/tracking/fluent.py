@@ -1397,7 +1397,6 @@ def autolog(
             ] = True
             if not autologging_params.get("disable", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
-            check_and_log_warning_for_unsupported_integration(autolog_fn.integration_name)
         except Exception as e:
             if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
