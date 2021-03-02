@@ -344,7 +344,10 @@ def _get_min_max_version_and_pip_release(module_key):
     return min_version, max_version, pip_release
 
 
-def is_autologging_integration_supported(flavor_name):
+def _is_autologging_integration_supported(flavor_name):
+    """
+    check whether the flavor package version is compatible with mlflow,
+    """
     module_name, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
     min_version, max_version, _ = _get_min_max_version_and_pip_release(module_key)
@@ -366,12 +369,16 @@ def gen_autologging_package_version_requirements_doc(flavor_name):
     )
 
 
-def check_and_log_warning_for_unsupported_integration(flavor_name):
+def _check_and_log_warning_for_unsupported_integration(flavor_name):
+    """
+    When autologging enabled disable_for_unsupported_versions disabled, check whether the flavor
+    package version is compatible with mlflow, if not compatible, log a warning message.
+    """
     if (
         flavor_name in _cross_tested_flavor_to_module_name_and_module_key
         and not get_autologging_config(flavor_name, "disable", True)
         and not get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
-        and not is_autologging_integration_supported(flavor_name)
+        and not _is_autologging_integration_supported(flavor_name)
     ):
         _logger.warning(
             "You are using an unsupported version of %s. If you encounter errors during autologging, "
@@ -421,7 +428,7 @@ def autologging_integration(name):
             except Exception:
                 pass
 
-            check_and_log_warning_for_unsupported_integration(name)
+            _check_and_log_warning_for_unsupported_integration(name)
 
             return _autolog(*args, **kwargs)
 
@@ -469,12 +476,10 @@ def autologging_is_disabled(flavor_name):
 
     if (
         flavor_name in _cross_tested_flavor_to_module_name_and_module_key
-        and not is_autologging_integration_supported(flavor_name)
+        and not _is_autologging_integration_supported(flavor_name)
     ):
-        if get_autologging_config(flavor_name, "disable_for_unsupported_versions", False):
-            return True
-        else:
-            return False
+        return get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
+
     return False
 
 

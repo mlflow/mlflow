@@ -21,7 +21,6 @@ from mlflow.utils.autologging_utils import (
     _is_testing,
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
-    check_and_log_warning_for_unsupported_integration,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook

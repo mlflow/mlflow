@@ -22,7 +22,7 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
     autologging_is_disabled,
-    is_autologging_integration_supported,
+    _is_autologging_integration_supported,
     _check_version_in_range,
     _cross_tested_flavor_to_module_name_and_module_key,
 )
@@ -727,7 +727,7 @@ _module_version_info_dict_patch = {
 def test_is_autologging_integration_supported(flavor, module_version, expected_result):
     module_name, _ = _cross_tested_flavor_to_module_name_and_module_key[flavor]
     with mock.patch(module_name + ".__version__", module_version):
-        assert expected_result == is_autologging_integration_supported(flavor)
+        assert expected_result == _is_autologging_integration_supported(flavor)
 
 
 @mock.patch(
