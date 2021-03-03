@@ -2,13 +2,15 @@
 Pruning is the process of compressing a neural network that involves removing weights from a trained model.
 It could be achieved by either removing the neurons in a specific layer or make the weights of the connections 
 that are nearer to zero as zero. The script is an example of later. Pruning a model has an impact on
-accuracy of the model, while it makes the model lightweight. In this example, we train a model to classify 
-MNIST handwritten Digit recognition dataset. Basemodel along with the parameters, metrics and summary are stored in mlflow.
+accuracy of the model, while it makes the model lightweight.
+
+In this example, we train a model to classify MNIST handwritten Digit recognition dataset. Basemodel along with the parameters, metrics and summary are stored in mlflow.
 Subsequently, the trained MNIST model stored in mlflow is saved and pruned iteratively by using the custom 
 inputs provided from the cli. Ax is a platform for optimizing any kind of experiment, including machine learning experiments,
 A/B tests, and simulations. [Ax](https://ax.dev/docs/why-ax.html) can optimize discrete configurations using multi-armed bandit optimization,
-and continuous (e.g., integer or floating point)-valued configurations using Bayesian optimization. The objective function of the experiment
-trails is "test_accuracy" based on which the model is evaluated at each trial and the best set of parameters are derived.
+and continuous (e.g., integer or floating point)-valued configurations using Bayesian optimization.
+
+The objective function of the experiment trails is "test_accuracy" based on which the model is evaluated at each trial and the best set of parameters are derived.
 AXClient is used to provide the initial pruning percentage as well as decides the number
 of trails to be run. The summary of the pruned model is captured in a separate file and stored as an artifact in MLflow.
 
@@ -34,7 +36,7 @@ mlflow ui
 
 and navigating to [http://localhost:5000](http://localhost:5000).
 
-In the MLflow UI, the Base Model is stored as the Parent Run and the runs for each iterations of the pruing is logged as nested child runs, as shown in the
+In the MLflow UI, the Base Model is stored as the Parent Run and the runs for each iterations of the pruning is logged as nested child runs, as shown in the
 snippets below:
 
 ![prune_ankan](https://user-images.githubusercontent.com/51693147/100785435-a66d6e80-3436-11eb-967a-c96b23625d1c.JPG)
