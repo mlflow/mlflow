@@ -10,8 +10,8 @@ def experimental(func):
     :returns Decorated function.
     """
     notice = (
-        ".. Note:: Experimental: This method may change or "
-        + "be removed in a future release without warning.\n"
+        "    .. Note:: Experimental: This method may change or "
+        + "be removed in a future release without warning.\n\n"
     )
     func.__doc__ = notice + func.__doc__
     return func

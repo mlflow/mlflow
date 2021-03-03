@@ -126,6 +126,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         "log_models": False,
         "disable": True,
         "exclusive": True,
+        "disable_for_unsupported_versions": True,
     }
     if library in integrations_with_additional_config:
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
@@ -206,6 +207,8 @@ def test_universal_autolog_makes_expected_event_logging_calls():
 
 
 def test_autolog_obeys_disabled():
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert get_autologging_config("sklearn", "disable")
@@ -218,9 +221,22 @@ def test_autolog_obeys_disabled():
 
     mlflow.autolog(disable=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
-    assert not get_autologging_config("sklearn", "disable", False)
+    assert not get_autologging_config("sklearn", "disable")
     mlflow.sklearn.autolog(disable=True)
     assert get_autologging_config("sklearn", "disable")
+
+    AUTOLOGGING_INTEGRATIONS.clear()
+    mlflow.autolog(disable_for_unsupported_versions=False)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
+    mlflow.autolog(disable_for_unsupported_versions=True)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert get_autologging_config("sklearn", "disable_for_unsupported_versions")
+
+    mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
+    assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
+    mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
+    assert get_autologging_config("sklearn", "disable_for_unsupported_versions")
 
 
 def test_autolog_success_message_obeys_disabled():
