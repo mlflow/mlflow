@@ -53,25 +53,7 @@ pytorch-lightning:
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
 
-tensorflow-1.x:
-  package_info:
-    pip_release: "tensorflow"
-
-  models:
-    minimum: "1.15.4"
-    maximum: "1.15.4"
-    requirements: ["h5py<3.0", "scikit-learn"]
-    run: |
-      pytest tests/tensorflow/test_tensorflow_model_export.py --large
-
-  autologging:
-    minimum: "1.15.4"
-    maximum: "1.15.4"
-    requirements: ["h5py<3.0"]
-    run: |
-      pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
-
-tensorflow-2.x:
+tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
@@ -80,18 +62,44 @@ tensorflow-2.x:
       pip install 'tf-nightly==2.5.0.dev20210112'
 
   models:
-    minimum: "2.0.0"
+    minimum: "1.15.4"
     maximum: "2.3.1"
+    requirements:
+      "< 2.2": ["h5py<3.0", "scikit-learn"]
     run: |
-      pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+      python_code="
+      import tensorflow as tf
+      major_ver = tf.__version__.split('.')[0]
+      assert major_ver in ['1', '2']
+      print(major_ver)
+      "
+      tf_major_version=$(python -c "$python_code")
+
+      if [ "$tf_major_version" == "1" ]; then
+        pytest tests/tensorflow/test_tensorflow_model_export.py --large
+      else
+        pytest tests/tensorflow/test_tensorflow2_model_export.py --large
+      fi
 
   autologging:
-    minimum: "2.0.0"
+    minimum: "1.15.4"
     maximum: "2.3.1"
     requirements:
       "< 2.2": ["h5py<3.0"]
     run: |
-      pytest --verbose tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+      python_code="
+      import tensorflow as tf
+      major_ver = tf.__version__.split('.')[0]
+      assert major_ver in ['1', '2']
+      print(major_ver)
+      "
+      tf_major_version=$(python -c "$python_code")
+
+      if [ "$tf_major_version" == "1" ]; then
+        pytest tests/tensorflow_autolog/test_tensorflow_autolog.py --large
+      else
+        pytest tests/tensorflow_autolog/test_tensorflow2_autolog.py --large
+      fi
 
 keras:
   package_info:
@@ -238,3 +246,21 @@ spacy:
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
+
+statsmodels:
+  package_info:
+    pip_release: "statsmodels"
+    install_dev: |
+      pip install git+https://github.com/statsmodels/statsmodels
+
+  models:
+    minimum: "0.11.1"
+    maximum: "0.12.2"
+    run: |
+        pytest tests/statsmodels/test_statsmodels_model_export.py --large
+
+  autologging:
+    minimum: "0.11.1"
+    maximum: "0.12.2"
+    run: |
+      pytest tests/statsmodels/test_statsmodels_autolog.py --large

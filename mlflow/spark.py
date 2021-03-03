@@ -515,7 +515,7 @@ def save_model(
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
         databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
-    if copying_from_dbfs:
+    if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
@@ -573,7 +573,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None):
     if dfs_tmpdir_base is None:
         dfs_tmpdir_base = DFS_TMP
     dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
-    if databricks_utils.is_in_cluster():
+    if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(model_uri, dfs_tmpdir)
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
     return PipelineModel.load(model_uri)

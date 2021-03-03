@@ -1,5 +1,39 @@
 Changelog
 =========
+1.14.1 (2021-03-01)
+-------------------
+MLflow 1.14.1 is a patch release containing the following bug fix:
+
+- Fix issues in handling flexible numpy datatypes in TensorSpec (#4147, @arjundc-db)
+
+1.14.0 (2021-02-18)
+-------------------
+MLflow 1.14.0 includes several major features and improvements:
+
+- MLflow's model inference APIs (``mlflow.pyfunc.predict``), built-in model serving tools (``mlflow models serve``), and model signatures now support tensor inputs. In particular, MLflow now provides built-in support for scoring PyTorch, TensorFlow, Keras, ONNX, and Gluon models with tensor inputs. For more information, see https://mlflow.org/docs/latest/models.html#deploy-mlflow-models (#3808, #3894, #4084, #4068 @wentinghu; #4041 @tomasatdatabricks, #4099, @arjundc-db)
+- Add new ``mlflow.shap.log_explainer``, ``mlflow.shap.load_explainer`` APIs for logging and loading ``shap.Explainer`` instances (#3989, @vivekchettiar)
+- The MLflow Python client is now available with a reduced dependency set via the ``mlflow-skinny`` PyPI package (#4049, @eedeleon)
+- Add new ``RequestHeaderProvider`` plugin interface for passing custom request headers with REST API requests made by the MLflow Python client (#4042, @jimmyxu-db)
+- ``mlflow.keras.log_model`` now saves models in the TensorFlow SavedModel format by default instead of the older Keras H5 format (#4043, @harupy)
+- ``mlflow_log_model`` now supports logging MLeap models in R (#3819, @yitao-li)
+- Add ``mlflow.pytorch.log_state_dict``, ``mlflow.pytorch.load_state_dict`` for logging and loading PyTorch state dicts (#3705, @shrinath-suresh)
+- ``mlflow gc`` can now garbage-collect artifacts stored in S3 (#3958, @sklingel)
+
+Bug fixes and documentation updates:
+
+- Enable autologging for TensorFlow estimators that extend ``tensorflow.compat.v1.estimator.Estimator`` (#4097, @mohamad-arabi)
+- Fix for universal autolog configs overriding integration-specific configs (#4093, @dbczumar)
+- Allow ``mlflow.models.infer_signature`` to handle dataframes containing ``pandas.api.extensions.ExtensionDtype`` (#4069, @caleboverman)
+- Fix bug where ``mlflow_restore_run`` doesn't propagate the ``client`` parameter to ``mlflow_get_run`` (#4003, @yitao-li)
+- Fix bug where scoring on served model fails when request data contains a string that looks like URL and pandas version is later than 1.1.0 (#3921, @Secbone)
+- Fix bug causing ``mlflow_list_experiments`` to fail listing experiments with tags (#3942, @lorenzwalthert)
+- Fix bug where metrics plots are computed from incorrect target values in scikit-learn autologging (#3993, @mtrencseni)
+- Remove redundant / verbose Python event logging message in autologging (#3978, @dbczumar)
+- Fix bug where ``mlflow_load_model`` doesn't load metadata associated to MLflow model flavor in R (#3872, @yitao-li)
+- Fix ``mlflow.spark.log_model``, ``mlflow.spark.load_model`` APIs on passthrough-enabled environments against ACL'd artifact locations (#3443, @smurching)
+
+Small bug fixes and doc updates (#4102, #4101, #4096, #4091, #4067, #4059, #4016, #4054, #4052, #4051, #4038, #3992, #3990, #3981, #3949, #3948, #3937, #3834, #3906, #3774, #3916, #3907, #3938, #3929, #3900, #3902, #3899, #3901, #3891, #3889, @harupy; #4014, #4001, @dmatrix; #4028, #3957, @dbczumar; #3816, @lorenzwalthert; #3939, @pauldj54; #3740, @jkthompson; #4070, #3946, @jimmyxu-db; #3836, @t-henri; #3982, @neo-anderson; #3972, #3687, #3922, @eedeleon; #4044, @WeichenXu123; #4063, @yitao-li; #3976, @whiteh; #4110, @tomasatdatabricks; #4050, @apurva-koti; #4100, #4084, @wentinghu; #3947, @vperiyasamy; #4021, @trangevi; #3773, @ankan94; #4090, @jinzhang21; #3918, @danielfrg)
+
 1.13.1 (2020-12-30)
 -----------------
 MLflow 1.13.1 is a patch release containing bug fixes and small changes:
