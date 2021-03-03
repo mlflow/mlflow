@@ -386,9 +386,9 @@ def _check_and_log_warning_for_unsupported_integration(flavor_name):
         and not _is_autologging_integration_supported(flavor_name)
     ):
         _logger.warning(
-            "You are using an unsupported version of %s. If you encounter errors during " +
-            "autologging, try upgrading / downgrading %s to a supported version, or try " +
-            "upgrading MLflow.",
+            "You are using an unsupported version of %s. If you encounter errors during "
+            + "autologging, try upgrading / downgrading %s to a supported version, or try "
+            + "upgrading MLflow.",
             flavor_name,
             flavor_name,
         )
@@ -446,7 +446,7 @@ def autologging_integration(name):
 
         if name in _cross_tested_flavor_to_module_name_and_module_key:
             wrapped_autolog.__doc__ = (
-                    _gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+                _gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
         return wrapped_autolog
 
