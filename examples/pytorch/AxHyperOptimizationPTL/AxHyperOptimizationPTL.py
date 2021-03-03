@@ -31,34 +31,30 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
     :param params: Model parameters. Type:dict
     :param tracking_uri: Mlflow tracking_uri
     """
-    mlflow.start_run(run_name="Parent Run")
-    train_evaluate(params=params, max_epochs=max_epochs)
+    with mlflow.start_run(run_name="Parent Run"):
+        train_evaluate(params=params, max_epochs=max_epochs)
 
-    ax_client = AxClient()
-    ax_client.create_experiment(
-        parameters=[
-            {"name": "lr", "type": "range", "bounds": [1e-3, 0.15], "log_scale": True},
-            {"name": "weight_decay", "type": "range", "bounds": [1e-4, 1e-3]},
-            {"name": "momentum", "type": "range", "bounds": [0.7, 1.0]},
-        ],
-        objective_name="test_accuracy",
-    )
+        ax_client = AxClient()
+        ax_client.create_experiment(
+            parameters=[
+                {"name": "lr", "type": "range", "bounds": [1e-3, 0.15], "log_scale": True},
+                {"name": "weight_decay", "type": "range", "bounds": [1e-4, 1e-3]},
+                {"name": "momentum", "type": "range", "bounds": [0.7, 1.0]},
+            ],
+            objective_name="test_accuracy",
+        )
 
-    total_trials = total_trials
+        for i in range(total_trials):
+            with mlflow.start_run(nested=True, run_name="Trial " + str(i)) as child_run:
+                parameters, trial_index = ax_client.get_next_trial()
+                test_accuracy = train_evaluate(params=parameters, max_epochs=max_epochs)
 
-    for i in range(total_trials):
-        with mlflow.start_run(nested=True, run_name="Trial " + str(i)) as child_run:
-            parameters, trial_index = ax_client.get_next_trial()
-            test_accuracy = train_evaluate(params=parameters, max_epochs=max_epochs)
+                # completion of trial
+                ax_client.complete_trial(trial_index=trial_index, raw_data=test_accuracy.item())
 
-            # completion of trial
-            ax_client.complete_trial(trial_index=trial_index, raw_data=test_accuracy.item())
-
-    best_parameters, metrics = ax_client.get_best_parameters()
-    for param_name, value in best_parameters.items():
-        mlflow.log_param("optimum_" + param_name, value)
-
-    mlflow.end_run()
+        best_parameters, metrics = ax_client.get_best_parameters()
+        for param_name, value in best_parameters.items():
+            mlflow.log_param("optimum_" + param_name, value)
 
 
 if __name__ == "__main__":
