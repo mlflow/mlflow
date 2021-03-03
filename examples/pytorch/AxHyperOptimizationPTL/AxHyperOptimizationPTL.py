@@ -56,7 +56,7 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
 
     best_parameters, metrics = ax_client.get_best_parameters()
     for param_name, value in best_parameters.items():
-        mlflow.log_param("optimum " + param_name, value)
+        mlflow.log_param("optimum_" + param_name, value)
 
     mlflow.end_run()
 

@@ -1,21 +1,21 @@
 ## Ax Hyperparameter Optimization Example 
-In this example, we train a Pytorch Lightning model to classify [CIFAR-10 dataset](https://github.com/pytorch/vision/blob/master/torchvision/datasets/cifar.py). The code, adapted from this [repository](https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html), is almost entirely dedicated to model training and hyperparameter optimization.
+In this example, we train a Pytorch Lightning model to classify Iris flower classification dataset.
 A parent run will be created during the training process,which would dump the baseline model and relevant parameters,metrics and model along with its summary,subsequently followed by a set of nested child runs, which will dump the trial results.
 The best parameters would be dumped into the parent run once the experiments are completed.
 
 ### Running the code
-To run the example via MLflow, navigate to the `mlflow/examples/pytorch/axbotorch` directory and run the command
+To run the example via MLflow, navigate to the `mlflow/examples/pytorch/AxHyperOptimizationPTL` directory and run the command
 
 ```
 mlflow run .
 ```
 
-This will run `AxHyperOptimizationPTL.py` with the default set of parameters such as  `--max_epochs=3` and `total_trials=3`. You can see the default value in the `MLproject` file.
+This will run `AxHyperOptimizationPTL.py` with the default set of parameters such as `max_epochs=3` and `total_trials=3`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
 ```
-mlflow run . -P max_epochs=X -P total_trials = Y
+mlflow run . -P max_epochs=X -P total_trials=Y
 ```
 
 where `X` is your desired value for `max_epochs` and `Y` is your desired value for `total_trials`.
@@ -24,7 +24,6 @@ If you have the required modules for the file and would like to skip the creatio
 
 ```
 mlflow run . --no-conda
-
 ```
 
 ### Viewing results in the MLflow UI
@@ -54,11 +53,9 @@ mlflow run . -P max_epochs=3 -P total_trials=3
 Or to run the training script directly with custom parameters:
 
 ```
-python AxHyperOptimizationPTL.py \
-    --max_epochs 3 \
-    --total_trials 3 \
+python AxHyperOptimizationPTL.py --max_epochs 3 --total_trials 3
 ```
 
 
 ## Logging to a custom tracking server
-To configure MLflow to log to a custom (non-default) tracking location, set the MLFLOW_TRACKING_URI environment variable, e.g. via export MLFLOW_TRACKING_URI=http://localhost:5000/. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).
+To configure MLflow to log to a custom (non-default) tracking location, set the `MLFLOW_TRACKING_URI` environment variable, e.g. via `export MLFLOW_TRACKING_URI=http://localhost:5000`. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).

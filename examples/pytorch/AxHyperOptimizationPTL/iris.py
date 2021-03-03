@@ -22,19 +22,10 @@ class IrisClassificationBase(pl.LightningModule):
         self.fc2 = nn.Linear(10, 10)
         self.fc3 = nn.Linear(10, 3)
         self.cross_entropy_loss = nn.CrossEntropyLoss()
-        if "lr" in kwargs:
-            self.lr = kwargs.get("lr")
-        else:
-            self.lr = 0.01
 
-        if "momentum" in kwargs:
-            self.momentum = kwargs.get("momentum")
-        else:
-            self.momentum = 0.9
-        if "weight_decay" in kwargs:
-            self.weight_decay = kwargs.get("weight_decay")
-        else:
-            self.weight_decay = 0.1
+        self.lr = kwargs.get("lr", 0.01)
+        self.momentum = kwargs.get("momentum", 0.9)
+        self.weight_decay = kwargs.get("weight_decay", 0.1)
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
