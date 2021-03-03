@@ -717,8 +717,8 @@ _module_version_info_dict_patch = {
         ("xgboost", "0.89", False),
         ("sklearn", "0.20.3", True),
         ("sklearn", "0.20.2", False),
-        ("pytorch-lightning", "1.0.5", True),
-        ("pytorch-lightning", "1.0.4", False),
+        ("pytorch", "1.0.5", True),
+        ("pytorch", "1.0.4", False),
     ],
 )
 @mock.patch(

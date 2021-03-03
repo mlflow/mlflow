@@ -333,7 +333,7 @@ _cross_tested_flavor_to_module_name_and_module_key = {
     "tensorflow": ("tensorflow", "tensorflow"),
     "xgboost": ("xgboost", "xgboost"),
     "sklearn": ("sklearn", "sklearn"),
-    "pytorch-lightning": ("pytorch_lightning", "pytorch-lightning"),
+    "pytorch": ("pytorch_lightning", "pytorch-lightning"),
 }
 
 
