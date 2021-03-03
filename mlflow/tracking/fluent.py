@@ -21,6 +21,7 @@ from mlflow.utils.autologging_utils import (
     _is_testing,
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
+    autologging_is_disabled,
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
@@ -1394,7 +1395,7 @@ def autolog(
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
                 CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
-            if not autologging_params.get("disable", False):
+            if not autologging_is_disabled(autolog_fn.integration_name):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
             if _is_testing():

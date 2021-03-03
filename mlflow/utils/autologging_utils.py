@@ -346,7 +346,8 @@ def _get_min_max_version_and_pip_release(module_key):
 
 def _is_autologging_integration_supported(flavor_name):
     """
-    check whether the flavor package version is compatible with mlflow,
+    :return: True if the flavor's associated package version is compatible with mlflow,
+             False otherwise.
     """
     module_name, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
@@ -354,7 +355,11 @@ def _is_autologging_integration_supported(flavor_name):
     return _check_version_in_range(actual_version, min_version, max_version)
 
 
-def gen_autologging_package_version_requirements_doc(flavor_name):
+def _gen_autologging_package_version_requirements_doc(flavor_name):
+    """
+    :return: A document note string saying the compatibility for the flavor's associated package
+             versions.
+    """
     _, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
     min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(module_key)
     required_pkg_versions = "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
@@ -381,8 +386,9 @@ def _check_and_log_warning_for_unsupported_integration(flavor_name):
         and not _is_autologging_integration_supported(flavor_name)
     ):
         _logger.warning(
-            "You are using an unsupported version of %s. If you encounter errors during autologging, "
-            + "try upgrading / downgrading %s to a supported version, or try upgrading MLflow.",
+            "You are using an unsupported version of %s. If you encounter errors during " +
+            "autologging, try upgrading / downgrading %s to a supported version, or try " +
+            "upgrading MLflow.",
             flavor_name,
             flavor_name,
         )
@@ -440,7 +446,7 @@ def autologging_integration(name):
 
         if name in _cross_tested_flavor_to_module_name_and_module_key:
             wrapped_autolog.__doc__ = (
-                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+                    _gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
             )
         return wrapped_autolog
 
