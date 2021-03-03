@@ -387,8 +387,8 @@ def _check_and_log_warning_for_unsupported_integration(flavor_name):
     ):
         _logger.warning(
             "You are using an unsupported version of %s. If you encounter errors during "
-            + "autologging, try upgrading / downgrading %s to a supported version, or try "
-            + "upgrading MLflow.",
+            "autologging, try upgrading / downgrading %s to a supported version, or try "
+            "upgrading MLflow.",
             flavor_name,
             flavor_name,
         )

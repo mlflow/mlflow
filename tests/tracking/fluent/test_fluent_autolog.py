@@ -223,16 +223,16 @@ def test_autolog_obeys_disabled():
     mlflow.sklearn.autolog(disable=True)
     assert get_autologging_config("sklearn", "disable")
 
-    mlflow.autolog(disable_for_unsupported_versions=False)
+    mlflow.autolog(disable=False, disable_for_unsupported_versions=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
-    mlflow.autolog(disable_for_unsupported_versions=True)
+    mlflow.autolog(disable=False, disable_for_unsupported_versions=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert get_autologging_config("sklearn", "disable_for_unsupported_versions")
 
-    mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
+    mlflow.sklearn.autolog(disable=False, disable_for_unsupported_versions=False)
     assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
-    mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
+    mlflow.sklearn.autolog(disable=False, disable_for_unsupported_versions=True)
     assert get_autologging_config("sklearn", "disable_for_unsupported_versions")
 
 
