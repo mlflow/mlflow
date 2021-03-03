@@ -11,6 +11,5 @@ dependencies:
   - mlflow
   - scikit-learn
   - cloudpickle==1.6.0
-  - pandas
   - pytorch-lightning>=1.0.5
   - ax-platform
