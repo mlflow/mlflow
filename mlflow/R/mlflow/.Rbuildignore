@@ -5,7 +5,7 @@ mlruns
 packrat
 ^\.run-tests\.R$
 ^\.create-test-env\.R$
-^\.spark\.version$
+^\.spark-version$
 ^README.Rmd$
 ^docs$
 ^model$
