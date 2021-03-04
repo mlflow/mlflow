@@ -80,7 +80,6 @@ jobs:
       with:
         path: ~/spark/spark-2.4.5-bin-hadoop2.7
         key: ${{ hashFiles('mlflow/R/mlflow/.install-spark.R') }}
-        restore-keys: ${{ hashFiles('mlflow/R/mlflow/.install-spark.R') }}
     - name: Install system dependencies
       run: |
         sudo apt-get install -y libcurl4-openssl-dev
