@@ -4,8 +4,8 @@ mlruns
 ^mlflow-model$
 packrat
 ^\.run-tests\.R$
-^\.create-test-env\.R
-^\.install-spark\.R
+^\.create-test-env\.R$
+^\.spark\.version$
 ^README.Rmd$
 ^docs$
 ^model$

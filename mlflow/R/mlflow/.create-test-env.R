@@ -15,6 +15,14 @@ reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
 # Pin h2o to prevent version-mismatch between python and R
 reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 
-# Install MLeap runtime and required dependencies (spark is installed via `.install-spark.R`)
+
+# The default timeout value (60 seconds) can be insufficient for `spark_install` to complete
+options(timeout=60 * 60)
+
+spark_version_file <- ".spark.version"
+spark_version <- trimws(readChar(spark_version_file, file.info(spark_version_file)$size))
+
+# Install MLeap runtime and required dependencies
+sparklyr::spark_install(version = spark_version, verbose = TRUE)
 mleap::install_maven()
 mleap::install_mleap(version = "0.16.0")
