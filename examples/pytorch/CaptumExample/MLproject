@@ -10,7 +10,6 @@ entry_points:
       lr: {type: float, default: 0.1}
 
     command: |
-          python Titanic_Captum_Interpret.py\
-          --max_epochs {max_epochs} \
-	  --lr {lr}\
-	  --use_pretrained_model {use_pretrained_model}
+        python Titanic_Captum_Interpret.py \
+        --max_epochs {max_epochs} \
+        --lr {lr}

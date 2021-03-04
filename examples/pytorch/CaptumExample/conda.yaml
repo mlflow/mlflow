@@ -4,11 +4,14 @@ channels:
 - pytorch
 dependencies:
 - python=3.8.2
-- pytorch>=1.7.1
+- pytorch==1.7.1
 - pip
 - pip:
   - mlflow
   - cloudpickle==1.6.0
   - boto3
-  - torchtext>=0.8.1
   - pandas
+  - scipy
+  - prettytable
+  - captum
+  - numpy

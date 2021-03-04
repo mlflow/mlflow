@@ -20,7 +20,6 @@ import tempfile
 import shutil
 import os
 from argparse import ArgumentParser
-from torchtext.utils import download_from_url
 import torch.nn as nn
 
 mlflow.start_run(run_name="Titanic_Captum_mlflow")
@@ -44,9 +43,8 @@ def TitanicDataset():
     Class1 : Binary var indicating whether passenger was in first class
     Class2 : Binary var indicating whether passenger was in second class
     Class3 : Binary var indicating whether passenger was in third class
-    """
     url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
-    download_from_url(url, root="data")
+    """
     dataset_path = "data/titanic3.csv"
     titanic_data = pd.read_csv(dataset_path)
 
