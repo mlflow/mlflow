@@ -21,6 +21,7 @@ import shutil
 import os
 from argparse import ArgumentParser
 import torch.nn as nn
+from torchtext.utils import download_from_url
 
 mlflow.start_run(run_name="Titanic_Captum_mlflow")
 
@@ -45,6 +46,8 @@ def TitanicDataset():
     Class3 : Binary var indicating whether passenger was in third class
     url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
     """
+    url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
+    download_from_url(url, root="data")
     dataset_path = "data/titanic3.csv"
     titanic_data = pd.read_csv(dataset_path)
 
@@ -61,17 +64,7 @@ def TitanicDataset():
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
     titanic_data = titanic_data.drop(
-        [
-            "name",
-            "ticket",
-            "cabin",
-            "boat",
-            "body",
-            "home.dest",
-            "sex",
-            "embarked",
-            "pclass",
-        ],
+        ["name", "ticket", "cabin", "boat", "body", "home.dest", "sex", "embarked", "pclass",],
         axis=1,
     )
     return titanic_data
@@ -185,10 +178,7 @@ def train(USE_PRETRAINED_MODEL=False):
                     "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
                 )
                 try_mlflow_log(
-                    mlflow.log_metric,
-                    " Train Loss" + str(epoch),
-                    float(loss.item()),
-                    step=epoch,
+                    mlflow.log_metric, " Train Loss" + str(epoch), float(loss.item()), step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
@@ -390,24 +380,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--lr",
-        type=float,
-        default=0.1,
-        metavar="LR",
-        help="learning rate (default: 0.1)",
+        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)",
     )
 
     args = parser.parse_args()
     dict_args = vars(args)
 
-    (
-        net,
-        train_features,
-        train_labels,
-        test_features,
-        test_labels,
-        feature_names,
-    ) = train()
+    (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
     train_input_tensor = train_step(train_features)
     test_input_tensor = test_step(test_features)
     feature_conductance(test_input_tensor)
