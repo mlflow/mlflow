@@ -1,11 +1,16 @@
-name: bert-sentiment-captum
+name: Titanic-Basic-Captum
 
 conda_env: conda.yaml
 
 entry_points:
   main:
     parameters:
-      epochs: {type: int, default: 5}
+      max_epochs: {type: int, default: 100}
+      use_pretrained_model: {type: bool, default: False}
+      lr: {type: float, default: 0.1}
 
     command: |
-          python bert_imdb_sentiment.py
+          python Titanic_Captum_Interpret.py\
+          --max_epochs {max_epochs} \
+	  --lr {lr}\
+	  --use_pretrained_model {use_pretrained_model}

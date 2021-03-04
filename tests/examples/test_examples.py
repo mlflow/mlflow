@@ -96,6 +96,7 @@ def report_free_disk_space(capsys):
             os.path.join("pytorch", "BertNewsClassification"),
             ["-P", "max_epochs=1", "-P", "num_samples=100"],
         ),
+        (os.path.join("pytorch", "CaptumExample"), ["-P", "max_epochs=50"]),
     ],
 )
 def test_mlflow_run_example(directory, params, tmpdir):

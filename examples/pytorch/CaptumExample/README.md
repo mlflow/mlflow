@@ -1,31 +1,32 @@
-## Imdb Sentiment Analysis with Captum and MLflow
-
-This example uses Imdb dataset for performing sentiment analysis. It uses captum library to find the word importance 
-and its corresponding score and position
-
-## Prerequisite
-
-Download the spacy "en" model with the following command
-
-`python -m spacy download en`
-
-Unzip the data in the ~./data directory with:
-
-```tar -xf aclImdb_v1.tar.gz```
+## Titanic Basic data analysis using Captum and mlflow. 
+In this example, we will demonstrate the basic features of the Captum interpretability,and loging those features using mlflow library through an example model trained on the Titanic survival data. 
+We will first train a deep neural network on the data using PyTorch and use Captum to understand which of the features were most important and how the network reached its prediction.
 
 ### Running the code
-Invoke the following command to run the example as a project
-
-```mlflow run .```
-
-Or you can run the following script
+To run the example via MLflow, navigate to the `mlflow/examples/pytorch/CaptumExample` directory and run the command
 
 ```
-python bert_imdb_sentiment.py
+mlflow run .
 ```
 
-It loads the pretrained model and findss the attribution score for given sentences. The corresponding details
-are logged into mlflow as a csv file. 
+This will run `Titanic_Captum_Interpret.py` with the default set of parameters such as  `--max_epochs=100` and `--use_pretrained_model False`. You can see the default value in the `MLproject` file.
+
+In order to run the file with custom parameters, run the command
+
+```
+mlflow run . -P max_epochs=X
+```
+
+where `X` is your desired value for `max_epochs`.
+
+If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
+
+```
+mlflow run . --no-conda
+
+```
+
+### Viewing results in the MLflow UI
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command
 
@@ -35,5 +36,28 @@ mlflow ui
 
 and navigating to [http://localhost:5000](http://localhost:5000).
 
-For more information on MLflow tracking, click [here](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking) to view documentation.
+For more details on MLflow tracking, see [the docs](https://www.mlflow.org/docs/latest/tracking.html#mlflow-tracking).
 
+### Passing custom training parameters
+
+The parameters can be overridden via the command line:
+
+1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
+2. lr - Learning rate
+3. use_pretrained_model - If want to use pretrained model
+
+For example:
+```
+mlflow run . -P max_epochs=5 -P learning_rate=0.01 -P use_pretrained_model=True
+```
+Or to run the training script directly with custom parameters:
+
+```
+python Titanic_Captum_Interpret.py \
+    --max_epochs 50 \
+    --lr 0.1
+```
+
+
+## Logging to a custom tracking server
+To configure MLflow to log to a custom (non-default) tracking location, set the MLFLOW_TRACKING_URI environment variable, e.g. via export MLFLOW_TRACKING_URI=http://localhost:5000/. For more details, see [the docs](https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded).
