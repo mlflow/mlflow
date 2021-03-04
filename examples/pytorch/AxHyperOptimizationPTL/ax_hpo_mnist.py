@@ -21,15 +21,13 @@ def train_evaluate(params, max_epochs=100):
 
 def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
     """
-     This function takes input params max_epcohs.epxeirment_name,total_trials,params and tracking_uri
+     This function takes input params max_epochs, total_trials, params
      and creates a nested run in Mlflow.  The parameters,metrics,model and summary are dumped into their
-     respective mlflow-run ids. The best parameters are dumped along with the basedline model.
+     respective mlflow-run ids. The best parameters are dumped along with the baseline model.
 
-    :param max_epochs:Max epochs used for training the model. Type:int
-    :param experiment_name: Mlflow experiment name , in which the runs would be logged. Type:str
+    :param max_epochs: Max epochs used for training the model. Type:int
     :param total_trials: Number of ax-client experimental trials. Type:int
     :param params: Model parameters. Type:dict
-    :param tracking_uri: Mlflow tracking_uri
     """
     with mlflow.start_run(run_name="Parent Run"):
         train_evaluate(params=params, max_epochs=max_epochs)
@@ -64,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--total_trials",
         default=3,
-        help="It indicated number of trials to be run for the optimization experiment",
+        help="umber of trials to be run for the optimization experiment",
     )
 
     args = parser.parse_args()
