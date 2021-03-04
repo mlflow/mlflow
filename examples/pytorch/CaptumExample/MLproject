@@ -1,16 +1,14 @@
-name: Titanic-Basic-Captum
+name: Titanic-Captum-Example
 
 conda_env: conda.yaml
 
 entry_points:
   main:
     parameters:
-      max_epochs: {type: int, default: 100}
-      use_pretrained_model: {type: bool, default: False}
-      lr: {type: float, default: 0.1}
+      max_epochs: {type: int, default: 50}
+      lr: {type float, default: 0.1}
 
     command: |
-          python Titanic_Captum_Interpret.py\
-          --max_epochs {max_epochs} \
-	  --lr {lr}\
-	  --use_pretrained_model {use_pretrained_model}
+          python Titanic_Captum_Interpret.py \
+            --max_epochs {max_epochs} \
+            --lr {lr}

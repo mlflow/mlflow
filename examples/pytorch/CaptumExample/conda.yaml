@@ -10,5 +10,8 @@ dependencies:
   - mlflow
   - cloudpickle==1.6.0
   - boto3
-  - torchtext>=0.8.1
   - pandas
+  - captum
+  - sklearn
+  - prettytable
+  - torchtext
