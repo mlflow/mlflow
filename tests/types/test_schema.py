@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc import _enforce_tensor_spec
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.types.utils import _infer_schema, _get_tensor_shape
@@ -46,6 +47,9 @@ def test_tensor_spec():
     with pytest.raises(TypeError) as ex2:
         TensorSpec(np.dtype("float64"), np.array([-1, 2, 3]), "b")
     assert "Expected `shape` to be instance" in str(ex2.value)
+    with pytest.raises(MlflowException) as ex3:
+        TensorSpec(np.dtype("<U10"), (-1,), "b")
+    assert "MLflow does not support size information in flexible numpy data types" in str(ex3.value)
 
     a5 = TensorSpec.from_json_dict(**a1.to_dict())
     assert a5 == a1
@@ -247,33 +251,124 @@ def test_schema_inference_on_dictionary(dict_of_ndarrays):
         _infer_schema({"x": [1]})
 
 
-def test_schema_inference_on_numpy_array(pandas_df_with_all_types):
+def test_schema_inference_on_basic_numpy(pandas_df_with_all_types):
     for col in pandas_df_with_all_types:
         data = pandas_df_with_all_types[col].to_numpy()
         schema = _infer_schema(data)
         assert schema == Schema([TensorSpec(type=data.dtype, shape=(-1,))])
 
+
+# Todo: arjundc : Remove _enforce_tensor_spec and move to its own test file.
+def test_all_numpy_dtypes():
+    def test_dtype(nparray, dtype):
+        schema = _infer_schema(nparray)
+        assert schema == Schema([TensorSpec(np.dtype(dtype), (-1,))])
+        spec = schema.inputs[0]
+        recreated_spec = TensorSpec.from_json_dict(**spec.to_dict())
+        assert spec == recreated_spec
+        enforced_array = _enforce_tensor_spec(nparray, spec)
+        assert isinstance(enforced_array, np.ndarray)
+
+    bool_ = ["bool", "bool_", "bool8"]
+    object_ = ["object"]
+    signed_int = [
+        "byte",
+        "int8",
+        "short",
+        "int16",
+        "intc",
+        "int32",
+        "int_",
+        "int",
+        "intp",
+        "int64",
+        "longlong",
+    ]
+    unsigned_int = [
+        "ubyte",
+        "uint8",
+        "ushort",
+        "uint16",
+        "uintc",
+        "uint32",
+        "uint",
+        "uintp",
+        "uint64",
+        "ulonglong",
+    ]
+    floating = ["half", "float16", "single", "float32", "double", "float_", "float64"]
+    complex_ = [
+        "csingle",
+        "singlecomplex",
+        "complex64",
+        "cdouble",
+        "cfloat",
+        "complex_",
+        "complex128",
+    ]
+    bytes_ = ["bytes_", "string_"]
+    str_ = ["str_", "unicode_"]
+    platform_dependent = [
+        # Complex
+        "clongdouble",
+        "clongfloat",
+        "longcomplex",
+        "complex256",
+        # Float
+        "longdouble",
+        "longfloat",
+        "float128",
+    ]
+
     # test boolean
-    schema = _infer_schema(np.array([True, False, True], dtype=np.bool_))
-    assert schema == Schema([TensorSpec(np.dtype(np.bool_), (-1,))])
+    for dtype in bool_:
+        test_dtype(np.array([True, False, True], dtype=dtype), dtype)
+        test_dtype(np.array([123, 0, -123], dtype=dtype), dtype)
 
-    # test bytes
-    schema = _infer_schema(np.array([bytes([1])], dtype=np.bytes_))
-    assert schema == Schema([TensorSpec(np.dtype("S1"), (-1,))])
+    # test object
+    for dtype in object_:
+        test_dtype(np.array([True, False, True], dtype=dtype), dtype)
+        test_dtype(np.array([123, 0, -123.544], dtype=dtype), dtype)
+        test_dtype(np.array(["test", "this", "type"], dtype=dtype), dtype)
+        test_dtype(np.array(["test", 123, "type"], dtype=dtype), dtype)
+        test_dtype(np.array(["test", 123, 234 + 543j], dtype=dtype), dtype)
 
-    # test (u)ints
-    for t in [np.uint8, np.int8, np.uint16, np.int16, np.uint32, np.int32, np.uint64, np.int64]:
-        schema = _infer_schema(np.array([1, 2, 3], dtype=t))
-        assert schema == Schema([TensorSpec(np.dtype(t), (-1,))])
+    # test signedInt_
+    for dtype in signed_int:
+        test_dtype(np.array([1, 2, 3, -5], dtype=dtype), dtype)
 
-    # test floats
-    for t in [np.float16, np.float32, np.float64]:
-        schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=t))
-        assert schema == Schema([TensorSpec(np.dtype(t), (-1,))])
+    # test unsignedInt_
+    for dtype in unsigned_int:
+        test_dtype(np.array([1, 2, 3, 5], dtype=dtype), dtype)
 
-    if hasattr(np, "float128"):
-        schema = _infer_schema(np.array([1.1, 2.2, 3.3], dtype=np.float128))
-        assert schema == Schema([TensorSpec(np.dtype(np.float128), (-1,))])
+    # test floating
+    for dtype in floating:
+        test_dtype(np.array([1.1, -2.2, 3.3, 5.12], dtype=dtype), dtype)
+
+    # test complex
+    for dtype in complex_:
+        test_dtype(np.array([1 + 2j, -2.2 - 3.6j], dtype=dtype), dtype)
+
+    # test bytes_
+    for dtype in bytes_:
+        test_dtype(np.array([bytes([1, 255, 12, 34])], dtype=dtype), dtype)
+    # Explicitly giving size information for flexible dtype bytes
+    test_dtype(np.array([bytes([1, 255, 12, 34])], dtype="S10"), "S")
+    test_dtype(np.array([bytes([1, 255, 12, 34])], dtype="S10"), "bytes")
+
+    # str_
+    for dtype in str_:
+        test_dtype(np.array(["m", "l", "f", "l", "o", "w"], dtype=dtype), dtype)
+        test_dtype(np.array(["mlflow"], dtype=dtype), dtype)
+        test_dtype(np.array(["mlflow is the best"], dtype=dtype), dtype)
+    # Explicitly giving size information for flexible dtype str_
+    test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "str")
+    test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "U")
+
+    # platform_dependent
+    for dtype in platform_dependent:
+        if hasattr(np, dtype):
+            test_dtype(np.array([1.1, -2.2, 3.3, 5.12], dtype=dtype), dtype)
 
 
 @pytest.mark.large

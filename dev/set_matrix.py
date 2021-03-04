@@ -44,7 +44,7 @@ import urllib.request
 
 import yaml
 
-VERSIONS_YAML_PATH = "ml-package-versions.yml"
+VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 
 

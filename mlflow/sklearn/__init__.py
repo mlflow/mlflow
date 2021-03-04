@@ -535,6 +535,7 @@ def autolog(
     log_models=True,
     disable=False,
     exclusive=False,
+    disable_for_unsupported_versions=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -720,6 +721,9 @@ def autolog(
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      scikit-learn that have not been tested against this version of the MLflow
+                      client or are incompatible.
     """
     import pandas as pd
     import sklearn
