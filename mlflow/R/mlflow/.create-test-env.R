@@ -19,7 +19,7 @@ reticulate::conda_install("h2o==3.30.1.3", envname = mlflow:::mlflow_conda_env_n
 # The default timeout value (60 seconds) can be insufficient for `spark_install` to complete
 options(timeout=60 * 60)
 
-spark_version_file <- ".spark.version"
+spark_version_file <- "../.spark.version"
 spark_version <- trimws(readChar(spark_version_file, file.info(spark_version_file)$size))
 
 # Install MLeap runtime and required dependencies
