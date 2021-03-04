@@ -95,7 +95,6 @@ jobs:
         cd mlflow/R/mlflow
         R CMD build .
         cd tests
-        Rscript ../.install-spark.R
         Rscript ../.create-test-env.R
     - name: Run tests
       run: |
