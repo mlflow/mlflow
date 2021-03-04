@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import os
 import tempfile
 import yaml
+import warnings
 
 import numpy as np
 
@@ -415,15 +416,19 @@ def save_explainer(
 
     underlying_model_flavor = None
     underlying_model_path = None
-    model_saver = None
+    serializable_by_mlflow = False
 
     # saving the underlying model if required
     if serialize_model_using_mlflow:
         underlying_model_flavor = get_underlying_model_flavor(explainer.model)
 
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
-            model_saver = False  # this prevents SHAP from serializing the underlying model
+            serializable_by_mlflow = True  # prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
+        else:
+            warnings.warn(
+                "Unable to serialize underlying model using MLflow, will use SHAP serialization"
+            )
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
             mlflow.sklearn.save_model(explainer.model.inner_model.__self__, underlying_model_path)
@@ -434,7 +439,10 @@ def save_explainer(
     explainer_data_subpath = "explainer.shap"
     explainer_output_path = os.path.join(path, explainer_data_subpath)
     with open(explainer_output_path, "wb") as explainer_output_file_handle:
-        explainer.save(explainer_output_file_handle, model_saver=model_saver)
+        if serialize_model_using_mlflow and serializable_by_mlflow:
+            explainer.save(explainer_output_file_handle, model_saver=False)
+        else:
+            explainer.save(explainer_output_file_handle)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
