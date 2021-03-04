@@ -42,8 +42,8 @@ def get_underlying_model_flavor(model):
 
     # checking if underlying model is wrapped
 
-    if hasattr(model, "model"):
-        unwrapped_model = model.model
+    if hasattr(model, "inner_model"):
+        unwrapped_model = model.inner_model
 
         # check if passed model is a method of object
         if isinstance(unwrapped_model, types.MethodType):
@@ -426,9 +426,9 @@ def save_explainer(
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
-            mlflow.sklearn.save_model(explainer.model.model.__self__, underlying_model_path)
+            mlflow.sklearn.save_model(explainer.model.inner_model.__self__, underlying_model_path)
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
-            mlflow.pytorch.save_model(explainer.model.model, underlying_model_path)
+            mlflow.pytorch.save_model(explainer.model.inner_model, underlying_model_path)
 
     # saving the explainer object
     explainer_data_subpath = "explainer.shap"
@@ -577,8 +577,10 @@ def _load_explainer(explainer_file, model=None):
         return model
 
     with open(explainer_file, "rb") as explainer:
-        model_loader = None if model is None else inject_model_loader
-        explainer = shap.Explainer.load(explainer, model_loader=model_loader)
+        if model is None:
+            explainer = shap.Explainer.load(explainer)
+        else:
+            explainer = shap.Explainer.load(explainer, model_loader=inject_model_loader)
         return explainer
 
 
