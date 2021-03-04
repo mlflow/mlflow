@@ -1,4 +1,4 @@
-name: axbotorch-hyperparameter-optimization
+name: ax-hpo-mnist
 
 conda_env: conda.yaml
 
