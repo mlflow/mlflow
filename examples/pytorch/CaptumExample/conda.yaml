@@ -11,7 +11,14 @@ dependencies:
   - cloudpickle==1.6.0
   - boto3
   - pandas
+<<<<<<< HEAD
   - scipy
   - prettytable
   - captum
   - numpy
+=======
+  - captum
+  - sklearn
+  - prettytable
+  - torchtext
+>>>>>>> 27a9dea813c036f187e6e085c2e7b6601ae951de
