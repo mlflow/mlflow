@@ -80,7 +80,7 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files + extra_files}
     if not _is_mlflow_skinny
-    else {"mlflow": extra_files},
+    else {"mlflow": alembic_files + extra_files},  # alembic files are needed to avoid config error
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
