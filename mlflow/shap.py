@@ -571,10 +571,9 @@ def _load_explainer(explainer_file, model=None):
     :param explainer_file: Local filesystem path to the MLflow Model saved with the ``shap`` flavor
     :param model: model to override underlying explainer model.
     """
-    import pickle
     import shap
 
-    def inject_model_loader(in_file):
+    def inject_model_loader(_in_file):
         return model
 
     with open(explainer_file, "rb") as explainer:
