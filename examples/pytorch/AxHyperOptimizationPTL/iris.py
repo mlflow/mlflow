@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from pytorch_lightning.metrics import Accuracy
 
 
-class IrisClassificationBase(pl.LightningModule):
+class IrisClassification(pl.LightningModule):
     def __init__(self, **kwargs):
         super().__init__()
 
@@ -38,8 +38,6 @@ class IrisClassificationBase(pl.LightningModule):
             self.parameters(), lr=self.lr, momentum=self.momentum, weight_decay=self.weight_decay
         )
 
-
-class IrisClassification(IrisClassificationBase):
     def training_step(self, batch, batch_idx):
         x, y = batch
         logits = self.forward(x)
@@ -64,26 +62,3 @@ class IrisClassification(IrisClassificationBase):
         self.test_acc(torch.argmax(logits, dim=1), y)
         self.log("test_loss", loss)
         self.log("test_acc", self.test_acc.compute())
-
-
-class IrisClassificationWithoutValidation(IrisClassificationBase):
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        logits = self.forward(x)
-        loss = self.cross_entropy_loss(logits, y)
-        self.train_acc(torch.argmax(logits, dim=1), y)
-        self.log("train_acc", self.train_acc.compute(), on_step=False, on_epoch=True)
-        self.log("loss", loss)
-        return {"loss": loss}
-
-    def test_step(self, batch, batch_idx):
-        x, y = batch
-        logits = self.forward(x)
-        loss = F.cross_entropy(logits, y)
-        self.test_acc(torch.argmax(logits, dim=1), y)
-        self.log("test_loss", loss)
-        self.log("test_acc", self.test_acc.compute())
-
-
-if __name__ == "__main__":
-    pass
