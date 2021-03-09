@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 """
 Getting started with Captum - Titanic Data Analysis
 """
@@ -15,18 +12,15 @@ from scipy import stats
 import pandas as pd
 import mlflow
 from prettytable import PrettyTable
-from mlflow.utils.autologging_utils import try_mlflow_log
-import tempfile
-import shutil
+from sklearn.model_selection import train_test_split
 import os
 from argparse import ArgumentParser
 import torch.nn as nn
-from torchtext.utils import download_from_url
 
 mlflow.start_run(run_name="Titanic_Captum_mlflow")
 
 
-def TitanicDataset():
+def get_titanic():
     """
     we now preprocess the data by converting some categorical features such as
     gender, location of embarcation, and passenger class into one-hot encodings
@@ -47,10 +41,7 @@ def TitanicDataset():
     url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
     """
     url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
-    download_from_url(url, root="data")
-    dataset_path = "data/titanic3.csv"
-    titanic_data = pd.read_csv(dataset_path)
-
+    titanic_data = pd.read_csv(url)
     titanic_data = pd.concat(
         [
             titanic_data,
@@ -64,7 +55,17 @@ def TitanicDataset():
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
     titanic_data = titanic_data.drop(
-        ["name", "ticket", "cabin", "boat", "body", "home.dest", "sex", "embarked", "pclass",],
+        [
+            "name",
+            "ticket",
+            "cabin",
+            "boat",
+            "body",
+            "home.dest",
+            "sex",
+            "embarked",
+            "pclass",
+        ],
         axis=1,
     )
     return titanic_data
@@ -91,37 +92,30 @@ class TitanicSimpleNNModel(nn.Module):
 
 
 def prepare():
-    np.random.seed(131254)
-    titanic_data = TitanicDataset()
+    RANDOM_SEED = 42
+    titanic_data = get_titanic()
     labels = titanic_data["survived"].to_numpy()
     titanic_data = titanic_data.drop(["survived"], axis=1)
     feature_names = list(titanic_data.columns)
     data = titanic_data.to_numpy()
-
     # Separate training and test sets using
-    train_indices = np.random.choice(len(labels), int(0.7 * len(labels)), replace=False)
-    test_indices = list(set(range(len(labels))) - set(train_indices))
-    train_features = data[train_indices]
-    train_labels = labels[train_indices]
-    test_features = data[test_indices]
-    test_labels = labels[test_indices]
-    try_mlflow_log(mlflow.log_param, "Train Size", len(train_indices))
-    try_mlflow_log(mlflow.log_param, "Test Size", len(test_indices))
+    train_features, test_features, train_labels, test_labels = train_test_split(
+        data, labels, test_size=0.3, random_state=RANDOM_SEED, stratify=labels
+    )
     return (train_features, train_labels, test_features, test_labels, feature_names)
 
 
 def count_model_parameters(model):
     table = PrettyTable(["Modules", "Parameters"])
     total_params = 0
-
     for name, parameter in model.named_parameters():
 
         if not parameter.requires_grad:
             continue
-
         param = parameter.nonzero(as_tuple=False).size(0)
         table.add_row([name, param])
         total_params += param
+
     return table, total_params
 
 
@@ -161,8 +155,8 @@ def train(USE_PRETRAINED_MODEL=False):
     else:
         criterion = nn.CrossEntropyLoss()
         num_epochs = dict_args["max_epochs"]
-        try_mlflow_log(mlflow.log_param, "epochs", num_epochs)
-        try_mlflow_log(mlflow.log_param, "lr", dict_args["lr"])
+        mlflow.log_param("epochs", num_epochs)
+        mlflow.log_param("lr", dict_args["lr"])
 
         optimizer = torch.optim.Adam(net.parameters(), lr=dict_args["lr"])
         input_tensor = torch.from_numpy(train_features).type(torch.FloatTensor)
@@ -177,22 +171,16 @@ def train(USE_PRETRAINED_MODEL=False):
                 print(
                     "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
                 )
-                try_mlflow_log(
-                    mlflow.log_metric, " Train Loss" + str(epoch), float(loss.item()), step=epoch,
+                mlflow.log_metric(
+                    "Epoch {} Loss".format(str(epoch + 1)),
+                    float(loss.item()),
+                    step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
             torch.save(net.state_dict(), "models/titanic_state_dict.pt")
     summary, _ = count_model_parameters(net)
-    tempdir = tempfile.mkdtemp()
-    try:
-        summary_file = os.path.join(tempdir, "model_summary.txt")
-        with open(summary_file, "w") as f:
-            f.write(str(summary))
-
-        try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-    finally:
-        shutil.rmtree(tempdir)
+    mlflow.log_text(str(summary), "model_summary.txt")
     return (
         net,
         train_features,
@@ -207,11 +195,7 @@ def train_step(train_features):
     train_input_tensor = torch.from_numpy(train_features).type(torch.FloatTensor)
     out_probs = net(train_input_tensor).detach().numpy()
     out_classes = np.argmax(out_probs, axis=1)
-    try_mlflow_log(
-        mlflow.log_metric,
-        "Train Accuracy",
-        float(sum(out_classes == train_labels) / len(train_labels)),
-    )
+    mlflow.log_metric("Train Accuracy", float(sum(out_classes == train_labels) / len(train_labels)))
     print("Train Accuracy:", sum(out_classes == train_labels) / len(train_labels))
     return train_input_tensor
 
@@ -220,48 +204,20 @@ def test_step(test_features):
     test_input_tensor = torch.from_numpy(test_features).type(torch.FloatTensor)
     out_probs = net(test_input_tensor).detach().numpy()
     out_classes = np.argmax(out_probs, axis=1)
-    try_mlflow_log(
-        mlflow.log_metric,
-        "Test Accuracy",
-        float(sum(out_classes == test_labels) / len(test_labels)),
-    )
+    mlflow.log_metric("Test Accuracy", float(sum(out_classes == test_labels) / len(test_labels)))
     print("Test Accuracy:", sum(out_classes == test_labels) / len(test_labels))
     return test_input_tensor
 
 
 def feature_conductance(test_input_tensor):
-    """
-    Beyond just considering the accuracy of the classifier, there are many important questions to understand how the model is working and it's decision, which is the purpose of Captum, to help make neural networks in PyTorch more interpretable.
-    The first question we can ask is which of the features were actually important to the model to reach this decision?
-    This is the first main component of Captum, the ability to obtain **Feature Attributions**.
-    For this example, we will apply Integrated Gradients, which is one of the Feature Attribution methods included in Captum.
-    More information regarding Integrated Gradients can be found in the original paper here: https://arxiv.org/pdf/1703.01365.pdf
-
-    To apply integrated gradients, we first create an IntegratedGradients object, providing the model object.
-
-    To compute the integrated gradients, we use the attribute method of the IntegratedGradients object. The method takes tensor(s) of input examples (matching the forward function of the model), and returns the input attributions for the given examples. For a network with multiple outputs, a target index must also be provided, defining the index of the output for which gradients are computed. For this example, we provide target = 1, corresponding to survival.
-    The input tensor provided should require grad, so we call requires_grad on the tensor. The attribute method also takes a baseline, which is the starting point from which gradients are integrated. The default value is just the 0 tensor, which is a reasonable baseline / default for this task.
-    The returned values of the attribute method are the attributions, which match the size of the given inputs, and delta, which approximates the error between the approximated integral and true integral.
-
-    """
     ig = IntegratedGradients(net)
-
     test_input_tensor.requires_grad_()
     attr, _ = ig.attribute(test_input_tensor, target=1, return_convergence_delta=True)
     attr = attr.detach().numpy()
     # To understand these attributions, we can first average them across all the inputs and print and visualize the average attribution for each feature.
     feature_imp, feature_imp_dict = visualize_importances(feature_names, np.mean(attr, axis=0))
-    tempdir = tempfile.mkdtemp()
-    try:
-        summary_file = os.path.join(tempdir, "feature_imp_summary.txt")
-        with open(summary_file, "w") as f:
-            f.write(str(feature_imp))
-
-        try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-    finally:
-        shutil.rmtree(tempdir)
     mlflow.log_metrics(feature_imp_dict)
-
+    mlflow.log_text(str(feature_imp), "feature_imp_summary.txt")
     fig, (ax1, ax2) = plt.subplots(2, 1)
     fig.tight_layout(pad=3)
     ax1.hist(attr[:, 1], 100)
@@ -298,23 +254,15 @@ def layer_conductance(test_input_tensor):
     cond_vals = cond.attribute(test_input_tensor, target=1)
     cond_vals = cond_vals.detach().numpy()
     # We can begin by visualizing the average conductance for each neuron.
+    neuron_names = ["neuron " + str(x) for x in range(12)]
     avg_neuron_imp, neuron_imp_dict = visualize_importances(
-        range(12),
+        neuron_names,
         np.mean(cond_vals, axis=0),
         title="Average Neuron Importances",
         axis_title="Neurons",
     )
-    tempdir = tempfile.mkdtemp()
-    try:
-        summary_file = os.path.join(tempdir, "neuron_imp_summary.txt")
-        with open(summary_file, "w") as f:
-            f.write(str(avg_neuron_imp))
-
-        try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-    finally:
-        shutil.rmtree(tempdir)
     mlflow.log_metrics(neuron_imp_dict)
-
+    mlflow.log_text(str(avg_neuron_imp), "neuron_imp_summary.txt")
     # We can also look at the distribution of each neuron's attributions. Below we look at the distributions for neurons 7 and 9, and we can confirm that their attribution distributions are very close to 0, suggesting they are not learning substantial features.
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 6))
     fig.tight_layout(pad=3)
@@ -346,18 +294,9 @@ def neuron_conductance(test_input_tensor, neuron_selector=None):
         neuron_cond_vals.mean(dim=0).detach().numpy(),
         title="Average Feature Importances for Neuron {}".format(neuron_selector),
     )
-
-    tempdir = tempfile.mkdtemp()
-    try:
-        summary_file = os.path.join(
-            tempdir, "Avg_Feature_Importances_Neuron_" + str(neuron_selector) + ".txt"
-        )
-        with open(summary_file, "w") as f:
-            f.write(str(neuron_cond))
-
-        try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
-    finally:
-        shutil.rmtree(tempdir)
+    mlflow.log_text(
+        str(neuron_cond), "Avg_Feature_Importances_Neuron_" + str(neuron_selector) + ".txt"
+    )
 
 
 if __name__ == "__main__":
@@ -368,7 +307,7 @@ if __name__ == "__main__":
         "--use_pretrained_model",
         default=False,
         metavar="N",
-        help="Use pretrain model or train from the scratch",
+        help="Use pretrained model or train from the scratch",
     )
 
     parser.add_argument(
@@ -380,15 +319,28 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)",
+        "--lr",
+        type=float,
+        default=0.1,
+        metavar="LR",
+        help="learning rate (default: 0.1)",
     )
 
     args = parser.parse_args()
     dict_args = vars(args)
 
-    (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
+    (
+        net,
+        train_features,
+        train_labels,
+        test_features,
+        test_labels,
+        feature_names,
+    ) = train()
     train_input_tensor = train_step(train_features)
     test_input_tensor = test_step(test_features)
     feature_conductance(test_input_tensor)
     layer_conductance(test_input_tensor)
     neuron_conductance(test_input_tensor)
+    mlflow.log_param("Train Size", len(train_labels))
+    mlflow.log_param("Test Size", len(test_labels))

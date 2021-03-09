@@ -23,9 +23,7 @@ If you have the required modules for the file and would like to skip the creatio
 
 ```
 mlflow run . --no-conda
-
 ```
-
 ### Viewing results in the MLflow UI
 
 Once the code is finished executing, you can view the run's metrics, parameters, and details by running the command

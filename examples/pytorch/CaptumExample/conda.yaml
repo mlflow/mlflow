@@ -5,12 +5,12 @@ channels:
 dependencies:
 - python=3.8.2
 - pytorch
-- torchtext
 - pip
 - pip:
   - mlflow
   - pandas
   - captum
+  - boto3
   - sklearn
   - prettytable
   - spacy
