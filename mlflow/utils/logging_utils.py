@@ -51,8 +51,8 @@ def disable_logging():
 def enable_logging():
     """
     Enables the `MlflowLoggingStream` used by event logging APIs throughout MLflow
-    (e.g., `logger.info()`, etc), emitting all subsequent event logs. This reverses
-    the effects of `disable_logging()`.
+    (`eprint()`, `logger.info()`, etc), emitting all subsequent event logs. This
+    reverses the effects of `disable_logging()`.
     """
     MLFLOW_LOGGING_STREAM.enabled = True
 
