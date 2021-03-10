@@ -18,6 +18,16 @@ def reset_stderr():
     sys.stderr = prev_stderr
 
 
+@pytest.fixture(autouse=True)
+def reset_logging_enablement():
+    prev_is_enabled = logging_utils.logging_is_enabled()
+    yield
+    if prev_is_enabled:
+        logging_utils.enable_logging()
+    else:
+        logging_utils.disable_logging()
+
+
 class TestStream:
     def __init__(self):
         self.content = None
@@ -83,3 +93,10 @@ def test_event_logging_stream_flushes_properly():
     eprint("foo", flush=True)
     assert "foo" in stream.content
     assert stream.flush_count > 0
+
+
+def test_logging_is_enabled_accurately_reflects_enablement_state():
+    logging_utils.disable_logging()
+    assert not logging_utils.logging_is_enabled()
+    logging_utils.enable_logging()
+    assert logging_utils.logging_is_enabled()
