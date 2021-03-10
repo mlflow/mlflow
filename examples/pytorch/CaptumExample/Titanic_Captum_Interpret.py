@@ -55,17 +55,7 @@ def get_titanic():
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
     titanic_data = titanic_data.drop(
-        [
-            "name",
-            "ticket",
-            "cabin",
-            "boat",
-            "body",
-            "home.dest",
-            "sex",
-            "embarked",
-            "pclass",
-        ],
+        ["name", "ticket", "cabin", "boat", "body", "home.dest", "sex", "embarked", "pclass",],
         axis=1,
     )
     return titanic_data
@@ -172,9 +162,7 @@ def train(USE_PRETRAINED_MODEL=False):
                     "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
                 )
                 mlflow.log_metric(
-                    "Epoch {} Loss".format(str(epoch + 1)),
-                    float(loss.item()),
-                    step=epoch,
+                    "Epoch {} Loss".format(str(epoch + 1)), float(loss.item()), step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
@@ -319,24 +307,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--lr",
-        type=float,
-        default=0.1,
-        metavar="LR",
-        help="learning rate (default: 0.1)",
+        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)",
     )
 
     args = parser.parse_args()
     dict_args = vars(args)
 
-    (
-        net,
-        train_features,
-        train_labels,
-        test_features,
-        test_labels,
-        feature_names,
-    ) = train()
+    (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
     train_input_tensor = train_step(train_features)
     test_input_tensor = test_step(test_features)
     feature_conductance(test_input_tensor)
