@@ -80,7 +80,9 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={"mlflow": js_files + models_container_server_files + alembic_files + extra_files}
     if not _is_mlflow_skinny
-    else {"mlflow": extra_files},
+    # include alembic files to enable usage of the skinny client with SQL databases
+    # if users install sqlalchemy, alembic, and sqlparse independently
+    else {"mlflow": alembic_files + extra_files},
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
