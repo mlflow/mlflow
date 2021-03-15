@@ -9,14 +9,6 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <distributionManagement>
-    <repository>
-      <id>bintray</id>
-      <name>mlflow</name>
-      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-scoring/;publish=1</url>
-    </repository>
-  </distributionManagement>
-
   <artifactId>mlflow-scoring</artifactId>
   <packaging>jar</packaging>
   <name>MLflow scoring server</name>
@@ -140,4 +132,9 @@
       </plugin>
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>do-sign</id>
+    </profile>
+  </profiles>
 </project>
