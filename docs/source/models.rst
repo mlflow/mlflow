@@ -1169,8 +1169,10 @@ Spark cluster and used to score the model.
 
 .. code-block:: py
 
+    from pyspark.sql.functions import struct
+
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
-    df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
 
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value or an array of values of the same type per observation. By default, we return the first
@@ -1204,9 +1206,11 @@ argument. The following values are supported:
 .. code-block:: py
 
     from pyspark.sql.types import ArrayType, FloatType
-    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>, result_type=ArrayType(FloatType()))
+    from pyspark.sql.functions import struct
+
+    pyfunc_udf = mlflow.pyfunc.spark_udf("path/to/model", result_type=ArrayType(FloatType()))
     # The prediction column will contain all the numeric columns returned by the model as floats
-    df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
+    df = spark_df.withColumn("prediction", pyfunc_udf(struct("name", "age")))
 
 
 .. _deployment_plugin:
