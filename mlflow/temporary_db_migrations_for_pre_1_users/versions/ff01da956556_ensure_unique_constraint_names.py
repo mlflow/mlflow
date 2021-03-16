@@ -8,7 +8,7 @@ Create Date: 2019-05-18 22:58:06.487489
 import time
 
 from alembic import op
-from sqlalchemy import column, CheckConstraint
+from sqlalchemy import column, literal_column, CheckConstraint
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column,
@@ -177,7 +177,7 @@ def upgrade():
             batch_op.drop_constraint(constraint_name="lifecycle_stage", type_="check")
         batch_op.create_check_constraint(
             constraint_name="experiments_lifecycle_stage",
-            condition=column("lifecycle_stage").in_(["active", "deleted"]),
+            condition=column("lifecycle_stage", type_=String).in_(["active", "deleted"]),
         )
     with op.batch_alter_table("runs", copy_from=SqlRun.__table__) as batch_op:
         # We skip running drop_constraint for mysql, because it creates an invalid statement
@@ -186,7 +186,7 @@ def upgrade():
             batch_op.drop_constraint(constraint_name="lifecycle_stage", type_="check")
         batch_op.create_check_constraint(
             constraint_name="runs_lifecycle_stage",
-            condition=column("lifecycle_stage").in_(["active", "deleted"]),
+            condition=column("lifecycle_stage", type_=String).in_(["active", "deleted"]),
         )
 
 
