@@ -8,7 +8,7 @@ Create Date: 2019-05-18 22:58:06.487489
 import time
 
 from alembic import op
-from sqlalchemy import column, literal_column, CheckConstraint
+from sqlalchemy import column, CheckConstraint
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column,
