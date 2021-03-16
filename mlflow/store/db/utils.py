@@ -2,6 +2,7 @@ import os
 import time
 
 from contextlib import contextmanager
+import importlib
 import logging
 
 from alembic.migration import MigrationContext  # pylint: disable=import-error
@@ -18,6 +19,8 @@ _logger = logging.getLogger(__name__)
 
 MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
 MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW"
+MLFLOW_DBURI_PYTHON_CALLBACK_SCHEME = "pycallback"
+MLFLOW_DBURI_PYTHON_CALLBACK_DEF_FNAME = "get_db_uri"
 MAX_RETRY_COUNT = 15
 
 
@@ -184,6 +187,38 @@ def _upgrade_db_initialized_before_mlflow_1(engine):
     # add metric steps, do not need to depend on this one. This allows us to eventually remove this
     # method and the associated migration e.g. in MLflow 1.1.
     command.stamp(config, "base")
+
+
+def resolve_backend_store_uri(backend_store_uri: str):
+    callback_prefix = "".join([MLFLOW_DBURI_PYTHON_CALLBACK_SCHEME, "://"])
+
+    if not backend_store_uri or not backend_store_uri.startswith(callback_prefix):
+        return backend_store_uri
+
+    # Format: pycallback://{module-name}[:{functionName}][{?optKey1=optVal1[&optKey2=optVal2...]}]
+    # options (if any) are passed as kwargs to callback
+    module = backend_store_uri[len(callback_prefix) :]
+    parts = module.split("?", 1)
+
+    if len(parts) == 1:
+        extra_args = {}
+    else:
+        module, extra_args = (
+            parts[0],
+            {e[0]: e[1] for e in (p.split("=", 1) for p in parts[1].split("&"))},
+        )
+
+    parts = module.split(":", 1)
+    if len(parts) == 1:
+        f_name = MLFLOW_DBURI_PYTHON_CALLBACK_DEF_FNAME
+    else:
+        module, f_name = parts[0], parts[1]
+
+    module = module.replace("/", ".")
+
+    mod = importlib.import_module(module)
+    conn_str_factory = getattr(mod, f_name)
+    return conn_str_factory(**extra_args)
 
 
 def create_sqlalchemy_engine_with_retry(db_uri):

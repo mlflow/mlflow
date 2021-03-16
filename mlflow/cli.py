@@ -12,6 +12,7 @@ import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
+import mlflow.store.db.utils
 from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -258,6 +259,8 @@ def ui(backend_store_uri, default_artifact_root, port, host):
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
 
+    # Resolve the raw backend URI to true URI if necessary
+    backend_store_uri = mlflow.store.db.utils.resolve_backend_store_uri(backend_store_uri)
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -365,6 +368,8 @@ def server(
 
     _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
 
+    # Resolve the raw backend URI to true URI if necessary
+    backend_store_uri = mlflow.store.db.utils.resolve_backend_store_uri(backend_store_uri)
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -427,6 +432,8 @@ def gc(backend_store_uri, run_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
+    # Resolve the raw backend URI to true URI if necessary
+    backend_store_uri = mlflow.store.db.utils.resolve_backend_store_uri(backend_store_uri)
     backend_store = _get_store(backend_store_uri, None)
     if not hasattr(backend_store, "_hard_delete_run"):
         raise MlflowException(
