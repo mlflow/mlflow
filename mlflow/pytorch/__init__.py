@@ -167,9 +167,10 @@ def log_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
 
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
@@ -361,9 +362,10 @@ def save_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
 
     :param requirements_file: A string containing the path to requirements file. Remote URIs
                       are resolved to absolute filesystem paths.
@@ -829,7 +831,11 @@ def load_state_dict(state_dict_uri, **kwargs):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_every_n_epoch=1, log_models=True, disable=False, exclusive=False
+    log_every_n_epoch=1,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -860,6 +866,9 @@ def autolog(
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      pytorch and pytorch-lightning that have not been tested against this version
+                      of the MLflow client or are incompatible.
 
     .. code-block:: python
         :caption: Example

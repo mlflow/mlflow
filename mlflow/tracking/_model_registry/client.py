@@ -214,6 +214,13 @@ class ModelRegistryClient(object):
                     )
                 mv = self.get_model_version(mv.name, mv.version)
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
+            if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
+                raise MlflowException(
+                    "Model version creation failed for model name: {} version: {} with status: {} \
+                    and message: {}".format(
+                        mv.name, mv.version, mv.status, mv.status_message
+                    )
+                )
         return mv
 
     def update_model_version(self, name, version, description):

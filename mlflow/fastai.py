@@ -380,7 +380,9 @@ def load_model(model_uri):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
+def autolog(
+    log_models=True, disable=False, exclusive=False, disable_for_unsupported_versions=False
+):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
     Logs loss and any other metrics specified in the fit
@@ -398,6 +400,9 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      fastai that have not been tested against this version of the MLflow client
+                      or are incompatible.
 
     .. code-block:: python
         :caption: Example
@@ -511,7 +516,6 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
                     try_mlflow_log(mlflow.log_param, "train_bn", self.train_bn)
 
                 summary = model_summary(self.learner)
-                try_mlflow_log(mlflow.set_tag, "model_summary", summary)
 
                 tempdir = tempfile.mkdtemp()
                 try:

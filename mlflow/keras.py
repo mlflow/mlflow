@@ -152,9 +152,10 @@ def save_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
 
     .. code-block:: python
         :caption: Example
@@ -234,9 +235,8 @@ def save_model(
     with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
         f.write(keras_module.__name__)
 
-    # By default, Keras uses the SavedModel format -- specified by "tf"
-    # However, we choose to align with prior default of mlflow, HDF5
-    save_format = kwargs.get("save_format", "h5")
+    # Use the SavedModel format if `save_format` is unspecified
+    save_format = kwargs.get("save_format", "tf")
 
     # save keras save_format to path/data/save_format.txt
     with open(os.path.join(data_path, _KERAS_SAVE_FORMAT_PATH), "w") as f:
@@ -351,9 +351,10 @@ def log_model(
                         signature = infer_signature(train, predictions)
     :param input_example: (Experimental) Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+                          model. The given example can be a Pandas DataFrame where the given
+                          example will be serialized to json using the Pandas split-oriented
+                          format, or a numpy array where the example will be serialized to json
+                          by converting it to a list. Bytes are base64-encoded.
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -570,7 +571,9 @@ def load_model(model_uri, **kwargs):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable=unused-argument
+def autolog(
+    log_models=True, disable=False, exclusive=False, disable_for_unsupported_versions=False
+):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
     Enables (or disables) and configures autologging from Keras to MLflow. Autologging captures
@@ -626,6 +629,9 @@ def autolog(log_models=True, disable=False, exclusive=False):  # pylint: disable
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      keras that have not been tested against this version of the MLflow client
+                      or are incompatible.
     """
     import keras
 

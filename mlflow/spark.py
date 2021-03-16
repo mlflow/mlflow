@@ -515,7 +515,7 @@ def save_model(
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
         databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
-    if copying_from_dbfs:
+    if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
         shutil.move(src=tmp_path_fuse, dst=sparkml_data_path)
     else:
@@ -573,7 +573,7 @@ def _load_model(model_uri, dfs_tmpdir_base=None):
     if dfs_tmpdir_base is None:
         dfs_tmpdir_base = DFS_TMP
     dfs_tmpdir = _tmp_path(dfs_tmpdir_base)
-    if databricks_utils.is_in_cluster():
+    if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(model_uri, dfs_tmpdir)
     model_uri = _HadoopFileSystem.maybe_copy_from_uri(model_uri, dfs_tmpdir)
     return PipelineModel.load(model_uri)
@@ -694,12 +694,11 @@ def autolog(disable=False):  # pylint: disable=unused-argument
     attached. It should be called on the Spark driver, not on the executors (i.e. do not call
     this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
 
-    Datasource information is logged under the current active MLflow run. If no active run
-    exists, datasource information is cached in memory & logged to the next-created active run
-    (but not to successive runs). Note that autologging of Spark ML (MLlib) models is not currently
-    supported via this API. Datasource-autologging is best-effort, meaning that if Spark is under
-    heavy load or MLflow logging fails for any reason (e.g., if the MLflow server is unavailable),
-    logging may be dropped.
+    Datasource information is cached in memory and logged to all subsequent MLflow runs,
+    including the active MLflow run (if one exists when the data is read). Note that autologging of
+    Spark ML (MLlib) models is not currently supported via this API. Datasource autologging is
+    best-effort, meaning that if Spark is under heavy load or MLflow logging fails for any reason
+    (e.g., if the MLflow server is unavailable), logging may be dropped.
 
     For any unexpected issues with autologging, check Spark driver and executor logs in addition
     to stderr & stdout generated from your MLflow code - datasource information is pulled from

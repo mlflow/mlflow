@@ -1,5 +1,6 @@
 import os
 import abc
+import importlib
 import inspect
 import itertools
 import functools
@@ -8,10 +9,13 @@ import logging
 import time
 import contextlib
 import uuid
+import yaml
 from collections import namedtuple
 from contextlib import contextmanager
 from abc import abstractmethod
+from distutils.version import LooseVersion
 from pathlib import Path
+from pkg_resources import resource_filename
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
@@ -306,6 +310,90 @@ def batch_metrics_logger(run_id):
     batch_metrics_logger.flush()
 
 
+def _check_version_in_range(ver, min_ver, max_ver):
+    return LooseVersion(min_ver) <= LooseVersion(ver) <= LooseVersion(max_ver)
+
+
+def _load_version_file_as_dict():
+    version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
+    with open(version_file_path) as f:
+        return yaml.load(f, Loader=yaml.SafeLoader)
+
+
+_module_version_info_dict = _load_version_file_as_dict()
+
+
+# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
+_cross_tested_flavor_to_module_name_and_module_key = {
+    "fastai": ("fastai", "fastai-1.x"),
+    "gluon": ("mxnet", "gluon"),
+    "keras": ("keras", "keras"),
+    "lightgbm": ("lightgbm", "lightgbm"),
+    "statsmodels": ("statsmodels", "statsmodels"),
+    "tensorflow": ("tensorflow", "tensorflow"),
+    "xgboost": ("xgboost", "xgboost"),
+    "sklearn": ("sklearn", "sklearn"),
+    "pytorch": ("pytorch_lightning", "pytorch-lightning"),
+}
+
+
+def _get_min_max_version_and_pip_release(module_key):
+    min_version = _module_version_info_dict[module_key]["autologging"]["minimum"]
+    max_version = _module_version_info_dict[module_key]["autologging"]["maximum"]
+    pip_release = _module_version_info_dict[module_key]["package_info"]["pip_release"]
+    return min_version, max_version, pip_release
+
+
+def _is_autologging_integration_supported(flavor_name):
+    """
+    :return: True if the flavor's associated package version is compatible with mlflow,
+             False otherwise.
+    """
+    module_name, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
+    actual_version = importlib.import_module(module_name).__version__
+    min_version, max_version, _ = _get_min_max_version_and_pip_release(module_key)
+    return _check_version_in_range(actual_version, min_version, max_version)
+
+
+def _gen_autologging_package_version_requirements_doc(flavor_name):
+    """
+    :return: A document note string saying the compatibility for the flavor's associated package
+             versions.
+    """
+    _, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
+    min_ver, max_ver, pip_release = _get_min_max_version_and_pip_release(module_key)
+    required_pkg_versions = "``{min_ver}`` <= ``{pip_release}`` <= ``{max_ver}``".format(
+        min_ver=min_ver, pip_release=pip_release, max_ver=max_ver
+    )
+
+    return (
+        "    .. Note:: Autologging is known to be compatible with the following package versions: "
+        + required_pkg_versions
+        + ". Autologging may not succeed when used with package versions outside of this range."
+        + "\n\n"
+    )
+
+
+def _check_and_log_warning_for_unsupported_integration(flavor_name):
+    """
+    When autologging enabled disable_for_unsupported_versions disabled, check whether the flavor
+    package version is compatible with mlflow, if not compatible, log a warning message.
+    """
+    if (
+        flavor_name in _cross_tested_flavor_to_module_name_and_module_key
+        and not get_autologging_config(flavor_name, "disable", True)
+        and not get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
+        and not _is_autologging_integration_supported(flavor_name)
+    ):
+        _logger.warning(
+            "You are using an unsupported version of %s. If you encounter errors during "
+            "autologging, try upgrading / downgrading %s to a supported version, or try "
+            "upgrading MLflow.",
+            flavor_name,
+            flavor_name,
+        )
+
+
 def autologging_integration(name):
     """
     **All autologging integrations should be decorated with this wrapper.**
@@ -346,9 +434,20 @@ def autologging_integration(name):
             except Exception:
                 pass
 
+            _check_and_log_warning_for_unsupported_integration(name)
+
             return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
+        # Set the autologging integration name as a function attribute on the wrapped autologging
+        # function, allowing the integration name to be extracted from the function. This is used
+        # during the execution of import hooks for `mlflow.autolog()`.
+        wrapped_autolog.integration_name = name
+
+        if name in _cross_tested_flavor_to_module_name_and_module_key:
+            wrapped_autolog.__doc__ = (
+                _gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+            )
         return wrapped_autolog
 
     return wrapper
@@ -377,7 +476,17 @@ def autologging_is_disabled(flavor_name):
 
     :param flavor_name: An autologging integration flavor name.
     """
-    return get_autologging_config(flavor_name, "disable", True)
+    explicit_disabled = get_autologging_config(flavor_name, "disable", True)
+    if explicit_disabled:
+        return True
+
+    if (
+        flavor_name in _cross_tested_flavor_to_module_name_and_module_key
+        and not _is_autologging_integration_supported(flavor_name)
+    ):
+        return get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
+
+    return False
 
 
 def _is_testing():
@@ -800,7 +909,9 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
     """
 
     def create_managed_run():
-        managed_run = mlflow.start_run(tags=tags)
+        managed_run = mlflow.start_run()
+        if tags:
+            try_mlflow_log(mlflow.set_tags, tags)
         _logger.info(
             "Created MLflow autologging run with ID '%s', which will track hyperparameters,"
             " performance metrics, model artifacts, and lineage information for the"

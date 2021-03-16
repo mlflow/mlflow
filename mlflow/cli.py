@@ -6,14 +6,11 @@ import logging
 import click
 from click import UsageError
 
-import mlflow.azureml.cli
 import mlflow.db
 import mlflow.experiments
-import mlflow.models.cli
 import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
-import mlflow.sagemaker.cli
 import mlflow.store.artifact.cli
 from mlflow import tracking
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -453,14 +450,25 @@ def gc(backend_store_uri, run_ids):
         print("Run with ID %s has been permanently deleted." % str(run_id))
 
 
-cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.deployments.cli.commands)
-cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
-cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+
+try:
+    # pylint: disable=unused-import
+    import mlflow.models.cli
+    import mlflow.azureml.cli
+    import mlflow.sagemaker.cli
+
+    cli.add_command(mlflow.azureml.cli.commands)
+    cli.add_command(mlflow.sagemaker.cli.commands)
+    cli.add_command(mlflow.models.cli.commands)
+except ImportError as e:
+    # We are conditional loading these commands since the skinny client does
+    # not support them due to the pandas and numpy dependencies of MLflow Models
+    pass
 
 if __name__ == "__main__":
     cli()
