@@ -47,25 +47,14 @@
     <developerConnection>scm:git:ssh://github.com:mlflow/mlflow.git</developerConnection>
     <url>http://github.com/mlflow/mlflow/tree/master</url>
   </scm>
-  <!--
-  <distributionManagement>
-    <repository>
-      <id>bintray</id>
-      <name>mlflow</name>
-      <url>https://api.bintray.com/maven/mlflow/mlflow/mlflow-parent/;publish=1</url>
-    </repository>
-  </distributionManagement>
-  -->
   <distributionManagement>
     <snapshotRepository>
-      <id>bintray-mlflowdev-mlflowdev-snapshot</id>
-      <name>mlflowdev-mlflowdev</name>
-      <url>https://api.bintray.com/maven/mlflowdev/mlflowdev/mlflow-java/;publish=1</url>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </snapshotRepository>
     <repository>
-      <id>bintray-mlflowdev-mlflowdev</id>
-      <name>mlflowdev-mlflowdev</name>
-      <url>https://api.bintray.com/maven/mlflowdev/mlflowdev/mlflow-java/;publish=1</url>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>
     </repository>
   </distributionManagement>
 
