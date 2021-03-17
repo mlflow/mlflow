@@ -372,7 +372,9 @@ class MlflowClient(object):
             - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
             - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
-        return self._tracking_client.list_experiments(view_type=view_type, max_results=max_results, page_token=page_token)
+        return self._tracking_client.list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token
+        )
 
     def get_experiment(self, experiment_id: str) -> Experiment:
         """

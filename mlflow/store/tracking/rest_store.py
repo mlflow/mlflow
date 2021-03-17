@@ -68,9 +68,9 @@ class RestStore(AbstractStore):
         )
         response_proto = self._call_endpoint(ListExperiments, req_body)
         protos = [
-                Experiment.from_proto(experiment_proto)
-                for experiment_proto in response_proto.experiments
-            ]
+            Experiment.from_proto(experiment_proto)
+            for experiment_proto in response_proto.experiments
+        ]
         return protos if max_results is None else PagedList(protos, response_proto.next_page_token)
 
     def create_experiment(self, name, artifact_location=None):
