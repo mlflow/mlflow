@@ -312,7 +312,7 @@ def _check_version_in_range(ver, min_ver, max_ver):
 
 
 def _load_version_file_as_dict():
-    version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
+    version_file_path = resource_filename(__name__, "../../ml-package-versions.yml")
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 
