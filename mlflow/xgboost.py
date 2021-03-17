@@ -53,9 +53,7 @@ from mlflow.utils.autologging import (
 # Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
 # `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
 # To avoid this bug, disable 'unused-import' on this line.
-from mlflow.utils.autologging import (  # pylint: disable=unused-import
-    ExceptionSafeAbstractClass,
-)
+from mlflow.utils.autologging import ExceptionSafeAbstractClass  # pylint: disable=unused-import
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
