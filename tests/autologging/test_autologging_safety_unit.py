@@ -30,7 +30,11 @@ from mlflow.utils.autologging import (
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
-from tests.autologging.fixtures import test_mode_off, test_mode_on  # pylint: disable=unused-import
+from tests.autologging.fixtures import (
+    test_mode_off,
+    test_mode_on,
+    patch_destination,
+)  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
@@ -50,19 +54,6 @@ def turn_test_mode_off_by_default(test_mode_off):
     For more information about autologging test mode, see the docstring for
     :py:func:`mlflow.utils.autologging._is_testing()`.
     """
-
-
-@pytest.fixture
-def patch_destination():
-    class PatchObj:
-        def __init__(self):
-            self.fn_call_count = 0
-
-        def fn(self, *args, **kwargs):
-            self.fn_call_count += 1
-            return PATCH_DESTINATION_FN_DEFAULT_RESULT
-
-    return PatchObj()
 
 
 @pytest.fixture
