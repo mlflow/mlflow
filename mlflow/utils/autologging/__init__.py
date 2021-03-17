@@ -114,12 +114,9 @@ def _update_wrapper_extended(wrapper, wrapped):
     return updated_wrapper
 
 
-def wrap_patch(destination, name, patch, settings=None):
+def _wrap_patch(destination, name, patch, settings=None):
     """
     Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
-
-    TODO(dbczumar): Convert this to an internal method once existing `wrap_patch` calls
-                    outside of `autologging_utils` have been converted to `safe_patch`
 
     :param destination: Patch destination
     :param name: Name of the attribute at the destination
@@ -1223,7 +1220,7 @@ def safe_patch(
                 else:
                     return original(*args, **kwargs)
 
-    wrap_patch(destination, function_name, safe_patch_function)
+    _wrap_patch(destination, function_name, safe_patch_function)
 
 
 def _validate_autologging_run(autologging_integration, run_id):
