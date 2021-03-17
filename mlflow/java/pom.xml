@@ -298,6 +298,7 @@
                   <passphraseServerId>${gpg.keyname}</passphraseServerId>
                   <gpgArguments>
                     <arg>-v</arg>
+                    <arg>--batch</arg>
                     <arg>--pinentry-mode</arg>
                     <arg>loopback</arg>
                   </gpgArguments>
