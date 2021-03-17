@@ -4,7 +4,7 @@ import sys
 import pytest
 
 import mlflow.utils.logging_utils as logging_utils
-from mlflow.utils.autologging_utils import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
+from mlflow.utils.autologging import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
 
 
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"

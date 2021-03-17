@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import mlflow
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.autologging import autologging_integration, safe_patch
 
 import pytest
 import numpy as np

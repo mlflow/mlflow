@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.utils import gorilla
-from mlflow.utils.autologging_utils import (
+from mlflow.utils.autologging import (
     safe_patch,
     get_autologging_config,
     autologging_is_disabled,
