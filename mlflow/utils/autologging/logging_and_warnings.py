@@ -30,6 +30,15 @@ class _WarningsController:
         self._mlflow_warnings_rerouted_to_event_logs = False
 
     def _patched_showwarning(self, message, category, filename, lineno, *args, **kwargs):
+        """
+        A patched implementation of `warnings.showwarning` that enforces the warning configuration
+        options configured on the controller (e.g. rerouting or disablement of MLflow warnings,
+        disablement of all warnings for the current thread).
+
+        Note that reassigning `warnings.showwarning` is the standard / recommended approach for
+        modifying warning message display behaviors. For reference, see
+        https://docs.python.org/3/library/warnings.html#warnings.showwarning
+        """
         from mlflow.utils.autologging import _logger
 
         # If the warning's source file is contained within the MLflow package's base
@@ -172,6 +181,9 @@ def silence_warnings_and_mlflow_event_logs_if_necessary(autologging_integration)
       statements should be silenced in a threadsafe fashion. We should not leak MLflow logging
       statements in multithreaded contexts.
 
+    - During autologging sessions with `silent=True`, non-MLflow warnings raised by autologging
+      implementation code in MLflow should be suppressed.
+
     - During autologging sessions with `silent=True`, non-MLflow warnings and event logging
       statements emitted from original / underlying ML routines should never be suppressed.
       We should not omit any of these warnings and event logging statements in multithreaded
@@ -187,9 +199,8 @@ def silence_warnings_and_mlflow_event_logs_if_necessary(autologging_integration)
       original / underlying ML code within an autologging session, warnings may not be
       properly suppressed.
 
-    - If the preamble and postamble of a silent autologging session (i.e. the code surrounding the
-      user's original / underlying ML routine) make multithreaded API calls, warnings from
-      these API calls may not be suppressed.
+    - If MLflow's autologging implementation code makes calls to multithreaded APIs that raise warnings
+      from a different thread, these warnings may not be properly suppressed.
     """
     from mlflow.utils.autologging import get_autologging_config
 
