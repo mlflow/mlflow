@@ -79,6 +79,7 @@ Collate:
     'model-mleap.R'
     'model-serve.R'
     'model-swagger.R'
+    'model-workflow.R'
     'model-xgboost.R'
     'project-param.R'
     'project-run.R'
