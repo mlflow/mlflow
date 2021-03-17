@@ -13,7 +13,7 @@ from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging import (
     log_fn_args_as_params,
-    wrap_patch,
+    _wrap_patch,
     resolve_input_example_and_signature,
     batch_metrics_logger,
     AutologgingEventLogger,
@@ -144,7 +144,7 @@ def test_wrap_patch_with_class():
         return 2 * orig(*args, **kwargs)
 
     before = get_func_attrs(Math.add)
-    wrap_patch(Math, Math.add.__name__, new_add)
+    _wrap_patch(Math, Math.add.__name__, new_add)
     after = get_func_attrs(Math.add)
 
     assert after == before
@@ -167,7 +167,7 @@ def test_wrap_patch_with_module():
     before_attrs = get_func_attrs(mlflow.log_param)
     assert sample_function_to_patch(10, 5) == 15
 
-    wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
+    _wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
     after_attrs = get_func_attrs(mlflow.log_param)
     assert after_attrs == before_attrs
     assert sample_function_to_patch(10, 5) == 5
