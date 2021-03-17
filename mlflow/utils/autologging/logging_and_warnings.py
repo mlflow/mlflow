@@ -39,6 +39,11 @@ class _WarningsController:
         modifying warning message display behaviors. For reference, see
         https://docs.python.org/3/library/warnings.html#warnings.showwarning
         """
+        # NB: We explicitly avoid blocking on the `self._state_lock` lock during `showwarning`
+        # to so that threads don't have to execute serially whenever they emit warnings with
+        # `warnings.warn()`. We only lock during configuration changes to ensure that
+        # `warnings.showwarning` is patched or unpatched at the correct times.
+
         from mlflow.utils.autologging import _logger
 
         # If the warning's source file is contained within the MLflow package's base
