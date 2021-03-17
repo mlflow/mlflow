@@ -53,7 +53,9 @@ from mlflow.utils.autologging import (
 # Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
 # `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
 # To avoid this bug, disable 'unused-import' on this line.
-from mlflow.utils.autologging import ExceptionSafeAbstractClass  # pylint: disable=unused-import
+from mlflow.utils.autologging import (  # pylint: disable=unused-import
+    ExceptionSafeAbstractClass,
+)
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -300,6 +302,7 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -339,6 +342,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       xgboost that have not been tested against this version of the MLflow client
                       or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during XGBoost
+                   autologging. If ``False``, show all events and warnings during XGBoost
+                   autologging.
     """
     import xgboost
     import numpy as np
