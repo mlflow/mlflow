@@ -95,6 +95,7 @@ def pytest_ignore_collect(path, config):
             # cross flavor autologging related tests.
             "tests/autologging/test_autologging_safety_integration.py",
             "tests/autologging/test_autologging_safety_unit.py",
+            "tests/autologging/test_autologging_behaviors_unit.py",
             "tests/autologging/test_autologging_utils.py",
         ]
 

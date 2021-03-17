@@ -819,6 +819,7 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -883,6 +884,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       tensorflow that have not been tested against this version of the MLflow
                       client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during TensorFlow
+                   autologging. If ``False``, show all events and warnings during TensorFlow
+                   autologging.
     """
     import tensorflow
 
