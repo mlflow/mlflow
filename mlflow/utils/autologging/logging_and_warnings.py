@@ -154,7 +154,10 @@ def augment_mlflow_warnings():
     not modified. When the context manager exits, the original output behavior for MLflow warnings
     is restored.
 
-    Note that the implementation of `augment_mlflow_warnings` is *not* threadsafe.
+    Note that the implementation of `augment_mlflow_warnings` is *not* threadsafe. For example, if
+    a non-silent autologging session is run concurrently with another routine, MLflow warnings from
+    the other routine may be rerouted to MLflow's event loggers and augmented with autologgng
+    information.
     """
     try:
         _WARNINGS_CONTROLLER.set_global_mlflow_warnings_rerouting_state(rerouted=True)
