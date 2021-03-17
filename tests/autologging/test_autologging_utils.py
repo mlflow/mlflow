@@ -417,7 +417,7 @@ def test_batch_metrics_logger_continues_if_log_batch_fails(start_run,):
 
 def test_autologging_integration_calls_underlying_function_correctly():
     @autologging_integration("test_integration")
-    def autolog(foo=7, disable=False):
+    def autolog(foo=7, disable=False, silent=False):
         return foo
 
     assert autolog(foo=10) == 10
@@ -425,22 +425,42 @@ def test_autologging_integration_calls_underlying_function_correctly():
 
 def test_autologging_integration_stores_and_updates_config():
     @autologging_integration("test_integration")
-    def autolog(foo=7, bar=10, disable=False):
+    def autolog(foo=7, bar=10, disable=False, silent=False):
         return foo
 
     autolog()
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 10, "disable": False}
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
+        "foo": 7,
+        "bar": 10,
+        "disable": False,
+        "silent": False,
+    }
     autolog(bar=11)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 7, "bar": 11, "disable": False}
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
+        "foo": 7,
+        "bar": 11,
+        "disable": False,
+        "silent": False,
+    }
     autolog(6, disable=True)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 6, "bar": 10, "disable": True}
-    autolog(1, 2, False)
-    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {"foo": 1, "bar": 2, "disable": False}
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
+        "foo": 6,
+        "bar": 10,
+        "disable": True,
+        "silent": False,
+    }
+    autolog(1, 2, False, silent=True)
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"] == {
+        "foo": 1,
+        "bar": 2,
+        "disable": False,
+        "silent": True,
+    }
 
 
 def test_autologging_integration_forwards_positional_and_keyword_arguments_as_expected():
     @autologging_integration("test_integration")
-    def autolog(foo=7, bar=10, disable=False):
+    def autolog(foo=7, bar=10, disable=False, silent=False):
         return foo, bar, disable
 
     assert autolog(1, bar=2, disable=True) == (1, 2, True)
@@ -468,11 +488,11 @@ def test_autologging_integration_validates_structure_of_autolog_function():
 
 def test_autologging_integration_makes_expected_event_logging_calls():
     @autologging_integration("test_success")
-    def autolog_success(foo, bar=7, disable=False):
+    def autolog_success(foo, bar=7, disable=False, silent=False):
         pass
 
     @autologging_integration("test_failure")
-    def autolog_failure(biz, baz="val", disable=False):
+    def autolog_failure(biz, baz="val", disable=False, silent=False):
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
@@ -499,12 +519,12 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
     # in keyword format
     assert call.call_args == ()
-    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True}
+    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True, "silent": False}
 
     logger.reset()
 
     with pytest.raises(Exception, match="autolog failed"):
-        autolog_failure(82, disable=False)
+        autolog_failure(82, disable=False, silent=True)
     assert len(logger.calls) == 1
     call = logger.calls[0]
     assert call.integration == "test_failure"
@@ -512,13 +532,13 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
     # in keyword format
     assert call.call_args == ()
-    assert call.call_kwargs == {"biz": 82, "baz": "val", "disable": False}
+    assert call.call_kwargs == {"biz": 82, "baz": "val", "disable": False, "silent": True}
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_mode():
     @autologging_integration("test")
-    def autolog(disable=False):
+    def autolog(disable=False, silent=False):
         return "result"
 
     class ThrowingLogger(AutologgingEventLogger):
@@ -540,24 +560,27 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
     assert get_autologging_config("nonexistent_integration", "foo") is None
 
     @autologging_integration("test_integration_for_config")
-    def autolog(foo="bar", t=7, disable=False):
+    def autolog(foo="bar", t=7, disable=False, silent=False):
         pass
 
     # Before `autolog()` has been invoked, config values should not be available
     assert get_autologging_config("test_integration_for_config", "foo") is None
     assert get_autologging_config("test_integration_for_config", "disable") is None
+    assert get_autologging_config("test_integration_for_config", "silent") is None
     assert get_autologging_config("test_integration_for_config", "t", 10) == 10
 
     autolog()
 
     assert get_autologging_config("test_integration_for_config", "foo") == "bar"
     assert get_autologging_config("test_integration_for_config", "disable") is False
+    assert get_autologging_config("test_integration_for_config", "silent") is False
     assert get_autologging_config("test_integration_for_config", "t", 10) == 7
     assert get_autologging_config("test_integration_for_config", "nonexistent") is None
 
-    autolog(foo="baz")
+    autolog(foo="baz", silent=True)
 
     assert get_autologging_config("test_integration_for_config", "foo") == "baz"
+    assert get_autologging_config("test_integration_for_config", "silent") is True
 
 
 def test_autologging_is_disabled_returns_expected_values():
@@ -565,7 +588,7 @@ def test_autologging_is_disabled_returns_expected_values():
     assert autologging_is_disabled("nonexistent_integration") is True
 
     @autologging_integration("test_integration_for_disable_check")
-    def autolog(disable=False):
+    def autolog(disable=False, silent=False):
         pass
 
     # Before `autolog()` has been invoked, `autologging_is_disabled` should return False
