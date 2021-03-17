@@ -17,7 +17,7 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import (
+from mlflow.utils.autologging import (
     _is_testing,
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
