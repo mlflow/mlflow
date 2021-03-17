@@ -16,6 +16,7 @@ from tests.autologging.fixtures import (
     TestStream,
     test_mode_off,
     patch_destination,
+    reset_stderr,
 )  # pylint: disable=unused-import
 
 

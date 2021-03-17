@@ -67,7 +67,6 @@ def reset_logging_enablement():
 class TestStream:
     def __init__(self):
         self.content = None
-        self.flush_count = 0
 
     def write(self, text):
         self.content = (self.content or "") + text
