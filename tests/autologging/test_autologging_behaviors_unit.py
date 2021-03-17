@@ -1,3 +1,5 @@
+# pylint: disable=unused-argument
+
 import logging
 import sys
 import time
@@ -51,7 +53,7 @@ def test_silent_mode_single_threaded(patch_destination):
         logger.critical("patch4")
 
     @autologging_integration("test_integration")
-    def test_autolog(disable=False, silent=False):  # pylint: disable=unused-argument
+    def test_autolog(disable=False, silent=False):
         eprint("enablement1")
         logger.info("enablement2")
         logger.warning("enablement3")
@@ -144,7 +146,7 @@ def test_silent_mode_multithreaded(patch_destination):
         )
 
     @autologging_integration("test_integration")
-    def test_autolog(disable=False, silent=False):  # pylint: disable=unused-argument
+    def test_autolog(disable=False, silent=False):
         logger.warning("enablement")
         warnings.warn_explicit(
             "enablement warning", category=Warning, filename=mlflow.__file__, lineno=15
@@ -203,7 +205,7 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
         raise Exception("postamble error")
 
     @autologging_integration("test_integration")
-    def test_autolog(disable=False, silent=False):  # pylint: disable=unused-argument
+    def test_autolog(disable=False, silent=False):
         safe_patch("test_integration", patch_destination, "fn", patch_impl)
         raise Exception("enablement error")
 
