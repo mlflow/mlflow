@@ -70,7 +70,7 @@ def test_autologging_integration():
     integration_name = "test_integration"
 
     @autologging_integration(integration_name)
-    def autolog(disable=False):
+    def autolog(disable=False, silent=False):
         pass
 
     autolog()
@@ -393,7 +393,7 @@ def test_safe_patch_respects_disable_flag(patch_destination):
     patch_impl_call_count = 0
 
     @autologging_integration("test_respects_disable")
-    def autolog(disable=False):
+    def autolog(disable=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -1480,7 +1480,7 @@ def test_original_fn_runs_if_patch_should_not_be_applied(patch_destination):
     patch_impl_call_count = 0
 
     @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False):
+    def autolog(disable=False, exclusive=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -1513,7 +1513,7 @@ def test_patch_runs_if_patch_should_be_applied():
     patch_obj = TestPatchWithNewFnObj()
 
     @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False):
+    def autolog(disable=False, exclusive=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
