@@ -54,9 +54,9 @@ FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
 
-_MAX_METRIC_QUEUE_SIZE = 500
+_MAX_METRIC_QUEUE_SIZE = 5000
 
-_LOG_EVERY_N_STEPS = 100
+_LOG_EVERY_N_STEPS = 1
 
 _metric_queue_lock = RLock()
 _metric_queue = []
@@ -759,7 +759,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         """
 
         def __enter__(self):
-            pass
+            self._last_epoch = None
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
@@ -786,10 +786,16 @@ def _setup_callbacks(lst, log_models, metrics_logger):
             # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
             # used here is slightly different from the arithmetic used in `_log_event`, which
             # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
+            self._last_epoch = epoch
             if epoch % _LOG_EVERY_N_STEPS == 0:
                 metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+            if self._last_epoch is not None and self._last_epoch % _LOG_EVERY_N_STEPS != 0:
+                # Log metrics for the last training epoch, if these were not already logged
+                # by the `on_epoch_end` callback
+                metrics_logger.record_metrics(logs, self._last_epoch)
+
             if log_models:
                 try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
@@ -870,9 +876,9 @@ def autolog(
     information on `TensorFlow workflows
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
-    :param every_n_iter: The frequency with which metrics should be logged.
-                                  Defaults to 100. Ex: a value of 100 will log metrics
-                                  at step 0, 100, 200, etc.
+    :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
+                         100 will log metrics at step 0, 100, 200, etc. Metrics for the last
+                         training epoch are always logged.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,

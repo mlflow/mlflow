@@ -143,7 +143,7 @@ def tf_keras_random_data_run(
     random_train_data, random_one_hot_labels, manual_run, fit_variant, initial_epoch
 ):
     # pylint: disable=unused-argument
-    mlflow.tensorflow.autolog(every_n_iter=5)
+    mlflow.tensorflow.autolog()
 
     data = random_train_data
     labels = random_one_hot_labels
@@ -199,10 +199,31 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert data.params["opt_amsgrad"] == "False"
     client = mlflow.tracking.MlflowClient()
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert all(x.step % 5 == 0 for x in all_epoch_acc)
+    num_of_epochs = len(history.history["loss"])
+    assert len(all_epoch_acc) == num_of_epochs == 10
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model_summary.txt" in artifacts
+
+
+@pytest.mark.large
+def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, random_one_hot_labels):
+    every_n_iter = 5
+    num_training_epochs = 17
+    mlflow.tensorflow.autolog(every_n_iter=every_n_iter)
+
+    model = create_tf_keras_model()
+    with mlflow.start_run() as run:
+        model.fit(
+            random_train_data, random_one_hot_labels, epochs=num_training_epochs, initial_epoch=1,
+        )
+
+    client = mlflow.tracking.MlflowClient()
+    run_metrics = client.get_run(run.info.run_id).data.metrics
+    assert "accuracy" in run_metrics
+    all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
+    expected_metrics_len = int(num_training_epochs / every_n_iter) + 1
+    assert len(all_epoch_acc) == expected_metrics_len == 4
 
 
 @pytest.mark.large
