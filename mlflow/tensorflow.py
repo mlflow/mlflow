@@ -814,7 +814,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    every_n_iter=100,
+    every_n_iter=1,
     log_models=True,
     disable=False,
     exclusive=False,
