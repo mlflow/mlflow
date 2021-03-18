@@ -164,20 +164,20 @@ def test_list_experiments_paginated_returns_in_correct_order():
     # test that pagination will return all valid results in sorted order
     # by name ascending
     result = client.list_experiments(max_results=3, page_token=None)
-    assert result.token != None
+    assert result.token is not None
     assert [exp.name for exp in result[1:]] == testnames[0:2]
 
     result = client.list_experiments(max_results=4, page_token=result.token)
-    assert result.token != None
+    assert result.token is not None
     assert [exp.name for exp in result] == testnames[2:6]
 
     result = client.list_experiments(max_results=6, page_token=result.token)
-    assert result.token != None
+    assert result.token is not None
     assert [exp.name for exp in result] == testnames[6:12]
 
     result = client.list_experiments(max_results=8, page_token=result.token)
     # this page token should be none
-    assert result.token == None
+    assert result.token is None
     assert [exp.name for exp in result] == testnames[12:]
 
 
