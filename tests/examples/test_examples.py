@@ -181,6 +181,7 @@ def test_mlflow_run_example(directory, params, tmpdir):
         ("shap", ["python", "explainer_logging.py"]),
         ("ray_serve", ["python", "train_model.py"]),
         ("pip_requirements", ["python", "pip_requirements.py"]),
+        ("fastai", ["python", "train.py", "--lr", "0.02", "--epochs", "3"]),
     ],
 )
 def test_command_example(directory, command):

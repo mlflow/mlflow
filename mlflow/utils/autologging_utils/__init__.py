@@ -330,6 +330,50 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
             integration_name,
         )
 
+def _check_version_in_range(ver, min_ver, max_ver):
+    return LooseVersion(min_ver) <= LooseVersion(ver) <= LooseVersion(max_ver)
+
+
+def _load_version_file_as_dict():
+    version_file_path = resource_filename(__name__, "../../ml-package-versions.yml")
+    with open(version_file_path) as f:
+        return yaml.load(f, Loader=yaml.SafeLoader)
+
+
+_module_version_info_dict = _load_version_file_as_dict()
+
+
+# A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
+_cross_tested_flavor_to_module_name_and_module_key = {
+    "fastai": ("fastai", "fastai-2.x"),
+    "gluon": ("mxnet", "gluon"),
+    "keras": ("keras", "keras"),
+    "lightgbm": ("lightgbm", "lightgbm"),
+    "statsmodels": ("statsmodels", "statsmodels"),
+    "tensorflow": ("tensorflow", "tensorflow"),
+    "xgboost": ("xgboost", "xgboost"),
+    "sklearn": ("sklearn", "sklearn"),
+    "pytorch": ("pytorch_lightning", "pytorch-lightning"),
+}
+
+
+def _get_min_max_version_and_pip_release(module_key):
+    min_version = _module_version_info_dict[module_key]["autologging"]["minimum"]
+    max_version = _module_version_info_dict[module_key]["autologging"]["maximum"]
+    pip_release = _module_version_info_dict[module_key]["package_info"]["pip_release"]
+    return min_version, max_version, pip_release
+
+
+def _is_autologging_integration_supported(flavor_name):
+    """
+    :return: True if the flavor's associated package version is compatible with mlflow,
+             False otherwise.
+    """
+    module_name, module_key = _cross_tested_flavor_to_module_name_and_module_key[flavor_name]
+    actual_version = importlib.import_module(module_name).__version__
+    min_version, max_version, _ = _get_min_max_version_and_pip_release(module_key)
+    return _check_version_in_range(actual_version, min_version, max_version)
+
 
 def autologging_integration(name):
     """
