@@ -2,12 +2,12 @@
 
 This simple example illustrates how you can use the `mlflow.fastai.autolog()` API
 to track parameters, metrics, and artifacts while training a simple MNIST model. Derived from fastai's GitHub Repository 
-of [vision examples](https://github.com/fastai/fastai/blob/master/examples/train_mnist.py), this code is modified to run 
+of [examples](https://github.com/fastai/fastai/blob/master/nbs/examples/mnist_blocks.py), this code is modified to run 
 as an MLflow project, with either default or supplied arguments. The default arguments are learning rate(`lr=0.01`) 
 and number of epochs (`epochs=5`).
 
 You can use this example as a template and attempt advanced examples in
-[Fastai tutorials](https://docs.fast.ai/applications.html), using the `mlflow.fastai` model flavor and MLflow tracking API to
+[Fastai tutorials](https://docs.fast.ai/tutorial.html), using the `mlflow.fastai` model flavor and MLflow tracking API to
 track your experiments.
 
 #### How to run this code

@@ -710,9 +710,9 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "mxnet"},
         "autologging": {"minimum": "1.5.1", "maximum": "1.7.0.post1"},
     },
-    "fastai-1.x": {
+    "fastai-2.x": {
         "package_info": {"pip_release": "fastai"},
-        "autologging": {"minimum": "1.0.60", "maximum": "1.0.61"},
+        "autologging": {"minimum": "2.2.2", "maximum": "2.2.7"},
     },
     "statsmodels": {
         "package_info": {"pip_release": "statsmodels"},
@@ -724,8 +724,8 @@ _module_version_info_dict_patch = {
 @pytest.mark.parametrize(
     "flavor,module_version,expected_result",
     [
-        ("fastai", "1.0.60", True),
-        ("fastai", "1.0.50", False),
+        ("fastai", "2.2.2", True),
+        ("fastai", "1.0.60", False),
         ("gluon", "1.6.1", True),
         ("gluon", "1.5.0", False),
         ("keras", "2.2.4", True),

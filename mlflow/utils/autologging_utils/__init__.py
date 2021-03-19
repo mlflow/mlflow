@@ -325,7 +325,7 @@ _module_version_info_dict = _load_version_file_as_dict()
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
 _cross_tested_flavor_to_module_name_and_module_key = {
-    "fastai": ("fastai", "fastai-1.x"),
+    "fastai": ("fastai", "fastai-2.x"),
     "gluon": ("mxnet", "gluon"),
     "keras": ("keras", "keras"),
     "lightgbm": ("lightgbm", "lightgbm"),
