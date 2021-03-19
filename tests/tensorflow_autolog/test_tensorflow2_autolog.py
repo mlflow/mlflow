@@ -222,8 +222,7 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    expected_metrics_len = int(num_training_epochs / every_n_iter) + 1
-    assert len(all_epoch_acc) == expected_metrics_len == 4
+    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15, 17])
 
 
 @pytest.mark.large
@@ -543,7 +542,7 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
-def create_tf_estimator_model(directory, export, training_steps=500, use_v1_estimator=False):
+def create_tf_estimator_model(directory, export, training_steps=100, use_v1_estimator=False):
     CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
 
     train = pd.read_csv(
@@ -575,6 +574,11 @@ def create_tf_estimator_model(directory, export, training_steps=500, use_v1_esti
 
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
+    run_config = tf.estimator.RunConfig(
+        # Emit loss metrics to TensorBoard every step
+        save_summary_steps=1,
+    )
+
     # If flag set to true, then use the v1 classifier that extends Estimator
     # If flag set to false, then use the v2 classifier that extends EstimatorV2
     if use_v1_estimator:
@@ -585,6 +589,7 @@ def create_tf_estimator_model(directory, export, training_steps=500, use_v1_esti
             # The model must choose between 3 classes.
             n_classes=3,
             model_dir=directory,
+            config=run_config,
         )
     else:
         classifier = tf.estimator.DNNClassifier(
@@ -594,6 +599,7 @@ def create_tf_estimator_model(directory, export, training_steps=500, use_v1_esti
             # The model must choose between 3 classes.
             n_classes=3,
             model_dir=directory,
+            config=run_config,
         )
 
     classifier.train(input_fn=lambda: input_fn(train, train_y, training=True), steps=training_steps)
@@ -632,28 +638,22 @@ def tf_estimator_random_data_run(tmpdir, manual_run, export):
 
 @pytest.mark.large
 @pytest.mark.parametrize("export", [True, False])
-def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
-    assert "loss" in tf_estimator_random_data_run.data.metrics
-    assert "steps" in tf_estimator_random_data_run.data.params
-    client = mlflow.tracking.MlflowClient()
-    metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
-    assert all((x.step - 1) % 100 == 0 for x in metrics)
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("export", [True, False])
-def test_tf_estimator_v1_autolog_logs_metrics(tmpdir, export):
+@pytest.mark.parametrize("use_v1_estimator", [True, False])
+def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
     directory = tmpdir.mkdir("test")
-    mlflow.tensorflow.autolog()
+    mlflow.tensorflow.autolog(every_n_iter=5)
 
-    create_tf_estimator_model(str(directory), export, use_v1_estimator=True)
+    with mlflow.start_run():
+        create_tf_estimator_model(str(directory), export, use_v1_estimator=use_v1_estimator, training_steps=17)
+        run_id = mlflow.active_run().info.run_id
+
     client = mlflow.tracking.MlflowClient()
-    tf_estimator_v1_run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(run_id)
 
-    assert "loss" in tf_estimator_v1_run.data.metrics
-    assert "steps" in tf_estimator_v1_run.data.params
-    metrics = client.get_metric_history(tf_estimator_v1_run.info.run_id, "loss")
-    assert all((x.step - 1) % 100 == 0 for x in metrics)
+    assert "loss" in run.data.metrics
+    assert "steps" in run.data.params
+    metrics = client.get_metric_history(run_id, "loss")
+    assert set([metric.step for metric in metrics]) == set([1, 6, 11, 16, 17])
 
 
 @pytest.mark.large
@@ -690,7 +690,7 @@ def test_tf_estimator_autolog_logs_metrics_in_exclusive_mode(tmpdir):
     assert "loss" in tf_estimator_run.data.metrics
     assert "steps" in tf_estimator_run.data.params
     metrics = client.get_metric_history(tf_estimator_run.info.run_id, "loss")
-    assert all((x.step - 1) % 100 == 0 for x in metrics)
+    assert len(metrics) == 100
 
 
 @pytest.mark.large
