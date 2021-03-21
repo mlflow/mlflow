@@ -1091,8 +1091,8 @@ def safe_patch(
                             # Verify that the patch function implementation has not mutated the
                             # user-specified arguments during the preamble (i.e.  prior to the
                             # original / underlying function invocation)
-                            assert args == preamble_args_snapshot 
-                            assert kwargs == preamble_kwargs_snapshot 
+                            assert args == preamble_args_snapshot
+                            assert kwargs == preamble_kwargs_snapshot
                             # Verify that the arguments being passed to the original / underlying
                             # function are complete (no user-specified arguments have been omitted)
                             # and exception safe (any additional arguments introduced by MLflow,
@@ -1171,12 +1171,12 @@ def safe_patch(
                     kwargs,
                 )
 
-                if _is_testing(): 
+                if _is_testing():
                     # Verify that the patch function implementation has not mutated the
                     # user-specified arguments during the postamble (i.e. after the original /
                     # underlying function invocation)
-                    assert args == postamble_args_snapshot 
-                    assert kwargs == postamble_kwargs_snapshot 
+                    assert args == postamble_args_snapshot
+                    assert kwargs == postamble_kwargs_snapshot
 
             except Exception as e:
                 # Exceptions thrown during execution of the original function should be propagated
