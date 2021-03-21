@@ -1028,6 +1028,8 @@ def safe_patch(
         """
         if _is_testing():
             preexisting_run_for_testing = mlflow.active_run()
+            preamble_args_snapshot, preamble_kwargs_snapshot = args, kwargs
+            postamble_args_snapshot, postamble_kwargs_snapshot = args, kwargs
 
         original = gorilla.get_original_attribute(destination, function_name)
 
@@ -1069,6 +1071,12 @@ def safe_patch(
             try:
 
                 def call_original(*og_args, **og_kwargs):
+                    """
+                    :param og_args: The positional arguments passed by the patch function
+                                    implementation to the original / underlying function
+                    :param og_kwargs: The keyword arguments passed by the patch function
+                                      implementation to the original / underlying function
+                    """
                     try:
                         try_log_autologging_event(
                             AutologgingEventLogger.get_logger().log_original_function_start,
@@ -1080,6 +1088,15 @@ def safe_patch(
                         )
 
                         if _is_testing():
+                            # Verify that the patch function implementation has not mutated the
+                            # user-specified arguments during the preamble (i.e.  prior to the
+                            # original / underlying function invocation)
+                            assert args == preamble_args_snapshot 
+                            assert kwargs == preamble_kwargs_snapshot 
+                            # Verify that the arguments being passed to the original / underlying
+                            # function are complete (no user-specified arguments have been omitted)
+                            # and exception safe (any additional arguments introduced by MLflow,
+                            # such as callbacks, are resilient to unexpected exceptions)
                             _validate_args(args, kwargs, og_args, og_kwargs)
                             # By the time `original` is called by the patch implementation, we
                             # assume that either: 1. the patch implementation has already
@@ -1105,6 +1122,10 @@ def safe_patch(
                             og_args,
                             og_kwargs,
                         )
+
+                        if _is_testing():
+                            nonlocal postamble_args_snapshot, postamble_kwargs_snapshot
+                            postamble_args_snapshot, postamble_kwargs_snapshot = args, kwargs
 
                         return original_result
                     except Exception as e:
@@ -1149,6 +1170,14 @@ def safe_patch(
                     args,
                     kwargs,
                 )
+
+                if _is_testing(): 
+                    # Verify that the patch function implementation has not mutated the
+                    # user-specified arguments during the postamble (i.e. after the original /
+                    # underlying function invocation)
+                    assert args == postamble_args_snapshot 
+                    assert kwargs == postamble_kwargs_snapshot 
+
             except Exception as e:
                 # Exceptions thrown during execution of the original function should be propagated
                 # to the caller. Additionally, exceptions encountered during test mode should be
