@@ -644,7 +644,9 @@ def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
     mlflow.tensorflow.autolog(every_n_iter=5)
 
     with mlflow.start_run():
-        create_tf_estimator_model(str(directory), export, use_v1_estimator=use_v1_estimator, training_steps=17)
+        create_tf_estimator_model(
+            str(directory), export, use_v1_estimator=use_v1_estimator, training_steps=17
+        )
         run_id = mlflow.active_run().info.run_id
 
     client = mlflow.tracking.MlflowClient()

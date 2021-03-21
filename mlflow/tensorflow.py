@@ -635,8 +635,7 @@ def _flush_queue():
             # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
             # which provides metric logging hooks for tf.Keras
             metrics_to_log_immediately = [
-                item for item in snapshot
-                if (item[1].step - 1) % _LOG_EVERY_N_STEPS == 0
+                item for item in snapshot if (item[1].step - 1) % _LOG_EVERY_N_STEPS == 0
             ]
 
             metrics_by_run = _assoc_list_to_map(metrics_to_log_immediately)
@@ -647,10 +646,13 @@ def _flush_queue():
             # `every_n_iter`, log them now
             global _last_epoch_metric_events
             if len(snapshot + _last_epoch_metric_events) > 0:
-                latest_observed_step = max([it[1].step for it in (snapshot + _last_epoch_metric_events)] or [])
+                latest_observed_step = max(
+                    [it[1].step for it in (snapshot + _last_epoch_metric_events)] or []
+                )
                 if (latest_observed_step - 1) % _LOG_EVERY_N_STEPS != 0:
                     _last_epoch_metric_events = [
-                        it for it in (snapshot + _last_epoch_metric_events)
+                        it
+                        for it in (snapshot + _last_epoch_metric_events)
                         if it[1].step == latest_observed_step
                     ]
     finally:
