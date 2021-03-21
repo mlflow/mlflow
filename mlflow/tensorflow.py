@@ -1054,7 +1054,7 @@ def autolog(
                     # & tf.keras callbacks if necessary
                     callbacks = list(args[5])
                     callbacks, self.log_dir = _setup_callbacks(
-                        callbacks, log_models, metrics_logger 
+                        callbacks, log_models, metrics_logger
                     )
                     # Replace the callbacks positional entry in the copied arguments and convert
                     # the arguments back to tuple form for usage in the training function
@@ -1073,7 +1073,7 @@ def autolog(
 
                 early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
-                
+
                 history = original(inst, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
