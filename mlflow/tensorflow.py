@@ -643,6 +643,8 @@ def _flush_queue():
             for run_id, metrics in metrics_by_run.items():
                 try_mlflow_log(client.log_batch, run_id, metrics=metrics, params=[], tags=[])
 
+            # If metrics for the last training epoch were not logged due to filtering on
+            # `every_n_iter`, log them now
             global _last_epoch_metric_events
             if len(snapshot + _last_epoch_metric_events) > 0:
                 latest_observed_step = max([it[1].step for it in (snapshot + _last_epoch_metric_events)] or [])
