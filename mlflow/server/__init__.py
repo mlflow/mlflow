@@ -89,8 +89,11 @@ def serve():
 
 def _build_waitress_command(waitress_opts, host, port):
     opts = shlex.split(waitress_opts) if waitress_opts else []
+    pathexe = sys.exec_prefix + "/Scripts/waitress-serve.exe"
+    if not os.path.exists(pathexe):
+        pathexe = "waitress-serve"
     return (
-        ["waitress-serve"]
+        [pathexe]
         + opts
         + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", "mlflow.server:app"]
     )
