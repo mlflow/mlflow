@@ -1046,12 +1046,12 @@ def autolog(
             with batch_metrics_logger(run_id) as metrics_logger:
                 # Check if the 'callback' argument of fit() is set positionally
                 if len(args) >= 6:
-                    # Make a shallow copy of the training function's positional arguments to avoid
-                    # permanently modifying their contents for future training invocations. Convert
-                    # the copied arguments to a list in order to mutate the contents
+                    # Convert the positional training function arguments to a list in order to
+                    # mutate the contents
                     args = list(args)
-                    # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
-                    # & tf.keras callbacks if necessary
+                    # Make a shallow copy of the preexisting callbacks to avoid permanently
+                    # modifying their contents for future training invocations. Introduce
+                    # TensorBoard & tf.keras callbacks if necessary
                     callbacks = list(args[5])
                     callbacks, self.log_dir = _setup_callbacks(
                         callbacks, log_models, metrics_logger
@@ -1061,9 +1061,6 @@ def autolog(
                     args[5] = callbacks
                     args = tuple(args)
                 else:
-                    # Make a shallow copy of the training function's keyword arguments to avoid
-                    # permanently modifying their contents for future training invocations
-                    kwargs = dict(kwargs)
                     callbacks = list(kwargs.get("callbacks", []))
                     # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                     # & tf.keras callbacks if necessary
