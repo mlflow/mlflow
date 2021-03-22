@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from mlflow.utils.autologging_utils import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
+from mlflow.utils.autologging import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
 
 
 @pytest.fixture

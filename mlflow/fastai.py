@@ -29,7 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import (
+from mlflow.utils.autologging import (
     try_mlflow_log,
     log_fn_args_as_params,
     safe_patch,
