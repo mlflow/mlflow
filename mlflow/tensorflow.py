@@ -785,6 +785,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
 
         def __init__(self):
             self._last_epoch = None
+            super().__init__()
 
         def __enter__(self):
             pass
