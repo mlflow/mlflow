@@ -458,6 +458,39 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
+    tmpdir, random_train_data, random_one_hot_labels, fit_variant
+):
+    """
+    TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
+    preexisting user-defined callbacks already exist, these new callbacks are added to the
+    user-specified ones. This test verifies that the new callbacks are added to the without
+    permanently mutating the original list of callbacks.
+    """
+    mlflow.tensorflow.autolog()
+
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmpdir)
+    callbacks = [tensorboard_callback]
+
+    model = create_tf_keras_model()
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    if fit_variant == "fit_generator":
+
+        def generator():
+            while True:
+                yield data, labels
+
+        model.fit_generator(generator(), epochs=10, steps_per_epoch=1, callbacks=callbacks)
+    else:
+        model.fit(data, labels, epochs=10, callbacks=callbacks)
+
+    assert len(callbacks) == 1
+    assert callbacks == [tensorboard_callback]
+
+
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
@@ -520,39 +553,6 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
             model.fit(data, labels, epochs=10)
 
         assert not os.path.exists(mock_log_dir_inst.location)
-
-
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
-def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
-    tmpdir, random_train_data, random_one_hot_labels, fit_variant
-):
-    """
-    TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
-    preexisting user-defined callbacks already exist, these new callbacks are added to the
-    user-specified ones. This test verifies that the new callbacks are added to the without
-    permanently mutating the original list of callbacks.
-    """
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmpdir)
-    callbacks = [tensorboard_callback]
-
-    model = create_tf_keras_model()
-    data = random_train_data
-    labels = random_one_hot_labels
-
-    if fit_variant == "fit_generator":
-
-        def generator():
-            while True:
-                yield data, labels
-
-        model.fit_generator(
-            generator(), epochs=10, steps_per_epoch=1, callbacks=[tensorboard_callback]
-        )
-    else:
-        model.fit(data, labels, epochs=10, callbacks=[tensorboard_callback])
-
-    assert len(callbacks) == 1
-    assert callbacks == [tensorboard_callback]
 
 
 def create_tf_estimator_model(directory, export, training_steps=500, use_v1_estimator=False):
