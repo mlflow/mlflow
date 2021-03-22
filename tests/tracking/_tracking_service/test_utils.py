@@ -129,7 +129,9 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments", return_value=[]
+        # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments` results in an error
+        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
+        return_value=[],
     ):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
