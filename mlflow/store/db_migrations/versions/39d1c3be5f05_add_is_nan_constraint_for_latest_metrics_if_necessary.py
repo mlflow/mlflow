@@ -1,4 +1,4 @@
-"""test
+"""add_is_nan_constraint_for_latest_metrics_if_necessary
 
 Revision ID: 39d1c3be5f05
 Revises: a8c4a736bde6
@@ -17,6 +17,7 @@ depends_on = None
 
 
 def upgrade():
+    # Add a comment
     with op.batch_alter_table("latest_metrics") as batch_op:
         batch_op.alter_column(
             "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
