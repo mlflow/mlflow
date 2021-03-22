@@ -176,6 +176,10 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
+    - name: Clean-up test-environment
+      run: |
+        conda remove --all --yes --name test-environment
+        conda clean --all --yes
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
