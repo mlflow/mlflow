@@ -23,6 +23,11 @@ def upgrade():
             "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
         )
 
+    with op.batch_alter_table("metrics") as batch_op:
+        batch_op.alter_column(
+            "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
+        )
+
 
 def downgrade():
     pass
