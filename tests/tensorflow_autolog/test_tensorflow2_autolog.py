@@ -215,14 +215,14 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     model = create_tf_keras_model()
     with mlflow.start_run() as run:
         model.fit(
-            random_train_data, random_one_hot_labels, epochs=num_training_epochs, initial_epoch=1,
+            random_train_data, random_one_hot_labels, epochs=num_training_epochs, initial_epoch=0,
         )
 
     client = mlflow.tracking.MlflowClient()
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15, 17])
+    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15, 16])
 
 
 @pytest.mark.large
@@ -721,14 +721,6 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
     mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id + "/model")
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("export", [True, False])
-def test_duplicate_autolog_second_overrides(tf_estimator_random_data_run):
-    client = mlflow.tracking.MlflowClient()
-    metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
-    assert all((x.step - 1) % 4 == 0 for x in metrics)
 
 
 @pytest.mark.large
