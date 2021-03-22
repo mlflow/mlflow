@@ -129,7 +129,9 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
-        # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments` results in an error
+        # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments`, which is called when fetching
+        # the store, results in an error when called with a mocked sqlalchemy engine.
+        # Accordingly, we mock `SqlAlchemyStore.list_experiments
         "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
         return_value=[],
     ):
