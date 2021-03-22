@@ -178,6 +178,7 @@ jobs:
         ./dev/run-large-python-tests.sh
     - name: Clean-up test-environment
       run: |
+        # Remove `test-environment` to free up disk space for the next step
         conda remove --all --yes --name test-environment
         conda clean --all --yes
     - name: Run anaconda compatibility tests
