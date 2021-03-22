@@ -160,6 +160,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Increase available disk space
+      run: |
+        # Increase available disk space by removing unnecessary tool chains:
+        # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+        rm -rf "$AGENT_TOOLSDIRECTORY"
     - uses: actions/setup-java@v1
       with:
         # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
@@ -176,11 +181,6 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
-    - name: Clean-up test-environment
-      run: |
-        # Remove `test-environment` to free up disk space for the next step
-        conda remove --all --yes --name test-environment
-        conda clean --all --yes
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
@@ -241,6 +241,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Increase available disk space
+        run: |
+          # Increase available disk space by removing unnecessary tool chains:
+          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
+          rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: actions/setup-java@v1
         with:
           java-version: 8
