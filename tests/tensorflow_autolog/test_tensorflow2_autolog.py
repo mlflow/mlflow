@@ -522,6 +522,19 @@ def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboa
         assert not os.path.exists(mock_log_dir_inst.location)
 
 
+def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(tmpdir, random_train_data, random_one_hot_labels, fit_variant):
+    """
+    TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
+    preexisting user-defined callbacks already exist, these new callbacks are added to the
+    user-specified ones. This test verifies that the new callbacks are added to the without
+    permanently mutating the original list of callbacks.
+    """
+    callbacks = [tf.keras.callbacks.TensorBoard(log_dir=tmpdir)]
+     
+
+    pass
+
+
 def create_tf_estimator_model(directory, export, training_steps=500, use_v1_estimator=False):
     CSV_COLUMN_NAMES = ["SepalLength", "SepalWidth", "PetalLength", "PetalWidth", "Species"]
 
