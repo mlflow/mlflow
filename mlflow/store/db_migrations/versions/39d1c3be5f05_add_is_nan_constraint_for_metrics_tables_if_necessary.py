@@ -17,17 +17,20 @@ depends_on = None
 
 
 def upgrade():
-    # This migration is only relevent for users who installed sqlalchemy 1.4.0 with MLflow <= 1.14.1
-    # In sqlalchemy 1.4.0, the default value of `create_costraint` for `sqlalchemy.Boolean` was
-    # changed to False from True:
-    # https://github.com/sqlalchemy/sqlalchemy/blob/rel_1_4_0/lib/sqlalchemy/sql/sqltypes.py#L1841
-    # To preserve the existing check constraints on the `is_nan` columns, explicitly set
-    # `create_constarint` to True.
+    # This part of the migration is only relevent for users who installed sqlalchemy 1.4.0 with
+    # MLflow <= 1.14.1. In sqlalchemy 1.4.0, the default value of `create_constraint` for
+    # `sqlalchemy.Boolean` was changed to `False` from `True`:
+    # https://github.com/sqlalchemy/sqlalchemy/blob/rel_1_4_0/lib/sqlalchemy/sql/sqltypes.py#L1841.
+    # To ensure that a check constraint is always present on the `is_nan` column in the
+    # `latest_metrics` table, we perform an `alter_column` and explicitly set `create_constraint`
+    # to `True`
     with op.batch_alter_table("latest_metrics") as batch_op:
         batch_op.alter_column(
             "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
         )
 
+    # Introduce a check constraint on the `is_nan` column from the `metrics` table, which was
+    # missing prior to this migration
     with op.batch_alter_table("metrics") as batch_op:
         batch_op.alter_column(
             "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
