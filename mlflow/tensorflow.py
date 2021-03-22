@@ -1063,7 +1063,7 @@ def autolog(
                 else:
                     # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
                     # & tf.keras callbacks if necessary
-                    callbacks = list(kwargs.get("callbacks", []))
+                    callbacks = list(kwargs.get("callbacks") or [])
                     kwargs["callbacks"], self.log_dir = _setup_callbacks(
                         callbacks, log_models, metrics_logger
                     )
