@@ -9,7 +9,7 @@ from fastai.metrics import accuracy
 import mlflow
 import mlflow.fastai
 from fastai.callbacks import EarlyStoppingCallback
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging import BatchMetricsLogger
 from unittest.mock import patch
 
 np.random.seed(1337)
@@ -275,7 +275,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(fit_variant, 
     original = BatchMetricsLogger.record_metrics
 
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+        "mlflow.utils.autologging.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(self, metrics, step=None):
