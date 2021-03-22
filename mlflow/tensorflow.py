@@ -783,8 +783,11 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         Records model structural information as params when training starts.
         """
 
-        def __enter__(self):
+        def __init__(self):
             self._last_epoch = None
+
+        def __enter__(self):
+            pass
 
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
