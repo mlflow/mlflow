@@ -11,7 +11,8 @@ h5py<3.0.0
 # Required by mlflow.sklearn
 scikit-learn
 # Required by mlflow.gluon
-mxnet
+# TODO: Unpin once https://github.com/apache/incubator-mxnet/issues/20068 is fixed
+mxnet!=1.8.0
 # Required by mlflow.fastai
 fastai==1.0.60
 # Required by mlflow.spacy
