@@ -9,7 +9,7 @@ import time
 
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.utils.autologging import try_mlflow_log
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (

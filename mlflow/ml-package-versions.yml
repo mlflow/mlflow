@@ -182,12 +182,14 @@ gluon:
   models:
     minimum: "1.5.1"
     maximum: "1.7.0.post1"
+    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
     minimum: "1.5.1"
-    maximum: "1.8.0"
+    maximum: "1.7.0.post1"
+    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon_autolog/test_gluon_autolog.py --large
 

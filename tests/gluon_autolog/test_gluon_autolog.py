@@ -14,7 +14,7 @@ from mxnet.gluon.nn import HybridSequential, Dense
 
 import mlflow
 import mlflow.gluon
-from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.utils.autologging import BatchMetricsLogger
 from unittest.mock import patch
 
 if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
@@ -110,7 +110,7 @@ def test_gluon_autolog_batch_metrics_logger_logs_expected_metrics():
     original = BatchMetricsLogger.record_metrics
 
     with patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
+        "mlflow.utils.autologging.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(self, metrics, step=None):

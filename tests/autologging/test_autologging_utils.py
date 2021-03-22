@@ -11,9 +11,9 @@ from unittest import mock
 import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import (
+from mlflow.utils.autologging import (
     log_fn_args_as_params,
-    wrap_patch,
+    _wrap_patch,
     resolve_input_example_and_signature,
     batch_metrics_logger,
     AutologgingEventLogger,
@@ -26,7 +26,7 @@ from mlflow.utils.autologging_utils import (
     _check_version_in_range,
     _cross_tested_flavor_to_module_name_and_module_key,
 )
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+from mlflow.utils.autologging import AUTOLOGGING_INTEGRATIONS
 
 
 from tests.autologging.fixtures import test_mode_off
@@ -144,7 +144,7 @@ def test_wrap_patch_with_class():
         return 2 * orig(*args, **kwargs)
 
     before = get_func_attrs(Math.add)
-    wrap_patch(Math, Math.add.__name__, new_add)
+    _wrap_patch(Math, Math.add.__name__, new_add)
     after = get_func_attrs(Math.add)
 
     assert after == before
@@ -167,7 +167,7 @@ def test_wrap_patch_with_module():
     before_attrs = get_func_attrs(mlflow.log_param)
     assert sample_function_to_patch(10, 5) == 15
 
-    wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
+    _wrap_patch(this_module, sample_function_to_patch.__name__, new_sample_function)
     after_attrs = get_func_attrs(mlflow.log_param)
     assert after_attrs == before_attrs
     assert sample_function_to_patch(10, 5) == 5
@@ -282,7 +282,7 @@ def test_batch_metrics_logger_flush_logs_to_mlflow(start_run):
 
     # Need to patch _should_flush() to return False, so that we can manually flush the logger
     with mock.patch(
-        "mlflow.utils.autologging_utils.BatchMetricsLogger._should_flush", return_value=False
+        "mlflow.utils.autologging.BatchMetricsLogger._should_flush", return_value=False
     ):
         metrics_logger = BatchMetricsLogger(run_id)
         metrics_logger.record_metrics({"my_metric": 10}, 5)
@@ -721,20 +721,16 @@ _module_version_info_dict_patch = {
         ("pytorch", "1.0.4", False),
     ],
 )
-@mock.patch(
-    "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
-)
+@mock.patch("mlflow.utils.autologging._module_version_info_dict", _module_version_info_dict_patch)
 def test_is_autologging_integration_supported(flavor, module_version, expected_result):
     module_name, _ = _cross_tested_flavor_to_module_name_and_module_key[flavor]
     with mock.patch(module_name + ".__version__", module_version):
         assert expected_result == _is_autologging_integration_supported(flavor)
 
 
-@mock.patch(
-    "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
-)
+@mock.patch("mlflow.utils.autologging._module_version_info_dict", _module_version_info_dict_patch)
 def test_disable_for_unsupported_versions_warning_sklearn_integration():
-    log_warn_fn_name = "mlflow.utils.autologging_utils._logger.warning"
+    log_warn_fn_name = "mlflow.utils.autologging._logger.warning"
     log_info_fn_name = "mlflow.tracking.fluent._logger.info"
 
     def is_sklearn_warning_fired(log_warn_fn_args):

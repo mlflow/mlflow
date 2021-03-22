@@ -110,12 +110,9 @@ def _update_wrapper_extended(wrapper, wrapped):
     return updated_wrapper
 
 
-def wrap_patch(destination, name, patch, settings=None):
+def _wrap_patch(destination, name, patch, settings=None):
     """
     Apply a patch while preserving the attributes (e.g. __doc__) of an original function.
-
-    TODO(dbczumar): Convert this to an internal method once existing `wrap_patch` calls
-                    outside of `autologging_utils` have been converted to `safe_patch`
 
     :param destination: Patch destination
     :param name: Name of the attribute at the destination
@@ -315,7 +312,7 @@ def _check_version_in_range(ver, min_ver, max_ver):
 
 
 def _load_version_file_as_dict():
-    version_file_path = resource_filename(__name__, "../ml-package-versions.yml")
+    version_file_path = resource_filename(__name__, "../../ml-package-versions.yml")
     with open(version_file_path) as f:
         return yaml.load(f, Loader=yaml.SafeLoader)
 
@@ -1188,7 +1185,7 @@ def safe_patch(
             else:
                 return original(*args, **kwargs)
 
-    wrap_patch(destination, function_name, safe_patch_function)
+    _wrap_patch(destination, function_name, safe_patch_function)
 
 
 @contextmanager
