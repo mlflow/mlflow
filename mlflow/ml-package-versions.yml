@@ -204,7 +204,7 @@ fastai-1.x:
 
   autologging:
     minimum: "1.0.60"
-    maximum: "2.2.7"
+    maximum: "1.0.61"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
