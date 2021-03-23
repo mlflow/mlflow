@@ -222,7 +222,7 @@ def test_tf_keras_autolog_records_metrics_for_last_epoch(random_train_data, rand
     run_metrics = client.get_run(run.info.run_id).data.metrics
     assert "accuracy" in run_metrics
     all_epoch_acc = client.get_metric_history(run.info.run_id, "accuracy")
-    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15, 16])
+    assert set([metric.step for metric in all_epoch_acc]) == set([0, 5, 10, 15])
 
 
 @pytest.mark.large
@@ -655,7 +655,7 @@ def test_tf_estimator_autolog_logs_metrics(tmpdir, export, use_v1_estimator):
     assert "loss" in run.data.metrics
     assert "steps" in run.data.params
     metrics = client.get_metric_history(run_id, "loss")
-    assert set([metric.step for metric in metrics]) == set([1, 6, 11, 16, 17])
+    assert set([metric.step for metric in metrics]) == set([1, 6, 11, 16])
 
 
 @pytest.mark.large
