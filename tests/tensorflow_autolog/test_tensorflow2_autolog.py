@@ -458,6 +458,47 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
     assert len(metric_history) == num_of_epochs
 
 
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
+@pytest.mark.parametrize("positional", [True, False])
+def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
+    tmpdir, random_train_data, random_one_hot_labels, fit_variant, positional
+):
+    """
+    TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
+    preexisting user-defined callbacks already exist, these new callbacks are added to the
+    user-specified ones. This test verifies that the new callbacks are added to the without
+    permanently mutating the original list of callbacks.
+    """
+    mlflow.tensorflow.autolog()
+
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmpdir)
+    callbacks = [tensorboard_callback]
+
+    model = create_tf_keras_model()
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    if fit_variant == "fit_generator":
+
+        def generator():
+            while True:
+                yield data, labels
+
+        if positional:
+            model.fit_generator(generator(), 1, 10, 1, callbacks)
+        else:
+            model.fit_generator(generator(), epochs=10, steps_per_epoch=1, callbacks=callbacks)
+
+    else:
+        if positional:
+            model.fit(data, labels, None, 10, 1, callbacks)
+        else:
+            model.fit(data, labels, epochs=10, callbacks=callbacks)
+
+    assert len(callbacks) == 1
+    assert callbacks == [tensorboard_callback]
+
+
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_generator"])
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(

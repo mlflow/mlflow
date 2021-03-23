@@ -975,7 +975,7 @@ def autolog(
         return serialized
 
     @exception_safe_function
-    def _early_stop_check(callbacks):
+    def _get_early_stop_callback(callbacks):
         for callback in callbacks:
             if isinstance(callback, tensorflow.keras.callbacks.EarlyStopping):
                 return callback
@@ -1044,25 +1044,33 @@ def autolog(
 
             run_id = mlflow.active_run().info.run_id
             with batch_metrics_logger(run_id) as metrics_logger:
-                # Checking if the 'callback' argument of fit() is set
+                # Check if the 'callback' argument of fit() is set positionally
                 if len(args) >= 6:
-                    tmp_list = list(args)
-                    early_stop_callback = _early_stop_check(tmp_list[5])
-                    tmp_list[5], self.log_dir = _setup_callbacks(
-                        tmp_list[5], log_models, metrics_logger
+                    # Convert the positional training function arguments to a list in order to
+                    # mutate the contents
+                    args = list(args)
+                    # Make a shallow copy of the preexisting callbacks to avoid permanently
+                    # modifying their contents for future training invocations. Introduce
+                    # TensorBoard & tf.keras callbacks if necessary
+                    callbacks = list(args[5])
+                    callbacks, self.log_dir = _setup_callbacks(
+                        callbacks, log_models, metrics_logger
                     )
-                    args = tuple(tmp_list)
-                elif kwargs.get("callbacks"):
-                    early_stop_callback = _early_stop_check(kwargs["callbacks"])
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        kwargs["callbacks"], log_models, metrics_logger
-                    )
+                    # Replace the callbacks positional entry in the copied arguments and convert
+                    # the arguments back to tuple form for usage in the training function
+                    args[5] = callbacks
+                    args = tuple(args)
                 else:
+                    # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
+                    # & tf.keras callbacks if necessary
+                    callbacks = list(kwargs.get("callbacks") or [])
                     kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        [], log_models, metrics_logger
+                        callbacks, log_models, metrics_logger
                     )
 
+                early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
+
                 history = original(inst, *args, **kwargs)
 
                 _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
@@ -1105,21 +1113,30 @@ def autolog(
             run_id = mlflow.active_run().info.run_id
 
             with batch_metrics_logger(run_id) as metrics_logger:
-                # Checking if the 'callback' argument of fit() is set
+                # Check if the 'callback' argument of fit() is set positionally
                 if len(args) >= 5:
-                    tmp_list = list(args)
-                    tmp_list[4], self.log_dir = _setup_callbacks(
-                        tmp_list[4], log_models, metrics_logger
+                    # Convert the positional training function arguments to a list in order to
+                    # mutate the contents
+                    args = list(args)
+                    # Make a shallow copy of the preexisting callbacks to avoid permanently
+                    # modifying their contents for future training invocations. Introduce
+                    # TensorBoard & tf.keras callbacks if necessary
+                    callbacks = list(args[4])
+                    callbacks, self.log_dir = _setup_callbacks(
+                        callbacks, log_models, metrics_logger
                     )
-                    args = tuple(tmp_list)
-                elif kwargs.get("callbacks"):
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        kwargs["callbacks"], log_models, metrics_logger
-                    )
+                    # Replace the callbacks positional entry in the copied arguments and convert
+                    # the arguments back to tuple form for usage in the training function
+                    args[4] = callbacks
+                    args = tuple(args)
                 else:
+                    # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
+                    # & tf.keras callbacks if necessary
+                    callbacks = list(kwargs.get("callbacks") or [])
                     kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        [], log_models, metrics_logger
+                        callbacks, log_models, metrics_logger
                     )
+
                 result = original(inst, *args, **kwargs)
 
             _flush_queue()
