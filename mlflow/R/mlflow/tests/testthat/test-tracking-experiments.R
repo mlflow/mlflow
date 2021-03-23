@@ -110,20 +110,18 @@ test_that("mlflow_set_experiment_tag() works correctly", {
   mlflow_set_experiment_tag("dataset", "imagenet1K", experiment_id, client = client)
   experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
   tags <- experiment$tags[[1]]
-  expect_true("dataset" %in% tags$key)
+  expect_identical(tags, tibble::tibble(key = 'dataset', value = 'imagenet1K'))
   expect_identical("imagenet1K", tags$value[tags$key == "dataset"])
 
   # test that updating a tag works
   mlflow_set_experiment_tag("dataset", "birdbike", experiment_id, client = client)
   experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
-  tags <- experiment$tags[[1]]
-  expect_true("dataset" %in% tags$key)
-  expect_identical("birdbike", tags$value[tags$key == "dataset"])
+  expect_equal(experiment$tags, list(tibble::tibble(key = 'dataset', value = 'birdbike')))
 
   # test that setting a tag on 1 experiment does not impact another experiment.
   experiment_id_2 <- mlflow_create_experiment(client = client, "setExperimentTagTestExperiment2", "art_exptag_loc2")
   experiment_2 <- mlflow_get_experiment(experiment_id = experiment_id_2, client = client)
-  expect_false("tags" %in% colnames(experiment_2))
+  expect_equal(experiment_2$tags, NA)
 
   # test that setting a tag on different experiments maintain different values across experiments
   mlflow_set_experiment_tag("dataset", "birds200", experiment_id_2, client = client)
@@ -131,19 +129,19 @@ test_that("mlflow_set_experiment_tag() works correctly", {
   tags <- experiment$tags[[1]]
   experiment_2 <- mlflow_get_experiment(experiment_id = experiment_id_2, client = client)
   tags_2 <- experiment_2$tags[[1]]
-  expect_true("dataset" %in% tags$key)
-  expect_identical("birdbike", tags$value[tags$key == "dataset"])
-  expect_true("dataset" %in% tags_2$key)
-  expect_identical("birds200", tags_2$value[tags_2$key == "dataset"])
+  expect_equal(tags, tibble::tibble(key = 'dataset', value = 'birdbike'))
+  expect_equal(tags_2, tibble::tibble(key = 'dataset', value = 'birds200'))
 
   # test can set multi-line tags
   mlflow_set_experiment_tag("multiline tag", "value2\nvalue2\nvalue2", experiment_id, client = client)
   experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
-  for (subtag in experiment$tags) {
-    if (subtag$key == "multiline tag") {
-      expect_identical("value2\nvalue2\nvalue2", subtag$value)
-    }
-  }
+  expect_identical(
+        tibble::tibble(
+          key = c('dataset', 'multiline tag'),
+          value= c("birdbike", "value2\nvalue2\nvalue2")
+        ),
+        experiment$tags[[1]][order(experiment$tags[[1]]$key),]
+  )
 })
 
 
@@ -193,3 +191,4 @@ test_that("mlflow_set_experiment() creates experiments", {
   expect_identical(experiment$artifact_location, "artifact/location")
   expect_identical(experiment$name, "foo")
 })
+
