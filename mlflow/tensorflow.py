@@ -1113,21 +1113,30 @@ def autolog(
             run_id = mlflow.active_run().info.run_id
 
             with batch_metrics_logger(run_id) as metrics_logger:
-                # Checking if the 'callback' argument of fit() is set
+                # Check if the 'callback' argument of fit() is set positionally
                 if len(args) >= 5:
-                    tmp_list = list(args)
-                    tmp_list[4], self.log_dir = _setup_callbacks(
-                        tmp_list[4], log_models, metrics_logger
+                    # Convert the positional training function arguments to a list in order to
+                    # mutate the contents
+                    args = list(args)
+                    # Make a shallow copy of the preexisting callbacks to avoid permanently
+                    # modifying their contents for future training invocations. Introduce
+                    # TensorBoard & tf.keras callbacks if necessary
+                    callbacks = list(args[4])
+                    callbacks, self.log_dir = _setup_callbacks(
+                        callbacks, log_models, metrics_logger
                     )
-                    args = tuple(tmp_list)
-                elif kwargs.get("callbacks"):
-                    kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        kwargs["callbacks"], log_models, metrics_logger
-                    )
+                    # Replace the callbacks positional entry in the copied arguments and convert
+                    # the arguments back to tuple form for usage in the training function
+                    args[4] = callbacks
+                    args = tuple(args)
                 else:
+                    # Make a shallow copy of the preexisting callbacks and introduce TensorBoard
+                    # & tf.keras callbacks if necessary
+                    callbacks = list(kwargs.get("callbacks") or [])
                     kwargs["callbacks"], self.log_dir = _setup_callbacks(
-                        [], log_models, metrics_logger
+                        callbacks, log_models, metrics_logger
                     )
+
                 result = original(inst, *args, **kwargs)
 
             _flush_queue()
