@@ -60,7 +60,6 @@ _LOG_EVERY_N_STEPS = 1
 
 _metric_queue_lock = RLock()
 _metric_queue = []
-_last_epoch_metric_events = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
@@ -630,31 +629,9 @@ def _flush_queue():
             for item in snapshot:
                 _metric_queue.remove(item)
 
-            # NB: Most TensorFlow APIs use one-indexing for epochs, while tf.Keras
-            # uses zero-indexing. Accordingly, the modular arithmetic used here is slightly
-            # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
-            # which provides metric logging hooks for tf.Keras
-            metrics_to_log_immediately = [
-                item for item in snapshot if (item[1].step - 1) % _LOG_EVERY_N_STEPS == 0
-            ]
-
-            metrics_by_run = _assoc_list_to_map(metrics_to_log_immediately)
+            metrics_by_run = _assoc_list_to_map(snapshot)
             for run_id, metrics in metrics_by_run.items():
                 try_mlflow_log(client.log_batch, run_id, metrics=metrics, params=[], tags=[])
-
-            # If metrics for the last training epoch were not logged due to filtering on
-            # `every_n_iter`, log them now
-            global _last_epoch_metric_events
-            if len(snapshot + _last_epoch_metric_events) > 0:
-                latest_observed_step = max(
-                    [it[1].step for it in (snapshot + _last_epoch_metric_events)] or []
-                )
-                if (latest_observed_step - 1) % _LOG_EVERY_N_STEPS != 0:
-                    _last_epoch_metric_events = [
-                        it
-                        for it in (snapshot + _last_epoch_metric_events)
-                        if it[1].step == latest_observed_step
-                    ]
     finally:
         if acquired_lock:
             _metric_queue_lock.release()
@@ -679,13 +656,18 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField("simple_value"):
-                _add_to_queue(
-                    key=v.tag,
-                    value=v.simple_value,
-                    step=event.step,
-                    time=int(time.time() * 1000),
-                    run_id=mlflow.active_run().info.run_id,
-                )
+                # NB: Most TensorFlow APIs use one-indexing for epochs, while tf.Keras
+                # uses zero-indexing. Accordingly, the modular arithmetic used here is slightly
+                # different from the arithmetic used in `__MLflowTfKeras2Callback.on_epoch_end`,
+                # which provides metric logging hooks for tf.Keras
+                if (event.step - 1) % _LOG_EVERY_N_STEPS == 0:
+                    _add_to_queue(
+                        key=v.tag,
+                        value=v.simple_value,
+                        step=event.step,
+                        time=int(time.time() * 1000),
+                        run_id=mlflow.active_run().info.run_id,
+                    )
 
 
 @exception_safe_function
@@ -783,10 +765,6 @@ def _setup_callbacks(lst, log_models, metrics_logger):
         Records model structural information as params when training starts.
         """
 
-        def __init__(self):
-            self._last_epoch = None
-            super().__init__()
-
         def __enter__(self):
             pass
 
@@ -815,16 +793,10 @@ def _setup_callbacks(lst, log_models, metrics_logger):
             # APIs (e.g., tf.Estimator) use one-indexing. Accordingly, the modular arithmetic
             # used here is slightly different from the arithmetic used in `_log_event`, which
             # provides  metric logging hooks for TensorFlow Estimator & other TensorFlow APIs
-            self._last_epoch = epoch
             if epoch % _LOG_EVERY_N_STEPS == 0:
                 metrics_logger.record_metrics(logs, epoch)
 
         def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-            if self._last_epoch is not None and self._last_epoch % _LOG_EVERY_N_STEPS != 0:
-                # Log metrics for the last training epoch, if these were not already logged
-                # by the `on_epoch_end` callback
-                metrics_logger.record_metrics(logs, self._last_epoch)
-
             if log_models:
                 try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path="model")
 
@@ -906,8 +878,7 @@ def autolog(
     <https://www.mlflow.org/docs/latest/tracking.html#tensorflow-and-keras-experimental>`_.
 
     :param every_n_iter: The frequency with which metrics should be logged. For example, a value of
-                         100 will log metrics at step 0, 100, 200, etc. Metrics for the last
-                         training epoch are always logged.
+                         100 will log metrics at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
@@ -958,14 +929,6 @@ def autolog(
 
         # Flush the metrics queue after training completes
         _flush_queue()
-
-        # Log metrics for the last epoch
-        global _last_epoch_metric_events
-        client = mlflow.tracking.MlflowClient()
-        last_epoch_metrics_by_run = _assoc_list_to_map(_last_epoch_metric_events)
-        for run_id, metrics in last_epoch_metrics_by_run.items():
-            try_mlflow_log(client.log_batch, run_id, metrics=metrics, params=[], tags=[])
-        _last_epoch_metric_events = []
 
         # Log Tensorboard event files as artifacts
         if os.path.exists(self.model_dir):
