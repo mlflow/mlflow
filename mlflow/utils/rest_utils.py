@@ -23,13 +23,20 @@ _DEFAULT_HEADERS = {"User-Agent": "mlflow-python-client/%s" % __version__}
 
 
 def http_request(
-    host_creds, endpoint, retries=3, retry_interval=3, max_rate_limit_interval=60, **kwargs
+    host_creds,
+    endpoint,
+    retries=3,
+    retry_interval=3,
+    max_backoff_limit=2100,
+    backoff_error_codes=(429, 503),
+    **kwargs
 ):
     """
-    Makes an HTTP request with the specified method to the specified hostname/endpoint. Ratelimit
-    error code (429) will be retried with an exponential back off (1, 2, 4, ... seconds) for at most
-    `max_rate_limit_interval` seconds.  Internal errors (500s) will be retried up to `retries` times
-    , waiting `retry_interval` seconds between successive retries. Parses the API response
+    Makes an HTTP request with the specified method to the specified hostname/endpoint. Certain
+    error codes such as rate limit (429) or temporary service unavailable (503) will be retried
+    with an exponential back off (1, 2, 4, ... seconds) for at most `max_backoff_limit` seconds.
+    Internal errors (500s) will be retried up to `retries` times, waiting `retry_interval` seconds
+    between successive retries. Parses the API response
     (assumed to be JSON) into a Python object and returns it.
 
     :param host_creds: A :py:class:`mlflow.rest_utils.MlflowHostCreds` object containing
@@ -58,15 +65,16 @@ def http_request(
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
 
-    def request_with_ratelimit_retries(max_rate_limit_interval, **kwargs):
+    def request_with_exp_backoff(max_backoff_limit, backoff_error_codes, **kwargs):
         response = requests.request(**kwargs)
-        time_left = max_rate_limit_interval
+        time_left = max_backoff_limit
         sleep = 1
-        while response.status_code == 429 and time_left > 0:
+        while response.status_code in backoff_error_codes and time_left > 0:
             _logger.warning(
-                "API request to {path} returned status code 429 (Rate limit exceeded). "
+                "API request to {path} returned status code %d. "
                 "Retrying in %d seconds. "
-                "Will continue to retry 429s for up to %d seconds.",
+                "Will continue to retry for up to %d seconds.",
+                response.status_code,
                 sleep,
                 time_left,
             )
@@ -79,10 +87,15 @@ def http_request(
     cleaned_hostname = strip_suffix(hostname, "/")
     url = "%s%s" % (cleaned_hostname, endpoint)
     for i in range(retries):
-        response = request_with_ratelimit_retries(
-            max_rate_limit_interval, url=url, headers=headers, verify=verify, **kwargs
+        response = request_with_exp_backoff(
+            max_backoff_limit,
+            backoff_error_codes,
+            url=url,
+            headers=headers,
+            verify=verify,
+            **kwargs
         )
-        if response.status_code >= 200 and response.status_code < 500:
+        if 200 <= response.status_code < 500 or response.status_code in backoff_error_codes:
             return response
         else:
             _logger.error(

@@ -195,24 +195,52 @@ def test_429_retries(request):
             self.text = "mocked text"
 
     request.side_effect = [MockedResponse(x) for x in (429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=0).status_code == 429
+    assert (
+        http_request(
+            host_only, "/my/endpoint", max_backoff_limit=0, backoff_error_codes=(429,)
+        ).status_code
+        == 429
+    )
     request.side_effect = [MockedResponse(x) for x in (429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=1).status_code == 200
+    assert (
+        http_request(
+            host_only, "/my/endpoint", max_backoff_limit=1, backoff_error_codes=(429,)
+        ).status_code
+        == 200
+    )
     request.side_effect = [MockedResponse(x) for x in (429, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=1).status_code == 429
+    assert (
+        http_request(
+            host_only, "/my/endpoint", max_backoff_limit=1, backoff_error_codes=(429,)
+        ).status_code
+        == 429
+    )
     request.side_effect = [MockedResponse(x) for x in (429, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=2).status_code == 200
+    assert (
+        http_request(
+            host_only, "/my/endpoint", max_backoff_limit=2, backoff_error_codes=(429,)
+        ).status_code
+        == 200
+    )
     request.side_effect = [MockedResponse(x) for x in (429, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", max_rate_limit_interval=3).status_code == 200
+    assert (
+        http_request(
+            host_only, "/my/endpoint", max_backoff_limit=3, backoff_error_codes=(429,)
+        ).status_code
+        == 200
+    )
     # Test that any non 429 code is returned
     request.side_effect = [MockedResponse(x) for x in (429, 404, 429, 200)]
-    assert http_request(host_only, "/my/endpoint").status_code == 404
+    assert http_request(host_only, "/my/endpoint", backoff_error_codes=(429,)).status_code == 404
     # Test that retries work as expected
     request.side_effect = [MockedResponse(x) for x in (429, 503, 429, 200)]
     with pytest.raises(MlflowException, match="failed to return code 200"):
-        http_request(host_only, "/my/endpoint", retries=1)
+        http_request(host_only, "/my/endpoint", retries=1, backoff_error_codes=(429,))
     request.side_effect = [MockedResponse(x) for x in (429, 503, 429, 200)]
-    assert http_request(host_only, "/my/endpoint", retries=2).status_code == 200
+    assert (
+        http_request(host_only, "/my/endpoint", retries=2, backoff_error_codes=(429,)).status_code
+        == 200
+    )
 
 
 @mock.patch("requests.request")
