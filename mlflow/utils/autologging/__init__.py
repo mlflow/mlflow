@@ -618,7 +618,7 @@ class PatchFunction:
     def __call__(self, original, *args, **kwargs):
         try:
             return self._patch_implementation(original, *args, **kwargs)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             try:
                 self._on_exception(e)
             finally:
@@ -954,7 +954,7 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
             try:
                 result = patch_function(original, *args, **kwargs)
-            except:
+            except (Exception, KeyboardInterrupt):
                 if managed_run:
                     try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
                 raise
