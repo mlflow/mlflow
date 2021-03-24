@@ -604,8 +604,9 @@ class PatchFunction:
     @abstractmethod
     def _on_exception(self, exception):
         """
-        Called when an unhandled exception prematurely terminates the execution
-        of `_patch_implementation`.
+        Called when an unhandled standard Python exception (i.e. an exception inheriting from
+        `Exception`) or a `KeyboardInterrupt` prematurely terminates the execution of
+        `_patch_implementation`.
 
         :param exception: The unhandled exception thrown by `_patch_implementation`.
         """
@@ -619,9 +620,6 @@ class PatchFunction:
         try:
             return self._patch_implementation(original, *args, **kwargs)
         except (Exception, KeyboardInterrupt) as e:
-            # In addition to standard Python exceptions, handle keyboard interrupts to ensure
-            # that runs are terminated if a user prematurely interrupts training execution
-            # (e.g. via sigint / ctrl-c)
             try:
                 self._on_exception(e)
             finally:
