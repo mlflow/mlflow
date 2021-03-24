@@ -1153,6 +1153,45 @@ def test_with_managed_run_sets_specified_run_tags():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
+def test_with_managed_run_ends_run_on_keyboard_interrupt():
+    client = MlflowClient()
+    run = None
+
+    def original():
+        nonlocal run
+        run = mlflow.active_run()
+        raise KeyboardInterrupt
+
+    patch_function_1 = with_managed_run(
+        "test_integration", lambda original, *args, **kwargs: original(*args, **kwargs)
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        patch_function_1(original)
+
+    assert not mlflow.active_run()
+    run_status_1 = client.get_run(run.info.run_id).info.status
+    assert RunStatus.from_string(run_status_1) == RunStatus.FAILED
+
+    class PatchFunction2(PatchFunction):
+        def _patch_implementation(self, original, *args, **kwargs):
+            return original(*args, **kwargs)
+
+        def _on_exception(self, exception):
+            pass
+
+    patch_function_2 = with_managed_run("test_integration", PatchFunction2)
+
+    with pytest.raises(KeyboardInterrupt):
+
+        patch_function_2.call(original)
+
+    assert not mlflow.active_run()
+    run_status_2 = client.get_run(run.info.run_id).info.status
+    assert RunStatus.from_string(run_status_2) == RunStatus.FAILED
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
 def test_validate_args_succeeds_when_arg_sets_are_equivalent_or_identical():
     args = (1, "b", ["c"])
     kwargs = {
