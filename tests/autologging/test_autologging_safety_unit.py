@@ -5,7 +5,6 @@ import copy
 import inspect
 import os
 import pytest
-import warnings
 from collections import namedtuple
 from unittest import mock
 
