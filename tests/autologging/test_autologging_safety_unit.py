@@ -989,13 +989,14 @@ def test_patch_function_class_call_invokes_implementation_and_returns_result():
     assert TestPatchFunction.call("foo", lambda: "foo") == 10
 
 
-def test_patch_function_class_call_handles_exceptions_properly():
+@pytest.mark.parametrize("exception_class", [Exception, KeyboardInterrupt])
+def test_patch_function_class_call_handles_exceptions_properly(exception_class):
 
     called_on_exception = False
 
     class TestPatchFunction(PatchFunction):
         def _patch_implementation(self, original, *args, **kwargs):
-            raise Exception("implementation exception")
+            raise exception_class("implementation exception")
 
         def _on_exception(self, exception):
             nonlocal called_on_exception
@@ -1004,7 +1005,7 @@ def test_patch_function_class_call_handles_exceptions_properly():
 
     # Even if an exception is thrown from `_on_exception`, we expect the original
     # exception from the implementation to be surfaced to the caller
-    with pytest.raises(Exception, match="implementation exception"):
+    with pytest.raises(exception_class, match="implementation exception"):
         TestPatchFunction.call("foo", lambda: "foo")
 
     assert called_on_exception
