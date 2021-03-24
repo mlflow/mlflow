@@ -54,9 +54,13 @@ class _WarningsController:
         is_mlflow_warning = self._mlflow_root_path in warning_source_path.parents
         curr_thread = get_current_thread_id()
 
-        if (curr_thread in self._disabled_threads) or (is_mlflow_warning and self._mlflow_warnings_disabled_globally):
+        if (curr_thread in self._disabled_threads) or (
+            is_mlflow_warning and self._mlflow_warnings_disabled_globally
+        ):
             return
-        elif (curr_thread in self._rerouted_threads and not is_mlflow_warning) or (is_mlflow_warning and self._mlflow_warnings_rerouted_to_event_logs):
+        elif (curr_thread in self._rerouted_threads and not is_mlflow_warning) or (
+            is_mlflow_warning and self._mlflow_warnings_rerouted_to_event_logs
+        ):
             _logger.warning(
                 "MLflow autologging encountered a warning:" ' "%s:%d: %s: %s"',
                 filename,
@@ -181,11 +185,17 @@ def set_non_mlflow_warnings_behavior_for_current_thread(disable_warnings, rerout
     :param reroute_warnings: If `True`, reroute non-MLflow warnings to an MLflow event logger with
                              level WARNING. If `False`, do not reroute non-MLflow warnings.
     """
-    prev_disablement_state = _WARNINGS_CONTROLLER.get_warnings_disablement_state_for_current_thread()
+    prev_disablement_state = (
+        _WARNINGS_CONTROLLER.get_warnings_disablement_state_for_current_thread()
+    )
     prev_rerouting_state = _WARNINGS_CONTROLLER.get_warnings_rerouting_state_for_current_thread()
     try:
-        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(disabled=disable_warnings)
-        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(rerouted=reroute_warnings)
+        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(
+            disabled=disable_warnings
+        )
+        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(
+            rerouted=reroute_warnings
+        )
         yield
     finally:
         _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(
@@ -197,7 +207,9 @@ def set_non_mlflow_warnings_behavior_for_current_thread(disable_warnings, rerout
 
 
 @contextmanager
-def set_mlflow_events_and_warnings_behavior_globally(disable_event_logs, disable_warnings, reroute_warnings):
+def set_mlflow_events_and_warnings_behavior_globally(
+    disable_event_logs, disable_warnings, reroute_warnings
+):
     """
     Threadsafe context manager that modifies the behavior of MLflow event logging statements
     and MLflow warnings upon entry, according to the specified parameters. Modifications are
@@ -212,7 +224,9 @@ def set_mlflow_events_and_warnings_behavior_globally(disable_event_logs, disable
                              level WARNING. If `False`, do not reroute MLflow warnings.
     """
 
-    with _SetMLflowEventsAndWarningsBehaviorGlobally(disable_event_logs, disable_warnings, reroute_warnings):
+    with _SetMLflowEventsAndWarningsBehaviorGlobally(
+        disable_event_logs, disable_warnings, reroute_warnings
+    ):
         yield
 
 
@@ -231,18 +245,22 @@ class _SetMLflowEventsAndWarningsBehaviorGlobally:
         try:
             with _SetMLflowEventsAndWarningsBehaviorGlobally._lock:
                 if self._disable_event_logs:
-                    if  _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
+                    if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
                         logging_utils.disable_logging()
                     _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count += 1
 
                 if self._disable_warnings:
                     if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
-                        _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(disabled=True)
+                        _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(
+                            disabled=True
+                        )
                     _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count += 1
 
                 if self._reroute_warnings:
                     if _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
-                        _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(rerouted=True)
+                        _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(
+                            rerouted=True
+                        )
                     _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count += 1
         except Exception:
             pass
@@ -260,8 +278,12 @@ class _SetMLflowEventsAndWarningsBehaviorGlobally:
                 if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
                     logging_utils.enable_logging()
                 if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
-                    _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(disabled=False)
+                    _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(
+                        disabled=False
+                    )
                 if _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
-                    _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(rerouted=False)
+                    _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(
+                        rerouted=False
+                    )
         except Exception:
             pass

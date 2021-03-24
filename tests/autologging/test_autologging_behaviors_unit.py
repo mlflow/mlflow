@@ -23,6 +23,7 @@ from tests.autologging.fixtures import (
 
 pytestmark = pytest.mark.large
 
+
 @pytest.fixture
 def logger():
     return logging.getLogger(mlflow.__name__)
@@ -30,7 +31,6 @@ def logger():
 
 @pytest.fixture
 def autolog_function(patch_destination, logger):
-
     def original_impl():
         warnings.warn("Test warning from OG function", category=UserWarning)
 
@@ -72,7 +72,9 @@ def autolog_function(patch_destination, logger):
     return test_autolog
 
 
-def test_autologging_warnings_are_redirected_as_expected(autolog_function, patch_destination, logger):
+def test_autologging_warnings_are_redirected_as_expected(
+    autolog_function, patch_destination, logger
+):
     stream = TestStream()
     sys.stderr = stream
 
@@ -97,19 +99,21 @@ def test_autologging_warnings_are_redirected_as_expected(autolog_function, patch
     # the autologging preamble and postamble and non-MLflow warnings emitted during autologging
     # enablement
     for item in [
-        "MLflow autologging encountered a warning: \"%s:5: Warning: preamble MLflow warning\"",
-        "MLflow autologging encountered a warning: \"%s:10: Warning: postamble MLflow warning\"",
+        'MLflow autologging encountered a warning: "%s:5: Warning: preamble MLflow warning"',
+        'MLflow autologging encountered a warning: "%s:10: Warning: postamble MLflow warning"',
     ]:
         assert (item % mlflow.__file__) in stream.content
     for item in [
-        "MLflow autologging encountered a warning: \"%s:7: UserWarning: preamble numpy warning\"",
-        "MLflow autologging encountered a warning: \"%s:14: Warning: postamble numpy warning\"",
-        "MLflow autologging encountered a warning: \"%s:30: Warning: enablement warning numpy\"",
+        'MLflow autologging encountered a warning: "%s:7: UserWarning: preamble numpy warning"',
+        'MLflow autologging encountered a warning: "%s:14: Warning: postamble numpy warning"',
+        'MLflow autologging encountered a warning: "%s:30: Warning: enablement warning numpy"',
     ]:
         assert (item % np.__file__) in stream.content
 
 
-def test_autologging_event_logging_and_warnings_respect_silent_mode(autolog_function, patch_destination, logger):
+def test_autologging_event_logging_and_warnings_respect_silent_mode(
+    autolog_function, patch_destination, logger
+):
     og_showwarning = warnings.showwarning
     stream = TestStream()
     sys.stderr = stream

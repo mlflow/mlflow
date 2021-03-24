@@ -442,8 +442,7 @@ def autologging_integration(name):
                 disable_event_logs=is_silent_mode,
                 disable_warnings=is_silent_mode,
             ), set_non_mlflow_warnings_behavior_for_current_thread(
-                reroute_warnings=True,
-                disable_warnings=is_silent_mode,
+                reroute_warnings=True, disable_warnings=is_silent_mode,
             ):
 
                 try:
@@ -1152,8 +1151,7 @@ def safe_patch(
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
                             with set_non_mlflow_warnings_behavior_for_current_thread(
-                                disable_warnings=False,
-                                reroute_warnings=False,
+                                disable_warnings=False, reroute_warnings=False,
                             ):
                                 original_result = original(*og_args, **og_kwargs)
 
