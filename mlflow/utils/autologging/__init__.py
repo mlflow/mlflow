@@ -430,7 +430,10 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
-            is_silent_mode = get_autologging_config(name, "silent", False) 
+            is_silent_mode = get_autologging_config(name, "silent", False)
+            # Reroute non-MLflow warnings encountered during autologging enablement to an
+            # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
+            # autologging integration was called with `silent=True`)
             with set_mlflow_events_and_warnings_behavior_globally(
                 # MLflow warnings emitted during autologging setup / enablement are likely
                 # actionable and relevant to the user, so they should be emitted as normal
@@ -1046,17 +1049,18 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
-        # Enforce silent mode if applicable (i.e. if the corresponding autologging integration was
-        # called with `silent=True`), hiding MLflow event logging statements and hiding all warnings
-        # in the autologging preamble and postamble (i.e. the code surrounding the user's original
-        # / underlying ML function). Non-MLflow warnings are enabled during the execution of the
-        # original / underlying ML function.
+        # Reroute warnings encountered during the patch function implementation to an MLflow event
+        # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
+        # integration was called with `silent=True`), hiding MLflow event logging statements and
+        # hiding all warnings in the autologging preamble and postamble (i.e. the code surrounding
+        # the user's original / underlying ML function). Non-MLflow warnings are enabled during the
+        # execution of the original / underlying ML function
         #
         # Note that we've opted *not* to apply this context manager as a decorator on
         # `safe_patch_function` because the context-manager-as-decorator pattern uses
         # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
-        # during model serialization by ML frameworks such as scikit-learn.
-        is_silent_mode = get_autologging_config(autologging_integration, "silent", False) 
+        # during model serialization by ML frameworks such as scikit-learn
+        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         with set_mlflow_events_and_warnings_behavior_globally(
             # MLflow warnings emitted during autologging training sessions are likely not actionable
             # and result from the autologging implementation invoking another MLflow API.
