@@ -3,6 +3,8 @@ import shap
 import numpy as np
 import sklearn
 from mlflow.utils import PYTHON_VERSION
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.model_utils import _get_flavor_configuration
 
 
 def test_sklearn_log_explainer():
@@ -23,9 +25,18 @@ def test_sklearn_log_explainer():
 
         mlflow.shap.log_explainer(explainer_original, "test_explainer")
 
-        explainer_loaded = mlflow.shap.load_explainer("runs:/" + run_id + "/test_explainer")
+        explainer_uri = "runs:/" + run_id + "/test_explainer"
+
+        explainer_loaded = mlflow.shap.load_explainer(explainer_uri)
         shap_values_new = explainer_loaded(X[:5])
 
+        explainer_path = _download_artifact_from_uri(artifact_uri=explainer_uri)
+        flavor_conf = _get_flavor_configuration(
+            model_path=explainer_path, flavor_name=mlflow.shap.FLAVOR_NAME
+        )
+        underlying_model_flavor = flavor_conf["underlying_model_flavor"]
+
+        assert underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME
         np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
         np.testing.assert_allclose(
             shap_values_original.values, shap_values_new.values, rtol=100, atol=100
@@ -52,9 +63,18 @@ def test_sklearn_log_explainer_self_serialization():
             explainer_original, "test_explainer", serialize_model_using_mlflow=False
         )
 
+        explainer_uri = "runs:/" + run_id + "/test_explainer"
+
         explainer_loaded = mlflow.shap.load_explainer("runs:/" + run_id + "/test_explainer")
         shap_values_new = explainer_loaded(X[:5])
 
+        explainer_path = _download_artifact_from_uri(artifact_uri=explainer_uri)
+        flavor_conf = _get_flavor_configuration(
+            model_path=explainer_path, flavor_name=mlflow.shap.FLAVOR_NAME
+        )
+        underlying_model_flavor = flavor_conf["underlying_model_flavor"]
+
+        assert underlying_model_flavor is None
         np.testing.assert_array_equal(shap_values_original.base_values, shap_values_new.base_values)
         np.testing.assert_allclose(
             shap_values_original.values, shap_values_new.values, rtol=100, atol=100
