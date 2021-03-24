@@ -9,10 +9,10 @@ dependencies:
 - pip:
   - mlflow
   - pandas
+  - scipy
   - captum
   - boto3
   - sklearn
   - prettytable
-  - spacy
   - ipython
 
