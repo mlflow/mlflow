@@ -18,11 +18,8 @@ from mlflow.utils.autologging import (
     autologging_is_disabled,
 )
 
-from tests.autologging.fixtures import (
-    TestStream,
-    test_mode_off,
-    reset_stderr,
-)  # pylint: disable=unused-import
+from tests.autologging.fixtures import TestStream, test_mode_off
+from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large

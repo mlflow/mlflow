@@ -21,12 +21,8 @@ import mxnet.gluon
 import pyspark
 import pytorch_lightning
 
-from tests.autologging.fixtures import (
-    TestStream,
-    test_mode_off,
-    test_mode_on,
-    reset_stderr,
-)  # pylint: disable=unused-import
+from tests.autologging.fixtures import TestStream, test_mode_off, test_mode_on
+from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 library_to_mlflow_module_without_pyspark = {
     tensorflow: mlflow.tensorflow,

@@ -3,7 +3,6 @@
 import logging
 import sys
 import time
-import re
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 
@@ -13,12 +12,8 @@ from mlflow.utils.autologging import autologging_integration, safe_patch
 
 import pytest
 import numpy as np
-from tests.autologging.fixtures import (
-    TestStream,
-    test_mode_off,
-    patch_destination,
-    reset_stderr,
-)  # pylint: disable=unused-import
+from tests.autologging.fixtures import TestStream, test_mode_off, patch_destination
+from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
@@ -238,7 +233,6 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
     patch_destination.fn = original_impl
 
     def patch_impl(original):
-        raise Exception("preamble error")
         original()
         raise Exception("postamble error")
 
@@ -257,7 +251,7 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
     with pytest.raises(Exception):
         test_autolog(silent=True)
 
-    with pytest.warns(None) as warnings_record:
+    with pytest.warns(None):
         with ThreadPoolExecutor(max_workers=50) as executor:
             for _ in range(100):
                 executor.submit(parallel_fn)

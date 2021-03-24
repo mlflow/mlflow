@@ -94,9 +94,7 @@ class _WarningsController:
         with self._state_lock:
             if self._should_patch_showwarning() and not self._did_patch_showwarning:
                 self._original_showwarning = warnings.showwarning
-                warnings.showwarning = lambda *args, **kwargs: self._patched_showwarning(
-                    *args, **kwargs
-                )
+                warnings.showwarning = self._patched_showwarning
                 self._did_patch_showwarning = True
             elif not self._should_patch_showwarning() and self._did_patch_showwarning:
                 warnings.showwarning = self._original_showwarning
