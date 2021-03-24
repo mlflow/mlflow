@@ -1,6 +1,14 @@
-## Titanic Basic data analysis using Captum and mlflow. 
-In this example, we will demonstrate the basic features of the Captum interpretability,and loging those features using mlflow library through an example model trained on the Titanic survival data. 
+## Using Captum and MLflow to interpret Pytorch models
+
+In this example, we will demonstrate the basic features of the [Captum](https://captum.ai/) interpretability,and loging those features using mlflow library through an example model trained on the Titanic survival data. 
 We will first train a deep neural network on the data using PyTorch and use Captum to understand which of the features were most important and how the network reached its prediction.
+
+you can get more details about used attributions methods used in this example
+
+1. [Titanic_Basic_Interpret](https://captum.ai/tutorials/Titanic_Basic_Interpret)
+2. [integrated-gradients](https://captum.ai/docs/algorithms#primary-attribution)
+3. [layer-attributions](https://captum.ai/docs/algorithms#layer-attribution)
+
 
 ### Running the code
 To run the example via MLflow, navigate to the `mlflow/examples/pytorch/CaptumExample` directory and run the command
@@ -9,7 +17,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/CaptumEx
 mlflow run .
 ```
 
-This will run `Titanic_Captum_Interpret.py` with the default set of parameters such as  `--max_epochs=100` and `--use_pretrained_model False`. You can see the default value in the `MLproject` file.
+This will run `Titanic_Captum_Interpret.py` with default parameter values, e.g.  `--max_epochs=100` and `--use_pretrained_model False`. You can see the full set of parameters in the `MLproject` file within this directory.
 
 In order to run the file with custom parameters, run the command
 
