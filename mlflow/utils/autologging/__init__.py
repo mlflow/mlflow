@@ -448,7 +448,8 @@ def autologging_integration(name):
                 # implementation. Accordingly, they should be rerouted to `logger.warning()`.
                 # For reference, see recommended warning and event logging
                 # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
-                reroute_warnings=True, disable_warnings=is_silent_mode,
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
             ):
 
                 try:
