@@ -27,6 +27,10 @@ def logger():
 @pytest.fixture
 def autolog_function(patch_destination, logger):
     def original_impl():
+        # Sleep during the original function implementation to increase the likelihood of
+        # overlapping session stages (i.e. simultaneous preamble / postamble / original function
+        # execution states across autologging sessions) during multithreaded execution
+        time.sleep(0.01)
         warnings.warn("Test warning from OG function", category=UserWarning)
 
     patch_destination.fn = original_impl
@@ -151,42 +155,14 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
     assert "verify that event logs are enabled" in stream.content
 
 
-def test_silent_mode_is_respected_in_multithreaded_environments(patch_destination):
+def test_silent_mode_is_respected_in_multithreaded_environments(
+    autolog_function, patch_destination, logger
+):
     og_showwarning = warnings.showwarning
     stream = TestStream()
     sys.stderr = stream
-    logger = logging.getLogger(mlflow.__name__)
 
-    def original_impl():
-        # Sleep during the original function implementation to increase the likelihood of
-        # overlapping session stages (i.e. simultaneous preamble / postamble / original function
-        # execution states across autologging sessions)
-        time.sleep(0.01)
-        warnings.warn("Test warning from OG function", category=UserWarning)
-
-    patch_destination.fn = original_impl
-
-    def patch_impl(original):
-        logger.info("preamble event")
-        warnings.warn_explicit(
-            "preamble warning", category=Warning, filename=mlflow.__file__, lineno=5
-        )
-        original()
-        logger.info("postamble event")
-        logger.info("patch preamble")
-        warnings.warn_explicit(
-            "postamble warning", category=Warning, filename=np.__file__, lineno=10
-        )
-
-    @autologging_integration("test_integration")
-    def test_autolog(disable=False, silent=False):
-        logger.warning("enablement")
-        warnings.warn_explicit(
-            "enablement warning", category=Warning, filename=mlflow.__file__, lineno=15
-        )
-        safe_patch("test_integration", patch_destination, "fn", patch_impl)
-
-    test_autolog(silent=True)
+    autolog_function(silent=True)
 
     def parallel_fn():
         # Sleep for a random interval to increase the likelihood of overlapping session stages
