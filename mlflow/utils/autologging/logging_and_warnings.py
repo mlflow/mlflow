@@ -26,6 +26,7 @@ class _WarningsController:
         self._original_showwarning = None
 
         self._silenced_threads = set()
+        self._rerouted_threads = set()
         self._mlflow_warnings_disabled_globally = False
         self._mlflow_warnings_rerouted_to_event_logs = False
 
@@ -52,13 +53,11 @@ class _WarningsController:
         is_mlflow_warning = self._mlflow_root_path in warning_source_path.parents
         curr_thread = get_current_thread_id()
 
-        if curr_thread in self._silenced_threads:
+        if (curr_thread in self._silenced_threads) or (is_mlflow_warning and self._mlflow_warnings_disabled_globally):
             return
-        elif is_mlflow_warning and self._mlflow_warnings_disabled_globally:
-            return
-        elif is_mlflow_warning and self._mlflow_warnings_rerouted_to_event_logs:
+        elif (curr_thread in self._rerouted_threads and not is_mlflow_warning) or (is_mlflow_warning and self._mlflow_warnings_rerouted_to_event_logs):
             _logger.warning(
-                "MLflow issued a warning during autologging:" ' "%s:%d: %s: %s"',
+                "MLflow autologging encountered a warning:" ' "%s:%d: %s: %s"',
                 filename,
                 lineno,
                 category.__name__,
@@ -70,6 +69,7 @@ class _WarningsController:
     def _should_patch_showwarning(self):
         return (
             (len(self._silenced_threads) > 0)
+            or (len(self._rerouted_threads) > 0)
             or self._mlflow_warnings_disabled_globally
             or self._mlflow_warnings_rerouted_to_event_logs
         )
@@ -97,36 +97,17 @@ class _WarningsController:
                 warnings.showwarning = self._original_showwarning
                 self._did_patch_showwarning = False
 
-    def set_global_mlflow_warnings_disablement_state(self, disabled=True):
-        """
-        Disables (or re-enables) MLflow warnings globally across all threads.
-
-        :param disabled: If `True`, disables MLflow warnings globally across all threads.
-                         If `False`, enables MLflow warnings globally across all threads.
-        """
+    def set_mlflow_warnings_disablement_state_globally(self, disabled=True):
         with self._state_lock:
             self._mlflow_warnings_disabled_globally = disabled
             self._modify_patch_state_if_necessary()
 
-    def set_global_mlflow_warnings_rerouting_state(self, rerouted=True):
-        """
-        Enables (or disables) rerouting of MLflow warnings to an MLflow event logger
-        (e.g. `logger.warning()`).
-
-        :param rerouted: If `True`, enables MLflow warning rerouting globally across all threads.
-                         If `False`, disables MLflow warning rerouting globally across all threads.
-        """
+    def set_mlflow_warnings_rerouting_state_globally(self, rerouted=True):
         with self._state_lock:
             self._mlflow_warnings_rerouted_to_event_logs = rerouted
             self._modify_patch_state_if_necessary()
 
-    def set_all_warnings_disablement_state_for_current_thread(self, disabled=True):
-        """
-        Disables (or re-enables) all warnings (MLflow and others) for the current thread.
-
-        :param disabled: If `True`, disables warnings for the current thread. If `False`, enables
-                         MLflow warnings for the current thread. Other threads are unaffected.
-        """
+    def set_non_mlflow_warnings_disablement_state_for_current_thread(self, disabled=True):
         with self._state_lock:
             if disabled:
                 self._silenced_threads.add(get_current_thread_id())
@@ -134,111 +115,52 @@ class _WarningsController:
                 self._silenced_threads.discard(get_current_thread_id())
             self._modify_patch_state_if_necessary()
 
-    def warnings_disabled_for_current_thread(self):
-        """
-        :return: `True` if all warnings (MLflow and others) are disabled for the current thread.
-                 `False` otherwise.
-        """
+    def set_non_mlflow_warnings_rerouting_state_for_current_thread(self, rerouted=True):
+        with self._state_lock:
+            if rerouted:
+                self._rerouted_threads.add(get_current_thread_id())
+            else:
+                self._rerouted_threads.discard(get_current_thread_id())
+            self._modify_patch_state_if_necessary()
+
+    def get_warnings_disablement_state_for_current_thread(self):
         return get_current_thread_id() in self._silenced_threads
+
+    def get_warnings_rerouting_state_for_current_thread(self):
+        return get_current_thread_id() in self._rerouted_threads
 
 
 _WARNINGS_CONTROLLER = _WarningsController()
 
 
 @contextmanager
-def augment_mlflow_warnings():
-    """
-    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
-    API. In many cases, the user cannot remediate the cause of these warnings because
-    they result from the autologging patch implementation, rather than a user-facing API call.
-
-    Accordingly, this context manager is designed to augment MLflow warnings issued during
-    autologging patch code execution, explaining that such warnings were raised as a result of
-    MLflow's autologging implementation. MLflow warnings are also redirected from `sys.stderr`
-    to an MLflow logger with level WARNING. Warnings issued by code outside of MLflow are
-    not modified. When the context manager exits, the original output behavior for MLflow warnings
-    is restored.
-
-    Note that the implementation of `augment_mlflow_warnings` is *not* threadsafe. For example, if
-    a non-silent autologging session is run concurrently with another routine, MLflow warnings from
-    the other routine may be rerouted to MLflow's event loggers and augmented with autologgng
-    information.
-    """
-    try:
-        _WARNINGS_CONTROLLER.set_global_mlflow_warnings_rerouting_state(rerouted=True)
-        yield
-    finally:
-        _WARNINGS_CONTROLLER.set_global_mlflow_warnings_rerouting_state(rerouted=False)
-
-
-@contextmanager
-def silence_warnings_and_mlflow_event_logs_if_necessary(autologging_integration):
-    """
-    Context manager that silences all warnings (MLflow warnings and others) and all MLflow event
-    logging statements upon entry if silent mode is enabled for the specified
-    `autologging_integration` (i.e. if the `silent` attribute of the integration's configuration is
-    `True`). If silent mode is *not* enabled for the specified integration, this context manager is
-    a no-op. Upon exit, this context manager re-enables warnings and MLflow event logging
-    statements, making a best-effort attempt to provide thread safety (details below).
-
-    When the context manager is active, MLflow event logging statements are silenced *globally
-    across all threads*, while warnings (MLflow warnings and others) are silenced for the
-    *current thread*. The reasons for this behavior are as follows:
-
-    - During autologging sessions with `silent=True`, all MLflow warnings and MLflow logging
-      statements should be silenced in a threadsafe fashion. We should not leak MLflow logging
-      statements in multithreaded contexts.
-
-    - During autologging sessions with `silent=True`, non-MLflow warnings raised by autologging
-      implementation code in MLflow should be suppressed.
-
-    - During autologging sessions with `silent=True`, non-MLflow warnings and event logging
-      statements emitted from original / underlying ML routines should never be suppressed.
-      We should not omit any of these warnings and event logging statements in multithreaded
-      contexts.
-
-    This context manager attempts to be threadsafe across autologging sessions, with the following
-    caveats:
-
-    - If a silent autologging session is run in parallel with a non-silent autologging session,
-      MLflow event logging statements and warnings from the non-silent session may be suppressed.
-
-    - If `warnings.showwarning` is unexpectedly re-assigned during the execution of a user's
-      original / underlying ML code within an autologging session, warnings may not be
-      properly suppressed.
-
-    - If MLflow's autologging implementation code makes calls to multithreaded APIs that raise warnings
-      from a different thread, these warnings may not be properly suppressed.
-    """
-    from mlflow.utils.autologging import get_autologging_config
-
-    should_silence = get_autologging_config(autologging_integration, "silent", False)
-    if should_silence:
-        with _SilenceMLflowEventLogsAndWarningsGlobally(), set_warnings_silence_state_for_current_thread(
-            silence=True
-        ):
-            yield
-    else:
-        yield
-
-
-@contextmanager
-def set_warnings_silence_state_for_current_thread(silence=True):
+def set_non_mlflow_warnings_behavior_for_current_thread(disable_warnings, reroute_warnings):
     """
     Context manager that silences (or unsilences) all warnings (MLflow and others) for the current
     thread upon entry. Upon exit, the previous silencing state is restored.
     """
-    prev_silence_state = _WARNINGS_CONTROLLER.warnings_disabled_for_current_thread()
+    prev_disablement_state = _WARNINGS_CONTROLLER.get_warnings_disablement_state_for_current_thread()
+    prev_rerouting_state = _WARNINGS_CONTROLLER.get_warnings_rerouting_state_for_current_thread()
     try:
-        _WARNINGS_CONTROLLER.set_all_warnings_disablement_state_for_current_thread(disabled=silence)
+        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(disabled=disable_warnings)
+        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(rerouted=reroute_warnings)
         yield
     finally:
-        _WARNINGS_CONTROLLER.set_all_warnings_disablement_state_for_current_thread(
-            disabled=prev_silence_state
+        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_disablement_state_for_current_thread(
+            disabled=prev_disablement_state
+        )
+        _WARNINGS_CONTROLLER.set_non_mlflow_warnings_rerouting_state_for_current_thread(
+            rerouted=prev_rerouting_state
         )
 
 
-class _SilenceMLflowEventLogsAndWarningsGlobally:
+@contextmanager
+def set_mlflow_events_and_warnings_behavior_globally(disable_event_logs, disable_warnings, reroute_warnings):
+    with _SetMLflowEventsAndWarningsBehaviorGlobally(disable_event_logs, disable_warnings, reroute_warnings):
+        yield
+
+
+class _SetMLflowEventsAndWarningsBehaviorGlobally:
     """
     Threadsafe context manager that silences all MLflow event logging statements and MLflow warnings
     upon entry. Silencing is applied globally across all threads. In single-threaded cases, MLflow
@@ -248,26 +170,50 @@ class _SilenceMLflowEventLogsAndWarningsGlobally:
     """
 
     _lock = RLock()
-    _silenced_count = 0
+    _disable_event_logs_count = 0
+    _disable_warnings_count = 0
+    _reroute_warnings_count = 0
+
+    def __init__(self, disable_event_logs, disable_warnings, reroute_warnings):
+        self._disable_event_logs = disable_event_logs
+        self._disable_warnings = disable_warnings
+        self._reroute_warnings = reroute_warnings
 
     def __enter__(self):
         try:
-            with _SilenceMLflowEventLogsAndWarningsGlobally._lock:
-                if _SilenceMLflowEventLogsAndWarningsGlobally._silenced_count <= 0:
-                    logging_utils.disable_logging()
-                    _WARNINGS_CONTROLLER.set_global_mlflow_warnings_disablement_state(disabled=True)
-                _SilenceMLflowEventLogsAndWarningsGlobally._silenced_count += 1
+            with _SetMLflowEventsAndWarningsBehaviorGlobally._lock:
+                if self._disable_event_logs:
+                    if  _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
+                        logging_utils.disable_logging()
+                    _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count += 1
+
+                if self._disable_warnings:
+                    if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
+                        _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(disabled=True)
+                    _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count += 1
+
+                if self._reroute_warnings:
+                    if _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
+                        _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(rerouted=True)
+                    _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count += 1
         except Exception:
             pass
 
     def __exit__(self, *args, **kwargs):
         try:
-            with _SilenceMLflowEventLogsAndWarningsGlobally._lock:
-                _SilenceMLflowEventLogsAndWarningsGlobally._silenced_count -= 1
-                if _SilenceMLflowEventLogsAndWarningsGlobally._silenced_count <= 0:
+            with _SetMLflowEventsAndWarningsBehaviorGlobally._lock:
+                if self._disable_event_logs:
+                    _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count -= 1
+                if self._disable_warnings:
+                    _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count -= 1
+                if self._reroute_warnings:
+                    _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count -= 1
+
+                if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_event_logs_count <= 0:
                     logging_utils.enable_logging()
-                    _WARNINGS_CONTROLLER.set_global_mlflow_warnings_disablement_state(
-                        disabled=False
-                    )
+                if _SetMLflowEventsAndWarningsBehaviorGlobally._disable_warnings_count <= 0:
+                    _WARNINGS_CONTROLLER.set_mlflow_warnings_disablement_state_globally(disabled=False)
+                if _SetMLflowEventsAndWarningsBehaviorGlobally._reroute_warnings_count <= 0:
+                    _WARNINGS_CONTROLLER.set_mlflow_warnings_rerouting_state_globally(rerouted=False)
         except Exception:
             pass

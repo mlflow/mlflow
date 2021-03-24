@@ -21,9 +21,8 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging.logging_and_warnings import (
-    augment_mlflow_warnings,
-    silence_warnings_and_mlflow_event_logs_if_necessary,
-    set_warnings_silence_state_for_current_thread,
+    set_mlflow_events_and_warnings_behavior_globally,
+    set_non_mlflow_warnings_behavior_for_current_thread,
 )
 from mlflow.utils import gorilla
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -431,9 +430,18 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
-            # Enforce silent mode if applicable (i.e. if the wrapped autologging function is being
-            # called with `silent=True`), hiding MLflow event logging statements and all warnings
-            with silence_warnings_and_mlflow_event_logs_if_necessary(name):
+            is_silent_mode = get_autologging_config(name, "silent", False) 
+            with set_mlflow_events_and_warnings_behavior_globally(
+                # MLflow warnings emitted during autologging setup / enablement are likely
+                # actionable and relevant to the user, so they should be emitted as normal
+                # when `silent=False`
+                reroute_warnings=False,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ), set_non_mlflow_warnings_behavior_for_current_thread(
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
+            ):
 
                 try:
                     # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
@@ -1048,7 +1056,24 @@ def safe_patch(
         # `safe_patch_function` because the context-manager-as-decorator pattern uses
         # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
         # during model serialization by ML frameworks such as scikit-learn.
-        with silence_warnings_and_mlflow_event_logs_if_necessary(autologging_integration):
+        is_silent_mode = get_autologging_config(autologging_integration, "silent", False) 
+        with set_mlflow_events_and_warnings_behavior_globally(
+            # MLflow warnings emitted during autologging training sessions are likely not actionable
+            # and result from the autologging implementation invoking another MLflow API.
+            # Accordingly, we reroute these warnings to the MLflow event logger with level WARNING
+            reroute_warnings=True,
+            disable_event_logs=is_silent_mode,
+            disable_warnings=is_silent_mode,
+        ), set_non_mlflow_warnings_behavior_for_current_thread(
+            # non-MLflow Warnings emitted during the autologging preamble (before the original /
+            # underlying ML function is called) and postamble (after the original / underlying ML
+            # function is called) are likely not actionable and result from the autologging
+            # implementation invoking an API from a dependent library. Accordingly, we reroute these
+            # warnings to the MLflow event logger with level WARNING
+            reroute_warnings=True,
+            disable_warnings=is_silent_mode,
+        ):
+
             if _is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
 
@@ -1088,11 +1113,7 @@ def safe_patch(
                         "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
                     )
 
-            # Reroute MLflow warnings to `logger.warning()` statements and prepend context
-            # indicating that these warnings come from an autologging session
-            with augment_mlflow_warnings(), _AutologgingSessionManager.start_session(
-                autologging_integration
-            ) as session:
+            with _AutologgingSessionManager.start_session(autologging_integration) as session:
                 try:
 
                     def call_original(*og_args, **og_kwargs):
@@ -1122,11 +1143,14 @@ def safe_patch(
                             original_has_been_called = True
 
                             nonlocal original_result
-                            # Show all non-MLflow warnings during original function execution,
-                            # even if silent mode is enabled (`silent=True`), since these warnings
-                            # originate from the ML framework or one of its dependencies and are
-                            # likely relevant to the caller
-                            with set_warnings_silence_state_for_current_thread(silence=False):
+                            # Show all non-MLflow warnings as normal (i.e. not as event logs) during
+                            # original function execution, even if silent mode is enabled
+                            # (`silent=True`), since these warnings originate from the ML framework
+                            # or one of its dependencies and are likely relevant to the caller
+                            with set_non_mlflow_warnings_behavior_for_current_thread(
+                                disable_warnings=False,
+                                reroute_warnings=False,
+                            ):
                                 original_result = original(*og_args, **og_kwargs)
 
                             try_log_autologging_event(
