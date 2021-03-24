@@ -8,16 +8,14 @@ from captum.attr import IntegratedGradients
 from captum.attr import LayerConductance
 from captum.attr import NeuronConductance
 import matplotlib.pyplot as plt
-from scipy import stats
 import pandas as pd
+from scipy import stats
 import mlflow
 from prettytable import PrettyTable
 from sklearn.model_selection import train_test_split
 import os
 from argparse import ArgumentParser
 import torch.nn as nn
-
-mlflow.start_run(run_name="Titanic_Captum_mlflow")
 
 
 def get_titanic():
@@ -198,6 +196,14 @@ def test_step(test_features):
 
 
 def feature_conductance(test_input_tensor):
+    """
+    The method takes tensor(s) of input examples (matching the forward function of the model), 
+    and returns the input attributions for the given input example.
+    The returned values of the attribute method are the attributions, 
+    which match the size of the given inputs, and delta, 
+    which approximates the error between the approximated integral and true integral.
+    This method saves the distribution of avg attributions of the trained features for the given target.
+    """
     ig = IntegratedGradients(net)
     test_input_tensor.requires_grad_()
     attr, _ = ig.attribute(test_input_tensor, target=1, return_convergence_delta=True)
@@ -313,11 +319,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dict_args = vars(args)
 
-    (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
-    train_input_tensor = train_step(train_features)
-    test_input_tensor = test_step(test_features)
-    feature_conductance(test_input_tensor)
-    layer_conductance(test_input_tensor)
-    neuron_conductance(test_input_tensor)
-    mlflow.log_param("Train Size", len(train_labels))
-    mlflow.log_param("Test Size", len(test_labels))
+    with mlflow.start_run(run_name="Titanic_Captum_mlflow"):
+        (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
+        train_input_tensor = train_step(train_features)
+        test_input_tensor = test_step(test_features)
+        feature_conductance(test_input_tensor)
+        layer_conductance(test_input_tensor)
+        neuron_conductance(test_input_tensor)
+        mlflow.log_param("Train Size", len(train_labels))
+        mlflow.log_param("Test Size", len(test_labels))
