@@ -604,8 +604,9 @@ class PatchFunction:
     @abstractmethod
     def _on_exception(self, exception):
         """
-        Called when an unhandled exception prematurely terminates the execution
-        of `_patch_implementation`.
+        Called when an unhandled standard Python exception (i.e. an exception inheriting from
+        `Exception`) or a `KeyboardInterrupt` prematurely terminates the execution of
+        `_patch_implementation`.
 
         :param exception: The unhandled exception thrown by `_patch_implementation`.
         """
@@ -618,7 +619,7 @@ class PatchFunction:
     def __call__(self, original, *args, **kwargs):
         try:
             return self._patch_implementation(original, *args, **kwargs)
-        except Exception as e:
+        except (Exception, KeyboardInterrupt) as e:
             try:
                 self._on_exception(e)
             finally:
@@ -954,7 +955,10 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
 
             try:
                 result = patch_function(original, *args, **kwargs)
-            except:
+            except (Exception, KeyboardInterrupt):
+                # In addition to standard Python exceptions, handle keyboard interrupts to ensure
+                # that runs are terminated if a user prematurely interrupts training execution
+                # (e.g. via sigint / ctrl-c)
                 if managed_run:
                     try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
                 raise
