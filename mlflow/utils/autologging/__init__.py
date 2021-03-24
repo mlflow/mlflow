@@ -619,6 +619,9 @@ class PatchFunction:
         try:
             return self._patch_implementation(original, *args, **kwargs)
         except (Exception, KeyboardInterrupt) as e:
+            # Handle keyboard interrupts, in addition to standard Python exceptions, to ensure
+            # that runs are terminated if a user prematurely interrupts training execution
+            # (e.g. via sigint / ctrl-c)
             try:
                 self._on_exception(e)
             finally:
@@ -955,6 +958,9 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
             try:
                 result = patch_function(original, *args, **kwargs)
             except (Exception, KeyboardInterrupt):
+                # Handle keyboard interrupts, in addition to standard Python exceptions, to ensure
+                # that runs are terminated if a user prematurely interrupts training execution
+                # (e.g. via sigint / ctrl-c)
                 if managed_run:
                     try_mlflow_log(mlflow.end_run, RunStatus.to_string(RunStatus.FAILED))
                 raise
