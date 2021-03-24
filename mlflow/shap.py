@@ -2,6 +2,7 @@ from contextlib import contextmanager
 import os
 import tempfile
 import yaml
+import warnings
 
 import numpy as np
 
@@ -42,8 +43,8 @@ def get_underlying_model_flavor(model):
 
     # checking if underlying model is wrapped
 
-    if hasattr(model, "model"):
-        unwrapped_model = model.model
+    if hasattr(model, "inner_model"):
+        unwrapped_model = model.inner_model
 
         # check if passed model is a method of object
         if isinstance(unwrapped_model, types.MethodType):
@@ -415,25 +416,33 @@ def save_explainer(
 
     underlying_model_flavor = None
     underlying_model_path = None
+    serializable_by_mlflow = False
 
     # saving the underlying model if required
     if serialize_model_using_mlflow:
         underlying_model_flavor = get_underlying_model_flavor(explainer.model)
 
         if underlying_model_flavor != _UNKNOWN_MODEL_FLAVOR:
-            explainer.model.save = None  # this prevents SHAP from serializing the underlying model
+            serializable_by_mlflow = True  # prevents SHAP from serializing the underlying model
             underlying_model_path = os.path.join(path, _UNDERLYING_MODEL_SUBPATH)
+        else:
+            warnings.warn(
+                "Unable to serialize underlying model using MLflow, will use SHAP serialization"
+            )
 
         if underlying_model_flavor == mlflow.sklearn.FLAVOR_NAME:
-            mlflow.sklearn.save_model(explainer.model.model.__self__, underlying_model_path)
+            mlflow.sklearn.save_model(explainer.model.inner_model.__self__, underlying_model_path)
         elif underlying_model_flavor == mlflow.pytorch.FLAVOR_NAME:
-            mlflow.pytorch.save_model(explainer.model.model, underlying_model_path)
+            mlflow.pytorch.save_model(explainer.model.inner_model, underlying_model_path)
 
     # saving the explainer object
     explainer_data_subpath = "explainer.shap"
     explainer_output_path = os.path.join(path, explainer_data_subpath)
     with open(explainer_output_path, "wb") as explainer_output_file_handle:
-        explainer.save(explainer_output_file_handle)
+        if serialize_model_using_mlflow and serializable_by_mlflow:
+            explainer.save(explainer_output_file_handle, model_saver=False)
+        else:
+            explainer.save(explainer_output_file_handle)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -570,16 +579,16 @@ def _load_explainer(explainer_file, model=None):
     :param explainer_file: Local filesystem path to the MLflow Model saved with the ``shap`` flavor
     :param model: model to override underlying explainer model.
     """
-    import pickle
     import shap
 
-    def inject_model_loader(in_file):
-        pickle.load(in_file)  # No-Op to move file pointer forward
+    def inject_model_loader(_in_file):
         return model
 
     with open(explainer_file, "rb") as explainer:
-        model_loader = None if model is None else inject_model_loader
-        explainer = shap.Explainer.load(explainer, model_loader=model_loader)
+        if model is None:
+            explainer = shap.Explainer.load(explainer)
+        else:
+            explainer = shap.Explainer.load(explainer, model_loader=inject_model_loader)
         return explainer
 
 
