@@ -4,7 +4,7 @@ The code, adapted from this [repository](https://github.com/PyTorchLightning/pyt
 including the best model from early stopping.
 
 ### Running the code
-To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/example1` directory and run the command
+To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST` directory and run the command
 
 ```
 mlflow run .
