@@ -18,7 +18,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
 from mlflow.utils.autologging_utils import (
-    _is_testing,
+    is_testing,
     autologging_integration,
     AUTOLOGGING_INTEGRATIONS,
     autologging_is_disabled,
@@ -1398,7 +1398,7 @@ def autolog(
             if not autologging_is_disabled(autolog_fn.integration_name):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
-            if _is_testing():
+            if is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
@@ -1427,7 +1427,7 @@ def autolog(
         if "pyspark" in str(ie):
             register_post_import_hook(setup_autologging, "pyspark", overwrite=True)
     except Exception as e:
-        if _is_testing():
+        if is_testing():
             # Raise unexpected exceptions in test mode in order to detect
             # errors within dependent autologging integrations
             raise
