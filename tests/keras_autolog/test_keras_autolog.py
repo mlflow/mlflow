@@ -8,7 +8,7 @@ import keras.layers as layers  # noqa
 
 import mlflow  # noqa
 import mlflow.keras  # noqa
-from mlflow.utils.autologging import BatchMetricsLogger  # noqa
+from mlflow.utils.autologging_utils import BatchMetricsLogger  # noqa
 from unittest.mock import patch  # noqa
 
 
@@ -309,7 +309,7 @@ def test_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     original = BatchMetricsLogger.record_metrics
 
     with patch(
-        "mlflow.utils.autologging.BatchMetricsLogger.record_metrics", autospec=True
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(self, metrics, step=None):

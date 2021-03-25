@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
 from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
-from mlflow.utils.autologging import BatchMetricsLogger
+from mlflow.utils.autologging_utils import BatchMetricsLogger
 from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
 from unittest.mock import patch
 
@@ -229,7 +229,7 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
     original = BatchMetricsLogger.record_metrics
 
     with patch(
-        "mlflow.utils.autologging.BatchMetricsLogger.record_metrics", autospec=True
+        "mlflow.utils.autologging_utils.BatchMetricsLogger.record_metrics", autospec=True
     ) as record_metrics_mock:
 
         def record_metrics_side_effect(self, metrics, step=None):
