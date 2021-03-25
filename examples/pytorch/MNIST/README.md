@@ -10,7 +10,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST/ex
 mlflow run .
 ```
 
-This will run `mnist_autolog_example1.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_autolog_example.py` with the default set of parameters such as  `--max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -64,7 +64,7 @@ mlflow run . -P max_epochs=5 -P gpus=1 -P batch_size=32 -P num_workers=2 -P lear
 
 Or to run the training script directly with custom parameters:
 ```
-python mnist_autolog_example1.py \
+python mnist_autolog_example.py \
     --max_epochs 5 \
     --gpus 1 \
     --accelerator "ddp" \
