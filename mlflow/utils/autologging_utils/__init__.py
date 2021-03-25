@@ -18,6 +18,10 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
 _logger = logging.getLogger(__name__)
 
+from mlflow.utils.autologging_utils.safety import *
+from mlflow.utils.autologging_utils.events import *
+
+
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
@@ -471,17 +475,3 @@ def _augment_mlflow_warnings(autologging_integration):
         yield
     finally:
         warnings.showwarning = original_showwarning
-
-
-from mlflow.utils.autologging_utils.safety import (
-    try_mlflow_log,
-    safe_patch,
-    exception_safe_function,
-    ExceptionSafeClass,
-    ExceptionSafeAbstractClass,
-    PatchFunction,
-    with_managed_run,
-    is_testing,
-    update_wrapper_extended,
-)
-from mlflow.utils.autologging_utils.events import AutologgingEventLogger

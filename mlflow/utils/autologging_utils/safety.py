@@ -524,8 +524,6 @@ class _AutologgingSessionManager:
         cls._session = None
 
 
-
-
 def update_wrapper_extended(wrapper, wrapped):
     """
     Update a `wrapper` function to look like the `wrapped` function. This is an extension of
@@ -684,3 +682,16 @@ def _validate_args(
 
     _validate(autologging_call_args, user_call_args)
     _validate(autologging_call_kwargs, user_call_kwargs)
+
+
+__all__ = [
+    "try_mlflow_log",
+    "safe_patch",
+    "is_testing",
+    "exception_safe_function",
+    "ExceptionSafeClass",
+    "ExceptionSafeAbstractClass",
+    "PatchFunction",
+    "with_managed_run",
+    "update_wrapper_extended",
+]
