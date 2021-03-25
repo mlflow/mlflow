@@ -45,7 +45,7 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
-    _InputExampleInfo,
+    InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
 )
@@ -360,11 +360,11 @@ def autolog(
                         "cannot gather example input when dataset is loaded from a file."
                     )
 
-                input_example_info = _InputExampleInfo(
+                input_example_info = InputExampleInfo(
                     input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
                 )
             except Exception as e:
-                input_example_info = _InputExampleInfo(error_msg=str(e))
+                input_example_info = InputExampleInfo(error_msg=str(e))
 
             setattr(self, "input_example_info", input_example_info)
 

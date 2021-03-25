@@ -70,9 +70,7 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     try_mlflow_log(mlflow.log_params, params_to_log)
 
 
-
-
-class _InputExampleInfo:
+class InputExampleInfo:
     """
     Stores info about the input example collection before it is needed.
 
