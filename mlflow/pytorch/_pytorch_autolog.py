@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     ExceptionSafeAbstractClass,
     try_mlflow_log,
     BatchMetricsLogger,

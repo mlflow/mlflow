@@ -42,6 +42,6 @@ def enable_test_mode_by_default_for_autologging_integrations():
     """
     Run all MLflow tests in autologging test mode, ensuring that errors in autologging patch code
     are raised and detected. For more information about autologging test mode, see the docstring
-    for :py:func:`mlflow.utils.autologging._is_testing()`.
+    for :py:func:`mlflow.utils.autologging_utils._is_testing()`.
     """
     yield from test_mode_on()

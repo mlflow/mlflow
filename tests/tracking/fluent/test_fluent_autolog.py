@@ -4,7 +4,7 @@ from collections import namedtuple
 from unittest import mock
 
 import mlflow
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     get_autologging_config,
     autologging_is_disabled,
     AutologgingEventLogger,
@@ -41,7 +41,7 @@ library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark:
 
 @pytest.fixture(autouse=True)
 def reset_global_states():
-    from mlflow.utils.autologging import AUTOLOGGING_INTEGRATIONS
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     for key in AUTOLOGGING_INTEGRATIONS.keys():
         AUTOLOGGING_INTEGRATIONS[key].clear()
@@ -210,7 +210,7 @@ def test_universal_autolog_makes_expected_event_logging_calls():
 
 
 def test_autolog_obeys_disabled():
-    from mlflow.utils.autologging import AUTOLOGGING_INTEGRATIONS
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
 
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
