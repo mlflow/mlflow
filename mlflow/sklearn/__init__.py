@@ -30,7 +30,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     try_mlflow_log,
