@@ -62,17 +62,3 @@ def reset_stderr():
 def reset_logging_enablement():
     yield
     logging_utils.enable_logging()
-
-
-class TestStream:
-    def __init__(self):
-        self.content = None
-
-    def write(self, text):
-        self.content = (self.content or "") + text
-
-    def flush(self):
-        pass
-
-    def reset(self):
-        self.content = None

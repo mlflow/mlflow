@@ -20,7 +20,7 @@ import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging.logging_and_warnings import (
+from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
 )

@@ -1,6 +1,7 @@
 import pytest
 import sys
 from collections import namedtuple
+from io import StringIO
 from unittest import mock
 
 import mlflow
@@ -21,7 +22,7 @@ import mxnet.gluon
 import pyspark
 import pytorch_lightning
 
-from tests.autologging.fixtures import TestStream, test_mode_off, test_mode_on
+from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 library_to_mlflow_module_without_pyspark = {
@@ -276,7 +277,7 @@ def test_autolog_obeys_silent_mode(
     log_input_examples,
     log_model_signatures,
 ):
-    stream = TestStream()
+    stream = StringIO()
     sys.stderr = stream
 
     mlflow.autolog(
@@ -291,4 +292,4 @@ def test_autolog_obeys_silent_mode(
 
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
-    assert stream.content is None
+    assert not stream.getvalue()

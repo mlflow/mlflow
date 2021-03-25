@@ -5,9 +5,10 @@ import logging
 import pytest
 import sys
 import warnings
-from unittest import mock
-from itertools import permutations
 from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
+from itertools import permutations
+from unittest import mock
 
 import mlflow
 from mlflow.tracking import MlflowClient
@@ -18,7 +19,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
 )
 
-from tests.autologging.fixtures import TestStream, test_mode_off
+from tests.autologging.fixtures import test_mode_off
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
@@ -186,7 +187,7 @@ def test_autolog_respects_silent_mode(tmpdir):
     mlflow.set_experiment("test_experiment")
 
     og_showwarning = warnings.showwarning
-    stream = TestStream()
+    stream = StringIO()
     sys.stderr = stream
     logger = logging.getLogger(mlflow.__name__)
 
@@ -219,12 +220,14 @@ def test_autolog_respects_silent_mode(tmpdir):
             executions.append(e)
 
     assert all([e.result() is True for e in executions])
-    assert stream.content is None
+    assert not stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
-    assert "verify that event logs are enabled" in stream.content
+    assert "verify that event logs are enabled" in stream.getvalue()
+
+    stream.truncate(0)
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
@@ -232,9 +235,9 @@ def test_autolog_respects_silent_mode(tmpdir):
         for _ in range(100):
             executor.submit(train_model)
 
-    assert stream.content is not None
+    assert stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
-    assert "verify that event logs are enabled" in stream.content
+    assert "verify that event logs are enabled" in stream.getvalue()

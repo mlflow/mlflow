@@ -5,14 +5,15 @@ import sys
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
 
 import mlflow
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.autologging import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 import pytest
 import numpy as np
-from tests.autologging.fixtures import TestStream, test_mode_off, patch_destination
+from tests.autologging.fixtures import test_mode_off, patch_destination
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
@@ -74,7 +75,7 @@ def autolog_function(patch_destination, logger):
 def test_autologging_warnings_are_redirected_as_expected(
     autolog_function, patch_destination, logger
 ):
-    stream = TestStream()
+    stream = StringIO()
     sys.stderr = stream
 
     with pytest.warns(None) as warnings_record:
@@ -101,20 +102,20 @@ def test_autologging_warnings_are_redirected_as_expected(
         'MLflow autologging encountered a warning: "%s:5: Warning: preamble MLflow warning"',
         'MLflow autologging encountered a warning: "%s:10: Warning: postamble MLflow warning"',
     ]:
-        assert (item % mlflow.__file__) in stream.content
+        assert (item % mlflow.__file__) in stream.getvalue()
     for item in [
         'MLflow autologging encountered a warning: "%s:7: UserWarning: preamble numpy warning"',
         'MLflow autologging encountered a warning: "%s:14: Warning: postamble numpy warning"',
         'MLflow autologging encountered a warning: "%s:30: Warning: enablement warning numpy"',
     ]:
-        assert (item % np.__file__) in stream.content
+        assert (item % np.__file__) in stream.getvalue()
 
 
 def test_autologging_event_logging_and_warnings_respect_silent_mode(
     autolog_function, patch_destination, logger
 ):
     og_showwarning = warnings.showwarning
-    stream = TestStream()
+    stream = StringIO()
     sys.stderr = stream
 
     with pytest.warns(None) as silent_warnings_record:
@@ -123,15 +124,15 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
 
     assert len(silent_warnings_record) == 1
     assert "Test warning from OG function" in str(silent_warnings_record[0].message)
-    assert stream.content is None
+    assert not stream.getvalue()
 
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
-    assert "verify that event logs are enabled" in stream.content
+    assert "verify that event logs are enabled" in stream.getvalue()
 
-    stream.reset()
+    stream.truncate(0)
 
     with pytest.warns(None) as noisy_warnings_record:
         autolog_function(silent=False)
@@ -140,10 +141,10 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
     # Verify that calling the autolog function with `silent=False` and invoking the mock training
     # function with autolog disabled produces event logs and warnings
     for item in ["enablement1", "enablement2", "enablement3", "enablement4"]:
-        assert item in stream.content
+        assert item in stream.getvalue()
 
     for item in ["patch1", "patch2", "patch3", "patch4"]:
-        assert item in stream.content
+        assert item in stream.getvalue()
 
     warning_messages = set([str(w.message) for w in noisy_warnings_record])
     assert "enablement warning MLflow" in warning_messages
@@ -152,14 +153,14 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
     # and that MLflow event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
-    assert "verify that event logs are enabled" in stream.content
+    assert "verify that event logs are enabled" in stream.getvalue()
 
 
 def test_silent_mode_is_respected_in_multithreaded_environments(
     autolog_function, patch_destination, logger
 ):
     og_showwarning = warnings.showwarning
-    stream = TestStream()
+    stream = StringIO()
     sys.stderr = stream
 
     autolog_function(silent=True)
@@ -182,7 +183,7 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
 
     # Verify that all warnings and log events from MLflow autologging code were silenced
     # and that all warnings from the original / underlying routine were emitted as normal
-    assert stream.content is None
+    assert not stream.getvalue()
     assert len(warnings_record) == 100
     assert all(["Test warning from OG function" in str(w.message) for w in warnings_record])
 
@@ -190,13 +191,13 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
     # and that MLflow event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
-    assert "verify that event logs are enabled" in stream.content
+    assert "verify that event logs are enabled" in stream.getvalue()
 
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_errors_occur():
     og_showwarning = warnings.showwarning
-    stream = TestStream()
+    stream = StringIO()
     sys.stderr = stream
     logger = logging.getLogger(mlflow.__name__)
 
@@ -234,4 +235,4 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
 
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
-    assert "verify that event logs are enabled" in stream.content
+    assert "verify that event logs are enabled" in stream.getvalue()

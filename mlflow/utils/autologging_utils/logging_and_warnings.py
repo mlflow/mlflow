@@ -46,7 +46,7 @@ class _WarningsController:
         # `warnings.warn()`. We only lock during configuration changes to ensure that
         # `warnings.showwarning` is patched or unpatched at the correct times.
 
-        from mlflow.utils.autologging import _logger
+        from mlflow.utils.autologging_utils import _logger
 
         # If the warning's source file is contained within the MLflow package's base
         # directory, it is an MLflow warning and should be emitted via `logger.warning`
