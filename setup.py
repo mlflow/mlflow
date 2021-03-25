@@ -119,7 +119,7 @@ setup(
     classifiers=["Intended Audience :: Developers", "Programming Language :: Python :: 3.6"],
     keywords="ml ai databricks",
     url="https://mlflow.org/",
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     project_urls={
         "Bug Tracker": "https://github.com/mlflow/mlflow/issues",
         "Documentation": "https://mlflow.org/docs/latest/index.html",

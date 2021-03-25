@@ -12,7 +12,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.context.abstract_context import RunContextProvider
-from mlflow.utils.autologging_utils import (
+from mlflow.utils.autologging import (
     autologging_is_disabled,
     ExceptionSafeClass,
 )
