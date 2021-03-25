@@ -147,7 +147,7 @@ class IterativePrune:
         parser.add_argument(
             "--total_trials",
             default=3,
-            help="It indicated number of AX trials to be run for the optimization experiment",
+            help="Number of AX trials to be run for the optimization experiment",
         )
 
         self.parser_args = parser.parse_args()

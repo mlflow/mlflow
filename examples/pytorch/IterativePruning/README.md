@@ -1,24 +1,19 @@
 ## Iterative Pruning
 Pruning is the process of compressing a neural network that involves removing weights from a trained model.
-It could be achieved by either removing the neurons in a specific layer or make the weights of the connections 
-that are nearer to zero as zero. The script is an example of later. Pruning a model has an impact on
-accuracy of the model, while it makes the model lightweight.
+Pruning techniques include removing the neurons within a specific layer, or setting the weights of connectons that are already near zero to zero. This script applies the latter technique. 
+Pruning a model reduces its size, at the cost of worsened model accuracy.
 
-In this example, we train a model to classify MNIST handwritten Digit recognition dataset. Basemodel along with the parameters, metrics and summary are stored in mlflow.
-Subsequently, the trained MNIST model stored in mlflow is saved and pruned iteratively by using the custom 
+For more information check - [Pytorch Pruning Tutorial](https://pytorch.org/tutorials/intermediate/pruning_tutorial.html)
+
+In this example, we train a model to classify MNIST handwritten digit recognition dataset, and then apply iterative pruning to compress the model. The initial model ("base model") along with its parameters, metrics and summary are stored in mlflow.
+Subsequently, the base model is pruned iteratively by using the custom 
 inputs provided from the cli. Ax is a platform for optimizing any kind of experiment, including machine learning experiments,
 A/B tests, and simulations. [Ax](https://ax.dev/docs/why-ax.html) can optimize discrete configurations using multi-armed bandit optimization,
 and continuous (e.g., integer or floating point)-valued configurations using Bayesian optimization.
 
-The objective function of the experiment trails is "test_accuracy" based on which the model is evaluated at each trial and the best set of parameters are derived.
+The objective function of the experiment trials is "test_accuracy" based on which the model is evaluated at each trial and the best set of parameters are derived.
 AXClient is used to provide the initial pruning percentage as well as decides the number
 of trails to be run. The summary of the pruned model is captured in a separate file and stored as an artifact in MLflow.
-
-### Setting up Environment variables.
-
-Run the following command on the terminal to set the Experiment name environment variable.
-
-`export MLFLOW_EXPERIMENT_NAME=prune`
 
 
 ### Running the code to Iteratively Prune the Trained Model
