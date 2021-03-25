@@ -28,10 +28,12 @@ def logger():
 @pytest.fixture
 def autolog_function(patch_destination, logger):
     def original_impl():
-        # Sleep during the original function implementation to increase the likelihood of
-        # overlapping session stages (i.e. simultaneous preamble / postamble / original function
-        # execution states across autologging sessions) during multithreaded execution
-        time.sleep(0.01)
+        # Increase the duration of the original function by inserting a short sleep in order to
+        # increase the likelihood of overlapping session stages (i.e. simultaneous preamble /
+        # postamble / original function execution states across autologging sessions) during
+        # multithreaded execution. We use a duration of 50 milliseconds to avoid slowing down the
+        # test significantly
+        time.sleep(0.05)
         warnings.warn("Test warning from OG function", category=UserWarning)
 
     patch_destination.fn = original_impl
@@ -202,9 +204,6 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
     logger = logging.getLogger(mlflow.__name__)
 
     def original_impl():
-        # Sleep during the original function implementation to increase the likelihood of
-        # overlapping session stages (i.e. simultaneous preamble / postamble / original function
-        # execution states across autologging sessions)
         raise Exception("original error")
 
     patch_destination.fn = original_impl
@@ -219,9 +218,9 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
         raise Exception("enablement error")
 
     def parallel_fn():
-        # Sleep for a random interval to increase the likelihood of overlapping session stages
-        # (i.e. simultaneous preamble / postamble / original function execution states across
-        # autologging sessions)
+        # Sleep for a random duration between 0 and 1 seconds to increase the likelihood of
+        # overlapping session stages (i.e. simultaneous preamble / postamble / original function
+        # execution states across autologging sessions)
         time.sleep(np.random.random())
         patch_destination.fn()
 
