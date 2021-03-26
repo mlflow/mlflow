@@ -2,23 +2,22 @@ Changelog
 =========
 1.15.0 (2021-03-26)
 -------------------
-MLflow 1.15.0 includes several major features and improvements:
+MLflow 1.15.0 includes several features, bug fixes and improvements. Notably, it includes a number of improvements to MLflow autologging:
 
 Features:
 
-- Add silent option for autologging integrations (#4173, @dbczumar)
-- Disable autologging for untested library versions (#4119, @WeichenXu123)
+- Add `silent=False` option to all autologging APIs, to allow suppressing MLflow warnings and logging statements during autologging setup and training (#4173, @dbczumar)
+- Add ``disable_for_unsupported_versions=False`` option to all autologging APIs, to disable autologging for versions of ML frameworks that have not been explicitly tested against the current version of the MLflow client (#4119, @WeichenXu123)
 
-Bug fixes and documentation updates:
+Bug fixes:
 
-- End autologged runs when execution is interrupted (sigint) (#4200, @dbczumar)
-- mlflow_get_experiment should return same tag structure as mlflow_list_experiments and mlflow_get_run (#4017, @lorenzwalthert)
-- Bug fix for TensorFlow autologging: do not mutate user-specified callbacks list (#4195, @dbczumar)
-- Add back alembic files to avoid KeyError "formatters" (#4161, @eedeleon)
-- [ML-13739] Model version creation should fail if the status returned is not READY (#4114, @ankit-db)
-- Update documentation on preserving spark_udf column names (#4160, @wentinghu)
+- Autologged runs are now terminated when execution is interrupted via SIGINT (#4200, @dbczumar)
+- The R ``mlflow_get_experiment`` API now returns the same tag structure as ``mlflow_list_experiments`` and ``mlflow_get_run`` (#4017, @lorenzwalthert)
+- Fix bug where ``mlflow.tensorflow.autolog`` would previously mutate the user-specified callbacks list when fitting ``tf.keras`` models (#4195, @dbczumar)
+- Fix bug where SQL-backed MLflow tracking server initialization failed when using the MLflow skinny client (#4161, @eedeleon)
+- Model version creation (e.g. via ``mlflow.register_model``) now fails if the model version status is not READY (#4114, @ankit-db)
 
-Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4152, @mlflow-automation; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4203, #4184, #4167, @dbczumar)
+Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4152, @mlflow-automation; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4160, @wentinghu; #4203, #4184, #4167, @dbczumar)
 
 1.14.1 (2021-03-01)
 -------------------
