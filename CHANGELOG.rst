@@ -1,5 +1,25 @@
 Changelog
 =========
+1.15.0 (2021-03-26)
+-------------------
+MLflow 1.15.0 includes several major features and improvements:
+
+Features:
+
+- Add silent option for autologging integrations (#4173, @dbczumar)
+- Disable autologging for untested library versions (#4119, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- End autologged runs when execution is interrupted (sigint) (#4200, @dbczumar)
+- mlflow_get_experiment should return same tag structure as mlflow_list_experiments and mlflow_get_run (#4017, @lorenzwalthert)
+- Bug fix for TensorFlow autologging: do not mutate user-specified callbacks list (#4195, @dbczumar)
+- Add back alembic files to avoid KeyError "formatters" (#4161, @eedeleon)
+- [ML-13739] Model version creation should fail if the status returned is not READY (#4114, @ankit-db)
+- Update documentation on preserving spark_udf column names (#4160, @wentinghu)
+
+Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4152, @mlflow-automation; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4203, #4184, #4167, @dbczumar)
+
 1.14.1 (2021-03-01)
 -------------------
 MLflow 1.14.1 is a patch release containing the following bug fix:
