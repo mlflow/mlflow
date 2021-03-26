@@ -302,6 +302,7 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -341,6 +342,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       xgboost that have not been tested against this version of the MLflow client
                       or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during XGBoost
+                   autologging. If ``False``, show all events and warnings during XGBoost
+                   autologging.
     """
     import xgboost
     import numpy as np

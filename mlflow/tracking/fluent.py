@@ -1227,6 +1227,7 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for all supported integrations.
@@ -1282,6 +1283,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       all integration libraries that have not been tested against this version
                       of the MLflow client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
+                   setup and training execution. If ``False``, show all events and warnings during
+                   autologging setup and training execution.
 
     .. code-block:: python
         :caption: Example
@@ -1395,14 +1399,16 @@ def autolog(
             AUTOLOGGING_INTEGRATIONS[autolog_fn.integration_name][
                 CONF_KEY_IS_GLOBALLY_CONFIGURED
             ] = True
-            if not autologging_is_disabled(autolog_fn.integration_name):
+            if not autologging_is_disabled(
+                autolog_fn.integration_name
+            ) and not autologging_params.get("silent", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
             if _is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
-            else:
+            elif not autologging_params.get("silent", False):
                 _logger.warning(
                     "Exception raised while enabling autologging for %s: %s",
                     module.__name__,
