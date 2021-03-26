@@ -14,13 +14,16 @@ from collections import namedtuple
 from contextlib import contextmanager
 from abc import abstractmethod
 from distutils.version import LooseVersion
-from pathlib import Path
 from pkg_resources import resource_filename
 
 import mlflow
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    set_mlflow_events_and_warnings_behavior_globally,
+    set_non_mlflow_warnings_behavior_for_current_thread,
+)
 from mlflow.utils import gorilla
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
@@ -406,6 +409,11 @@ def autologging_integration(name):
                 "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
                 " must specify a 'disable' argument with default value 'False'".format(name)
             )
+        elif "silent" not in param_spec or param_spec["silent"].default is not False:
+            raise Exception(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
+                " must specify a 'silent' argument with default value 'False'".format(name)
+            )
 
     def wrapper(_autolog):
         param_spec = inspect.signature(_autolog).parameters
@@ -422,18 +430,42 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
-            try:
-                # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
-                # event loggers to more easily identify important configuration parameters
-                # (e.g., `disable`) without examining positional arguments. Passing positional
-                # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
-                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
-            except Exception:
-                pass
+            is_silent_mode = get_autologging_config(name, "silent", False)
+            # Reroute non-MLflow warnings encountered during autologging enablement to an
+            # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
+            # autologging integration was called with `silent=True`)
+            with set_mlflow_events_and_warnings_behavior_globally(
+                # MLflow warnings emitted during autologging setup / enablement are likely
+                # actionable and relevant to the user, so they should be emitted as normal
+                # when `silent=False`. For reference, see recommended warning and event logging
+                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=False,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ), set_non_mlflow_warnings_behavior_for_current_thread(
+                # non-MLflow warnings emitted during autologging setup / enablement are not
+                # actionable for the user, as they are a byproduct of the autologging
+                # implementation. Accordingly, they should be rerouted to `logger.warning()`.
+                # For reference, see recommended warning and event logging
+                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
+            ):
 
-            _check_and_log_warning_for_unsupported_integration(name)
+                try:
+                    # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
+                    # event loggers to more easily identify important configuration parameters
+                    # (e.g., `disable`) without examining positional arguments. Passing positional
+                    # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
+                    AutologgingEventLogger.get_logger().log_autolog_called(
+                        name, (), config_to_store
+                    )
+                except Exception:
+                    pass
 
-            return _autolog(*args, **kwargs)
+                _check_and_log_warning_for_unsupported_integration(name)
+
+                return _autolog(*args, **kwargs)
 
         wrapped_autolog = _update_wrapper_extended(autolog, _autolog)
         # Set the autologging integration name as a function attribute on the wrapped autologging
@@ -1027,217 +1059,209 @@ def safe_patch(
         while exceptions thrown from other parts of `patch_function` are caught and logged as
         warnings.
         """
-        if _is_testing():
-            preexisting_run_for_testing = mlflow.active_run()
+        # Reroute warnings encountered during the patch function implementation to an MLflow event
+        # logger, and enforce silent mode if applicable (i.e. if the corresponding autologging
+        # integration was called with `silent=True`), hiding MLflow event logging statements and
+        # hiding all warnings in the autologging preamble and postamble (i.e. the code surrounding
+        # the user's original / underlying ML function). Non-MLflow warnings are enabled during the
+        # execution of the original / underlying ML function
+        #
+        # Note that we've opted *not* to apply this context manager as a decorator on
+        # `safe_patch_function` because the context-manager-as-decorator pattern uses
+        # `contextlib.ContextDecorator`, which creates generator expressions that cannot be pickled
+        # during model serialization by ML frameworks such as scikit-learn
+        is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
+        with set_mlflow_events_and_warnings_behavior_globally(
+            # MLflow warnings emitted during autologging training sessions are likely not actionable
+            # and result from the autologging implementation invoking another MLflow API.
+            # Accordingly, we reroute these warnings to the MLflow event logger with level WARNING
+            # For reference, see recommended warning and event logging behaviors from
+            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+            reroute_warnings=True,
+            disable_event_logs=is_silent_mode,
+            disable_warnings=is_silent_mode,
+        ), set_non_mlflow_warnings_behavior_for_current_thread(
+            # non-MLflow Warnings emitted during the autologging preamble (before the original /
+            # underlying ML function is called) and postamble (after the original / underlying ML
+            # function is called) are likely not actionable and result from the autologging
+            # implementation invoking an API from a dependent library. Accordingly, we reroute these
+            # warnings to the MLflow event logger with level WARNING. For reference, see recommended
+            # warning and event logging behaviors from
+            # https://docs.python.org/3/howto/logging.html#when-to-use-logging
+            reroute_warnings=True,
+            disable_warnings=is_silent_mode,
+        ):
 
-        original = gorilla.get_original_attribute(destination, function_name)
+            if _is_testing():
+                preexisting_run_for_testing = mlflow.active_run()
 
-        # If the autologging integration associated with this patch is disabled,
-        # call the original function and return
-        if autologging_is_disabled(autologging_integration):
-            return original(*args, **kwargs)
+            original = gorilla.get_original_attribute(destination, function_name)
 
-        # Whether or not to exclude auto-autologged content from content explicitly logged via
-        # `mlflow.start_run()`
-        exclusive = get_autologging_config(autologging_integration, "exclusive", False)
-
-        active_run = mlflow.active_run()
-
-        if active_run and exclusive and not _AutologgingSessionManager.active_session():
-            return original(*args, **kwargs)
-
-        # Whether or not the original / underlying function has been called during the
-        # execution of patched code
-        original_has_been_called = False
-        # The value returned by the call to the original / underlying function during
-        # the execution of patched code
-        original_result = None
-        # Whether or not an exception was raised from within the original / underlying function
-        # during the execution of patched code
-        failed_during_original = False
-        # The active MLflow run (if any) associated with patch code execution
-        patch_function_run_for_testing = None
-
-        def try_log_autologging_event(log_fn, *args):
-            try:
-                log_fn(*args)
-            except Exception as e:
-                _logger.debug("Failed to log autologging event via '%s'. Exception: %s", log_fn, e)
-
-        with _augment_mlflow_warnings(
-            autologging_integration
-        ), _AutologgingSessionManager.start_session(autologging_integration) as session:
-            try:
-
-                def call_original(*og_args, **og_kwargs):
-                    try:
-                        try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_start,
-                            session,
-                            destination,
-                            function_name,
-                            og_args,
-                            og_kwargs,
-                        )
-
-                        if _is_testing():
-                            _validate_args(args, kwargs, og_args, og_kwargs)
-                            # By the time `original` is called by the patch implementation, we
-                            # assume that either: 1. the patch implementation has already
-                            # created an MLflow run or 2. the patch code will not create an
-                            # MLflow run during the current execution. Here, we capture a
-                            # reference to the active run, which we will use later on to
-                            # determine whether or not the patch implementation created
-                            # a run and perform validation if necessary
-                            nonlocal patch_function_run_for_testing
-                            patch_function_run_for_testing = mlflow.active_run()
-
-                        nonlocal original_has_been_called
-                        original_has_been_called = True
-
-                        nonlocal original_result
-                        original_result = original(*og_args, **og_kwargs)
-
-                        try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_success,
-                            session,
-                            destination,
-                            function_name,
-                            og_args,
-                            og_kwargs,
-                        )
-
-                        return original_result
-                    except Exception as e:
-                        try_log_autologging_event(
-                            AutologgingEventLogger.get_logger().log_original_function_error,
-                            session,
-                            destination,
-                            function_name,
-                            og_args,
-                            og_kwargs,
-                            e,
-                        )
-
-                        nonlocal failed_during_original
-                        failed_during_original = True
-                        raise
-
-                # Apply the name, docstring, and signature of `original` to `call_original`.
-                # This is important because several autologging patch implementations inspect
-                # the signature of the `original` argument during execution
-                call_original = _update_wrapper_extended(call_original, original)
-
-                try_log_autologging_event(
-                    AutologgingEventLogger.get_logger().log_patch_function_start,
-                    session,
-                    destination,
-                    function_name,
-                    args,
-                    kwargs,
-                )
-
-                if patch_is_class:
-                    patch_function.call(call_original, *args, **kwargs)
-                else:
-                    patch_function(call_original, *args, **kwargs)
-
-                try_log_autologging_event(
-                    AutologgingEventLogger.get_logger().log_patch_function_success,
-                    session,
-                    destination,
-                    function_name,
-                    args,
-                    kwargs,
-                )
-            except Exception as e:
-                # Exceptions thrown during execution of the original function should be propagated
-                # to the caller. Additionally, exceptions encountered during test mode should be
-                # reraised to detect bugs in autologging implementations
-                if failed_during_original or _is_testing():
-                    raise
-
-                try_log_autologging_event(
-                    AutologgingEventLogger.get_logger().log_patch_function_error,
-                    session,
-                    destination,
-                    function_name,
-                    args,
-                    kwargs,
-                    e,
-                )
-
-                _logger.warning(
-                    "Encountered unexpected error during %s autologging: %s",
-                    autologging_integration,
-                    e,
-                )
-
-            if _is_testing() and not preexisting_run_for_testing:
-                # If an MLflow run was created during the execution of patch code, verify that
-                # it is no longer active and that it contains expected autologging tags
-                assert not mlflow.active_run(), (
-                    "Autologging integration %s leaked an active run" % autologging_integration
-                )
-                if patch_function_run_for_testing:
-                    _validate_autologging_run(
-                        autologging_integration, patch_function_run_for_testing.info.run_id
-                    )
-
-            if original_has_been_called:
-                return original_result
-            else:
+            # If the autologging integration associated with this patch is disabled,
+            # call the original function and return
+            if autologging_is_disabled(autologging_integration):
                 return original(*args, **kwargs)
 
+            # Whether or not to exclude auto-autologged content from content explicitly logged via
+            # `mlflow.start_run()`
+            exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+
+            active_run = mlflow.active_run()
+
+            if active_run and exclusive and not _AutologgingSessionManager.active_session():
+                return original(*args, **kwargs)
+
+            # Whether or not the original / underlying function has been called during the
+            # execution of patched code
+            original_has_been_called = False
+            # The value returned by the call to the original / underlying function during
+            # the execution of patched code
+            original_result = None
+            # Whether or not an exception was raised from within the original / underlying function
+            # during the execution of patched code
+            failed_during_original = False
+            # The active MLflow run (if any) associated with patch code execution
+            patch_function_run_for_testing = None
+
+            def try_log_autologging_event(log_fn, *args):
+                try:
+                    log_fn(*args)
+                except Exception as e:
+                    _logger.debug(
+                        "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
+                    )
+
+            with _AutologgingSessionManager.start_session(autologging_integration) as session:
+                try:
+
+                    def call_original(*og_args, **og_kwargs):
+                        try:
+                            try_log_autologging_event(
+                                AutologgingEventLogger.get_logger().log_original_function_start,
+                                session,
+                                destination,
+                                function_name,
+                                og_args,
+                                og_kwargs,
+                            )
+
+                            if _is_testing():
+                                _validate_args(args, kwargs, og_args, og_kwargs)
+                                # By the time `original` is called by the patch implementation, we
+                                # assume that either: 1. the patch implementation has already
+                                # created an MLflow run or 2. the patch code will not create an
+                                # MLflow run during the current execution. Here, we capture a
+                                # reference to the active run, which we will use later on to
+                                # determine whether or not the patch implementation created
+                                # a run and perform validation if necessary
+                                nonlocal patch_function_run_for_testing
+                                patch_function_run_for_testing = mlflow.active_run()
+
+                            nonlocal original_has_been_called
+                            original_has_been_called = True
+
+                            nonlocal original_result
+                            # Show all non-MLflow warnings as normal (i.e. not as event logs) during
+                            # original function execution, even if silent mode is enabled
+                            # (`silent=True`), since these warnings originate from the ML framework
+                            # or one of its dependencies and are likely relevant to the caller
+                            with set_non_mlflow_warnings_behavior_for_current_thread(
+                                disable_warnings=False, reroute_warnings=False,
+                            ):
+                                original_result = original(*og_args, **og_kwargs)
+
+                            try_log_autologging_event(
+                                AutologgingEventLogger.get_logger().log_original_function_success,
+                                session,
+                                destination,
+                                function_name,
+                                og_args,
+                                og_kwargs,
+                            )
+
+                            return original_result
+                        except Exception as e:
+                            try_log_autologging_event(
+                                AutologgingEventLogger.get_logger().log_original_function_error,
+                                session,
+                                destination,
+                                function_name,
+                                og_args,
+                                og_kwargs,
+                                e,
+                            )
+
+                            nonlocal failed_during_original
+                            failed_during_original = True
+                            raise
+
+                    # Apply the name, docstring, and signature of `original` to `call_original`.
+                    # This is important because several autologging patch implementations inspect
+                    # the signature of the `original` argument during execution
+                    call_original = _update_wrapper_extended(call_original, original)
+
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_patch_function_start,
+                        session,
+                        destination,
+                        function_name,
+                        args,
+                        kwargs,
+                    )
+
+                    if patch_is_class:
+                        patch_function.call(call_original, *args, **kwargs)
+                    else:
+                        patch_function(call_original, *args, **kwargs)
+
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_patch_function_success,
+                        session,
+                        destination,
+                        function_name,
+                        args,
+                        kwargs,
+                    )
+                except Exception as e:
+                    # Exceptions thrown during execution of the original function should be
+                    # propagated to the caller. Additionally, exceptions encountered during test
+                    # mode should be reraised to detect bugs in autologging implementations
+                    if failed_during_original or _is_testing():
+                        raise
+
+                    try_log_autologging_event(
+                        AutologgingEventLogger.get_logger().log_patch_function_error,
+                        session,
+                        destination,
+                        function_name,
+                        args,
+                        kwargs,
+                        e,
+                    )
+
+                    _logger.warning(
+                        "Encountered unexpected error during %s autologging: %s",
+                        autologging_integration,
+                        e,
+                    )
+
+                if _is_testing() and not preexisting_run_for_testing:
+                    # If an MLflow run was created during the execution of patch code, verify that
+                    # it is no longer active and that it contains expected autologging tags
+                    assert not mlflow.active_run(), (
+                        "Autologging integration %s leaked an active run" % autologging_integration
+                    )
+                    if patch_function_run_for_testing:
+                        _validate_autologging_run(
+                            autologging_integration, patch_function_run_for_testing.info.run_id
+                        )
+
+                if original_has_been_called:
+                    return original_result
+                else:
+                    return original(*args, **kwargs)
+
     _wrap_patch(destination, function_name, safe_patch_function)
-
-
-@contextmanager
-def _augment_mlflow_warnings(autologging_integration):
-    """
-    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
-    API. In many cases, the user cannot remediate the cause of these warnings because
-    they result from the autologging patch implementation, rather than a user-facing API call.
-
-    Accordingly, this context manager is designed to augment MLflow warnings issued during
-    autologging patch code execution, explaining that such warnings were raised as a result of
-    MLflow's autologging implementation. MLflow warnings are also redirected from `sys.stderr`
-    to an MLflow logger with level WARNING. Warnings issued by code outside of MLflow are
-    not modified. When the context manager exits, the original output behavior for MLflow warnings
-    is restored.
-
-    :param autologging_integration: The name of the active autologging integration for which
-                                    MLflow warnings are to be augmented during patch code
-                                    execution.
-    """
-    original_showwarning = warnings.showwarning
-
-    def autologging_showwarning(message, category, filename, lineno, *args, **kwargs):
-        mlflow_root_path = Path(os.path.dirname(mlflow.__file__)).resolve()
-        warning_source_path = Path(filename).resolve()
-        # If the warning's source file is contained within the MLflow package's base
-        # directory, it is an MLflow warning and should be emitted via `logger.warning`
-        if mlflow_root_path in warning_source_path.parents:
-            _logger.warning(
-                "MLflow issued a warning during %s autologging:" ' "%s:%d: %s: %s"',
-                autologging_integration,
-                filename,
-                lineno,
-                category.__name__,
-                message,
-            )
-        else:
-            original_showwarning(message, category, filename, lineno, *args, **kwargs)
-
-    try:
-        # NB: Reassigning `warnings.showwarning` is the standard / recommended approach for
-        # specifying an alternative destination and output format for warning messages
-        # (i.e. a sink other than `sys.stderr`). For reference, see
-        # https://docs.python.org/3/library/warnings.html#warnings.showwarning
-        warnings.showwarning = autologging_showwarning
-        yield
-    finally:
-        warnings.showwarning = original_showwarning
 
 
 def _validate_autologging_run(autologging_integration, run_id):
