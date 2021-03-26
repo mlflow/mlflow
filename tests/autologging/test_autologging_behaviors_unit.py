@@ -247,19 +247,22 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         warnings.warn("patchimpl1")
         original()
 
-    @autologging_integration("autolog1")
+    @autologging_integration("integration1")
     def autolog1(disable=False, silent=False):
         logger.info("autolog1")
-        safe_patch("test_integration", patch_destination, "fn", patch_impl1)
+        safe_patch("integration1", patch_destination, "fn", patch_impl1)
 
     def patch_impl2(original):
-        warnings.warn("patchimpl2")
+        logger.info("patchimpl2")
         original()
 
-    @autologging_integration("autolog2")
+    @autologging_integration("integration2")
     def autolog2(disable=False, silent=False):
-        logger.info("autolog2")
-        safe_patch("test_integration", patch_destination, "fn2", patch_impl2)
+        warnings.warn_explicit(
+            "warn_autolog2", category=Warning, filename=mlflow.__file__, lineno=5
+        )
+        logger.info("event_autolog2")
+        safe_patch("integration2", patch_destination, "fn2", patch_impl2)
 
     with pytest.warns(None) as warnings_record:
         autolog1(silent=True)
@@ -269,9 +272,10 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         patch_destination.fn2()
 
     warning_messages = [str(w.message) for w in warnings_record]
-    assert warning_messages == ["patchimpl2"]
+    assert warning_messages == ["warn_autolog2"]
 
     assert "autolog1" not in stream.getvalue()
     assert "patchimpl1" not in stream.getvalue()
 
-    assert "autolog2" in stream.getvalue()
+    assert "event_autolog2" in stream.getvalue()
+    assert "patchimpl2" in stream.getvalue()
