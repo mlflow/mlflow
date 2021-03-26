@@ -6,7 +6,7 @@ MLflow 1.15.0 includes several features, bug fixes and improvements. Notably, it
 
 Features:
 
-- Add `silent=False` option to all autologging APIs, to allow suppressing MLflow warnings and logging statements during autologging setup and training (#4173, @dbczumar)
+- Add ``silent=False`` option to all autologging APIs, to allow suppressing MLflow warnings and logging statements during autologging setup and training (#4173, @dbczumar)
 - Add ``disable_for_unsupported_versions=False`` option to all autologging APIs, to disable autologging for versions of ML frameworks that have not been explicitly tested against the current version of the MLflow client (#4119, @WeichenXu123)
 
 Bug fixes:
