@@ -235,3 +235,43 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
     assert "verify that event logs are enabled" in stream.getvalue()
+
+
+def test_silent_mode_operates_independently_across_integrations(patch_destination, logger):
+    stream = StringIO()
+    sys.stderr = stream
+
+    patch_destination.fn2 = lambda *args, **kwargs: "fn2"
+
+    def patch_impl1(original):
+        warnings.warn("patchimpl1")
+        original()
+
+    @autologging_integration("autolog1")
+    def autolog1(disable=False, silent=False):
+        logger.info("autolog1")
+        safe_patch("test_integration", patch_destination, "fn", patch_impl1)
+
+    def patch_impl2(original):
+        warnings.warn("patchimpl2")
+        original()
+
+    @autologging_integration("autolog2")
+    def autolog2(disable=False, silent=False):
+        logger.info("autolog2")
+        safe_patch("test_integration", patch_destination, "fn2", patch_impl2)
+
+    with pytest.warns(None) as warnings_record:
+        autolog1(silent=True)
+        autolog2(silent=False)
+
+        patch_destination.fn()
+        patch_destination.fn2()
+
+    warning_messages = [str(w.message) for w in warnings_record]
+    assert warning_messages == ["patchimpl2"]
+
+    assert "autolog1" not in stream.getvalue()
+    assert "patchimpl1" not in stream.getvalue()
+
+    assert "autolog2" in stream.getvalue()
