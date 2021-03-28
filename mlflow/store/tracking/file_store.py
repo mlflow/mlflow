@@ -222,12 +222,21 @@ class FileStore(AbstractStore):
         return list_subdirs(self.trash_folder, full_path)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
+        from mlflow.utils.search_utils import SearchUtils
+
+        if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at "
+                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
+                databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
         self._check_root_dir()
         rsl = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
             rsl += self._get_active_experiments(full_path=False)
         if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             rsl += self._get_deleted_experiments(full_path=False)
+
         experiments = []
         for exp_id in rsl:
             try:
@@ -243,7 +252,13 @@ class FileStore(AbstractStore):
                     str(rnfe),
                     exc_info=True,
                 )
-        return experiments
+        if max_results is not None:
+            experiments, next_page_token = SearchUtils.paginate(
+                experiments, page_token, max_results
+            )
+            return experiments, next_page_token
+        else:
+            return experiments, None
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         artifact_uri = artifact_uri or append_to_uri_path(

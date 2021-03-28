@@ -311,7 +311,7 @@ class SqlAlchemyStore(AbstractStore):
         if max_results is not None:
             return PagedList(experiments[:max_results], compute_next_token(len(experiments)))
         else:
-            return experiments
+            return PagedList(experiments, None)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
