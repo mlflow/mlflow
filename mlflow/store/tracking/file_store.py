@@ -223,6 +223,7 @@ class FileStore(AbstractStore):
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         from mlflow.utils.search_utils import SearchUtils
+        from mlflow.store.entities.paged_list import PagedList
 
         if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
@@ -256,9 +257,9 @@ class FileStore(AbstractStore):
             experiments, next_page_token = SearchUtils.paginate(
                 experiments, page_token, max_results
             )
-            return experiments, next_page_token
+            return PagedList(experiments, next_page_token)
         else:
-            return experiments, None
+            return PagedList(experiments, None)
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         artifact_uri = artifact_uri or append_to_uri_path(
