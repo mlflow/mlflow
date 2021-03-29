@@ -1,18 +1,26 @@
 # pylint: disable=unused-argument
 
 import importlib
+import logging
 import pytest
-from unittest import mock
+import sys
+import warnings
+from concurrent.futures import ThreadPoolExecutor
+from io import StringIO
 from itertools import permutations
+from unittest import mock
 
 import mlflow
 from mlflow.tracking import MlflowClient
 from mlflow.utils import gorilla
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     safe_patch,
     get_autologging_config,
     autologging_is_disabled,
 )
+
+from tests.autologging.fixtures import test_mode_off
+from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
@@ -169,3 +177,67 @@ def test_autolog_respects_disable_flag_across_import_orders():
         for fun in func_order_list:
             fun()
         test()
+
+
+@pytest.mark.usefixtures(test_mode_off.__name__)
+def test_autolog_respects_silent_mode(tmpdir):
+    # Use file-based experiment storage for this test. Otherwise, concurrent experiment creation in
+    # multithreaded contexts may fail for other storage backends (e.g. SQLAlchemy)
+    mlflow.set_tracking_uri(str(tmpdir))
+    mlflow.set_experiment("test_experiment")
+
+    og_showwarning = warnings.showwarning
+    stream = StringIO()
+    sys.stderr = stream
+    logger = logging.getLogger(mlflow.__name__)
+
+    from sklearn import datasets
+
+    iris = datasets.load_iris()
+
+    def train_model():
+        import sklearn.utils
+        from sklearn import svm
+        from sklearn.model_selection import GridSearchCV
+
+        parameters = {"kernel": ("linear", "rbf"), "C": [1, 10]}
+        svc = svm.SVC()
+        with sklearn.utils.parallel_backend(backend="threading"):
+            clf = GridSearchCV(svc, parameters)
+            clf.fit(iris.data, iris.target)
+
+        return True
+
+    # Call general and framework-specific autologging APIs to cover a
+    # larger surface area for testing purposes
+    mlflow.autolog(silent=True)
+    mlflow.sklearn.autolog(silent=True, log_input_examples=True)
+
+    executions = []
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        for _ in range(2):
+            e = executor.submit(train_model)
+            executions.append(e)
+
+    assert all([e.result() is True for e in executions])
+    assert not stream.getvalue()
+    # Verify that `warnings.showwarning` was restored to its original value after training
+    # and that MLflow event logs are enabled
+    assert warnings.showwarning == og_showwarning
+    logger.info("verify that event logs are enabled")
+    assert "verify that event logs are enabled" in stream.getvalue()
+
+    stream.truncate(0)
+
+    mlflow.sklearn.autolog(silent=False, log_input_examples=True)
+
+    with ThreadPoolExecutor(max_workers=50) as executor:
+        for _ in range(100):
+            executor.submit(train_model)
+
+    assert stream.getvalue()
+    # Verify that `warnings.showwarning` was restored to its original value after training
+    # and that MLflow event logs are enabled
+    assert warnings.showwarning == og_showwarning
+    logger.info("verify that event logs are enabled")
+    assert "verify that event logs are enabled" in stream.getvalue()

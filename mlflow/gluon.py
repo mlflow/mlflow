@@ -15,7 +15,7 @@ from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     ExceptionSafeClass,
@@ -332,7 +332,11 @@ def log_model(
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_models=True, disable=False, exclusive=False, disable_for_unsupported_versions=False
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from Gluon to MLflow.
@@ -350,6 +354,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       gluon that have not been tested against this version of the MLflow client
                       or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during MXNet Gluon
+                   autologging. If ``False``, show all events and warnings during MXNet Gluon
+                   autologging.
     """
 
     from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd

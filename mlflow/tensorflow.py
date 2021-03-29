@@ -36,7 +36,7 @@ from mlflow.utils.annotations import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     exception_safe_function,
@@ -826,6 +826,7 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     # pylint: disable=E0611
     """
@@ -889,6 +890,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       tensorflow that have not been tested against this version of the MLflow
                       client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during TensorFlow
+                   autologging. If ``False``, show all events and warnings during TensorFlow
+                   autologging.
     """
     import tensorflow
 

@@ -34,7 +34,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "pytorch"
 
@@ -836,6 +836,7 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -869,6 +870,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       pytorch and pytorch-lightning that have not been tested against this version
                       of the MLflow client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during PyTorch
+                   Lightning autologging. If ``False``, show all events and warnings during
+                   PyTorch Lightning autologging.
 
     .. code-block:: python
         :caption: Example

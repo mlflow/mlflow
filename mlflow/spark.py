@@ -50,7 +50,7 @@ from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.autologging import autologging_integration, safe_patch
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 
 FLAVOR_NAME = "spark"
@@ -682,7 +682,7 @@ class _PyFuncModelWrapper(object):
 
 @experimental
 @autologging_integration(FLAVOR_NAME)
-def autolog(disable=False):  # pylint: disable=unused-argument
+def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures logging of Spark datasource paths, versions
     (if applicable), and formats when they are read. This method is not threadsafe and assumes a
@@ -739,6 +739,9 @@ def autolog(disable=False):  # pylint: disable=unused-argument
 
     :param disable: If ``True``, disables the Spark datasource autologging integration.
                     If ``False``, enables the Spark datasource autologging integration.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Spark
+                   datasource autologging. If ``False``, show all events and warnings during Spark
+                   datasource autologging.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
     from mlflow._spark_autologging import _listen_for_spark_activity

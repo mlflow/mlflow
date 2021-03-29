@@ -1,5 +1,24 @@
 Changelog
 =========
+1.15.0 (2021-03-26)
+-------------------
+MLflow 1.15.0 includes several features, bug fixes and improvements. Notably, it includes a number of improvements to MLflow autologging:
+
+Features:
+
+- Add ``silent=False`` option to all autologging APIs, to allow suppressing MLflow warnings and logging statements during autologging setup and training (#4173, @dbczumar)
+- Add ``disable_for_unsupported_versions=False`` option to all autologging APIs, to disable autologging for versions of ML frameworks that have not been explicitly tested against the current version of the MLflow client (#4119, @WeichenXu123)
+
+Bug fixes:
+
+- Autologged runs are now terminated when execution is interrupted via SIGINT (#4200, @dbczumar)
+- The R ``mlflow_get_experiment`` API now returns the same tag structure as ``mlflow_list_experiments`` and ``mlflow_get_run`` (#4017, @lorenzwalthert)
+- Fix bug where ``mlflow.tensorflow.autolog`` would previously mutate the user-specified callbacks list when fitting ``tf.keras`` models (#4195, @dbczumar)
+- Fix bug where SQL-backed MLflow tracking server initialization failed when using the MLflow skinny client (#4161, @eedeleon)
+- Model version creation (e.g. via ``mlflow.register_model``) now fails if the model version status is not READY (#4114, @ankit-db)
+
+Small bug fixes and doc updates (#4191, #4149, #4162, #4157, #4155, #4144, #4141, #4138, #4136, #4133, #3964, #4130, #4118, @harupy; #4152, @mlflow-automation; #4139, @WeichenXu123; #4193, @smurching; #4029, @architkulkarni; #4134, @xhochy; #4116, @wenleix; #4160, @wentinghu; #4203, #4184, #4167, @dbczumar)
+
 1.14.1 (2021-03-01)
 -------------------
 MLflow 1.14.1 is a patch release containing the following bug fix:

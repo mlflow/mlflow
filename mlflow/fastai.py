@@ -29,7 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging import (
+from mlflow.utils.autologging_utils import (
     try_mlflow_log,
     log_fn_args_as_params,
     safe_patch,
@@ -381,7 +381,11 @@ def load_model(model_uri):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_models=True, disable=False, exclusive=False, disable_for_unsupported_versions=False
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=unused-argument
     """
     Enable automatic logging from Fastai to MLflow.
@@ -403,6 +407,9 @@ def autolog(
     :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
                       fastai that have not been tested against this version of the MLflow client
                       or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during Fastai
+                   autologging. If ``False``, show all events and warnings during Fastai
+                   autologging.
 
     .. code-block:: python
         :caption: Example
