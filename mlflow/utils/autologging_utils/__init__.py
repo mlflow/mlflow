@@ -16,6 +16,8 @@ from mlflow.entities import Metric
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 
+# Define the module-level logger for autologging utilities before importing utilities
+# defined in submodules (e.g., `safety`, `events`) that depend on the module-level logger
 _logger = logging.getLogger(__name__)
 
 from mlflow.utils.autologging_utils.safety import *
