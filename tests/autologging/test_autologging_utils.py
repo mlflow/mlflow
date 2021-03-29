@@ -12,12 +12,11 @@ import mlflow
 from mlflow.utils import gorilla
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.autologging_utils import (
+    AUTOLOGGING_INTEGRATIONS,
     log_fn_args_as_params,
-    _wrap_patch,
     resolve_input_example_and_signature,
     batch_metrics_logger,
     AutologgingEventLogger,
-    AutologgingSession,
     BatchMetricsLogger,
     autologging_integration,
     get_autologging_config,
@@ -26,7 +25,7 @@ from mlflow.utils.autologging_utils import (
     _check_version_in_range,
     _cross_tested_flavor_to_module_name_and_module_key,
 )
-from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSession
 
 
 from tests.autologging.fixtures import test_mode_off
@@ -721,14 +720,18 @@ _module_version_info_dict_patch = {
         ("pytorch", "1.0.4", False),
     ],
 )
-@mock.patch("mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch)
+@mock.patch(
+    "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
+)
 def test_is_autologging_integration_supported(flavor, module_version, expected_result):
     module_name, _ = _cross_tested_flavor_to_module_name_and_module_key[flavor]
     with mock.patch(module_name + ".__version__", module_version):
         assert expected_result == _is_autologging_integration_supported(flavor)
 
 
-@mock.patch("mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch)
+@mock.patch(
+    "mlflow.utils.autologging_utils._module_version_info_dict", _module_version_info_dict_patch
+)
 def test_disable_for_unsupported_versions_warning_sklearn_integration():
     log_warn_fn_name = "mlflow.utils.autologging_utils._logger.warning"
     log_info_fn_name = "mlflow.tracking.fluent._logger.info"

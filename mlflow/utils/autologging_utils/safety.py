@@ -266,8 +266,6 @@ def is_testing():
     return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
-
-
 def safe_patch(
     autologging_integration, destination, function_name, patch_function, manage_run=False
 ):
@@ -337,7 +335,9 @@ def safe_patch(
 
         # Whether or not to exclude auto-autologged content from content explicitly logged via
         # `mlflow.start_run()`
-        exclusive = autologging_utils.get_autologging_config(autologging_integration, "exclusive", False)
+        exclusive = autologging_utils.get_autologging_config(
+            autologging_integration, "exclusive", False
+        )
 
         active_run = mlflow.active_run()
 

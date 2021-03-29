@@ -17,16 +17,18 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
     exception_safe_function,
-    _AutologgingSessionManager,
     AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
     PatchFunction,
     with_managed_run,
+    is_testing,
+    try_mlflow_log,
+)
+from mlflow.utils.autologging_utils.safety import (
+    _AutologgingSessionManager,
     _validate_args,
     _validate_autologging_run,
-    _is_testing,
-    try_mlflow_log,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
@@ -186,13 +188,13 @@ def mock_event_logger():
 def test_is_testing_respects_environment_variable():
     try:
         prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
-        assert not _is_testing()
+        assert not is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "false"
-        assert not _is_testing()
+        assert not is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "true"
-        assert _is_testing()
+        assert is_testing()
     finally:
         if prev_env_var_value:
             os.environ["MLFLOW_AUTOLOGGING_TESTING"] = prev_env_var_value
@@ -437,7 +439,8 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
     with pytest.raises(Exception, match="does not match expected input"), mock.patch(
-        "mlflow.utils.autologging_utils._validate_args", wraps=autologging_utils._validate_args
+        "mlflow.utils.autologging_utils.safety._validate_args",
+        wraps=autologging_utils._validate_args,
     ) as validate_mock:
         patch_destination.fn("a", "b", "c")
 
@@ -448,7 +451,7 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
 def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
     patch_destination, test_autologging_integration
 ):
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     def leak_run_patch_impl(original, *args, **kwargs):
         mlflow.start_run(nested=True)
@@ -473,7 +476,7 @@ def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
 def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_mode(
     patch_destination, test_autologging_integration
 ):
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     def leak_run_patch_impl(original, *args, **kwargs):
         mlflow.start_run(nested=True)
@@ -492,7 +495,7 @@ def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_
 def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
     patch_destination, test_autologging_integration
 ):
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     def no_tag_run_patch_impl(original, *args, **kwargs):
         with mlflow.start_run(nested=True):
@@ -501,7 +504,8 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
     safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils._validate_autologging_run", wraps=_validate_autologging_run
+        "mlflow.utils.autologging_utils.safety._validate_autologging_run",
+        wraps=_validate_autologging_run,
     ) as validate_run_mock:
 
         with pytest.raises(
@@ -522,7 +526,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
 def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
     patch_destination, test_autologging_integration
 ):
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     def no_tag_run_patch_impl(original, *args, **kwargs):
         with mlflow.start_run(nested=True):
@@ -531,7 +535,8 @@ def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
     safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils._validate_autologging_run", wraps=_validate_autologging_run
+        "mlflow.utils.autologging_utils.safety._validate_autologging_run",
+        wraps=_validate_autologging_run,
     ) as validate_run_mock:
 
         patch_destination.fn()
@@ -556,7 +561,7 @@ def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
         return original(*args, **kwargs)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run
+        "mlflow.utils.autologging_utils.safety.with_managed_run", wraps=with_managed_run
     ) as managed_run_mock:
         safe_patch(
             test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True
@@ -881,7 +886,7 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     @exception_safe_function
     def non_throwing_function():
@@ -905,7 +910,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     @exception_safe_function
     def non_throwing_function():
@@ -929,7 +934,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(baseclass, metaclass):
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     class NonThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
@@ -958,7 +963,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(basecl
     "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass, metaclass):
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     class NonThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
@@ -1445,7 +1450,7 @@ def test_validate_autologging_run_validates_run_status_correctly():
 
 
 def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     def throwing_function():
         raise Exception("bad implementation")
@@ -1456,7 +1461,7 @@ def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_try_mlflow_log_propagates_exceptions_in_test_mode():
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     def throwing_function():
         raise Exception("bad implementation")
