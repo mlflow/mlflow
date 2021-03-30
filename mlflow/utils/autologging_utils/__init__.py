@@ -1,4 +1,4 @@
-# pylint: disable=unused-wildcard-import
+# pylint: disable=unused-wildcard-import,wildcard-import
 
 import importlib
 import inspect
@@ -19,11 +19,11 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 _logger = logging.getLogger(__name__)
 
 # Import autologging utilities used by this module
-from mlflow.utils.autologging_utils.logging_and_warnings import (
+from mlflow.utils.autologging_utils.logging_and_warnings import (  # noqa: E402
     set_mlflow_events_and_warnings_behavior_globally,
     set_non_mlflow_warnings_behavior_for_current_thread,
 )
-from mlflow.utils.autologging_utils.safety import (
+from mlflow.utils.autologging_utils.safety import (  # noqa: E402
     try_mlflow_log,
     update_wrapper_extended,
 )
@@ -31,8 +31,8 @@ from mlflow.utils.autologging_utils.safety import (
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
 # in autologging integration implementations, which reference them via the
 # `mlflow.utils.autologging_utils` module
-from mlflow.utils.autologging_utils.safety import *
-from mlflow.utils.autologging_utils.events import *
+from mlflow.utils.autologging_utils.safety import *  # noqa: E402
+from mlflow.utils.autologging_utils.events import *  # noqa: E402
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
