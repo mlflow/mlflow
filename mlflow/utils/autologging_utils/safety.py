@@ -10,10 +10,10 @@ from collections import namedtuple
 from contextlib import contextmanager
 
 import mlflow
-import mlflow.utils.autologging_utils as autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
+from mlflow.utils.autologging_utils import _logger
 from mlflow.utils.autologging_utils.events import AutologgingEventLogger
 from mlflow.utils.autologging_utils.logging_and_warnings import (
     set_mlflow_events_and_warnings_behavior_globally,
@@ -22,8 +22,6 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
-
-_logger = autologging_utils._logger
 
 
 def try_mlflow_log(fn, *args, **kwargs):

@@ -1,8 +1,6 @@
 import warnings
 
-import mlflow.utils.autologging_utils as autologging_utils
-
-_logger = autologging_utils._logger
+from mlflow.utils.autologging_utils import _logger
 
 
 class AutologgingEventLogger:

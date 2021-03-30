@@ -18,9 +18,21 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 # defined in submodules (e.g., `safety`, `events`) that depend on the module-level logger
 _logger = logging.getLogger(__name__)
 
-from mlflow.utils.autologging_utils.events import *
-from mlflow.utils.autologging_utils.logging_and_warnings import *
+# Import autologging utilities used by this module
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    set_mlflow_events_and_warnings_behavior_globally,
+    set_non_mlflow_warnings_behavior_for_current_thread,
+)
+from mlflow.utils.autologging_utils.safety import (
+    try_mlflow_log,
+    update_wrapper_extended,
+)
+
+# Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
+# in autologging integration implementations, which reference them via the
+# `mlflow.utils.autologging_utils` module
 from mlflow.utils.autologging_utils.safety import *
+from mlflow.utils.autologging_utils.events import *
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5
