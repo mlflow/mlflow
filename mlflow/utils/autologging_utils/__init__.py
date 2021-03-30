@@ -25,6 +25,7 @@ from mlflow.utils.autologging_utils.safety import (
     try_mlflow_log,
     update_wrapper_extended,
 )
+
 # Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
 # in autologging integration implementations, which reference them via the
 # `mlflow.utils.autologging_utils` module
