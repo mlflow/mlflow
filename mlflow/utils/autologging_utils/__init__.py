@@ -1,14 +1,10 @@
-import os
 import importlib
 import inspect
-import warnings
 import logging
 import time
 import contextlib
 import yaml
-from contextlib import contextmanager
 from distutils.version import LooseVersion
-from pathlib import Path
 from pkg_resources import resource_filename
 
 import mlflow
@@ -20,6 +16,18 @@ from mlflow.utils.validation import MAX_METRICS_PER_BATCH
 # defined in submodules (e.g., `safety`, `events`) that depend on the module-level logger
 _logger = logging.getLogger(__name__)
 
+# Import autologging utilities used by this module
+from mlflow.utils.autologging_utils.logging_and_warnings import (
+    set_mlflow_events_and_warnings_behavior_globally,
+    set_non_mlflow_warnings_behavior_for_current_thread,
+)
+from mlflow.utils.autologging_utils.safety import (
+    try_mlflow_log,
+    update_wrapper_extended,
+)
+# Wildcard import other autologging utilities (e.g. safety utilities, event logging utilities) used
+# in autologging integration implementations, which reference them via the
+# `mlflow.utils.autologging_utils` module
 from mlflow.utils.autologging_utils.safety import *
 from mlflow.utils.autologging_utils.events import *
 
@@ -28,9 +36,12 @@ INPUT_EXAMPLE_SAMPLE_ROWS = 5
 ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
+_AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
+
+_logger = logging.getLogger(__name__)
 
 
 def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
@@ -349,6 +360,11 @@ def autologging_integration(name):
                 "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
                 " must specify a 'disable' argument with default value 'False'".format(name)
             )
+        elif "silent" not in param_spec or param_spec["silent"].default is not False:
+            raise Exception(
+                "Invalid `autolog()` function for integration '{}'. `autolog()` functions"
+                " must specify a 'silent' argument with default value 'False'".format(name)
+            )
 
     def wrapper(_autolog):
         param_spec = inspect.signature(_autolog).parameters
@@ -365,18 +381,42 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
-            try:
-                # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
-                # event loggers to more easily identify important configuration parameters
-                # (e.g., `disable`) without examining positional arguments. Passing positional
-                # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
-                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
-            except Exception:
-                pass
+            is_silent_mode = get_autologging_config(name, "silent", False)
+            # Reroute non-MLflow warnings encountered during autologging enablement to an
+            # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
+            # autologging integration was called with `silent=True`)
+            with set_mlflow_events_and_warnings_behavior_globally(
+                # MLflow warnings emitted during autologging setup / enablement are likely
+                # actionable and relevant to the user, so they should be emitted as normal
+                # when `silent=False`. For reference, see recommended warning and event logging
+                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=False,
+                disable_event_logs=is_silent_mode,
+                disable_warnings=is_silent_mode,
+            ), set_non_mlflow_warnings_behavior_for_current_thread(
+                # non-MLflow warnings emitted during autologging setup / enablement are not
+                # actionable for the user, as they are a byproduct of the autologging
+                # implementation. Accordingly, they should be rerouted to `logger.warning()`.
+                # For reference, see recommended warning and event logging
+                # behaviors from https://docs.python.org/3/howto/logging.html#when-to-use-logging
+                reroute_warnings=True,
+                disable_warnings=is_silent_mode,
+            ):
 
-            _check_and_log_warning_for_unsupported_integration(name)
+                try:
+                    # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
+                    # event loggers to more easily identify important configuration parameters
+                    # (e.g., `disable`) without examining positional arguments. Passing positional
+                    # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
+                    AutologgingEventLogger.get_logger().log_autolog_called(
+                        name, (), config_to_store
+                    )
+                except Exception:
+                    pass
 
-            return _autolog(*args, **kwargs)
+                _check_and_log_warning_for_unsupported_integration(name)
+
+                return _autolog(*args, **kwargs)
 
         wrapped_autolog = update_wrapper_extended(autolog, _autolog)
         # Set the autologging integration name as a function attribute on the wrapped autologging
@@ -427,51 +467,3 @@ def autologging_is_disabled(flavor_name):
         return get_autologging_config(flavor_name, "disable_for_unsupported_versions", False)
 
     return False
-
-
-@contextmanager
-def _augment_mlflow_warnings(autologging_integration):
-    """
-    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
-    API. In many cases, the user cannot remediate the cause of these warnings because
-    they result from the autologging patch implementation, rather than a user-facing API call.
-
-    Accordingly, this context manager is designed to augment MLflow warnings issued during
-    autologging patch code execution, explaining that such warnings were raised as a result of
-    MLflow's autologging implementation. MLflow warnings are also redirected from `sys.stderr`
-    to an MLflow logger with level WARNING. Warnings issued by code outside of MLflow are
-    not modified. When the context manager exits, the original output behavior for MLflow warnings
-    is restored.
-
-    :param autologging_integration: The name of the active autologging integration for which
-                                    MLflow warnings are to be augmented during patch code
-                                    execution.
-    """
-    original_showwarning = warnings.showwarning
-
-    def autologging_showwarning(message, category, filename, lineno, *args, **kwargs):
-        mlflow_root_path = Path(os.path.dirname(mlflow.__file__)).resolve()
-        warning_source_path = Path(filename).resolve()
-        # If the warning's source file is contained within the MLflow package's base
-        # directory, it is an MLflow warning and should be emitted via `logger.warning`
-        if mlflow_root_path in warning_source_path.parents:
-            _logger.warning(
-                "MLflow issued a warning during %s autologging:" ' "%s:%d: %s: %s"',
-                autologging_integration,
-                filename,
-                lineno,
-                category.__name__,
-                message,
-            )
-        else:
-            original_showwarning(message, category, filename, lineno, *args, **kwargs)
-
-    try:
-        # NB: Reassigning `warnings.showwarning` is the standard / recommended approach for
-        # specifying an alternative destination and output format for warning messages
-        # (i.e. a sink other than `sys.stderr`). For reference, see
-        # https://docs.python.org/3/library/warnings.html#warnings.showwarning
-        warnings.showwarning = autologging_showwarning
-        yield
-    finally:
-        warnings.showwarning = original_showwarning
