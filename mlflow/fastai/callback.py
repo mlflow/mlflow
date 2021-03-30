@@ -49,10 +49,10 @@ class __MLflowFastaiCallback(Callback):
         self.metrics_logger.record_metrics(metrics, step=metrics["epoch"])
 
     def before_fit(self):
-        from fastai.callback.all import ParamScheduler
+        from fastai.callback.all import ParamScheduler, GatherPredsCallback
 
         # Do not record in case of predicting
-        if self.learn.y is None:
+        if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
             return
 
         try_mlflow_log(mlflow.log_param, "opt_func", self.opt_func.__name__)
