@@ -292,8 +292,6 @@ def _check_and_log_warning_for_unsupported_package_versions(integration_name):
     associated package versions are supported by the specified integration. If the package versions
     are not supported, log a warning message.
     """
-    from mlflow.utils.autologging_utils import get_autologging_config, _logger
-
     if (
         integration_name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
         and not get_autologging_config(integration_name, "disable", True)
