@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+
 import sklearn
 import sklearn.base
 import sklearn.datasets
@@ -141,7 +142,7 @@ def test_autolog_preserves_original_function_attributes():
 )
 def test_autolog_emits_warning_on_unsupported_versions_of_sklearn():
     with pytest.warns(
-        UserWarning, match="Autologging utilities may not work properly on scikit-learn"
+            UserWarning, match="Autologging utilities may not work properly on scikit-learn"
     ):
         mlflow.sklearn.autolog()
 
@@ -369,8 +370,8 @@ def test_get_params_returns_dict_that_has_more_keys_than_max_params_tags_per_bat
         ({"a": "b" * (MAX_PARAM_VAL_LENGTH + 1)}, ["Truncated the value"]),
         # both key and value exceed the limit
         (
-            {("a" * (MAX_ENTITY_KEY_LENGTH + 1)): "b" * (MAX_PARAM_VAL_LENGTH + 1)},
-            ["Truncated the key", "Truncated the value"],
+                {("a" * (MAX_ENTITY_KEY_LENGTH + 1)): "b" * (MAX_PARAM_VAL_LENGTH + 1)},
+                ["Truncated the key", "Truncated the value"],
         ),
     ],
 )
@@ -380,7 +381,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     X, y = get_iris()
 
     with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
+            "mlflow.sklearn.utils._logger.warning"
     ) as mock_warning, mlflow.start_run() as run:
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
@@ -594,7 +595,7 @@ def test_autolog_emits_warning_message_when_score_fails():
 
     model.score = throwing_score
 
-    with mlflow.start_run(), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(*get_iris())
         mock_warning.assert_called_once()
         mock_warning.called_once_with(
@@ -616,7 +617,7 @@ def test_autolog_emits_warning_message_when_metric_fails():
         raise Exception("EXCEPTION")
 
     with mlflow.start_run(), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
+            "mlflow.sklearn.utils._logger.warning"
     ) as mock_warning, mock.patch("sklearn.metrics.precision_score", side_effect=throwing_metrics):
         model.fit(*get_iris())
         mock_warning.assert_called_once()
@@ -675,7 +676,7 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
     X, y = get_iris()
 
     with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
+            "mlflow.log_metric"
     ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
@@ -702,7 +703,7 @@ def test_meta_estimator_fit_performs_logging_only_once():
     X, y = get_iris()
 
     with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
+            "mlflow.log_metric"
     ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
         "mlflow.sklearn.log_model"
     ) as mock_log_model:
@@ -754,9 +755,9 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
     )
     assert params == expected_cv_params
     assert {
-        TRAINING_SCORE: cv_model.score(X, y),
-        "best_cv_score": cv_model.best_score_,
-    }.items() <= metrics.items()
+               TRAINING_SCORE: cv_model.score(X, y),
+               "best_cv_score": cv_model.best_score_,
+           }.items() <= metrics.items()
     assert tags == get_expected_class_tags(cv_model)
     assert MODEL_DIR in artifacts
     assert "best_estimator" in artifacts
@@ -865,7 +866,7 @@ def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
     X, y = get_iris()
 
     with mlflow.start_run(), mock.patch(
-        func_to_fail, side_effect=Exception(func_to_fail)
+            func_to_fail, side_effect=Exception(func_to_fail)
     ) as mock_func:
         model.fit(X, y)
         mock_func.assert_called_once()
@@ -963,7 +964,7 @@ def test_autolog_does_not_throw_when_predict_fails():
 
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
     with mlflow.start_run() as run, mock.patch(
-        "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
+            "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
@@ -978,7 +979,7 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
     X, y = get_iris()
 
     with mlflow.start_run() as run, mock.patch(
-        "mlflow.models.infer_signature", side_effect=Exception("Failed")
+            "mlflow.models.infer_signature", side_effect=Exception("Failed")
     ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
@@ -1106,3 +1107,324 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
     _, _, tags, _ = get_run_data(run.info.run_id)
     assert {"estimator_name": "ChildMod"}.items() <= tags.items()
     assert model.predict(1) == np.array([8])
+
+
+def test_log_eval_metrics_for_regressor():
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
+
+    # use simple `LinearRegression`, which only implements `fit`.
+    model = sklearn.linear_model.LinearRegression()
+    X, y_true = get_iris()
+    X_eval = X[:-1, :]
+    y_eval = y_true[:-1]
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y_true, "fit")
+        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(model=model, X=X_eval,
+                                                                                    y_true=y_eval, prefix="eval_")
+    # Check correctness for the returned metrics/artifacts
+    y_pred = model.predict(X_eval)
+    assert eval_metrics == {
+        "eval_score": model.score(X_eval, y_eval),
+        "eval_mse": sklearn.metrics.mean_squared_error(y_eval, y_pred),
+        "eval_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_eval, y_pred)),
+        "eval_mae": sklearn.metrics.mean_absolute_error(y_eval, y_pred),
+        "eval_r2_score": sklearn.metrics.r2_score(y_eval, y_pred),
+    }
+
+    assert len(eval_artifacts) == 0
+
+    # Check that artifacts/metrics were logged under the active run
+    run_id = run.info.run_id
+    assert run_id == eval_run_id
+
+    # Check that logged metrics/artifacts are the same as returned by the method
+    _, metrics, _, artifacts = get_run_data(run_id)
+    assert metrics == eval_metrics
+    assert artifacts == eval_artifacts
+
+
+def test_log_eval_metrics_for_binary_classifier():
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
+
+    import sklearn.ensemble
+
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use binary datasets to cover the test for roc curve & precision recall curve
+    X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
+    X_eval = X[:-1, :]
+    y_eval = y[:-1]
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, "fit")
+        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(model=model, X=X_eval,
+                                                                                    y_true=y_eval, prefix="val_")
+
+    y_pred = model.predict(X_eval)
+    y_pred_prob = model.predict_proba(X_eval)
+    # For binary classification, y_score only accepts the probability of greater label
+    y_pred_prob_roc = y_pred_prob[:, 1]
+
+    expected_metrics = {
+        "val_score": model.score(X_eval, y_eval),
+        "val_accuracy_score": sklearn.metrics.accuracy_score(y_eval, y_pred),
+        "val_precision_score": sklearn.metrics.precision_score(
+            y_eval, y_pred, average="weighted"
+        ),
+        "val_recall_score": sklearn.metrics.recall_score(y_eval, y_pred, average="weighted"),
+        "val_f1_score": sklearn.metrics.f1_score(y_eval, y_pred, average="weighted"),
+        "val_log_loss": sklearn.metrics.log_loss(y_eval, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+        )
+    assert eval_metrics == expected_metrics
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names.extend(
+            [
+                "{}.png".format("val_confusion_matrix"),
+                "{}.png".format("val_roc_curve"),
+                "{}.png".format("val_precision_recall_curve"),
+            ]
+        )
+    assert sorted(eval_artifacts) == sorted(plot_names)
+
+    # Check that logging happened under the active run
+    run_id = run.info.run_id
+    assert run_id == eval_run_id
+
+    # Check that logged artifacts/metrics are the same as the ones returned by the method
+    _, metrics, _, artifacts = get_run_data(run_id)
+
+    assert metrics == eval_metrics
+    assert sorted(artifacts) == sorted(eval_artifacts)
+
+
+def test_log_eval_metrics_for_classifier_multi_class():
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
+
+    import sklearn.ensemble
+
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use multi-class datasets to verify that roc curve & precision recall curve care not recorded
+    X, y = get_iris()
+    X_eval = X[:-1, :]
+    y_eval = y[:-1]
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, "fit")
+        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(model=model, X=X_eval,
+                                                                                    y_true=y_eval, prefix="eval_")
+
+    # Check the contents of the returned artifacts and metrics
+    y_pred = model.predict(X_eval)
+    y_pred_prob = model.predict_proba(X_eval)
+
+    expected_metrics = {
+        "eval_score": model.score(X_eval, y_eval),
+        "eval_accuracy_score": sklearn.metrics.accuracy_score(y_eval, y_pred),
+        "eval_precision_score": sklearn.metrics.precision_score(
+            y_eval, y_pred, average="weighted"
+        ),
+        "eval_recall_score": sklearn.metrics.recall_score(y_eval, y_pred, average="weighted"),
+        "eval_f1_score": sklearn.metrics.f1_score(y_eval, y_pred, average="weighted"),
+        "eval_log_loss": sklearn.metrics.log_loss(y_eval, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["eval_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_eval, y_score=y_pred_prob, average="weighted", multi_class="ovo",
+        )
+
+    assert eval_metrics == expected_metrics
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names = ["{}.png".format("eval_confusion_matrix")]
+
+    assert sorted(plot_names) == sorted(eval_artifacts)
+
+    # Check that the active run was used
+    run_id = run.info.run_id
+    assert run_id == eval_run_id
+
+    # Check that the logged metrics/artifacts are the same as the ones returned by the method.
+    _, metrics, _, artifacts = get_run_data(run_id)
+
+    assert metrics == eval_metrics
+    assert artifacts == eval_artifacts
+
+
+def test_log_eval_metrics_with_estimator(fit_func_name):
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
+
+    import sklearn.cluster
+
+    # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
+    model = sklearn.cluster.KMeans()
+    X, y = get_iris()
+    X_eval = X[:-1, :]
+    y_eval = y[:-1]
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, fit_func_name)
+        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(model=model, X=X_eval,
+                                                                                    y_true=y_eval, prefix="eval_")
+
+    # Check contents of returned artifacts/metrics
+    assert len(eval_artifacts) == 0
+    assert eval_metrics == {"eval_score": model.score(X_eval, y_eval)}
+
+    # Check that the active run was used
+    run_id = run.info.run_id
+    assert run_id == eval_run_id
+
+    # Checked that the logged metrics are the same as returned by the method.
+    _, metrics, _, _ = get_run_data(run_id)
+
+    assert metrics == eval_metrics
+
+
+def test_log_eval_metrics_with_meta_estimator():
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
+
+    import sklearn.preprocessing
+    import sklearn.svm
+
+    estimators = [
+        ("std_scaler", sklearn.preprocessing.StandardScaler()),
+        ("svc", sklearn.svm.SVC()),
+    ]
+    model = sklearn.pipeline.Pipeline(estimators)
+    X, y = get_iris()
+    X_eval = X[:-1, :]
+    y_eval = y[:-1]
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(model=model, X=X_eval,
+                                                                                    y_true=y_eval, prefix="eval_")
+
+    # Check that the existing active run was used.
+    run_id = run.info.run_id
+    assert eval_run_id == run_id
+
+    # Check that the logged metrics/artifacts for the run are exactly those returned by the call
+    _, metrics, _, artifacts = get_run_data(run_id)
+    assert sorted(artifacts) == sorted(eval_artifacts)
+    assert metrics == eval_metrics
+
+    # Check the actual metrics and artifacts
+    y_pred = model.predict(X_eval)
+
+    # SVC does not support probability predictions so the corresponding metrics (log_loss, auc)
+    # are missing.
+    expected_metrics = {
+        "eval_score": model.score(X_eval, y_eval),
+        "eval_accuracy_score": sklearn.metrics.accuracy_score(y_eval, y_pred),
+        "eval_precision_score": sklearn.metrics.precision_score(y_eval, y_pred, average="weighted"),
+        "eval_recall_score": sklearn.metrics.recall_score(y_eval, y_pred, average="weighted"),
+        "eval_f1_score": sklearn.metrics.f1_score(y_eval, y_pred, average="weighted"),
+    }
+    assert eval_metrics == expected_metrics
+
+    client = mlflow.tracking.MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run_id)]
+    plot_names = ["{}.png".format("eval_confusion_matrix")] if _is_plotting_supported() else []
+    assert plot_names == eval_artifacts
+
+
+def test_log_eval_metrics_with_new_run():
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
+
+    # use simple `LinearRegression`, which only implements `fit`.
+    model = sklearn.linear_model.LinearRegression()
+    X, y_true = get_iris()
+    X_eval = X[:-1, :]
+    y_eval = y_true[:-1]
+    model = fit_model(model, X, y_true, "fit")
+
+    run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(model=model, X=X_eval, y_true=y_eval,
+                                                                           prefix="eval_")
+    # Check the contents for the metrics and artifacts
+    y_pred = model.predict(X_eval)
+    assert eval_metrics == {
+        "eval_score": model.score(X_eval, y_eval),
+        "eval_mse": sklearn.metrics.mean_squared_error(y_eval, y_pred),
+        "eval_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_eval, y_pred)),
+        "eval_mae": sklearn.metrics.mean_absolute_error(y_eval, y_pred),
+        "eval_r2_score": sklearn.metrics.r2_score(y_eval, y_pred),
+    }
+    assert len(eval_artifacts) == 0
+
+    # Check the the logged metrics/artifacts are the same as the returned ones.
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert eval_metrics == metrics
+    assert eval_artifacts == artifacts
+
+
+def test_log_eval_metrics_throws_with_invalid_args():
+    X, y_true = get_iris()
+    model = sklearn.linear_model.LinearRegression()
+
+    with pytest.raises(ValueError, match='must specify a non-empty prefix'):
+        mlflow.sklearn.log_eval_metrics(model_uri='foo', X=X, y_true=y_true, prefix='')
+
+    with pytest.raises(ValueError, match='must specify a non-empty prefix'):
+        mlflow.sklearn.log_eval_metrics(model_uri='foo', X=X, y_true=y_true, prefix=None)
+
+    with pytest.raises(ValueError, match='only one of `model` or `model_uri`'):
+        mlflow.sklearn.log_eval_metrics(model=model, model_uri='foo', X=X, y_true=y_true, prefix="val_")
+
+    with pytest.raises(ValueError, match='at least one of `model` or `model_uri`'):
+        mlflow.sklearn.log_eval_metrics(X=X, y_true=y_true, prefix="val_")
+
+
+def test_log_eval_metrics_for_run_uri():
+    mlflow.sklearn.autolog()
+
+    model = sklearn.linear_model.LinearRegression()
+    X, y_true = get_iris()
+    X_eval = X[:-1, :]
+    y_eval = y_true[:-1]
+    with mlflow.start_run() as run:
+        model.fit(X, y_true)
+    run_id = run.info.run_id
+
+    eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        model_uri=f"runs:/{run_id}/{MODEL_DIR}",
+        X=X_eval, y_true=y_eval,
+        prefix="eval_")
+
+    # Check the contents of the returned metrics artifacts
+    y_pred = model.predict(X_eval)
+    assert eval_metrics == {
+        "eval_score": model.score(X_eval, y_eval),
+        "eval_mse": sklearn.metrics.mean_squared_error(y_eval, y_pred),
+        "eval_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_eval, y_pred)),
+        "eval_mae": sklearn.metrics.mean_absolute_error(y_eval, y_pred),
+        "eval_r2_score": sklearn.metrics.r2_score(y_eval, y_pred),
+    }
+    assert len(eval_artifacts) == 0
+
+    # Check that the model's run was used
+    assert eval_run_id == run_id
+
+    # Check that the logged metrics and artifacts contain the ones returned by the call.
+    params, metrics, tags, artifacts = get_run_data(run_id)
+    assert metrics.items() >= eval_metrics.items()
+    assert artifacts >= eval_artifacts
+
