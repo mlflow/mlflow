@@ -7,7 +7,7 @@ from pkg_resources import resource_filename
 
 # A map FLAVOR_NAME -> a tuple of (dependent_module_name, key_in_module_version_info_dict)
 FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
-    "fastai": ("fastai", "fastai-1.x"),
+    "fastai": ("fastai", "fastai-2.x"),
     "gluon": ("mxnet", "gluon"),
     "keras": ("keras", "keras"),
     "lightgbm": ("lightgbm", "lightgbm"),

@@ -266,7 +266,6 @@ def batch_metrics_logger(run_id):
     batch_metrics_logger.flush()
 
 
-
 def gen_autologging_package_version_requirements_doc(integration_name):
     """
     :return: A document note string saying the compatibility for the specified autologging
