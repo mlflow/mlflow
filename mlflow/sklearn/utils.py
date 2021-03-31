@@ -108,8 +108,11 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
     # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
-    sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs) if (
-            _SAMPLE_WEIGHT in fit_arg_names) else None
+    sample_weight = (
+        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+        if (_SAMPLE_WEIGHT in fit_arg_names)
+        else None
+    )
 
     return (*Xy, sample_weight)
 
@@ -376,9 +379,7 @@ def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict[prefix + "rmse"] = np.sqrt(
-        metrics_value_dict[prefix + "mse"]
-    )
+    metrics_value_dict[prefix + "rmse"] = np.sqrt(metrics_value_dict[prefix + "mse"])
 
     return metrics_value_dict
 
@@ -397,17 +398,19 @@ def _log_warning_for_metrics(func_name, func_call, err):
 
 def _log_warning_for_artifacts(func_name, func_call, err):
     msg = (
-            func_call.__qualname__
-            + " failed. The artifact "
-            + func_name
-            + " will not be recorded."
-            + " Artifact error: "
-            + str(err)
+        func_call.__qualname__
+        + " failed. The artifact "
+        + func_name
+        + " will not be recorded."
+        + " Artifact error: "
+        + str(err)
     )
     _logger.warning(msg)
 
 
-def _log_specialized_estimator_content(fitted_estimator, run_id, prefix, X, y_true, sample_weight=None):
+def _log_specialized_estimator_content(
+    fitted_estimator, run_id, prefix, X, y_true, sample_weight=None
+):
     import sklearn
 
     mlflow_client = MlflowClient()
@@ -434,12 +437,14 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, prefix, X, y_tr
             metrics=[
                 Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
                 for key, value in metrics.items()
-            ]
+            ],
         )
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
-            artifacts = _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight)
+            artifacts = _get_classifier_artifacts(
+                fitted_estimator, prefix, X, y_true, sample_weight
+            )
         except Exception as e:
             msg = (
                 "Failed to autolog artifacts for "
@@ -469,43 +474,52 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, prefix, X, y_tr
 
     return (metrics, artifact_paths)
 
+
 def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
     """
-    Logs content for the given estimator, which includes metrics and artifacts that might be tailored to the
-    estimator's type (e.g., regression vs classification).
+    Logs content for the given estimator, which includes metrics and artifacts that might be
+    tailored to the estimator's type (e.g., regression vs classification).
 
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
-    :param prefix: A prefix used to name the logged content. Typically it's 'training_' for training-time content and
-                   user-controlled for evaluation-time content.
+    :param prefix: A prefix used to name the logged content. Typically it's 'training_' for
+                   training-time content and user-controlled for evaluation-time content.
     :param X: The data samples.
     :param y_true: Labels.
     :param sample_weight: Per-sample weights used in the computation of metrics and artifacts.
     :return: A tuple (metrics, artifacts) with dicts of the computed metrics and artifacts.
     """
-    (metrics, artifacts) = _log_specialized_estimator_content(fitted_estimator=estimator, run_id=run_id, prefix=prefix,
-                                                              X=X, y_true=y_true,
-                                                              sample_weight=sample_weight)
+    (metrics, artifacts) = _log_specialized_estimator_content(
+        fitted_estimator=estimator,
+        run_id=run_id,
+        prefix=prefix,
+        X=X,
+        y_true=y_true,
+        sample_weight=sample_weight,
+    )
 
     if hasattr(estimator, "score"):
         try:
             # Use the sample weight only if it is present in the score args
             score_arg_names = _get_arg_names(estimator.score)
-            score_args = (X, y_true, sample_weight) if _SAMPLE_WEIGHT in score_arg_names else (X, y_true)
+            score_args = (
+                (X, y_true, sample_weight) if _SAMPLE_WEIGHT in score_arg_names else (X, y_true)
+            )
             score = estimator.score(*score_args)
         except Exception as e:
             msg = (
-                    estimator.score.__qualname__
-                    + " failed. The 'training_score' metric will not be recorded. Scoring error: "
-                    + str(e)
+                estimator.score.__qualname__
+                + " failed. The 'training_score' metric will not be recorded. Scoring error: "
+                + str(e)
             )
             _logger.warning(msg)
         else:
-            score_key = prefix+"score"
+            score_key = prefix + "score"
             try_mlflow_log(mlflow.log_metric, score_key, score)
-            metrics[score_key]=score
+            metrics[score_key] = score
 
     return (metrics, artifacts)
+
 
 def _chunk_dict(d, chunk_size):
     # Copied from: https://stackoverflow.com/a/22878842
