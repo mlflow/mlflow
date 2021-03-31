@@ -818,14 +818,6 @@ def autolog(
         :param kwargs: The keyword arguments passed to the scikit-learn training routine.
         """
 
-        # log common metrics and artifacts for estimators (classifier, regressor)
-
-        def get_input_example():
-            # Fetch an input example using the first several rows of the array-like
-            # training data supplied to the training routine (e.g., `fit()`)
-            input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
-            return input_example
-
         def infer_model_signature(input_example):
             if not hasattr(estimator, "predict"):
                 raise Exception(
@@ -836,6 +828,8 @@ def autolog(
             return infer_signature(input_example, estimator.predict(input_example))
 
         (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
+
+        # log common metrics and artifacts for estimators (classifier, regressor)
         _log_estimator_content(
             estimator=estimator,
             prefix=_TRAINING_PREFIX,
@@ -844,6 +838,12 @@ def autolog(
             y_true=y_true,
             sample_weight=sample_weight,
         )
+
+        def get_input_example():
+            # Fetch an input example using the first several rows of the array-like
+            # training data supplied to the training routine (e.g., `fit()`)
+            input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
+            return input_example
 
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
@@ -1020,7 +1020,7 @@ def log_eval_metrics(*, model=None, model_uri=None, X, y_true, prefix, sample_we
 
 
     Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
-    metrics and artifacts are named 'eval_XXXXX'. Note that training-time metrics are auto-logged
+    metrics and artifacts are named 'val_XXXXX'. Note that training-time metrics are auto-logged
     as 'training_XXXXX'.
 
     The run under which to log the metrics/artifacts is chosen as follows:
@@ -1028,6 +1028,11 @@ def log_eval_metrics(*, model=None, model_uri=None, X, y_true, prefix, sample_we
     - Or, under the same run as the model_uri if the latter is of the form 'runs:/...'
     - Or, under a new run
     The chosen run is in the return value of the method.
+
+    Raises an error if:
+    - prefix is empty
+    - neither model nor model_uri are specified
+    - the model_uri cannot be resolved to a valid model
 
     :param model: The model to be evaluated. Exactly one model_uri or model must be specified.
     :param model_uri: The URI of the model to be evaluated. Exactly one model_uri or model must be
