@@ -59,6 +59,11 @@ def fit_model(model, X, y, fit_func_name):
     if fit_func_name == "fit_predict":
         model.fit_predict(X, y)
 
+    if fit_func_name == "fake":
+        if isinstance(model, sklearn.linear_model.LinearRegression):
+            model.coef_ = np.random.random(size=np.shape(X)[-1])
+            model.intercept_ = 0
+
     return model
 
 
@@ -1119,7 +1124,7 @@ def test_log_eval_metrics_for_regressor():
     X_eval = X[:-1, :]
     y_eval = y_true[:-1]
     with mlflow.start_run() as run:
-        model = fit_model(model, X, y_true, "fit")
+        model = fit_model(model, X, y_true, "fake")
         eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
@@ -1205,6 +1210,72 @@ def test_log_eval_metrics_for_binary_classifier():
 
     assert metrics == eval_metrics
     assert sorted(artifacts) == sorted(eval_artifacts)
+
+
+def test_log_eval_metrics_matches_training_metrics():
+    mlflow.sklearn.autolog()
+
+    import sklearn.ensemble
+
+    # use RandomForestClassifier that has method [predict_proba], so that we can test
+    # logging of (1) log_loss and (2) roc_auc_score.
+    model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
+
+    # use binary datasets to cover the test for roc curve & precision recall curve
+    X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)
+    X_eval = X[:-1, :]
+    y_eval = y[:-1]
+
+    with mlflow.start_run() as run:
+        model = fit_model(model, X, y, "fit")
+        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+            model=model, X=X_eval, y_true=y_eval, prefix="val_"
+        )
+
+    y_pred = model.predict(X_eval)
+    y_pred_prob = model.predict_proba(X_eval)
+    # For binary classification, y_score only accepts the probability of greater label
+    y_pred_prob_roc = y_pred_prob[:, 1]
+
+    expected_metrics = {
+        "val_score": model.score(X_eval, y_eval),
+        "val_accuracy_score": sklearn.metrics.accuracy_score(y_eval, y_pred),
+        "val_precision_score": sklearn.metrics.precision_score(y_eval, y_pred, average="weighted"),
+        "val_recall_score": sklearn.metrics.recall_score(y_eval, y_pred, average="weighted"),
+        "val_f1_score": sklearn.metrics.f1_score(y_eval, y_pred, average="weighted"),
+        "val_log_loss": sklearn.metrics.log_loss(y_eval, y_pred_prob),
+    }
+    if _is_metric_supported("roc_auc_score"):
+        expected_metrics["val_roc_auc_score"] = sklearn.metrics.roc_auc_score(
+            y_eval, y_score=y_pred_prob_roc, average="weighted", multi_class="ovo",
+        )
+    assert eval_metrics == expected_metrics
+
+    plot_names = []
+    if _is_plotting_supported():
+        plot_names.extend(
+            [
+                "{}.png".format("val_confusion_matrix"),
+                "{}.png".format("val_roc_curve"),
+                "{}.png".format("val_precision_recall_curve"),
+            ]
+        )
+    assert sorted(eval_artifacts) == sorted(plot_names)
+
+    # Check that logging happened under the active run
+    run_id = run.info.run_id
+    assert run_id == eval_run_id
+
+    # Check that eval metrics/artifacts match the training metrics/artifacts
+    _, metrics, _, artifacts = get_run_data(run_id)
+
+    for key, value in eval_metrics.items():
+        assert metrics[str(key)] == value
+        assert metrics[str(key).replace("val_", "training_")] is not None
+
+    for path in eval_artifacts:
+        assert path in artifacts
+        assert str(path).replace("val_", "training_") in artifacts
 
 
 def test_log_eval_metrics_for_classifier_multi_class():
@@ -1356,7 +1427,7 @@ def test_log_eval_metrics_with_new_run():
     X, y_true = get_iris()
     X_eval = X[:-1, :]
     y_eval = y_true[:-1]
-    model = fit_model(model, X, y_true, "fit")
+    model = fit_model(model, X, y_true, "fake")
 
     run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
         model=model, X=X_eval, y_true=y_eval, prefix="eval_"
@@ -1405,7 +1476,7 @@ def test_log_eval_metrics_for_run_uri():
     X_eval = X[:-1, :]
     y_eval = y_true[:-1]
     with mlflow.start_run() as run:
-        model.fit(X, y_true)
+        model = fit_model(model, X, y_true, "fit")
     run_id = run.info.run_id
 
     eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
