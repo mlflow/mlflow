@@ -4,7 +4,8 @@ import sys
 import pytest
 
 import mlflow.utils.logging_utils as logging_utils
-from mlflow.utils.autologging_utils import _is_testing, _AUTOLOGGING_TEST_MODE_ENV_VAR
+from mlflow.utils.autologging_utils import is_testing
+from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_TEST_MODE_ENV_VAR
 
 
 PATCH_DESTINATION_FN_DEFAULT_RESULT = "original_result"
@@ -28,7 +29,7 @@ def test_mode_off():
     try:
         prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
         os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "false"
-        assert not _is_testing()
+        assert not is_testing()
         yield
     finally:
         if prev_env_var_value:
@@ -42,7 +43,7 @@ def test_mode_on():
     try:
         prev_env_var_value = os.environ.pop(_AUTOLOGGING_TEST_MODE_ENV_VAR, None)
         os.environ[_AUTOLOGGING_TEST_MODE_ENV_VAR] = "true"
-        assert _is_testing()
+        assert is_testing()
         yield
     finally:
         if prev_env_var_value:
