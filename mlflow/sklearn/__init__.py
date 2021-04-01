@@ -988,9 +988,9 @@ def autolog(
                 )
 
 
-def log_eval_metrics(*, model=None, model_uri=None, X, y_true, prefix, sample_weight=None):
+def eval_and_log_metrics(*, model, X, y_true, prefix, sample_weight=None):
     """
-    Computes and logs evaluation metrics (and artifacts) for the given model and labeled dataset.
+    Computes and logs metrics (and artifacts) for the given model and labeled dataset.
     The metrics/artifacts mirror what is auto-logged when training a model
     (see mlflow.sklearn.autolog).
 
@@ -1016,77 +1016,49 @@ def log_eval_metrics(*, model=None, model_uri=None, X, y_true, prefix, sample_we
         model = LinearRegression()
         with mlflow.start_run() as run:
             model.fit(X, y)
-            mlflow.log_eval_metrics(model=model, X=X_eval, y_true=y_eval, prefix="val_")
+            (metrics, artifacts) = mlflow.sklearn.eval_and_log_metrics(model=model, X=X_eval,
+                                                                       y_true=y_eval, prefix="val_")
 
 
     Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
     metrics and artifacts are named 'val_XXXXX'. Note that training-time metrics are auto-logged
-    as 'training_XXXXX'.
-
-    The run under which to log the metrics/artifacts is chosen as follows:
-    - Under the active run if one exists
-    - Or, under the same run as the model_uri if the latter is of the form 'runs:/...'
-    - Or, under a new run
-    The chosen run is in the return value of the method.
+    as 'training_XXXXX'. Metrics and artifacs are logged under the current run if one exists,
+    otherwise a new run is started and left open.
 
     Raises an error if:
     - prefix is empty
-    - neither model nor model_uri are specified
-    - the model_uri cannot be resolved to a valid model
+    - model is not an sklearn estimator or does not support the 'predict' method
 
-    :param model: The model to be evaluated. Exactly one model_uri or model must be specified.
-    :param model_uri: The URI of the model to be evaluated. Exactly one model_uri or model must be
-                    specified.
+    :param model: The model to be evaluated.
     :param X: The features for the evaluation dataset.
     :param y_true: The labels for the evaluation dataset.
     :param prefix: Prefix used to name metrics and artifacts.
     :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
-    :return: A tuple (run_id, metrics, artifacts) where run_id is the run under which
-             metrics/artifacts are logged, metrics is a dict of the logged metrics, and artifacts a
-             list of the logged artifact paths.
+    :return: A tuple (metrics, artifacts), where metrics is a dict of the logged metrics, and
+             artifacts a list of the logged artifact paths.
     """
     from mlflow.sklearn.utils import _log_estimator_content
-    from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+    from sklearn.base import BaseEstimator
 
     if prefix is None or prefix == "":
         raise ValueError("must specify a non-empty prefix")
 
-    if model_uri is not None and model is not None:
-        raise ValueError("only one of `model` or `model_uri` must be specified")
+    if not isinstance(model, BaseEstimator):
+        raise ValueError("not a sklearn model")
 
-    if model_uri is None and model is None:
-        raise ValueError("at least one of `model` or `model_uri` must be specified")
+    if not hasattr(model, "predict"):
+        raise ValueError("model does not support predictions")
 
-    if model_uri is not None:
-        model = mlflow.sklearn.load_model(model_uri)
+    active_run = mlflow.active_run()
+    run = active_run if active_run is not None else mlflow.start_run()
 
-    run_id = None
-    metrics = dict()
-    artifacts = list()
+    (metrics, artifacts) = _log_estimator_content(
+        estimator=model,
+        run_id=run.info.run_id,
+        prefix=prefix,
+        X=X,
+        y_true=y_true,
+        sample_weight=sample_weight,
+    )
 
-    if mlflow.active_run() is not None:
-        run_id = mlflow.active_run().info.run_id
-        (metrics, artifacts) = _log_estimator_content(
-            estimator=model,
-            run_id=run_id,
-            prefix=prefix,
-            X=X,
-            y_true=y_true,
-            sample_weight=sample_weight,
-        )
-    else:
-        if RunsArtifactRepository.is_runs_uri(model_uri):
-            run_id, _ = RunsArtifactRepository.parse_runs_uri(model_uri)
-
-        with mlflow.start_run(run_id=run_id) as run:
-            run_id = run.info.run_id
-            (metrics, artifacts) = _log_estimator_content(
-                estimator=model,
-                run_id=run_id,
-                prefix=prefix,
-                X=X,
-                y_true=y_true,
-                sample_weight=sample_weight,
-            )
-
-    return (run_id, metrics, artifacts)
+    return (metrics, artifacts)
