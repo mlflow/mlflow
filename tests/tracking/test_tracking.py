@@ -513,7 +513,7 @@ def test_log_text(subdir):
 
         filepath = os.path.join(run_artifact_dir, filename)
         with open(filepath) as f:
-            assert f.read() == text
+            assert f.read()[:-1] == text
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
