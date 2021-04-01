@@ -25,6 +25,4 @@ def upgrade(url):
     import mlflow.store.db.utils
 
     engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(url)
-    if mlflow.store.db.utils._is_initialized_before_mlflow_1(engine):
-        mlflow.store.db.utils._upgrade_db_initialized_before_mlflow_1(engine)
     mlflow.store.db.utils._upgrade_db(engine)

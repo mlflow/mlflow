@@ -1,5 +1,7 @@
 import pytest
+import sys
 from collections import namedtuple
+from io import StringIO
 from unittest import mock
 
 import mlflow
@@ -21,6 +23,7 @@ import pyspark
 import pytorch_lightning
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
+from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
 library_to_mlflow_module_without_pyspark = {
     tensorflow: mlflow.tensorflow,
@@ -126,6 +129,8 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
         "log_models": False,
         "disable": True,
         "exclusive": True,
+        "disable_for_unsupported_versions": True,
+        "silent": True,
     }
     if library in integrations_with_additional_config:
         args_to_test.update({"log_input_examples": True, "log_model_signatures": True})
@@ -206,6 +211,8 @@ def test_universal_autolog_makes_expected_event_logging_calls():
 
 
 def test_autolog_obeys_disabled():
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert get_autologging_config("sklearn", "disable")
@@ -218,9 +225,22 @@ def test_autolog_obeys_disabled():
 
     mlflow.autolog(disable=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
-    assert not get_autologging_config("sklearn", "disable", False)
+    assert not get_autologging_config("sklearn", "disable")
     mlflow.sklearn.autolog(disable=True)
     assert get_autologging_config("sklearn", "disable")
+
+    AUTOLOGGING_INTEGRATIONS.clear()
+    mlflow.autolog(disable_for_unsupported_versions=False)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
+    mlflow.autolog(disable_for_unsupported_versions=True)
+    mlflow.utils.import_hooks.notify_module_loaded(sklearn)
+    assert get_autologging_config("sklearn", "disable_for_unsupported_versions")
+
+    mlflow.sklearn.autolog(disable_for_unsupported_versions=False)
+    assert not get_autologging_config("sklearn", "disable_for_unsupported_versions")
+    mlflow.sklearn.autolog(disable_for_unsupported_versions=True)
+    assert get_autologging_config("sklearn", "disable_for_unsupported_versions")
 
 
 def test_autolog_success_message_obeys_disabled():
@@ -238,3 +258,38 @@ def test_autolog_success_message_obeys_disabled():
         mlflow.autolog(disable=False)
         mlflow.utils.import_hooks.notify_module_loaded(tensorflow)
         autolog_logger_mock.assert_called()
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("library", library_to_mlflow_module.keys())
+@pytest.mark.parametrize("disable", [False, True])
+@pytest.mark.parametrize("exclusive", [False, True])
+@pytest.mark.parametrize("disable_for_unsupported_versions", [False, True])
+@pytest.mark.parametrize("log_models", [False, True])
+@pytest.mark.parametrize("log_input_examples", [False, True])
+@pytest.mark.parametrize("log_model_signatures", [False, True])
+def test_autolog_obeys_silent_mode(
+    library,
+    disable,
+    exclusive,
+    disable_for_unsupported_versions,
+    log_models,
+    log_input_examples,
+    log_model_signatures,
+):
+    stream = StringIO()
+    sys.stderr = stream
+
+    mlflow.autolog(
+        silent=True,
+        disable=disable,
+        exclusive=exclusive,
+        disable_for_unsupported_versions=disable_for_unsupported_versions,
+        log_models=log_models,
+        log_input_examples=log_input_examples,
+        log_model_signatures=log_model_signatures,
+    )
+
+    mlflow.utils.import_hooks.notify_module_loaded(library)
+
+    assert not stream.getvalue()

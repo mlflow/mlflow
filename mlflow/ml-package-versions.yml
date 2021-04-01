@@ -7,13 +7,13 @@ sklearn:
 
   models:
     minimum: "0.20.3"
-    maximum: "0.23.2"
+    maximum: "0.24.1"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.23.2"
+    maximum: "0.24.1"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_training_session.py --large
@@ -27,17 +27,10 @@ pytorch:
 
   models:
     minimum: "1.4.0"
-    maximum: "1.7.0"
+    maximum: "1.8.0"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
-
-  autologging:
-    minimum: "1.4.0"
-    maximum: "1.7.0"
-    requirements: ["torchvision", "pytorch-lightning", "scikit-learn"]
-    run: |
-      pytest tests/pytorch/test_pytorch_autolog.py --large
 
 pytorch-lightning:
   package_info:
@@ -48,7 +41,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.1.2"
+    maximum: "1.2.4"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -63,7 +56,7 @@ tensorflow:
 
   models:
     minimum: "1.15.4"
-    maximum: "2.3.1"
+    maximum: "2.4.1"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
     run: |
@@ -83,7 +76,7 @@ tensorflow:
 
   autologging:
     minimum: "1.15.4"
-    maximum: "2.3.1"
+    maximum: "2.4.1"
     requirements:
       "< 2.2": ["h5py<3.0"]
     run: |
@@ -145,14 +138,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.2.1"
+    maximum: "1.3.3"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.2.1"
+    maximum: "1.3.3"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -168,14 +161,14 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.1.0"
+    maximum: "3.2.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py --large
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.1.0"
+    maximum: "3.2.0"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
@@ -188,13 +181,15 @@ gluon:
 
   models:
     minimum: "1.5.1"
-    maximum: "1.7.0.post1"
+    maximum: "1.7.0.post2"
+    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
     minimum: "1.5.1"
-    maximum: "1.7.0.post1"
+    maximum: "1.7.0.post2"
+    unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon_autolog/test_gluon_autolog.py --large
 
@@ -229,7 +224,7 @@ onnx:
 
   models:
     minimum: "1.5.0"
-    maximum: "1.8.0"
+    maximum: "1.8.1"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
@@ -242,7 +237,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.0.0"
+    maximum: "3.0.5"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large

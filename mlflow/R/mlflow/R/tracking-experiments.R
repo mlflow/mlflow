@@ -98,6 +98,7 @@ mlflow_get_experiment <- function(experiment_id = NULL, name = NULL, client = NU
       client = client, query = list(experiment_id = experiment_id)
     )
   }
+  response$experiment$tags <- parse_run_data(response$experiment$tags)
   response$experiment %>%
     new_mlflow_experiment()
 }

@@ -225,6 +225,7 @@ from mlflow.pyfunc.model import PythonModel, PythonModelContext  # pylint: disab
 from mlflow.pyfunc.model import get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType, Schema, TensorSpec
+from mlflow.types.utils import clean_tensor_type
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
@@ -399,7 +400,7 @@ def _enforce_tensor_spec(values: np.ndarray, tensor_spec: TensorSpec):
                     actual_shape, expected_shape
                 )
             )
-    if values.dtype != tensor_spec.type:
+    if clean_tensor_type(values.dtype) != tensor_spec.type:
         raise MlflowException(
             "dtype of input {0} does not match expected dtype {1}".format(
                 values.dtype, tensor_spec.type
@@ -686,10 +687,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     A Spark UDF that can be used to invoke the Python function formatted model.
 
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the column names
-    are ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
-    struct. In that case, the data will be passed as a DataFrame with column names given by the
-    struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
-    pandas DataFrame with 2 columns 'x' and 'y').
+    are ordinals (0, 1, ...). On some versions of Spark (3.0 and above), it is also possible to
+    wrap the input in a struct. In that case, the data will be passed as a DataFrame with column
+    names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
+    will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
 
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
@@ -699,8 +700,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     .. code-block:: python
         :caption: Example
 
+        from pyspark.sql.functions import struct
+
         predict = mlflow.pyfunc.spark_udf(spark, "/my/local/model")
-        df.withColumn("prediction", predict("name", "age")).show()
+        df.withColumn("prediction", predict(struct("name", "age"))).show()
 
     :param spark: A SparkSession object.
     :param model_uri: The location, in URI format, of the MLflow model with the
