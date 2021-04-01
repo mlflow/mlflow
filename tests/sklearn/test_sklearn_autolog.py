@@ -1114,7 +1114,7 @@ def test_autolog_produces_expected_results_for_estimator_when_parent_also_define
     assert model.predict(1) == np.array([8])
 
 
-def test_log_eval_metrics_for_regressor():
+def test_eval_and_log_metrics_for_regressor():
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1125,7 +1125,7 @@ def test_log_eval_metrics_for_regressor():
     y_eval = y_true[:-1]
     with mlflow.start_run() as run:
         model = fit_model(model, X, y_true, "fake")
-        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
     # Check correctness for the returned metrics/artifacts
@@ -1140,17 +1140,14 @@ def test_log_eval_metrics_for_regressor():
 
     assert len(eval_artifacts) == 0
 
-    # Check that artifacts/metrics were logged under the active run
-    run_id = run.info.run_id
-    assert run_id == eval_run_id
-
     # Check that logged metrics/artifacts are the same as returned by the method
+    run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert metrics == eval_metrics
     assert artifacts == eval_artifacts
 
 
-def test_log_eval_metrics_for_binary_classifier():
+def test_eval_and_log_metrics_for_binary_classifier():
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1167,7 +1164,7 @@ def test_log_eval_metrics_for_binary_classifier():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="val_"
         )
 
@@ -1201,18 +1198,15 @@ def test_log_eval_metrics_for_binary_classifier():
         )
     assert sorted(eval_artifacts) == sorted(plot_names)
 
-    # Check that logging happened under the active run
-    run_id = run.info.run_id
-    assert run_id == eval_run_id
-
     # Check that logged artifacts/metrics are the same as the ones returned by the method
+    run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
 
     assert metrics == eval_metrics
     assert sorted(artifacts) == sorted(eval_artifacts)
 
 
-def test_log_eval_metrics_matches_training_metrics():
+def test_eval_and_log_metrics_matches_training_metrics():
     mlflow.sklearn.autolog()
 
     import sklearn.ensemble
@@ -1228,7 +1222,7 @@ def test_log_eval_metrics_matches_training_metrics():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="val_"
         )
 
@@ -1262,11 +1256,8 @@ def test_log_eval_metrics_matches_training_metrics():
         )
     assert sorted(eval_artifacts) == sorted(plot_names)
 
-    # Check that logging happened under the active run
-    run_id = run.info.run_id
-    assert run_id == eval_run_id
-
     # Check that eval metrics/artifacts match the training metrics/artifacts
+    run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
 
     for key, value in eval_metrics.items():
@@ -1278,7 +1269,7 @@ def test_log_eval_metrics_matches_training_metrics():
         assert str(path).replace("val_", "training_") in artifacts
 
 
-def test_log_eval_metrics_for_classifier_multi_class():
+def test_eval_and_log_metrics_for_classifier_multi_class():
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1295,7 +1286,7 @@ def test_log_eval_metrics_for_classifier_multi_class():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
@@ -1324,18 +1315,15 @@ def test_log_eval_metrics_for_classifier_multi_class():
 
     assert sorted(plot_names) == sorted(eval_artifacts)
 
-    # Check that the active run was used
-    run_id = run.info.run_id
-    assert run_id == eval_run_id
-
     # Check that the logged metrics/artifacts are the same as the ones returned by the method.
+    run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
 
     assert metrics == eval_metrics
     assert artifacts == eval_artifacts
 
 
-def test_log_eval_metrics_with_estimator(fit_func_name):
+def test_eval_and_log_metrics_with_estimator(fit_func_name):
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1349,7 +1337,7 @@ def test_log_eval_metrics_with_estimator(fit_func_name):
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, fit_func_name)
-        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
@@ -1357,17 +1345,14 @@ def test_log_eval_metrics_with_estimator(fit_func_name):
     assert len(eval_artifacts) == 0
     assert eval_metrics == {"eval_score": model.score(X_eval, y_eval)}
 
-    # Check that the active run was used
+    # Check that the logged metrics are the same as returned by the method.
     run_id = run.info.run_id
-    assert run_id == eval_run_id
-
-    # Checked that the logged metrics are the same as returned by the method.
     _, metrics, _, _ = get_run_data(run_id)
 
     assert metrics == eval_metrics
 
 
-def test_log_eval_metrics_with_meta_estimator():
+def test_eval_and_log_metrics_with_meta_estimator():
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1385,15 +1370,12 @@ def test_log_eval_metrics_with_meta_estimator():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
-    # Check that the existing active run was used.
-    run_id = run.info.run_id
-    assert eval_run_id == run_id
-
     # Check that the logged metrics/artifacts for the run are exactly those returned by the call
+    run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert sorted(artifacts) == sorted(eval_artifacts)
     assert metrics == eval_metrics
@@ -1418,7 +1400,7 @@ def test_log_eval_metrics_with_meta_estimator():
     assert plot_names == eval_artifacts
 
 
-def test_log_eval_metrics_with_new_run():
+def test_eval_and_log_metrics_with_new_run():
     # disable autologging so that we can check for the sole existence of eval-time metrics
     mlflow.sklearn.autolog(disable=True)
 
@@ -1429,7 +1411,7 @@ def test_log_eval_metrics_with_new_run():
     y_eval = y_true[:-1]
     model = fit_model(model, X, y_true, "fake")
 
-    run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
+    eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
         model=model, X=X_eval, y_true=y_eval, prefix="eval_"
     )
     # Check the contents for the metrics and artifacts
@@ -1444,60 +1426,57 @@ def test_log_eval_metrics_with_new_run():
     assert len(eval_artifacts) == 0
 
     # Check the the logged metrics/artifacts are the same as the returned ones.
+    assert mlflow.active_run() is not None
+    run_id = mlflow.active_run().info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert eval_metrics == metrics
     assert eval_artifacts == artifacts
+    mlflow.end_run()
 
 
-def test_log_eval_metrics_throws_with_invalid_args():
-    X, y_true = get_iris()
-    model = sklearn.linear_model.LinearRegression()
+def test_eval_and_log_metrics_with_noscore_estimator():
+    from sklearn.base import BaseEstimator
 
-    with pytest.raises(ValueError, match="must specify a non-empty prefix"):
-        mlflow.sklearn.log_eval_metrics(model_uri="foo", X=X, y_true=y_true, prefix="")
+    # disable autologging so that we can check for the sole existence of eval-time metrics
+    mlflow.sklearn.autolog(disable=True)
 
-    with pytest.raises(ValueError, match="must specify a non-empty prefix"):
-        mlflow.sklearn.log_eval_metrics(model_uri="foo", X=X, y_true=y_true, prefix=None)
+    # Define a fake estimator that can do predictions but does not support 'score'
+    class FakeEstimator(BaseEstimator):
+        def predict(self, X):
+            return np.random.random(np.shape(X)[-1])
 
-    with pytest.raises(ValueError, match="only one of `model` or `model_uri`"):
-        mlflow.sklearn.log_eval_metrics(
-            model=model, model_uri="foo", X=X, y_true=y_true, prefix="val_"
-        )
+    # use simple `LinearRegression`, which only implements `fit`.
+    model = FakeEstimator()
+    X_eval, y_eval = get_iris()
 
-    with pytest.raises(ValueError, match="at least one of `model` or `model_uri`"):
-        mlflow.sklearn.log_eval_metrics(X=X, y_true=y_true, prefix="val_")
-
-
-def test_log_eval_metrics_for_run_uri():
-    mlflow.sklearn.autolog()
-
-    model = sklearn.linear_model.LinearRegression()
-    X, y_true = get_iris()
-    X_eval = X[:-1, :]
-    y_eval = y_true[:-1]
-    with mlflow.start_run() as run:
-        model = fit_model(model, X, y_true, "fit")
-    run_id = run.info.run_id
-
-    eval_run_id, eval_metrics, eval_artifacts = mlflow.sklearn.log_eval_metrics(
-        model_uri=f"runs:/{run_id}/{MODEL_DIR}", X=X_eval, y_true=y_eval, prefix="eval_"
+    metrics, artifacts = mlflow.sklearn.eval_and_log_metrics(
+        model=model, X=X_eval, y_true=y_eval, prefix="eval_"
     )
 
-    # Check the contents of the returned metrics artifacts
-    y_pred = model.predict(X_eval)
-    assert eval_metrics == {
-        "eval_score": model.score(X_eval, y_eval),
-        "eval_mse": sklearn.metrics.mean_squared_error(y_eval, y_pred),
-        "eval_rmse": np.sqrt(sklearn.metrics.mean_squared_error(y_eval, y_pred)),
-        "eval_mae": sklearn.metrics.mean_absolute_error(y_eval, y_pred),
-        "eval_r2_score": sklearn.metrics.r2_score(y_eval, y_pred),
-    }
-    assert len(eval_artifacts) == 0
+    mlflow.end_run()
 
-    # Check that the model's run was used
-    assert eval_run_id == run_id
+    # No artifacts should be generated
+    assert len(metrics) == 0
+    assert len(artifacts) == 0
 
-    # Check that the logged metrics and artifacts contain the ones returned by the call.
-    _, metrics, _, artifacts = get_run_data(run_id)
-    assert metrics.items() >= eval_metrics.items()
-    assert artifacts >= eval_artifacts
+
+def test_eval_and_log_metrics_throws_with_invalid_args():
+    from sklearn.linear_model import LinearRegression
+    from sklearn.cluster import SpectralClustering
+
+    X, y_true = get_iris()
+    model = LinearRegression()
+
+    with pytest.raises(ValueError, match="must specify a non-empty prefix"):
+        mlflow.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix="")
+
+    with pytest.raises(ValueError, match="must specify a non-empty prefix"):
+        mlflow.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix=None)
+
+    with pytest.raises(ValueError, match="not a sklearn model"):
+        mlflow.sklearn.eval_and_log_metrics(model={}, X=X, y_true=y_true, prefix="val_")
+
+    with pytest.raises(ValueError, match="model does not support predictions"):
+        mlflow.sklearn.eval_and_log_metrics(
+            model=SpectralClustering(), X=X, y_true=y_true, prefix="val_"
+        )
