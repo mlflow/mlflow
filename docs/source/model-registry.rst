@@ -440,13 +440,14 @@ the loaded model with the model registry.
     # log and register the model using MLflow scikit-learn API
     mlflow.set_tracking_uri("sqlite:///mlruns.db")
     reg_model_name = "SklearnLinearRegression"
-    with mlflow.start_run():
-        mlflow.sklearn.log_model(loaded_model, "sk_learn",
+    print("--")
+    mlflow.sklearn.log_model(loaded_model, "sk_learn",
                                  serialization_format="cloudpickle",
                                  registered_model_name=reg_model_name)
 
 .. code-block:: text
 
+    --
     Successfully registered model 'SklearnLinearRegression'.
     2021/04/02 16:30:57 INFO mlflow.tracking._model_registry.client: Waiting up to 300 seconds for model version to finish creation.
     Model name: SklearnLinearRegression, version 1
