@@ -349,3 +349,133 @@ You can either delete specific versions of a registered model or you can delete 
 
     # Delete a registered model along with all its versions
     client.delete_registered_model(name="sk-learn-random-forest-reg-model")
+
+While the above workflow API demonstrates interactions with the Model Registry, there are two
+special cases that require attention. One is when you have existing ML models saved from training
+without use of MLflow. Saved in an ML library's native format, for example, sklearn's serialized
+pickle format, you want to register the saved model with the Model Registry. The second is when you
+use an ML framework without a built-in MLflow flavor support, for instance `vaderSentiment`, and wish
+to register the model.
+
+Registering a Saved Model
+^^^^^^^^^^^^^^^^^^^^^^^^^
+Not everyone will start his or her ML model training with MLflow, so it's possible that you'll have
+some models trained before the use of MLflow. Instead of retraining the models, all you wish to do is
+register your saved-models with the Model Registry.
+
+This code snippet creates a sklearn model, which we assume that you had created and saved in native pickle
+format.
+
+.. note::
+    We assume that sklearn library and pickle versions with which the model was saved are compatible with the
+    current MLflow supported built-in sklearn model flavor.
+
+.. code-block:: py
+
+    import numpy as np
+    import pickle
+
+    from sklearn import datasets, linear_model
+    from sklearn.metrics import mean_squared_error, r2_score
+
+    # source: https://scikit-learn.org/stable/auto_examples/linear_model/plot_ols.html
+
+    # Load the diabetes dataset
+    diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)
+
+    # Use only one feature
+    diabetes_X = diabetes_X[:, np.newaxis, 2]
+
+    # Split the data into training/testing sets
+    diabetes_X_train = diabetes_X[:-20]
+    diabetes_X_test = diabetes_X[-20:]
+
+    # Split the targets into training/testing sets
+    diabetes_y_train = diabetes_y[:-20]
+    diabetes_y_test = diabetes_y[-20:]
+
+
+    def print_predictions(m, y_pred):
+
+        # The coefficients
+        print('Coefficients: \n', m.coef_)
+        # The mean squared error
+        print('Mean squared error: %.2f'
+              % mean_squared_error(diabetes_y_test, y_pred))
+        # The coefficient of determination: 1 is perfect prediction
+        print('Coefficient of determination: %.2f'
+              % r2_score(diabetes_y_test, y_pred))
+
+    # Create linear regression object
+    lr_model = linear_model.LinearRegression()
+
+    # Train the model using the training sets
+    lr_model.fit(diabetes_X_train, diabetes_y_train)
+
+    # Make predictions using the testing set
+    diabetes_y_pred = lr_model.predict(diabetes_X_test)
+    print_predictions(lr_model, diabetes_y_pred)
+
+    # save the model in the native sklearn format
+    filename = 'lr_model.pkl'
+    pickle.dump(lr_model, open(filename, 'wb'))
+
+.. code-block:: text
+
+    Coefficients:
+    [938.23786125]
+    Mean squared error: 2548.07
+    Coefficient of determination: 0.47
+
+Once saved in pickled format, we can load the sklearn model into memory, using pickle API, and register
+the loaded model with the model registry.
+
+.. code-block:: py
+
+    import mlflow
+
+    # load the model into memory
+    loaded_model = pickle.load(open(filename, 'rb'))
+
+    # log and register the model using MLflow scikit-learn API
+    mlflow.set_tracking_uri("sqlite:///mlruns.db")
+    reg_model_name = "SklearnLinearRegression"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(loaded_model, "sk_learn",
+                                 serialization_format="cloudpickle",
+                                 registered_model_name=reg_model_name)
+
+.. code-block:: text
+
+    Successfully registered model 'SklearnLinearRegression'.
+    2021/04/02 16:30:57 INFO mlflow.tracking._model_registry.client: Waiting up to 300 seconds for model version to finish creation.
+    Model name: SklearnLinearRegression, version 1
+    Created version '1' of model 'SklearnLinearRegression'.
+
+Now, using MLflow fluent APIs, we reload the from the model registry and score.
+
+.. code-block:: py
+
+    # load the model from the model registry and score
+    model_uri = f"models:/{reg_model_name}/1"
+    loaded_model = mlflow.sklearn.load_model(model_uri)
+    print("--")
+
+    # Make predictions using the testing set
+    diabetes_y_pred = loaded_model.predict(diabetes_X_test)
+    print_predictions(loaded_model, diabetes_y_pred)
+
+.. code-block:: text
+
+    --
+    Coefficients:
+    [938.23786125]
+    Mean squared error: 2548.07
+    Coefficient of determination: 0.47
+
+
+
+
+
+
+
