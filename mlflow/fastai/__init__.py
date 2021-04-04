@@ -500,12 +500,13 @@ def autolog(
     from fastai.learner import Learner
     from fastai.callback.hook import module_summary, layer_info, find_bs, _print_shapes
     from fastai.callback.all import EarlyStoppingCallback
-    import matplotlib.pyplot as plt
 
-    def getFastaiCallback(metrics_logger):
+    def getFastaiCallback(metrics_logger, is_fine_tune=False):
         from mlflow.fastai.callback import __MLflowFastaiCallback
 
-        return __MLflowFastaiCallback(metrics_logger=metrics_logger, log_models=log_models)
+        return __MLflowFastaiCallback(
+            metrics_logger=metrics_logger, log_models=log_models, is_fine_tune=is_fine_tune
+        )
 
     def _find_callback_of_type(callback_type, callbacks):
         for callback in callbacks:
@@ -525,39 +526,6 @@ def autolog(
                 try_mlflow_log(mlflow.log_params, earlystopping_params)
             except Exception:  # pylint: disable=W0703
                 return
-
-    def _log_param_scheduler_callback_params(recorder):
-        # # Not aplicable anymore on fastaiv2
-        # params = {
-        #     "lr_max": callback.lr_max,
-        #     "div_factor": callback.div_factor,
-        #     "pct_start": callback.pct_start,
-        #     "final_div": callback.final_div,
-        #     "tot_epochs": callback.tot_epochs,
-        #     "start_epoch": callback.start_epoch,
-        #     "moms": callback.moms,
-        # }
-        # try_mlflow_log(mlflow.log_params, params)
-
-        # On fastaiv2 almost all the previous data is available on params, hence automatically log
-        # Scheduler information can be extracted from recorder which is lr values and moms values
-        if hasattr(recorder, "hps"):
-            scheds = {}
-            for param, values in recorder.hps.items():
-                scheds["scheduler_" + param] = values
-
-                fig = plt.figure()
-                plt.plot(values)
-                plt.ylabel(param)
-
-                tempdir = tempfile.mkdtemp()
-                try:
-                    scheds_file = os.path.join(tempdir, f"{param}.png")
-                    plt.savefig(scheds_file)
-                    plt.close(fig)
-                    try_mlflow_log(mlflow.log_artifact, local_path=scheds_file)
-                finally:
-                    shutil.rmtree(tempdir)
 
     def _log_model_info(learner, early_stop_callback):
         # The process excuted here, are incompatible with EarlyStoppingCallback
@@ -587,35 +555,54 @@ def autolog(
         finally:
             shutil.rmtree(tempdir)
 
-    def _run_and_log_function(self, original, args, kwargs, unlogged_params, callback_arg_index):
-        log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
+    def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
+
+        # Check if is trying to fit while fine tuning or not
+        mlflow_cbs = [cb for cb in self.cbs if cb.name == "__m_lflow_fastai"]
+        fit_in_fine_tune = (
+            original.__name__ == "fit" and len(mlflow_cbs) > 0 and mlflow_cbs[0].is_fine_tune
+        )
+
+        if not fit_in_fine_tune:
+            log_fn_args_as_params(original, list(args), kwargs, unlogged_params)
 
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
 
-            early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, self.cbs)
-            _log_early_stop_callback_params(early_stop_callback)
+            if not fit_in_fine_tune:
+                early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, self.cbs)
+                _log_early_stop_callback_params(early_stop_callback)
 
-            # First try to remove if any already registered callback
-            self.remove_cbs([cb for cb in self.cbs if cb.name == "__m_lflow_fastai"])
+                # First try to remove if any already registered callback
+                self.remove_cbs(mlflow_cbs)
 
-            # Log information regarding model and data without bar and print-out
-            with self.no_bar(), self.no_logging():
-                _log_model_info(self, early_stop_callback)
+                # Log information regarding model and data without bar and print-out
+                with self.no_bar(), self.no_logging():
+                    _log_model_info(self, early_stop_callback)
 
-            mlflowFastaiCallback = getFastaiCallback(metrics_logger=metrics_logger)
+                mlflowFastaiCallback = getFastaiCallback(
+                    metrics_logger=metrics_logger, is_fine_tune=is_fine_tune
+                )
 
-            # Add the new callback
-            self.add_cb(mlflowFastaiCallback)
+                # Add the new callback
+                self.add_cb(mlflowFastaiCallback)
 
             result = original(self, *args, **kwargs)
-
-            _log_param_scheduler_callback_params(self.recorder)
 
         return result
 
     def fit(original, self, *args, **kwargs):
-        unlogged_params = ["self", "cbs", "learner", "lr", "wd"]
-        return _run_and_log_function(self, original, args, kwargs, unlogged_params, 3)
+        unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]
+        return _run_and_log_function(
+            self, original, args, kwargs, unlogged_params, is_fine_tune=False
+        )
 
     safe_patch(FLAVOR_NAME, Learner, "fit", fit, manage_run=True)
+
+    def fine_tune(original, self, *args, **kwargs):
+        unlogged_params = ["self", "cbs", "learner", "lr", "lr_max", "wd"]
+        return _run_and_log_function(
+            self, original, args, kwargs, unlogged_params, is_fine_tune=True
+        )
+
+    safe_patch(FLAVOR_NAME, Learner, "fine_tune", fine_tune, manage_run=True)

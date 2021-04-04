@@ -5,6 +5,9 @@ from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
 import pandas as pd
 import sklearn.datasets as datasets
 from fastai.tabular.all import tabular_learner, TabularDataLoaders
+from fastai.vision.all import ImageDataLoaders, cnn_learner
+from fastai.vision import models
+from fastai.data.external import untar_data, URLs
 from fastai.metrics import accuracy
 import mlflow
 import mlflow.fastai
@@ -45,17 +48,34 @@ def iris_data():
     )
 
 
-def fastai_model(data, **kwargs):
+def fastai_tabular_model(data, **kwargs):
     return tabular_learner(data, metrics=accuracy, layers=[5, 3, 2], **kwargs)
+
+
+def mnist_path():
+    mnist = untar_data(URLs.MNIST_TINY)
+    return mnist
+
+
+@pytest.fixture(scope="session")
+def mnist_data():
+    mnist = untar_data(URLs.MNIST_TINY)
+    return ImageDataLoaders.from_folder(mnist, num_workers=0)
+
+
+def fastai_visual_model(data, **kwargs):
+    return cnn_learner(data, models.resnet18, normalize=False)
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 def test_fastai_autolog_ends_auto_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()
-    model = fastai_model(iris_data)
+    model = fastai_tabular_model(iris_data)
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(1)
+    elif fit_variant == "fine_tune":
+        model.fine_tune(1, freeze_epochs=1)
     else:
         model.fit(1)
     assert mlflow.active_run() is None
@@ -67,10 +87,12 @@ def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
     mlflow.fastai.autolog()
 
     with mlflow.start_run() as run:
-        model = fastai_model(iris_data)
+        model = fastai_tabular_model(iris_data)
 
         if fit_variant == "fit_one_cycle":
             model.fit_one_cycle(NUM_EPOCHS)
+        elif fit_variant == "fine_tune":
+            model.fine_tune(NUM_EPOCHS - 1, freeze_epochs=1)
         else:
             model.fit(NUM_EPOCHS)
 
@@ -79,14 +101,34 @@ def test_fastai_autolog_persists_manually_created_run(iris_data, fit_variant):
 
 
 @pytest.fixture
-def fastai_random_data_run(iris_data, fit_variant, manual_run):
+def fastai_random_tabular_data_run(iris_data, fit_variant, manual_run):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
-    model = fastai_model(iris_data)
+    model = fastai_tabular_model(iris_data)
 
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(NUM_EPOCHS)
+    elif fit_variant == "fine_tune":
+        model.fine_tune(NUM_EPOCHS - 1, freeze_epochs=1)
+    else:
+        model.fit(NUM_EPOCHS)
+
+    client = mlflow.tracking.MlflowClient()
+    return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+
+@pytest.fixture
+def fastai_random_visual_data_run(mnist_data, fit_variant, manual_run):
+    # pylint: disable=unused-argument
+    mlflow.fastai.autolog()
+
+    model = fastai_visual_model(mnist_data)
+
+    if fit_variant == "fit_one_cycle":
+        model.fit_one_cycle(NUM_EPOCHS)
+    elif fit_variant == "fine_tune":
+        model.fine_tune(NUM_EPOCHS - 1, freeze_epochs=1)
     else:
         model.fit(NUM_EPOCHS)
 
@@ -95,10 +137,10 @@ def fastai_random_data_run(iris_data, fit_variant, manual_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
-def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
+def test_fastai_autolog_logs_expected_data(fastai_random_visual_data_run, fit_variant):
     # pylint: disable=unused-argument
-    model, run = fastai_random_data_run
+    model, run = fastai_random_visual_data_run
     data = run.data
 
     # Testing metrics are logged
@@ -109,8 +151,12 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
         assert o.name in data.metrics
 
     # Testing explicitly passed parameters are logged correctly
-    assert "n_epoch" in data.params
-    assert data.params["n_epoch"] == str(NUM_EPOCHS)
+    if fit_variant != "fine_tune":
+        assert "n_epoch" in data.params
+        assert data.params["n_epoch"] == str(NUM_EPOCHS)
+    else:
+        assert "epochs" in data.params
+        assert data.params["epochs"] == str(NUM_EPOCHS - 1)
 
     # Testing unwanted parameters are not logged
     assert "cbs" not in data.params
@@ -126,6 +172,16 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
         for param in ["lr", "mom"]:
             for stat in ["min", "max", "init", "final"]:
                 assert param + "_" + stat in data.params
+    elif fit_variant == "fine_tune":
+        freeze_prefix = "freeze_"
+        assert freeze_prefix + "wd" in data.params
+        assert freeze_prefix + "sqr_mom" in data.params
+        assert freeze_prefix + "epochs" in data.params
+        assert data.params[freeze_prefix + "epochs"] == str(1)
+        for prefix in [freeze_prefix, ""]:
+            for param in ["lr", "mom"]:
+                for stat in ["min", "max", "init", "final"]:
+                    assert prefix + param + "_" + stat in data.params
     else:
         assert "lr" in data.params
         assert "mom" in data.params
@@ -141,7 +197,7 @@ def test_fastai_autolog_logs_expected_data(fastai_random_data_run, fit_variant):
 @pytest.mark.parametrize("log_models", [True, False])
 def test_fastai_autolog_log_models_configuration(log_models):
     mlflow.fastai.autolog(log_models=log_models)
-    model = fastai_model(iris_data())
+    model = fastai_tabular_model(iris_data())
     model.fit(NUM_EPOCHS)
 
     client = mlflow.tracking.MlflowClient()
@@ -152,21 +208,27 @@ def test_fastai_autolog_log_models_configuration(log_models):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
-def test_fastai_autolog_logs_default_params(fastai_random_data_run, fit_variant):
-    _, _ = fastai_random_data_run
-    if fit_variant != "fit":
-        client = mlflow.tracking.MlflowClient()
-        run_id = client.list_run_infos(experiment_id="0")[0].run_id
-        artifacts = client.list_artifacts(run_id)
-        artifacts = list(map(lambda x: x.path, artifacts))
-        assert any([a.startswith("lr.") for a in artifacts])
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
+def test_fastai_autolog_logs_default_params(fastai_random_visual_data_run, fit_variant):
+    _, _ = fastai_random_visual_data_run
+    client = mlflow.tracking.MlflowClient()
+    run_id = client.list_run_infos(experiment_id="0")[0].run_id
+    artifacts = client.list_artifacts(run_id)
+    artifacts = list(map(lambda x: x.path, artifacts))
+    if fit_variant == "fit_one_cycle":
+        for param in ["lr", "mom"]:
+            assert any([a.startswith(param + ".") for a in artifacts])
+    elif fit_variant == "fine_tune":
+        freeze_prefix = "freeze_"
+        for prefix in [freeze_prefix, ""]:
+            for param in ["lr", "mom"]:
+                assert any([a.startswith(freeze_prefix + param + ".") for a in artifacts])
 
 
 @pytest.mark.large
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
-def test_fastai_autolog_model_can_load_from_artifact(fastai_random_data_run):
-    run_id = fastai_random_data_run[1].info.run_id
+def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_run):
+    run_id = fastai_random_tabular_data_run[1].info.run_id
     client = mlflow.tracking.MlflowClient()
     artifacts = client.list_artifacts(run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -181,7 +243,7 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
-    model = fastai_model(iris_data)
+    model = fastai_tabular_model(iris_data)
 
     if callback == "early":
         cb = EarlyStoppingCallback(patience=patience, min_delta=MIN_DELTA)
@@ -189,6 +251,8 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
 
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(NUM_EPOCHS)
+    elif fit_variant == "fine_tune":
+        model.fine_tune(NUM_EPOCHS - 1, freeze_epochs=1)
     else:
         model.fit(NUM_EPOCHS)
 
