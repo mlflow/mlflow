@@ -1,4 +1,8 @@
 import numpy as np
+import os
+import shutil
+import tempfile
+import matplotlib.pyplot as plt
 
 import mlflow.tracking
 from mlflow.utils.autologging_utils import try_mlflow_log
@@ -18,18 +22,22 @@ class __MLflowFastaiCallback(Callback):
     """
     remove_on_fetch, run_before, run_after = True, TrackerCallback, Recorder
 
-    def __init__(self, metrics_logger, log_models):
+    def __init__(self, metrics_logger, log_models, is_fine_tune=False):
         super().__init__()
         self.metrics_logger = metrics_logger
         self.log_models = log_models
+
+        self.is_fine_tune = is_fine_tune
+        self.freeze_prefix = ""
 
     def after_epoch(self):
         """
         Log loss and other metrics values after each epoch
         """
+        from fastai.callback.all import GatherPredsCallback
 
         # Do not record in case of predicting
-        if self.learn.y is None:
+        if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
             return
 
         metrics = self.recorder.log
@@ -55,7 +63,20 @@ class __MLflowFastaiCallback(Callback):
         if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
             return
 
-        try_mlflow_log(mlflow.log_param, "opt_func", self.opt_func.__name__)
+        if self.is_fine_tune and len(self.opt.param_lists) == 1:
+            print(
+                """ WARNING: Using `fine_tune` with model which cannot be freeze.
+                Current model have only one param group which makes imposible to freeze.
+                Because of this it will record some fitting params twice (overriding o throwing exception) """
+            )
+
+        frozen = self.opt.frozen_idx != 0
+        if frozen and self.is_fine_tune:
+            self.freeze_prefix = "freeze_"
+        else:
+            self.freeze_prefix = ""
+
+        try_mlflow_log(mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.__name__)
 
         params_not_to_log = []
         for cb in self.cbs:
@@ -66,25 +87,59 @@ class __MLflowFastaiCallback(Callback):
                     for step in np.linspace(0, 1, num=100, endpoint=False):
                         values.append(f(step))
                     values = np.array(values)
-                    try_mlflow_log(mlflow.log_param, param + "_min", np.min(values, 0))
-                    try_mlflow_log(mlflow.log_param, param + "_max", np.max(values, 0))
-                    try_mlflow_log(mlflow.log_param, param + "_init", values[0])
-                    try_mlflow_log(mlflow.log_param, param + "_final", values[-1])
+
+                    # Log params main values from scheduling
+                    try_mlflow_log(
+                        mlflow.log_param, self.freeze_prefix + param + "_min", np.min(values, 0)
+                    )
+                    try_mlflow_log(
+                        mlflow.log_param, self.freeze_prefix + param + "_max", np.max(values, 0)
+                    )
+                    try_mlflow_log(
+                        mlflow.log_param, self.freeze_prefix + param + "_init", values[0]
+                    )
+                    try_mlflow_log(
+                        mlflow.log_param, self.freeze_prefix + param + "_final", values[-1]
+                    )
+
+                    # Plot and save image of scheduling
+                    fig = plt.figure()
+                    plt.plot(values)
+                    plt.ylabel(param)
+
+                    tempdir = tempfile.mkdtemp()
+                    try:
+                        scheds_file = os.path.join(tempdir, self.freeze_prefix + param + ".png")
+                        plt.savefig(scheds_file)
+                        plt.close(fig)
+                        try_mlflow_log(mlflow.log_artifact, local_path=scheds_file)
+                    finally:
+                        shutil.rmtree(tempdir)
                 break
 
         for param in self.opt.hypers[0]:
             if param not in params_not_to_log:
-                try_mlflow_log(mlflow.log_param, param, [h[param] for h in self.opt.hypers])
+                try_mlflow_log(
+                    mlflow.log_param,
+                    self.freeze_prefix + param,
+                    [h[param] for h in self.opt.hypers],
+                )
 
         if hasattr(self.opt, "true_wd"):
-            try_mlflow_log(mlflow.log_param, "true_wd", self.opt.true_wd)
+            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "true_wd", self.opt.true_wd)
 
         if hasattr(self.opt, "bn_wd"):
-            try_mlflow_log(mlflow.log_param, "bn_wd", self.opt.bn_wd)
+            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "bn_wd", self.opt.bn_wd)
 
         if hasattr(self.opt, "train_bn"):
-            try_mlflow_log(mlflow.log_param, "train_bn", self.opt.train_bn)
+            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "train_bn", self.opt.train_bn)
 
-    def after_train(self):
+    def after_fit(self):
+        from fastai.callback.all import GatherPredsCallback
+
+        # Do not log model in case of predicting
+        if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
+            return
+
         if self.log_models:
             try_mlflow_log(log_model, self.learn, artifact_path="model")
