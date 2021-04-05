@@ -1,4 +1,4 @@
-"""reset_server_default_for_isnan_in_metrics_table
+"""reset_default_value_for_is_nan_in_metrics_table_for_mysql
 
 Revision ID: c48cb773bb87
 Revises: 39d1c3be5f05
@@ -25,7 +25,7 @@ def upgrade():
     #
     # https://alembic.sqlalchemy.org/en/latest/ops.html#alembic.operations.Operations.alter_column
     #
-    # This migration reverts this change by setting the default column value to "0".
+    # To revert this change, set the default column value to "0" by specifying `server_default`
     with op.batch_alter_table("metrics") as batch_op:
         batch_op.alter_column(
             "is_nan",
