@@ -988,11 +988,18 @@ def autolog(
                 )
 
 
-def eval_and_log_metrics(*, model, X, y_true, prefix, sample_weight=None):
+def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     """
     Computes and logs metrics (and artifacts) for the given model and labeled dataset.
     The metrics/artifacts mirror what is auto-logged when training a model
     (see mlflow.sklearn.autolog).
+
+    :param model: The model to be evaluated.
+    :param X: The features for the evaluation dataset.
+    :param y_true: The labels for the evaluation dataset.
+    :param prefix: Prefix used to name metrics and artifacts.
+    :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
+    :return: The dict of logged metrics. Artifacts can be retrieved by inspecting the run.
 
     ** Example **
 
@@ -1016,8 +1023,7 @@ def eval_and_log_metrics(*, model, X, y_true, prefix, sample_weight=None):
         model = LinearRegression()
         with mlflow.start_run() as run:
             model.fit(X, y)
-            (metrics, artifacts) = mlflow.sklearn.eval_and_log_metrics(model=model, X=X_eval,
-                                                                       y_true=y_eval, prefix="val_")
+            metrics = mlflow.sklearn.eval_and_log_metrics(model, X_eval, y_eval, prefix="val_")
 
 
     Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
@@ -1028,14 +1034,6 @@ def eval_and_log_metrics(*, model, X, y_true, prefix, sample_weight=None):
     Raises an error if:
     - prefix is empty
     - model is not an sklearn estimator or does not support the 'predict' method
-
-    :param model: The model to be evaluated.
-    :param X: The features for the evaluation dataset.
-    :param y_true: The labels for the evaluation dataset.
-    :param prefix: Prefix used to name metrics and artifacts.
-    :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
-    :return: A tuple (metrics, artifacts), where metrics is a dict of the logged metrics, and
-             artifacts a list of the logged artifact paths.
     """
     from mlflow.sklearn.utils import _log_estimator_content
     from sklearn.base import BaseEstimator
@@ -1052,7 +1050,7 @@ def eval_and_log_metrics(*, model, X, y_true, prefix, sample_weight=None):
     active_run = mlflow.active_run()
     run = active_run if active_run is not None else mlflow.start_run()
 
-    (metrics, artifacts) = _log_estimator_content(
+    metrics = _log_estimator_content(
         estimator=model,
         run_id=run.info.run_id,
         prefix=prefix,
@@ -1061,4 +1059,4 @@ def eval_and_log_metrics(*, model, X, y_true, prefix, sample_weight=None):
         sample_weight=sample_weight,
     )
 
-    return (metrics, artifacts)
+    return metrics
