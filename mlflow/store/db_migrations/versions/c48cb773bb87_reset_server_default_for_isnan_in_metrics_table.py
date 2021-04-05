@@ -17,6 +17,7 @@ depends_on = None
 
 
 def upgrade():
+    # This part of the migration is only relevent for MySQL.
     # In 39d1c3be5f05_add_is_nan_constraint_for_metrics_tables_if_necessary.py
     # (added in MLflow 1.15.0), `alter_column` is called on the `is_nan` column in the `metrics`
     # table without specifying `existing_server_default`. This alters the column default value to
