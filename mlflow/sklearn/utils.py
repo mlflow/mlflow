@@ -415,7 +415,6 @@ def _log_specialized_estimator_content(
 
     mlflow_client = MlflowClient()
     metrics = dict()
-    artifact_paths = list()
     try:
         if sklearn.base.is_classifier(fitted_estimator):
             metrics = _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
@@ -461,7 +460,6 @@ def _log_specialized_estimator_content(
                     display = artifact.function(**artifact.arguments)
                     display.ax_.set_title(artifact.title)
                     artifact_path = "{}.png".format(artifact.name)
-                    artifact_paths.append(artifact_path)
                     filepath = tmp_dir.path(artifact_path)
                     display.figure_.savefig(filepath)
                     import matplotlib.pyplot as plt
@@ -472,7 +470,7 @@ def _log_specialized_estimator_content(
 
             try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
 
-    return (metrics, artifact_paths)
+    return metrics
 
 
 def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
@@ -487,9 +485,9 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
     :param X: The data samples.
     :param y_true: Labels.
     :param sample_weight: Per-sample weights used in the computation of metrics and artifacts.
-    :return: A tuple (metrics, artifacts) with dicts of the computed metrics and artifacts.
+    :return: A dict of the computed metrics.
     """
-    (metrics, artifacts) = _log_specialized_estimator_content(
+    metrics = _log_specialized_estimator_content(
         fitted_estimator=estimator,
         run_id=run_id,
         prefix=prefix,
@@ -518,7 +516,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
             try_mlflow_log(mlflow.log_metric, score_key, score)
             metrics[score_key] = score
 
-    return (metrics, artifacts)
+    return metrics
 
 
 def _chunk_dict(d, chunk_size):

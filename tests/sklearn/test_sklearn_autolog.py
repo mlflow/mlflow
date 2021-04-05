@@ -1125,7 +1125,7 @@ def test_eval_and_log_metrics_for_regressor():
     y_eval = y_true[:-1]
     with mlflow.start_run() as run:
         model = fit_model(model, X, y_true, "fake")
-        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
     # Check correctness for the returned metrics/artifacts
@@ -1138,13 +1138,11 @@ def test_eval_and_log_metrics_for_regressor():
         "eval_r2_score": sklearn.metrics.r2_score(y_eval, y_pred),
     }
 
-    assert len(eval_artifacts) == 0
-
     # Check that logged metrics/artifacts are the same as returned by the method
     run_id = run.info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert metrics == eval_metrics
-    assert artifacts == eval_artifacts
+    assert len(artifacts) == 0
 
 
 def test_eval_and_log_metrics_for_binary_classifier():
@@ -1164,7 +1162,7 @@ def test_eval_and_log_metrics_for_binary_classifier():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="val_"
         )
 
@@ -1187,16 +1185,15 @@ def test_eval_and_log_metrics_for_binary_classifier():
         )
     assert eval_metrics == expected_metrics
 
-    plot_names = []
+    eval_artifacts = []
     if _is_plotting_supported():
-        plot_names.extend(
+        eval_artifacts.extend(
             [
                 "{}.png".format("val_confusion_matrix"),
                 "{}.png".format("val_roc_curve"),
                 "{}.png".format("val_precision_recall_curve"),
             ]
         )
-    assert sorted(eval_artifacts) == sorted(plot_names)
 
     # Check that logged artifacts/metrics are the same as the ones returned by the method
     run_id = run.info.run_id
@@ -1222,7 +1219,7 @@ def test_eval_and_log_metrics_matches_training_metrics():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="val_"
         )
 
@@ -1245,16 +1242,15 @@ def test_eval_and_log_metrics_matches_training_metrics():
         )
     assert eval_metrics == expected_metrics
 
-    plot_names = []
+    eval_artifacts = []
     if _is_plotting_supported():
-        plot_names.extend(
+        eval_artifacts.extend(
             [
                 "{}.png".format("val_confusion_matrix"),
                 "{}.png".format("val_roc_curve"),
                 "{}.png".format("val_precision_recall_curve"),
             ]
         )
-    assert sorted(eval_artifacts) == sorted(plot_names)
 
     # Check that eval metrics/artifacts match the training metrics/artifacts
     run_id = run.info.run_id
@@ -1286,7 +1282,7 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, "fit")
-        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
@@ -1309,11 +1305,9 @@ def test_eval_and_log_metrics_for_classifier_multi_class():
 
     assert eval_metrics == expected_metrics
 
-    plot_names = []
+    eval_artifacts = []
     if _is_plotting_supported():
-        plot_names = ["{}.png".format("eval_confusion_matrix")]
-
-    assert sorted(plot_names) == sorted(eval_artifacts)
+        eval_artifacts = ["{}.png".format("eval_confusion_matrix")]
 
     # Check that the logged metrics/artifacts are the same as the ones returned by the method.
     run_id = run.info.run_id
@@ -1337,19 +1331,19 @@ def test_eval_and_log_metrics_with_estimator(fit_func_name):
 
     with mlflow.start_run() as run:
         model = fit_model(model, X, y, fit_func_name)
-        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
 
     # Check contents of returned artifacts/metrics
-    assert len(eval_artifacts) == 0
     assert eval_metrics == {"eval_score": model.score(X_eval, y_eval)}
 
     # Check that the logged metrics are the same as returned by the method.
     run_id = run.info.run_id
-    _, metrics, _, _ = get_run_data(run_id)
+    _, metrics, _, artifacts = get_run_data(run_id)
 
     assert metrics == eval_metrics
+    assert len(artifacts) == 0
 
 
 def test_eval_and_log_metrics_with_meta_estimator():
@@ -1370,9 +1364,11 @@ def test_eval_and_log_metrics_with_meta_estimator():
 
     with mlflow.start_run() as run:
         model.fit(X, y)
-        eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+        eval_metrics = mlflow.sklearn.eval_and_log_metrics(
             model=model, X=X_eval, y_true=y_eval, prefix="eval_"
         )
+
+    eval_artifacts = ["{}.png".format("eval_confusion_matrix")] if _is_plotting_supported() else []
 
     # Check that the logged metrics/artifacts for the run are exactly those returned by the call
     run_id = run.info.run_id
@@ -1394,11 +1390,6 @@ def test_eval_and_log_metrics_with_meta_estimator():
     }
     assert eval_metrics == expected_metrics
 
-    client = mlflow.tracking.MlflowClient()
-    artifacts = [x.path for x in client.list_artifacts(run_id)]
-    plot_names = ["{}.png".format("eval_confusion_matrix")] if _is_plotting_supported() else []
-    assert plot_names == eval_artifacts
-
 
 def test_eval_and_log_metrics_with_new_run():
     # disable autologging so that we can check for the sole existence of eval-time metrics
@@ -1411,7 +1402,7 @@ def test_eval_and_log_metrics_with_new_run():
     y_eval = y_true[:-1]
     model = fit_model(model, X, y_true, "fake")
 
-    eval_metrics, eval_artifacts = mlflow.sklearn.eval_and_log_metrics(
+    eval_metrics = mlflow.sklearn.eval_and_log_metrics(
         model=model, X=X_eval, y_true=y_eval, prefix="eval_"
     )
     # Check the contents for the metrics and artifacts
@@ -1423,14 +1414,13 @@ def test_eval_and_log_metrics_with_new_run():
         "eval_mae": sklearn.metrics.mean_absolute_error(y_eval, y_pred),
         "eval_r2_score": sklearn.metrics.r2_score(y_eval, y_pred),
     }
-    assert len(eval_artifacts) == 0
 
     # Check the the logged metrics/artifacts are the same as the returned ones.
     assert mlflow.active_run() is not None
     run_id = mlflow.active_run().info.run_id
     _, metrics, _, artifacts = get_run_data(run_id)
     assert eval_metrics == metrics
-    assert eval_artifacts == artifacts
+    assert len(artifacts) == 0
     mlflow.end_run()
 
 
@@ -1449,14 +1439,16 @@ def test_eval_and_log_metrics_with_noscore_estimator():
     model = FakeEstimator()
     X_eval, y_eval = get_iris()
 
-    metrics, artifacts = mlflow.sklearn.eval_and_log_metrics(
+    eval_metrics = mlflow.sklearn.eval_and_log_metrics(
         model=model, X=X_eval, y_true=y_eval, prefix="eval_"
     )
+    _, metrics, _, artifacts = get_run_data(mlflow.active_run().info.run_id)
 
     mlflow.end_run()
 
     # No artifacts should be generated
     assert len(metrics) == 0
+    assert len(eval_metrics) == 0
     assert len(artifacts) == 0
 
 
