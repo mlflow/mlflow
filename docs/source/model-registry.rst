@@ -477,14 +477,15 @@ Now, using MLflow fluent APIs, we reload the from the Model Registry and score.
 Registering an Unsupported Machine Learning Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 In some cases, you might use a machine learning framework without its built-in MLflow Model flavor support.
-For instance, the `vaderSentiment` library is a standard National Language Processing (NLP) library used
+For instance, the `vaderSentiment` library is a standard Natural Language Processing (NLP) library used
 for sentiment analysis. Since it lacks a built-in MLflow Model flavor, you cannot log or register the model
 using MLflow Model fluent APIs.
 
-To work around this problem, you can create an instance of a :py:mod:`mlflow.pyfunc` model and embed your NLP model inside it,
-allowing you to save, log or register the model and load the model from the Model Registry and score using the **pyfunc** model flavor APIs.
+To work around this problem, you can create an instance of a :py:mod:`mlflow.pyfunc` model flavor and embed your NLP model
+inside it, allowing you to save, log or register the model. Once registered, load the model from the Model Registry
+and score using the :py:func:`predict <mlflow.pyfunc.PyFuncModel.predict>` function.
 
-The code sections below how to create a ``PythonFuncModel`` class with a ``vaderSentiment`` model embedded in it,
+The code sections below demonstrate how to create a ``PythonFuncModel`` class with a ``vaderSentiment`` model embedded in it,
 save, log, register, and load from the Model Registry and score.
 
 .. note::
