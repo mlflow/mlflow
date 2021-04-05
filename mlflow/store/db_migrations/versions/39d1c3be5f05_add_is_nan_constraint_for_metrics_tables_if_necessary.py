@@ -26,14 +26,14 @@ def upgrade():
     # to `True`
     with op.batch_alter_table("latest_metrics") as batch_op:
         batch_op.alter_column(
-            "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
+            "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False
         )
 
     # Introduce a check constraint on the `is_nan` column from the `metrics` table, which was
     # missing prior to this migration
     with op.batch_alter_table("metrics") as batch_op:
         batch_op.alter_column(
-            "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False, default=False
+            "is_nan", type_=sa.types.Boolean(create_constraint=True), nullable=False
         )
 
 
