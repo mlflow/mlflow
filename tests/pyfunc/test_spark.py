@@ -60,11 +60,20 @@ def get_spark_session(conf):
     # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    return (
-        pyspark.sql.SparkSession.builder.config(conf=conf)
-        .master("local-cluster[2, 1, 1024]")
-        .getOrCreate()
-    )
+
+    # A temporary workaround for https://github.com/mlflow/mlflow/issues/4229
+    MAX_ATTEMPTS = 5
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            return (
+                pyspark.sql.SparkSession.builder.config(conf=conf)
+                .master("local-cluster[2, 1, 1024]")
+                .getOrCreate()
+            )
+        except Exception as e:
+            print("Attempt {} / {} faild: {}".format(attempt, MAX_ATTEMPTS, e))
+
+    raise Exception("All attempts failed")
 
 
 @pytest.fixture(scope="session")
