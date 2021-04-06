@@ -493,6 +493,8 @@ save, log, register, and load from the Model Registry and score.
 
 .. code-block:: py
 
+    from sys import version_info
+    import cloudpickle
     import pandas as pd
 
     import mlflow.pyfunc
@@ -510,6 +512,9 @@ save, log, register, and load from the Model Registry and score.
                {'text': "Yay!! Another good phone interview. I nailed it!!"},
                {'text': "This is INSANE! I can't believe it. How could you do such a horrible thing?"}]
 
+    PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
+                                                  minor=version_info.minor,
+                                                  micro=version_info.micro)
     def score_model(model):
     # Use inference to predict output from the customized PyFunc model
     for i, text in enumerate(INPUT_TEXTS):
@@ -550,15 +555,16 @@ save, log, register, and load from the Model Registry and score.
     conda_env = {
         'channels': ['defaults', 'conda-forge'],
         'dependencies': [
-            'python=3.9.1',
+            'python={}'.format(PYTHON_VERSION),
             'pip'],
         'pip': [
             'mlflow',
-            'cloudpickle==1.3.0',
+            'cloudpickle=={}'.format(cloudpickle.__version__),
             'vaderSentiment==3.3.2'
         ],
         'name': 'mlflow-env'
     }
+
     # Save the model
     with mlflow.start_run(run_name="Vader Sentiment Analysis") as run:
         model_path = f"{model_path}-{run.info.run_uuid}"
@@ -567,7 +573,10 @@ save, log, register, and load from the Model Registry and score.
         mlflow.pyfunc.save_model(path=model_path, python_model=vader_model, conda_env=conda_env)
 
     # Use the saved model path to log and register into the model registry
-    mlflow.pyfunc.log_model(artifact_path=model_path, python_model=vader_model, registered_model_name=reg_model_name, conda_env=conda_env)
+    mlflow.pyfunc.log_model(artifact_path=model_path,
+                            python_model=vader_model,
+                            registered_model_name=reg_model_name,
+                            conda_env=conda_env)
 
     # Load the model from the model registry and score
     model_uri = f"models:/{reg_model_name}/1"
@@ -577,7 +586,7 @@ save, log, register, and load from the Model Registry and score.
 .. code-block:: text
 
     Successfully registered model 'PyFuncVaderSentiments'.
-    2021/04/05 10:34:15 INFO mlflow.tracking._model_registry.client: Waiting up to 300 seconds for model version to finish creation.                     Model name: PyFuncVaderSentiments, version 1
+    2021/04/05 10:34:15 INFO mlflow.tracking._model_registry.client: Waiting up to 300 seconds for model version to finish creation.
     Created version '1' of model 'PyFuncVaderSentiments'.
 
     <This is a bad movie. You don't want to see it! :-)> -- {'neg': 0.307, 'neu': 0.552, 'pos': 0.141, 'compound': -0.4047}
