@@ -5,7 +5,6 @@ import copy
 import inspect
 import os
 import pytest
-import warnings
 from collections import namedtuple
 from unittest import mock
 
@@ -17,20 +16,23 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     autologging_integration,
     exception_safe_function,
-    _AutologgingSessionManager,
     AutologgingEventLogger,
     ExceptionSafeClass,
     ExceptionSafeAbstractClass,
     PatchFunction,
     with_managed_run,
+    is_testing,
+    try_mlflow_log,
+)
+from mlflow.utils.autologging_utils.safety import (
+    _AutologgingSessionManager,
     _validate_args,
     _validate_autologging_run,
-    _is_testing,
-    try_mlflow_log,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
-from tests.autologging.fixtures import test_mode_off, test_mode_on  # pylint: disable=unused-import
+from tests.autologging.fixtures import test_mode_off, test_mode_on
+from tests.autologging.fixtures import patch_destination  # pylint: disable=unused-import
 
 
 pytestmark = pytest.mark.large
@@ -53,24 +55,11 @@ def turn_test_mode_off_by_default(test_mode_off):
 
 
 @pytest.fixture
-def patch_destination():
-    class PatchObj:
-        def __init__(self):
-            self.fn_call_count = 0
-
-        def fn(self, *args, **kwargs):
-            self.fn_call_count += 1
-            return PATCH_DESTINATION_FN_DEFAULT_RESULT
-
-    return PatchObj()
-
-
-@pytest.fixture
 def test_autologging_integration():
     integration_name = "test_integration"
 
     @autologging_integration(integration_name)
-    def autolog(disable=False):
+    def autolog(disable=False, silent=False):
         pass
 
     autolog()
@@ -186,13 +175,13 @@ def mock_event_logger():
 def test_is_testing_respects_environment_variable():
     try:
         prev_env_var_value = os.environ.pop("MLFLOW_AUTOLOGGING_TESTING", None)
-        assert not _is_testing()
+        assert not is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "false"
-        assert not _is_testing()
+        assert not is_testing()
 
         os.environ["MLFLOW_AUTOLOGGING_TESTING"] = "true"
-        assert _is_testing()
+        assert is_testing()
     finally:
         if prev_env_var_value:
             os.environ["MLFLOW_AUTOLOGGING_TESTING"] = prev_env_var_value
@@ -393,7 +382,7 @@ def test_safe_patch_respects_disable_flag(patch_destination):
     patch_impl_call_count = 0
 
     @autologging_integration("test_respects_disable")
-    def autolog(disable=False):
+    def autolog(disable=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -437,7 +426,8 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
     safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
 
     with pytest.raises(Exception, match="does not match expected input"), mock.patch(
-        "mlflow.utils.autologging_utils._validate_args", wraps=autologging_utils._validate_args
+        "mlflow.utils.autologging_utils.safety._validate_args",
+        wraps=autologging_utils.safety._validate_args,
     ) as validate_mock:
         patch_destination.fn("a", "b", "c")
 
@@ -448,7 +438,7 @@ def test_safe_patch_validates_arguments_to_original_function_in_test_mode(
 def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
     patch_destination, test_autologging_integration
 ):
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     def leak_run_patch_impl(original, *args, **kwargs):
         mlflow.start_run(nested=True)
@@ -473,7 +463,7 @@ def test_safe_patch_throws_when_autologging_runs_are_leaked_in_test_mode(
 def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_mode(
     patch_destination, test_autologging_integration
 ):
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     def leak_run_patch_impl(original, *args, **kwargs):
         mlflow.start_run(nested=True)
@@ -492,7 +482,7 @@ def test_safe_patch_does_not_throw_when_autologging_runs_are_leaked_in_standard_
 def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
     patch_destination, test_autologging_integration
 ):
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     def no_tag_run_patch_impl(original, *args, **kwargs):
         with mlflow.start_run(nested=True):
@@ -501,7 +491,8 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
     safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils._validate_autologging_run", wraps=_validate_autologging_run
+        "mlflow.utils.autologging_utils.safety._validate_autologging_run",
+        wraps=_validate_autologging_run,
     ) as validate_run_mock:
 
         with pytest.raises(
@@ -522,7 +513,7 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
 def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
     patch_destination, test_autologging_integration
 ):
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     def no_tag_run_patch_impl(original, *args, **kwargs):
         with mlflow.start_run(nested=True):
@@ -531,7 +522,8 @@ def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
     safe_patch(test_autologging_integration, patch_destination, "fn", no_tag_run_patch_impl)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils._validate_autologging_run", wraps=_validate_autologging_run
+        "mlflow.utils.autologging_utils.safety._validate_autologging_run",
+        wraps=_validate_autologging_run,
     ) as validate_run_mock:
 
         patch_destination.fn()
@@ -556,7 +548,7 @@ def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
         return original(*args, **kwargs)
 
     with mock.patch(
-        "mlflow.utils.autologging_utils.with_managed_run", wraps=with_managed_run
+        "mlflow.utils.autologging_utils.safety.with_managed_run", wraps=with_managed_run
     ) as managed_run_mock:
         safe_patch(
             test_autologging_integration, patch_destination, "fn", patch_impl, manage_run=True
@@ -736,76 +728,6 @@ def test_safe_patch_makes_expected_event_logging_calls_when_original_function_th
     assert original_error.exception == exc_to_raise
 
 
-def test_safe_patch_augments_mlflow_warnings_and_preserves_others(
-    patch_destination, test_autologging_integration
-):
-    """
-    MLflow routines called by autologging patch code may issue warnings via the `warnings.warn`
-    API. In many cases, the user cannot remediate the cause of these warnings because
-    they result from the autologging patch implementation, rather than a user-facing API call.
-
-    This test case verifies that, for user clarity, such MLflow warnings are augmented with
-    context about their origin (i.e. MLflow's autologging patch implementation, rather than
-    user behavior) during autologging patch code execution.
-    """
-    mlflow_warning_kwargs = {
-        "message": "Mock MLflow warning",
-        "category": UserWarning,
-        "filename": mlflow.__file__,
-        "lineno": 7,
-    }
-    external_warning_kwargs = {
-        "message": "Mock external warning",
-        "category": UserWarning,
-        "filename": "/some/tensorflow/module.py",
-        "lineno": 14,
-    }
-
-    def patch_impl(original, *args, **kwargs):
-        warnings.warn_explicit(**mlflow_warning_kwargs)
-        warnings.warn_explicit(**external_warning_kwargs)
-
-    safe_patch(test_autologging_integration, patch_destination, "fn", patch_impl)
-
-    with pytest.warns(UserWarning) as user_warnings_from_patch, mock.patch(
-        "mlflow.utils.autologging_utils._logger.warning"
-    ) as logger_mock:
-        patch_destination.fn()
-
-    assert len(user_warnings_from_patch) == 1
-    # Verify that the warning message (which is the first argument to the UserWarning)
-    # issued via the standard warning mechanism (i.e. printing to `sys.stderr`) corresponds
-    # to the external warning
-    external_warning = user_warnings_from_patch[0]
-    assert external_warning.message.args[0] == "Mock external warning"
-    assert external_warning.lineno == 14
-    assert external_warning.filename == "/some/tensorflow/module.py"
-
-    # Verify that the warning message routed to the MLflow logger corresponds to the MLflow warning
-    assert logger_mock.call_count == 1
-    logger_warn_args = logger_mock.call_args[0]
-    message = logger_warn_args[0]
-    formatting_args = logger_warn_args[1:]
-    full_logger_warning = message % formatting_args
-    assert "Mock MLflow warning" in full_logger_warning
-    assert str(7) in full_logger_warning  # Ensure that the warning line number is present
-    assert mlflow.__file__ in full_logger_warning
-
-    with pytest.warns(UserWarning) as user_warnings_outside_patch:
-        warnings.warn_explicit(**mlflow_warning_kwargs)
-        warnings.warn_explicit(**external_warning_kwargs)
-
-    # Verify that MLflow warnings and external warnings are emitted as normal outside
-    # of autologging patch execution
-    assert set([warning.message.args[0] for warning in user_warnings_outside_patch]) == set(
-        ["Mock MLflow warning", "Mock external warning"]
-    )
-    assert set([warning.lineno for warning in user_warnings_outside_patch]) == set([7, 14])
-    assert set([warning.filename for warning in user_warnings_outside_patch]) == set(
-        [mlflow.__file__, "/some/tensorflow/module.py"]
-    )
-
-
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
     patch_destination, test_autologging_integration,
@@ -881,7 +803,7 @@ def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
 
 
 def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     @exception_safe_function
     def non_throwing_function():
@@ -905,7 +827,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_standard_mode():
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     @exception_safe_function
     def non_throwing_function():
@@ -929,7 +851,7 @@ def test_exception_safe_function_exhibits_expected_behavior_in_test_mode():
     "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(baseclass, metaclass):
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     class NonThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
@@ -958,7 +880,7 @@ def test_exception_safe_class_exhibits_expected_behavior_in_standard_mode(basecl
     "baseclass, metaclass", [(object, ExceptionSafeClass), (abc.ABC, ExceptionSafeAbstractClass)]
 )
 def test_exception_safe_class_exhibits_expected_behavior_in_test_mode(baseclass, metaclass):
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     class NonThrowingClass(baseclass, metaclass=metaclass):
         def function(self):
@@ -989,13 +911,14 @@ def test_patch_function_class_call_invokes_implementation_and_returns_result():
     assert TestPatchFunction.call("foo", lambda: "foo") == 10
 
 
-def test_patch_function_class_call_handles_exceptions_properly():
+@pytest.mark.parametrize("exception_class", [Exception, KeyboardInterrupt])
+def test_patch_function_class_call_handles_exceptions_properly(exception_class):
 
     called_on_exception = False
 
     class TestPatchFunction(PatchFunction):
         def _patch_implementation(self, original, *args, **kwargs):
-            raise Exception("implementation exception")
+            raise exception_class("implementation exception")
 
         def _on_exception(self, exception):
             nonlocal called_on_exception
@@ -1004,7 +927,7 @@ def test_patch_function_class_call_handles_exceptions_properly():
 
     # Even if an exception is thrown from `_on_exception`, we expect the original
     # exception from the implementation to be surfaced to the caller
-    with pytest.raises(Exception, match="implementation exception"):
+    with pytest.raises(exception_class, match="implementation exception"):
         TestPatchFunction.call("foo", lambda: "foo")
 
     assert called_on_exception
@@ -1150,6 +1073,45 @@ def test_with_managed_run_sets_specified_run_tags():
     patch_function_2 = with_managed_run("test_integration", PatchFunction2, tags=tags_to_set)
     run2 = patch_function_2.call(lambda: "foo")
     assert tags_to_set.items() <= client.get_run(run2.info.run_id).data.tags.items()
+
+
+@pytest.mark.usefixtures(test_mode_on.__name__)
+def test_with_managed_run_ends_run_on_keyboard_interrupt():
+    client = MlflowClient()
+    run = None
+
+    def original():
+        nonlocal run
+        run = mlflow.active_run()
+        raise KeyboardInterrupt
+
+    patch_function_1 = with_managed_run(
+        "test_integration", lambda original, *args, **kwargs: original(*args, **kwargs)
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        patch_function_1(original)
+
+    assert not mlflow.active_run()
+    run_status_1 = client.get_run(run.info.run_id).info.status
+    assert RunStatus.from_string(run_status_1) == RunStatus.FAILED
+
+    class PatchFunction2(PatchFunction):
+        def _patch_implementation(self, original, *args, **kwargs):
+            return original(*args, **kwargs)
+
+        def _on_exception(self, exception):
+            pass
+
+    patch_function_2 = with_managed_run("test_integration", PatchFunction2)
+
+    with pytest.raises(KeyboardInterrupt):
+
+        patch_function_2.call(original)
+
+    assert not mlflow.active_run()
+    run_status_2 = client.get_run(run.info.run_id).info.status
+    assert RunStatus.from_string(run_status_2) == RunStatus.FAILED
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1405,7 +1367,7 @@ def test_validate_autologging_run_validates_run_status_correctly():
 
 
 def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
-    assert not autologging_utils._is_testing()
+    assert not autologging_utils.is_testing()
 
     def throwing_function():
         raise Exception("bad implementation")
@@ -1416,7 +1378,7 @@ def test_try_mlflow_log_emits_exceptions_as_warnings_in_standard_mode():
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
 def test_try_mlflow_log_propagates_exceptions_in_test_mode():
-    assert autologging_utils._is_testing()
+    assert autologging_utils.is_testing()
 
     def throwing_function():
         raise Exception("bad implementation")
@@ -1480,7 +1442,7 @@ def test_original_fn_runs_if_patch_should_not_be_applied(patch_destination):
     patch_impl_call_count = 0
 
     @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False):
+    def autolog(disable=False, exclusive=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1
@@ -1513,7 +1475,7 @@ def test_patch_runs_if_patch_should_be_applied():
     patch_obj = TestPatchWithNewFnObj()
 
     @autologging_integration("test_respects_exclusive")
-    def autolog(disable=False, exclusive=False):
+    def autolog(disable=False, exclusive=False, silent=False):
         def patch_impl(original, *args, **kwargs):
             nonlocal patch_impl_call_count
             patch_impl_call_count += 1

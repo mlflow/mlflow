@@ -171,7 +171,7 @@ def test_signature_and_examples_are_saved_correctly(ols_model):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
 def test_model_load_from_remote_uri_succeeds(arma_model, model_path, mock_s3_bucket):

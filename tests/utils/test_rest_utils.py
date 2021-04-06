@@ -154,6 +154,30 @@ def test_http_request_server_cert_path(request):
     )
 
 
+@pytest.mark.large
+@mock.patch("requests.request")
+def test_http_request_request_headers(request):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+
+    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+
+    # The test plugin's request header provider always returns False from in_context to avoid
+    # polluting request headers in developers' environments. The following mock overrides this to
+    # perform the integration test.
+    with mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True):
+        host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        request.return_value = response
+        http_request(host_only, "/my/endpoint")
+        request.assert_called_with(
+            url="http://my-host/my/endpoint",
+            verify="/some/path",
+            headers={**_DEFAULT_HEADERS, "test": "header"},
+        )
+
+
 def test_ignore_tls_verification_not_server_cert_path():
     with pytest.raises(MlflowException):
         MlflowHostCreds(

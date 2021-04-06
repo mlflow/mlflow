@@ -3,6 +3,11 @@ from mlflow.utils import databricks_utils
 
 
 class DatabricksRequestHeaderProvider(RequestHeaderProvider):
+    """
+    Provides request headers indicating the type of Databricks environment from which a request
+    was made.
+    """
+
     def in_context(self):
         return (
             databricks_utils.is_in_cluster()

@@ -204,21 +204,23 @@ def test_that_keras_module_arg_works(model_path):
         path0 = os.path.join(model_path, "0")
         with pytest.raises(MlflowException):
             mlflow.keras.save_model(x, path0)
-        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
+        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule, save_format="h5")
         y = mlflow.keras.load_model(path0)
         assert x == y
         path1 = os.path.join(model_path, "1")
-        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
+        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__, save_format="h5")
         z = mlflow.keras.load_model(path1)
         assert x == z
         # Tests model log
         with mlflow.start_run() as active_run:
             with pytest.raises(MlflowException):
                 mlflow.keras.log_model(x, "model0")
-            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule)
+            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule, save_format="h5")
             a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
             assert x == a
-            mlflow.keras.log_model(x, "model1", keras_module=FakeKerasModule.__name__)
+            mlflow.keras.log_model(
+                x, "model1", keras_module=FakeKerasModule.__name__, save_format="h5"
+            )
             b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
             assert x == b
 
@@ -495,13 +497,13 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
 @pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
-    model, model_path, data, predicted
+    tf_keras_model, model_path, data
 ):
     """
     This is a backwards compatibility test to ensure that models saved in MLflow version <= 0.8.0
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
-    mlflow.keras.save_model(keras_model=model, path=model_path)
+    mlflow.keras.save_model(keras_model=tf_keras_model, path=model_path, save_format="h5")
     shutil.move(os.path.join(model_path, "data", "model.h5"), os.path.join(model_path, "model.h5"))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -511,7 +513,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     model_conf.save(model_conf_path)
 
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(data[0].values) == predicted)
+    assert all(model_loaded.predict(data[0].values) == tf_keras_model.predict(data[0].values))
 
 
 @pytest.mark.release

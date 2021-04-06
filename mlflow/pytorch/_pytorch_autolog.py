@@ -2,9 +2,9 @@ from distutils.version import LooseVersion
 import logging
 import mlflow.pytorch
 import os
-import pytorch_lightning as pl
 import shutil
 import tempfile
+import pytorch_lightning as pl
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
@@ -88,14 +88,16 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
             def __init__(self):
                 self.early_stopping = False
 
-            def on_epoch_end(self, trainer, pl_module):
-                """
-                Log loss and other metrics values after each epoch
+            def _log_metrics(self, trainer, pl_module):
+                # pytorch-lightning runs a few steps of validation in the beginning of training
+                # as a sanity check to catch bugs without having to wait for the training routine
+                # to complete. During this check, we should skip logging metrics.
+                # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#num-sanity-val-steps # noqa
+                if trainer.running_sanity_check:
+                    return
 
-                :param trainer: pytorch lightning trainer instance
-                :param pl_module: pytorch lightning base module
-                """
                 if (pl_module.current_epoch + 1) % every_n_epoch == 0:
+                    # `trainer.callback_metrics` contains both training and validation metrics
                     cur_metrics = trainer.callback_metrics
                     # Cast metric value as  float before passing into logger.
                     metrics = dict(map(lambda x: (x[0], float(x[1])), cur_metrics.items()))
@@ -105,6 +107,46 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                 for callback in trainer.callbacks:
                     if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
                         self._early_stop_check(callback)
+
+            # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
+            # metrics records because `on_epoch_end` is called after both train and validation
+            # epochs (related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986)
+            # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
+            # in pytorch-lightning >= 1.2.0.
+            if LooseVersion(pl.__version__) >= LooseVersion("1.2.0"):
+
+                def on_train_epoch_end(self, trainer, pl_module, _):
+                    """
+                    Log loss and other metrics values after each train epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    # If validation loop is enabled (meaning `validation_step` is overridden),
+                    # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
+                    # records twice
+                    if trainer.disable_validation:
+                        self._log_metrics(trainer, pl_module)
+
+                def on_validation_epoch_end(self, trainer, pl_module):
+                    """
+                    Log loss and other metrics values after each validation epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    self._log_metrics(trainer, pl_module)
+
+            else:
+
+                def on_epoch_end(self, trainer, pl_module):
+                    """
+                    Log loss and other metrics values after each epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    self._log_metrics(trainer, pl_module)
 
             def on_train_start(self, trainer, pl_module):
                 """

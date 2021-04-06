@@ -14,6 +14,11 @@ jobs:
             apt-get install sudo git wget curl software-properties-common apt-transport-https --yes
 
       - run:
+          name: Install Java
+          command: |
+            sudo apt-get install default-jdk --yes
+            java -version
+      - run:
           name: Install R
           command: |
             echo "deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/" | sudo tee -a /etc/apt/sources.list

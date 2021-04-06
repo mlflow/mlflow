@@ -28,7 +28,8 @@ conda create -q -n test-environment python=3.6
 source activate test-environment
 
 python --version
-pip install --upgrade pip==19.3.1
+pip install --upgrade pip
+pip --version
 
 if [[ "$MLFLOW_SKINNY" == "true" ]]; then
   pip install . --upgrade
@@ -57,6 +58,9 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
+
+# Install `mlflow-test-plugin` without dependencies
+pip install --no-dependencies tests/resources/mlflow-test-plugin
 
 # Print current environment info
 pip list
