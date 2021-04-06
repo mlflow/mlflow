@@ -1032,8 +1032,8 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     otherwise a new run is started and left active.
 
     Raises an error if:
-    - prefix is empty
-    - model is not an sklearn estimator or does not support the 'predict' method
+      - prefix is empty
+      - model is not an sklearn estimator or does not support the 'predict' method
     """
     from mlflow.sklearn.utils import _log_estimator_content
     from sklearn.base import BaseEstimator
