@@ -136,15 +136,15 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    model_bin = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
-        mlflow_model, loader_module="mlflow.catboost", env=conda_env_subpath, **model_bin,
+        mlflow_model, loader_module="mlflow.catboost", env=conda_env_subpath, **model_bin_kwargs,
     )
 
     flavor_conf = {
         _MODEL_TYPE_KEY: cb_model.__class__.__name__,
         _SAVE_FORMAT_KEY: kwargs.get("format", "cbm"),
-        **model_bin,
+        **model_bin_kwargs,
     }
     mlflow_model.add_flavor(
         FLAVOR_NAME, catboost_version=cb.__version__, **flavor_conf,

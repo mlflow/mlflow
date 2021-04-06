@@ -1,16 +1,15 @@
+from collections import namedtuple
 import mock
 import os
 import pytest
 import yaml
-from collections import namedtuple
 
+import catboost as cb
 import numpy as np
 import pandas as pd
 import sklearn.datasets as datasets
-import catboost as cb
 
 import mlflow.catboost
-import mlflow.utils
 from mlflow import pyfunc
 from mlflow.models.utils import _read_example
 from mlflow.models import Model, infer_signature
