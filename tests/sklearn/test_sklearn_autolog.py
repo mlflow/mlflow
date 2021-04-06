@@ -1459,16 +1459,16 @@ def test_eval_and_log_metrics_throws_with_invalid_args():
     X, y_true = get_iris()
     model = LinearRegression()
 
-    with pytest.raises(ValueError, match="must specify a non-empty prefix"):
+    with pytest.raises(ValueError, match="Must specify a non-empty prefix"):
         mlflow.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix="")
 
-    with pytest.raises(ValueError, match="must specify a non-empty prefix"):
+    with pytest.raises(ValueError, match="Must specify a non-empty prefix"):
         mlflow.sklearn.eval_and_log_metrics(model=model, X=X, y_true=y_true, prefix=None)
 
-    with pytest.raises(ValueError, match="not a sklearn model"):
+    with pytest.raises(ValueError, match="not a sklearn estimator"):
         mlflow.sklearn.eval_and_log_metrics(model={}, X=X, y_true=y_true, prefix="val_")
 
-    with pytest.raises(ValueError, match="model does not support predictions"):
+    with pytest.raises(ValueError, match="Model does not support predictions"):
         mlflow.sklearn.eval_and_log_metrics(
             model=SpectralClustering(), X=X, y_true=y_true, prefix="val_"
         )

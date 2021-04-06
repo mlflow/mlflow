@@ -1042,10 +1042,14 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
         raise ValueError("Must specify a non-empty prefix")
 
     if not isinstance(model, BaseEstimator):
-        raise ValueError("The provided model was not an sklearn estimator. Please ensure the passed-in model is a sklearn estimator subclassing sklearn.base.BaseEstimator")
+        raise ValueError(
+            "The provided model was not a sklearn estimator. Please ensure the passed-in model is a sklearn estimator subclassing sklearn.base.BaseEstimator"
+        )
 
     if not hasattr(model, "predict"):
-        raise ValueError("Model does not support predictions. Please pass a model object defining a predict() method")
+        raise ValueError(
+            "Model does not support predictions. Please pass a model object defining a predict() method"
+        )
 
     active_run = mlflow.active_run()
     run = active_run if active_run is not None else mlflow.start_run()
