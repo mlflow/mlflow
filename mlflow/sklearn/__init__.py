@@ -1028,8 +1028,8 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
 
     Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
     metrics and artifacts are named 'val_XXXXX'. Note that training-time metrics are auto-logged
-    as 'training_XXXXX'. Metrics and artifacts are logged under the currently active run if one exists,
-    otherwise a new run is started and left active.
+    as 'training_XXXXX'. Metrics and artifacts are logged under the currently active run if one
+    exists, otherwise a new run is started and left active.
 
     Raises an error if:
       - prefix is empty
@@ -1043,12 +1043,14 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
 
     if not isinstance(model, BaseEstimator):
         raise ValueError(
-            "The provided model was not a sklearn estimator. Please ensure the passed-in model is a sklearn estimator subclassing sklearn.base.BaseEstimator"
+            "The provided model was not a sklearn estimator. Please ensure the passed-in model is "
+            "a sklearn estimator subclassing sklearn.base.BaseEstimator"
         )
 
     if not hasattr(model, "predict"):
         raise ValueError(
-            "Model does not support predictions. Please pass a model object defining a predict() method"
+            "Model does not support predictions. Please pass a model object defining a predict() "
+            "method"
         )
 
     active_run = mlflow.active_run()
