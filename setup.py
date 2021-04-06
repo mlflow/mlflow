@@ -46,6 +46,9 @@ SKINNY_REQUIREMENTS = [
     "protobuf>=3.6.0",
     "pytz",
     "requests>=2.17.3",
+    "sagemaker-studio-image-build>=0.5.0",
+    "tox",
+    "pytest"
 ]
 
 """

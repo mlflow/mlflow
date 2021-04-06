@@ -8,7 +8,40 @@ import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
 import mlflow.models.docker_utils
+from subprocess import Popen, PIPE, STDOUT
+from mlflow.utils.logging_utils import eprint
 
+_DOCKERFILE_TEMPLATE = """
+# Build an image that can serve mlflow models.
+FROM public.ecr.aws/ubuntu/ubuntu:18.04
+
+RUN apt-get -y update && apt-get install -y --no-install-recommends \
+         wget \
+         curl \
+         nginx \
+         ca-certificates \
+         bzip2 \
+         build-essential \
+         cmake \
+         openjdk-8-jdk \
+         git-core \
+         maven \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and setup miniconda
+RUN curl -L https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
+RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
+ENV PATH="/miniconda/bin:$PATH"
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
+# Set up the program in the image
+WORKDIR /opt/mlflow
+
+{install_mlflow}
+
+{custom_setup_steps}
+{entrypoint}
+"""
 
 @click.group("sagemaker")
 def commands():
@@ -281,3 +314,57 @@ def build_and_push_container(build, push, container, mlflow_home):
         )
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)
+
+@commands.command("code-build-and-push-container")
+@click.option("--build/--no-build", default=True, help="Build the container if set.")
+@click.option("--container", "-c", default=IMAGE, help="image name")
+@cli_args.MLFLOW_HOME
+def code_build_and_push_container(build, container, mlflow_home):
+    """
+    Build new MLflow Sagemaker image, assign it a name, and push to ECR.
+
+    This function builds an MLflow Docker image.
+    The image is built locally and it requires Docker to run.
+    """
+    from mlflow.utils.file_utils import TempDir
+    if not (build):
+        print("skipping build, have nothing to do!")
+    if build:
+        sagemaker_image_entrypoint = """
+        ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
+        C._init(sys.argv[1])"]
+        """
+
+        def setup_container(_):
+            return "\n".join(
+                [
+                    'ENV {disable_env}="false"',
+                    'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
+                    '_install_pyfunc_deps(None, False)"',
+                ]
+            )
+
+        mlflow_home = os.path.abspath(mlflow_home) if mlflow_home else None
+        with TempDir() as tmp:
+            cwd = tmp.path()
+            install_mlflow = mlflow.models.docker_utils._get_mlflow_install_step(cwd, mlflow_home)
+            custom_setup_steps = setup_container(cwd) if setup_container else ""
+            with open(os.path.join(cwd, "Dockerfile"), "w") as f:
+                f.write(
+                    _DOCKERFILE_TEMPLATE.format(
+                        install_mlflow=install_mlflow,
+                        custom_setup_steps=custom_setup_steps,
+                        entrypoint=sagemaker_image_entrypoint,
+                    )
+                )
+            mlflow.models.docker_utils._logger.info("Building docker image with name %s", container)
+            os.system("find {cwd}/".format(cwd=cwd))
+            proc = Popen(
+                ["sm-docker", "build", ".", "--repository", container, "--file", "Dockerfile"],
+                cwd=cwd,
+                stdout=PIPE,
+                stderr=STDOUT,
+                universal_newlines=True,
+            )
+            for x in iter(proc.stdout.readline, ""):
+                eprint(x, end="")
