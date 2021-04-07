@@ -9,7 +9,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
 )
 
-FLAVOR_NAME = "pyspark_ml"
+FLAVOR_NAME = "spark"
 
 
 def _get_estimator_info_tags(estimator):
