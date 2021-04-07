@@ -358,9 +358,8 @@ an ML framework without a built-in MLflow model flavor support, for instance, `v
 
 Registering a Saved Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Not everyone will start their model training with MLflow, so that you may have
-some models trained before the use of MLflow. Instead of retraining the models, all you wish to do is
-register your saved models with the Model Registry.
+Not everyone will start their model training with MLflow. So you may have some models trained before the use of MLflow.
+Instead of retraining the models, all you wish to do is register your saved models with the Model Registry.
 
 This code snippet creates a sklearn model, which we assume that you had created and saved in native pickle format.
 
