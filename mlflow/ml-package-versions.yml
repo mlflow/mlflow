@@ -177,11 +177,12 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      temp_dir=$(mktemp -d)
+      temp_dir="/tmp/catboost"
       git clone https://github.com/catboost/catboost.git $temp_dir
-      cd $temp_dir/catboost/python-package/catboost
-      ../../../ya make -r -DUSE_ARCADIA_PYTHON=no -DOS_SDK=local -DPYTHON_CONFIG=python3-config
-      cd ../; export PYTHONPATH=$PYTHONPATH:$(pwd)
+      cd $temp_dir/catboost/python-package/
+      python setup.py bdist_wheel
+      # ../../../ya make -r -DUSE_ARCADIA_PYTHON=no -DOS_SDK=local -DPYTHON_CONFIG=python3-config
+      # cd ../; export PYTHONPATH=$PYTHONPATH:$(pwd)
 
   models:
     minimum: "0.25.1"
