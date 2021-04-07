@@ -179,9 +179,8 @@ catboost:
     install_dev: |
       temp_dir=$(mktemp -d)
       git clone https://github.com/catboost/catboost.git $temp_dir
-      cd $temp_dir/catboost/catboost/python-package/catboost
+      cd $temp_dir/catboost/python-package/catboost
       ../../../ya make -r -DUSE_ARCADIA_PYTHON=no -DOS_SDK=local -DPYTHON_CONFIG=python3-config
-      python setup.py install
       cd ../; export PYTHONPATH=$PYTHONPATH:$(pwd)
 
   models:
