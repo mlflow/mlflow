@@ -53,7 +53,17 @@ def get_titanic():
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
     titanic_data = titanic_data.drop(
-        ["name", "ticket", "cabin", "boat", "body", "home.dest", "sex", "embarked", "pclass",],
+        [
+            "name",
+            "ticket",
+            "cabin",
+            "boat",
+            "body",
+            "home.dest",
+            "sex",
+            "embarked",
+            "pclass",
+        ],
         axis=1,
     )
     return titanic_data
@@ -160,7 +170,9 @@ def train(USE_PRETRAINED_MODEL=False):
                     "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
                 )
                 mlflow.log_metric(
-                    "Epoch {} Loss".format(str(epoch + 1)), float(loss.item()), step=epoch,
+                    "Epoch {} Loss".format(str(epoch + 1)),
+                    float(loss.item()),
+                    step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
@@ -177,30 +189,21 @@ def train(USE_PRETRAINED_MODEL=False):
     )
 
 
-def train_step(train_features):
-    train_input_tensor = torch.from_numpy(train_features).type(torch.FloatTensor)
-    out_probs = net(train_input_tensor).detach().numpy()
+def compute_accuracy(net, features, labels, title=None):
+    input_tensor = torch.from_numpy(features).type(torch.FloatTensor)
+    out_probs = net(input_tensor).detach().numpy()
     out_classes = np.argmax(out_probs, axis=1)
-    mlflow.log_metric("Train Accuracy", float(sum(out_classes == train_labels) / len(train_labels)))
-    print("Train Accuracy:", sum(out_classes == train_labels) / len(train_labels))
-    return train_input_tensor
+    mlflow.log_metric(title, float(sum(out_classes == labels) / len(labels)))
+    print(title, sum(out_classes == labels) / len(labels))
+    return input_tensor
 
 
-def test_step(test_features):
-    test_input_tensor = torch.from_numpy(test_features).type(torch.FloatTensor)
-    out_probs = net(test_input_tensor).detach().numpy()
-    out_classes = np.argmax(out_probs, axis=1)
-    mlflow.log_metric("Test Accuracy", float(sum(out_classes == test_labels) / len(test_labels)))
-    print("Test Accuracy:", sum(out_classes == test_labels) / len(test_labels))
-    return test_input_tensor
-
-
-def feature_conductance(test_input_tensor):
+def feature_conductance(net, test_input_tensor):
     """
-    The method takes tensor(s) of input examples (matching the forward function of the model), 
+    The method takes tensor(s) of input examples (matching the forward function of the model),
     and returns the input attributions for the given input example.
-    The returned values of the attribute method are the attributions, 
-    which match the size of the given inputs, and delta, 
+    The returned values of the attribute method are the attributions,
+    which match the size of the given inputs, and delta,
     which approximates the error between the approximated integral and true integral.
     This method saves the distribution of avg attributions of the trained features for the given target.
     """
@@ -234,13 +237,14 @@ def feature_conductance(test_input_tensor):
     mlflow.log_figure(fig, "Average_Sibsp_Feature_Value.png")
 
 
-def layer_conductance(test_input_tensor):
+def layer_conductance(net, test_input_tensor):
     """
-    To use Layer Conductance, we create a LayerConductance object passing in the model as well as the module (layer) whose output we would like to understand. In this case, we choose net.sigmoid1, the output of the first hidden layer.
-
+    To use Layer Conductance, we create a LayerConductance object passing in the model as well as the module (layer) whose output we would like to understand.
+    In this case, we choose net.sigmoid1, the output of the first hidden layer.
     Now obtain the conductance values for all the test examples by calling attribute on the LayerConductance object.
-
-    LayerConductance also requires a target index for networks with mutliple outputs, defining the index of the output for which gradients are computed. Similar to feature attributions, we provide target = 1, corresponding to survival. LayerConductance also utilizes a baseline, but we simply use the default zero baseline as in integrated gradients.
+    LayerConductance also requires a target index for networks with mutliple outputs, defining the index of the output for which gradients are computed.
+    Similar to feature attributions, we provide target = 1, corresponding to survival.
+    LayerConductance also utilizes a baseline, but we simply use the default zero baseline as in integrated gradients.
     """
 
     cond = LayerConductance(net, net.sigmoid1)
@@ -257,7 +261,8 @@ def layer_conductance(test_input_tensor):
     )
     mlflow.log_metrics(neuron_imp_dict)
     mlflow.log_text(str(avg_neuron_imp), "neuron_imp_summary.txt")
-    # We can also look at the distribution of each neuron's attributions. Below we look at the distributions for neurons 7 and 9, and we can confirm that their attribution distributions are very close to 0, suggesting they are not learning substantial features.
+    # We can also look at the distribution of each neuron's attributions. Below we look at the distributions for neurons 7 and 9,
+    # and we can confirm that their attribution distributions are very close to 0, suggesting they are not learning substantial features.
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(9, 6))
     fig.tight_layout(pad=3)
     ax1.hist(cond_vals[:, 9], 100)
@@ -267,18 +272,26 @@ def layer_conductance(test_input_tensor):
     mlflow.log_figure(fig, "Neurons_Distribution.png")
 
 
-def neuron_conductance(test_input_tensor, neuron_selector=None):
+def neuron_conductance(net, test_input_tensor, neuron_selector=None):
     """
-    We have identified that some of the neurons are not learning important features, while others are. Can we now understand what each of these important neurons are looking at in the input? For instance, are they identifying different features in the input or similar ones?
+    We have identified that some of the neurons are not learning important features, while others are.
+    Can we now understand what each of these important neurons are looking at in the input?
+    For instance, are they identifying different features in the input or similar ones?
 
-    To answer these questions, we can apply the third type of attributions available in Captum, **Neuron Attributions**. This allows us to understand what parts of the input contribute to activating a particular input neuron. For this example, we will apply Neuron Conductance, which divides the neuron's total conductance value into the contribution from each individual input feature.
+    To answer these questions, we can apply the third type of attributions available in Captum, **Neuron Attributions**.
+    This allows us to understand what parts of the input contribute to activating a particular input neuron. For this example,
+    we will apply Neuron Conductance, which divides the neuron's total conductance value into the contribution from each individual input feature.
 
-    To use Neuron Conductance, we create a NeuronConductance object, analogously to Conductance, passing in the model as well as the module (layer) whose output we would like to understand, in this case, net.sigmoid1, as before.
+    To use Neuron Conductance, we create a NeuronConductance object, analogously to Conductance,
+    passing in the model as well as the module (layer) whose output we would like to understand, in this case, net.sigmoid1, as before.
     """
     neuron_selector = 0
     neuron_cond = NeuronConductance(net, net.sigmoid1)
 
-    # We can now obtain the neuron conductance values for all the test examples by calling attribute on the NeuronConductance object. Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with mutliple outputs, similar to layer conductance. As before, we provide target = 1, corresponding to survival, and compute neuron conductance for neurons 0 and 10, the significant neurons identified above. The neuron index can be provided either as a tuple or as just an integer if the layer output is 1-dimensional.
+    # We can now obtain the neuron conductance values for all the test examples by calling attribute on the NeuronConductance object.
+    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with mutliple outputs,
+    # similar to layer conductance. As before, we provide target = 1, corresponding to survival, and compute neuron conductance for neurons 0 and 10, the significant neurons identified above.
+    # The neuron index can be provided either as a tuple or as just an integer if the layer output is 1-dimensional.
 
     neuron_cond_vals = neuron_cond.attribute(
         test_input_tensor, neuron_selector=neuron_selector, target=1
@@ -313,18 +326,30 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)",
+        "--lr",
+        type=float,
+        default=0.1,
+        metavar="LR",
+        help="learning rate (default: 0.1)",
     )
 
     args = parser.parse_args()
     dict_args = vars(args)
 
     with mlflow.start_run(run_name="Titanic_Captum_mlflow"):
-        (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
-        train_input_tensor = train_step(train_features)
-        test_input_tensor = test_step(test_features)
-        feature_conductance(test_input_tensor)
-        layer_conductance(test_input_tensor)
-        neuron_conductance(test_input_tensor)
+        (
+            net,
+            train_features,
+            train_labels,
+            test_features,
+            test_labels,
+            feature_names,
+        ) = train()
+
+        compute_accuracy(net, train_features, train_labels, title="Train Accuracy")
+        test_input_tensor = compute_accuracy(net, test_features, test_labels, title="Test Accuracy")
+        feature_conductance(net, test_input_tensor)
+        layer_conductance(net, test_input_tensor)
+        neuron_conductance(net, test_input_tensor)
         mlflow.log_param("Train Size", len(train_labels))
         mlflow.log_param("Test Size", len(test_labels))
