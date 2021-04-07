@@ -1,4 +1,5 @@
 import json
+from pkg_resources import resource_filename
 
 import mlflow
 from mlflow.utils import chunk_dict, truncate_dict
@@ -12,6 +13,41 @@ from mlflow.utils.autologging_utils import (
 from mlflow.spark import FLAVOR_NAME
 
 
+def _get_fully_class_name(instance):
+    return instance.__class__.__module__ + "." + instance.__class__.__name__
+
+
+def _read_log_model_allowlist():
+    """
+    Reads the module allowlist and returns it as a set of tuples.
+    """
+    file_path = resource_filename(__name__, "log_model_allowlist.txt")
+    allowlist = set()
+    with open(file_path) as f:
+        for line in f:
+            stripped = line.strip()
+            is_blankline_or_comment = stripped == "" or stripped.startswith("#")
+            if not is_blankline_or_comment:
+                allowlist.add(stripped)
+    return allowlist
+
+
+_log_model_allowlist = _read_log_model_allowlist()
+
+
+def _should_log_model(estimator, spark_model):
+    class_name = _get_fully_class_name(estimator)
+    if class_name in _log_model_allowlist:
+        return True
+    elif class_name == 'pyspark.ml.classification.OneVsRest':
+        classifier = estimator.getClassifier()
+        return _get_fully_class_name(classifier) in _log_model_allowlist
+    elif class_name == 'pyspark.ml.classification.LogisticRegression':
+        return spark_model.numClasses < 10
+    else:
+        return False
+
+
 def _get_estimator_info_tags(estimator):
     """
     :return: A dictionary of MLflow run tag keys and values
@@ -19,13 +55,13 @@ def _get_estimator_info_tags(estimator):
     """
     return {
         "estimator_name": estimator.__class__.__name__,
-        "estimator_class": (estimator.__class__.__module__ + "." + estimator.__class__.__name__),
+        "estimator_class": _get_fully_class_name(estimator),
     }
 
 
 def _get_estimator_param_map(estimator):
     param_map = {param.name: estimator.getOrDefault(param)
-                for param in estimator.params if estimator.isDefined(param)}
+                 for param in estimator.params if estimator.isDefined(param)}
     # TODO:
     #  handle special case: OneVsRest.classifier,CrossValidator.estimator,
     #  CrossValidator.estimatorParamMaps
@@ -115,8 +151,8 @@ def autolog(
 
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
 
-    def _log_posttraining_metadata(spark_model, *args, **kwargs):
-        if log_models:
+    def _log_posttraining_metadata(estimator, spark_model, *args, **kwargs):
+        if log_models and _should_log_model(estimator, spark_model):
             # TODO:
             #  1. check whitelist when log models
             #  2. support model signature ?
@@ -129,7 +165,7 @@ def autolog(
     def fit_mlflow(original, self, *args, **kwargs):
         _log_pretraining_metadata(self, *args, **kwargs)
         spark_model = original(self, *args, **kwargs)
-        _log_posttraining_metadata(spark_model, *args, **kwargs)
+        _log_posttraining_metadata(self, spark_model, *args, **kwargs)
         return spark_model
 
     def patched_fit(original, self, *args, **kwargs):

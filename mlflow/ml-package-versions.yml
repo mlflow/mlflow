@@ -255,7 +255,7 @@ spacy:
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
 
-spark:
+spark-3.x:
   package_info:
     pip_release: "pyspark"
 
@@ -264,7 +264,8 @@ spark:
     maximum: "3.1.1"
     requirements: ["keras==2.3.1", "tensorflow==2.2.1"]
     run: |
-      pushd mlflow/java/spark && mvn package -DskipTests -q && popd && find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
+      # pushd mlflow/java/spark && mvn package -DskipTests -q && popd && find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
+      pytest tests/spark_autologging/test_pyspark_ml_autologging.py
 
 statsmodels:
   package_info:
