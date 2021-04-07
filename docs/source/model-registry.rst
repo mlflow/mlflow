@@ -352,14 +352,14 @@ You can either delete specific versions of a registered model or you can delete 
 
 While the above workflow API demonstrates interactions with the Model Registry, two exceptional cases require attention.
 One is when you have existing ML models saved from training without the use of MLflow. Serialized and persisted on disk
-in sklearn's pickled format, you want to register this model with the Model Registry. And the second is when you use
+in sklearn's pickled format, you want to register this model with the Model Registry. The second is when you use
 an ML framework without a built-in MLflow model flavor support, for instance, `vaderSentiment,` and want to register the model.
 
 
 Registering a Saved Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 Not everyone will start their model training with MLflow. So you may have some models trained before the use of MLflow.
-Instead of retraining the models, all you wish to do is register your saved models with the Model Registry.
+Instead of retraining the models, all you want to do is register your saved models with the Model Registry.
 
 This code snippet creates a sklearn model, which we assume that you had created and saved in native pickle format.
 
