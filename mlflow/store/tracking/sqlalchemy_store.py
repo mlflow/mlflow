@@ -263,7 +263,7 @@ class SqlAlchemyStore(AbstractStore):
     ):
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
+                            passed, all experiments will be returned at once.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
         :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
