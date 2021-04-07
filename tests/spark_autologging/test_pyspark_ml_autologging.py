@@ -8,16 +8,8 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.models import Model
-from mlflow.models.signature import infer_signature
-from mlflow.models.utils import _read_example
-from mlflow.entities import RunStatus
-from mlflow.sklearn.utils import (
-    _is_supported_version,
-    _is_metric_supported,
-    _is_plotting_supported,
-    _get_arg_names,
-    _truncate_dict,
+from mlflow.utils import (
+    truncate_dict,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
@@ -38,14 +30,14 @@ from mlflow.pyspark.ml import _get_estimator_param_map
 MODEL_DIR = "model"
 
 
-def truncate_dict(d):
-    return _truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+def truncate_param_dict(d):
+    return truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
 
 
-def get_expected_class_tags(model):
+def get_expected_class_tags(estimator):
     return {
-        'estimator_name': model.__class__.__name__,
-        'estimator_class': model.__class__.__module__ + "." + model.__class__.__name__,
+        'estimator_name': estimator.__class__.__name__,
+        'estimator_class': estimator.__class__.__module__ + "." + estimator.__class__.__name__,
     }
 
 
@@ -59,7 +51,7 @@ def get_run_data(run_id):
 
 
 def load_model_by_run_id(run_id):
-    return mlflow.sklearn.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
+    return mlflow.spark.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
 def get_training_dataset(spark_session):
@@ -77,8 +69,8 @@ def test_basic_estimator(spark_session):
         lr_model = lr.fit(training_dataset)
     run_id = run.info.run_id
     params, metrics, tags, artifacts = get_run_data(run_id)
-    assert params == truncate_dict(_get_estimator_param_map(lr))
-    assert tags == get_expected_class_tags(lr_model)
+    assert params == truncate_param_dict(_get_estimator_param_map(lr))
+    assert tags == get_expected_class_tags(lr)
     assert MODEL_DIR in artifacts
     loaded_model = load_model_by_run_id(run_id)
-    assert loaded_model.uid == lr_model.uid
+    assert loaded_model.stages[0].uid == lr_model.uid

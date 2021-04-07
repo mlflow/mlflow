@@ -9,7 +9,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
 )
 
-FLAVOR_NAME = "spark"
+from mlflow.spark import FLAVOR_NAME
 
 
 def _get_estimator_info_tags(estimator):
@@ -78,6 +78,16 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
 ):  # pylint: disable=unused-argument
+    """
+    Enables (or disables) and configures autologging for pyspark ml estimators.
+
+    :param log_models:
+    :param disable:
+    :param exclusive:
+    :param disable_for_unsupported_versions:
+    :param silent:
+    :return:
+    """
     from mlflow.utils.validation import (
         MAX_PARAMS_TAGS_PER_BATCH,
         MAX_PARAM_VAL_LENGTH,
@@ -119,7 +129,7 @@ def autolog(
     def fit_mlflow(original, self, *args, **kwargs):
         _log_pretraining_metadata(self, *args, **kwargs)
         spark_model = original(self, *args, **kwargs)
-        _log_posttraining_metadata(self, *args, **kwargs)
+        _log_posttraining_metadata(spark_model, *args, **kwargs)
         return spark_model
 
     def patched_fit(original, self, *args, **kwargs):
