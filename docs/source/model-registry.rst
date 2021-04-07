@@ -452,7 +452,7 @@ register the loaded model with the Model Registry.
     Model name: SklearnLinearRegression, version 1
     Created version '1' of model 'SklearnLinearRegression'.
 
-Now, using MLflow fluent APIs, we reload the from the Model Registry and score.
+Now, using MLflow fluent APIs, we reload the model from the Model Registry and score.
 
 .. code-block:: py
 
