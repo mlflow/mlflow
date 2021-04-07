@@ -48,12 +48,24 @@ class SparkAutologgingSuite extends FunSuite with Matchers with BeforeAndAfterAl
   var formatToTablePath: Map[String, String] = _
   var deltaTablePath: String = _
 
+  // Taken from: https://stackoverflow.com/a/7931459/6943581
+  def retry[T](n: Int)(fn: => T): T = {
+    util.Try { fn } match {
+      case util.Success(x) => x
+      case _ if n > 1 => retry(n - 1)(fn)
+      case util.Failure(e) => throw e
+    }
+  }
+
   private def getOrCreateSparkSession(): SparkSession = {
-    SparkSession
-      .builder()
-      .appName("MLflow Spark Autologging Tests")
-      .config("spark.master", "local")
-      .getOrCreate()
+    // A temporary workaround for https://github.com/mlflow/mlflow/issues/4229
+    retry(5) {
+      SparkSession
+        .builder()
+        .appName("MLflow Spark Autologging Tests")
+        .config("spark.master", "local")
+        .getOrCreate()
+    }
   }
 
   override def beforeAll(): Unit = {
