@@ -23,6 +23,10 @@ def truncate_param_dict(d):
     return truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
 
 
+def stringify_dict_values(d):
+    return {k: str(v) for k, v in d.items()}
+
+
 def get_expected_class_tags(estimator):
     return {
         'estimator_name': estimator.__class__.__name__,
@@ -60,7 +64,8 @@ def test_basic_estimator(spark_session):
         lr_model = lr.fit(training_dataset)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
-    assert run_data.params == truncate_param_dict(_get_estimator_param_map(lr))
+    assert run_data.params == \
+           truncate_param_dict(stringify_dict_values(_get_estimator_param_map(lr)))
     assert run_data.tags == get_expected_class_tags(lr)
     assert MODEL_DIR in run_data.artifacts
     loaded_model = load_model_by_run_id(run_id)

@@ -1,4 +1,4 @@
-import json
+import logging
 from pkg_resources import resource_filename
 
 import mlflow
@@ -11,6 +11,9 @@ from mlflow.utils.autologging_utils import (
 )
 
 from mlflow.spark import FLAVOR_NAME
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_fully_qualified_class_name(instance):
@@ -65,8 +68,7 @@ def _get_estimator_param_map(estimator):
     # TODO:
     #  handle special case: OneVsRest.classifier,CrossValidator.estimator,
     #  CrossValidator.estimatorParamMaps
-    json_param_map = {name: json.dumps(param_map[name]) for name in param_map}
-    return json_param_map
+    return param_map
 
 
 # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now because:
@@ -166,8 +168,16 @@ def autolog(
 
     def patched_fit(original, self, params=None):
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
-            if t.should_log() and not isinstance(params, (list, tuple)):
-                return fit_mlflow(original, self, params)
+            if t.should_log():
+                if isinstance(params, (list, tuple)):
+                    # skip the case params is a list or tuple, this case it will call
+                    # fitMultiple and return a model iterator
+                    _logger.warning(
+                        'Skip instrumentation when calling ' +
+                        f'{_get_fully_qualified_class_name(self)}.fit with a list of params.')
+                    return original(self, params)
+                else:
+                    return fit_mlflow(original, self, params)
             else:
                 return original(self, params)
 
