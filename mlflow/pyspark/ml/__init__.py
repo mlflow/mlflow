@@ -13,7 +13,7 @@ from mlflow.utils.autologging_utils import (
 from mlflow.spark import FLAVOR_NAME
 
 
-def _get_fully_class_name(instance):
+def _get_fully_qualified_class_name(instance):
     return instance.__class__.__module__ + "." + instance.__class__.__name__
 
 
@@ -36,12 +36,12 @@ _log_model_allowlist = _read_log_model_allowlist()
 
 
 def _should_log_model(estimator, spark_model):
-    class_name = _get_fully_class_name(estimator)
+    class_name = _get_fully_qualified_class_name(estimator)
     if class_name in _log_model_allowlist:
         return True
     elif class_name == 'pyspark.ml.classification.OneVsRest':
         classifier = estimator.getClassifier()
-        return _get_fully_class_name(classifier) in _log_model_allowlist
+        return _get_fully_qualified_class_name(classifier) in _log_model_allowlist
     elif class_name == 'pyspark.ml.classification.LogisticRegression':
         return spark_model.numClasses < 10
     else:
@@ -55,7 +55,7 @@ def _get_estimator_info_tags(estimator):
     """
     return {
         "estimator_name": estimator.__class__.__name__,
-        "estimator_class": _get_fully_class_name(estimator),
+        "estimator_class": _get_fully_qualified_class_name(estimator),
     }
 
 
@@ -132,13 +132,9 @@ def autolog(
     from mlflow.spark import log_model
     from pyspark.ml.base import Estimator
 
-    def _log_pretraining_metadata(estimator, *args, **kwargs):
-        if len(args) > 0:
-            params = args[0]
-        else:
-            params = kwargs.get('params', None)
+    def _log_pretraining_metadata(estimator, params):
 
-        if isinstance(params, dict) and params:
+        if params and isinstance(params, dict):
             estimator = estimator.copy(params)
 
         # Chunk model parameters to avoid hitting the log_batch API limit
@@ -151,7 +147,7 @@ def autolog(
 
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
 
-    def _log_posttraining_metadata(estimator, spark_model, *args, **kwargs):
+    def _log_posttraining_metadata(estimator, spark_model, params):
         if log_models and _should_log_model(estimator, spark_model):
             # TODO:
             #  1. check whitelist when log models
@@ -162,18 +158,18 @@ def autolog(
                 artifact_path="model",
             )
 
-    def fit_mlflow(original, self, *args, **kwargs):
-        _log_pretraining_metadata(self, *args, **kwargs)
-        spark_model = original(self, *args, **kwargs)
-        _log_posttraining_metadata(self, spark_model, *args, **kwargs)
+    def fit_mlflow(original, self, params=None):
+        _log_pretraining_metadata(self, params)
+        spark_model = original(self, params)
+        _log_posttraining_metadata(self, spark_model, params)
         return spark_model
 
-    def patched_fit(original, self, *args, **kwargs):
+    def patched_fit(original, self, params=None):
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
-            if t.should_log():
-                return fit_mlflow(original, self, *args, **kwargs)
+            if t.should_log() and not isinstance(params, (list, tuple)):
+                return fit_mlflow(original, self, params)
             else:
-                return original(self, *args, **kwargs)
+                return original(self, params)
 
     safe_patch(
         FLAVOR_NAME, Estimator, 'fit', patched_fit, manage_run=True,

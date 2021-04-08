@@ -20,21 +20,3 @@ pyspark.ml.regression.GBTRegressor
 pyspark.ml.regression.GeneralizedLinearRegression
 pyspark.ml.regression.LinearRegression
 pyspark.ml.regression.RandomForestRegressor
-
-# featurizer
-pyspark.ml.feature.BucketedRandomProjectionLSH
-pyspark.ml.feature.ChiSqSelector
-pyspark.ml.feature.CountVectorizer
-pyspark.ml.feature.IDF
-pyspark.ml.feature.Imputer
-pyspark.ml.feature.MaxAbsScaler
-pyspark.ml.feature.MinHashLSH
-pyspark.ml.feature.MinMaxScaler
-pyspark.ml.feature.OneHotEncoder
-pyspark.ml.feature.RobustScaler
-pyspark.ml.feature.RFormula
-pyspark.ml.feature.StandardScaler
-pyspark.ml.feature.StringIndexer
-pyspark.ml.feature.UnivariateFeatureSelector
-pyspark.ml.feature.VarianceThresholdSelector
-pyspark.ml.feature.VectorIndexer
