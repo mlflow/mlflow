@@ -10,7 +10,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
 )
 
-from mlflow.spark import FLAVOR_NAME
+from mlflow import spark as mlflow_spark
 
 
 _logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ def _get_fully_qualified_class_name(instance):
 
 def _read_log_model_allowlist():
     """
-    Reads the module allowlist and returns it as a set of tuples.
+    Reads the module allowlist and returns it as a set.
     """
     file_path = resource_filename(__name__, "log_model_allowlist.txt")
     allowlist = set()
@@ -44,7 +44,9 @@ def _should_log_model(estimator, spark_model):
         return True
     elif class_name == 'pyspark.ml.classification.OneVsRest':
         classifier = estimator.getClassifier()
-        return _get_fully_qualified_class_name(classifier) in _log_model_allowlist
+        classifier_class_name = _get_fully_qualified_class_name(classifier)
+        return classifier_class_name == 'pyspark.ml.classification.LogisticRegression' \
+            or classifier_class_name in _log_model_allowlist
     elif class_name == 'pyspark.ml.classification.LogisticRegression':
         return spark_model.numClasses < 10
     else:
@@ -108,7 +110,7 @@ class _SparkTrainingSession(object):
 
 
 @experimental
-@autologging_integration(FLAVOR_NAME)
+@autologging_integration(mlflow_spark.FLAVOR_NAME)
 def autolog(
     log_models=True,
     disable=False,
@@ -131,7 +133,6 @@ def autolog(
         MAX_PARAM_VAL_LENGTH,
         MAX_ENTITY_KEY_LENGTH,
     )
-    from mlflow.spark import log_model
     from pyspark.ml.base import Estimator
 
     def _log_pretraining_metadata(estimator, params):
@@ -155,7 +156,7 @@ def autolog(
             #  1. check whitelist when log models
             #  2. support model signature ?
             try_mlflow_log(
-                log_model,
+                mlflow_spark.log_model,
                 spark_model,
                 artifact_path="model",
             )
@@ -166,7 +167,13 @@ def autolog(
         _log_posttraining_metadata(self, spark_model, params)
         return spark_model
 
-    def patched_fit(original, self, params=None):
+    def patched_fit(original, self, *args, **kwargs):
+        params = None
+        if len(args) > 0:
+            params = args[0]
+        elif 'params' in kwargs:
+            params = kwargs['params']
+
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 if isinstance(params, (list, tuple)):
@@ -175,12 +182,12 @@ def autolog(
                     _logger.warning(
                         'Skip instrumentation when calling ' +
                         f'{_get_fully_qualified_class_name(self)}.fit with a list of params.')
-                    return original(self, params)
+                    return original(self, *args, **kwargs)
                 else:
                     return fit_mlflow(original, self, params)
             else:
-                return original(self, params)
+                return original(self, *args, **kwargs)
 
     safe_patch(
-        FLAVOR_NAME, Estimator, 'fit', patched_fit, manage_run=True,
+        mlflow_spark.FLAVOR_NAME, Estimator, 'fit', patched_fit, manage_run=True,
     )
