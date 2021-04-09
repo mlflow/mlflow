@@ -177,12 +177,7 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      temp_dir=$(mktemp -d)
-      git clone --depth 1 https://github.com/catboost/catboost.git $temp_dir
-      cd $temp_dir/catboost/python-package
-      python setup.py bdist_wheel
-      wheel_path=$(find dist -type f -name "*.whl")
-      pip install $wheel_path
+      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
 
   models:
     minimum: "0.23.1"
