@@ -136,9 +136,10 @@ def test_meta_estimator_fit_performs_logging_only_once(spark_training_dataset):
             lor = LogisticRegression()
             ova = OneVsRest(classifier=lor)
             ova.fit(spark_training_dataset)
-            mock_log_params.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
+
+        mock_log_params.assert_called_once()
+        mock_set_tags.assert_called_once()
+        mock_log_model.assert_called_once()
 
         query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
         assert len(mlflow.search_runs([run.info.experiment_id])) == 1
@@ -149,6 +150,8 @@ def test_fit_with_params(spark_training_dataset):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
+    extra_params2 = {lr.maxIter: 4, lr.standardization: True}
+    # Test calling fit with extra params
     with mlflow.start_run() as run:
         lr.fit(spark_training_dataset, params=extra_params)
     run_id = run.info.run_id
@@ -156,11 +159,25 @@ def test_fit_with_params(spark_training_dataset):
     assert run_data.params == truncate_param_dict(stringify_dict_values(
         _get_estimator_param_map(lr.copy(extra_params))))
 
+    # Test calling fit with a list/tuple of paramMap
+    with mock.patch("mlflow.log_params") as mock_log_params, \
+            mock.patch("mlflow.set_tags") as mock_set_tags, \
+            mock.patch("mlflow.spark.log_model") as mock_log_model:
+
+        with mlflow.start_run() as run:
+            lr.fit(spark_training_dataset, params=[extra_params, extra_params2])
+            lr.fit(spark_training_dataset, params=(extra_params, extra_params2))
+
+        mock_log_params.assert_not_called()
+        mock_set_tags.assert_not_called()
+        mock_log_model.assert_not_called()
 
 
 # test_unsupported_versions
 
-# test should log model
+def test_should_log_model(spark_training_dataset):
+
 
 # test special params
 
+# test warning message
