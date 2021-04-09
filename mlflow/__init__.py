@@ -47,6 +47,7 @@ import mlflow.tracking as tracking  # noqa: E402
 _model_flavors_supported = []
 try:
     # pylint: disable=unused-import
+    import mlflow.catboost as catboost  # noqa: E402
     import mlflow.fastai as fastai  # noqa: E402
     import mlflow.gluon as gluon  # noqa: E402
     import mlflow.h2o as h2o  # noqa: E402
@@ -65,6 +66,7 @@ try:
     import mlflow.shap as shap  # noqa: E402
 
     _model_flavors_supported = [
+        "catboost",
         "fastai",
         "gluon",
         "h2o",
