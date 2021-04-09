@@ -161,30 +161,31 @@ def autolog(
                 artifact_path="model",
             )
 
-    def fit_mlflow(original, self, params=None):
-        _log_pretraining_metadata(self, params)
-        spark_model = original(self, params)
-        _log_posttraining_metadata(self, spark_model, params)
-        return spark_model
-
-    def patched_fit(original, self, *args, **kwargs):
+    def fit_mlflow(original, self, *args, **kwargs):
         params = None
-        if len(args) > 0:
-            params = args[0]
+        if len(args) > 1:
+            params = args[1]
         elif 'params' in kwargs:
             params = kwargs['params']
 
+        if isinstance(params, (list, tuple)):
+            # skip the case params is a list or tuple, this case it will call
+            # fitMultiple and return a model iterator
+            _logger.warning(
+                'Skip instrumentation when calling ' +
+                f'{_get_fully_qualified_class_name(self)}.fit with a list of params.')
+            return original(self, *args, **kwargs)
+        else:
+            estimator = self.copy(params)
+            _log_pretraining_metadata(estimator, params)
+            spark_model = original(self, *args, **kwargs)
+            _log_posttraining_metadata(estimator, spark_model, params)
+            return spark_model
+
+    def patched_fit(original, self, *args, **kwargs):
         with _SparkTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                if isinstance(params, (list, tuple)):
-                    # skip the case params is a list or tuple, this case it will call
-                    # fitMultiple and return a model iterator
-                    _logger.warning(
-                        'Skip instrumentation when calling ' +
-                        f'{_get_fully_qualified_class_name(self)}.fit with a list of params.')
-                    return original(self, *args, **kwargs)
-                else:
-                    return fit_mlflow(original, self, params)
+                return fit_mlflow(original, self, *args, **kwargs)
             else:
                 return original(self, *args, **kwargs)
 

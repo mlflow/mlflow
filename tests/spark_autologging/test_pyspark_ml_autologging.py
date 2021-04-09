@@ -145,10 +145,22 @@ def test_meta_estimator_fit_performs_logging_only_once(spark_training_dataset):
         assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 
 
-# test_fit_with_params
+def test_fit_with_params(spark_training_dataset):
+    mlflow.pyspark.ml.autolog()
+    lr = LinearRegression()
+    extra_params = {lr.maxIter: 3, lr.standardization: False}
+    with mlflow.start_run() as run:
+        lr.fit(spark_training_dataset, params=extra_params)
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
+    assert run_data.params == truncate_param_dict(stringify_dict_values(
+        _get_estimator_param_map(lr.copy(extra_params))))
+
+
 
 # test_unsupported_versions
 
 # test should log model
 
+# test special params
 
