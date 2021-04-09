@@ -1,4 +1,4 @@
-name: mnist-autolog-example1
+name: mnist-autolog-example
 
 conda_env: conda.yaml
 
@@ -17,7 +17,7 @@ entry_points:
       monitor: {type str, default: 'val_loss'}
 
     command: |
-          python mnist_autolog_example1.py \
+          python mnist_autolog_example.py \
             --max_epochs {max_epochs} \
             --gpus {gpus} \
             --accelerator {accelerator} \
