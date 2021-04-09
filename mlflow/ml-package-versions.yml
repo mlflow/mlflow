@@ -185,7 +185,7 @@ catboost:
       pip install $wheel_path
 
   models:
-    minimum: "0.25.1"
+    minimum: "0.23.1"
     maximum: "0.25.1"
     requirements: ["scikit-learn"]
     run: |
