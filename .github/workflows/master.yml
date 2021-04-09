@@ -175,6 +175,7 @@ jobs:
         INSTALL_LARGE_PYTHON_DEPS: true
         INSTALL_SMALL_PYTHON_DEPS: true
         # Fix for https://github.com/mlflow/mlflow/issues/4229
+        HIVE_SERVER2_THRIFT_BIND_HOST: 127.0.0.1
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         source ./dev/install-common-deps.sh
@@ -201,6 +202,7 @@ jobs:
         source ./dev/install-common-deps.sh
     - name: Run tests
       env:
+        HIVE_SERVER2_THRIFT_BIND_HOST: 127.0.0.1
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         export PATH="$CONDA_DIR/bin:$PATH"
@@ -257,6 +259,7 @@ jobs:
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
+          HIVE_SERVER2_THRIFT_BIND_HOST: 127.0.0.1
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           source ./dev/install-common-deps.sh
@@ -297,6 +300,7 @@ jobs:
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
+          HIVE_SERVER2_THRIFT_BIND_HOST: 127.0.0.1
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           source ./dev/install-common-deps.sh
@@ -317,6 +321,7 @@ jobs:
         env:
           INSTALL_LARGE_PYTHON_DEPS: true
           INSTALL_SMALL_PYTHON_DEPS: true
+          HIVE_SERVER2_THRIFT_BIND_HOST: 127.0.0.1
           SPARK_LOCAL_IP: 127.0.0.1
         run: |
           source ./dev/install-common-deps.sh

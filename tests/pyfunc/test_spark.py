@@ -60,7 +60,11 @@ def get_spark_session(conf):
     # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
     os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    return pyspark.sql.SparkSession.builder.config(conf=conf).master("local[*]").getOrCreate()
+    return (
+        pyspark.sql.SparkSession.builder.config(conf=conf)
+        .master("local-cluster[2, 1, 1024]")
+        .getOrCreate()
+    )
 
 
 @pytest.fixture(scope="session")
