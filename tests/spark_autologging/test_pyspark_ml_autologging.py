@@ -17,18 +17,28 @@ from tests.autologging.fixtures import test_mode_off
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression
-from mlflow.pyspark.ml import _get_estimator_param_map, _log_model_allowlist
+from mlflow.pyspark.ml import _should_log_model, _get_instance_param_map, _log_model_allowlist
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 
+
 @pytest.fixture(scope="module")
-def spark_training_dataset(spark_session):
+def dataset_binary(spark_session):
     yield spark_session.createDataFrame(
         [(1.0, Vectors.dense(1.0)),
          (0.0, Vectors.sparse(1, [], []))] * 100,
         ["label", "features"])
 
+
+@pytest.fixture(scope="module")
+def dataset_20_classes(spark_session):
+    label_list = list(range(20)) * 10
+    features_list = [Vectors.dense(1.0),
+                     Vectors.sparse(1, [], [])] * 100
+    yield spark_session.createDataFrame(
+        zip(label_list, features_list),
+        ["label", "features"])
 
 
 def truncate_param_dict(d):
@@ -61,22 +71,22 @@ def load_model_by_run_id(run_id):
     return mlflow.spark.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
-def get_training_dataset(spark_session):
+def get_dataset_binary(spark_session):
     return spark_session.createDataFrame(
         [(1.0, Vectors.dense(1.0)),
          (0.0, Vectors.sparse(1, [], []))] * 100,
         ["label", "features"])
 
 
-def test_basic_estimator(spark_training_dataset):
+def test_basic_estimator(dataset_binary):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     with mlflow.start_run() as run:
-        lr_model = lr.fit(spark_training_dataset)
+        lr_model = lr.fit(dataset_binary)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
     assert run_data.params == \
-           truncate_param_dict(stringify_dict_values(_get_estimator_param_map(lr)))
+           truncate_param_dict(stringify_dict_values(_get_instance_param_map(lr)))
     assert run_data.tags == get_expected_class_tags(lr)
     assert MODEL_DIR in run_data.artifacts
     loaded_model = load_model_by_run_id(run_id)
@@ -117,16 +127,16 @@ def test_autolog_preserves_original_function_attributes():
         assert b == a
 
 
-def test_autolog_does_not_terminate_active_run(spark_training_dataset):
+def test_autolog_does_not_terminate_active_run(dataset_binary):
     mlflow.pyspark.ml.autolog()
     mlflow.start_run()
     lr = LinearRegression()
-    lr.fit(spark_training_dataset)
+    lr.fit(dataset_binary)
     assert mlflow.active_run() is not None
     mlflow.end_run()
 
 
-def test_meta_estimator_fit_performs_logging_only_once(spark_training_dataset):
+def test_meta_estimator_fit_performs_logging_only_once(dataset_binary):
     from pyspark.ml.classification import LogisticRegression, OneVsRest
     mlflow.pyspark.ml.autolog()
     with mock.patch("mlflow.log_params") as mock_log_params, \
@@ -135,7 +145,7 @@ def test_meta_estimator_fit_performs_logging_only_once(spark_training_dataset):
         with mlflow.start_run() as run:
             lor = LogisticRegression()
             ova = OneVsRest(classifier=lor)
-            ova.fit(spark_training_dataset)
+            ova.fit(dataset_binary)
 
         mock_log_params.assert_called_once()
         mock_set_tags.assert_called_once()
@@ -146,18 +156,18 @@ def test_meta_estimator_fit_performs_logging_only_once(spark_training_dataset):
         assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 
 
-def test_fit_with_params(spark_training_dataset):
+def test_fit_with_params(dataset_binary):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
     extra_params2 = {lr.maxIter: 4, lr.standardization: True}
     # Test calling fit with extra params
     with mlflow.start_run() as run:
-        lr.fit(spark_training_dataset, params=extra_params)
+        lr.fit(dataset_binary, params=extra_params)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
     assert run_data.params == truncate_param_dict(stringify_dict_values(
-        _get_estimator_param_map(lr.copy(extra_params))))
+        _get_instance_param_map(lr.copy(extra_params))))
 
     # Test calling fit with a list/tuple of paramMap
     with mock.patch("mlflow.log_params") as mock_log_params, \
@@ -165,19 +175,48 @@ def test_fit_with_params(spark_training_dataset):
             mock.patch("mlflow.spark.log_model") as mock_log_model:
 
         with mlflow.start_run() as run:
-            lr.fit(spark_training_dataset, params=[extra_params, extra_params2])
-            lr.fit(spark_training_dataset, params=(extra_params, extra_params2))
+            lr.fit(dataset_binary, params=[extra_params, extra_params2])
+            lr.fit(dataset_binary, params=(extra_params, extra_params2))
 
         mock_log_params.assert_not_called()
         mock_set_tags.assert_not_called()
         mock_log_model.assert_not_called()
 
 
-# test_unsupported_versions
+def test_should_log_model(dataset_binary, dataset_20_classes):
+    from pyspark.ml.classification import LogisticRegression, OneVsRest
+    lor = LogisticRegression()
 
-def test_should_log_model(spark_training_dataset):
+    ova1 = OneVsRest(classifier=lor)
+    ova_bin_model = ova1.fit(dataset_20_classes)
+    assert not _should_log_model(ova1, ova_bin_model)
+
+    blor_model = lor.fit(dataset_binary)
+    assert _should_log_model(lor, blor_model)
+
+    mlor20_model = lor.fit(dataset_20_classes)
+    assert not _should_log_model(lor, mlor20_model)
+
+    with mock.patch("mlflow.pyspark.ml._log_model_allowlist",
+                    'pyspark.ml.regression.LinearRegression\n'):
+        lr = LinearRegression()
+        lr_model = lr.fit(dataset_binary)
+        assert _should_log_model(lr, lr_model)
+        assert not _should_log_model(lor, blor_model)
 
 
-# test special params
+def test_internal_params(spark_session):
+    from pyspark.ml.classification import LogisticRegression, OneVsRest
+    lor = LogisticRegression(maxIter=3, standardization=False)
+    ova = OneVsRest(classifier=lor, labelCol='abcd')
+
+    param_map = _get_instance_param_map(ova)
+    assert param_map['labelCol'] == 'abcd'
+    assert param_map['classifier'] == lor.uid
+    assert param_map[f'{lor.uid}.maxIter'] == 3
+    assert param_map[f'{lor.uid}.standardization'] == False
+    assert param_map[f'{lor.uid}.tol'] == lor.getOrDefault(lor.tol)
 
 # test warning message
+
+# test_unsupported_versions

@@ -2,6 +2,7 @@
 pyspark.ml.classification.LinearSVC
 pyspark.ml.classification.DecisionTreeClassifier
 pyspark.ml.classification.GBTClassifier
+pyspark.ml.classification.LogisticRegression
 pyspark.ml.classification.RandomForestClassifier
 pyspark.ml.classification.NaiveBayes
 

@@ -12,6 +12,8 @@ from mlflow.utils.autologging_utils import (
 
 from mlflow import spark as mlflow_spark
 
+from pyspark.ml.param import Params
+
 
 _logger = logging.getLogger(__name__)
 
@@ -41,14 +43,10 @@ _log_model_allowlist = _read_log_model_allowlist()
 def _should_log_model(estimator, spark_model):
     class_name = _get_fully_qualified_class_name(estimator)
     if class_name in _log_model_allowlist:
-        return True
-    elif class_name == 'pyspark.ml.classification.OneVsRest':
-        classifier = estimator.getClassifier()
-        classifier_class_name = _get_fully_qualified_class_name(classifier)
-        return classifier_class_name == 'pyspark.ml.classification.LogisticRegression' \
-            or classifier_class_name in _log_model_allowlist
-    elif class_name == 'pyspark.ml.classification.LogisticRegression':
-        return spark_model.numClasses < 10
+        if class_name == 'pyspark.ml.classification.LogisticRegression':
+            return spark_model.numClasses < 10
+        else:
+            return True
     else:
         return False
 
@@ -64,13 +62,23 @@ def _get_estimator_info_tags(estimator):
     }
 
 
-def _get_estimator_param_map(estimator):
-    param_map = {param.name: estimator.getOrDefault(param)
-                 for param in estimator.params if estimator.isDefined(param)}
+def _get_instance_param_map(instance):
+    param_map = {param.name: instance.getOrDefault(param)
+                 for param in instance.params if instance.isDefined(param)}
     # TODO:
-    #  handle special case: OneVsRest.classifier,CrossValidator.estimator,
-    #  CrossValidator.estimatorParamMaps
-    return param_map
+    #  handle special case: CrossValidator.estimatorParamMaps
+
+    expanded_param_map = {}
+    for k, v in param_map.items():
+        if isinstance(v, Params):
+            expanded_param_map[k] = v.uid
+            internal_param_map = _get_instance_param_map(v)
+            for ik, iv in internal_param_map.items():
+                expanded_param_map[f'{v.uid}.{ik}'] = iv
+        else:
+            expanded_param_map[k] = v
+
+    return expanded_param_map
 
 
 # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now because:
@@ -142,7 +150,7 @@ def autolog(
 
         # Chunk model parameters to avoid hitting the log_batch API limit
         for chunk in chunk_dict(
-                _get_estimator_param_map(estimator),
+                _get_instance_param_map(estimator),
                 chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         ):
             truncated = truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
