@@ -22,8 +22,7 @@ prediction = [int(1), int(2), "class1", float(0.1), 0.2]
 types = [np.int32, np.int, np.str, np.float32, np.double]
 
 
-def score_model_as_udf(model_uri, pandas_df, result_type="double"):
-    spark = get_spark_session(pyspark.SparkConf())
+def score_model_as_udf(spark, model_uri, pandas_df, result_type="double"):
     spark_df = spark.createDataFrame(pandas_df)
     pyfunc_udf = spark_udf(spark=spark, model_uri=model_uri, result_type=result_type)
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
@@ -70,7 +69,9 @@ def get_spark_session(conf):
 @pytest.fixture(scope="session")
 def spark():
     conf = pyspark.SparkConf()
-    return get_spark_session(conf)
+    session = get_spark_session(conf)
+    yield session
+    session.stop()
 
 
 @pytest.fixture

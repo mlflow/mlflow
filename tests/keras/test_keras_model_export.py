@@ -40,7 +40,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.pyfunc.test_spark import score_model_as_udf
+from tests.pyfunc.test_spark import score_model_as_udf, spark
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
@@ -230,7 +230,7 @@ def test_that_keras_module_arg_works(model_path):
     [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"), (tf_keras_model, "tf")],
 )
 @pytest.mark.large
-def test_model_save_load(build_model, save_format, model_path, data):
+def test_model_save_load(spark, build_model, save_format, model_path, data):
     x, _ = data
     keras_model = build_model(data)
     if build_model == tf_keras_model:
@@ -267,6 +267,7 @@ def test_model_save_load(build_model, save_format, model_path, data):
 
     # test spark udf
     spark_udf_preds = score_model_as_udf(
+        spark,
         model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
     )
     np.allclose(np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
@@ -320,6 +321,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
     # test spark udf
     spark_udf_preds = score_model_as_udf(
+        spark,
         model_uri=os.path.abspath(model_path), pandas_df=pd.DataFrame(x), result_type="float"
     )
     np.allclose(np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))

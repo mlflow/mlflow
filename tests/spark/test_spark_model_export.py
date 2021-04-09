@@ -64,16 +64,19 @@ def spark_context():
         "ml.combust.mleap:mleap-spark_2.11:0.12.0",
     )
     max_tries = 3
+    spark_session = None
     for num_tries in range(max_tries):
         try:
-            spark = get_spark_session(conf)
-            return spark.sparkContext
+            spark_session = get_spark_session(conf)
+            break
         except Exception as e:
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(
                 e, "Attempt %s to create a SparkSession failed, retrying..." % num_tries
             )
+    yield spark_session.sparkContext
+    spark_session.stop()
 
 
 @pytest.fixture(scope="session")
@@ -181,7 +184,7 @@ def test_hadoop_filesystem(tmpdir):
 
 
 @pytest.mark.large
-def test_model_export(spark_model_iris, model_path, spark_custom_env):
+def test_model_export(spark_context, spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=spark_custom_env)
     # 1. score and compare reloaded sparkml model
     reloaded_model = sparkm.load_model(model_uri=model_path)
@@ -193,7 +196,8 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds2 = m.predict(spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds2
     # 3. score and compare reloaded pyfunc Spark udf
-    preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
+    spark_session = pyspark.sql.SparkSession(spark_context)
+    preds3 = score_model_as_udf(spark_session, model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
 
