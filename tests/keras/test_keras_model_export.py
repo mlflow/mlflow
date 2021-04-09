@@ -230,7 +230,7 @@ def test_that_keras_module_arg_works(model_path):
     [(model, None), (tf_keras_model, None), (tf_keras_model, "h5"), (tf_keras_model, "tf")],
 )
 @pytest.mark.large
-def test_model_save_load(spark, build_model, save_format, model_path, data):
+def test_model_save_load(build_model, save_format, model_path, data, request):
     x, _ = data
     keras_model = build_model(data)
     if build_model == tf_keras_model:
