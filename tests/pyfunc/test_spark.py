@@ -69,6 +69,7 @@ def get_spark_session(conf):
 @pytest.fixture(scope="session")
 def spark():
     conf = pyspark.SparkConf()
+    conf.set("spark.driver.bindAddress", "127.0.0.1")
     session = get_spark_session(conf)
     yield session
     session.stop()

@@ -63,6 +63,7 @@ def spark_context():
         value="ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
         "ml.combust.mleap:mleap-spark_2.11:0.12.0",
     )
+    conf.set("spark.driver.bindAddress", "127.0.0.1")
     max_tries = 3
     spark_session = None
     for num_tries in range(max_tries):
