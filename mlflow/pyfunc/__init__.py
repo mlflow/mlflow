@@ -847,7 +847,16 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    return pandas_udf(predict, result_type)
+    udf = pandas_udf(predict, result_type)
+    model = SparkModelCache.get_or_load(archive_path)
+    input_schema = model.metadata.get_input_schema()
+    if input_schema:
+        column_names = input_schema.column_names()
+        udf.default = udf(*column_names)
+    else:
+        udf.default = None
+
+    return udf
 
 
 def save_model(

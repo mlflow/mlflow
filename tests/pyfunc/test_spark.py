@@ -7,6 +7,7 @@ import pytest
 import pyspark
 from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
+from pyspark.sql.utils import AnalysisException
 
 import mlflow
 import mlflow.pyfunc
@@ -120,6 +121,46 @@ def test_spark_udf(spark, model_path):
                 actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
 
+def test_spark_udf_default_column(spark, model_path):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [model_input.columns] * len(model_input)
+
+    signature = ModelSignature(
+        inputs=Schema([ColSpec("long", "a"), ColSpec("long", "b"), ColSpec("long", "c")]),
+        outputs=Schema([ColSpec("integer")]),
+    )
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        assert udf.default is None
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        good_data = spark.createDataFrame(
+            pd.DataFrame(
+                columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
+            )
+        )
+
+        # this dataframe won't work because it's missing column a
+        bad_data = spark.createDataFrame(
+            pd.DataFrame(
+                columns=["x", "b", "c", "d"], data={"x": [1], "b": [2], "c": [3], "d": [4]}
+            )
+        )
+
+        res = good_data.withColumn("res", udf.default).select("res").toPandas()
+        assert res["res"][0] == ["a", "b", "c"]
+
+        with pytest.raises(AnalysisException, match=r"cannot resolve '`a`' given input columns"):
+            bad_data.withColumn("res", udf.default)
 
 def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
