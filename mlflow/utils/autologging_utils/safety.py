@@ -23,6 +23,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
+_AUTOLOGGING_PATCHES = {}
+
 
 def try_mlflow_log(fn, *args, **kwargs):
     """
@@ -524,7 +526,15 @@ def safe_patch(
                 else:
                     return original(*args, **kwargs)
 
-    _wrap_patch(destination, function_name, safe_patch_function)
+    new_patch = _wrap_patch(destination, function_name, safe_patch_function)
+    _store_patch(autologging_integration, new_patch)
+
+
+def revert_patches(autologging_integration):
+    for patch in _AUTOLOGGING_PATCHES.get(autologging_integration):
+        gorilla.revert(patch)
+
+    _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
 
 
 # Represents an active autologging session using two fields:
@@ -598,6 +608,14 @@ def _wrap_patch(destination, name, patch, settings=None):
 
     patch = gorilla.Patch(destination, name, wrapped, settings=settings)
     gorilla.apply(patch)
+    return patch
+
+
+def _store_patch(autologging_integration, patch):
+    if autologging_integration in _AUTOLOGGING_PATCHES:
+        _AUTOLOGGING_PATCHES[autologging_integration].add(patch)
+    else:
+        _AUTOLOGGING_PATCHES[autologging_integration] = set(patch)
 
 
 def _validate_autologging_run(autologging_integration, run_id):
