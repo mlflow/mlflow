@@ -121,6 +121,7 @@ def test_spark_udf(spark, model_path):
                 actual = list(new_df.select("prediction").toPandas()["prediction"])
                 assert expected == actual
 
+
 def test_spark_udf_autofills_no_arguments(spark, model_path):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
@@ -152,6 +153,7 @@ def test_spark_udf_autofills_no_arguments(spark, model_path):
         )
         with pytest.raises(AnalysisException, match=r"cannot resolve '`a`' given input columns"):
             bad_data.withColumn("res", udf())
+
 
 def test_spark_udf_autofills_column_names_with_schema(spark):
     class TestModel(PythonModel):
