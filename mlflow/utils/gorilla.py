@@ -331,6 +331,34 @@ def apply(patch):
     setattr(patch.destination, _ACTIVE_PATCH, patch)
 
 
+def revert(patch):
+    """Revert a patch.
+    Parameters
+    ----------
+    patch : gorilla.Patch
+        Patch.
+    Note
+    ----
+    This is only possible if the attribute :attr:`Settings.store_hit` was set
+    to ``True`` when applying the patch and overriding an existing attribute.
+    """
+    if getattr(patch.destination, _ACTIVE_PATCH, None) != patch:
+        return
+
+    try:
+        original = get_original_attribute(patch.destination, patch.name)
+    except AttributeError:
+        raise RuntimeError(
+                "Cannot revert the attribute named '%s' since the setting "
+                "'store_hit' was not set to True when applying the patch."
+                % (patch.destination.__name__,))
+
+    original_name = _ORIGINAL_NAME % (patch.name,)
+    setattr(patch.destination, patch.name, original)
+    delattr(patch.destination, original_name)
+    delattr(patch.destination, _ACTIVE_PATCH)
+
+
 def patch(destination, name=None, settings=None):
     """Decorator to create a patch.
 
