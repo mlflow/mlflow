@@ -753,6 +753,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
+    import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
@@ -848,15 +849,22 @@ def spark_udf(spark, model_uri, result_type="double"):
             return result[result.columns[0]]
 
     udf = pandas_udf(predict, result_type)
-    model = SparkModelCache.get_or_load(archive_path)
-    input_schema = model.metadata.get_input_schema()
-    if input_schema:
-        column_names = input_schema.column_names()
-        udf.default = udf(*column_names)
-    else:
-        udf.default = None
 
-    return udf
+    @functools.wraps(udf)
+    def udf_with_default_cols(*args):
+        if len(args) == 0:
+            model = SparkModelCache.get_or_load(archive_path)
+            input_schema = model.metadata.get_input_schema()
+
+            if input_schema and input_schema.has_input_names():
+                input_names = input_schema.input_names()
+                return udf(*input_names)
+            else:
+                return udf(*args)
+        else:
+            return udf(*args)
+
+    return udf_with_default_cols
 
 
 def save_model(
