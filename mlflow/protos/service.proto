@@ -686,7 +686,7 @@ message ListExperiments {
   // Servers may impose a default max_results of their choice if unspecified by the client. 
   // Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token 
   // to iterate through experiments.
-  optional int64 max_results = 2;
+  optional int64 max_results = 2 [default = 50000];
 
   // Pagination token to go to the next page based on a previous query.
   optional string page_token = 3;
