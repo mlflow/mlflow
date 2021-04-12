@@ -533,11 +533,11 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    infer_unknown_types_as_any=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    infer_unknown_types_as_any=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -718,6 +718,11 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param infer_unknown_types_as_any: If ``True``, unknown data types in the logged
+                                       :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                       will be inferred as
+                                       :py:data:`any <mlflow.models.signature.DataType.any>`.
+                                       If ``False``, strict data typing is enforced.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -729,11 +734,6 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
-    :param infer_unknown_types_as_any: If ``True``, unknown data types in the logged
-                                       :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
-                                       will be inferred as
-                                       :py:data:`any <mlflow.models.signature.DataType.any>`.
-                                       If ``False``, strict data typing is enforced.
     """
     import pandas as pd
     import sklearn
