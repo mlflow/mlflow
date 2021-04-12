@@ -2,6 +2,7 @@ import numpy as np
 import os
 import shutil
 import tempfile
+from functools import partial
 import matplotlib.pyplot as plt
 
 import mlflow.tracking
@@ -37,7 +38,7 @@ class __MLflowFastaiCallback(Callback):
         from fastai.callback.all import GatherPredsCallback
 
         # Do not record in case of predicting
-        if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
+        if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
             return
 
         metrics = self.recorder.log
@@ -59,8 +60,8 @@ class __MLflowFastaiCallback(Callback):
     def before_fit(self):
         from fastai.callback.all import ParamScheduler, GatherPredsCallback
 
-        # Do not record in case of predicting
-        if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
+        # Do not record in case of predicting or lr_finder
+        if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
             return
 
         if self.is_fine_tune and len(self.opt.param_lists) == 1:
@@ -76,7 +77,11 @@ class __MLflowFastaiCallback(Callback):
         else:
             self.freeze_prefix = ""
 
-        try_mlflow_log(mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.__name__)
+        # Extract function name when `opt_func` is partial function
+        if isinstance(self.opt_func, partial):
+            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.keywords['opt'].__name__)
+        else:
+            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.__name__)
 
         params_not_to_log = []
         for cb in self.cbs:
@@ -138,7 +143,7 @@ class __MLflowFastaiCallback(Callback):
         from fastai.callback.all import GatherPredsCallback
 
         # Do not log model in case of predicting
-        if any([isinstance(cb, GatherPredsCallback) for cb in self.cbs]):
+        if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
             return
 
         if self.log_models:

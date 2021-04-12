@@ -15,6 +15,10 @@ from fastai.callback.all import EarlyStoppingCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
+import torch
+from functools import partial
+from fastai.optimizer import OptimWrapper
+
 import matplotlib as mpl
 
 mpl.use("Agg")
@@ -191,6 +195,33 @@ def test_fastai_autolog_logs_expected_data(fastai_random_visual_data_run, fit_va
     artifacts = client.list_artifacts(run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "module_summary.txt" in artifacts
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle", "fine_tune"])
+def test_fastai_autolog_opt_func_expected_data(mnist_data, fit_variant, manual_run):
+    # pylint: disable=unused-argument
+    mlflow.fastai.autolog()
+
+    model = cnn_learner(mnist_data, models.resnet18, normalize=False, opt_func=partial(OptimWrapper, opt=torch.optim.Adam))
+
+    if fit_variant == "fit_one_cycle":
+        model.fit_one_cycle(NUM_EPOCHS)
+    elif fit_variant == "fine_tune":
+        model.fine_tune(NUM_EPOCHS - 1, freeze_epochs=1)
+    else:
+        model.fit(NUM_EPOCHS)
+
+    client = mlflow.tracking.MlflowClient()
+    data = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id).data
+
+    assert "opt_func" in data.params
+    assert data.params["opt_func"] == "Adam"
+
+    if fit_variant == "fine_tune":
+        freeze_prefix = "freeze_"
+        assert freeze_prefix + "opt_func" in data.params
+        assert data.params[freeze_prefix + "opt_func"] == "Adam"
 
 
 @pytest.mark.large

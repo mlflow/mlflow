@@ -198,14 +198,14 @@ fastai-2.x:
     pip_release: "fastai"
 
   models:
-    minimum: "2.2.2"
+    minimum: "2.3.0"
     maximum: "2.3.0"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
-    minimum: "2.2.2"
+    minimum: "2.3.0"
     maximum: "2.3.0"
     requirements: [torch, torchvision]
     run: |
