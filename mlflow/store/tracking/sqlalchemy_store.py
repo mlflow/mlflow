@@ -883,12 +883,18 @@ def _get_orderby_clauses(order_by_list, session):
             if SearchUtils.is_metric(key_type, "="):
                 clauses.append(
                     sql.case(
-                        [(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)], else_=0
+                        [
+                            (subquery.c.is_nan == sqlalchemy.true(), 1),
+                            (order_value == sqlalchemy.null(), 1),
+                        ],
+                        else_=0,
                     ).label("clause_%s" % clause_id)
                 )
             else:  # other entities do not have an 'is_nan' field
                 clauses.append(
-                    sql.case([(order_value.is_(None), 1)], else_=0).label("clause_%s" % clause_id)
+                    sql.case([(order_value == sqlalchemy.null(), 1)], else_=0).label(
+                        "clause_%s" % clause_id
+                    )
                 )
 
             if (key_type, key) in observed_order_by_clauses:
