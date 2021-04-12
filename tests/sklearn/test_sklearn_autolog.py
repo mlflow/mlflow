@@ -51,7 +51,7 @@ pytestmark = pytest.mark.large
 def get_iris(as_frame=False):
     iris = sklearn.datasets.load_iris(as_frame=as_frame)
     if as_frame:
-        return iris["data"].iloc[:,:2], iris["target"]
+        return iris["data"].iloc[:, :2], iris["target"]
     return iris.data[:, :2], iris.target
 
 
@@ -997,7 +997,9 @@ def test_autolog_logs_signature_with_unknown_types_inferred_as_any():
         model = Pipeline([("dropper", dropper), ("estimator", estimator)])
         model.fit(X, y)
 
-    mock_warning.assert_called_with("Failed to infer model signature: Unsupported numpy data type 'datetime64[ns]', kind 'M'")
+    mock_warning.assert_called_with(
+        "Failed to infer model signature: Unsupported numpy data type 'datetime64[ns]', kind 'M'"
+    )
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
 
