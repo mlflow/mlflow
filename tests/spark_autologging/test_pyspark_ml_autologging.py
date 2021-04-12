@@ -16,7 +16,7 @@ from mlflow.utils.validation import (
 from tests.autologging.fixtures import test_mode_off
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from pyspark.ml.linalg import Vectors
-from pyspark.ml.regression import LinearRegression
+from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from mlflow.pyspark.ml import _should_log_model, _get_instance_param_map, _log_model_allowlist, \
     _get_warning_msg_for_skip_log_model, _get_warning_msg_for_fit_call_with_a_list_of_params
 
@@ -96,16 +96,16 @@ def test_basic_estimator(dataset_binomial):
     assert loaded_model.stages[0].uid == lr_model.uid
 
 
-def test_allowlist_file():
-    def estimator_does_not_exist(estimator_class):
-        module_name, class_name = estimator_class.rsplit('.', 1)
+def test_models_in_allowlist_exist():
+    def model_does_not_exist(model_class):
+        module_name, class_name = model_class.rsplit('.', 1)
         try:
             module = importlib.import_module(module_name)
             return not hasattr(module, class_name)
         except ModuleNotFoundError:
             return True
 
-    non_existent_classes = list(filter(estimator_does_not_exist, _log_model_allowlist))
+    non_existent_classes = list(filter(model_does_not_exist, _log_model_allowlist))
     assert len(non_existent_classes) == 0, \
         "{} in log_model_allowlist don't exist".format(non_existent_classes)
 
@@ -155,17 +155,17 @@ def test_fit_with_a_list_of_params(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
-    extra_params2 = {lr.maxIter: 4, lr.standardization: True}
     # Test calling fit with a list/tuple of paramMap
-    for params in [[extra_params, extra_params2], (extra_params, extra_params2)]:
+    for params in [[extra_params], (extra_params,)]:
         with mock.patch("mlflow.log_params") as mock_log_params, \
                 mock.patch("mlflow.set_tags") as mock_set_tags:
 
             with mlflow.start_run() as run:
                 with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
-                    lr.fit(dataset_binomial, params=params)
+                    lr_model_iter = lr.fit(dataset_binomial, params=params)
                     mock_warning.called_once_with(
                         _get_warning_msg_for_fit_call_with_a_list_of_params(lr))
+            assert isinstance(list(lr_model_iter)[0], LinearRegressionModel)
             mock_log_params.assert_not_called()
             mock_set_tags.assert_not_called()
 
@@ -183,8 +183,8 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
     assert _should_log_model(ova_model)
 
     with mock.patch("mlflow.pyspark.ml._log_model_allowlist",
-                    'pyspark.ml.regression.LinearRegressionModel\n'
-                    'pyspark.ml.classification.OneVsRestModel'):
+                    ['pyspark.ml.regression.LinearRegressionModel',
+                     'pyspark.ml.classification.OneVsRestModel']):
         lr = LinearRegression()
         lr_model = lr.fit(dataset_binomial)
         assert _should_log_model(lr_model)
@@ -195,7 +195,7 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
         assert not _should_log_model(ova_model)
 
 
-def test_internal_params(dataset_binomial):
+def test_param_map_captures_wrapped_params(dataset_binomial):
     from pyspark.ml.classification import LogisticRegression, OneVsRest
     lor = LogisticRegression(maxIter=3, standardization=False)
     ova = OneVsRest(classifier=lor, labelCol='abcd')

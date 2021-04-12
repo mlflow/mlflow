@@ -1,1 +1,1 @@
-import mlflow.pyspark.ml as ml  # noqa: E402
+from . import ml  # noqa: E402

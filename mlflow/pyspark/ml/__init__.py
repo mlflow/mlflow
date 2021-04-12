@@ -12,8 +12,6 @@ from mlflow.utils.autologging_utils import (
 
 from mlflow import spark as mlflow_spark
 
-from pyspark.ml.param import Params
-
 
 _logger = logging.getLogger(__name__)
 
@@ -69,6 +67,7 @@ def _get_estimator_info_tags(estimator):
 
 
 def _get_instance_param_map(instance):
+    from pyspark.ml.param import Params
     param_map = {param.name: instance.getOrDefault(param)
                  for param in instance.params if instance.isDefined(param)}
     # TODO:
