@@ -139,12 +139,38 @@ def autolog(
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
 
-    :param log_models:
-    :param disable:
-    :param exclusive:
-    :param disable_for_unsupported_versions:
-    :param silent:
-    :return:
+    **When is autologging performed?**
+      Autologging is performed when you call ``Estimator.fit``
+
+    **Logged information**
+      **Parameters**
+        - Parameters obtained by ``estimator.params``. If a param value is also an ``Estimator``,
+          then params in the the wrapped estimator will also be logged, the nested param key
+          will be `{estimator_uid}.{param_name}`
+
+      **Tags**
+        - An estimator class name (e.g. "LinearRegression").
+        - A fully qualified estimator class name
+          (e.g. "pyspark.ml.regression.LinearRegression").
+
+      **Artifacts**
+        - An MLflow Model with the :py:mod:`mlflow.spark` flavor containing a fitted estimator
+          (logged by :py:func:`mlflow.spark.log_model()`).
+
+
+    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
+                       If ``False``, trained models are not logged.
+    :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
+                    enables the pyspark ML autologging integration.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      pyspark that have not been tested against this version of the MLflow
+                      client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
+                   autologging. If ``False``, show all events and warnings during pyspark ML
+                   autologging.
     """
     from mlflow.utils.validation import (
         MAX_PARAMS_TAGS_PER_BATCH,
