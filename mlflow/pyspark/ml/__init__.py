@@ -40,11 +40,17 @@ def _read_log_model_allowlist():
 _log_model_allowlist = _read_log_model_allowlist()
 
 
-def _should_log_model(estimator, spark_model):
-    class_name = _get_fully_qualified_class_name(estimator)
+def _skip_log_model_warning_msg(model):
+    return f'This model {model.uid} is not logged because it is not in ' \
+           'allowlist or its nested models are not in allowlist.'
+
+
+def _should_log_model(spark_model):
+    # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
+    class_name = _get_fully_qualified_class_name(spark_model)
     if class_name in _log_model_allowlist:
-        if class_name == 'pyspark.ml.classification.LogisticRegression':
-            return spark_model.numClasses < 10
+        if class_name == 'pyspark.ml.classification.OneVsRestModel':
+            return _should_log_model(spark_model.models[0])
         else:
             return True
     else:
@@ -117,6 +123,11 @@ class _SparkTrainingSession(object):
         )
 
 
+def _skip_autolog_on_fit_with_a_list_of_params_msg(estimator):
+    return 'Skip instrumentation when calling ' + \
+           f'{_get_fully_qualified_class_name(estimator)}.fit with a list of params.'
+
+
 @experimental
 @autologging_integration(mlflow_spark.FLAVOR_NAME)
 def autolog(
@@ -159,15 +170,16 @@ def autolog(
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
 
     def _log_posttraining_metadata(estimator, spark_model, params):
-        if log_models and _should_log_model(estimator, spark_model):
-            # TODO:
-            #  1. check whitelist when log models
-            #  2. support model signature ?
-            try_mlflow_log(
-                mlflow_spark.log_model,
-                spark_model,
-                artifact_path="model",
-            )
+        if log_models:
+            if _should_log_model(spark_model):
+                # TODO: support model signature
+                try_mlflow_log(
+                    mlflow_spark.log_model,
+                    spark_model,
+                    artifact_path="model",
+                )
+            else:
+                _logger.warning(_skip_log_model_warning_msg(spark_model))
 
     def fit_mlflow(original, self, *args, **kwargs):
         params = None
@@ -176,12 +188,12 @@ def autolog(
         elif 'params' in kwargs:
             params = kwargs['params']
 
-        if isinstance(params, (list, tuple)):
+        if _get_fully_qualified_class_name(self).startswith('pyspark.ml.feature.'):
+            return original(self, *args, **kwargs)
+        elif isinstance(params, (list, tuple)):
             # skip the case params is a list or tuple, this case it will call
             # fitMultiple and return a model iterator
-            _logger.warning(
-                'Skip instrumentation when calling ' +
-                f'{_get_fully_qualified_class_name(self)}.fit with a list of params.')
+            _logger.warning(_skip_autolog_on_fit_with_a_list_of_params_msg(self))
             return original(self, *args, **kwargs)
         else:
             estimator = self.copy(params)

@@ -17,14 +17,15 @@ from tests.autologging.fixtures import test_mode_off
 from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression
-from mlflow.pyspark.ml import _should_log_model, _get_instance_param_map, _log_model_allowlist
+from mlflow.pyspark.ml import _should_log_model, _get_instance_param_map, _log_model_allowlist, \
+    _skip_log_model_warning_msg, _skip_autolog_on_fit_with_a_list_of_params_msg
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 
 
 @pytest.fixture(scope="module")
-def dataset_binary(spark_session):
+def dataset_binomial(spark_session):
     yield spark_session.createDataFrame(
         [(1.0, Vectors.dense(1.0)),
          (0.0, Vectors.sparse(1, [], []))] * 100,
@@ -32,12 +33,11 @@ def dataset_binary(spark_session):
 
 
 @pytest.fixture(scope="module")
-def dataset_20_classes(spark_session):
-    label_list = list(range(20)) * 10
-    features_list = [Vectors.dense(1.0),
-                     Vectors.sparse(1, [], [])] * 100
+def dataset_multinomial(spark_session):
     yield spark_session.createDataFrame(
-        zip(label_list, features_list),
+        [(1.0, Vectors.dense(1.0)),
+         (0.0, Vectors.sparse(1, [], [])),
+         (2.0, Vectors.dense(0.5))] * 100,
         ["label", "features"])
 
 
@@ -71,18 +71,18 @@ def load_model_by_run_id(run_id):
     return mlflow.spark.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
-def get_dataset_binary(spark_session):
+def get_dataset_binomial(spark_session):
     return spark_session.createDataFrame(
         [(1.0, Vectors.dense(1.0)),
          (0.0, Vectors.sparse(1, [], []))] * 100,
         ["label", "features"])
 
 
-def test_basic_estimator(dataset_binary):
+def test_basic_estimator(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     with mlflow.start_run() as run:
-        lr_model = lr.fit(dataset_binary)
+        lr_model = lr.fit(dataset_binomial)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
     assert run_data.params == \
@@ -127,16 +127,16 @@ def test_autolog_preserves_original_function_attributes():
         assert b == a
 
 
-def test_autolog_does_not_terminate_active_run(dataset_binary):
+def test_autolog_does_not_terminate_active_run(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     mlflow.start_run()
     lr = LinearRegression()
-    lr.fit(dataset_binary)
+    lr.fit(dataset_binomial)
     assert mlflow.active_run() is not None
     mlflow.end_run()
 
 
-def test_meta_estimator_fit_performs_logging_only_once(dataset_binary):
+def test_meta_estimator_fit_performs_logging_only_once(dataset_binomial):
     from pyspark.ml.classification import LogisticRegression, OneVsRest
     mlflow.pyspark.ml.autolog()
     with mock.patch("mlflow.log_params") as mock_log_params, \
@@ -145,7 +145,7 @@ def test_meta_estimator_fit_performs_logging_only_once(dataset_binary):
         with mlflow.start_run() as run:
             lor = LogisticRegression()
             ova = OneVsRest(classifier=lor)
-            ova.fit(dataset_binary)
+            ova.fit(dataset_binomial)
 
         mock_log_params.assert_called_once()
         mock_set_tags.assert_called_once()
@@ -156,56 +156,59 @@ def test_meta_estimator_fit_performs_logging_only_once(dataset_binary):
         assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 
 
-def test_fit_with_params(dataset_binary):
+def test_fit_with_params(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
     extra_params2 = {lr.maxIter: 4, lr.standardization: True}
     # Test calling fit with extra params
     with mlflow.start_run() as run:
-        lr.fit(dataset_binary, params=extra_params)
+        lr.fit(dataset_binomial, params=extra_params)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
     assert run_data.params == truncate_param_dict(stringify_dict_values(
         _get_instance_param_map(lr.copy(extra_params))))
 
     # Test calling fit with a list/tuple of paramMap
-    with mock.patch("mlflow.log_params") as mock_log_params, \
-            mock.patch("mlflow.set_tags") as mock_set_tags, \
-            mock.patch("mlflow.spark.log_model") as mock_log_model:
+    for params in [[extra_params, extra_params2], (extra_params, extra_params2)]:
+        with mock.patch("mlflow.log_params") as mock_log_params, \
+                mock.patch("mlflow.set_tags") as mock_set_tags:
 
-        with mlflow.start_run() as run:
-            lr.fit(dataset_binary, params=[extra_params, extra_params2])
-            lr.fit(dataset_binary, params=(extra_params, extra_params2))
+            with mlflow.start_run() as run:
+                with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+                    lr.fit(dataset_binomial, params=params)
+                    mock_warning.called_once_with(
+                        _skip_autolog_on_fit_with_a_list_of_params_msg(lr))
+            mock_log_params.assert_not_called()
+            mock_set_tags.assert_not_called()
 
-        mock_log_params.assert_not_called()
-        mock_set_tags.assert_not_called()
-        mock_log_model.assert_not_called()
 
-
-def test_should_log_model(dataset_binary, dataset_20_classes):
+def test_should_log_model(dataset_binomial, dataset_multinomial):
     from pyspark.ml.classification import LogisticRegression, OneVsRest
+    mlflow.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
     ova1 = OneVsRest(classifier=lor)
-    ova_bin_model = ova1.fit(dataset_20_classes)
-    assert not _should_log_model(ova1, ova_bin_model)
+    mlor_model = lor.fit(dataset_multinomial)
+    assert _should_log_model(mlor_model)
 
-    blor_model = lor.fit(dataset_binary)
-    assert _should_log_model(lor, blor_model)
-
-    mlor20_model = lor.fit(dataset_20_classes)
-    assert not _should_log_model(lor, mlor20_model)
+    ova_model = ova1.fit(dataset_multinomial)
+    assert _should_log_model(ova_model)
 
     with mock.patch("mlflow.pyspark.ml._log_model_allowlist",
-                    'pyspark.ml.regression.LinearRegression\n'):
+                    'pyspark.ml.regression.LinearRegressionModel\n'
+                    'pyspark.ml.classification.OneVsRestModel'):
         lr = LinearRegression()
-        lr_model = lr.fit(dataset_binary)
-        assert _should_log_model(lr, lr_model)
-        assert not _should_log_model(lor, blor_model)
+        lr_model = lr.fit(dataset_binomial)
+        assert _should_log_model(lr_model)
+        with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
+            mlor_model = lor.fit(dataset_multinomial)
+            assert not _should_log_model(mlor_model)
+            mock_warning.called_once_with(_skip_log_model_warning_msg(mlor_model))
+        assert not _should_log_model(ova_model)
 
 
-def test_internal_params(spark_session):
+def test_internal_params(dataset_binomial):
     from pyspark.ml.classification import LogisticRegression, OneVsRest
     lor = LogisticRegression(maxIter=3, standardization=False)
     ova = OneVsRest(classifier=lor, labelCol='abcd')
@@ -217,6 +220,10 @@ def test_internal_params(spark_session):
     assert param_map[f'{lor.uid}.standardization'] == False
     assert param_map[f'{lor.uid}.tol'] == lor.getOrDefault(lor.tol)
 
-# test warning message
-
-# test_unsupported_versions
+    mlflow.pyspark.ml.autolog()
+    with mlflow.start_run() as run:
+        ova.fit(dataset_binomial.withColumn('abcd', dataset_binomial.label))
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
+    assert run_data.params == \
+           truncate_param_dict(stringify_dict_values(_get_instance_param_map(ova)))
