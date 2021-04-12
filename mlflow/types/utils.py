@@ -58,7 +58,7 @@ def clean_tensor_type(dtype: np.dtype):
     if not isinstance(dtype, np.dtype):
         raise TypeError(
             "Expected `type` to be instance of `{0}`, received `{1}`".format(
-                np.dtype, type.__class__
+                np.dtype, dtype.__class__
             )
         )
 
@@ -70,7 +70,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_schema(data: Any) -> Schema:
+def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema:
     """
     Infer an MLflow schema from a dataset.
 
@@ -92,9 +92,12 @@ def _infer_schema(data: Any) -> Schema:
       - pyspark.sql.DataFrame
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
-    dataframes and to one of numpy types for tensors.
+    dataframes and to one of numpy types for tensors. For unknown element types, set
+    `infer_unknown_types_as_any=True` to infer as `mlflow.models.signature.DataType.any`.
 
     :param data: Dataset to infer from.
+    :param infer_unknown_types_as_any: Flag to infer unknown data types as
+           :py:data:`any <mlflow.models.signature.DataType.any>`.
 
     :return: Schema
     """
@@ -113,10 +116,13 @@ def _infer_schema(data: Any) -> Schema:
             )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        schema = Schema([ColSpec(type=_infer_pandas_column(data))])
+        schema = Schema([ColSpec(type=_infer_pandas_column(data, infer_unknown_types_as_any))])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
-            [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
+            [
+                ColSpec(type=_infer_pandas_column(data[col], infer_unknown_types_as_any), name=col)
+                for col in data.columns
+            ]
         )
     elif isinstance(data, np.ndarray):
         schema = Schema(
@@ -125,7 +131,10 @@ def _infer_schema(data: Any) -> Schema:
     elif _is_spark_df(data):
         schema = Schema(
             [
-                ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
+                ColSpec(
+                    type=_infer_spark_type(field.dataType, infer_unknown_types_as_any),
+                    name=field.name,
+                )
                 for field in data.schema.fields
             ]
         )
@@ -154,7 +163,7 @@ def _infer_schema(data: Any) -> Schema:
     return schema
 
 
-def _infer_numpy_dtype(dtype) -> DataType:
+def _infer_numpy_dtype(dtype, infer_unknown_types_as_any: bool) -> DataType:
     supported_types = np.dtype
 
     # noinspection PyBroadException
@@ -192,10 +201,12 @@ def _infer_numpy_dtype(dtype) -> DataType:
             "Can not infer np.object without looking at the values, call "
             "_map_numpy_array instead."
         )
+    elif infer_unknown_types_as_any:
+        return DataType.any
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
 
-def _infer_pandas_column(col: pd.Series) -> DataType:
+def _infer_pandas_column(col: pd.Series, infer_unknown_types_as_any) -> DataType:
     if not isinstance(col, pd.Series):
         raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
     if len(col.values.shape) > 1:
@@ -233,10 +244,10 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
             )
     else:
         # NB: The following works for numpy types as well as pandas extension types.
-        return _infer_numpy_dtype(col.dtype)
+        return _infer_numpy_dtype(col.dtype, infer_unknown_types_as_any)
 
 
-def _infer_spark_type(x) -> DataType:
+def _infer_spark_type(x, infer_unknown_types_as_any) -> DataType:
     import pyspark.sql.types
 
     if isinstance(x, pyspark.sql.types.NumericType):
@@ -255,6 +266,8 @@ def _infer_spark_type(x) -> DataType:
         return DataType.string
     elif isinstance(x, pyspark.sql.types.BinaryType):
         return DataType.binary
+    elif infer_unknown_types_as_any:
+        return DataType.any
     else:
         raise Exception(
             "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "

@@ -303,8 +303,14 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     3. float -> double (upcast)
     4. int -> double (safe conversion)
 
+    If the model input schema declares the type as `any`, will allow any data type.
     Any other type mismatch will raise error.
     """
+    if t == DataType.any:
+        # The user specified flexible typing for unknown column types when logging
+        # the model signature.
+        return values
+
     if values.dtype == np.object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 

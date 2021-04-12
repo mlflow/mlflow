@@ -1,5 +1,7 @@
+import datetime as dt
 import functools
 import inspect
+import json
 from unittest import mock
 import os
 import matplotlib.pyplot as plt
@@ -12,6 +14,8 @@ import sklearn.base
 import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
@@ -44,8 +48,10 @@ MODEL_DIR = "model"
 pytestmark = pytest.mark.large
 
 
-def get_iris():
-    iris = sklearn.datasets.load_iris()
+def get_iris(as_frame=False):
+    iris = sklearn.datasets.load_iris(as_frame=as_frame)
+    if as_frame:
+        return iris["data"].iloc[:,:2], iris["target"]
     return iris.data[:, :2], iris.target
 
 
@@ -960,6 +966,38 @@ def test_autolog_logs_signature_only_when_estimator_defines_predict():
     with mlflow.start_run() as run:
         model.fit(X, y)
 
+    model_conf = get_model_conf(run.info.artifact_uri)
+    assert "signature" not in model_conf.to_dict()
+
+
+def test_autolog_logs_signature_with_unknown_types_inferred_as_any():
+    X, y = get_iris(as_frame=True)
+    X["timestamp_col"] = dt.datetime.now()
+
+    # drop datetime columns before model training
+    dropper = ColumnTransformer([("drop", "drop", ["timestamp_col"])], remainder="passthrough")
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_model_signatures=True, infer_unknown_types_as_any=True)
+        estimator = sklearn.linear_model.LinearRegression()
+        model = Pipeline([("dropper", dropper), ("estimator", estimator)])
+        model.fit(X, y)
+
+    model_conf = get_model_conf(run.info.artifact_uri).to_dict()
+    assert "signature" in model_conf
+    assert json.loads(model_conf["signature"]["inputs"]) == [
+        {"name": "sepal length (cm)", "type": "double"},
+        {"name": "sepal width (cm)", "type": "double"},
+        {"name": "timestamp_col", "type": "any"},
+    ]
+
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+        mlflow.sklearn.autolog(log_model_signatures=True, infer_unknown_types_as_any=False)
+        estimator = sklearn.linear_model.LinearRegression()
+        model = Pipeline([("dropper", dropper), ("estimator", estimator)])
+        model.fit(X, y)
+
+    mock_warning.assert_called_with("Failed to infer model signature: Unsupported numpy data type 'datetime64[ns]', kind 'M'")
     model_conf = get_model_conf(run.info.artifact_uri)
     assert "signature" not in model_conf.to_dict()
 

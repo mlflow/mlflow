@@ -537,6 +537,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    infer_unknown_types_as_any=False,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -728,6 +729,11 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
+    :param infer_unknown_types_as_any: If ``True``, unknown data types in the logged
+                                       :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
+                                       will be inferred as
+                                       :py:data:`any <mlflow.models.signature.DataType.any>`.
+                                       If ``False``, strict data typing is enforced.
     """
     import pandas as pd
     import sklearn
@@ -825,7 +831,9 @@ def autolog(
                     + "which is required in order to infer the signature"
                 )
 
-            return infer_signature(input_example, estimator.predict(input_example))
+            return infer_signature(
+                input_example, estimator.predict(input_example), infer_unknown_types_as_any
+            )
 
         (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
 

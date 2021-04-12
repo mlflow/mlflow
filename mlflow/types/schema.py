@@ -48,6 +48,8 @@ class DataType(Enum):
     """Text data."""
     binary = (7, np.dtype("bytes"), "BinaryType", np.object)
     """Sequence of raw bytes."""
+    any = (8, np.dtype("void"), "NullType")
+    """Generic data."""
 
     def __repr__(self):
         return self.name

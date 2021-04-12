@@ -94,7 +94,9 @@ class ModelSignature(object):
 
 
 def infer_signature(
-    model_input: Any, model_output: MlflowInferableDataset = None
+    model_input: Any,
+    model_output: MlflowInferableDataset = None,
+    infer_unknown_types_as_any: bool = False,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
@@ -118,8 +120,14 @@ def infer_signature(
     :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
                          dataset.
+    :param infer_unknown_types_as_any: Flag to infer unknown data types as
+           :py:data:`any <mlflow.models.signature.DataType.any>`.
     :return: ModelSignature
     """
-    inputs = _infer_schema(model_input)
-    outputs = _infer_schema(model_output) if model_output is not None else None
+    inputs = _infer_schema(model_input, infer_unknown_types_as_any)
+    outputs = (
+        _infer_schema(model_output, infer_unknown_types_as_any)
+        if model_output is not None
+        else None
+    )
     return ModelSignature(inputs, outputs)
