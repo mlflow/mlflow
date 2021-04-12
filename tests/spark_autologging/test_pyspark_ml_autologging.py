@@ -18,15 +18,18 @@ from tests.spark_autologging.utils import spark_session  # pylint: disable=unuse
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression
 from mlflow.pyspark.ml import _should_log_model, _get_instance_param_map, _log_model_allowlist, \
-    _skip_log_model_warning_msg, _skip_autolog_on_fit_with_a_list_of_params_msg
+    _get_warning_msg_for_skip_log_model, _get_warning_msg_for_fit_call_with_a_list_of_params
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 
 
+from pyspark.ml import Estimator
+
+
 @pytest.fixture(scope="module")
 def dataset_binomial(spark_session):
-    yield spark_session.createDataFrame(
+    return spark_session.createDataFrame(
         [(1.0, Vectors.dense(1.0)),
          (0.0, Vectors.sparse(1, [], []))] * 100,
         ["label", "features"])
@@ -34,7 +37,7 @@ def dataset_binomial(spark_session):
 
 @pytest.fixture(scope="module")
 def dataset_multinomial(spark_session):
-    yield spark_session.createDataFrame(
+    return spark_session.createDataFrame(
         [(1.0, Vectors.dense(1.0)),
          (0.0, Vectors.sparse(1, [], [])),
          (2.0, Vectors.dense(0.5))] * 100,
@@ -102,29 +105,9 @@ def test_allowlist_file():
         except ModuleNotFoundError:
             return True
 
-    classes_does_not_exist = list(filter(estimator_does_not_exist, _log_model_allowlist))
-    assert len(classes_does_not_exist) == 0, \
-        "{} in log_model_allowlist don't exist".format(classes_does_not_exist)
-
-
-def test_autolog_preserves_original_function_attributes():
-    from pyspark.ml import Estimator
-
-    def get_func_attrs(f):
-        attrs = {}
-        for attr_name in ["__doc__", "__name__"]:
-            if hasattr(f, attr_name):
-                attrs[attr_name] = getattr(f, attr_name)
-
-        attrs["__signature__"] = inspect.signature(f)
-        return attrs
-
-    before = get_func_attrs(getattr(Estimator, 'fit'))
-    mlflow.pyspark.ml.autolog()
-    after = get_func_attrs(getattr(Estimator, 'fit'))
-
-    for b, a in zip(before, after):
-        assert b == a
+    non_existent_classes = list(filter(estimator_does_not_exist, _log_model_allowlist))
+    assert len(non_existent_classes) == 0, \
+        "{} in log_model_allowlist don't exist".format(non_existent_classes)
 
 
 def test_autolog_does_not_terminate_active_run(dataset_binomial):
@@ -160,8 +143,6 @@ def test_fit_with_params(dataset_binomial):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
-    extra_params2 = {lr.maxIter: 4, lr.standardization: True}
-    # Test calling fit with extra params
     with mlflow.start_run() as run:
         lr.fit(dataset_binomial, params=extra_params)
     run_id = run.info.run_id
@@ -169,6 +150,12 @@ def test_fit_with_params(dataset_binomial):
     assert run_data.params == truncate_param_dict(stringify_dict_values(
         _get_instance_param_map(lr.copy(extra_params))))
 
+
+def test_fit_with_a_list_of_params(dataset_binomial):
+    mlflow.pyspark.ml.autolog()
+    lr = LinearRegression()
+    extra_params = {lr.maxIter: 3, lr.standardization: False}
+    extra_params2 = {lr.maxIter: 4, lr.standardization: True}
     # Test calling fit with a list/tuple of paramMap
     for params in [[extra_params, extra_params2], (extra_params, extra_params2)]:
         with mock.patch("mlflow.log_params") as mock_log_params, \
@@ -178,7 +165,7 @@ def test_fit_with_params(dataset_binomial):
                 with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
                     lr.fit(dataset_binomial, params=params)
                     mock_warning.called_once_with(
-                        _skip_autolog_on_fit_with_a_list_of_params_msg(lr))
+                        _get_warning_msg_for_fit_call_with_a_list_of_params(lr))
             mock_log_params.assert_not_called()
             mock_set_tags.assert_not_called()
 
@@ -204,7 +191,7 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
         with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
             mlor_model = lor.fit(dataset_multinomial)
             assert not _should_log_model(mlor_model)
-            mock_warning.called_once_with(_skip_log_model_warning_msg(mlor_model))
+            mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(mlor_model))
         assert not _should_log_model(ova_model)
 
 

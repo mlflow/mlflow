@@ -1,9 +1,9 @@
 # classification
 pyspark.ml.classification.LinearSVCModel
-pyspark.ml.classification.DecisionTreeClassifierModel
-pyspark.ml.classification.GBTClassifierModel
+pyspark.ml.classification.DecisionTreeClassificationModel
+pyspark.ml.classification.GBTClassificationModel
 pyspark.ml.classification.LogisticRegressionModel
-pyspark.ml.classification.RandomForestClassifierModel
+pyspark.ml.classification.RandomForestClassificationModel
 pyspark.ml.classification.NaiveBayesModel
 
 # clustering
@@ -16,11 +16,11 @@ pyspark.ml.recommendation.ALSModel
 
 # Regression
 pyspark.ml.regression.AFTSurvivalRegressionModel
-pyspark.ml.regression.DecisionTreeRegressorModel
-pyspark.ml.regression.GBTRegressorModel
+pyspark.ml.regression.DecisionTreeRegressionModel
+pyspark.ml.regression.GBTRegressionModel
 pyspark.ml.regression.GeneralizedLinearRegressionModel
 pyspark.ml.regression.LinearRegressionModel
-pyspark.ml.regression.RandomForestRegressorModel
+pyspark.ml.regression.RandomForestRegressionModel
 
 # Featurizer model
 pyspark.ml.feature.BucketedRandomProjectionLSHModel
@@ -36,8 +36,6 @@ pyspark.ml.feature.RobustScalerModel
 pyspark.ml.feature.RFormulaModel
 pyspark.ml.feature.StandardScalerModel
 pyspark.ml.feature.StringIndexerModel
-pyspark.ml.feature.UnivariateFeatureSelectorModel
-pyspark.ml.feature.VarianceThresholdSelectorModel
 pyspark.ml.feature.VectorIndexerModel
 
 # composite model

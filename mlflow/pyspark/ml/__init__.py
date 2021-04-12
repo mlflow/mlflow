@@ -40,7 +40,7 @@ def _read_log_model_allowlist():
 _log_model_allowlist = _read_log_model_allowlist()
 
 
-def _skip_log_model_warning_msg(model):
+def _get_warning_msg_for_skip_log_model(model):
     return f'This model {model.uid} is not logged because it is not in ' \
            'allowlist or its nested models are not in allowlist.'
 
@@ -123,7 +123,7 @@ class _SparkTrainingSession(object):
         )
 
 
-def _skip_autolog_on_fit_with_a_list_of_params_msg(estimator):
+def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
     return 'Skip instrumentation when calling ' + \
            f'{_get_fully_qualified_class_name(estimator)}.fit with a list of params.'
 
@@ -179,7 +179,7 @@ def autolog(
                     artifact_path="model",
                 )
             else:
-                _logger.warning(_skip_log_model_warning_msg(spark_model))
+                _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
     def fit_mlflow(original, self, *args, **kwargs):
         params = None
@@ -193,7 +193,7 @@ def autolog(
         elif isinstance(params, (list, tuple)):
             # skip the case params is a list or tuple, this case it will call
             # fitMultiple and return a model iterator
-            _logger.warning(_skip_autolog_on_fit_with_a_list_of_params_msg(self))
+            _logger.warning(_get_warning_msg_for_fit_call_with_a_list_of_params(self))
             return original(self, *args, **kwargs)
         else:
             estimator = self.copy(params)
