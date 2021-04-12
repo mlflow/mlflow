@@ -1,4 +1,3 @@
-# Revert this
 """
 The ``mlflow.keras`` module provides an API for logging and loading Keras models. This module
 exports Keras models with the following flavors:
