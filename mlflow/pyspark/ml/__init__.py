@@ -196,10 +196,10 @@ def autolog(
                        Note: the built-in allowlist excludes some models which model may be large
                        (including logistic regression model, tree/random forest/boosting tree Model
                        and so on), you can set the config
-                       `spark.databricks.mlflow.autolog.log_model.allowlistFile` to customize the
-                       allowlist file. If you want to ensure logging model far all cases, you should
-                       set autolog ``log_models``=False and explicitly call `mlflow.spark.log_model`
-                       to log the model.
+                       "spark.databricks.mlflow.autolog.log_model.allowlistFile" to customize the
+                       allowlist file. If you want to ensure logging model far all cases, you
+                       should set autolog argument log_models=False and explicitly call
+                       ``mlflow.spark.log_model`` to log the model.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the pyspark ML autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

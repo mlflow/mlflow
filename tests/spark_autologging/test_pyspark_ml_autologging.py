@@ -18,7 +18,6 @@ from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from mlflow.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
-    _log_model_allowlist,
     _get_warning_msg_for_skip_log_model,
     _get_warning_msg_for_fit_call_with_a_list_of_params,
 )
@@ -99,7 +98,9 @@ def test_basic_estimator(dataset_binomial):
     LooseVersion(pyspark.__version__) < LooseVersion("3.1"),
     reason="This test fails on supported versions of sklearn",
 )
-def test_models_in_allowlist_exist():
+def test_models_in_allowlist_exist(spark_session):
+    mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
+
     def model_does_not_exist(model_class):
         module_name, class_name = model_class.rsplit(".", 1)
         try:
@@ -108,7 +109,9 @@ def test_models_in_allowlist_exist():
         except ModuleNotFoundError:
             return True
 
-    non_existent_classes = list(filter(model_does_not_exist, _log_model_allowlist))
+    non_existent_classes = list(
+        filter(model_does_not_exist, mlflow.pyspark.ml._log_model_allowlist)
+    )
     assert len(non_existent_classes) == 0, "{} in log_model_allowlist don't exist".format(
         non_existent_classes
     )
