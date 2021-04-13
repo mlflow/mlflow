@@ -10,8 +10,6 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
 )
 
-from mlflow import spark as mlflow_spark
-
 
 _logger = logging.getLogger(__name__)
 
@@ -136,7 +134,7 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 
 @experimental
-@autologging_integration(mlflow_spark.FLAVOR_NAME)
+@autologging_integration(mlflow.spark.FLAVOR_NAME)
 def autolog(
     log_models=True,
     disable=False,
@@ -206,7 +204,7 @@ def autolog(
             if _should_log_model(spark_model):
                 # TODO: support model signature
                 try_mlflow_log(
-                    mlflow_spark.log_model, spark_model, artifact_path="model",
+                    mlflow.spark.log_model, spark_model, artifact_path="model",
                 )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
@@ -240,5 +238,5 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     safe_patch(
-        mlflow_spark.FLAVOR_NAME, Estimator, "fit", patched_fit, manage_run=True,
+        mlflow.spark.FLAVOR_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )

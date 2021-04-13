@@ -215,7 +215,7 @@ def test_param_map_captures_wrapped_params(dataset_binomial):
     assert param_map["labelCol"] == "abcd"
     assert param_map["classifier"] == lor.uid
     assert param_map[f"{lor.uid}.maxIter"] == 3
-    assert param_map[f"{lor.uid}.standardization"] == False
+    assert not param_map[f"{lor.uid}.standardization"]
     assert param_map[f"{lor.uid}.tol"] == lor.getOrDefault(lor.tol)
 
     mlflow.pyspark.ml.autolog()
