@@ -8,8 +8,9 @@ import atexit
 import time
 import logging
 import inspect
+from typing import List, Optional, Union
 
-from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -28,6 +29,13 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
+
+try:
+    import pandas as pd
+
+    SearchRunsReturyType = Union[pd.DataFrame, List[Run]]
+except ImportError:
+    SearchRunsReturyType = List[Run]
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -102,7 +110,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return exc_type is None
 
 
-def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags=None):
+def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags=None) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -272,7 +280,7 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
 atexit.register(end_run)
 
 
-def active_run():
+def active_run() -> Optinal[ActiveRun]:
     """Get the currently active ``Run``, or None if no such run exists.
 
     **Note**: You cannot access currently-active run attributes
@@ -297,7 +305,7 @@ def active_run():
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
 
-def get_run(run_id):
+def get_run(run_id) -> Run:
     """
     Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
     contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
@@ -737,7 +745,7 @@ def _record_logged_model(mlflow_model):
     MlflowClient()._record_logged_model(run_id, mlflow_model)
 
 
-def get_experiment(experiment_id):
+def get_experiment(experiment_id) -> Experiment:
     """
     Retrieve an experiment by experiment_id from the backend store
 
@@ -766,7 +774,7 @@ def get_experiment(experiment_id):
     return MlflowClient().get_experiment(experiment_id)
 
 
-def get_experiment_by_name(name):
+def get_experiment_by_name(name) -> Experiment:
     """
     Retrieve an experiment by experiment name from the backend store
 
@@ -796,7 +804,7 @@ def get_experiment_by_name(name):
     return MlflowClient().get_experiment_by_name(name)
 
 
-def create_experiment(name, artifact_location=None):
+def create_experiment(name, artifact_location=None) -> str:
     """
     Create an experiment.
 
@@ -861,7 +869,7 @@ def delete_experiment(experiment_id):
     MlflowClient().delete_experiment(experiment_id)
 
 
-def delete_run(run_id):
+def delete_run(run_id) -> None:
     """
     Deletes a run with the given ID.
 
@@ -889,7 +897,7 @@ def delete_run(run_id):
     MlflowClient().delete_run(run_id)
 
 
-def get_artifact_uri(artifact_path=None):
+def get_artifact_uri(artifact_path=None) -> str:
     """
     Get the absolute URI of the specified artifact in the currently active run.
     If `path` is not specified, the artifact root URI of the currently active
@@ -947,7 +955,7 @@ def search_runs(
     max_results=SEARCH_MAX_RESULTS_PANDAS,
     order_by=None,
     output_format="pandas",
-):
+) -> SearchRunsReturyType:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
@@ -1099,7 +1107,7 @@ def list_run_infos(
     run_view_type=ViewType.ACTIVE_ONLY,
     max_results=SEARCH_MAX_RESULTS_DEFAULT,
     order_by=None,
-):
+) -> List[RunInfo]:
     """
     Return run information for runs which belong to the experiment_id.
 
