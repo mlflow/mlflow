@@ -592,31 +592,6 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
 
 
 @pytest.mark.large
-def test_mleap_model_log(spark_model_iris):
-    artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        sparkm.log_model(
-            spark_model=spark_model_iris.model,
-            sample_input=spark_model_iris.spark_df,
-            artifact_path=artifact_path,
-            registered_model_name="Model1",
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "Model1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-        )
-
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    config_path = os.path.join(model_path, "MLmodel")
-    mlflow_model = Model.load(config_path)
-    assert sparkm.FLAVOR_NAME in mlflow_model.flavors
-    assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-
-@pytest.mark.large
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
     spark_model_iris, model_path
 ):
@@ -631,27 +606,6 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
         sparkm.save_model(
             spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
         )
-
-
-@pytest.mark.large
-def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
-    spark_model_iris,
-):
-    with TempDir(chdr=True) as tmp:
-        model_path = os.path.basename(tmp.path("model"))
-        mlflow_model = Model()
-        sparkm.save_model(
-            spark_model=spark_model_iris.model,
-            path=model_path,
-            sample_input=spark_model_iris.spark_df,
-            mlflow_model=mlflow_model,
-        )
-        assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-        config_path = os.path.join(model_path, "MLmodel")
-        assert os.path.exists(config_path)
-        config = Model.load(config_path)
-        assert mleap.FLAVOR_NAME in config.flavors
 
 
 @pytest.mark.large
