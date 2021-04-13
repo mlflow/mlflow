@@ -141,5 +141,5 @@ def test_signature_inference_infers_datime_types_as_expected():
     )
     signature = infer_signature(spark_df)
     assert signature.inputs == Schema(
-        [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date"),]
+        [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date")]
     )

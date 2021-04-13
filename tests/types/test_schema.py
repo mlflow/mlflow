@@ -217,7 +217,7 @@ def test_schema_inference_on_pandas_series():
     schema = _infer_schema(
         pd.Series(
             np.array(
-                ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00",],
+                ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00"],
                 dtype="datetime64",
             )
         )
@@ -384,7 +384,7 @@ def test_all_numpy_dtypes():
     # test datetime
     test_dtype(
         np.array(
-            ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00",],
+            ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00"],
             dtype="datetime64",
         ),
         "datetime64[s]",
