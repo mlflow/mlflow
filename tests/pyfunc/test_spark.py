@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
-from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import mlflow
