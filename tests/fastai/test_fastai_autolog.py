@@ -11,7 +11,7 @@ from fastai.data.external import untar_data, URLs
 from fastai.metrics import accuracy
 import mlflow
 import mlflow.fastai
-from fastai.callback.all import EarlyStoppingCallback
+from fastai.callback.all import EarlyStoppingCallback, SaveModelCallback
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
@@ -203,7 +203,12 @@ def test_fastai_autolog_opt_func_expected_data(mnist_data, fit_variant, manual_r
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
-    model = cnn_learner(mnist_data, models.resnet18, normalize=False, opt_func=partial(OptimWrapper, opt=torch.optim.Adam))
+    model = cnn_learner(
+        mnist_data,
+        models.resnet18,
+        normalize=False,
+        opt_func=partial(OptimWrapper, opt=torch.optim.Adam),
+    )
 
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(NUM_EPOCHS)
@@ -279,6 +284,10 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
     if callback == "early":
         cb = EarlyStoppingCallback(patience=patience, min_delta=MIN_DELTA)
         model.add_cb(cb)
+    elif callback == "save_and_early_stop":
+        early_cb = EarlyStoppingCallback(patience=patience, min_delta=MIN_DELTA)
+        save_cb = SaveModelCallback(min_delta=MIN_DELTA)
+        model.add_cbs([save_cb, early_cb])
 
     if fit_variant == "fit_one_cycle":
         model.fit_one_cycle(NUM_EPOCHS)
@@ -289,6 +298,33 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
 
     client = mlflow.tracking.MlflowClient()
     return model, client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
+@pytest.mark.parametrize("callback", ["save_and_early_stop"])
+@pytest.mark.parametrize("patience", [0, 1, 5])
+def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_callback, patience):
+    model, run = fastai_random_data_run_with_callback
+
+    client = mlflow.tracking.MlflowClient()
+    metric_history = client.get_metric_history(run.info.run_id, "valid_loss")
+    num_of_epochs = len(model.recorder.values)
+
+    assert len(metric_history) == num_of_epochs
+
+    model_uri = "runs:/{run_id}/{artifact_path}".format(
+        run_id=run.info.run_id, artifact_path="model"
+    )
+
+    model_wrapper = mlflow.fastai._FastaiModelWrapper(model)
+    reloaded_model = mlflow.fastai.load_model(model_uri=model_uri)
+    reloaded_model_wrapper = mlflow.fastai._FastaiModelWrapper(reloaded_model)
+
+    model_result = model_wrapper.predict(iris_dataframe())
+    reloaded_result = reloaded_model_wrapper.predict(iris_dataframe())
+
+    np.testing.assert_array_almost_equal(model_result, reloaded_result)
 
 
 @pytest.mark.large
