@@ -98,7 +98,7 @@ def test_basic_estimator(dataset_binomial):
     LooseVersion(pyspark.__version__) < LooseVersion("3.1"),
     reason="This test fails on supported versions of sklearn",
 )
-def test_models_in_allowlist_exist(spark_session):
+def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-argument
     mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
 
     def model_does_not_exist(model_class):
