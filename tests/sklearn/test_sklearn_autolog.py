@@ -48,11 +48,12 @@ MODEL_DIR = "model"
 pytestmark = pytest.mark.large
 
 
-def get_iris(as_frame=False):
-    iris = sklearn.datasets.load_iris(as_frame=as_frame)
-    if as_frame:
-        return iris["data"].iloc[:, :2], iris["target"]
-    return iris.data[:, :2], iris.target
+def get_iris(as_df=False):
+    iris = sklearn.datasets.load_iris()
+    data, target = iris.data[:, :2], iris.target
+    if as_df:
+        data = pd.DataFrame(data, columns=iris.feature_names[:2])
+    return data, target
 
 
 def fit_model(model, X, y, fit_func_name):
@@ -971,7 +972,7 @@ def test_autolog_logs_signature_only_when_estimator_defines_predict():
 
 
 def test_autolog_logs_signature_with_unknown_types_inferred_as_any():
-    X, y = get_iris(as_frame=True)
+    X, y = get_iris(as_df=True)
     X["timestamp_col"] = dt.datetime.now()
 
     # drop datetime columns before model training
