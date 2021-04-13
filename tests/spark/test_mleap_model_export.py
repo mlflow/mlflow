@@ -1,6 +1,8 @@
+import json
 import os
 from unittest import mock
 
+import numpy as np
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
 import pytest
@@ -11,12 +13,36 @@ from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
 from tests.spark.test_spark_model_export import (  # pylint: disable=unused-import
-    spark_model_iris,
     model_path,
+    iris_df,
+    spark_context,
+    spark_model_iris,
+    spark_custom_env,
 )
+
+
+@pytest.mark.large
+def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
+    mlflow.spark.save_model(
+        spark_model_iris.model,
+        path=model_path,
+        conda_env=spark_custom_env,
+        sample_input=spark_model_iris.spark_df,
+    )
+
+    scoring_response = score_model_in_sagemaker_docker_container(
+        model_uri=model_path,
+        data=spark_model_iris.pandas_df.to_json(orient="split"),
+        content_type=mlflow.pyfunc.scoring_server.CONTENT_TYPE_JSON,
+        flavor=mlflow.mleap.FLAVOR_NAME,
+    )
+    np.testing.assert_array_almost_equal(
+        spark_model_iris.predictions, np.array(json.loads(scoring_response.content)), decimal=4
+    )
 
 
 @pytest.mark.large

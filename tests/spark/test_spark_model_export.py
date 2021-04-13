@@ -269,33 +269,18 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
 @pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(
-        spark_model_iris.model,
-        path=model_path,
-        conda_env=spark_custom_env,
-        # Test both spark ml and mleap
-        sample_input=spark_model_iris.spark_df,
+        spark_model_iris.model, path=model_path, conda_env=spark_custom_env,
     )
-
-    # 1. score and compare pyfunc deployed in Sagemaker docker container
-    scoring_response_1 = score_model_in_sagemaker_docker_container(
+    scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
         data=spark_model_iris.pandas_df,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response_1.content)), decimal=4
+        spark_model_iris.predictions, np.array(json.loads(scoring_response.content)), decimal=4
     )
-    # 2. score and compare mleap deployed in Sagemaker docker container
-    scoring_response_2 = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=spark_model_iris.pandas_df.to_json(orient="split"),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        flavor=mlflow.mleap.FLAVOR_NAME,
-    )
-    np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response_2.content)), decimal=4
-    )
+
 
 
 @pytest.mark.large
