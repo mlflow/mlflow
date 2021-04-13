@@ -19,7 +19,7 @@ import yaml
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
-from mlflow import pyfunc, mleap
+from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
