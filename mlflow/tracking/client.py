@@ -312,7 +312,7 @@ class MlflowClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type=None):
+    def list_experiments(self, view_type=None) -> List[Experiment]:
         """
         :return: List of :py:class:`mlflow.entities.Experiment`
 
@@ -458,7 +458,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.create_experiment(name, artifact_location)
 
-    def delete_experiment(self, experiment_id):
+    def delete_experiment(self, experiment_id) -> None:
         """
         Delete an experiment from the backend store.
 
@@ -489,7 +489,7 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_experiment(experiment_id)
 
-    def restore_experiment(self, experiment_id):
+    def restore_experiment(self, experiment_id) -> None:
         """
         Restore a deleted experiment unless permanently deleted.
 
@@ -533,7 +533,7 @@ class MlflowClient(object):
         """
         self._tracking_client.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id, new_name):
+    def rename_experiment(self, experiment_id, new_name) -> None:
         """
         Update an experiment's name. The new name must be unique.
 
@@ -576,7 +576,7 @@ class MlflowClient(object):
         """
         self._tracking_client.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None, step=None):
+    def log_metric(self, run_id, key, value, timestamp=None, step=None) -> None:
         """
         Log a metric against the run ID.
 
@@ -629,7 +629,7 @@ class MlflowClient(object):
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
-    def log_param(self, run_id, key, value):
+    def log_param(self, run_id, key, value) -> None:
         """
         Log a parameter against the run ID.
 
@@ -676,7 +676,7 @@ class MlflowClient(object):
         """
         self._tracking_client.log_param(run_id, key, value)
 
-    def set_experiment_tag(self, experiment_id, key, value):
+    def set_experiment_tag(self, experiment_id, key, value) -> None:
         """
         Set a tag on the experiment with the specified ID. Value is converted to a string.
 
@@ -707,7 +707,7 @@ class MlflowClient(object):
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id, key, value):
+    def set_tag(self, run_id, key, value) -> None:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -747,7 +747,7 @@ class MlflowClient(object):
         """
         self._tracking_client.set_tag(run_id, key, value)
 
-    def delete_tag(self, run_id, key):
+    def delete_tag(self, run_id, key) -> None:
         """
         Delete a tag from a run. This is irreversible.
 
@@ -787,7 +787,7 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_tag(run_id, key)
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=()):
+    def log_batch(self, run_id, metrics=(), params=(), tags=()) -> None:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -840,7 +840,7 @@ class MlflowClient(object):
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
 
-    def log_artifact(self, run_id, local_path, artifact_path=None):
+    def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """
         Write a local file or directory to the remote ``artifact_uri``.
 
@@ -877,7 +877,7 @@ class MlflowClient(object):
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    def log_artifacts(self, run_id, local_dir, artifact_path=None):
+    def log_artifacts(self, run_id, local_dir, artifact_path=None) -> None:
         """
         Write a directory of files to the remote ``artifact_uri``.
 
@@ -940,7 +940,7 @@ class MlflowClient(object):
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def log_text(self, run_id, text, artifact_file):
+    def log_text(self, run_id, text, artifact_file) -> None:
         """
         Log text as an artifact.
 
@@ -971,7 +971,7 @@ class MlflowClient(object):
                 f.write(text)
 
     @experimental
-    def log_dict(self, run_id, dictionary, artifact_file):
+    def log_dict(self, run_id, dictionary, artifact_file) -> None:
         """
         Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
         inferred from the extension of `artifact_file`. If the file extension doesn't exist or
@@ -1015,7 +1015,7 @@ class MlflowClient(object):
                     json.dump(dictionary, f, indent=2)
 
     @experimental
-    def log_figure(self, run_id, figure, artifact_file):
+    def log_figure(self, run_id, figure, artifact_file) -> None:
         """
         Log a figure as an artifact. The following figure objects are supported:
 
@@ -1079,7 +1079,7 @@ class MlflowClient(object):
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
     @experimental
-    def log_image(self, run_id, image, artifact_file):
+    def log_image(self, run_id, image, artifact_file) -> None:
         """
         Log an image as an artifact. The following image objects are supported:
 
@@ -1328,7 +1328,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.download_artifacts(run_id, path, dst_path)
 
-    def set_terminated(self, run_id, status=None, end_time=None):
+    def set_terminated(self, run_id, status=None, end_time=None) -> None:
         """Set a run's status to terminated.
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
@@ -1371,7 +1371,7 @@ class MlflowClient(object):
         """
         self._tracking_client.set_terminated(run_id, status, end_time)
 
-    def delete_run(self, run_id):
+    def delete_run(self, run_id) -> None:
         """Deletes a run with the given ID.
 
         :param run_id: The unique run id to delete.
@@ -1400,7 +1400,7 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_run(run_id)
 
-    def restore_run(self, run_id):
+    def restore_run(self, run_id) -> None:
         """
         Restores a deleted run with the given ID.
 
@@ -1954,7 +1954,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_latest_versions(name, stages)
 
-    def set_registered_model_tag(self, name, key, value):
+    def set_registered_model_tag(self, name, key, value) -> None:
         """
         Set a tag for the registered model.
 
@@ -2001,7 +2001,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
-    def delete_registered_model_tag(self, name, key):
+    def delete_registered_model_tag(self, name, key) -> None:
         """
         Delete a tag associated with the registered model.
 
@@ -2317,7 +2317,7 @@ class MlflowClient(object):
             name, version, stage, archive_existing_versions
         )
 
-    def delete_model_version(self, name, version):
+    def delete_model_version(self, name, version) -> None:
         """
         Delete model version in backend.
 
@@ -2396,7 +2396,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().delete_model_version(name, version)
 
-    def get_model_version(self, name, version):
+    def get_model_version(self, name, version) -> ModelVersion:
         """
         :param name: Name of the containing registered model.
         :param version: Version number as an integer of the model version.
@@ -2576,7 +2576,7 @@ class MlflowClient(object):
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name, version, key, value):
+    def set_model_version_tag(self, name, version, key, value) -> None:
         """
         Set a tag for the model version.
 
@@ -2635,7 +2635,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name, version, key):
+    def delete_model_version_tag(self, name, version, key) -> None:
         """
         Delete a tag associated with the model version.
 
