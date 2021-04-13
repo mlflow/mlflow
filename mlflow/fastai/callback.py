@@ -35,7 +35,6 @@ class __MLflowFastaiCallback(Callback):
         """
         Log loss and other metrics values after each epoch
         """
-        from fastai.callback.all import GatherPredsCallback
 
         # Do not record in case of predicting
         if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
@@ -58,7 +57,7 @@ class __MLflowFastaiCallback(Callback):
         self.metrics_logger.record_metrics(metrics, step=metrics["epoch"])
 
     def before_fit(self):
-        from fastai.callback.all import ParamScheduler, GatherPredsCallback
+        from fastai.callback.all import ParamScheduler
 
         # Do not record in case of predicting or lr_finder
         if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
@@ -79,9 +78,15 @@ class __MLflowFastaiCallback(Callback):
 
         # Extract function name when `opt_func` is partial function
         if isinstance(self.opt_func, partial):
-            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.keywords['opt'].__name__)
+            try_mlflow_log(
+                mlflow.log_param,
+                self.freeze_prefix + "opt_func",
+                self.opt_func.keywords["opt"].__name__,
+            )
         else:
-            try_mlflow_log(mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.__name__)
+            try_mlflow_log(
+                mlflow.log_param, self.freeze_prefix + "opt_func", self.opt_func.__name__
+            )
 
         params_not_to_log = []
         for cb in self.cbs:
@@ -140,11 +145,17 @@ class __MLflowFastaiCallback(Callback):
             try_mlflow_log(mlflow.log_param, self.freeze_prefix + "train_bn", self.opt.train_bn)
 
     def after_fit(self):
-        from fastai.callback.all import GatherPredsCallback
+        from fastai.callback.all import SaveModelCallback
 
         # Do not log model in case of predicting
         if hasattr(self, "lr_finder") or hasattr(self, "gather_preds"):
             return
+
+        # Workaround to log model from SaveModelCallback
+        # Use this till able to set order between SaveModelCallback and EarlyStoppingCallback
+        for cb in self.cbs:
+            if isinstance(cb, SaveModelCallback):
+                cb("after_fit")
 
         if self.log_models:
             try_mlflow_log(log_model, self.learn, artifact_path="model")
