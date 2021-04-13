@@ -68,7 +68,7 @@ def mnist_data():
 
 
 def fastai_visual_model(data, **kwargs):
-    return cnn_learner(data, models.resnet18, normalize=False)
+    return cnn_learner(data, models.resnet18, normalize=False, **kwargs)
 
 
 @pytest.mark.large
@@ -258,7 +258,7 @@ def test_fastai_autolog_logs_default_params(fastai_random_visual_data_run, fit_v
         freeze_prefix = "freeze_"
         for prefix in [freeze_prefix, ""]:
             for param in ["lr", "mom"]:
-                assert any([a.startswith(freeze_prefix + param + ".") for a in artifacts])
+                assert any([a.startswith(prefix + param + ".") for a in artifacts])
 
 
 @pytest.mark.large
@@ -304,7 +304,7 @@ def fastai_random_data_run_with_callback(iris_data, fit_variant, manual_run, cal
 @pytest.mark.parametrize("fit_variant", ["fit", "fit_one_cycle"])
 @pytest.mark.parametrize("callback", ["save_and_early_stop"])
 @pytest.mark.parametrize("patience", [0, 1, 5])
-def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_callback, patience):
+def test_fastai_autolog_save_and_early_stop_logs(fastai_random_data_run_with_callback):
     model, run = fastai_random_data_run_with_callback
 
     client = mlflow.tracking.MlflowClient()
