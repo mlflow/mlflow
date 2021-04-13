@@ -69,5 +69,7 @@ jobs:
         run: |
           pip freeze
       - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
         run: |
           ${{ matrix.run }}

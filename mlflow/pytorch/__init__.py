@@ -847,7 +847,7 @@ def autolog(
     <https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#>`_.
 
     Explore the complete `PyTorch MNIST \
-    <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST/example1>`_ for
+    <https://github.com/mlflow/mlflow/tree/master/examples/pytorch/MNIST>`_ for
     an expansive example with implementation of additional lightening steps.
 
     **Note**: Autologging is only supported for PyTorch Lightning models,
