@@ -124,15 +124,15 @@ def test_autolog_does_not_terminate_active_run(dataset_binomial):
 
 
 def test_meta_estimator_fit_performs_logging_only_once(dataset_binomial):
-    from pyspark.ml.classification import LogisticRegression, OneVsRest
+    from pyspark.ml.classification import LinearSVC, OneVsRest
 
     mlflow.pyspark.ml.autolog()
     with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
         "mlflow.set_tags"
     ) as mock_set_tags, mock.patch("mlflow.spark.log_model") as mock_log_model:
         with mlflow.start_run() as run:
-            lor = LogisticRegression()
-            ova = OneVsRest(classifier=lor)
+            svc = LinearSVC()
+            ova = OneVsRest(classifier=svc)
             ova.fit(dataset_binomial)
 
         mock_log_params.assert_called_once()
@@ -179,17 +179,24 @@ def test_fit_with_a_list_of_params(dataset_binomial):
 
 
 def test_should_log_model(dataset_binomial, dataset_multinomial):
-    from pyspark.ml.classification import LogisticRegression, OneVsRest
+    from pyspark.ml.classification import LinearSVC, LogisticRegression, OneVsRest
 
     mlflow.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
     ova1 = OneVsRest(classifier=lor)
     mlor_model = lor.fit(dataset_multinomial)
-    assert _should_log_model(mlor_model)
+    assert not _should_log_model(mlor_model)
 
-    ova_model = ova1.fit(dataset_multinomial)
-    assert _should_log_model(ova_model)
+    ova1_model = ova1.fit(dataset_multinomial)
+    assert not _should_log_model(ova1_model)
+
+    svc = LinearSVC()
+    svc_model = svc.fit(dataset_binomial)
+    assert _should_log_model(svc_model)
+    ova2 = OneVsRest(classifier=svc)
+    ova2_model = ova2.fit(dataset_multinomial)
+    assert _should_log_model(ova2_model)
 
     with mock.patch(
         "mlflow.pyspark.ml._log_model_allowlist",
@@ -199,10 +206,10 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
         lr_model = lr.fit(dataset_binomial)
         assert _should_log_model(lr_model)
         with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
-            mlor_model = lor.fit(dataset_multinomial)
-            assert not _should_log_model(mlor_model)
-            mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(mlor_model))
-        assert not _should_log_model(ova_model)
+            svc_model = svc.fit(dataset_binomial)
+            assert not _should_log_model(svc_model)
+            mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(svc_model))
+        assert not _should_log_model(ova2_model)
 
 
 def test_param_map_captures_wrapped_params(dataset_binomial):

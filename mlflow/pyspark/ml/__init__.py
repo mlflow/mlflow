@@ -18,13 +18,9 @@ def _get_fully_qualified_class_name(instance):
     return instance.__class__.__module__ + "." + instance.__class__.__name__
 
 
-def _read_log_model_allowlist():
-    """
-    Reads the module allowlist and returns it as a set.
-    """
-    file_path = resource_filename(__name__, "log_model_allowlist.txt")
+def _read_log_model_allowlist_from_file(allowlist_file):
     allowlist = set()
-    with open(file_path) as f:
+    with open(allowlist_file) as f:
         for line in f:
             stripped = line.strip()
             is_blankline_or_comment = stripped == "" or stripped.startswith("#")
@@ -33,7 +29,28 @@ def _read_log_model_allowlist():
     return allowlist
 
 
-_log_model_allowlist = _read_log_model_allowlist()
+def _read_log_model_allowlist(spark_session):
+    """
+    Reads the module allowlist and returns it as a set.
+    """
+    allowlist_file = spark_session.sparkContext._conf \
+        .get('spark.databricks.mlflow.autolog.log_model.allowlistFile', None)
+    builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
+    if allowlist_file:
+        try:
+            return _read_log_model_allowlist_from_file(allowlist_file)
+        except Exception:
+            # fallback to built-in allowlist file
+            _logger.warning(
+                'Reading config spark.databricks.mlflow.autolog.log_model.allowlistFile '
+                f'{allowlist_file} failed, fallback to built-in allowlist file')
+            return _read_log_model_allowlist_from_file(builtin_allowlist_file)
+    else:
+        return _read_log_model_allowlist_from_file(builtin_allowlist_file)
+
+
+# When autolog called, `_log_model_allowlist` will be initialized.
+_log_model_allowlist = None
 
 
 def _get_warning_msg_for_skip_log_model(model):
@@ -144,6 +161,14 @@ def autolog(
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
+    This method is not threadsafe and assumes a
+    `SparkSession
+    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
+    already exists with the
+    `mlflow-spark JAR
+    <http://mlflow.org/docs/latest/tracking.html#automatic-logging-from-spark-experimental>`_
+    attached. It should be called on the Spark driver, not on the executors (i.e. do not call
+    this method within a function parallelized by Spark). This API requires Spark 3.0 or above.
 
     **When is autologging performed?**
       Autologging is performed when you call ``Estimator.fit``
@@ -164,8 +189,15 @@ def autolog(
           (logged by :py:func:`mlflow.spark.log_model()`).
 
 
-    :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
-                       If ``False``, trained models are not logged.
+    :param log_models: If ``True``, if trained models are in allowlist, logged as MLflow model
+                       artifacts. If ``False``, trained models are not logged.
+                       Note: the built-in allowlist excludes some models which model may be large
+                       (including logistic regression model, tree/random forest/boosting tree Model
+                       and so on), you can set the config
+                       `spark.databricks.mlflow.autolog.log_model.allowlistFile` to customize the
+                       allowlist file. If you want to ensure logging model far all cases, you should
+                       set autolog ``log_models``=False and explicitly call `mlflow.spark.log_model`
+                       to log the model.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the pyspark ML autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -183,7 +215,12 @@ def autolog(
         MAX_PARAM_VAL_LENGTH,
         MAX_ENTITY_KEY_LENGTH,
     )
+    from mlflow.utils._spark_utils import _get_active_spark_session
     from pyspark.ml.base import Estimator
+    global _log_model_allowlist
+
+    if not _log_model_allowlist:
+        _log_model_allowlist = _read_log_model_allowlist(_get_active_spark_session())
 
     def _log_pretraining_metadata(estimator, params):
 
