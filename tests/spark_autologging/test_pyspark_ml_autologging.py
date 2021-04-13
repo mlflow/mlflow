@@ -96,7 +96,7 @@ def test_basic_estimator(dataset_binomial):
 
 
 @pytest.mark.skipif(
-    LooseVersion(pyspark.__version__) > LooseVersion("3.1"),
+    LooseVersion(pyspark.__version__) < LooseVersion("3.1"),
     reason="This test fails on supported versions of sklearn",
 )
 def test_models_in_allowlist_exist():
