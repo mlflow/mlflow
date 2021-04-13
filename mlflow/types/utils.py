@@ -70,7 +70,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema:
+def _infer_schema(data: Any) -> Schema:
     """
     Infer an MLflow schema from a dataset.
 
@@ -92,12 +92,9 @@ def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema
       - pyspark.sql.DataFrame
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
-    dataframes and to one of numpy types for tensors. For unknown element types, set
-    `infer_unknown_types_as_any=True` to infer as `mlflow.types.DataType.any`.
+    dataframes and to one of numpy types for tensors.
 
     :param data: Dataset to infer from.
-    :param infer_unknown_types_as_any: Flag to infer unknown data types as
-           :py:data:`any <mlflow.types.DataType.any>`.
 
     :return: Schema
     """
@@ -116,11 +113,11 @@ def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema
             )
         schema = Schema(res)
     elif isinstance(data, pd.Series):
-        schema = Schema([ColSpec(type=_infer_pandas_column(data, infer_unknown_types_as_any))])
+        schema = Schema([ColSpec(type=_infer_pandas_column(data))])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
             [
-                ColSpec(type=_infer_pandas_column(data[col], infer_unknown_types_as_any), name=col)
+                ColSpec(type=_infer_pandas_column(data[col]), name=col)
                 for col in data.columns
             ]
         )
@@ -132,7 +129,7 @@ def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema
         schema = Schema(
             [
                 ColSpec(
-                    type=_infer_spark_type(field.dataType, infer_unknown_types_as_any),
+                    type=_infer_spark_type(field.dataType),
                     name=field.name,
                 )
                 for field in data.schema.fields
@@ -163,7 +160,7 @@ def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema
     return schema
 
 
-def _infer_numpy_dtype(dtype, infer_unknown_types_as_any: bool) -> DataType:
+def _infer_numpy_dtype(dtype) -> DataType:
     supported_types = np.dtype
 
     # noinspection PyBroadException
@@ -201,12 +198,12 @@ def _infer_numpy_dtype(dtype, infer_unknown_types_as_any: bool) -> DataType:
             "Can not infer np.object without looking at the values, call "
             "_map_numpy_array instead."
         )
-    elif infer_unknown_types_as_any:
-        return DataType.any
+    elif dtype.kind == "M":
+        return DataType.datetime
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
 
-def _infer_pandas_column(col: pd.Series, infer_unknown_types_as_any) -> DataType:
+def _infer_pandas_column(col: pd.Series) -> DataType:
     if not isinstance(col, pd.Series):
         raise TypeError("Expected pandas.Series, got '{}'.".format(type(col)))
     if len(col.values.shape) > 1:
@@ -244,10 +241,10 @@ def _infer_pandas_column(col: pd.Series, infer_unknown_types_as_any) -> DataType
             )
     else:
         # NB: The following works for numpy types as well as pandas extension types.
-        return _infer_numpy_dtype(col.dtype, infer_unknown_types_as_any)
+        return _infer_numpy_dtype(col.dtype)
 
 
-def _infer_spark_type(x, infer_unknown_types_as_any) -> DataType:
+def _infer_spark_type(x) -> DataType:
     import pyspark.sql.types
 
     if isinstance(x, pyspark.sql.types.NumericType):
@@ -266,8 +263,9 @@ def _infer_spark_type(x, infer_unknown_types_as_any) -> DataType:
         return DataType.string
     elif isinstance(x, pyspark.sql.types.BinaryType):
         return DataType.binary
-    elif infer_unknown_types_as_any:
-        return DataType.any
+    # NB: Spark differentiates date and timestamps, so we coerce both to TimestampType.
+    elif isinstance(x, (pyspark.sql.types.DateType, pyspark.sql.types.TimestampType)):
+        return DataType.datetime
     else:
         raise Exception(
             "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "

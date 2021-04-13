@@ -302,14 +302,13 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
+    5. np.datetime64[x] -> datetime (any precision)
 
-    If the model input schema declares the type as `any`, will allow any data type.
     Any other type mismatch will raise error.
     """
-    if t == DataType.any:
-        # The user specified flexible typing for unknown column types when logging
-        # the model signature.
-        return values
+    # if t == DataType.datetime:
+    #     raise Exception(str(t.to_numpy()) + " --- " + str(values.dtype) + "\n" +
+    #                     str(t.to_numpy().kind) + " --- " + str(values.dtype.kind))
 
     if values.dtype == np.object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
@@ -339,6 +338,12 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # NB: bytes in numpy have variable itemsize depending on the length of the longest
         # element in the array (column). Since MLflow binary type is length agnostic, we ignore
         # itemsize when matching binary columns.
+        return values
+
+    if t == DataType.datetime and values.dtype.kind == t.to_numpy().kind:
+        # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
+        # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
+        # ignore precision when matching datetime columns.
         return values
 
     numpy_type = t.to_numpy()

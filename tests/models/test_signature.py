@@ -123,19 +123,22 @@ def test_signature_inference_infers_input_and_output_as_expected():
     assert sig1.outputs == sig0.inputs
 
 
-def test_signature_inference_infers_unknown_types_as_any():
+def test_signature_inference_infers_datime_types_as_expected():
     col_name = "datetime_col"
-    test_datetime = np.datetime64("2020-01-01")
+    test_datetime = np.datetime64("2021-01-01")
     test_series = pd.Series(pd.to_datetime([test_datetime]))
     test_df = test_series.to_frame(col_name)
 
-    signature = infer_signature(test_series, infer_unknown_types_as_any=True)
-    assert signature.inputs == Schema([ColSpec(DataType.any)])
+    signature = infer_signature(test_series)
+    assert signature.inputs == Schema([ColSpec(DataType.datetime)])
 
-    signature = infer_signature(test_df, infer_unknown_types_as_any=True)
-    assert signature.inputs == Schema([ColSpec(DataType.any, name=col_name)])
+    signature = infer_signature(test_df)
+    assert signature.inputs == Schema([ColSpec(DataType.datetime, name=col_name)])
 
     spark = pyspark.sql.SparkSession.builder.getOrCreate()
-    spark_df = spark.range(1).selectExpr("current_timestamp() as datetime_col")
-    signature = infer_signature(spark_df, infer_unknown_types_as_any=True)
-    assert signature.inputs == Schema([ColSpec(DataType.any, name=col_name)])
+    spark_df = spark.range(1).selectExpr("current_timestamp() as timestamp", "current_date() as date")
+    signature = infer_signature(spark_df)
+    assert signature.inputs == Schema([
+        ColSpec(DataType.datetime, name="timestamp"),
+        ColSpec(DataType.datetime, name="date"),
+    ])
