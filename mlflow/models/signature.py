@@ -94,7 +94,7 @@ class ModelSignature(object):
 
 
 def infer_signature(
-    model_input: Any, model_output: MlflowInferableDataset = None,
+    model_input: Any, model_output: MlflowInferableDataset = None
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).

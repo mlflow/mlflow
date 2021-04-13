@@ -136,9 +136,10 @@ def test_signature_inference_infers_datime_types_as_expected():
     assert signature.inputs == Schema([ColSpec(DataType.datetime, name=col_name)])
 
     spark = pyspark.sql.SparkSession.builder.getOrCreate()
-    spark_df = spark.range(1).selectExpr("current_timestamp() as timestamp", "current_date() as date")
+    spark_df = spark.range(1).selectExpr(
+        "current_timestamp() as timestamp", "current_date() as date"
+    )
     signature = infer_signature(spark_df)
-    assert signature.inputs == Schema([
-        ColSpec(DataType.datetime, name="timestamp"),
-        ColSpec(DataType.datetime, name="date"),
-    ])
+    assert signature.inputs == Schema(
+        [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date"),]
+    )

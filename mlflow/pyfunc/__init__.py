@@ -306,10 +306,6 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
 
     Any other type mismatch will raise error.
     """
-    # if t == DataType.datetime:
-    #     raise Exception(str(t.to_numpy()) + " --- " + str(values.dtype) + "\n" +
-    #                     str(t.to_numpy().kind) + " --- " + str(values.dtype.kind))
-
     if values.dtype == np.object and t not in (DataType.binary, DataType.string):
         values = values.infer_objects()
 

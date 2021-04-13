@@ -42,7 +42,7 @@ def pandas_df_with_all_types():
                 np.datetime64("2021-01-01 00:00:00"),
                 np.datetime64("2021-02-02 00:00:00"),
                 np.datetime64("2021-03-03 12:00:00"),
-            ]
+            ],
         }
     )
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())

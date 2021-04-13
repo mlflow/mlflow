@@ -116,10 +116,7 @@ def _infer_schema(data: Any) -> Schema:
         schema = Schema([ColSpec(type=_infer_pandas_column(data))])
     elif isinstance(data, pd.DataFrame):
         schema = Schema(
-            [
-                ColSpec(type=_infer_pandas_column(data[col]), name=col)
-                for col in data.columns
-            ]
+            [ColSpec(type=_infer_pandas_column(data[col]), name=col) for col in data.columns]
         )
     elif isinstance(data, np.ndarray):
         schema = Schema(
@@ -128,10 +125,7 @@ def _infer_schema(data: Any) -> Schema:
     elif _is_spark_df(data):
         schema = Schema(
             [
-                ColSpec(
-                    type=_infer_spark_type(field.dataType),
-                    name=field.name,
-                )
+                ColSpec(type=_infer_spark_type(field.dataType), name=field.name)
                 for field in data.schema.fields
             ]
         )

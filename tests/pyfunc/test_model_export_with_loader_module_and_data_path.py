@@ -128,6 +128,7 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                 else:
                     assert np.array_equal(_read_example(mlflow_model, path), example)
 
+
 def test_column_schema_enforcement():
     m = Model()
     input_schema = Schema(

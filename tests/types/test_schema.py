@@ -71,7 +71,11 @@ def pandas_df_with_all_types():
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
             "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
             "string": ["a", "b", "c"],
-            "datetime": [np.datetime64("2021-01-01"), np.datetime64("2021-02-02"), np.datetime64("2021-03-03")],
+            "datetime": [
+                np.datetime64("2021-01-01"),
+                np.datetime64("2021-02-02"),
+                np.datetime64("2021-03-03"),
+            ],
             "boolean_ext": [True, False, True],
             "integer_ext": [1, 2, 3],
             "string_ext": ["a", "b", "c"],
@@ -210,11 +214,14 @@ def test_schema_inference_on_pandas_series():
     assert schema == Schema([ColSpec("double")])
 
     # test datetime
-    schema = _infer_schema(pd.Series(np.array([
-        "2021-01-01 00:00:00",
-        "2021-02-02 00:00:00",
-        "2021-03-03 12:00:00",
-    ], dtype="datetime64")))
+    schema = _infer_schema(
+        pd.Series(
+            np.array(
+                ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00",],
+                dtype="datetime64",
+            )
+        )
+    )
     assert schema == Schema([ColSpec("datetime")])
 
     # unsupported
@@ -375,11 +382,13 @@ def test_all_numpy_dtypes():
     test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "U")
 
     # test datetime
-    test_dtype(np.array([
-        "2021-01-01 00:00:00",
-        "2021-02-02 00:00:00",
-        "2021-03-03 12:00:00",
-    ], dtype="datetime64"), "datetime64[s]")
+    test_dtype(
+        np.array(
+            ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00",],
+            dtype="datetime64",
+        ),
+        "datetime64[s]",
+    )
 
     # platform_dependent
     for dtype in platform_dependent:
@@ -423,7 +432,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
         DoubleType,
         StringType,
         BinaryType,
-        TimestampType
+        TimestampType,
     )
     from pyspark.sql.types import StructField, StructType
 
