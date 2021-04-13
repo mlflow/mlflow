@@ -303,6 +303,7 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     3. float -> double (upcast)
     4. int -> double (safe conversion)
     5. np.datetime64[x] -> datetime (any precision)
+    6. np.object -> datetime
 
     Any other type mismatch will raise error.
     """
@@ -341,6 +342,16 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
         # ignore precision when matching datetime columns.
         return values
+
+    if t == DataType.datetime and values.dtype == np.object:
+        # NB: Pyspark date columns get converted to np.object when converted to a pandas
+        # DataFrame. To respect the original typing, we convert the column to datetime.
+        try:
+            return values.astype(np.datetime64, errors="raise")
+        except ValueError:
+            raise MlflowException(
+                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+            )
 
     numpy_type = t.to_numpy()
     if values.dtype.kind == numpy_type.kind:
