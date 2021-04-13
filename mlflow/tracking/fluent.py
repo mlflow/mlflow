@@ -33,9 +33,9 @@ from mlflow.utils.annotations import experimental
 try:
     import pandas as pd
 
-    SearchRunsReturyType = Union[pd.DataFrame, List[Run]]
+    SearchRunsReturnType = Union[pd.DataFrame, List[Run]]
 except ImportError:
-    SearchRunsReturyType = List[Run]
+    SearchRunsReturnType = List[Run]
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -955,7 +955,7 @@ def search_runs(
     max_results=SEARCH_MAX_RESULTS_PANDAS,
     order_by=None,
     output_format="pandas",
-) -> SearchRunsReturyType:
+) -> SearchRunsReturnType:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
