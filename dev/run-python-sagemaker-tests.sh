@@ -20,6 +20,7 @@ pytest --verbose tests/sagemaker/mock --large
 
 # Added here due to dependency on sagemaker
 # TODO: split out sagemaker tests and move other spark tests to run-python-flavor-tests.sh
+pip install pyspark==2.4.5
 pytest --verbose tests/spark --large
 
 test $err = 0
