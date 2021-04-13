@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 import pyspark
 from py4j.protocol import Py4JJavaError
+from pyspark.sql.functions import struct
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import mlflow
@@ -143,9 +144,9 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         with pytest.raises(Py4JJavaError):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
-        res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
+        res = data.withColumn("res2", udf(struct("a", "b", "c"))).select("res2").toPandas()
         assert res["res2"][0] == ["a", "b", "c"]
-        res = data.withColumn("res4", udf("a", "b", "c", "d")).select("res4").toPandas()
+        res = data.withColumn("res4", udf(struct("a", "b", "c", "d"))).select("res4").toPandas()
         assert res["res4"][0] == ["a", "b", "c"]
 
 
