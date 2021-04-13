@@ -280,7 +280,7 @@ def end_run(status=RunStatus.to_string(RunStatus.FINISHED)):
 atexit.register(end_run)
 
 
-def active_run() -> Optinal[ActiveRun]:
+def active_run() -> Optional[ActiveRun]:
     """Get the currently active ``Run``, or None if no such run exists.
 
     **Note**: You cannot access currently-active run attributes
