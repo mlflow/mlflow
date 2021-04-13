@@ -33,8 +33,9 @@ def _read_log_model_allowlist(spark_session):
     """
     Reads the module allowlist and returns it as a set.
     """
-    allowlist_file = spark_session.sparkContext._conf \
-        .get('spark.databricks.mlflow.autolog.log_model.allowlistFile', None)
+    allowlist_file = spark_session.sparkContext._conf.get(
+        "spark.databricks.mlflow.autolog.log_model.allowlistFile", None
+    )
     builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
     if allowlist_file:
         try:
@@ -42,8 +43,9 @@ def _read_log_model_allowlist(spark_session):
         except Exception:
             # fallback to built-in allowlist file
             _logger.warning(
-                'Reading config spark.databricks.mlflow.autolog.log_model.allowlistFile '
-                f'{allowlist_file} failed, fallback to built-in allowlist file')
+                "Reading config spark.databricks.mlflow.autolog.log_model.allowlistFile "
+                f"{allowlist_file} failed, fallback to built-in allowlist file"
+            )
             return _read_log_model_allowlist_from_file(builtin_allowlist_file)
     else:
         return _read_log_model_allowlist_from_file(builtin_allowlist_file)
@@ -217,6 +219,7 @@ def autolog(
     )
     from mlflow.utils._spark_utils import _get_active_spark_session
     from pyspark.ml.base import Estimator
+
     global _log_model_allowlist
 
     if not _log_model_allowlist:
