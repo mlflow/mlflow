@@ -121,7 +121,7 @@ def infer_signature(
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
                          dataset.
     :param infer_unknown_types_as_any: Flag to infer unknown data types as
-           :py:data:`any <mlflow.models.signature.DataType.any>`.
+           :py:data:`any <mlflow.types.DataType.any>`.
     :return: ModelSignature
     """
     inputs = _infer_schema(model_input, infer_unknown_types_as_any)

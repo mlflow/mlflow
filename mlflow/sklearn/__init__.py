@@ -721,7 +721,7 @@ def autolog(
     :param infer_unknown_types_as_any: If ``True``, unknown data types in the logged
                                        :py:class:`ModelSignatures <mlflow.models.ModelSignature>`
                                        will be inferred as
-                                       :py:data:`any <mlflow.models.signature.DataType.any>`.
+                                       :py:data:`any <mlflow.types.DataType.any>`.
                                        If ``False``, strict data typing is enforced.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.

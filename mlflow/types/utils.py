@@ -93,11 +93,11 @@ def _infer_schema(data: Any, infer_unknown_types_as_any: bool = False) -> Schema
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors. For unknown element types, set
-    `infer_unknown_types_as_any=True` to infer as `mlflow.models.signature.DataType.any`.
+    `infer_unknown_types_as_any=True` to infer as `mlflow.types.DataType.any`.
 
     :param data: Dataset to infer from.
     :param infer_unknown_types_as_any: Flag to infer unknown data types as
-           :py:data:`any <mlflow.models.signature.DataType.any>`.
+           :py:data:`any <mlflow.types.DataType.any>`.
 
     :return: Schema
     """
