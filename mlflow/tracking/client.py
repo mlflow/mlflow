@@ -11,8 +11,11 @@ import posixpath
 import sys
 import tempfile
 import yaml
+from typing import List
 
-from mlflow.entities import ViewType
+from mlflow.entities import Experiment, Run, RunInfo, Metric, FileInfo, ViewType
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
@@ -101,7 +104,7 @@ class MlflowClient(object):
 
     # Tracking API
 
-    def get_run(self, run_id):
+    def get_run(self, run_id) -> Run:
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
@@ -141,7 +144,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_run(run_id)
 
-    def get_metric_history(self, run_id, key):
+    def get_metric_history(self, run_id, key) -> List[Metric]:
         """
         Return a list of metric objects corresponding to all values logged for a given metric.
 
@@ -208,7 +211,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_metric_history(run_id, key)
 
-    def create_run(self, experiment_id, start_time=None, tags=None):
+    def create_run(self, experiment_id, start_time=None, tags=None) -> Run:
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -258,7 +261,7 @@ class MlflowClient(object):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-    ):
+    ) -> PagedList[RunInfo]:
         """:return: List of :py:class:`mlflow.entities.RunInfo`
 
         .. code-block:: python
@@ -354,7 +357,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.list_experiments(view_type)
 
-    def get_experiment(self, experiment_id):
+    def get_experiment(self, experiment_id) -> Experiment:
         """
         Retrieve an experiment by experiment_id from the backend store
 
@@ -386,7 +389,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment(experiment_id)
 
-    def get_experiment_by_name(self, name):
+    def get_experiment_by_name(self, name) -> Experiment:
         """
         Retrieve an experiment by experiment name from the backend store
 
@@ -418,7 +421,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment_by_name(name)
 
-    def create_experiment(self, name, artifact_location=None):
+    def create_experiment(self, name, artifact_location=None) -> str:
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
@@ -1228,7 +1231,7 @@ class MlflowClient(object):
         """
         self._tracking_client._record_logged_model(run_id, mlflow_model)
 
-    def list_artifacts(self, run_id, path=None):
+    def list_artifacts(self, run_id, path=None) -> List[FileInfo]:
         """
         List the artifacts for a run.
 
@@ -1279,7 +1282,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    def download_artifacts(self, run_id, path, dst_path=None):
+    def download_artifacts(self, run_id, path, dst_path=None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
@@ -1438,7 +1441,7 @@ class MlflowClient(object):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-    ):
+    ) -> PagedList[Run]:
         """
         Search experiments that fit the search criteria.
 
@@ -1525,7 +1528,7 @@ class MlflowClient(object):
 
     # Registered Model Methods
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None) -> RegisteredModel:
         """
         Create a new registered model in backend store.
 
@@ -1565,7 +1568,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().create_registered_model(name, tags, description)
 
-    def rename_registered_model(self, name, new_name):
+    def rename_registered_model(self, name, new_name) -> RegisteredModel:
         """
         Update registered model name.
 
@@ -1614,7 +1617,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().rename_registered_model(name, new_name)
 
-    def update_registered_model(self, name, description=None):
+    def update_registered_model(self, name, description=None) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
         Backend raises exception if a registered model with given name does not exist.
@@ -1718,7 +1721,7 @@ class MlflowClient(object):
 
     def list_registered_models(
         self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
-    ):
+    ) -> PagedList[RegisteredModel]:
         """
         List of all registered models
 
@@ -1773,7 +1776,7 @@ class MlflowClient(object):
         max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         order_by=None,
         page_token=None,
-    ):
+    ) -> PagedList[RegisteredModel]:
         """
         Search for registered models in backend that satisfy the filter criteria.
 
@@ -1846,7 +1849,7 @@ class MlflowClient(object):
             filter_string, max_results, order_by, page_token
         )
 
-    def get_registered_model(self, name):
+    def get_registered_model(self, name) -> RegisteredModel:
         """
         :param name: Name of the registered model to update.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -1884,7 +1887,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name, stages=None):
+    def get_latest_versions(self, name, stages=None) -> ModelVersion:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -2059,7 +2062,7 @@ class MlflowClient(object):
         run_link=None,
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    ):
+    ) -> ModelVersion:
         """
         Create a new model version from given source (artifact URI).
 
@@ -2179,7 +2182,7 @@ class MlflowClient(object):
         if workspace_host and run_id and experiment_id:
             return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
-    def update_model_version(self, name, version, description=None):
+    def update_model_version(self, name, version, description=None) -> ModelVersion:
         """
         Update metadata associated with a model version in backend.
 
@@ -2244,7 +2247,9 @@ class MlflowClient(object):
             name=name, version=version, description=description
         )
 
-    def transition_model_version_stage(self, name, version, stage, archive_existing_versions=False):
+    def transition_model_version_stage(
+        self, name, version, stage, archive_existing_versions=False
+    ) -> ModelVersion:
         """
         Update model version stage.
 
@@ -2444,7 +2449,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version(name, version)
 
-    def get_model_version_download_uri(self, name, version):
+    def get_model_version_download_uri(self, name, version) -> str:
         """
         Get the download location in Model Registry for this model version.
 
@@ -2486,7 +2491,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
-    def search_model_versions(self, filter_string):
+    def search_model_versions(self, filter_string) -> PagedList[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
@@ -2530,7 +2535,9 @@ class MlflowClient(object):
         """
         return self._get_registry_client().search_model_versions(filter_string)
 
-    def get_model_version_stages(self, name, version):  # pylint: disable=unused-argument
+    def get_model_version_stages(
+        self, name, version
+    ) -> List[str]:  # pylint: disable=unused-argument
         """
         :return: A list of valid stages.
 
