@@ -231,6 +231,9 @@ class Patch(object):
         is_equal = self.__eq__(other)
         return is_equal if is_equal is NotImplemented else not is_equal
 
+    def __hash__(self):
+        return super().__hash__()
+
     def _update(self, **kwargs):
         """Update some attributes.
 
@@ -343,6 +346,7 @@ def revert(patch):
     to ``True`` when applying the patch and overriding an existing attribute.
     """
     if getattr(patch.destination, _ACTIVE_PATCH, None) != patch:
+        # print("SKIPPING")
         return
 
     try:
@@ -354,7 +358,13 @@ def revert(patch):
                 % (patch.destination.__name__,))
 
     original_name = _ORIGINAL_NAME % (patch.name,)
+    if not getattr(patch.destination, original_name):
+        return
+
+
     setattr(patch.destination, patch.name, original)
+    # print(patch.destination, patch.name, hasattr(patch.destination, original_name))
+    # print(getattr(patch.destination, _ACTIVE_PATCH), patch)
     delattr(patch.destination, original_name)
     delattr(patch.destination, _ACTIVE_PATCH)
 
