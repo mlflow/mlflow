@@ -36,7 +36,9 @@ pyspark.ml.feature.RobustScalerModel
 pyspark.ml.feature.RFormulaModel
 pyspark.ml.feature.StandardScalerModel
 pyspark.ml.feature.StringIndexerModel
+pyspark.ml.feature.VarianceThresholdSelectorModel
 pyspark.ml.feature.VectorIndexerModel
+pyspark.ml.feature.UnivariateFeatureSelectorModel
 
 # composite model
 pyspark.ml.classification.OneVsRestModel

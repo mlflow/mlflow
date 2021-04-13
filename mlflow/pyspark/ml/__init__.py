@@ -39,15 +39,17 @@ _log_model_allowlist = _read_log_model_allowlist()
 
 
 def _get_warning_msg_for_skip_log_model(model):
-    return f'This model {model.uid} is not logged because it is not in ' \
-           'allowlist or its nested models are not in allowlist.'
+    return (
+        f"This model {model.uid} is not logged because it is not in "
+        "allowlist or its nested models are not in allowlist."
+    )
 
 
 def _should_log_model(spark_model):
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
     if class_name in _log_model_allowlist:
-        if class_name == 'pyspark.ml.classification.OneVsRestModel':
+        if class_name == "pyspark.ml.classification.OneVsRestModel":
             return _should_log_model(spark_model.models[0])
         else:
             return True
@@ -68,8 +70,12 @@ def _get_estimator_info_tags(estimator):
 
 def _get_instance_param_map(instance):
     from pyspark.ml.param import Params
-    param_map = {param.name: instance.getOrDefault(param)
-                 for param in instance.params if instance.isDefined(param)}
+
+    param_map = {
+        param.name: instance.getOrDefault(param)
+        for param in instance.params
+        if instance.isDefined(param)
+    }
     # TODO:
     #  handle special case: CrossValidator.estimatorParamMaps
 
@@ -79,7 +85,7 @@ def _get_instance_param_map(instance):
             expanded_param_map[k] = v.uid
             internal_param_map = _get_instance_param_map(v)
             for ik, iv in internal_param_map.items():
-                expanded_param_map[f'{v.uid}.{ik}'] = iv
+                expanded_param_map[f"{v.uid}.{ik}"] = iv
         else:
             expanded_param_map[k] = v
 
@@ -123,8 +129,10 @@ class _SparkTrainingSession(object):
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
-    return 'Skip instrumentation when calling ' + \
-           f'{_get_fully_qualified_class_name(estimator)}.fit with a list of params.'
+    return (
+        "Skip instrumentation when calling "
+        + f"{_get_fully_qualified_class_name(estimator)}.fit with a list of params."
+    )
 
 
 @experimental
@@ -186,8 +194,7 @@ def autolog(
 
         # Chunk model parameters to avoid hitting the log_batch API limit
         for chunk in chunk_dict(
-                _get_instance_param_map(estimator),
-                chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+            _get_instance_param_map(estimator), chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         ):
             truncated = truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
@@ -199,9 +206,7 @@ def autolog(
             if _should_log_model(spark_model):
                 # TODO: support model signature
                 try_mlflow_log(
-                    mlflow_spark.log_model,
-                    spark_model,
-                    artifact_path="model",
+                    mlflow_spark.log_model, spark_model, artifact_path="model",
                 )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
@@ -210,10 +215,10 @@ def autolog(
         params = None
         if len(args) > 1:
             params = args[1]
-        elif 'params' in kwargs:
-            params = kwargs['params']
+        elif "params" in kwargs:
+            params = kwargs["params"]
 
-        if _get_fully_qualified_class_name(self).startswith('pyspark.ml.feature.'):
+        if _get_fully_qualified_class_name(self).startswith("pyspark.ml.feature."):
             return original(self, *args, **kwargs)
         elif isinstance(params, (list, tuple)):
             # skip the case params is a list or tuple, this case it will call
@@ -235,5 +240,5 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     safe_patch(
-        mlflow_spark.FLAVOR_NAME, Estimator, 'fit', patched_fit, manage_run=True,
+        mlflow_spark.FLAVOR_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )

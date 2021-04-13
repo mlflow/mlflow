@@ -1,1 +1,1 @@
-from . import ml  # noqa: E402
+from . import ml  # pylint: disable=unused-import
