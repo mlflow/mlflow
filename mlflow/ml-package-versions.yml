@@ -282,4 +282,4 @@ spark:
     maximum: "3.1.1"
     requirements: ["boto3", "scikit-learn", "pyarrow"]
     run: |
-      pytest --verbose tests/spark --large  --ignore tests/spark/test_mleap_model_export.py
+      pytest --verbose tests/spark --large --ignore tests/spark/test_mleap_model_export.py
