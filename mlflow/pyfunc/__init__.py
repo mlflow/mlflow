@@ -692,6 +692,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
     will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
 
+    If a model contains a signature, the UDF can be called without specifying column name
+    arguments. In this case, the UDF will be called with column names from signature, so the
+    evaluation dataframe's column names must match the model signature's column names.
+
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
     converted to string. If the result type is not an array type, the left most column with
