@@ -264,6 +264,7 @@ spark-3.x:
     maximum: "3.1.1"
     run: |
       pushd mlflow/java/spark && mvn package -DskipTests -q && popd
+      # TODO: Add datasource autologging tests
       pytest tests/spark_autologging/test_pyspark_ml_autologging.py
 
 statsmodels:

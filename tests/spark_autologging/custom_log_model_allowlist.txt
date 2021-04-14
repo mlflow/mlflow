@@ -1,0 +1,2 @@
+pyspark.ml.regression.LinearRegressionModel
+pyspark.ml.classification.NaiveBayesModel

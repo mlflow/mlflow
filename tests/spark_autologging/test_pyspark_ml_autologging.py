@@ -96,7 +96,7 @@ def test_basic_estimator(dataset_binomial):
 
 @pytest.mark.skipif(
     LooseVersion(pyspark.__version__) < LooseVersion("3.1"),
-    reason="This test fails on supported versions of sklearn",
+    reason="This test require spark version >= 3.1",
 )
 def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-argument
     mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
@@ -182,37 +182,29 @@ def test_fit_with_a_list_of_params(dataset_binomial):
 
 
 def test_should_log_model(dataset_binomial, dataset_multinomial):
-    from pyspark.ml.classification import LinearSVC, LogisticRegression, OneVsRest
+    from pyspark.ml.classification import LogisticRegression, OneVsRest
 
     mlflow.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
     ova1 = OneVsRest(classifier=lor)
     mlor_model = lor.fit(dataset_multinomial)
-    assert not _should_log_model(mlor_model)
+    assert _should_log_model(mlor_model)
 
     ova1_model = ova1.fit(dataset_multinomial)
-    assert not _should_log_model(ova1_model)
-
-    svc = LinearSVC()
-    svc_model = svc.fit(dataset_binomial)
-    assert _should_log_model(svc_model)
-    ova2 = OneVsRest(classifier=svc)
-    ova2_model = ova2.fit(dataset_multinomial)
-    assert _should_log_model(ova2_model)
+    assert _should_log_model(ova1_model)
 
     with mock.patch(
         "mlflow.pyspark.ml._log_model_allowlist",
         {"pyspark.ml.regression.LinearRegressionModel", "pyspark.ml.classification.OneVsRestModel"},
-    ):
+    ), mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
         lr = LinearRegression()
         lr_model = lr.fit(dataset_binomial)
         assert _should_log_model(lr_model)
-        with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
-            svc_model = svc.fit(dataset_binomial)
-            assert not _should_log_model(svc_model)
-            mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(svc_model))
-        assert not _should_log_model(ova2_model)
+        lor_model = lor.fit(dataset_binomial)
+        assert not _should_log_model(lor_model)
+        mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
+        assert not _should_log_model(ova1_model)
 
 
 def test_param_map_captures_wrapped_params(dataset_binomial):
