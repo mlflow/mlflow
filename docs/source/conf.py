@@ -345,7 +345,7 @@ def _get_reference_map():
     """
     Gets a dict that maps an invalid reference to a valid one.
     """
-    res = {
+    ref_map = {
         "mlflow.tracking.fluent.ActiveRun": "mlflow.ActiveRun",
         "mlflow.store.entities.paged_list.PagedList": "mlflow.store.entities.PagedList",
     }
@@ -354,7 +354,7 @@ def _get_reference_map():
     for entity_name in mlflow.entities.__all__:
         invalid_ref = "mlflow.entities.{}.{}".format(_camel_to_snake(entity_name), entity_name)
         valid_ref = "mlflow.entities.{}".format(entity_name)
-        res[invalid_ref] = valid_ref
+        ref_map[invalid_ref] = valid_ref
 
     # Model registry entities
     for entity_name in mlflow.entities.model_registry.__all__:
@@ -362,9 +362,9 @@ def _get_reference_map():
             _camel_to_snake(entity_name), entity_name
         )
         valid_ref = "mlflow.entities.model_registry.{}".format(entity_name)
-        res[invalid_ref] = valid_ref
+        ref_map[invalid_ref] = valid_ref
 
-    return res
+    return ref_map
 
 
 reference_map = _get_reference_map()
