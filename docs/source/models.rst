@@ -646,6 +646,18 @@ not models that implement the `scikit-learn API
 
 For more information, see :py:mod:`mlflow.lightgbm`.
 
+CatBoost (``catboost``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``catboost`` model flavor enables logging of `CatBoost models
+<https://catboost.ai/docs/concepts/python-reference_catboost.html>`_
+in MLflow format via the :py:func:`mlflow.catboost.save_model()` and :py:func:`mlflow.catboost.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.catboost.load_model()`
+method to load MLflow Models with the ``catboost`` model flavor in native CatBoost format.
+
+For more information, see :py:mod:`mlflow.catboost`.
+
 Spacy(``spaCy``)
 ^^^^^^^^^^^^^^^^^^^^
 The ``spaCy`` model flavor enables logging of `spaCy models <https://spacy.io/models>`_ in MLflow format via

@@ -173,6 +173,19 @@ lightgbm:
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
 
+catboost:
+  package_info:
+    pip_release: "catboost"
+    install_dev: |
+      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+
+  models:
+    minimum: "0.23.1"
+    maximum: "0.25.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/catboost/test_catboost_model_export.py --large
+
 gluon:
   package_info:
     pip_release: "mxnet"
