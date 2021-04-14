@@ -1236,8 +1236,8 @@ def autolog(
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
-    silent=False,  # pylint: disable=unused-argument
-) -> None:
+    silent=False,
+) -> None:  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for all supported integrations.
 
