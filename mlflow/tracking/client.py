@@ -11,7 +11,7 @@ import posixpath
 import sys
 import tempfile
 import yaml
-from typing import List
+from typing import List, Optional
 
 from mlflow.entities import Experiment, Run, RunInfo, Metric, FileInfo, ViewType
 from mlflow.store.entities.paged_list import PagedList
@@ -389,7 +389,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment(experiment_id)
 
-    def get_experiment_by_name(self, name) -> Experiment:
+    def get_experiment_by_name(self, name) -> Optional[Experiment]:
         """
         Retrieve an experiment by experiment name from the backend store
 

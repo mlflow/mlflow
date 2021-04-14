@@ -774,7 +774,7 @@ def get_experiment(experiment_id) -> Experiment:
     return MlflowClient().get_experiment(experiment_id)
 
 
-def get_experiment_by_name(name) -> Experiment:
+def get_experiment_by_name(name) -> Optional[Experiment]:
     """
     Retrieve an experiment by experiment name from the backend store
 
