@@ -14,6 +14,9 @@ from mlflow.utils.autologging_utils import (
 _logger = logging.getLogger(__name__)
 
 
+FLAVOR_NAME = 'pyspark.ml'
+
+
 def _get_fully_qualified_class_name(instance):
     return instance.__class__.__module__ + "." + instance.__class__.__name__
 
@@ -157,7 +160,7 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 
 @experimental
-@autologging_integration(mlflow.spark.FLAVOR_NAME)
+@autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
     disable=False,
@@ -278,5 +281,5 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     safe_patch(
-        mlflow.spark.FLAVOR_NAME, Estimator, "fit", patched_fit, manage_run=True,
+        FLAVOR_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )

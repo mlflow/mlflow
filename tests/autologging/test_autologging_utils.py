@@ -746,8 +746,8 @@ _module_version_info_dict_patch = {
         ("sklearn", "0.20.2", False),
         ("pytorch", "1.0.5", True),
         ("pytorch", "1.0.4", False),
-        ("spark", "3.1.0", True),
-        ("spark", "3.0.0", False),
+        ("pyspark.ml", "3.1.0", True),
+        ("pyspark.ml", "3.0.0", False),
     ],
 )
 @mock.patch(

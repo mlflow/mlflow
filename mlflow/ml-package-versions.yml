@@ -263,7 +263,6 @@ spark-3.x:
     minimum: "3.0.0"
     maximum: "3.1.1"
     run: |
-      pushd mlflow/java/spark && mvn package -DskipTests -q && popd
       # TODO: Add datasource autologging tests
       pytest tests/spark_autologging/test_pyspark_ml_autologging.py
       pytest tests/spark_autologging/test_pyspark_ml_autologging_custom_allowlist.py
