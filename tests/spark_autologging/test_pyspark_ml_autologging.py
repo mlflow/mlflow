@@ -11,8 +11,8 @@ from mlflow.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
 )
 
-from tests.spark_autologging.utils import spark_session  # pylint: disable=unused-import
 import pyspark
+from pyspark.sql import SparkSession
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
 from mlflow.pyspark.ml import (
@@ -24,6 +24,13 @@ from mlflow.pyspark.ml import (
 
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
+
+
+@pytest.fixture(scope="module")
+def spark_session():
+    session = SparkSession.builder.master("local[*]").getOrCreate()
+    yield session
+    session.stop()
 
 
 @pytest.fixture(scope="module")

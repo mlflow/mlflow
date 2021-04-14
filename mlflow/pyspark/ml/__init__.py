@@ -14,7 +14,7 @@ from mlflow.utils.autologging_utils import (
 _logger = logging.getLogger(__name__)
 
 
-FLAVOR_NAME = 'pyspark.ml'
+FLAVOR_NAME = "pyspark.ml"
 
 
 def _get_fully_qualified_class_name(instance):
