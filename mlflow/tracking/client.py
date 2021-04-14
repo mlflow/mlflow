@@ -2536,8 +2536,8 @@ class MlflowClient(object):
         return self._get_registry_client().search_model_versions(filter_string)
 
     def get_model_version_stages(
-        self, name, version
-    ) -> List[str]:  # pylint: disable=unused-argument
+        self, name, version  # pylint: disable=unused-argument
+    ) -> List[str]:
         """
         :return: A list of valid stages.
 
