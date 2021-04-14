@@ -134,9 +134,7 @@ def test_spark_udf_autofills_no_arguments(spark):
     )
 
     good_data = spark.createDataFrame(
-        pd.DataFrame(
-            columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
-        )
+        pd.DataFrame(columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]})
     )
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
@@ -146,7 +144,9 @@ def test_spark_udf_autofills_no_arguments(spark):
         res = good_data.withColumn("res", udf()).select("res").toPandas()
         assert res["res"][0] == ["a", "b", "c"]
 
-        with pytest.raises(Py4JJavaError, match=r"Model input is missing columns. Expected 3 input columns"):
+        with pytest.raises(
+            Py4JJavaError, match=r"Model input is missing columns. Expected 3 input columns"
+        ):
             res = good_data.withColumn("res", udf("b", "c")).select("res").toPandas()
 
         # this dataframe won't work because it's missing column a
@@ -164,7 +164,9 @@ def test_spark_udf_autofills_no_arguments(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        with pytest.raises(Py4JJavaError, match=r"Apply the udf by specifying column name arguments"):
+        with pytest.raises(
+            Py4JJavaError, match=r"Apply the udf by specifying column name arguments"
+        ):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
@@ -187,7 +189,9 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(Py4JJavaError, match=r"Model input is missing columns. Expected 3 input columns"):
+        with pytest.raises(
+            Py4JJavaError, match=r"Model input is missing columns. Expected 3 input columns"
+        ):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
