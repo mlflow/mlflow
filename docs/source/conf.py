@@ -14,6 +14,7 @@
 
 import sys
 import os
+import re
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -21,7 +22,11 @@ import os
 sys.path.insert(0, os.path.abspath("../.."))
 sys.path.insert(0, os.path.abspath("."))
 
-from languagesections import *
+from docutils.nodes import Text
+from sphinx.addnodes import pending_xref
+
+import mlflow
+import languagesections
 
 # -- General configuration ------------------------------------------------
 
@@ -310,6 +315,8 @@ texinfo_documents = [
 # Enable nitpicky mode to log warnings for broken references
 nitpicky = True
 nitpick_ignore = [
+    # Ignore a missing reference in `mlflow/store/entities/paged_list.py`
+    ("py:class", "T"),
     # Ignore "parent class reference not found" errors for subclasses of ``object``
     ("py:class", "object"),
     ("py:class", "enum.Enum"),
@@ -328,6 +335,56 @@ nitpick_ignore = [
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
 ]
+
+
+def _camel_to_snake(x):
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", x).lower()
+
+
+def _get_reference_map():
+    """
+    Gets a dict that maps an invalid reference to a valid one.
+    """
+    res = {
+        "mlflow.tracking.fluent.ActiveRun": "mlflow.ActiveRun",
+        "mlflow.store.entities.paged_list.PagedList": "mlflow.store.entities.PagedList",
+    }
+
+    # Tracking entities
+    for entity_name in mlflow.entities.__all__:
+        invalid_ref = "mlflow.entities.{}.{}".format(_camel_to_snake(entity_name), entity_name)
+        valid_ref = "mlflow.entities.{}".format(entity_name)
+        res[invalid_ref] = valid_ref
+
+    # Model registry entities
+    for entity_name in mlflow.entities.model_registry.__all__:
+        invalid_ref = "mlflow.entities.model_registry.{}.{}".format(
+            _camel_to_snake(entity_name), entity_name
+        )
+        valid_ref = "mlflow.entities.model_registry.{}".format(entity_name)
+        res[invalid_ref] = valid_ref
+
+    return res
+
+
+reference_map = _get_reference_map()
+
+
+def resolve_missing_references(app, doctree):
+    for node in doctree.traverse(condition=pending_xref):
+        missing_ref = node.get("reftarget", None)
+        if missing_ref is not None and missing_ref in reference_map:
+            real_ref = reference_map[missing_ref]
+            text_to_render = real_ref.split(".")[-1]
+            node["reftarget"] = real_ref
+            text_node = next(iter(node.traverse(lambda n: n.tagname == "#text")))
+            text_node.parent.replace(text_node, Text(text_to_render, ""))
+
+
+def setup(app):
+    languagesections.setup(app)
+    app.connect("doctree-read", resolve_missing_references)
+
 
 linkcheck_ignore = [
     # Ignore local URLs when validating external links
