@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
-from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 
 import mlflow
@@ -54,11 +53,6 @@ def configure_environment():
 
 
 def get_spark_session(conf):
-    # setting this env variable is needed when using Spark with Arrow >= 0.15.0
-    # because of a change in Arrow IPC format
-    # https://spark.apache.org/docs/latest/sql-pyspark-pandas-with-arrow.html# \
-    # compatibiliy-setting-for-pyarrow--0150-and-spark-23x-24x
-    os.environ["ARROW_PRE_0_15_IPC_FORMAT"] = "1"
     conf.set(key="spark_session.python.worker.reuse", value=True)
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
@@ -140,7 +134,7 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
                 columns=["a", "b", "c", "d"], data={"a": [1], "b": [2], "c": [3], "d": [4]}
             )
         )
-        with pytest.raises(Py4JJavaError):
+        with pytest.raises(pyspark.sql.utils.PythonException):
             res = data.withColumn("res1", udf("a", "b")).select("res1").toPandas()
 
         res = data.withColumn("res2", udf("a", "b", "c")).select("res2").toPandas()
