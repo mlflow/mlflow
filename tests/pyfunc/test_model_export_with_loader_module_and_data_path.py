@@ -168,7 +168,7 @@ def test_column_schema_enforcement():
     assert all((res == pdf[input_schema.input_names()]).all())
 
     expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
-    # MLflow datetime type in input_schema does not encode precision, so add it for rest of assertions
+    # MLflow datetime type in input_schema does not encode precision, so add it for assertions
     expected_types["h"] = np.dtype("datetime64[ns]")
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
