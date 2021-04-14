@@ -272,3 +272,14 @@ statsmodels:
     maximum: "0.12.2"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
+
+spark:
+  package_info:
+    pip_release: "pyspark"
+
+  models:
+    minimum: "2.4.7"
+    maximum: "3.1.1"
+    requirements: ["boto3"]
+    run: |
+      pytest --verbose tests/spark --large  --ignore tests/spark/test_mleap_model_export.py
