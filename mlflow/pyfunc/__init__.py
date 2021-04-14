@@ -754,6 +754,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
     import functools
+    from py4j.protocol import Py4JJavaError
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
@@ -781,7 +782,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
-        model = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
+        model = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)

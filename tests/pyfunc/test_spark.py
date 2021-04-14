@@ -123,7 +123,7 @@ def test_spark_udf(spark, model_path):
                 assert expected == actual
 
 
-def test_spark_udf_autofills_no_arguments(spark, model_path):
+def test_spark_udf_autofills_no_arguments(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
             return [model_input.columns] * len(model_input)
