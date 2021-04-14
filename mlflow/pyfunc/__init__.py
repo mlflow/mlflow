@@ -782,7 +782,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
-        model = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
+        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -835,10 +835,14 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
         if len(result.columns) == 0:
+            message = "The model did not produce any values compatible with the requested type '{}'. ".format(str(elem_type))
+            if len(args) == 0 and input_schema is None:
+                message += ("Apply the udf by specifying column name arguments, for example my_udf(struct('col1', 'col2')). "
+                    "Or, log an input schema in the model signature to apply the model udf without column name arguments. ")
+            message += "Or, request udf with StringType or Arraytype(StringType). "
+
             raise MlflowException(
-                message="The the model did not produce any values compatible with the requested "
-                "type '{}'. Consider requesting udf with StringType or "
-                "Arraytype(StringType).".format(str(elem_type)),
+                message=message,
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
@@ -851,25 +855,18 @@ def spark_udf(spark, model_uri, result_type="double"):
             return result[result.columns[0]]
 
     udf = pandas_udf(predict, result_type)
-    udf.metadata = model
+    udf.metadata = model_metadata
 
     @functools.wraps(udf)
     def udf_with_default_cols(*args):
         if len(args) == 0:
-            input_schema = model.get_input_schema()
+            input_schema = model_metadata.get_input_schema()
 
             if input_schema and input_schema.has_input_names():
                 input_names = input_schema.input_names()
                 return udf(*input_names)
             else:
-                try:
-                    no_arg_udf = udf()
-                except Py4JJavaError:
-                    raise MlflowException(
-                        "Model UDF cannot be called with no column name arguments. "
-                        "Apply the UDF by specifying column names, for example my_udf(struct('col1', 'col2')). "
-                        "Or, log an input schema in the model signature to apply the model UDF without specifying column names.")
-                return no_arg_udf
+                return udf()
         else:
             return udf(*args)
 

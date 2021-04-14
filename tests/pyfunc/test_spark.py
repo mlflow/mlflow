@@ -164,7 +164,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        with pytest.raises(MlflowException, match=r"Model UDF cannot be called with no column name arguments"):
+        with pytest.raises(Py4JJavaError, match=r"Apply the udf by specifying column name arguments"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
 
