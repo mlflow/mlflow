@@ -5,13 +5,13 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
+from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 from pyspark.sql.utils import AnalysisException
 
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
-from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache

@@ -838,13 +838,15 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
         if len(result.columns) == 0:
-            message = "The model did not produce any values compatible with the requested type '{}'. ".format(
-                str(elem_type)
+            message = (
+                "The model did not produce any values compatible with the requested type "
+                "'{}'. ".format(str(elem_type))
             )
             if len(args) == 0 and input_schema is None:
                 message += (
-                    "Apply the udf by specifying column name arguments, for example my_udf(struct('col1', 'col2')). "
-                    "Or, log an input schema in the model signature to apply the model udf without column name arguments. "
+                    "Apply the udf by specifying column name arguments, for example "
+                    "my_udf(struct('col1', 'col2')). Or, log an input schema in the model "
+                    "signature to apply the model udf without column name arguments. "
                 )
             message += "Or, request udf with StringType or Arraytype(StringType). "
 
