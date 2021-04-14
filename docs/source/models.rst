@@ -116,9 +116,12 @@ Model signatures are recognized and enforced by standard :ref:`MLflow model depl
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
 which deploys a model as a REST API, validates inputs based on the model's signature.
 
-For Spark dataframe inputs, columns of type `DateType` and `TimestampType` are both inferred as
+For Spark dataframe inputs, columns of type DateType_ and TimestampType_ are both inferred as
 type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is internally represented by
-`TimestampType`.
+TimestampType_.
+
+.. _DateType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.DateType.html#pyspark.sql.types.DateType
+.. _TimestampType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.TimestampType.html#pyspark.sql.types.TimestampType
 
 Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -978,6 +981,8 @@ For more information about serializing pandas DataFrames, see
 For more information about serializing tensor inputs using the TF serving format, see
 `TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
 
+.. _encoding-complex-data:
+
 Encoding complex data
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -1009,8 +1014,6 @@ Example requests:
         {"a": 2, "b": "2021-03-01T00:00:00Z"}
     ]'
 
-
-.. _encoding-complex-data:
 
 Command Line Interface
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1251,12 +1254,12 @@ argument. The following values are supported:
 * ``'string'`` or StringType_: Result is the leftmost column converted to string.
 * ArrayType_ ( StringType_ ): Return all columns converted to string.
 
-.. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.IntegerType
-.. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.LongType
-.. _FloatType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.FloatType
-.. _DoubleType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.DoubleType
-.. _StringType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.StringType
-.. _ArrayType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.ArrayType
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.FloatType.html#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.DoubleType.html#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.StringType.html#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.ArrayType.html#pyspark.sql.types.ArrayType
 
 .. rubric:: Example
 
