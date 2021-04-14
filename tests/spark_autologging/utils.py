@@ -49,13 +49,9 @@ def _get_or_create_spark_session(jars=None):
 
 
 @pytest.fixture(scope="module")
-def spark_session(request):
+def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
-    builder = SparkSession.builder.config("spark.jars", jar_path).master("local[*]")
-    config = request.param
-    for k, v in config.items():
-        builder.config(k, v)
-    session = builder.getOrCreate()
+    session = SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()
     yield session
     session.stop()
 
