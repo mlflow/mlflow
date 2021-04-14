@@ -184,10 +184,6 @@ if necessary. Generally, only conversions that are guaranteed to be lossless are
 example, int -> long or int -> double conversions are ok, long -> double is not. If the types cannot
 be made compatible, MLflow will raise an error.
 
-For column-based signatures with datetime inputs, precision is ignored. For example, datetime values with
-day precision (``datetime64[D]``) are compatible with a column-based model signature logged with
-nanosecond precision (``datetime64[ns]``)
-
 For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
 the input type does not match the type specified by the schema). 
 
@@ -203,6 +199,13 @@ MLflow will raise an error since it can not convert float to int. Note that MLfl
 serve models and to deploy models to Spark, so this can affect most model deployments. The best way
 to avoid this problem is to declare integer columns as doubles (float64) whenever there can be
 missing values.
+
+Handling Date and Timestamp
+"""""""""""""""""""""""""""
+For datetime values, Python has precision built into the type. For example, datetime values with
+day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
+type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
+enforced for tensor-based signatures.
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -936,13 +939,7 @@ in the request header as shown in the record-oriented example below.
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
     In particular, DL models are typically strict about input types and will need model schema in order
-    for the model to score correctly.
-
-    For datetime columns, values should be JSON-serialized according to ISO 8601 date or datetime format
-    to be properly deserialized by pandas and NumPy. This can be done by using the
-    `pandas.Timestamp.isoformat <https://pandas.pydata.org/docs/reference/api/pandas.Timestamp.isoformat.html>`_
-    or `numpy.datetime_as_string <https://numpy.org/doc/stable/reference/generated/numpy.datetime_as_string.html>`_
-    APIs.
+    for the model to score correctly. For complex data types, see :ref:`encoding-complex-data` below.
 
 Example requests:
 
@@ -980,6 +977,40 @@ For more information about serializing pandas DataFrames, see
 
 For more information about serializing tensor inputs using the TF serving format, see
 `TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
+
+Encoding complex data
+~~~~~~~~~~~~~~~~~~~~~
+
+Complex data types, such as dates or binary, do not have a native JSON representation. If you include a model
+signature, MLflow can automatically decode supported data types from JSON. The following data type conversions
+are supported:
+
+* binary: data is expected to be base64 encoded, MLflow will automatically base64 decode.
+
+* datetime: data is expected as string according to
+  `ISO 8601 specification <https://www.iso.org/iso-8601-date-and-time-format.html>`_.
+  MLflow will parse this into the appropriate datetime representation on the given platform.
+
+Example requests:
+
+.. code-block:: bash
+
+    # record-oriented DataFrame input with binary column "b"
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+        {"a": 0, "b": "dGVzdCBiaW5hcnkgZGF0YSAw"},
+        {"a": 1, "b": "dGVzdCBiaW5hcnkgZGF0YSAx"},
+        {"a": 2, "b": "dGVzdCBiaW5hcnkgZGF0YSAy"}
+    ]'
+
+    # record-oriented DataFrame input with datetime column "b"
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+        {"a": 0, "b": "2020-01-01T00:00:00Z"},
+        {"a": 1, "b": "2020-02-01T12:34:56Z"},
+        {"a": 2, "b": "2021-03-01T00:00:00Z"}
+    ]'
+
+
+.. _encoding-complex-data:
 
 Command Line Interface
 ~~~~~~~~~~~~~~~~~~~~~~
