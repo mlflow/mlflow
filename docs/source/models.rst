@@ -116,6 +116,10 @@ Model signatures are recognized and enforced by standard :ref:`MLflow model depl
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
 which deploys a model as a REST API, validates inputs based on the model's signature.
 
+For Spark dataframe inputs, columns of type `DateType` and `TimestampType` are both inferred as
+type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is internally represented by
+`TimestampType`.
+
 Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 All flavors support column-based signatures.
@@ -179,6 +183,10 @@ For models with column-based signatures (i.e DataFrame inputs), MLflow will perf
 if necessary. Generally, only conversions that are guaranteed to be lossless are allowed. For
 example, int -> long or int -> double conversions are ok, long -> double is not. If the types cannot
 be made compatible, MLflow will raise an error.
+
+For column-based signatures with datetime inputs, precision is ignored. For example, datetime values with
+day precision (``datetime64[D]``) are compatible with a column-based model signature logged with
+nanosecond precision (``datetime64[ns]``)
 
 For models with tensor-based signatures, type checking is strict (i.e an exception will be thrown if
 the input type does not match the type specified by the schema). 
@@ -929,6 +937,12 @@ in the request header as shown in the record-oriented example below.
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
     In particular, DL models are typically strict about input types and will need model schema in order
     for the model to score correctly.
+
+    For datetime columns, values should be JSON-serialized according to ISO 8601 date or datetime format
+    to be properly deserialized by pandas and NumPy. This can be done by using the
+    `pandas.Timestamp.isoformat <https://pandas.pydata.org/docs/reference/api/pandas.Timestamp.isoformat.html>`_
+    or `numpy.datetime_as_string <https://numpy.org/doc/stable/reference/generated/numpy.datetime_as_string.html>`_
+    APIs.
 
 Example requests:
 
