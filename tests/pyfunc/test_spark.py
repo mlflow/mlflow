@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import pyspark
-from py4j.protocol import Py4JJavaError
 from pyspark.sql.types import ArrayType, DoubleType, LongType, StringType, FloatType, IntegerType
 from pyspark.sql.utils import AnalysisException
 
@@ -139,7 +138,8 @@ def test_spark_udf_autofills_no_arguments(spark):
         assert res["res"][0] == ["a", "b", "c"]
 
         with pytest.raises(
-            Py4JJavaError, match=r"Model input is missing columns. Expected 3 input columns"
+            pyspark.sql.utils.PythonException,
+            match=r"Model input is missing columns. Expected 3 input columns"
         ):
             res = good_data.withColumn("res", udf("b", "c")).select("res").toPandas()
 
@@ -159,7 +159,8 @@ def test_spark_udf_autofills_no_arguments(spark):
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         with pytest.raises(
-            Py4JJavaError, match=r"Apply the udf by specifying column name arguments"
+            pyspark.sql.utils.PythonException,
+            match=r"Apply the udf by specifying column name arguments"
         ):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
