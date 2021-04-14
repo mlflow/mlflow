@@ -779,7 +779,8 @@ def get_experiment_by_name(name) -> Optional[Experiment]:
     Retrieve an experiment by experiment name from the backend store
 
     :param name: The case senstive experiment name.
-    :return: :py:class:`mlflow.entities.Experiment`
+    :return: An instance of :py:class:`mlflow.entities.Experiment`
+             if an experiment with the specified name exists, otherwise None.
 
     .. code-block:: python
         :caption: Example

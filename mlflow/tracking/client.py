@@ -394,7 +394,8 @@ class MlflowClient(object):
         Retrieve an experiment by experiment name from the backend store
 
         :param name: The experiment name, which is case sensitive.
-        :return: :py:class:`mlflow.entities.Experiment`
+        :return: An instance of :py:class:`mlflow.entities.Experiment`
+                 if an experiment with the specified name exists, otherwise None.
 
         .. code-block:: python
             :caption: Example
