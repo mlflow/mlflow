@@ -78,7 +78,6 @@ def test_autologging_disabled_logging_with_or_without_active_run(
     _assert_spark_data_not_logged(run=run)
 
 
-@pytest.mark.skip(reason="fail on spark 3")
 @pytest.mark.large
 def test_autologging_disabled_then_enabled(spark_session, format_to_file_path):
     mlflow.spark.autolog(disable=True)
