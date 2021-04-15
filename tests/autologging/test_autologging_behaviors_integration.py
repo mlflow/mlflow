@@ -75,10 +75,7 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=False)
 
-    if hasattr(integration, "FLAVOR_NAME"):
-        integration_name = integration.FLAVOR_NAME
-    else:
-        integration_name = integration.AUTOLOGGING_INTEGRATION_NAME
+    integration_name = integration.autolog.integration_name
 
     assert not autologging_is_disabled(integration_name)
     assert not get_autologging_config(integration_name, "disable", True)
