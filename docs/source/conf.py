@@ -337,10 +337,6 @@ nitpick_ignore = [
 ]
 
 
-def _camel_to_snake(x):
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", x).lower()
-
-
 def _get_reference_map():
     """
     Gets a dict that maps an invalid reference to a valid one.
@@ -352,15 +348,15 @@ def _get_reference_map():
 
     # Tracking entities
     for entity_name in mlflow.entities.__all__:
-        invalid_ref = "mlflow.entities.{}.{}".format(_camel_to_snake(entity_name), entity_name)
+        entity_cls = getattr(mlflow.entities, entity_name)
+        invalid_ref = entity_cls.__module__ + "." + entity_name
         valid_ref = "mlflow.entities.{}".format(entity_name)
         ref_map[invalid_ref] = valid_ref
 
     # Model registry entities
     for entity_name in mlflow.entities.model_registry.__all__:
-        invalid_ref = "mlflow.entities.model_registry.{}.{}".format(
-            _camel_to_snake(entity_name), entity_name
-        )
+        entity_cls = getattr(mlflow.entities.model_registry, entity_name)
+        invalid_ref = entity_cls.__module__ + "." + entity_name
         valid_ref = "mlflow.entities.model_registry.{}".format(entity_name)
         ref_map[invalid_ref] = valid_ref
 
@@ -368,6 +364,8 @@ def _get_reference_map():
 
 
 reference_map = _get_reference_map()
+
+print(reference_map)
 
 
 def resolve_missing_references(app, doctree):
