@@ -47,9 +47,9 @@ def test_truncate_dict():
             "1...": "1..."
         }
         assert mock_warning.call_count == 2
-        first, second = mock_warning.call_args_list
-        assert first[0][0] == "Truncated the key `1...`"
-        assert second[0][0] == "Truncated the value of the key `1...`. Truncated value: `1...`"
+        (args1, _), (args2, _) = mock_warning.call_args_list
+        assert args1[0] == "Truncated the key `1...`"
+        assert args2[0] == "Truncated the value of the key `1...`. Truncated value: `1...`"
 
     assert _truncate_dict(d, max_key_length=length, max_value_length=length) == {"12345": "12345"}
     assert _truncate_dict(d, max_key_length=length + 1, max_value_length=length + 1) == {
