@@ -97,3 +97,7 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
         truncated[new_k] = new_v
 
     return truncated
+
+
+def _get_fully_qualified_class_name(obj):
+    return obj.__class__.__module__ + "." + obj.__class__.__name__
