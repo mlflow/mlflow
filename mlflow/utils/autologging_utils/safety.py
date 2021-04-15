@@ -360,19 +360,25 @@ def safe_patch(
 
             original = gorilla.get_original_attribute(destination, function_name)
 
-            # If the autologging integration associated with this patch is disabled,
-            # call the original function and return
-            if autologging_is_disabled(autologging_integration):
-                return original(*args, **kwargs)
-
-            # Whether or not to exclude auto-autologged content from content explicitly logged via
-            # `mlflow.start_run()`
+            # Whether or not to exclude autologged content from user-created fluent runs
+            # (i.e. runs created manually via `mlflow.start_run()`)
             exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+            user_created_fluent_run_is_active = (
+                mlflow.active_run() and not _AutologgingSessionManager.active_session()
+            )
 
-            active_run = mlflow.active_run()
-
-            if active_run and exclusive and not _AutologgingSessionManager.active_session():
-                return original(*args, **kwargs)
+            if autologging_is_disabled(autologging_integration) or (
+                user_created_fluent_run_is_active and exclusive
+            ):
+                # If the autologging integration associated with this patch is disabled,
+                # or if the current autologging integration is in exclusive mode and a user-created
+                # fluent run is active, call the original function and return. Restore the original
+                # warning behavior during original function execution, since autologging is being
+                # skipped
+                with set_non_mlflow_warnings_behavior_for_current_thread(
+                    disable_warnings=False, reroute_warnings=False,
+                ):
+                    return original(*args, **kwargs)
 
             # Whether or not the original / underlying function has been called during the
             # execution of patched code
