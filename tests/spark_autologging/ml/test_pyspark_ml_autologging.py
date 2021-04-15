@@ -1,5 +1,4 @@
 import importlib
-import os
 import pytest
 from collections import namedtuple
 from distutils.version import LooseVersion

@@ -32,14 +32,25 @@ def _read_log_model_allowlist_from_file(allowlist_file):
     return allowlist
 
 
-def _read_log_model_allowlist(spark_session):
+def _read_log_model_allowlist():
     """
     Reads the module allowlist and returns it as a set.
     """
+    from mlflow.utils._spark_utils import _get_active_spark_session
+
+    builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
+    spark_session = _get_active_spark_session()
+    if not spark_session:
+        _logger.warning(
+            "There's no spark session, cannot read config "
+            "'spark.mlflow.pysparkml.autolog.logModelAllowlistFile', "
+            "using default log model allowlist."
+        )
+        return _read_log_model_allowlist_from_file(builtin_allowlist_file)
+
     allowlist_file = spark_session.sparkContext._conf.get(
         "spark.mlflow.pysparkml.autolog.logModelAllowlistFile", None
     )
-    builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
     if allowlist_file:
         try:
             return _read_log_model_allowlist_from_file(allowlist_file)
@@ -48,7 +59,7 @@ def _read_log_model_allowlist(spark_session):
             _logger.warning(
                 "Reading from custom log_models allowlist file "
                 + "%s failed, fallback to built-in allowlist file.",
-                allowlist_file
+                allowlist_file,
             )
             return _read_log_model_allowlist_from_file(builtin_allowlist_file)
     else:
@@ -174,10 +185,7 @@ def autolog(
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
-    This method is not threadsafe and assumes a
-    `SparkSession
-    <https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.SparkSession>`_
-    already exists.
+    This method is not threadsafe.
     This API requires Spark 3.0 or above.
 
     **When is autologging performed?**
@@ -232,13 +240,10 @@ def autolog(
         MAX_ENTITY_KEY_LENGTH,
     )
     from pyspark.ml.base import Estimator
-    from mlflow.utils._spark_utils import _get_active_spark_session
 
     global _log_model_allowlist
 
-    spark_session = _get_active_spark_session()
-    if spark_session:
-        _log_model_allowlist = _read_log_model_allowlist(spark_session)
+    _log_model_allowlist = _read_log_model_allowlist()
 
     def _log_pretraining_metadata(estimator, params):
 
