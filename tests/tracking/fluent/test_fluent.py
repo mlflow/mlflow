@@ -518,6 +518,52 @@ def test_start_existing_run_end_time(empty_active_run_stack):  # pylint: disable
     assert run_obj_info.end_time > old_end
 
 
+def test_mlrun_decorator_with_no_args():
+    target_func = mock.MagicMock()
+    function_arg = mock.Mock()
+    function_kwarg = mock.Mock()
+    mock_active_run = mock.MagicMock()
+    start_run_patch = mock.patch("mlflow.tracking.fluent.start_run", return_value=mock_active_run)
+
+    with start_run_patch as mock_start_run:
+        decorated_func = mlflow.mlflow_run(target_func)
+        decorated_func(function_arg, FUNCTION_KWARG=function_kwarg)
+
+        mock_start_run.assert_called_once_with(
+            run_id=None, experiment_id=None, run_name=None, nested=False, tags=None
+        )
+        mock_active_run.__enter__.assert_called_once()
+        target_func.assert_called_once_with(function_arg, FUNCTION_KWARG=function_kwarg)
+        mock_active_run.__exit__.assert_called_once()
+
+
+def test_mlrun_decorator_with_args():
+    run_id = mock.Mock()
+    experiment_id = mock.Mock()
+    run_name = mock.Mock()
+    tags = mock.Mock()
+    nested = mock.Mock()
+    target_func = mock.MagicMock()
+    function_arg = mock.Mock()
+    function_kwarg = mock.Mock()
+    mock_active_run = mock.MagicMock()
+    start_run_patch = mock.patch("mlflow.tracking.fluent.start_run", return_value=mock_active_run)
+
+    with start_run_patch as mock_start_run:
+        decorator_with_args = mlflow.mlflow_run(
+            run_id=run_id, experiment_id=experiment_id, run_name=run_name, nested=nested, tags=tags
+        )
+        decorated_func = decorator_with_args(target_func)
+        decorated_func(function_arg, FUNCTION_KWARG=function_kwarg)
+
+        mock_start_run.assert_called_once_with(
+            run_id=run_id, experiment_id=experiment_id, run_name=run_name, nested=nested, tags=tags
+        )
+        mock_active_run.__enter__.assert_called_once()
+        target_func.assert_called_once_with(function_arg, FUNCTION_KWARG=function_kwarg)
+        mock_active_run.__exit__.assert_called_once()
+
+
 def test_get_run():
     run_id = uuid.uuid4().hex
     mock_run = mock.Mock()
