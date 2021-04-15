@@ -838,20 +838,11 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
         if len(result.columns) == 0:
-            message = (
-                "The model did not produce any values compatible with the requested type "
-                "'{}'. ".format(str(elem_type))
-            )
-            if len(args) == 0 and input_schema is None:
-                message += (
-                    "Apply the udf by specifying column name arguments, for example "
-                    "my_udf(struct('col1', 'col2')). Or, log an input schema in the model "
-                    "signature to apply the model udf without column name arguments. "
-                )
-            message += "Or, request udf with StringType or Arraytype(StringType). "
-
             raise MlflowException(
-                message=message, error_code=INVALID_PARAMETER_VALUE,
+                message="The the model did not produce any values compatible with the requested "
+                "type '{}'. Consider requesting udf with StringType or "
+                "Arraytype(StringType).".format(str(elem_type)),
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
         if type(elem_type) == StringType:
@@ -868,12 +859,27 @@ def spark_udf(spark, model_uri, result_type="double"):
     @functools.wraps(udf)
     def udf_with_default_cols(*args):
         if len(args) == 0:
-            input_schema = model_metadata.get_input_schema()
+            input_schema = model_metadata.get_input_schema() # type Schema
 
-            if input_schema and input_schema.has_input_names():
-                input_names = input_schema.input_names()
-                return udf(*input_names)
+            if input_schema and len(input_schema.inputs) > 0:
+                if input_schema.has_input_names():
+                    input_names = input_schema.input_names()
+                    return udf(*input_names)
+                else:
+                    raise MlflowException(
+                        message="Cannot apply udf because no column names specified. The udf "
+                        "expects {} columns with types: {}. Input column names could not be "
+                        "inferred from the model signature (column names not found).".format(
+                            len(input_schema.inputs),
+                            input_schema.inputs,
+                        ),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
             else:
+                _logger.warning(
+                    "Attempting to apply udf on zero columns because no column names were specified "
+                    "as arguments or inferred from the model signature."
+                )
                 return udf()
         else:
             return udf(*args)

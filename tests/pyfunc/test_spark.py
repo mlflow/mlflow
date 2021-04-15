@@ -11,6 +11,7 @@ from pyspark.sql.utils import AnalysisException
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
+from mlflow.exceptions import MlflowException
 from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf, PythonModel, PyFuncModel
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
@@ -152,17 +153,42 @@ def test_spark_udf_autofills_no_arguments(spark):
         with pytest.raises(AnalysisException, match=r"cannot resolve '`a`' given input columns"):
             bad_data.withColumn("res", udf())
 
+    nameless_signature = ModelSignature(
+        inputs=Schema([ColSpec("long"), ColSpec("long"), ColSpec("long")]),
+        outputs=Schema([ColSpec("integer")]),
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=nameless_signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        with pytest.raises(
+            MlflowException,
+            match=r"Cannot apply udf because no column names specified",
+        ):
+            good_data.withColumn("res", udf())
+
     with mlflow.start_run() as run:
         # model without signature
         mlflow.pyfunc.log_model("model", python_model=TestModel())
         udf = mlflow.pyfunc.spark_udf(
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
-        with pytest.raises(
-            pyspark.sql.utils.PythonException,
-            match=r"Apply the udf by specifying column name arguments",
-        ):
+        with pytest.raises(pyspark.sql.utils.PythonException):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
+
+    class TestModel2(PythonModel):
+        def predict(self, context, model_input):
+            return 44
+
+    with mlflow.start_run() as run:
+        # model without signature
+        mlflow.pyfunc.log_model("model", python_model=TestModel2())
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        res = good_data.withColumn("res", udf()).select("res").toPandas()
+
 
 
 def test_spark_udf_autofills_column_names_with_schema(spark):
