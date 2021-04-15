@@ -1,6 +1,8 @@
 import pytest
 
-from mlflow.sklearn import _SklearnTrainingSession
+from mlflow.utils.autologging_utils import _get_training_session
+
+_SklearnTrainingSession = _get_training_session()
 
 
 class Parent:
