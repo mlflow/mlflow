@@ -139,7 +139,7 @@ def test_spark_udf_autofills_no_arguments(spark):
 
         with pytest.raises(
             pyspark.sql.utils.PythonException,
-            match=r"Model input is missing columns. Expected 3 input columns"
+            match=r"Model input is missing columns. Expected 3 input columns",
         ):
             res = good_data.withColumn("res", udf("b", "c")).select("res").toPandas()
 
@@ -160,7 +160,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(
             pyspark.sql.utils.PythonException,
-            match=r"Apply the udf by specifying column name arguments"
+            match=r"Apply the udf by specifying column name arguments",
         ):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
