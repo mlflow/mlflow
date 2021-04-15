@@ -264,8 +264,8 @@ spark-3.x:
     maximum: "3.1.1"
     run: |
       # TODO: Add datasource autologging tests
-      pytest tests/spark_autologging/test_pyspark_ml_autologging.py
-      pytest tests/spark_autologging/test_pyspark_ml_autologging_custom_allowlist.py
+      pytest tests/spark_autologging/test_pyspark_ml_autologging.py --large
+      pytest tests/spark_autologging/test_pyspark_ml_autologging_custom_allowlist.py --large
 
 statsmodels:
   package_info:

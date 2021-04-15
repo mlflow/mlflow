@@ -14,7 +14,7 @@ from mlflow.utils.autologging_utils import (
 _logger = logging.getLogger(__name__)
 
 
-FLAVOR_NAME = "pyspark.ml"
+AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
 
 
 def _get_fully_qualified_class_name(instance):
@@ -60,8 +60,11 @@ _log_model_allowlist = None
 
 def _get_warning_msg_for_skip_log_model(model):
     return (
-        f"This model {model.uid} is not logged because it is not in "
-        "allowlist or its nested models are not in allowlist."
+        f"Model {model.uid} will not be autologged because it is not allowlisted or or because "
+        "one or more of its nested models are not allowlisted. Call mlflow.spark.log_model() "
+        "to explicitly log the model, or specify a custom allowlist via the "
+        "spark.mlflow.pysparkml.autolog.logModelAllowlistFile Spark conf "
+        "(see mlflow.pyspark.ml.autolog docs for more info)."
     )
 
 
@@ -160,7 +163,7 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 
 @experimental
-@autologging_integration(FLAVOR_NAME)
+@autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,
     disable=False,
@@ -193,18 +196,19 @@ def autolog(
       **Artifacts**
         - An MLflow Model with the :py:mod:`mlflow.spark` flavor containing a fitted estimator
           (logged by :py:func:`mlflow.spark.log_model()`). Note that large models may not be
-          autologged for performance and storage space considerations.
+          autologged for performance and storage space considerations, and autologging for
+          Pipelines and hyperparameter tuning meta-estimators (e.g. CrossValidator) is not yet
+          supported.
           See ``log_models`` param below for details.
 
 
-    :param log_models: If ``True``, if trained models are in allowlist, logged as MLflow model
-                       artifacts. If ``False``, trained models are not logged.
-                       Note: the built-in allowlist excludes some models which model may be large,
-                       you can set the config
-                       "spark.mlflow.pysparkml.autolog.logModelAllowlistFile" to customize the
-                       allowlist file. If you want to ensure logging model far all cases, you
-                       should set autolog argument log_models=False and explicitly call
-                       ``mlflow.spark.log_model`` to log the model.
+    :param log_models: If ``True``, if trained models are in allowlist, they are logged as MLflow
+                       model artifacts. If ``False``, trained models are not logged.
+                       Note: the built-in allowlist excludes some models (e.g. ALS models) which
+                       can be large. To specify a custom allowlist, create a file containing a
+                       newline-delimited list of fully-qualified estimator classnames, and set
+                       the "spark.mlflow.pysparkml.autolog.logModelAllowlistFile" Spark config
+                       to the path of your allowlist file.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the pyspark ML autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -216,6 +220,10 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during pyspark ML
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
+
+    The default log model allowlist in mlflow is:
+    .. literalinclude:: log_model_allowlist.txt
+       :language: text
     """
     from mlflow.utils.validation import (
         MAX_PARAMS_TAGS_PER_BATCH,
@@ -281,5 +289,5 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     safe_patch(
-        FLAVOR_NAME, Estimator, "fit", patched_fit, manage_run=True,
+        AUTOLOGGING_INTEGRATION_NAME, Estimator, "fit", patched_fit, manage_run=True,
     )

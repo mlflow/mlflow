@@ -11,9 +11,6 @@ pyspark.ml.clustering.BisectingKMeansModel
 pyspark.ml.clustering.KMeansModel
 pyspark.ml.clustering.GaussianMixtureModel
 
-# Recommendation
-pyspark.ml.recommendation.ALSModel
-
 # Regression
 pyspark.ml.regression.AFTSurvivalRegressionModel
 pyspark.ml.regression.DecisionTreeRegressionModel

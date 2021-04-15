@@ -22,6 +22,8 @@ from mlflow.pyspark.ml import (
     _get_warning_msg_for_fit_call_with_a_list_of_params,
 )
 
+pytestmark = pytest.mark.large
+
 MODEL_DIR = "model"
 MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 
