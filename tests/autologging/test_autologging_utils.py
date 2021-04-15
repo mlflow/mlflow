@@ -718,7 +718,7 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "statsmodels"},
         "autologging": {"minimum": "0.11.1", "maximum": "0.12.2"},
     },
-    "spark-3.x": {
+    "spark": {
         "package_info": {"pip_release": "pyspark"},
         "autologging": {"minimum": "3.0.1", "maximum": "3.1.1"},
     },
