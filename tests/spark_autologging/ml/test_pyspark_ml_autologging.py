@@ -252,16 +252,3 @@ def test_param_map_captures_wrapped_params(dataset_binomial):
     assert run_data.params == truncate_param_dict(
         stringify_dict_values(_get_instance_param_map(ova))
     )
-
-
-def test_custom_log_model_allowlist(tmpdir):
-    allowlist_file_path = os.path.join(tmpdir, "allowlist")
-    with open(allowlist_file_path, "w") as f:
-        f.write("pyspark.ml.regression.LinearRegressionModel\n")
-        f.write("pyspark.ml.classification.NaiveBayesModel\n")
-
-    mlflow.pyspark.ml.autolog(log_models_allowlist_path=allowlist_file_path)
-    assert mlflow.pyspark.ml._log_model_allowlist == {
-        "pyspark.ml.regression.LinearRegressionModel",
-        "pyspark.ml.classification.NaiveBayesModel",
-    }
