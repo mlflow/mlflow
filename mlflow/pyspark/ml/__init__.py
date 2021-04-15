@@ -32,22 +32,19 @@ def _read_log_model_allowlist_from_file(allowlist_file):
     return allowlist
 
 
-def _read_log_model_allowlist(spark_session):
+def _read_log_model_allowlist(log_models_allowlist_path):
     """
     Reads the module allowlist and returns it as a set.
     """
-    allowlist_file = spark_session.sparkContext._conf.get(
-        "spark.mlflow.pysparkml.autolog.logModelAllowlistFile", None
-    )
     builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
-    if allowlist_file:
+    if log_models_allowlist_path:
         try:
-            return _read_log_model_allowlist_from_file(allowlist_file)
+            return _read_log_model_allowlist_from_file(log_models_allowlist_path)
         except Exception:
             # fallback to built-in allowlist file
             _logger.warning(
-                "Reading config spark.mlflow.pysparkml.autolog.logModelAllowlistFile "
-                f"{allowlist_file} failed, fallback to built-in allowlist file"
+                "Reading from custom log_models allowlist file "
+                + f"{log_models_allowlist_path} failed, fallback to built-in allowlist file."
             )
             return _read_log_model_allowlist_from_file(builtin_allowlist_file)
     else:
@@ -170,6 +167,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    log_models_allowlist_path=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -221,20 +219,20 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during pyspark ML
                    autologging.
 
-    The default log model allowlist in mlflow is:
-    .. literalinclude:: log_model_allowlist.txt
-       :language: text
+    **The default log model allowlist in mlflow**
+        .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
+           :language: text
     """
     from mlflow.utils.validation import (
         MAX_PARAMS_TAGS_PER_BATCH,
         MAX_PARAM_VAL_LENGTH,
         MAX_ENTITY_KEY_LENGTH,
     )
-    from mlflow.utils._spark_utils import _get_active_spark_session
     from pyspark.ml.base import Estimator
 
     global _log_model_allowlist
-    _log_model_allowlist = _read_log_model_allowlist(_get_active_spark_session())
+
+    _log_model_allowlist = _read_log_model_allowlist(log_models_allowlist_path)
 
     def _log_pretraining_metadata(estimator, params):
 

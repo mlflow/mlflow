@@ -1,4 +1,5 @@
 import importlib
+import os
 import pytest
 from collections import namedtuple
 from distutils.version import LooseVersion
@@ -135,7 +136,7 @@ def test_autolog_does_not_terminate_active_run(dataset_binomial):
     mlflow.end_run()
 
 
-def test_meta_estimator_fit_performs_logging_only_once(dataset_binomial):
+def test_meta_estimator_fit(dataset_binomial):
     from pyspark.ml.classification import LinearSVC, OneVsRest
 
     mlflow.pyspark.ml.autolog()
@@ -237,3 +238,16 @@ def test_param_map_captures_wrapped_params(dataset_binomial):
     assert run_data.params == truncate_param_dict(
         stringify_dict_values(_get_instance_param_map(ova))
     )
+
+
+def test_custom_log_model_allowlist(tmpdir):
+    allowlist_file_path = os.path.join(tmpdir, "allowlist")
+    with open(allowlist_file_path, "w") as f:
+        f.write("pyspark.ml.regression.LinearRegressionModel\n")
+        f.write("pyspark.ml.classification.NaiveBayesModel\n")
+
+    mlflow.pyspark.ml.autolog(log_models_allowlist_path=allowlist_file_path)
+    assert mlflow.pyspark.ml._log_model_allowlist == {
+        "pyspark.ml.regression.LinearRegressionModel",
+        "pyspark.ml.classification.NaiveBayesModel",
+    }
