@@ -2,6 +2,8 @@ import pytest
 
 from mlflow.utils.autologging_utils import _get_training_session
 
+_TrainingSession = _get_training_session()
+
 
 class Parent:
     pass
@@ -15,9 +17,13 @@ class Grandchild:
     pass
 
 
-def assert_session_stack(classes):
-    _TrainingSession = _get_training_session()
+@pytest.fixture(autouse=True)
+def clear_session_stack():
+    yield
+    _TrainingSession._session_stack.clear()
 
+
+def assert_session_stack(classes):
     assert len(_TrainingSession._session_stack) == len(classes)
 
     for idx, (sess, (parent_clazz, clazz)) in enumerate(
@@ -36,8 +42,6 @@ def allow_children(request):
 
 
 def test_should_log_always_returns_true_in_root_session(allow_children):
-    _TrainingSession = _get_training_session()
-
     with _TrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
         assert p.should_log()
@@ -46,8 +50,6 @@ def test_should_log_always_returns_true_in_root_session(allow_children):
 
 
 def test_nested_sessions(allow_children):
-    _TrainingSession = _get_training_session()
-
     with _TrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
 
@@ -61,8 +63,6 @@ def test_nested_sessions(allow_children):
 
 
 def test_parent_session_overrides_child_session():
-    _TrainingSession = _get_training_session()
-
     with _TrainingSession(Parent, allow_children=False) as p:
         assert_session_stack([(None, Parent)])
 
@@ -82,8 +82,6 @@ def test_parent_session_overrides_child_session():
 
 
 def test_should_log_returns_false_when_parrent_session_has_the_same_class():
-    _TrainingSession = _get_training_session()
-
     # This test case corresponds to when Pipeline.fit() calls Transformer.fit_transform()
     # which calls Transformer.fit()
     with _TrainingSession(Parent, allow_children=True) as p:
