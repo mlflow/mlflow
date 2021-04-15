@@ -2,8 +2,6 @@ import pytest
 
 from mlflow.utils.autologging_utils import _get_training_session
 
-_SklearnTrainingSession = _get_training_session()
-
 
 class Parent:
     pass
@@ -18,10 +16,12 @@ class Grandchild:
 
 
 def assert_session_stack(classes):
-    assert len(_SklearnTrainingSession._session_stack) == len(classes)
+    _TrainingSession = _get_training_session()
+
+    assert len(_TrainingSession._session_stack) == len(classes)
 
     for idx, (sess, (parent_clazz, clazz)) in enumerate(
-        zip(_SklearnTrainingSession._session_stack, classes)
+        zip(_TrainingSession._session_stack, classes)
     ):
         assert sess.clazz == clazz
         if idx == 0:
@@ -36,7 +36,9 @@ def allow_children(request):
 
 
 def test_should_log_always_returns_true_in_root_session(allow_children):
-    with _SklearnTrainingSession(Parent, allow_children=allow_children) as p:
+    _TrainingSession = _get_training_session()
+
+    with _TrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
         assert p.should_log()
 
@@ -44,10 +46,12 @@ def test_should_log_always_returns_true_in_root_session(allow_children):
 
 
 def test_nested_sessions(allow_children):
-    with _SklearnTrainingSession(Parent, allow_children=allow_children) as p:
+    _TrainingSession = _get_training_session()
+
+    with _TrainingSession(Parent, allow_children=allow_children) as p:
         assert_session_stack([(None, Parent)])
 
-        with _SklearnTrainingSession(Child, allow_children=True) as c:
+        with _TrainingSession(Child, allow_children=True) as c:
             assert_session_stack([(None, Parent), (Parent, Child)])
             assert p.should_log()
             assert c.should_log() == allow_children
@@ -57,13 +61,15 @@ def test_nested_sessions(allow_children):
 
 
 def test_parent_session_overrides_child_session():
-    with _SklearnTrainingSession(Parent, allow_children=False) as p:
+    _TrainingSession = _get_training_session()
+
+    with _TrainingSession(Parent, allow_children=False) as p:
         assert_session_stack([(None, Parent)])
 
-        with _SklearnTrainingSession(Child, allow_children=True) as c:
+        with _TrainingSession(Child, allow_children=True) as c:
             assert_session_stack([(None, Parent), (Parent, Child)])
 
-            with _SklearnTrainingSession(Grandchild, allow_children=True) as g:
+            with _TrainingSession(Grandchild, allow_children=True) as g:
                 assert_session_stack([(None, Parent), (Parent, Child), (Child, Grandchild)])
 
                 assert p.should_log()
@@ -76,15 +82,17 @@ def test_parent_session_overrides_child_session():
 
 
 def test_should_log_returns_false_when_parrent_session_has_the_same_class():
+    _TrainingSession = _get_training_session()
+
     # This test case corresponds to when Pipeline.fit() calls Transformer.fit_transform()
     # which calls Transformer.fit()
-    with _SklearnTrainingSession(Parent, allow_children=True) as p:
+    with _TrainingSession(Parent, allow_children=True) as p:
         assert_session_stack([(None, Parent)])
 
-        with _SklearnTrainingSession(Child, allow_children=True) as c1:
+        with _TrainingSession(Child, allow_children=True) as c1:
             assert_session_stack([(None, Parent), (Parent, Child)])
 
-            with _SklearnTrainingSession(Child, allow_children=True) as c2:
+            with _TrainingSession(Child, allow_children=True) as c2:
                 assert_session_stack([(None, Parent), (Parent, Child), (Child, Child)])
 
                 assert p.should_log()
