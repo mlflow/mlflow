@@ -505,7 +505,8 @@ def _get_training_session():
             Returns True when at least one of the following conditions satisfies:
 
             1. This session is the root session.
-            2. The parent session allows autologging and its class differs from this session's class.
+            2. The parent session allows autologging and its class differs from this session's
+               class.
             """
             return (self._parent is None) or (
                 self._parent.allow_children and self._parent.clazz != self.clazz
