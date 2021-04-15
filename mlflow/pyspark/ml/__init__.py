@@ -32,19 +32,23 @@ def _read_log_model_allowlist_from_file(allowlist_file):
     return allowlist
 
 
-def _read_log_model_allowlist(log_models_allowlist_path):
+def _read_log_model_allowlist(spark_session):
     """
     Reads the module allowlist and returns it as a set.
     """
+    allowlist_file = spark_session.sparkContext._conf.get(
+        "spark.mlflow.pysparkml.autolog.logModelAllowlistFile", None
+    )
     builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
-    if log_models_allowlist_path:
+    if allowlist_file:
         try:
-            return _read_log_model_allowlist_from_file(log_models_allowlist_path)
+            return _read_log_model_allowlist_from_file(allowlist_file)
         except Exception:
             # fallback to built-in allowlist file
             _logger.warning(
                 "Reading from custom log_models allowlist file "
-                + f"{log_models_allowlist_path} failed, fallback to built-in allowlist file."
+                + "%s failed, fallback to built-in allowlist file.",
+                allowlist_file
             )
             return _read_log_model_allowlist_from_file(builtin_allowlist_file)
     else:
@@ -167,7 +171,6 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-    log_models_allowlist_path=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -229,10 +232,13 @@ def autolog(
         MAX_ENTITY_KEY_LENGTH,
     )
     from pyspark.ml.base import Estimator
+    from mlflow.utils._spark_utils import _get_active_spark_session
 
     global _log_model_allowlist
 
-    _log_model_allowlist = _read_log_model_allowlist(log_models_allowlist_path)
+    spark_session = _get_active_spark_session()
+    if spark_session:
+        _log_model_allowlist = _read_log_model_allowlist(spark_session)
 
     def _log_pretraining_metadata(estimator, params):
 

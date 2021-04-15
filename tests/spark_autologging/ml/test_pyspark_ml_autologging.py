@@ -16,6 +16,12 @@ import pyspark
 from pyspark.sql import SparkSession
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
+from pyspark.ml.classification import (
+    LinearSVC,
+    LogisticRegression,
+    MultilayerPerceptronClassifier,
+    OneVsRest,
+)
 from mlflow.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
@@ -90,18 +96,25 @@ def get_dataset_binomial(spark_session):
 
 def test_basic_estimator(dataset_binomial):
     mlflow.pyspark.ml.autolog()
-    lr = LinearRegression()
-    with mlflow.start_run() as run:
-        lr_model = lr.fit(dataset_binomial)
-    run_id = run.info.run_id
-    run_data = get_run_data(run_id)
-    assert run_data.params == truncate_param_dict(
-        stringify_dict_values(_get_instance_param_map(lr))
-    )
-    assert run_data.tags == get_expected_class_tags(lr)
-    assert MODEL_DIR in run_data.artifacts
-    loaded_model = load_model_by_run_id(run_id)
-    assert loaded_model.stages[0].uid == lr_model.uid
+
+    for estimator in [
+        LinearRegression(),
+        MultilayerPerceptronClassifier(layers=[2, 2, 2], seed=123, blockSize=1),
+    ]:
+        with mlflow.start_run() as run:
+            model = estimator.fit(dataset_binomial)
+        run_id = run.info.run_id
+        run_data = get_run_data(run_id)
+        assert run_data.params == truncate_param_dict(
+            stringify_dict_values(_get_instance_param_map(estimator))
+        )
+        assert run_data.tags == get_expected_class_tags(estimator)
+        if isinstance(estimator, MultilayerPerceptronClassifier):
+            assert MODEL_DIR not in run_data.artifacts
+        else:
+            assert MODEL_DIR in run_data.artifacts
+            loaded_model = load_model_by_run_id(run_id)
+            assert loaded_model.stages[0].uid == model.uid
 
 
 @pytest.mark.skipif(
@@ -137,24 +150,26 @@ def test_autolog_does_not_terminate_active_run(dataset_binomial):
 
 
 def test_meta_estimator_fit(dataset_binomial):
-    from pyspark.ml.classification import LinearSVC, OneVsRest
-
     mlflow.pyspark.ml.autolog()
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.set_tags"
-    ) as mock_set_tags, mock.patch("mlflow.spark.log_model") as mock_log_model:
-        with mlflow.start_run() as run:
-            svc = LinearSVC()
-            ova = OneVsRest(classifier=svc)
-            ova.fit(dataset_binomial)
+    with mlflow.start_run() as run:
+        svc = LinearSVC()
+        ova = OneVsRest(classifier=svc)
+        ova_model = ova.fit(dataset_binomial)
 
-        mock_log_params.assert_called_once()
-        mock_set_tags.assert_called_once()
-        mock_log_model.assert_called_once()
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
+    assert run_data.params == truncate_param_dict(
+        stringify_dict_values(_get_instance_param_map(ova))
+    )
+    assert run_data.tags == get_expected_class_tags(ova)
+    assert MODEL_DIR in run_data.artifacts
+    loaded_model = load_model_by_run_id(run_id)
+    assert loaded_model.stages[0].uid == ova_model.uid
 
-        query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
-        assert len(mlflow.search_runs([run.info.experiment_id])) == 1
-        assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
+    # assert no nested run spawned
+    query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
+    assert len(mlflow.search_runs([run.info.experiment_id])) == 1
+    assert len(mlflow.search_runs([run.info.experiment_id], query)) == 0
 
 
 def test_fit_with_params(dataset_binomial):
@@ -162,12 +177,16 @@ def test_fit_with_params(dataset_binomial):
     lr = LinearRegression()
     extra_params = {lr.maxIter: 3, lr.standardization: False}
     with mlflow.start_run() as run:
-        lr.fit(dataset_binomial, params=extra_params)
+        lr_model = lr.fit(dataset_binomial, params=extra_params)
     run_id = run.info.run_id
     run_data = get_run_data(run_id)
     assert run_data.params == truncate_param_dict(
         stringify_dict_values(_get_instance_param_map(lr.copy(extra_params)))
     )
+    assert run_data.tags == get_expected_class_tags(lr)
+    assert MODEL_DIR in run_data.artifacts
+    loaded_model = load_model_by_run_id(run_id)
+    assert loaded_model.stages[0].uid == lr_model.uid
 
 
 def test_fit_with_a_list_of_params(dataset_binomial):
@@ -179,7 +198,6 @@ def test_fit_with_a_list_of_params(dataset_binomial):
         with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
             "mlflow.set_tags"
         ) as mock_set_tags:
-
             with mlflow.start_run():
                 with mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
                     lr_model_iter = lr.fit(dataset_binomial, params=params)
@@ -192,8 +210,6 @@ def test_fit_with_a_list_of_params(dataset_binomial):
 
 
 def test_should_log_model(dataset_binomial, dataset_multinomial):
-    from pyspark.ml.classification import LogisticRegression, OneVsRest
-
     mlflow.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
@@ -218,8 +234,6 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
 
 
 def test_param_map_captures_wrapped_params(dataset_binomial):
-    from pyspark.ml.classification import LogisticRegression, OneVsRest
-
     lor = LogisticRegression(maxIter=3, standardization=False)
     ova = OneVsRest(classifier=lor, labelCol="abcd")
 
