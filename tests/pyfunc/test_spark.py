@@ -163,8 +163,7 @@ def test_spark_udf_autofills_no_arguments(spark):
             spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
         )
         with pytest.raises(
-            MlflowException,
-            match=r"Cannot apply udf because no column names specified",
+            MlflowException, match=r"Cannot apply udf because no column names specified",
         ):
             good_data.withColumn("res", udf())
 
@@ -176,19 +175,6 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(pyspark.sql.utils.PythonException):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
-
-    class TestModel2(PythonModel):
-        def predict(self, context, model_input):
-            return 44
-
-    with mlflow.start_run() as run:
-        # model without signature
-        mlflow.pyfunc.log_model("model", python_model=TestModel2())
-        udf = mlflow.pyfunc.spark_udf(
-            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
-        )
-        res = good_data.withColumn("res", udf()).select("res").toPandas()
-
 
 
 def test_spark_udf_autofills_column_names_with_schema(spark):

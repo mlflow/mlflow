@@ -859,7 +859,7 @@ def spark_udf(spark, model_uri, result_type="double"):
     @functools.wraps(udf)
     def udf_with_default_cols(*args):
         if len(args) == 0:
-            input_schema = model_metadata.get_input_schema() # type Schema
+            input_schema = model_metadata.get_input_schema()
 
             if input_schema and len(input_schema.inputs) > 0:
                 if input_schema.has_input_names():
@@ -870,8 +870,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                         message="Cannot apply udf because no column names specified. The udf "
                         "expects {} columns with types: {}. Input column names could not be "
                         "inferred from the model signature (column names not found).".format(
-                            len(input_schema.inputs),
-                            input_schema.inputs,
+                            len(input_schema.inputs), input_schema.inputs,
                         ),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
