@@ -1238,13 +1238,13 @@ def _get_experiment_id():
 
 @autologging_integration("mlflow")
 def autolog(
-    log_input_examples=False,
-    log_model_signatures=True,
-    log_models=True,
-    disable=False,
-    exclusive=False,
-    disable_for_unsupported_versions=False,
-    silent=False,
+    log_input_examples: bool = False,
+    log_model_signatures: bool = True,
+    log_models: bool = True,
+    disable: bool = False,
+    exclusive: bool = False,
+    disable_for_unsupported_versions: bool = False,
+    silent: bool = False,
     # pylint: disable=unused-argument
 ) -> None:
     """
