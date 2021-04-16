@@ -1106,7 +1106,7 @@ class MlflowClient(object):
 
     @experimental
     def log_image(
-        self, run_id: str, image: Union["np.ndarray", "PIL.Image.Image"], artifact_file: str
+        self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
     ) -> None:
         """
         Log an image as an artifact. The following image objects are supported:
