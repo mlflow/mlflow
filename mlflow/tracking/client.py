@@ -262,7 +262,7 @@ class MlflowClient(object):
     def list_run_infos(
         self,
         experiment_id: str,
-        run_view_type: str = ViewType.ACTIVE_ONLY,
+        run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
         page_token: Optional[bytes] = None,
@@ -1467,7 +1467,7 @@ class MlflowClient(object):
         self,
         experiment_ids: List[str],
         filter_string: str = "",
-        run_view_type: str = ViewType.ACTIVE_ONLY,
+        run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
         page_token: Optional[bytes] = None,
