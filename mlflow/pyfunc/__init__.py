@@ -715,6 +715,9 @@ def spark_udf(spark, model_uri, result_type="double"):
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
 
+    NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
+    Spark (2.4 and below).
+
     .. code-block:: python
         :caption: Example
 
