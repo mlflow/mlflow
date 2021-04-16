@@ -116,12 +116,6 @@ Model signatures are recognized and enforced by standard :ref:`MLflow model depl
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
 which deploys a model as a REST API, validates inputs based on the model's signature.
 
-For Spark dataframe inputs, columns of type DateType_ and TimestampType_ are both inferred as
-type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is internally represented by
-TimestampType_.
-
-.. _DateType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.DateType.html#pyspark.sql.types.DateType
-.. _TimestampType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.TimestampType.html#pyspark.sql.types.TimestampType
 
 Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
