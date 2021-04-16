@@ -87,12 +87,6 @@ def load_model_by_run_id(run_id):
     return mlflow.spark.load_model("runs:/{}/{}".format(run_id, MODEL_DIR))
 
 
-def get_dataset_binomial(spark_session):
-    return spark_session.createDataFrame(
-        [(1.0, Vectors.dense(1.0)), (0.0, Vectors.sparse(1, [], []))] * 100, ["label", "features"]
-    )
-
-
 def test_basic_estimator(dataset_binomial):
     mlflow.pyspark.ml.autolog()
 

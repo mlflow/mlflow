@@ -41,10 +41,11 @@ def _read_log_model_allowlist():
     builtin_allowlist_file = resource_filename(__name__, "log_model_allowlist.txt")
     spark_session = _get_active_spark_session()
     if not spark_session:
-        _logger.warning(
-            "There's no spark session, cannot read config "
-            "'spark.mlflow.pysparkml.autolog.logModelAllowlistFile', "
-            "using default log model allowlist."
+        _logger.info(
+            "No SparkSession detected. Autologging will log pyspark.ml models contained "
+            "in the default allowlist. To specify a custom allowlist, initialize a SparkSession "
+            "prior to calling mlflow.pyspark.ml.autolog() and specify the path to your allowlist "
+            "file via the spark.mlflow.pysparkml.autolog.logModelAllowlistFile conf."
         )
         return _read_log_model_allowlist_from_file(builtin_allowlist_file)
 
@@ -56,7 +57,7 @@ def _read_log_model_allowlist():
             return _read_log_model_allowlist_from_file(allowlist_file)
         except Exception:
             # fallback to built-in allowlist file
-            _logger.warning(
+            _logger.exception(
                 "Reading from custom log_models allowlist file "
                 + "%s failed, fallback to built-in allowlist file.",
                 allowlist_file,
@@ -105,15 +106,13 @@ def _get_estimator_info_tags(estimator):
 
 def _get_instance_param_map(instance):
     from pyspark.ml.param import Params
+    from pyspark.ml.tuning import CrossValidator, TrainValidationSplit
 
     param_map = {
         param.name: instance.getOrDefault(param)
         for param in instance.params
         if instance.isDefined(param)
     }
-    # TODO:
-    #  handle special case: CrossValidator.estimatorParamMaps
-
     expanded_param_map = {}
     for k, v in param_map.items():
         if isinstance(v, Params):
@@ -123,6 +122,11 @@ def _get_instance_param_map(instance):
             internal_param_map = _get_instance_param_map(v)
             for ik, iv in internal_param_map.items():
                 expanded_param_map[f"{v.uid}.{ik}"] = iv
+        elif k == "estimatorParamMaps" and isinstance(
+            instance, (CrossValidator, TrainValidationSplit)
+        ):
+            # TODO: Log `estimatorParamMaps` as JSON artifacts.
+            pass
         else:
             expanded_param_map[k] = v
 
@@ -189,7 +193,8 @@ def autolog(
     This API requires Spark 3.0 or above.
 
     **When is autologging performed?**
-      Autologging is performed when you call ``Estimator.fit``
+      Autologging is performed when you call ``Estimator.fit`` except for estimators (featurizers)
+      under ``pyspark.ml.feature``.
 
     **Logged information**
       **Parameters**
@@ -260,6 +265,8 @@ def autolog(
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
 
     def _log_posttraining_metadata(estimator, spark_model, params):
+        # TODO: Log nested runs for spark ml tuning estimators
+        #   (CrossValidator/TrainValidationSplit)
         if log_models:
             if _should_log_model(spark_model):
                 # TODO: support model signature
@@ -276,6 +283,8 @@ def autolog(
         elif "params" in kwargs:
             params = kwargs["params"]
 
+        # Do not perform autologging on direct calls to fit() for featurizers.
+        # Note that featurizers will be autologged when they're fit as part of a Pipeline.
         if _get_fully_qualified_class_name(self).startswith("pyspark.ml.feature."):
             return original(self, *args, **kwargs)
         elif isinstance(params, (list, tuple)):
