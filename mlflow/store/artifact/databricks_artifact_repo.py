@@ -4,6 +4,7 @@ import os
 import posixpath
 import requests
 import uuid
+from collections import OrderedDict
 
 from mlflow.azure.client import put_block, put_block_list
 import mlflow.tracking
@@ -59,6 +60,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
     The artifact_uri is expected to be of the form
     dbfs:/databricks/mlflow-tracking/<EXP_ID>/<RUN_ID>/
     """
+
+    _artifact_roots_cache = OrderedDict()
 
     def __init__(self, artifact_uri):
         if not is_valid_dbfs_uri(artifact_uri):
@@ -122,9 +125,19 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
     def _get_run_artifact_root(self, run_id):
-        json_body = message_to_json(GetRun(run_id=run_id))
-        run_response = self._call_endpoint(MlflowService, GetRun, json_body)
-        return run_response.run.info.artifact_uri
+        cached_root = DatabricksArtifactRepository._artifact_roots_cache.get(run_id)
+        if cached_root is not None:
+            return cached_root
+        else:
+            json_body = message_to_json(GetRun(run_id=run_id))
+            run_response = self._call_endpoint(MlflowService, GetRun, json_body)
+            artifact_root = run_response.run.info.artifact_uri
+
+            # Cache the artifact root to avoid a future network call, removing the oldest
+            # entry in the cache if there are too many elements
+            if len(DatabricksArtifactRepository._artifact_roots_cache) > 1024:
+                DatabricksArtifactRepository.popitem(last=False)
+            DatabricksArtifactRepository._artifact_roots_cache[run_id] = artifact_root
 
     def _get_write_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
