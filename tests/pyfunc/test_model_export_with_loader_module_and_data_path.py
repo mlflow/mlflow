@@ -140,22 +140,24 @@ def test_column_schema_enforcement():
             ColSpec("boolean", "e"),
             ColSpec("string", "g"),
             ColSpec("binary", "f"),
+            ColSpec("datetime", "h"),
         ]
     )
     m.signature = ModelSignature(inputs=input_schema)
     pyfunc_model = PyFuncModel(model_meta=m, model_impl=TestModel())
     pdf = pd.DataFrame(
-        data=[[1, 2, 3, 4, True, "x", bytes([1])]],
-        columns=["b", "d", "a", "c", "e", "g", "f"],
+        data=[[1, 2, 3, 4, True, "x", bytes([1]), "2021-01-01 00:00:00.1234567"]],
+        columns=["b", "d", "a", "c", "e", "g", "f", "h"],
         dtype=np.object,
     )
     pdf["a"] = pdf["a"].astype(np.int32)
     pdf["b"] = pdf["b"].astype(np.int64)
     pdf["c"] = pdf["c"].astype(np.float32)
     pdf["d"] = pdf["d"].astype(np.float64)
+    pdf["h"] = pdf["h"].astype(np.datetime64)
     # test that missing column raises
     with pytest.raises(MlflowException) as ex:
-        res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f"]])
+        res = pyfunc_model.predict(pdf[["b", "d", "a", "e", "g", "f", "h"]])
     assert "Model is missing inputs" in str(ex)
 
     # test that extra column is ignored
@@ -166,6 +168,8 @@ def test_column_schema_enforcement():
     assert all((res == pdf[input_schema.input_names()]).all())
 
     expected_types = dict(zip(input_schema.input_names(), input_schema.pandas_types()))
+    # MLflow datetime type in input_schema does not encode precision, so add it for assertions
+    expected_types["h"] = np.dtype("datetime64[ns]")
     actual_types = res.dtypes.to_dict()
     assert expected_types == actual_types
 
@@ -268,12 +272,18 @@ def test_column_schema_enforcement():
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 
-    # 8. np.ndarrays can be converted to dataframe but have no columns
+    # 12. datetime64[D] (date only) -> datetime64[x] works
+    pdf["h"] = pdf["h"].astype("datetime64[D]")
+    res = pyfunc_model.predict(pdf)
+    assert res.dtypes.to_dict() == expected_types
+    pdf["h"] = pdf["h"].astype("datetime64[s]")
+
+    # 13. np.ndarrays can be converted to dataframe but have no columns
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(pdf.values)
     assert "Model is missing inputs" in str(ex)
 
-    # 9. dictionaries of str -> list/nparray work
+    # 14. dictionaries of str -> list/nparray work
     arr = np.array([1, 2, 3])
     d = {
         "a": arr.astype("int32"),
@@ -283,11 +293,12 @@ def test_column_schema_enforcement():
         "e": [True, False, True],
         "g": ["a", "b", "c"],
         "f": [bytes(0), bytes(1), bytes(1)],
+        "h": np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64),
     }
     res = pyfunc_model.predict(d)
     assert res.dtypes.to_dict() == expected_types
 
-    # 10. dictionaries of str -> list[list] fail
+    # 15. dictionaries of str -> list[list] fail
     d = {
         "a": [arr.astype("int32")],
         "b": [arr.astype("int64")],
@@ -296,12 +307,13 @@ def test_column_schema_enforcement():
         "e": [[True, False, True]],
         "g": [["a", "b", "c"]],
         "f": [[bytes(0), bytes(1), bytes(1)]],
+        "h": [np.array(["2020-01-01", "2020-02-02", "2020-03-03"], dtype=np.datetime64)],
     }
     with pytest.raises(MlflowException) as ex:
         pyfunc_model.predict(d)
     assert "Incompatible input types" in str(ex)
 
-    # 11. conversion to dataframe fails
+    # 16. conversion to dataframe fails
     d = {
         "a": [1],
         "b": [1, 2],

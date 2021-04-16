@@ -71,6 +71,11 @@ def pandas_df_with_all_types():
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
             "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
             "string": ["a", "b", "c"],
+            "datetime": [
+                np.datetime64("2021-01-01"),
+                np.datetime64("2021-02-02"),
+                np.datetime64("2021-03-03"),
+            ],
             "boolean_ext": [True, False, True],
             "integer_ext": [1, 2, 3],
             "string_ext": ["a", "b", "c"],
@@ -207,6 +212,17 @@ def test_schema_inference_on_pandas_series():
     # test doubles
     schema = _infer_schema(pd.Series(np.array([1.1, 2.2, 3.3], dtype=np.float64)))
     assert schema == Schema([ColSpec("double")])
+
+    # test datetime
+    schema = _infer_schema(
+        pd.Series(
+            np.array(
+                ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00"],
+                dtype="datetime64",
+            )
+        )
+    )
+    assert schema == Schema([ColSpec("datetime")])
 
     # unsupported
     if hasattr(np, "float128"):
@@ -365,6 +381,15 @@ def test_all_numpy_dtypes():
     test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "str")
     test_dtype(np.array(["a", "bc", "def"], dtype="U16"), "U")
 
+    # test datetime
+    test_dtype(
+        np.array(
+            ["2021-01-01 00:00:00", "2021-02-02 00:00:00", "2021-03-03 12:00:00"],
+            dtype="datetime64",
+        ),
+        "datetime64[s]",
+    )
+
     # platform_dependent
     for dtype in platform_dependent:
         if hasattr(np, dtype):
@@ -382,9 +407,15 @@ def test_spark_schema_inference(pandas_df_with_all_types):
     schema = _infer_schema(pandas_df_with_all_types)
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
     spark_session = pyspark.sql.SparkSession(pyspark.SparkContext.getOrCreate())
-    spark_schema = StructType(
-        [StructField(t.name, _parse_datatype_string(t.name), True) for t in schema.column_types()]
-    )
+
+    struct_fields = []
+    for t in schema.column_types():
+        # pyspark _parse_datatype_string() expects "timestamp" instead of "datetime"
+        if t == DataType.datetime:
+            struct_fields.append(StructField("datetime", _parse_datatype_string("timestamp"), True))
+        else:
+            struct_fields.append(StructField(t.name, _parse_datatype_string(t.name), True))
+    spark_schema = StructType(struct_fields)
     sparkdf = spark_session.createDataFrame(pandas_df_with_all_types, schema=spark_schema)
     schema = _infer_schema(sparkdf)
     assert schema == Schema([ColSpec(x, x) for x in pandas_df_with_all_types.columns])
@@ -401,6 +432,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
         DoubleType,
         StringType,
         BinaryType,
+        TimestampType,
     )
     from pyspark.sql.types import StructField, StructType
 
@@ -411,6 +443,7 @@ def test_spark_type_mapping(pandas_df_with_all_types):
     assert isinstance(DataType.double.to_spark(), DoubleType)
     assert isinstance(DataType.string.to_spark(), StringType)
     assert isinstance(DataType.binary.to_spark(), BinaryType)
+    assert isinstance(DataType.datetime.to_spark(), TimestampType)
     pandas_df_with_all_types = pandas_df_with_all_types.drop(
         columns=["boolean_ext", "integer_ext", "string_ext"]
     )

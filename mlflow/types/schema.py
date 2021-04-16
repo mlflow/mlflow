@@ -48,6 +48,8 @@ class DataType(Enum):
     """Text data."""
     binary = (7, np.dtype("bytes"), "BinaryType", np.object)
     """Sequence of raw bytes."""
+    datetime = (8, np.dtype("datetime64"), "TimestampType")
+    """64b datetime data."""
 
     def __repr__(self):
         return self.name
