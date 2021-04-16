@@ -122,9 +122,11 @@ def _get_instance_param_map(instance):
             internal_param_map = _get_instance_param_map(v)
             for ik, iv in internal_param_map.items():
                 expanded_param_map[f"{v.uid}.{ik}"] = iv
-        elif k == "estimatorParamMaps" and isinstance(
+        elif k in ["estimator", "estimatorParamMaps"] and isinstance(
             instance, (CrossValidator, TrainValidationSplit)
         ):
+            # skip log estimator Param and its nested params because they will be
+            # logged in nested runs.
             # TODO: Log `estimatorParamMaps` as JSON artifacts.
             pass
         else:
