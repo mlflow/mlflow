@@ -338,9 +338,26 @@ nitpick_ignore = [
 
 def _get_reference_map():
     """
-    Gets a dict that maps an invalid reference to a valid one.
+    Sphinx computes references for type annotations using fully-qualified classnames,
+    so references in undocumented modules (even if the referenced object is exposed via
+    a different module from the one it's defined in) are considered invalid by Sphinx.
+
+    Example:
+    ```
+    def start_run(...) -> ActiveRun:
+        # ActiveRun is defined in `mlflow/tracking/fluent.py`
+        ...
+    ```
+
+    For this code, Sphinx tries to create a link for `ActiveRun` using
+    `mlflow.tracking.fluent.ActiveRun` as a reference target, but the module
+    `mlflow.tracking.fluent` is undocumented, so Sphinx raises this warning:
+    `WARNING: py:class reference target not found: mlflow.tracking.fluent.ActiveRun`.
+    We can avoid this warning by mapping `mlflow.tracking.fluent.ActiveRun` to `mlflow.ActiveRun`
+    (note the module `mlflow` is documented).
     """
     ref_map = {
+        # < Invalid reference >: < valid reference >
         "mlflow.tracking.fluent.ActiveRun": "mlflow.ActiveRun",
         "mlflow.store.entities.paged_list.PagedList": "mlflow.store.entities.PagedList",
     }
@@ -362,16 +379,14 @@ def _get_reference_map():
     return ref_map
 
 
-reference_map = _get_reference_map()
-
-print(reference_map)
+REFERENCE_MAP = _get_reference_map()
 
 
 def resolve_missing_references(app, doctree):
     for node in doctree.traverse(condition=pending_xref):
         missing_ref = node.get("reftarget", None)
-        if missing_ref is not None and missing_ref in reference_map:
-            real_ref = reference_map[missing_ref]
+        if missing_ref is not None and missing_ref in REFERENCE_MAP:
+            real_ref = REFERENCE_MAP[missing_ref]
             text_to_render = real_ref.split(".")[-1]
             node["reftarget"] = real_ref
             text_node = next(iter(node.traverse(lambda n: n.tagname == "#text")))
