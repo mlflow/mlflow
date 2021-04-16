@@ -61,6 +61,9 @@ def reraise(tp, value, tb=None):
 
 
 def _chunk_dict(d, chunk_size):
+    """
+    Splits a dictionary into chunks of the specified size.
+    """
     # Taken from: https://stackoverflow.com/a/22878842
     it = iter(d)
     for _ in range(0, len(d), chunk_size):
@@ -68,6 +71,11 @@ def _chunk_dict(d, chunk_size):
 
 
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
+    """
+    Truncates keys and/or values in a dictionary to the specified maximum length.
+    Truncated items will be converted to strings and ellipsized.
+    """
+
     def _truncate_and_ellipsize(value, max_length):
         return str(value)[: (max_length - 3)] + "..."
 
@@ -100,4 +108,7 @@ def _truncate_dict(d, max_key_length=None, max_value_length=None):
 
 
 def _get_fully_qualified_class_name(obj):
+    """
+    Obtains the fully qualified class name of the given object.
+    """
     return obj.__class__.__module__ + "." + obj.__class__.__name__
