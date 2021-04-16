@@ -876,8 +876,8 @@ def spark_udf(spark, model_uri, result_type="double"):
                     )
             else:
                 _logger.warning(
-                    "Attempting to apply udf on zero columns because no column names were specified "
-                    "as arguments or inferred from the model signature."
+                    "Attempting to apply udf on zero columns because no column names were "
+                    "specified as arguments or inferred from the model signature."
                 )
                 return udf()
         else:
