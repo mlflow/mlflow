@@ -302,6 +302,8 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
+    5. np.datetime64[x] -> datetime (any precision)
+    6. np.object -> datetime
 
     Any other type mismatch will raise error.
     """
@@ -334,6 +336,22 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # element in the array (column). Since MLflow binary type is length agnostic, we ignore
         # itemsize when matching binary columns.
         return values
+
+    if t == DataType.datetime and values.dtype.kind == t.to_numpy().kind:
+        # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
+        # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
+        # ignore precision when matching datetime columns.
+        return values
+
+    if t == DataType.datetime and values.dtype == np.object:
+        # NB: Pyspark date columns get converted to np.object when converted to a pandas
+        # DataFrame. To respect the original typing, we convert the column to datetime.
+        try:
+            return values.astype(np.datetime64, errors="raise")
+        except ValueError:
+            raise MlflowException(
+                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+            )
 
     numpy_type = t.to_numpy()
     if values.dtype.kind == numpy_type.kind:
@@ -696,6 +714,9 @@ def spark_udf(spark, model_uri, result_type="double"):
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
+
+    NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
+    Spark (2.4 and below).
 
     .. code-block:: python
         :caption: Example

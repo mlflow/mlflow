@@ -143,6 +143,29 @@ def test_spark_udf_autofills_column_names_with_schema(spark):
         assert res["res4"][0] == ["a", "b", "c"]
 
 
+def test_spark_udf_with_datetime_columns(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [model_input.columns] * len(model_input)
+
+    signature = ModelSignature(
+        inputs=Schema([ColSpec("datetime", "timestamp"), ColSpec("datetime", "date")]),
+        outputs=Schema([ColSpec("integer")]),
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model("model", python_model=TestModel(), signature=signature)
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        data = spark.range(10).selectExpr(
+            "current_timestamp() as timestamp", "current_date() as date"
+        )
+
+        res = data.withColumn("res", udf("timestamp", "date")).select("res")
+        res = res.toPandas()
+        assert res["res"][0] == ["timestamp", "date"]
+
+
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(

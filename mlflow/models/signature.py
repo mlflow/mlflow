@@ -112,6 +112,10 @@ def infer_signature(
 
     The element types should be mappable to one of :py:class:`mlflow.types.DataType`.
 
+    For pyspark.sql.DataFrame inputs, columns of type DateType and TimestampType are both inferred
+    as type :py:data:`datetime <mlflow.types.DataType.datetime>`, which is coerced to
+    TimestampType at inference.
+
     NOTE: Multidimensional (>2d) arrays (aka tensors) are not supported at this time.
 
 

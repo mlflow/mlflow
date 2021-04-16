@@ -1,5 +1,7 @@
 import json
 import numpy as np
+import pandas as pd
+import pyspark
 
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.types import DataType
@@ -119,3 +121,25 @@ def test_signature_inference_infers_input_and_output_as_expected():
     sig1 = infer_signature(np.array([1]), np.array([1]))
     assert sig1.inputs == sig0.inputs
     assert sig1.outputs == sig0.inputs
+
+
+def test_signature_inference_infers_datime_types_as_expected():
+    col_name = "datetime_col"
+    test_datetime = np.datetime64("2021-01-01")
+    test_series = pd.Series(pd.to_datetime([test_datetime]))
+    test_df = test_series.to_frame(col_name)
+
+    signature = infer_signature(test_series)
+    assert signature.inputs == Schema([ColSpec(DataType.datetime)])
+
+    signature = infer_signature(test_df)
+    assert signature.inputs == Schema([ColSpec(DataType.datetime, name=col_name)])
+
+    spark = pyspark.sql.SparkSession.builder.getOrCreate()
+    spark_df = spark.range(1).selectExpr(
+        "current_timestamp() as timestamp", "current_date() as date"
+    )
+    signature = infer_signature(spark_df)
+    assert signature.inputs == Schema(
+        [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date")]
+    )
