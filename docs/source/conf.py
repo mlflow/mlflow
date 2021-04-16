@@ -353,8 +353,7 @@ def _get_reference_map():
     `mlflow.tracking.fluent.ActiveRun` as a reference target, but the module
     `mlflow.tracking.fluent` is undocumented, so Sphinx raises this warning:
     `WARNING: py:class reference target not found: mlflow.tracking.fluent.ActiveRun`.
-    We can avoid this warning by mapping `mlflow.tracking.fluent.ActiveRun` to `mlflow.ActiveRun`
-    (note the module `mlflow` is documented).
+    As a workaround, replace `mlflow.tracking.fluent.ActiveRun` with `mlflow.ActiveRun`.
     """
     ref_map = {
         # < Invalid reference >: < valid reference >
