@@ -4,6 +4,7 @@ import os
 import posixpath
 import requests
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 from mlflow.azure.client import put_block, put_block_list
 import mlflow.tracking
@@ -98,6 +99,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
+        self.thread_pool = ThreadPoolExecutor(max_workers=8)
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -265,6 +267,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_path = artifact_path or ""
+        upload_futures = []
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
@@ -273,7 +276,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                self.log_artifact(file_path, artifact_subdir)
+                upload_future = self.thread_pool.submit(self.log_artifact, file_path, artifact_subdir)
+                upload_futures.append(upload_future)
+
+        for upload_future in upload_futures:
+            upload_future.result()
 
     def list_artifacts(self, path=None):
         if path:
@@ -318,7 +325,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
             self.run_relative_artifact_repo_root_path, remote_file_path
         )
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
-        self._download_from_cloud(read_credentials.credentials, local_path)
+        return self.thread_pool.submit(
+            self._download_from_cloud, read_credentials.credentials,
+            local_path,
+        )
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")

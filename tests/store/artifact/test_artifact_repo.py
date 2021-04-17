@@ -1,6 +1,8 @@
+import os
 import posixpath
-from unittest import mock
 import pytest
+from concurrent.futures import ThreadPoolExecutor
+from unittest import mock
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -67,3 +69,75 @@ def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_retur
         repo = ArtifactRepositoryImpl(base_uri)
         with TempDir() as tmp:
             repo.download_artifacts(download_arg, dst_path=tmp.path())
+
+
+def test_download_artifacts_supports_asynchronous_downloads(tmpdir):
+    artifact_paths = [
+        "f1.txt",
+        "f2.json",
+        "subdir1/subdir2/f3.txt",
+        "subdir1/f4.txt",
+        "subdir3/f5.txt",
+    ]
+
+    def list_artifacts(path):
+        if path in ["f1.txt", "f2.json"]:
+            return [FileInfo(path, False, 123)]
+        elif path == "":
+            return [
+                FileInfo("f1.txt", False, 123),
+                FileInfo("f2.json", False, 123),
+                FileInfo("subdir1", True, 0),
+                FileInfo("subdir3", True, 0),
+            ]
+        elif path.startswith("subdir1/subdir2"):
+            return [
+                FileInfo("subdir1/subdir2/f3.txt", False, 123),
+            ]
+        elif path.startswith("subdir1"):
+            return [
+                FileInfo("subdir1/f4.txt", False, 123),
+                FileInfo("subdir1/subdir2", True, 0),
+            ]
+        elif path.startswith("subdir3"):
+            return [
+                FileInfo("subdir3/f5.txt", False, 123),
+            ]
+        else:
+            return []
+
+    thread_pool = ThreadPoolExecutor()
+
+    def _download_file(remote_file_path, local_path):
+        def perform_download():
+            assert remote_file_path in artifact_paths, "path does not exist"
+
+            import time
+            time.sleep(1)
+
+            with open(local_path, "w") as f:
+                f.write("test file")
+
+        return thread_pool.submit(perform_download)
+
+
+    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts") as list_artifacts_mock, mock.patch.object(ArtifactRepositoryImpl, "_download_file") as download_file_mock:
+        list_artifacts_mock.side_effect = list_artifacts
+        download_file_mock.side_effect = _download_file
+        repo = ArtifactRepositoryImpl("")
+
+        destination1 = os.path.join(str(tmpdir), "dest1")
+        os.makedirs(destination1)
+
+        repo.download_artifacts("f1.txt", destination1)
+        assert os.path.exists(os.path.join(destination1, "f1.txt"))
+
+        destination2 = os.path.join(str(tmpdir), "dest2")
+        os.makedirs(destination2)
+        repo.download_artifacts("", destination2)
+
+        for path in artifact_paths:
+            assert os.path.exists(os.path.join(destination2, path))
+
+        with pytest.raises(AssertionError, match="path does not exist"):
+            repo.download_artifacts("nonexistent", destination1)
