@@ -71,7 +71,12 @@ def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_retur
             repo.download_artifacts(download_arg, dst_path=tmp.path())
 
 
-def test_download_artifacts_supports_asynchronous_downloads(tmpdir):
+def test_download_artifacts_supports_asynchronous_file_downloads(tmpdir):
+    """
+    Verifies that `ArtifactRepository.download_artifacts()` supports `_download_file`
+    implementations that return a `concurrent.futures.Future` representing an asynchronous
+    file download
+    """
     artifact_paths = [
         "f1.txt",
         "f2.json",
@@ -110,10 +115,12 @@ def test_download_artifacts_supports_asynchronous_downloads(tmpdir):
 
     def _download_file(remote_file_path, local_path):
         def perform_download():
-            assert remote_file_path in artifact_paths, "path does not exist"
-
             import time
 
+            assert remote_file_path in artifact_paths, "path does not exist"
+            # Sleep for a second to simulate a remote file download, ensuring that the artifact
+            # repository implementation must wait for future completion prior to checking for the
+            # existence of the downloaded file in order to pass the test
             time.sleep(1)
 
             with open(local_path, "w") as f:
