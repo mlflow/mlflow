@@ -276,7 +276,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                upload_future = self.thread_pool.submit(self.log_artifact, file_path, artifact_subdir)
+                upload_future = self.thread_pool.submit(
+                    self.log_artifact, file_path, artifact_subdir
+                )
                 upload_futures.append(upload_future)
 
         for upload_future in upload_futures:
@@ -326,8 +328,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         )
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
         return self.thread_pool.submit(
-            self._download_from_cloud, read_credentials.credentials,
-            local_path,
+            self._download_from_cloud, read_credentials.credentials, local_path,
         )
 
     def delete_artifacts(self, artifact_path=None):

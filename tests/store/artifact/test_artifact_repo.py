@@ -113,6 +113,7 @@ def test_download_artifacts_supports_asynchronous_downloads(tmpdir):
             assert remote_file_path in artifact_paths, "path does not exist"
 
             import time
+
             time.sleep(1)
 
             with open(local_path, "w") as f:
@@ -120,8 +121,11 @@ def test_download_artifacts_supports_asynchronous_downloads(tmpdir):
 
         return thread_pool.submit(perform_download)
 
-
-    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts") as list_artifacts_mock, mock.patch.object(ArtifactRepositoryImpl, "_download_file") as download_file_mock:
+    with mock.patch.object(
+        ArtifactRepositoryImpl, "list_artifacts"
+    ) as list_artifacts_mock, mock.patch.object(
+        ArtifactRepositoryImpl, "_download_file"
+    ) as download_file_mock:
         list_artifacts_mock.side_effect = list_artifacts
         download_file_mock.side_effect = _download_file
         repo = ArtifactRepositoryImpl("")

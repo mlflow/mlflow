@@ -89,8 +89,7 @@ class ArtifactRepository:
             if not os.path.exists(local_dir_path):
                 os.makedirs(local_dir_path)
             download_result = self._download_file(
-                remote_file_path=fullpath,
-                local_path=local_file_path,
+                remote_file_path=fullpath, local_path=local_file_path,
             )
             return download_result, local_file_path
 
