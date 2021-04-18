@@ -675,22 +675,17 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
-    mlflow.sklearn.autolog()
+    with mock.patch("mlflow.sklearn.utils._log_pretraining_metadata") as mock_log_pretraining, mock.patch("mlflow.sklearn.utils._log_posttraining_metadata") as mock_log_posttraining:
+        mlflow.sklearn.autolog()
 
-    model = sklearn.cluster.KMeans()
-    X, y = get_iris()
+        model = sklearn.cluster.KMeans()
+        X, y = get_iris()
 
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
-    ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
-        "mlflow.sklearn.log_model"
-    ) as mock_log_model:
         with mlflow.start_run() as run:
             model = fit_model(model, X, y, fit_func_name)
-            mock_log_params.assert_called_once()
-            mock_log_metric.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
+
+        mock_log_pretraining.assert_called_once()
+        mock_log_posttraining.assert_called_once()
 
         query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
         assert len(mlflow.search_runs([run.info.experiment_id])) == 1
@@ -698,26 +693,21 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
 
 
 def test_meta_estimator_fit_performs_logging_only_once():
-    mlflow.sklearn.autolog()
+    with mock.patch("mlflow.sklearn.utils._log_pretraining_metadata") as mock_log_pretraining, mock.patch("mlflow.sklearn.utils._log_posttraining_metadata") as mock_log_posttraining:
+        mlflow.sklearn.autolog()
 
-    estimators = [
-        ("std_scaler", sklearn.preprocessing.StandardScaler()),
-        ("svc", sklearn.svm.SVC()),
-    ]
-    model = sklearn.pipeline.Pipeline(estimators)
-    X, y = get_iris()
+        estimators = [
+            ("std_scaler", sklearn.preprocessing.StandardScaler()),
+            ("svc", sklearn.svm.SVC()),
+        ]
+        model = sklearn.pipeline.Pipeline(estimators)
+        X, y = get_iris()
 
-    with mock.patch("mlflow.log_params") as mock_log_params, mock.patch(
-        "mlflow.log_metric"
-    ) as mock_log_metric, mock.patch("mlflow.set_tags") as mock_set_tags, mock.patch(
-        "mlflow.sklearn.log_model"
-    ) as mock_log_model:
         with mlflow.start_run() as run:
             model.fit(X, y)
-            mock_log_params.assert_called_once()
-            mock_log_metric.assert_called_once()
-            mock_set_tags.assert_called_once()
-            mock_log_model.assert_called_once()
+
+        mock_log_pretraining.assert_called_once()
+        mock_log_posttraining.assert_called_once()
 
         query = "tags.{} = '{}'".format(MLFLOW_PARENT_RUN_ID, run.info.run_id)
         assert len(mlflow.search_runs([run.info.experiment_id])) == 1
@@ -859,24 +849,6 @@ def test_autolog_does_not_throw_when_parameter_search_logging_fails(failing_spec
         mock_func.assert_called_once()
 
 
-@pytest.mark.usefixtures(test_mode_off.__name__)
-@pytest.mark.parametrize(
-    "func_to_fail",
-    ["mlflow.log_params", "mlflow.log_metric", "mlflow.set_tags", "mlflow.sklearn.log_model"],
-)
-def test_autolog_does_not_throw_when_mlflow_logging_fails(func_to_fail):
-    mlflow.sklearn.autolog()
-
-    model = sklearn.cluster.KMeans()
-    X, y = get_iris()
-
-    with mlflow.start_run(), mock.patch(
-        func_to_fail, side_effect=Exception(func_to_fail)
-    ) as mock_func:
-        model.fit(X, y)
-        mock_func.assert_called_once()
-
-
 @pytest.mark.parametrize("data_type", [pd.DataFrame, np.array])
 def test_autolog_logs_signature_and_input_example(data_type):
     mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
@@ -937,7 +909,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    with mlflow.start_run() as run, mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         model.fit(throwing_X, y)
 
     model_conf = get_model_conf(run.info.artifact_uri)
@@ -970,7 +942,7 @@ def test_autolog_does_not_throw_when_predict_fails():
     # Note that `mock_warning` will be called twice because if `predict` throws, `score` also throws
     with mlflow.start_run() as run, mock.patch(
         "sklearn.linear_model.LinearRegression.predict", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    ), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
@@ -985,7 +957,7 @@ def test_autolog_does_not_throw_when_infer_signature_fails():
 
     with mlflow.start_run() as run, mock.patch(
         "mlflow.models.infer_signature", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
+    ), mock.patch("mlflow.utils.autologging_utils._logger.warning") as mock_warning:
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)

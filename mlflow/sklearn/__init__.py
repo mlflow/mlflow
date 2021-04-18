@@ -18,6 +18,7 @@ import warnings
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.entities import Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -28,14 +29,10 @@ from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    try_mlflow_log,
-    INPUT_EXAMPLE_SAMPLE_ROWS,
-    resolve_input_example_and_signature,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -729,17 +726,16 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
     """
-    import pandas as pd
     import sklearn
 
-    from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _MIN_SKLEARN_VERSION,
         _TRAINING_PREFIX,
         _is_supported_version,
         _chunk_dict,
         _get_args_for_metrics,
-        _log_estimator_content,
+        _log_pretraining_metadata,
+        _log_posttraining_metadata,
         _all_estimators,
         _truncate_dict,
         _get_arg_names,
@@ -748,12 +744,6 @@ def autolog(
         _is_parameter_search_estimator,
         _log_parameter_search_results_as_artifact,
         _create_child_runs_for_parameter_search,
-    )
-    from mlflow.tracking.context import registry as context_registry
-    from mlflow.utils.validation import (
-        MAX_PARAMS_TAGS_PER_BATCH,
-        MAX_PARAM_VAL_LENGTH,
-        MAX_ENTITY_KEY_LENGTH,
     )
 
     if not _is_supported_version():
@@ -776,144 +766,6 @@ def autolog(
         _log_posttraining_metadata(self, *args, **kwargs)
         return fit_output
 
-    def _log_pretraining_metadata(estimator, *args, **kwargs):  # pylint: disable=unused-argument
-        """
-        Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
-        This is intended to be invoked within a patched scikit-learn training routine
-        (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
-        MLflow run that can be referenced via the fluent Tracking API.
-
-        :param estimator: The scikit-learn estimator for which to log metadata.
-        :param args: The arguments passed to the scikit-learn training routine (e.g.,
-                     `fit()`, `fit_transform()`, ...).
-        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
-        """
-        # Deep parameter logging includes parameters from children of a given
-        # estimator. For some meta estimators (e.g., pipelines), recording
-        # these parameters is desirable. For parameter search estimators,
-        # however, child estimators act as seeds for the parameter search
-        # process; accordingly, we avoid logging initial, untuned parameters
-        # for these seed estimators.
-        should_log_params_deeply = not _is_parameter_search_estimator(estimator)
-        # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in _chunk_dict(
-            estimator.get_params(deep=should_log_params_deeply),
-            chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
-        ):
-            truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
-            try_mlflow_log(mlflow.log_params, truncated)
-
-        try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
-
-    def _log_posttraining_metadata(estimator, *args, **kwargs):
-        """
-        Records metadata for a scikit-learn estimator after training has completed.
-        This is intended to be invoked within a patched scikit-learn training routine
-        (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
-        MLflow run that can be referenced via the fluent Tracking API.
-
-        :param estimator: The scikit-learn estimator for which to log metadata.
-        :param args: The arguments passed to the scikit-learn training routine (e.g.,
-                     `fit()`, `fit_transform()`, ...).
-        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
-        """
-
-        def infer_model_signature(input_example):
-            if not hasattr(estimator, "predict"):
-                raise Exception(
-                    "the trained model does not specify a `predict` function, "
-                    + "which is required in order to infer the signature"
-                )
-
-            return infer_signature(input_example, estimator.predict(input_example))
-
-        (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
-
-        # log common metrics and artifacts for estimators (classifier, regressor)
-        _log_estimator_content(
-            estimator=estimator,
-            prefix=_TRAINING_PREFIX,
-            run_id=mlflow.active_run().info.run_id,
-            X=X,
-            y_true=y_true,
-            sample_weight=sample_weight,
-        )
-
-        def get_input_example():
-            # Fetch an input example using the first several rows of the array-like
-            # training data supplied to the training routine (e.g., `fit()`)
-            input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
-            return input_example
-
-        if log_models:
-            # Will only resolve `input_example` and `signature` if `log_models` is `True`.
-            input_example, signature = resolve_input_example_and_signature(
-                get_input_example,
-                infer_model_signature,
-                log_input_examples,
-                log_model_signatures,
-                _logger,
-            )
-
-            try_mlflow_log(
-                log_model,
-                estimator,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
-            )
-
-        if _is_parameter_search_estimator(estimator):
-            if hasattr(estimator, "best_estimator_") and log_models:
-                try_mlflow_log(
-                    log_model,
-                    estimator.best_estimator_,
-                    artifact_path="best_estimator",
-                    signature=signature,
-                    input_example=input_example,
-                )
-
-            if hasattr(estimator, "best_score_"):
-                try_mlflow_log(mlflow.log_metric, "best_cv_score", estimator.best_score_)
-
-            if hasattr(estimator, "best_params_"):
-                best_params = {
-                    "best_{param_name}".format(param_name=param_name): param_value
-                    for param_name, param_value in estimator.best_params_.items()
-                }
-                try_mlflow_log(mlflow.log_params, best_params)
-
-            if hasattr(estimator, "cv_results_"):
-                try:
-                    # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
-                    # information is consistent with the parent run
-                    child_tags = context_registry.resolve_tags()
-                    child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
-                    _create_child_runs_for_parameter_search(
-                        cv_estimator=estimator,
-                        parent_run=mlflow.active_run(),
-                        child_tags=child_tags,
-                    )
-                except Exception as e:
-
-                    msg = (
-                        "Encountered exception during creation of child runs for parameter search."
-                        " Child runs may be missing. Exception: {}".format(str(e))
-                    )
-                    _logger.warning(msg)
-
-                try:
-                    cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
-                    _log_parameter_search_results_as_artifact(
-                        cv_results_df, mlflow.active_run().info.run_id
-                    )
-                except Exception as e:
-
-                    msg = (
-                        "Failed to log parameter search results as an artifact."
-                        " Exception: {}".format(str(e))
-                    )
-                    _logger.warning(msg)
 
     def patched_fit(original, self, *args, **kwargs):
         """

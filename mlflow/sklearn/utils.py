@@ -8,11 +8,19 @@ import numpy as np
 import time
 
 import mlflow
-from mlflow.entities import Metric, Param
+from mlflow.entities import Metric, Param, RunTag
+from mlflow.models import infer_signature
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import try_mlflow_log
+from mlflow.tracking.context import registry as context_registry
+from mlflow.utils.autologging_utils import (
+    try_mlflow_log,
+    get_autologging_config,
+    resolve_input_example_and_signature,
+    INPUT_EXAMPLE_SAMPLE_ROWS,
+)
+
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
@@ -408,6 +416,169 @@ def _log_warning_for_artifacts(func_name, func_call, err):
     _logger.warning(msg)
 
 
+def _log_pretraining_metadata(estimator, *args, **kwargs):  # pylint: disable=unused-argument
+    """
+    Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
+    This is intended to be invoked within a patched scikit-learn training routine
+    (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
+    MLflow run that can be referenced via the fluent Tracking API.
+
+    :param estimator: The scikit-learn estimator for which to log metadata.
+    :param args: The arguments passed to the scikit-learn training routine (e.g.,
+                 `fit()`, `fit_transform()`, ...).
+    :param kwargs: The keyword arguments passed to the scikit-learn training routine.
+    """
+    # Deep parameter logging includes parameters from children of a given
+    # estimator. For some meta estimators (e.g., pipelines), recording
+    # these parameters is desirable. For parameter search estimators,
+    # however, child estimators act as seeds for the parameter search
+    # process; accordingly, we avoid logging initial, untuned parameters
+    # for these seed estimators.
+    should_log_params_deeply = not _is_parameter_search_estimator(estimator)
+    params_to_log = _truncate_dict(
+        estimator.get_params(deep=should_log_params_deeply),
+        MAX_ENTITY_KEY_LENGTH,
+        MAX_PARAM_VAL_LENGTH,
+    )
+    tags_to_set = _get_estimator_info_tags(estimator)
+    set_tags = False
+    client = MlflowClient()
+
+    # Chunk model parameters to avoid hitting the log_batch API limit
+    chunked_params = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
+    for idx, params_chunk in enumerate(chunked_params):
+        log_batch_kwargs = {
+            "run_id": mlflow.active_run().info.run_id,
+            "params": [
+                Param(str(key), str(value)) for key, value in params_chunk.items()
+            ],
+        }
+        if idx == len(chunked_params) - 1 and len(params_chunk) <= MAX_PARAMS_TAGS_PER_BATCH - len(tags_to_set):
+            log_batch_kwargs["tags"] = [
+                RunTag(str(key), str(value)) for key, value in tags_to_set.items()
+            ]
+            set_tags=True
+
+        client.log_batch(**log_batch_kwargs)
+
+    if not set_tags:
+        try_mlflow_log(mlflow.set_tags, tags_to_set)
+
+def _log_posttraining_metadata(estimator, *args, **kwargs):
+    """
+    Records metadata for a scikit-learn estimator after training has completed.
+    This is intended to be invoked within a patched scikit-learn training routine
+    (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
+    MLflow run that can be referenced via the fluent Tracking API.
+
+    :param estimator: The scikit-learn estimator for which to log metadata.
+    :param args: The arguments passed to the scikit-learn training routine (e.g.,
+                 `fit()`, `fit_transform()`, ...).
+    :param kwargs: The keyword arguments passed to the scikit-learn training routine.
+    """
+    import pandas as pd
+    from mlflow.sklearn import FLAVOR_NAME, log_model
+
+    def infer_model_signature(input_example):
+        if not hasattr(estimator, "predict"):
+            raise Exception(
+                "the trained model does not specify a `predict` function, "
+                + "which is required in order to infer the signature"
+            )
+
+        return infer_signature(input_example, estimator.predict(input_example))
+
+    (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
+
+    # log common metrics and artifacts for estimators (classifier, regressor)
+    _log_estimator_content(
+        estimator=estimator,
+        prefix=_TRAINING_PREFIX,
+        run_id=mlflow.active_run().info.run_id,
+        X=X,
+        y_true=y_true,
+        sample_weight=sample_weight,
+    )
+
+    def get_input_example():
+        # Fetch an input example using the first several rows of the array-like
+        # training data supplied to the training routine (e.g., `fit()`)
+        input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
+        return input_example
+
+    should_log_models = get_autologging_config(FLAVOR_NAME, "log_models", False)
+
+    if should_log_models:
+        # Will only resolve `input_example` and `signature` if `log_models` is `True`.
+        input_example, signature = resolve_input_example_and_signature(
+            get_input_example,
+            infer_model_signature,
+            get_autologging_config(FLAVOR_NAME, "log_input_examples", False),
+            get_autologging_config(FLAVOR_NAME, "log_model_signatures", True),
+            _logger,
+        )
+
+        try_mlflow_log(
+            log_model,
+            estimator,
+            artifact_path="model",
+            signature=signature,
+            input_example=input_example,
+        )
+
+    if _is_parameter_search_estimator(estimator):
+        if hasattr(estimator, "best_estimator_") and should_log_models:
+            try_mlflow_log(
+                log_model,
+                estimator.best_estimator_,
+                artifact_path="best_estimator",
+                signature=signature,
+                input_example=input_example,
+            )
+
+        if hasattr(estimator, "best_score_"):
+            try_mlflow_log(mlflow.log_metric, "best_cv_score", estimator.best_score_)
+
+        if hasattr(estimator, "best_params_"):
+            best_params = {
+                "best_{param_name}".format(param_name=param_name): param_value
+                for param_name, param_value in estimator.best_params_.items()
+            }
+            try_mlflow_log(mlflow.log_params, best_params)
+
+        if hasattr(estimator, "cv_results_"):
+            try:
+                # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
+                # information is consistent with the parent run
+                child_tags = context_registry.resolve_tags()
+                child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
+                _create_child_runs_for_parameter_search(
+                    cv_estimator=estimator,
+                    parent_run=mlflow.active_run(),
+                    child_tags=child_tags,
+                )
+            except Exception as e:
+
+                msg = (
+                    "Encountered exception during creation of child runs for parameter search."
+                    " Child runs may be missing. Exception: {}".format(str(e))
+                )
+                _logger.warning(msg)
+
+            try:
+                cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
+                _log_parameter_search_results_as_artifact(
+                    cv_results_df, mlflow.active_run().info.run_id
+                )
+            except Exception as e:
+
+                msg = (
+                    "Failed to log parameter search results as an artifact."
+                    " Exception: {}".format(str(e))
+                )
+                _logger.warning(msg)
+
+
 def _log_specialized_estimator_content(
     fitted_estimator, run_id, prefix, X, y_true, sample_weight=None
 ):
@@ -523,8 +694,10 @@ def _chunk_dict(d, chunk_size):
     # Copied from: https://stackoverflow.com/a/22878842
 
     it = iter(d)
-    for _ in range(0, len(d), chunk_size):
-        yield {k: d[k] for k in islice(it, chunk_size)}
+    return [
+        {k: d[k] for k in islice(it, chunk_size)}
+        for _ in range(0, len(d), chunk_size)
+    ]
 
 
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
