@@ -331,7 +331,7 @@ class MlflowClient(object):
     ) -> PagedList[Experiment]:
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
+                            passed, all experiments will be returned at once.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
         :return: PagedList of :py:class:`mlflow.entities.Experiment`
