@@ -125,6 +125,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return call_endpoint(db_creds, endpoint, method, json_body, response_proto)
 
     def _get_run_artifact_root(self, run_id):
+        # Attempt to fetch the artifact root from a local cache, since artifact locations are
+        # immutable on Databricks
         cached_root = DatabricksArtifactRepository._artifact_roots_cache.get(run_id)
         if cached_root is not None:
             return cached_root
@@ -138,6 +140,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             if len(DatabricksArtifactRepository._artifact_roots_cache) > 1024:
                 DatabricksArtifactRepository.popitem(last=False)
             DatabricksArtifactRepository._artifact_roots_cache[run_id] = artifact_root
+            return artifact_root
 
     def _get_write_credentials(self, run_id, path=None):
         json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=path))
