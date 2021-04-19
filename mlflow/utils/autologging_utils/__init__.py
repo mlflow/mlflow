@@ -436,8 +436,7 @@ def _get_new_training_session_class():
     Returns a session manager class for nested autologging runs.
 
     Examples
-    ========
-
+    --------
     >>> class Parent: pass
     >>> class Child: pass
     >>> class Grandchild: pass
