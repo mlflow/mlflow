@@ -668,9 +668,10 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
         # Count how many times `mock_warning` has been called on not-fitted `predict` failure
         call_count = len([args for args in mock_warning.call_args_list if msg in args[0][0]])
         # If `_is_plotting_supported` returns True (meaning sklearn version is >= 0.22.0),
-        # `mock_warning` should have been called twice, once for metrics, once for artifacts.
-        # Otherwise, only once for metrics.
-        call_count_expected = 2 if mlflow.sklearn.utils._is_plotting_supported() else 1
+        # `mock_warning` should have been called three times: once for generic estimator metrics,
+        # once for the `training_score` metric, and once for artifacts. Otherwise, just twice for
+        # generic estimator metrics and the `training_score` metric
+        call_count_expected = 3 if mlflow.sklearn.utils._is_plotting_supported() else 2
         assert call_count == call_count_expected
 
 
@@ -952,12 +953,12 @@ def test_autolog_does_not_throw_when_predict_fails():
     assert "signature" not in model_conf.to_dict()
 
 
-def test_autolog_does_not_throw_when_infer_signature_fails():
+def test_autolog_still_logs_model_artifacts_even_if_infer_signature_fails():
     X, y = get_iris()
 
     with mlflow.start_run() as run, mock.patch(
-        "mlflow.models.infer_signature", side_effect=Exception("Failed")
-    ), mock.patch("mlflow.utils.autologging_utils._logger.warning") as mock_warning:
+        "mlflow.sklearn.utils.infer_signature", side_effect=Exception("Failed")
+    ), mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
         mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
