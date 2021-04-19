@@ -132,6 +132,27 @@ def _get_instance_param_map(instance):
     return expanded_param_map
 
 
+def _get_pipeline_stage_hierarchy_and_params(pipeline_stages):
+    from pyspark.ml import Pipeline
+    """
+    :param pipeline_stages: stages of a pyspark ML pipeline
+    :return: return a tuple of (stage_hierarchy, params_map)
+    """
+    stage_hierarchy = []
+    param_map = {}
+    for stage in pipeline_stages:
+        if isinstance(stage, Pipeline):
+            hierarchy_elem, stage_param_map = _get_pipeline_stage_hierarchy_and_params(
+                stage.getStages())
+        else:
+            hierarchy_elem = stage.uid
+            stage_param_map = {f'{stage.uid}.{k}': v
+                               for k, v in _get_instance_param_map(stage).items()}
+        stage_hierarchy.append(hierarchy_elem)
+        param_map.update(stage_param_map)
+    return stage_hierarchy, param_map
+
+
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
     return (
         "Skip pyspark ML autologging when calling "
@@ -208,6 +229,7 @@ def autolog(
         MAX_ENTITY_KEY_LENGTH,
     )
     from pyspark.ml.base import Estimator
+    from pyspark.ml import Pipeline
 
     global _log_model_allowlist
 
@@ -218,9 +240,17 @@ def autolog(
         if params and isinstance(params, dict):
             estimator = estimator.copy(params)
 
+        param_map = _get_instance_param_map(estimator)
+        if isinstance(estimator, Pipeline):
+            pipeline_hyerarchy, stages_param_maps = _get_pipeline_stage_hierarchy_and_params(
+                estimator)
+            param_map.update(stages_param_maps)
+            try_mlflow_log(mlflow.log_dict, pipeline_hyerarchy,
+                           artifact_file='pipeline_hyerarchy.json')
+
         # Chunk model parameters to avoid hitting the log_batch API limit
         for chunk in _chunk_dict(
-            _get_instance_param_map(estimator), chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+            param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         ):
             truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
