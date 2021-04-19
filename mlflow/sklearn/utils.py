@@ -1,6 +1,5 @@
 import collections
 from distutils.version import LooseVersion
-from itertools import islice
 import inspect
 import logging
 from numbers import Number
@@ -10,6 +9,7 @@ import time
 import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import _chunk_dict, _truncate_dict
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -517,46 +517,6 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
             metrics[score_key] = score
 
     return metrics
-
-
-def _chunk_dict(d, chunk_size):
-    # Copied from: https://stackoverflow.com/a/22878842
-
-    it = iter(d)
-    for _ in range(0, len(d), chunk_size):
-        yield {k: d[k] for k in islice(it, chunk_size)}
-
-
-def _truncate_dict(d, max_key_length=None, max_value_length=None):
-    def _truncate_and_ellipsize(value, max_length):
-        return str(value)[: (max_length - 3)] + "..."
-
-    key_is_none = max_key_length is None
-    val_is_none = max_value_length is None
-
-    if key_is_none and val_is_none:
-        raise ValueError("Must specify at least either `max_key_length` or `max_value_length`")
-
-    truncated = {}
-    for k, v in d.items():
-        should_truncate_key = (not key_is_none) and (len(str(k)) > max_key_length)
-        should_truncate_val = (not val_is_none) and (len(str(v)) > max_value_length)
-
-        new_k = _truncate_and_ellipsize(k, max_key_length) if should_truncate_key else k
-        if should_truncate_key:
-            # Use the truncated key for warning logs to avoid noisy printing to stdout
-            msg = "Truncated the key `{}`".format(new_k)
-            _logger.warning(msg)
-
-        new_v = _truncate_and_ellipsize(v, max_value_length) if should_truncate_val else v
-        if should_truncate_val:
-            # Use the truncated key and value for warning logs to avoid noisy printing to stdout
-            msg = "Truncated the value of the key `{}`. Truncated value: `{}`".format(new_k, new_v)
-            _logger.warning(msg)
-
-        truncated[new_k] = new_v
-
-    return truncated
 
 
 def _get_meta_estimators_for_autologging():

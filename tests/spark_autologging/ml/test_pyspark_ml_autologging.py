@@ -5,7 +5,7 @@ from distutils.version import LooseVersion
 from unittest import mock
 
 import mlflow
-from mlflow.utils import truncate_dict
+from mlflow.utils import _truncate_dict
 from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_ENTITY_KEY_LENGTH,
@@ -58,7 +58,7 @@ def dataset_multinomial(spark_session):
 
 
 def truncate_param_dict(d):
-    return truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+    return _truncate_dict(d, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
 
 
 def stringify_dict_values(d):

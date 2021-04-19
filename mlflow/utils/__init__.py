@@ -3,6 +3,9 @@ from itertools import islice
 from sys import version_info
 
 
+_logger = logging.getLogger(__name__)
+
+
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(
     major=version_info.major, minor=version_info.minor, micro=version_info.micro
 )
@@ -60,15 +63,22 @@ def reraise(tp, value, tb=None):
         tb = None
 
 
-def chunk_dict(d, chunk_size):
-    # Copied from: https://stackoverflow.com/a/22878842
-
+def _chunk_dict(d, chunk_size):
+    """
+    Splits a dictionary into chunks of the specified size.
+    Taken from: https://stackoverflow.com/a/22878842
+    """
     it = iter(d)
     for _ in range(0, len(d), chunk_size):
         yield {k: d[k] for k in islice(it, chunk_size)}
 
 
-def truncate_dict(d, max_key_length=None, max_value_length=None):
+def _truncate_dict(d, max_key_length=None, max_value_length=None):
+    """
+    Truncates keys and/or values in a dictionary to the specified maximum length.
+    Truncated items will be converted to strings and ellipsized.
+    """
+
     def _truncate_and_ellipsize(value, max_length):
         return str(value)[: (max_length - 3)] + "..."
 
@@ -98,3 +108,10 @@ def truncate_dict(d, max_key_length=None, max_value_length=None):
         truncated[new_k] = new_v
 
     return truncated
+
+
+def _get_fully_qualified_class_name(obj):
+    """
+    Obtains the fully qualified class name of the given object.
+    """
+    return obj.__class__.__module__ + "." + obj.__class__.__name__

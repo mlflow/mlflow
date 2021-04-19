@@ -2,9 +2,10 @@ import logging
 from pkg_resources import resource_filename
 
 import mlflow
-from mlflow.utils import chunk_dict, truncate_dict
+from mlflow.utils import _chunk_dict, _truncate_dict, _get_fully_qualified_class_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
+    _get_new_training_session_class,
     autologging_integration,
     safe_patch,
     try_mlflow_log,
@@ -12,13 +13,9 @@ from mlflow.utils.autologging_utils import (
 
 
 _logger = logging.getLogger(__name__)
-
+_SparkTrainingSession = _get_new_training_session_class()
 
 AUTOLOGGING_INTEGRATION_NAME = "pyspark.ml"
-
-
-def _get_fully_qualified_class_name(instance):
-    return instance.__class__.__module__ + "." + instance.__class__.__name__
 
 
 def _read_log_model_allowlist_from_file(allowlist_file):
@@ -135,42 +132,6 @@ def _get_instance_param_map(instance):
     return expanded_param_map
 
 
-# NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now because:
-# 1. We don't currently have any use cases for allow_children=True.
-# 2. The list append & pop operations are thread-safe, so we will always clear the session stack
-#    once all _SparkTrainingSessions exit.
-class _SparkTrainingSession(object):
-    _session_stack = []
-
-    def __init__(self, clazz, allow_children=True):
-        self.allow_children = allow_children
-        self.clazz = clazz
-        self._parent = None
-
-    def __enter__(self):
-        if len(_SparkTrainingSession._session_stack) > 0:
-            self._parent = _SparkTrainingSession._session_stack[-1]
-            self.allow_children = (
-                _SparkTrainingSession._session_stack[-1].allow_children and self.allow_children
-            )
-        _SparkTrainingSession._session_stack.append(self)
-        return self
-
-    def __exit__(self, tp, val, traceback):
-        _SparkTrainingSession._session_stack.pop()
-
-    def should_log(self):
-        """
-        Returns True when at least one of the following conditions satisfies:
-
-        1. This session is the root session.
-        2. The parent session allows autologging and its class differs from this session's class.
-        """
-        return (self._parent is None) or (
-            self._parent.allow_children and self._parent.clazz != self.clazz
-        )
-
-
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
     return (
         "Skip pyspark ML autologging when calling "
@@ -258,10 +219,10 @@ def autolog(
             estimator = estimator.copy(params)
 
         # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in chunk_dict(
+        for chunk in _chunk_dict(
             _get_instance_param_map(estimator), chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         ):
-            truncated = truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+            truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
 
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
