@@ -140,6 +140,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             if len(DatabricksArtifactRepository._artifact_roots_cache) > 1024:
                 DatabricksArtifactRepository.popitem(last=False)
             DatabricksArtifactRepository._artifact_roots_cache[run_id] = artifact_root
+
             return artifact_root
 
     def _get_write_credentials(self, run_id, path=None):
