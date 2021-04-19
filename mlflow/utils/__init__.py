@@ -69,8 +69,7 @@ def _chunk_dict(d, chunk_size):
     Taken from: https://stackoverflow.com/a/22878842
     """
     it = iter(d)
-    for _ in range(0, len(d), chunk_size):
-        yield {k: d[k] for k in islice(it, chunk_size)}
+    return [{k: d[k] for k in islice(it, chunk_size)} for _ in range(0, len(d), chunk_size)]
 
 
 def _truncate_dict(d, max_key_length=None, max_value_length=None):
