@@ -291,3 +291,10 @@ spark:
         exit 1
       fi
       pytest --verbose tests/spark --large --ignore tests/spark/test_mleap_model_export.py
+
+  autologging:
+    minimum: "3.0.0"
+    maximum: "3.1.1"
+    run: |
+      # TODO: Add datasource autologging tests
+      pytest --verbose tests/spark_autologging/ml/test_pyspark_ml_autologging.py --large
