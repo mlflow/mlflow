@@ -449,20 +449,21 @@ def _log_pretraining_metadata(estimator, *args, **kwargs):  # pylint: disable=un
     for idx, params_chunk in enumerate(chunked_params):
         log_batch_kwargs = {
             "run_id": mlflow.active_run().info.run_id,
-            "params": [
-                Param(str(key), str(value)) for key, value in params_chunk.items()
-            ],
+            "params": [Param(str(key), str(value)) for key, value in params_chunk.items()],
         }
-        if idx == len(chunked_params) - 1 and len(params_chunk) <= MAX_PARAMS_TAGS_PER_BATCH - len(tags_to_set):
+        if idx == len(chunked_params) - 1 and len(params_chunk) <= MAX_PARAMS_TAGS_PER_BATCH - len(
+            tags_to_set
+        ):
             log_batch_kwargs["tags"] = [
                 RunTag(str(key), str(value)) for key, value in tags_to_set.items()
             ]
-            set_tags=True
+            set_tags = True
 
         client.log_batch(**log_batch_kwargs)
 
     if not set_tags:
         try_mlflow_log(mlflow.set_tags, tags_to_set)
+
 
 def _log_posttraining_metadata(estimator, *args, **kwargs):
     """
@@ -553,9 +554,7 @@ def _log_posttraining_metadata(estimator, *args, **kwargs):
                 child_tags = context_registry.resolve_tags()
                 child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
                 _create_child_runs_for_parameter_search(
-                    cv_estimator=estimator,
-                    parent_run=mlflow.active_run(),
-                    child_tags=child_tags,
+                    cv_estimator=estimator, parent_run=mlflow.active_run(), child_tags=child_tags,
                 )
             except Exception as e:
 
@@ -694,10 +693,7 @@ def _chunk_dict(d, chunk_size):
     # Copied from: https://stackoverflow.com/a/22878842
 
     it = iter(d)
-    return [
-        {k: d[k] for k in islice(it, chunk_size)}
-        for _ in range(0, len(d), chunk_size)
-    ]
+    return [{k: d[k] for k in islice(it, chunk_size)} for _ in range(0, len(d), chunk_size)]
 
 
 def _truncate_dict(d, max_key_length=None, max_value_length=None):

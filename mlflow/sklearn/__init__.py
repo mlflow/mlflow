@@ -766,7 +766,6 @@ def autolog(
         _log_posttraining_metadata(self, *args, **kwargs)
         return fit_output
 
-
     def patched_fit(original, self, *args, **kwargs):
         """
         Autologging patch function to be applied to a sklearn model class that defines a `fit`

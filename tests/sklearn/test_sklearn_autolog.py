@@ -676,7 +676,11 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
 
 
 def test_fit_xxx_performs_logging_only_once(fit_func_name):
-    with mock.patch("mlflow.sklearn.utils._log_pretraining_metadata") as mock_log_pretraining, mock.patch("mlflow.sklearn.utils._log_posttraining_metadata") as mock_log_posttraining:
+    with mock.patch(
+        "mlflow.sklearn.utils._log_pretraining_metadata"
+    ) as mock_log_pretraining, mock.patch(
+        "mlflow.sklearn.utils._log_posttraining_metadata"
+    ) as mock_log_posttraining:
         mlflow.sklearn.autolog()
 
         model = sklearn.cluster.KMeans()
@@ -694,7 +698,11 @@ def test_fit_xxx_performs_logging_only_once(fit_func_name):
 
 
 def test_meta_estimator_fit_performs_logging_only_once():
-    with mock.patch("mlflow.sklearn.utils._log_pretraining_metadata") as mock_log_pretraining, mock.patch("mlflow.sklearn.utils._log_posttraining_metadata") as mock_log_posttraining:
+    with mock.patch(
+        "mlflow.sklearn.utils._log_pretraining_metadata"
+    ) as mock_log_pretraining, mock.patch(
+        "mlflow.sklearn.utils._log_posttraining_metadata"
+    ) as mock_log_posttraining:
         mlflow.sklearn.autolog()
 
         estimators = [
@@ -910,7 +918,9 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
     mlflow.sklearn.autolog()
     model = sklearn.linear_model.LinearRegression()
 
-    with mlflow.start_run() as run, mock.patch("mlflow.sklearn.utils._logger.warning") as mock_warning:
+    with mlflow.start_run() as run, mock.patch(
+        "mlflow.sklearn.utils._logger.warning"
+    ) as mock_warning:
         model.fit(throwing_X, y)
 
     model_conf = get_model_conf(run.info.artifact_uri)
