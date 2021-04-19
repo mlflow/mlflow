@@ -2,7 +2,7 @@
 # Test Spark autologging against the Spark 3.0 preview. This script is temporary and should be
 # removed once Spark 3.0 is released in favor of simply updating all tests to run against Spark 3.0
 # (i.e. updating the pyspark dependency version in dev/large-requirements.txt)
-set -ex
+# set -ex
 
 # Build Java package
 pushd mlflow/java/spark
