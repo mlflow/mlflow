@@ -296,4 +296,4 @@ spark:
     maximum: "3.1.1"
     run: |
       # TODO: Add datasource autologging tests
-      pytest --verbose tests/spark_autologging/ml/test_pyspark_ml_autologging.py --large
+      find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --verbose --large
