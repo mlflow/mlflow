@@ -243,7 +243,7 @@ def autolog(
         param_map = _get_instance_param_map(estimator)
         if isinstance(estimator, Pipeline):
             pipeline_hyerarchy, stages_param_maps = _get_pipeline_stage_hierarchy_and_params(
-                estimator)
+                estimator.getStages())
             param_map.update(stages_param_maps)
             try_mlflow_log(mlflow.log_dict, pipeline_hyerarchy,
                            artifact_file='pipeline_hyerarchy.json')
