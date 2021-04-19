@@ -327,7 +327,7 @@ class MlflowClient(object):
         self,
         view_type: Optional[str] = None,
         max_results: Optional[int] = SEARCH_MAX_RESULTS_DEFAULT,
-        page_token: Optional[str] = None
+        page_token: Optional[str] = None,
     ) -> PagedList[Experiment]:
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
