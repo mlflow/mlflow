@@ -431,9 +431,34 @@ def autologging_is_disabled(integration_name):
     return False
 
 
-def _get_training_session():
+def _get_new_training_session_class():
     """
-    Returns a session manager for nested autologging runs.
+    Returns a session manager class for nested autologging runs.
+
+    Examples
+    ========
+
+    >>> class Parent: pass
+    >>> class Child: pass
+    >>> class Grandchild: pass
+    >>>
+    >>> _TrainingSession = _get_new_training_session_class()
+    >>> with _TrainingSession(Parent, False) as p:
+    ...     with _SklearnTrainingSession(Child, True) as c:
+    ...         with _SklearnTrainingSession(Grandchild, True) as g:
+    ...             print(p.should_log(), c.should_log(), g.should_log())
+    True False False
+    >>>
+    >>> with _TrainingSession(Parent, True) as p:
+    ...     with _TrainingSession(Child, False) as c:
+    ...         with _TrainingSession(Grandchild, True) as g:
+    ...             print(p.should_log(), c.should_log(), g.should_log())
+    True True False
+    >>>
+    >>> with _TrainingSession(Child, True) as c1:
+    ...     with _TrainingSession(Child, True) as c2:
+    ...             print(c1.should_log(), c2.should_log())
+    True False
     """
     # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now
     # because:
@@ -450,39 +475,6 @@ def _get_training_session():
             :param clazz: A class object that this session originates from.
             :param allow_children: If True, allows autologging in child sessions.
                                    If False, disallows autologging in all descendant sessions.
-
-            Example:
-
-            >>> class Parent: pass
-            >>> class Child: pass
-            >>> class Grandchild: pass
-
-            >>> with _SklearnTrainingSession(Parent, False) as p:
-            ...     with _SklearnTrainingSession(Child, True) as c:
-            ...         with _SklearnTrainingSession(Grandchild, True) as g:
-            ...             print(p.should_log())
-            ...             print(c.should_log())
-            ...             print(g.should_log())
-            True
-            False
-            False
-
-            >>> with _SklearnTrainingSession(Parent, True) as p:
-            ...     with _SklearnTrainingSession(Child, False) as c:
-            ...         with _SklearnTrainingSession(Grandchild, True) as g:
-            ...             print(p.should_log())
-            ...             print(c.should_log())
-            ...             print(g.should_log())
-            True
-            True
-            False
-
-            >>> with _SklearnTrainingSession(Child, True) as c1:
-            ...     with _SklearnTrainingSession(Child, True) as c2:
-            ...             print(c1.should_log())
-            ...             print(c2.should_log())
-            True
-            False
             """
             self.allow_children = allow_children
             self.clazz = clazz

@@ -36,7 +36,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
-    _get_training_session,
+    _get_new_training_session_class,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -48,7 +48,7 @@ SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
 
 _logger = logging.getLogger(__name__)
-_SklearnTrainingSession = _get_training_session()
+_SklearnTrainingSession = _get_new_training_session_class()
 
 
 def get_default_conda_env(include_cloudpickle=False):
