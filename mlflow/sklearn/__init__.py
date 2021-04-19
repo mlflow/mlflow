@@ -18,7 +18,6 @@ import warnings
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.entities import Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
