@@ -265,7 +265,7 @@ class MlflowClient(object):
         run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
-        page_token: Optional[bytes] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[RunInfo]:
         """:return: List of :py:class:`mlflow.entities.RunInfo`
 
@@ -1471,7 +1471,7 @@ class MlflowClient(object):
         run_view_type: int = ViewType.ACTIVE_ONLY,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
-        page_token: Optional[bytes] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[Run]:
         """
         Search experiments that fit the search criteria.
@@ -1757,7 +1757,7 @@ class MlflowClient(object):
     def list_registered_models(
         self,
         max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        page_token: Optional[bytes] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
         """
         List of all registered models
@@ -1812,7 +1812,7 @@ class MlflowClient(object):
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         order_by: Optional[List[str]] = None,
-        page_token: Optional[bytes] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
         """
         Search for registered models in backend that satisfy the filter criteria.
