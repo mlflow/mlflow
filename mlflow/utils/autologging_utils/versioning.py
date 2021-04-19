@@ -16,6 +16,7 @@ FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
     "xgboost": ("xgboost", "xgboost"),
     "sklearn": ("sklearn", "sklearn"),
     "pytorch": ("pytorch_lightning", "pytorch-lightning"),
+    "pyspark.ml": ("pyspark", "spark"),
 }
 
 
