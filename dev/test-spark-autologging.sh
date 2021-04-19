@@ -9,6 +9,10 @@ pushd mlflow/java/spark
 mvn package -DskipTests -q
 popd
 
+spark-submit --version
+pytest tests/spark_autologging/datasource/test_spark_datasource_autologging.py \
+  -k test_autologging_of_datasources_with_different_formats --large --verbose --capture=no
+
 # Install PySpark 3.0 preview & run tests. For faster local iteration, you can also simply download
 # the .tgz used below (http://mirror.cogentco.com/pub/apache/spark/spark-3.0.0-preview/spark-3.0.0-preview-bin-hadoop2.7.tgz),
 # extract it, and set SPARK_HOME to the path of the extracted folder while invoking pytest as
@@ -21,7 +25,9 @@ pip install -e spark-3.0.0-preview-bin-hadoop2.7/python
 popd
 
 export SPARK_HOME=$TEMPDIR/spark-3.0.0-preview-bin-hadoop2.7
-find tests/spark_autologging -name 'test*.py' | xargs -L 1 pytest --large
+spark-submit --version
+pytest tests/spark_autologging/datasource/test_spark_datasource_autologging.py \
+  -k test_autologging_of_datasources_with_different_formats --large --verbose --capture=no
 
 rm -rf $TEMPDIR
 

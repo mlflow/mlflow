@@ -48,11 +48,17 @@ private[autologging] trait DatasourceAttributeExtractorBase {
     if (deltaInfoOpt.isDefined) {
       deltaInfoOpt
     } else {
+      logger.warn("x" * 80)
+      logger.warn(leafNode.getClass().getCanonicalName())
       leafNode match {
-        case relation: DataSourceV2Relation =>
+        case relation: DataSourceV2Relation => {
+          logger.warn("Matched DataSourceV2Relation")
           getSparkTableInfoFromTable(relation.table)
-        case other =>
+        }
+        case other => {
+          logger.warn("Matched other")
           None
+        }
       }
     }
   }
