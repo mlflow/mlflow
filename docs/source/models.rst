@@ -1228,6 +1228,17 @@ Spark cluster and used to score the model.
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
 
+If a model contains a signature, the UDF can be called without specifying column name arguments.
+In this case, the UDF will be called with column names from signature, so the evaluation
+dataframe's column names must match the model signature's column names.
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model-with-signature>)
+    df = spark_df.withColumn("prediction", pyfunc_udf())
+
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value or an array of values of the same type per observation. By default, we return the first
 numeric column as a double. You can control what result is returned by supplying ``result_type``
