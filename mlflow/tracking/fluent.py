@@ -604,15 +604,16 @@ def log_text(text: str, artifact_file: str) -> None:
 
 
 @experimental
-def log_dict(dictionary: Dict, artifact_file: str) -> None:
+def log_dict(dictionary: Any, artifact_file: str) -> None:
     """
-    Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
-    inferred from the extension of `artifact_file`. If the file extension doesn't exist or match
-    any of [".json", ".yml", ".yaml"], JSON format is used.
+    Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
+    format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
+    If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
+    JSON format is used.
 
     :param dictionary: Dictionary to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
-                            the dictionary is saved (e.g. "dir/data.json").
+                          the dictionary is saved (e.g. "dir/data.json").
 
     .. code-block:: python
         :caption: Example

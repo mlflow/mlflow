@@ -992,11 +992,12 @@ class MlflowClient(object):
                 f.write(text)
 
     @experimental
-    def log_dict(self, run_id: str, dictionary: Dict, artifact_file: str) -> None:
+    def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
         """
-        Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
-        inferred from the extension of `artifact_file`. If the file extension doesn't exist or
-        match any of [".json", ".yml", ".yaml"], JSON format is used.
+        Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
+        format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
+        If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
+        JSON format is used.
 
         :param run_id: String ID of the run.
         :param dictionary: Dictionary to log.
