@@ -710,6 +710,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
     will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
 
+    If a model contains a signature, the UDF can be called without specifying column name
+    arguments. In this case, the UDF will be called with column names from signature, so the
+    evaluation dataframe's column names must match the model signature's column names.
+
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
     converted to string. If the result type is not an array type, the left most column with
@@ -774,6 +778,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
+    import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
@@ -801,6 +806,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -868,7 +874,37 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    return pandas_udf(predict, result_type)
+    udf = pandas_udf(predict, result_type)
+    udf.metadata = model_metadata
+
+    @functools.wraps(udf)
+    def udf_with_default_cols(*args):
+        if len(args) == 0:
+            input_schema = model_metadata.get_input_schema()
+
+            if input_schema and len(input_schema.inputs) > 0:
+                if input_schema.has_input_names():
+                    input_names = input_schema.input_names()
+                    return udf(*input_names)
+                else:
+                    raise MlflowException(
+                        message="Cannot apply udf because no column names specified. The udf "
+                        "expects {} columns with types: {}. Input column names could not be "
+                        "inferred from the model signature (column names not found).".format(
+                            len(input_schema.inputs), input_schema.inputs,
+                        ),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                _logger.warning(
+                    "Attempting to apply udf on zero columns because no column names were "
+                    "specified as arguments or inferred from the model signature."
+                )
+                return udf()
+        else:
+            return udf(*args)
+
+    return udf_with_default_cols
 
 
 def save_model(
