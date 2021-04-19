@@ -132,7 +132,7 @@ def _get_instance_param_map(instance):
     return expanded_param_map
 
 
-def _get_pipeline_stage_hierarchy_and_params(pipeline_stages):
+def _get_pipeline_stage_hierarchy_and_params(pipeline):
     from pyspark.ml import Pipeline
     """
     :param pipeline_stages: stages of a pyspark ML pipeline
@@ -140,17 +140,17 @@ def _get_pipeline_stage_hierarchy_and_params(pipeline_stages):
     """
     stage_hierarchy = []
     param_map = {}
+    pipeline_stages = pipeline.getStages()
     for stage in pipeline_stages:
         if isinstance(stage, Pipeline):
-            hierarchy_elem, stage_param_map = _get_pipeline_stage_hierarchy_and_params(
-                stage.getStages())
+            hierarchy_elem, stage_param_map = _get_pipeline_stage_hierarchy_and_params(stage)
         else:
             hierarchy_elem = stage.uid
             stage_param_map = {f'{stage.uid}.{k}': v
                                for k, v in _get_instance_param_map(stage).items()}
         stage_hierarchy.append(hierarchy_elem)
         param_map.update(stage_param_map)
-    return stage_hierarchy, param_map
+    return {pipeline.uid: stage_hierarchy}, param_map
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
@@ -243,7 +243,7 @@ def autolog(
         param_map = _get_instance_param_map(estimator)
         if isinstance(estimator, Pipeline):
             pipeline_hyerarchy, stages_param_maps = _get_pipeline_stage_hierarchy_and_params(
-                estimator.getStages())
+                estimator)
             param_map.update(stages_param_maps)
             try_mlflow_log(mlflow.log_dict, pipeline_hyerarchy,
                            artifact_file='pipeline_hyerarchy.json')
