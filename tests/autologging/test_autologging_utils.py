@@ -718,6 +718,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "statsmodels"},
         "autologging": {"minimum": "0.11.1", "maximum": "0.12.2"},
     },
+    "spark": {
+        "package_info": {"pip_release": "pyspark"},
+        "autologging": {"minimum": "3.0.1", "maximum": "3.1.1"},
+    },
 }
 
 
@@ -742,6 +746,8 @@ _module_version_info_dict_patch = {
         ("sklearn", "0.20.2", False),
         ("pytorch", "1.0.5", True),
         ("pytorch", "1.0.4", False),
+        ("pyspark.ml", "3.1.0", True),
+        ("pyspark.ml", "3.0.0", False),
     ],
 )
 @mock.patch(

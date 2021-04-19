@@ -36,6 +36,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.fastai: "fastai",
     mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",
+    mlflow.pyspark.ml: "pyspark",
 }
 
 
@@ -74,13 +75,15 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=False)
 
-    assert not autologging_is_disabled(integration.FLAVOR_NAME)
-    assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
+    integration_name = integration.autolog.integration_name
+
+    assert not autologging_is_disabled(integration_name)
+    assert not get_autologging_config(integration_name, "disable", True)
 
     integration.autolog(disable=True)
 
-    assert autologging_is_disabled(integration.FLAVOR_NAME)
-    assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
+    assert autologging_is_disabled(integration_name)
+    assert get_autologging_config(integration_name, "disable", False)
 
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())

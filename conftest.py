@@ -98,6 +98,7 @@ def pytest_ignore_collect(path, config):
             "tests/autologging/test_autologging_behaviors_unit.py",
             "tests/autologging/test_autologging_behaviors_integration.py",
             "tests/autologging/test_autologging_utils.py",
+            "tests/autologging/test_training_session.py",
         ]
 
         relpath = os.path.relpath(str(path))
