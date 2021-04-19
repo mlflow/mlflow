@@ -5,7 +5,6 @@ from sklearn.datasets import load_iris
 
 import mlflow
 
-
 spark = SparkSession.builder.getOrCreate()
 X, y = load_iris(return_X_y=True)
 df = spark.createDataFrame(
