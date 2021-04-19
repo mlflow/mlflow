@@ -279,3 +279,35 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
 
     assert "event_autolog2" in stream.getvalue()
     assert "patchimpl2" in stream.getvalue()
+
+
+@pytest.mark.parametrize("silent", [False, True])
+@pytest.mark.parametrize("disable", [False, True])
+def test_silent_mode_and_warning_rerouting_respect_disabled_flag(
+    patch_destination, silent, disable
+):
+    stream = StringIO()
+    sys.stderr = stream
+
+    def original_fn():
+        warnings.warn("Test warning", category=UserWarning)
+
+    patch_destination.fn = original_fn
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        safe_patch("test_integration", patch_destination, "fn", lambda original: original())
+
+    test_autolog(disable=disable, silent=silent)
+
+    with warnings.catch_warnings(record=True) as warnings_record:
+        patch_destination.fn()
+
+    # Verify that calling the patched instance method still emits the expected warning
+    assert len(warnings_record) == 1
+    assert warnings_record[0].message.args[0] == "Test warning"
+    assert warnings_record[0].category == UserWarning
+
+    # Verify that nothing is printed to the stderr-backed MLflow event logger, which would indicate
+    # rerouting of warning content
+    assert not stream.getvalue()

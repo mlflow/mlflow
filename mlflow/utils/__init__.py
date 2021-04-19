@@ -1,5 +1,5 @@
-from itertools import islice
 import logging
+from itertools import islice
 from sys import version_info
 
 
@@ -9,6 +9,9 @@ _logger = logging.getLogger(__name__)
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(
     major=version_info.major, minor=version_info.minor, micro=version_info.micro
 )
+
+
+_logger = logging.getLogger(__name__)
 
 
 def get_major_minor_py_version(py_version):
@@ -63,8 +66,8 @@ def reraise(tp, value, tb=None):
 def _chunk_dict(d, chunk_size):
     """
     Splits a dictionary into chunks of the specified size.
+    Taken from: https://stackoverflow.com/a/22878842
     """
-    # Taken from: https://stackoverflow.com/a/22878842
     it = iter(d)
     for _ in range(0, len(d), chunk_size):
         yield {k: d[k] for k in islice(it, chunk_size)}

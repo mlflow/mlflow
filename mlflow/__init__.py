@@ -64,6 +64,7 @@ try:
     import mlflow.tensorflow as tensorflow  # noqa: E402
     import mlflow.xgboost as xgboost  # noqa: E402
     import mlflow.shap as shap  # noqa: E402
+    import mlflow.pyspark as pyspark  # noqa: E402
 
     _model_flavors_supported = [
         "catboost",
