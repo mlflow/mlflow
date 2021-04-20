@@ -275,6 +275,11 @@ statsmodels:
 spark:
   package_info:
     pip_release: "pyspark"
+    install_dev: |
+      git clone --depth 1 https://github.com/apache/spark
+      ./build/mvn -DskipTests clean package
+      cd python
+      python setup.py install
 
   models:
     minimum: "3.0.0"
