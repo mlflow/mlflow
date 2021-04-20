@@ -56,7 +56,11 @@ def configure_environment():
 
 def get_spark_session(conf):
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    return pyspark.sql.SparkSession.builder.config(conf=conf).master("local[*]").getOrCreate()
+    return (
+        pyspark.sql.SparkSession.builder.config(conf=conf)
+        .master("local-cluster[2, 1, 1024]")
+        .getOrCreate()
+    )
 
 
 @pytest.fixture(scope="session")
