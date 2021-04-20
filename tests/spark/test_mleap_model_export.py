@@ -34,8 +34,10 @@ def spark_context():
     conf = pyspark.SparkConf()
     conf.set(
         key="spark.jars.packages",
-        value="ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
-        "ml.combust.mleap:mleap-spark_2.11:0.12.0",
+        value=(
+            "ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
+            "ml.combust.mleap:mleap-spark_2.11:0.12.0"
+        ),
     )
     spark_session = get_spark_session(conf)
     return spark_session.sparkContext
