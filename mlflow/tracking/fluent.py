@@ -8,7 +8,7 @@ import atexit
 import time
 import logging
 import inspect
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -30,12 +30,14 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
-try:
-    import pandas as pd
+if TYPE_CHECKING:
+    try:
+        import matplotlib
+        import plotly
+        import pandas as pd
+    except ImportError:
+        pass
 
-    SearchRunsReturnType = Union[pd.DataFrame, List[Run]]
-except ImportError:
-    SearchRunsReturnType = List[Run]
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -965,7 +967,7 @@ def search_runs(
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
-) -> SearchRunsReturnType:
+) -> Union[List[Run], "pd.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 

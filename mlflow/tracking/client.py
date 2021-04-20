@@ -11,7 +11,7 @@ import posixpath
 import sys
 import tempfile
 import yaml
-from typing import Any, Dict, Sequence, List, Optional, Union
+from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, RunTag, FileInfo, ViewType
 from mlflow.store.entities.paged_list import PagedList
@@ -38,6 +38,14 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, construct_run_url
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    try:
+        import matplotlib
+        import plotly
+    except ImportError:
+        pass
+
 
 _logger = logging.getLogger(__name__)
 
