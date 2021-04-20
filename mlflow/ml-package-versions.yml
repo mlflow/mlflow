@@ -279,9 +279,12 @@ spark:
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark $temp_dir
       cd $temp_dir
+      export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
+      export MAVEN_CLI_OPTS="--no-transfer-progress"
       ./build/mvn -DskipTests clean package
       cd python
-      python setup.py install
+      python setup.py sdist
+      pip install dist/*.tar.gz
 
   models:
     minimum: "3.0.0"
