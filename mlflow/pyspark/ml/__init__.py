@@ -79,11 +79,15 @@ def _get_warning_msg_for_skip_log_model(model):
 
 
 def _should_log_model(spark_model):
+    from pyspark.ml.base import Model
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
     if class_name in _log_model_allowlist:
         if class_name == "pyspark.ml.classification.OneVsRestModel":
             return _should_log_model(spark_model.models[0])
+        elif class_name == 'pyspark.ml.pipeline.PipelineModel':
+            return all(_should_log_model(stage) for stage in spark_model.stages
+                       if isinstance(stage, Model))
         else:
             return True
     else:
