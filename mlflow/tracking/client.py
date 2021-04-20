@@ -40,12 +40,10 @@ from mlflow.utils.uri import is_databricks_uri, construct_run_url
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
-    try:
-        import matplotlib
-        import plotly
-    except ImportError:
-        pass
-
+    import matplotlib  # pylint: disable=unused-import
+    import plotly  # pylint: disable=unused-import
+    import PIL  # pylint: disable=unused-import
+    import numpy  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 

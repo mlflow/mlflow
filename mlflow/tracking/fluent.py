@@ -31,12 +31,11 @@ from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
-    try:
-        import matplotlib
-        import plotly
-        import pandas as pd
-    except ImportError:
-        pass
+    import matplotlib  # pylint: disable=unused-import
+    import plotly  # pylint: disable=unused-import
+    import PIL  # pylint: disable=unused-import
+    import numpy  # pylint: disable=unused-import
+    import pandas  # pylint: disable=unused-import
 
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -967,7 +966,7 @@ def search_runs(
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
     order_by: Optional[List[str]] = None,
     output_format: str = "pandas",
-) -> Union[List[Run], "pd.DataFrame"]:
+) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
