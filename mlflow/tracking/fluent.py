@@ -31,11 +31,11 @@ from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
+    import pandas  # pylint: disable=unused-import
     import matplotlib  # pylint: disable=unused-import
     import plotly  # pylint: disable=unused-import
-    import PIL  # pylint: disable=unused-import
     import numpy  # pylint: disable=unused-import
-    import pandas  # pylint: disable=unused-import
+    import PIL  # pylint: disable=unused-import
 
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"

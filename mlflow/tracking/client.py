@@ -42,8 +42,8 @@ from mlflow.utils.annotations import experimental
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
     import plotly  # pylint: disable=unused-import
-    import PIL  # pylint: disable=unused-import
     import numpy  # pylint: disable=unused-import
+    import PIL  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
