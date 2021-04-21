@@ -4,9 +4,9 @@ services:
     image: postgres
     restart: always
     environment:
+      POSTGRES_DB: mlflowdb
       POSTGRES_USER: mlflowuser
       POSTGRES_PASSWORD: mlflowpassword
-      POSTGRES_DB: mlflowdb
 
   mlflow-postgres:
     depends_on:
