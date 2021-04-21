@@ -138,6 +138,10 @@ def _get_instance_param_map(instance):
     for k, v in param_map.items():
         if is_pipeline and k == "stages":
             expanded_param_map[k] = _get_pipeline_stage_hierarchy(instance)[instance.uid]
+            for stage in instance.getStages():
+                stage_param_map = _get_instance_param_map(stage)
+                for ik, iv in stage_param_map.items():
+                    expanded_param_map[f"{stage.uid}.{ik}"] = iv
         elif isinstance(v, Params):
             # handle the case param value type inherits `pyspark.ml.param.Params`
             # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
