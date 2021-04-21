@@ -80,14 +80,16 @@ def _get_warning_msg_for_skip_log_model(model):
 
 def _should_log_model(spark_model):
     from pyspark.ml.base import Model
+
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
     if class_name in _log_model_allowlist:
         if class_name == "pyspark.ml.classification.OneVsRestModel":
             return _should_log_model(spark_model.models[0])
-        elif class_name == 'pyspark.ml.pipeline.PipelineModel':
-            return all(_should_log_model(stage) for stage in spark_model.stages
-                       if isinstance(stage, Model))
+        elif class_name == "pyspark.ml.pipeline.PipelineModel":
+            return all(
+                _should_log_model(stage) for stage in spark_model.stages if isinstance(stage, Model)
+            )
         else:
             return True
     else:
@@ -134,7 +136,7 @@ def _get_instance_param_map(instance):
     is_pipeline = isinstance(instance, Pipeline)
 
     for k, v in param_map.items():
-        if is_pipeline and k == 'stages':
+        if is_pipeline and k == "stages":
             expanded_param_map[k] = _get_pipeline_stage_hierarchy(instance)[instance.uid]
         elif isinstance(v, Params):
             # handle the case param value type inherits `pyspark.ml.param.Params`
@@ -246,13 +248,12 @@ def autolog(
         param_map = _get_instance_param_map(estimator)
         if isinstance(estimator, Pipeline):
             pipeline_hierarchy = _get_pipeline_stage_hierarchy(estimator)
-            try_mlflow_log(mlflow.log_dict, pipeline_hierarchy,
-                           artifact_file='pipeline_hierarchy.json')
+            try_mlflow_log(
+                mlflow.log_dict, pipeline_hierarchy, artifact_file="pipeline_hierarchy.json"
+            )
 
         # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in _chunk_dict(
-            param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
-        ):
+        for chunk in _chunk_dict(param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,):
             truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
 

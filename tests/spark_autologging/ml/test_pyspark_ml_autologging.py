@@ -28,7 +28,7 @@ from mlflow.pyspark.ml import (
     _get_instance_param_map,
     _get_warning_msg_for_skip_log_model,
     _get_warning_msg_for_fit_call_with_a_list_of_params,
-    _get_pipeline_stage_hierarchy
+    _get_pipeline_stage_hierarchy,
 )
 
 pytestmark = pytest.mark.large
@@ -62,12 +62,15 @@ def dataset_multinomial(spark_session):
 
 @pytest.fixture(scope="module")
 def dataset_text(spark_session):
-    return spark_session.createDataFrame([
-        (0, "a b c d e spark", 1.0),
-        (1, "b d", 0.0),
-        (2, "spark f g h", 1.0),
-        (3, "hadoop mapreduce", 0.0)
-    ], ["id", "text", "label"])
+    return spark_session.createDataFrame(
+        [
+            (0, "a b c d e spark", 1.0),
+            (1, "b d", 0.0),
+            (2, "spark f g h", 1.0),
+            (3, "hadoop mapreduce", 0.0),
+        ],
+        ["id", "text", "label"],
+    )
 
 
 def truncate_param_dict(d):
@@ -239,9 +242,11 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
 
     with mock.patch(
         "mlflow.pyspark.ml._log_model_allowlist",
-        {"pyspark.ml.regression.LinearRegressionModel",
-         "pyspark.ml.classification.OneVsRestModel",
-         "pyspark.ml.pipeline.PipelineModel"},
+        {
+            "pyspark.ml.regression.LinearRegressionModel",
+            "pyspark.ml.classification.OneVsRestModel",
+            "pyspark.ml.pipeline.PipelineModel",
+        },
     ), mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
         lr = LinearRegression()
         lr_model = lr.fit(dataset_binomial)
@@ -285,10 +290,12 @@ def test_pipeline(dataset_text):
     inner_pipeline = Pipeline(stages=[hashingTF, lr])
     nested_pipeline = Pipeline(stages=[tokenizer, inner_pipeline])
 
-    assert _get_pipeline_stage_hierarchy(pipeline) == \
-           {pipeline.uid: [tokenizer.uid, hashingTF.uid, lr.uid]}
-    assert _get_pipeline_stage_hierarchy(nested_pipeline) == \
-           {nested_pipeline.uid: [tokenizer.uid, {inner_pipeline.uid: [hashingTF.uid, lr.uid]}]}
+    assert _get_pipeline_stage_hierarchy(pipeline) == {
+        pipeline.uid: [tokenizer.uid, hashingTF.uid, lr.uid]
+    }
+    assert _get_pipeline_stage_hierarchy(nested_pipeline) == {
+        nested_pipeline.uid: [tokenizer.uid, {inner_pipeline.uid: [hashingTF.uid, lr.uid]}]
+    }
 
     for estimator in [pipeline, nested_pipeline]:
         with mlflow.start_run() as run:
@@ -303,4 +310,4 @@ def test_pipeline(dataset_text):
         assert MODEL_DIR in run_data.artifacts
         loaded_model = load_model_by_run_id(run_id)
         assert loaded_model.uid == model.uid
-        assert run_data.artifacts == ['model', 'pipeline_hierarchy.json']
+        assert run_data.artifacts == ["model", "pipeline_hierarchy.json"]
