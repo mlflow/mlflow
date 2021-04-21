@@ -11,9 +11,9 @@ import posixpath
 import sys
 import tempfile
 import yaml
-from typing import List, Optional
+from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunInfo, Metric, FileInfo, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, Param, Metric, RunTag, FileInfo, ViewType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -110,7 +110,7 @@ class MlflowClient(object):
 
     # Tracking API
 
-    def get_run(self, run_id) -> Run:
+    def get_run(self, run_id: str) -> Run:
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
@@ -150,7 +150,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_run(run_id)
 
-    def get_metric_history(self, run_id, key) -> List[Metric]:
+    def get_metric_history(self, run_id: str, key: str) -> List[Metric]:
         """
         Return a list of metric objects corresponding to all values logged for a given metric.
 
@@ -217,7 +217,12 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_metric_history(run_id, key)
 
-    def create_run(self, experiment_id, start_time=None, tags=None) -> Run:
+    def create_run(
+        self,
+        experiment_id: str,
+        start_time: Optional[int] = None,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> Run:
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -262,11 +267,11 @@ class MlflowClient(object):
 
     def list_run_infos(
         self,
-        experiment_id,
-        run_view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
+        experiment_id: str,
+        run_view_type: int = ViewType.ACTIVE_ONLY,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[RunInfo]:
         """:return: List of :py:class:`mlflow.entities.RunInfo`
 
@@ -318,7 +323,7 @@ class MlflowClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type=None) -> List[Experiment]:
+    def list_experiments(self, view_type: Optional[str] = None) -> List[Experiment]:
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
                             passed, all experiments will be returned.
@@ -369,7 +374,7 @@ class MlflowClient(object):
             view_type=view_type, max_results=max_results, page_token=page_token
         )
 
-    def get_experiment(self, experiment_id) -> Experiment:
+    def get_experiment(self, experiment_id: str) -> Experiment:
         """
         Retrieve an experiment by experiment_id from the backend store
 
@@ -401,7 +406,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment(experiment_id)
 
-    def get_experiment_by_name(self, name) -> Optional[Experiment]:
+    def get_experiment_by_name(self, name: str) -> Optional[Experiment]:
         """
         Retrieve an experiment by experiment name from the backend store
 
@@ -434,7 +439,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.get_experiment_by_name(name)
 
-    def create_experiment(self, name, artifact_location=None) -> str:
+    def create_experiment(self, name: str, artifact_location: Optional[str] = None) -> str:
         """Create an experiment.
 
         :param name: The experiment name. Must be unique.
@@ -471,7 +476,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.create_experiment(name, artifact_location)
 
-    def delete_experiment(self, experiment_id) -> None:
+    def delete_experiment(self, experiment_id: str) -> None:
         """
         Delete an experiment from the backend store.
 
@@ -502,7 +507,7 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_experiment(experiment_id)
 
-    def restore_experiment(self, experiment_id) -> None:
+    def restore_experiment(self, experiment_id: str) -> None:
         """
         Restore a deleted experiment unless permanently deleted.
 
@@ -546,7 +551,7 @@ class MlflowClient(object):
         """
         self._tracking_client.restore_experiment(experiment_id)
 
-    def rename_experiment(self, experiment_id, new_name) -> None:
+    def rename_experiment(self, experiment_id: str, new_name: str) -> None:
         """
         Update an experiment's name. The new name must be unique.
 
@@ -589,7 +594,14 @@ class MlflowClient(object):
         """
         self._tracking_client.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None, step=None) -> None:
+    def log_metric(
+        self,
+        run_id: str,
+        key: str,
+        value: float,
+        timestamp: Optional[int] = None,
+        step: Optional[int] = None,
+    ) -> None:
         """
         Log a metric against the run ID.
 
@@ -642,7 +654,7 @@ class MlflowClient(object):
         """
         self._tracking_client.log_metric(run_id, key, value, timestamp, step)
 
-    def log_param(self, run_id, key, value) -> None:
+    def log_param(self, run_id: str, key: str, value: Any) -> None:
         """
         Log a parameter against the run ID.
 
@@ -689,7 +701,7 @@ class MlflowClient(object):
         """
         self._tracking_client.log_param(run_id, key, value)
 
-    def set_experiment_tag(self, experiment_id, key, value) -> None:
+    def set_experiment_tag(self, experiment_id: str, key: str, value: Any) -> None:
         """
         Set a tag on the experiment with the specified ID. Value is converted to a string.
 
@@ -720,7 +732,7 @@ class MlflowClient(object):
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
-    def set_tag(self, run_id, key, value) -> None:
+    def set_tag(self, run_id: str, key: str, value: Any) -> None:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
 
@@ -760,7 +772,7 @@ class MlflowClient(object):
         """
         self._tracking_client.set_tag(run_id, key, value)
 
-    def delete_tag(self, run_id, key) -> None:
+    def delete_tag(self, run_id: str, key: str) -> None:
         """
         Delete a tag from a run. This is irreversible.
 
@@ -800,7 +812,13 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_tag(run_id, key)
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=()) -> None:
+    def log_batch(
+        self,
+        run_id: str,
+        metrics: Sequence[Metric] = (),
+        params: Sequence[Param] = (),
+        tags: Sequence[RunTag] = (),
+    ) -> None:
         """
         Log multiple metrics, params, and/or tags.
 
@@ -890,7 +908,9 @@ class MlflowClient(object):
         """
         self._tracking_client.log_artifact(run_id, local_path, artifact_path)
 
-    def log_artifacts(self, run_id, local_dir, artifact_path=None) -> None:
+    def log_artifacts(
+        self, run_id: str, local_dir: str, artifact_path: Optional[str] = None
+    ) -> None:
         """
         Write a directory of files to the remote ``artifact_uri``.
 
@@ -953,7 +973,7 @@ class MlflowClient(object):
             yield tmp_path
             self.log_artifact(run_id, tmp_path, artifact_dir)
 
-    def log_text(self, run_id, text, artifact_file) -> None:
+    def log_text(self, run_id: str, text: str, artifact_file: str) -> None:
         """
         Log text as an artifact.
 
@@ -984,7 +1004,7 @@ class MlflowClient(object):
                 f.write(text)
 
     @experimental
-    def log_dict(self, run_id, dictionary, artifact_file) -> None:
+    def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1029,7 +1049,12 @@ class MlflowClient(object):
                     json.dump(dictionary, f, indent=2)
 
     @experimental
-    def log_figure(self, run_id, figure, artifact_file) -> None:
+    def log_figure(
+        self,
+        run_id: str,
+        figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
+        artifact_file: str,
+    ) -> None:
         """
         Log a figure as an artifact. The following figure objects are supported:
 
@@ -1093,7 +1118,9 @@ class MlflowClient(object):
                 raise TypeError("Unsupported figure object type: '{}'".format(type(figure)))
 
     @experimental
-    def log_image(self, run_id, image, artifact_file) -> None:
+    def log_image(
+        self, run_id: str, image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str
+    ) -> None:
         """
         Log an image as an artifact. The following image objects are supported:
 
@@ -1245,7 +1272,7 @@ class MlflowClient(object):
         """
         self._tracking_client._record_logged_model(run_id, mlflow_model)
 
-    def list_artifacts(self, run_id, path=None) -> List[FileInfo]:
+    def list_artifacts(self, run_id: str, path=None) -> List[FileInfo]:
         """
         List the artifacts for a run.
 
@@ -1296,7 +1323,7 @@ class MlflowClient(object):
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    def download_artifacts(self, run_id, path, dst_path=None) -> str:
+    def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
@@ -1342,7 +1369,9 @@ class MlflowClient(object):
         """
         return self._tracking_client.download_artifacts(run_id, path, dst_path)
 
-    def set_terminated(self, run_id, status=None, end_time=None) -> None:
+    def set_terminated(
+        self, run_id: str, status: Optional[str] = None, end_time: Optional[int] = None
+    ) -> None:
         """Set a run's status to terminated.
 
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
@@ -1385,7 +1414,7 @@ class MlflowClient(object):
         """
         self._tracking_client.set_terminated(run_id, status, end_time)
 
-    def delete_run(self, run_id) -> None:
+    def delete_run(self, run_id: str) -> None:
         """Deletes a run with the given ID.
 
         :param run_id: The unique run id to delete.
@@ -1414,7 +1443,7 @@ class MlflowClient(object):
         """
         self._tracking_client.delete_run(run_id)
 
-    def restore_run(self, run_id) -> None:
+    def restore_run(self, run_id: str) -> None:
         """
         Restores a deleted run with the given ID.
 
@@ -1449,12 +1478,12 @@ class MlflowClient(object):
 
     def search_runs(
         self,
-        experiment_ids,
-        filter_string="",
-        run_view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
+        experiment_ids: List[str],
+        filter_string: str = "",
+        run_view_type: int = ViewType.ACTIVE_ONLY,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[Run]:
         """
         Search experiments that fit the search criteria.
@@ -1542,7 +1571,9 @@ class MlflowClient(object):
 
     # Registered Model Methods
 
-    def create_registered_model(self, name, tags=None, description=None) -> RegisteredModel:
+    def create_registered_model(
+        self, name: str, tags: Optional[Dict[str, Any]] = None, description: Optional[str] = None
+    ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
 
@@ -1582,7 +1613,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().create_registered_model(name, tags, description)
 
-    def rename_registered_model(self, name, new_name) -> RegisteredModel:
+    def rename_registered_model(self, name: str, new_name: str) -> RegisteredModel:
         """
         Update registered model name.
 
@@ -1631,7 +1662,9 @@ class MlflowClient(object):
         """
         self._get_registry_client().rename_registered_model(name, new_name)
 
-    def update_registered_model(self, name, description=None) -> RegisteredModel:
+    def update_registered_model(
+        self, name: str, description: Optional[str] = None
+    ) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
         Backend raises exception if a registered model with given name does not exist.
@@ -1734,7 +1767,9 @@ class MlflowClient(object):
         self._get_registry_client().delete_registered_model(name)
 
     def list_registered_models(
-        self, max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT, page_token=None
+        self,
+        max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
         """
         List of all registered models
@@ -1786,10 +1821,10 @@ class MlflowClient(object):
 
     def search_registered_models(
         self,
-        filter_string=None,
-        max_results=SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        order_by: Optional[List[str]] = None,
+        page_token: Optional[str] = None,
     ) -> PagedList[RegisteredModel]:
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -1863,7 +1898,7 @@ class MlflowClient(object):
             filter_string, max_results, order_by, page_token
         )
 
-    def get_registered_model(self, name) -> RegisteredModel:
+    def get_registered_model(self, name: str) -> RegisteredModel:
         """
         :param name: Name of the registered model to update.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -1901,7 +1936,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_registered_model(name)
 
-    def get_latest_versions(self, name, stages=None) -> ModelVersion:
+    def get_latest_versions(self, name: str, stages: List[str] = None) -> ModelVersion:
         """
         Latest version models for each requests stage. If no ``stages`` provided, returns the
         latest version for each stage.
@@ -2015,7 +2050,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
-    def delete_registered_model_tag(self, name, key) -> None:
+    def delete_registered_model_tag(self, name: str, key: str) -> None:
         """
         Delete a tag associated with the registered model.
 
@@ -2069,13 +2104,13 @@ class MlflowClient(object):
 
     def create_model_version(
         self,
-        name,
-        source,
-        run_id=None,
-        tags=None,
-        run_link=None,
-        description=None,
-        await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        name: str,
+        source: str,
+        run_id: Optional[str] = None,
+        tags: Optional[Dict[str, Any]] = None,
+        run_link: Optional[str] = None,
+        description: Optional[str] = None,
+        await_creation_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     ) -> ModelVersion:
         """
         Create a new model version from given source (artifact URI).
@@ -2196,7 +2231,9 @@ class MlflowClient(object):
         if workspace_host and run_id and experiment_id:
             return construct_run_url(workspace_host, experiment_id, run_id, workspace_id)
 
-    def update_model_version(self, name, version, description=None) -> ModelVersion:
+    def update_model_version(
+        self, name: str, version: str, description: Optional[str] = None
+    ) -> ModelVersion:
         """
         Update metadata associated with a model version in backend.
 
@@ -2262,7 +2299,7 @@ class MlflowClient(object):
         )
 
     def transition_model_version_stage(
-        self, name, version, stage, archive_existing_versions=False
+        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
     ) -> ModelVersion:
         """
         Update model version stage.
@@ -2331,7 +2368,7 @@ class MlflowClient(object):
             name, version, stage, archive_existing_versions
         )
 
-    def delete_model_version(self, name, version) -> None:
+    def delete_model_version(self, name: str, version: str) -> None:
         """
         Delete model version in backend.
 
@@ -2410,7 +2447,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().delete_model_version(name, version)
 
-    def get_model_version(self, name, version) -> ModelVersion:
+    def get_model_version(self, name: str, version: str) -> ModelVersion:
         """
         :param name: Name of the containing registered model.
         :param version: Version number as an integer of the model version.
@@ -2463,7 +2500,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version(name, version)
 
-    def get_model_version_download_uri(self, name, version) -> str:
+    def get_model_version_download_uri(self, name: str, version: str) -> str:
         """
         Get the download location in Model Registry for this model version.
 
@@ -2505,7 +2542,7 @@ class MlflowClient(object):
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
-    def search_model_versions(self, filter_string) -> PagedList[ModelVersion]:
+    def search_model_versions(self, filter_string: str) -> PagedList[ModelVersion]:
         """
         Search for model versions in backend that satisfy the filter criteria.
 
@@ -2550,7 +2587,7 @@ class MlflowClient(object):
         return self._get_registry_client().search_model_versions(filter_string)
 
     def get_model_version_stages(
-        self, name, version  # pylint: disable=unused-argument
+        self, name: str, version: str  # pylint: disable=unused-argument
     ) -> List[str]:
         """
         :return: A list of valid stages.
@@ -2590,7 +2627,7 @@ class MlflowClient(object):
         """
         return ALL_STAGES
 
-    def set_model_version_tag(self, name, version, key, value) -> None:
+    def set_model_version_tag(self, name: str, version: str, key: str, value: Any) -> None:
         """
         Set a tag for the model version.
 
@@ -2649,7 +2686,7 @@ class MlflowClient(object):
         """
         self._get_registry_client().set_model_version_tag(name, version, key, value)
 
-    def delete_model_version_tag(self, name, version, key) -> None:
+    def delete_model_version_tag(self, name: str, version: str, key: str) -> None:
         """
         Delete a tag associated with the model version.
 
