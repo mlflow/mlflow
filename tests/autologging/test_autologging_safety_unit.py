@@ -1485,6 +1485,3 @@ def test_patch_runs_if_patch_should_be_applied():
     autolog(exclusive=True)
     patch_obj.new_fn()
     assert patch_impl_call_count == 3
-
-def test_fail():
-    mlflow.start_run()
