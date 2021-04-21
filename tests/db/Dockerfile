@@ -6,7 +6,7 @@ COPY dist ./dist
 
 RUN pip install dist/*.whl
 RUN pip install psycopg2 pymysql mysqlclient
-RUN pip freeze
+RUN pip list
 
 COPY log.py .
 CMD ["python", "log.py"]
