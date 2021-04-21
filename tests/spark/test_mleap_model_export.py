@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 from unittest import mock
 
@@ -25,8 +24,6 @@ from tests.spark.test_spark_model_export import (  # pylint: disable=unused-impo
     spark_model_iris,
     spark_custom_env,
 )
-
-_logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="session", autouse=True)
