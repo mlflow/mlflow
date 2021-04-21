@@ -194,13 +194,12 @@ jobs:
         # Run tests
         cd tests/db
         docker-compose build
-        docker-compose run mlflow-postgres bash -c "python log.py && python show_column_info.py"
-        docker-compose run mlflow-mysql bash -c "python log.py && python show_column_info.py"
-        docker-compose run mlflow-sqlite bash -c "python log.py && python show_column_info.py"
+        docker-compose run mlflow-postgres python log.py
+        docker-compose run mlflow-mysql python log.py
+        docker-compose run mlflow-sqlite python log.py
 
         # Clean up
-        docker rm -vf $(docker ps -a -q)
-        docker rmi -f $(docker images -a -q)
+        docker-compose down --rmi all --volumes
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"

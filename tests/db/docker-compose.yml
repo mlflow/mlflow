@@ -32,9 +32,3 @@ services:
       context: .
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb
-
-  mlflow-sqlite:
-    build:
-      context: .
-    environment:
-      MLFLOW_TRACKING_URI: sqlite:////tmp/mlflow.db

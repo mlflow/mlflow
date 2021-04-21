@@ -2,4 +2,3 @@
 
 !dist/*.whl
 !log.py
-!show_column_info.py
