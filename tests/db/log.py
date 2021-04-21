@@ -1,7 +1,8 @@
 import os
 import mlflow
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 
-assert mlflow.tracking._tracking_service.utils._TRACKING_URI_ENV_VAR in os.environ
+assert _TRACKING_URI_ENV_VAR in os.environ
 
 with mlflow.start_run():
     print("Tracking URI:", mlflow.get_tracking_uri())
