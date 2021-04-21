@@ -21,11 +21,14 @@ from pyspark.ml.classification import (
     MultilayerPerceptronClassifier,
     OneVsRest,
 )
+from pyspark.ml.feature import HashingTF, Tokenizer
+from pyspark.ml import Pipeline
 from mlflow.pyspark.ml import (
     _should_log_model,
     _get_instance_param_map,
     _get_warning_msg_for_skip_log_model,
     _get_warning_msg_for_fit_call_with_a_list_of_params,
+    _get_pipeline_stage_hierarchy
 )
 
 pytestmark = pytest.mark.large
@@ -55,6 +58,16 @@ def dataset_multinomial(spark_session):
         * 100,
         ["label", "features"],
     )
+
+
+@pytest.fixture(scope="module")
+def dataset_text(spark_session):
+    return spark_session.createDataFrame([
+        (0, "a b c d e spark", 1.0),
+        (1, "b d", 0.0),
+        (2, "spark f g h", 1.0),
+        (3, "hadoop mapreduce", 0.0)
+    ], ["id", "text", "label"])
 
 
 def truncate_param_dict(d):
@@ -202,7 +215,7 @@ def test_fit_with_a_list_of_params(dataset_binomial):
             mock_set_tags.assert_not_called()
 
 
-def test_should_log_model(dataset_binomial, dataset_multinomial):
+def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True)
     lor = LogisticRegression()
 
@@ -213,9 +226,22 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
     ova1_model = ova1.fit(dataset_multinomial)
     assert _should_log_model(ova1_model)
 
+    tokenizer = Tokenizer(inputCol="text", outputCol="words")
+    hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    lr = LogisticRegression(maxIter=2)
+    pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+    pipeline_model = pipeline.fit(dataset_text)
+    assert _should_log_model(pipeline_model)
+
+    nested_pipeline = Pipeline(stages=[tokenizer, Pipeline(stages=[hashingTF, lr])])
+    nested_pipeline_model = nested_pipeline.fit(dataset_text)
+    assert _should_log_model(nested_pipeline_model)
+
     with mock.patch(
         "mlflow.pyspark.ml._log_model_allowlist",
-        {"pyspark.ml.regression.LinearRegressionModel", "pyspark.ml.classification.OneVsRestModel"},
+        {"pyspark.ml.regression.LinearRegressionModel",
+         "pyspark.ml.classification.OneVsRestModel",
+         "pyspark.ml.pipeline.PipelineModel"},
     ), mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
         lr = LinearRegression()
         lr_model = lr.fit(dataset_binomial)
@@ -224,6 +250,8 @@ def test_should_log_model(dataset_binomial, dataset_multinomial):
         assert not _should_log_model(lor_model)
         mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
         assert not _should_log_model(ova1_model)
+        assert not _should_log_model(pipeline_model)
+        assert not _should_log_model(nested_pipeline_model)
 
 
 def test_param_map_captures_wrapped_params(dataset_binomial):
@@ -245,3 +273,34 @@ def test_param_map_captures_wrapped_params(dataset_binomial):
     assert run_data.params == truncate_param_dict(
         stringify_dict_values(_get_instance_param_map(ova))
     )
+
+
+def test_pipeline(dataset_text):
+    mlflow.pyspark.ml.autolog()
+
+    tokenizer = Tokenizer(inputCol="text", outputCol="words")
+    hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    lr = LogisticRegression(maxIter=2, regParam=0.001)
+    pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
+    inner_pipeline = Pipeline(stages=[hashingTF, lr])
+    nested_pipeline = Pipeline(stages=[tokenizer, inner_pipeline])
+
+    assert _get_pipeline_stage_hierarchy(pipeline) == \
+           {pipeline.uid: [tokenizer.uid, hashingTF.uid, lr.uid]}
+    assert _get_pipeline_stage_hierarchy(nested_pipeline) == \
+           {nested_pipeline.uid: [tokenizer.uid, {inner_pipeline.uid: [hashingTF.uid, lr.uid]}]}
+
+    for estimator in [pipeline, nested_pipeline]:
+        with mlflow.start_run() as run:
+            model = estimator.fit(dataset_text)
+
+        run_id = run.info.run_id
+        run_data = get_run_data(run_id)
+        assert run_data.params == truncate_param_dict(
+            stringify_dict_values(_get_instance_param_map(estimator))
+        )
+        assert run_data.tags == get_expected_class_tags(estimator)
+        assert MODEL_DIR in run_data.artifacts
+        loaded_model = load_model_by_run_id(run_id)
+        assert loaded_model.uid == model.uid
+        assert run_data.artifacts == ['model', 'pipeline_hierarchy.json']

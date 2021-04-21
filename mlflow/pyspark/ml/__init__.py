@@ -105,8 +105,23 @@ def _get_estimator_info_tags(estimator):
     }
 
 
+def _get_pipeline_stage_hierarchy(pipeline):
+    from pyspark.ml import Pipeline
+
+    stage_hierarchy = []
+    pipeline_stages = pipeline.getStages()
+    for stage in pipeline_stages:
+        if isinstance(stage, Pipeline):
+            hierarchy_elem = _get_pipeline_stage_hierarchy(stage)
+        else:
+            hierarchy_elem = stage.uid
+        stage_hierarchy.append(hierarchy_elem)
+    return {pipeline.uid: stage_hierarchy}
+
+
 def _get_instance_param_map(instance):
     from pyspark.ml.param import Params
+    from pyspark.ml.pipeline import Pipeline
     from pyspark.ml.tuning import CrossValidator, TrainValidationSplit
 
     param_map = {
@@ -115,8 +130,13 @@ def _get_instance_param_map(instance):
         if instance.isDefined(param)
     }
     expanded_param_map = {}
+
+    is_pipeline = isinstance(instance, Pipeline)
+
     for k, v in param_map.items():
-        if isinstance(v, Params):
+        if is_pipeline and k == 'stages':
+            expanded_param_map[k] = _get_pipeline_stage_hierarchy(instance)[instance.uid]
+        elif isinstance(v, Params):
             # handle the case param value type inherits `pyspark.ml.param.Params`
             # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
             expanded_param_map[k] = v.uid
@@ -134,27 +154,6 @@ def _get_instance_param_map(instance):
             expanded_param_map[k] = v
 
     return expanded_param_map
-
-
-def _get_pipeline_stage_hierarchy_and_params(pipeline):
-    from pyspark.ml import Pipeline
-    """
-    :param pipeline_stages: stages of a pyspark ML pipeline
-    :return: return a tuple of (stage_hierarchy, params_map)
-    """
-    stage_hierarchy = []
-    param_map = {}
-    pipeline_stages = pipeline.getStages()
-    for stage in pipeline_stages:
-        if isinstance(stage, Pipeline):
-            hierarchy_elem, stage_param_map = _get_pipeline_stage_hierarchy_and_params(stage)
-        else:
-            hierarchy_elem = stage.uid
-            stage_param_map = {f'{stage.uid}.{k}': v
-                               for k, v in _get_instance_param_map(stage).items()}
-        stage_hierarchy.append(hierarchy_elem)
-        param_map.update(stage_param_map)
-    return {pipeline.uid: stage_hierarchy}, param_map
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
@@ -246,11 +245,9 @@ def autolog(
 
         param_map = _get_instance_param_map(estimator)
         if isinstance(estimator, Pipeline):
-            pipeline_hyerarchy, stages_param_maps = _get_pipeline_stage_hierarchy_and_params(
-                estimator)
-            param_map.update(stages_param_maps)
-            try_mlflow_log(mlflow.log_dict, pipeline_hyerarchy,
-                           artifact_file='pipeline_hyerarchy.json')
+            pipeline_hierarchy = _get_pipeline_stage_hierarchy(estimator)
+            try_mlflow_log(mlflow.log_dict, pipeline_hierarchy,
+                           artifact_file='pipeline_hierarchy.json')
 
         # Chunk model parameters to avoid hitting the log_batch API limit
         for chunk in _chunk_dict(
