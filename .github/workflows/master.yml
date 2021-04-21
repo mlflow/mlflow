@@ -180,6 +180,10 @@ jobs:
       env:
         # Fix for https://github.com/mlflow/mlflow/issues/4229
         SPARK_LOCAL_IP: 127.0.0.1
+      run: |
+        export PATH="$CONDA_DIR/bin:$PATH"
+        source activate test-environment
+        ./dev/run-large-python-tests.sh
     - name: Run database initialization tests
       run: |
         python setup.py bdist_wheel
