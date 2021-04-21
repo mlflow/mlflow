@@ -186,14 +186,18 @@ jobs:
         ./dev/run-large-python-tests.sh
     - name: Run database initialization tests
       run: |
+        set -x
+        # Build wheel and copy it under tests/db
         python setup.py bdist_wheel
         cp -r dist tests/db
-        cd tests/db
 
+        # Run tests
+        cd tests/db
         docker-compose build
         docker-compose run mlflow-postgres
         docker-compose run mlflow-mysql
 
+        # Clean up
         docker rm -vf $(docker ps -a -q)
         docker rmi -f $(docker images -a -q)
     - name: Run anaconda compatibility tests
