@@ -13,7 +13,6 @@ services:
       - postgres
     build:
       context: .
-      dockerfile: Dockerfile
     environment:
       MLFLOW_TRACKING_URI: postgresql://mlflowuser:mlflowpassword@postgres:5432/mlflowdb
 
@@ -31,6 +30,5 @@ services:
       - mysql
     build:
       context: .
-      dockerfile: Dockerfile
     environment:
       MLFLOW_TRACKING_URI: mysql://mlflowuser:mlflowpassword@mysql:3306/mlflowdb
