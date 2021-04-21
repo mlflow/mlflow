@@ -67,22 +67,6 @@ def test_autologging_integration():
     return integration_name
 
 
-@pytest.fixture(autouse=True)
-def clean_up_leaked_runs():
-    """
-    Certain test cases validate safety API behavior when runs are leaked. Leaked runs that
-    are not cleaned up between test cases may result in cascading failures that are hard to
-    debug. Accordingly, this fixture attempts to end any active runs it encounters and
-    throws an exception (which reported as an additional error in the pytest execution output).
-    """
-    try:
-        yield
-        assert not mlflow.active_run(), "test case unexpectedly leaked a run!"
-    finally:
-        while mlflow.active_run():
-            mlflow.end_run()
-
-
 class MockEventLogger(AutologgingEventLogger):
 
     LoggerCall = namedtuple(
