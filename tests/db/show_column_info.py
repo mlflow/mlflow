@@ -16,12 +16,14 @@ with engine.begin() as conn:
             sql = "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{}'".format(
                 table_name
             )
-            df = pd.read_sql(sql, conn)
-            df = df.rename(str.lower, axis="columns").set_index("column_name", drop=True)
+            df = (
+                pd.read_sql(sql, conn)
+                .rename(str.lower, axis="columns")
+                .set_index("column_name", drop=True)
+            )
         elif db_type == "sqlite":
             sql = "PRAGMA table_info('{}')".format(table_name)
-            df = pd.read_sql(sql, conn)
-            df = df.set_index("name", drop=True)
+            df = pd.read_sql(sql, conn).set_index("name", drop=True)
         else:
             raise ValueError(f"Invalid tracking URI: {uri}")
 
