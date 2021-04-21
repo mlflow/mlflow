@@ -22,4 +22,3 @@ with mlflow.start_run():
     mlflow.pyfunc.log_model(
         artifact_path="model", python_model=MockModel(), registered_model_name="mock",
     )
-
