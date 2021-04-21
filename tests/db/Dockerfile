@@ -9,4 +9,4 @@ RUN pip install psycopg2 pymysql mysqlclient
 RUN pip list
 
 COPY log.py .
-CMD ["python", "log.py"]
+COPY show_column_info.py .
