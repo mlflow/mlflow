@@ -47,6 +47,10 @@ def enable_test_mode_by_default_for_autologging_integrations():
     yield from test_mode_on()
 
 
+ALL_TESTS_BEFORE = []
+ALL_TESTS_AFTER = []
+
+
 @pytest.fixture(autouse=True)
 def clean_up_leaked_runs():
     """
@@ -56,8 +60,12 @@ def clean_up_leaked_runs():
     throws an exception (which reported as an additional error in the pytest execution output).
     """
     try:
+        import os
+        test_info = os.environ.get('PYTEST_CURRENT_TEST')
+        ALL_TESTS_BEFORE.append(test_info)
         yield
-        assert not mlflow.active_run(), "test case unexpectedly leaked a run!"
+        ALL_TESTS_AFTER.append(test_info)
+        assert not mlflow.active_run(), "test case unexpectedly leaked a run!: " + mlflow.get_tracking_uri() + " BEFORE: " + ",".join(ALL_TESTS_BEFORE) + " AFTER : " + ",".join(ALL_TESTS_AFTER)
     finally:
         while mlflow.active_run():
             mlflow.end_run()
