@@ -8,7 +8,7 @@ import atexit
 import time
 import logging
 import inspect
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunInfo, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -30,12 +30,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 from mlflow.utils.annotations import experimental
 
-try:
-    import pandas as pd
+if TYPE_CHECKING:
+    import pandas  # pylint: disable=unused-import
+    import matplotlib  # pylint: disable=unused-import
+    import plotly  # pylint: disable=unused-import
+    import numpy  # pylint: disable=unused-import
+    import PIL  # pylint: disable=unused-import
 
-    SearchRunsReturnType = Union[pd.DataFrame, List[Run]]
-except ImportError:
-    SearchRunsReturnType = List[Run]
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -49,7 +50,7 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name) -> None:
+def set_experiment(experiment_name: str) -> None:
     """
     Set given experiment as active experiment. If experiment does not exist, create an experiment
     with provided name.
@@ -110,7 +111,13 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return exc_type is None
 
 
-def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags=None) -> ActiveRun:
+def start_run(
+    run_id: str = None,
+    experiment_id: Optional[str] = None,
+    run_name: Optional[str] = None,
+    nested: bool = False,
+    tags: Optional[Dict[str, Any]] = None,
+) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -239,7 +246,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False, tags
     return _active_run_stack[-1]
 
 
-def end_run(status=RunStatus.to_string(RunStatus.FINISHED)) -> None:
+def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     """End an active MLflow run (if there is one).
 
     .. code-block:: python
@@ -305,7 +312,7 @@ def active_run() -> Optional[ActiveRun]:
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
 
-def get_run(run_id) -> Run:
+def get_run(run_id: str) -> Run:
     """
     Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
     contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
@@ -339,7 +346,7 @@ def get_run(run_id) -> Run:
     return MlflowClient().get_run(run_id)
 
 
-def log_param(key, value) -> None:
+def log_param(key: str, value: Any) -> None:
     """
     Log a parameter under the current run. If no run is active, this method will create
     a new active run.
@@ -359,7 +366,7 @@ def log_param(key, value) -> None:
     MlflowClient().log_param(run_id, key, value)
 
 
-def set_tag(key, value) -> None:
+def set_tag(key: str, value: Any) -> None:
     """
     Set a tag under the current run. If no run is active, this method will create a
     new active run.
@@ -379,7 +386,7 @@ def set_tag(key, value) -> None:
     MlflowClient().set_tag(run_id, key, value)
 
 
-def delete_tag(key) -> None:
+def delete_tag(key: str) -> None:
     """
     Delete a tag from a run. This is irreversible. If no run is active, this method
     will create a new active run.
@@ -404,7 +411,7 @@ def delete_tag(key) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(key, value, step=None) -> None:
+def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
     """
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
@@ -427,7 +434,7 @@ def log_metric(key, value, step=None) -> None:
     MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
 
 
-def log_metrics(metrics, step=None) -> None:
+def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
@@ -458,7 +465,7 @@ def log_metrics(metrics, step=None) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 
-def log_params(params) -> None:
+def log_params(params: Dict[str, Any]) -> None:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
@@ -483,7 +490,7 @@ def log_params(params) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
-def set_tags(tags) -> None:
+def set_tags(tags: Dict[str, Any]) -> None:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -510,7 +517,7 @@ def set_tags(tags) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
-def log_artifact(local_path, artifact_path=None) -> None:
+def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
     active, this method will create a new active run.
@@ -537,7 +544,7 @@ def log_artifact(local_path, artifact_path=None) -> None:
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-def log_artifacts(local_dir, artifact_path=None) -> None:
+def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
     this method will create a new active run.
@@ -570,7 +577,7 @@ def log_artifacts(local_dir, artifact_path=None) -> None:
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def log_text(text, artifact_file) -> None:
+def log_text(text: str, artifact_file: str) -> None:
     """
     Log text as an artifact.
 
@@ -598,15 +605,16 @@ def log_text(text, artifact_file) -> None:
 
 
 @experimental
-def log_dict(dictionary, artifact_file) -> None:
+def log_dict(dictionary: Any, artifact_file: str) -> None:
     """
-    Log a dictionary as an artifact. The serialization format (JSON or YAML) is automatically
-    inferred from the extension of `artifact_file`. If the file extension doesn't exist or match
-    any of [".json", ".yml", ".yaml"], JSON format is used.
+    Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
+    format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
+    If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
+    JSON format is used.
 
     :param dictionary: Dictionary to log.
     :param artifact_file: The run-relative artifact file path in posixpath format to which
-                            the dictionary is saved (e.g. "dir/data.json").
+                          the dictionary is saved (e.g. "dir/data.json").
 
     .. code-block:: python
         :caption: Example
@@ -632,7 +640,9 @@ def log_dict(dictionary, artifact_file) -> None:
 
 
 @experimental
-def log_figure(figure, artifact_file) -> None:
+def log_figure(
+    figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"], artifact_file: str
+) -> None:
     """
     Log a figure as an artifact. The following figure objects are supported:
 
@@ -677,7 +687,7 @@ def log_figure(figure, artifact_file) -> None:
 
 
 @experimental
-def log_image(image, artifact_file) -> None:
+def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: str) -> None:
     """
     Log an image as an artifact. The following image objects are supported:
 
@@ -745,7 +755,7 @@ def _record_logged_model(mlflow_model):
     MlflowClient()._record_logged_model(run_id, mlflow_model)
 
 
-def get_experiment(experiment_id) -> Experiment:
+def get_experiment(experiment_id: str) -> Experiment:
     """
     Retrieve an experiment by experiment_id from the backend store
 
@@ -774,7 +784,7 @@ def get_experiment(experiment_id) -> Experiment:
     return MlflowClient().get_experiment(experiment_id)
 
 
-def get_experiment_by_name(name) -> Optional[Experiment]:
+def get_experiment_by_name(name: str) -> Optional[Experiment]:
     """
     Retrieve an experiment by experiment name from the backend store
 
@@ -805,7 +815,7 @@ def get_experiment_by_name(name) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
-def create_experiment(name, artifact_location=None) -> str:
+def create_experiment(name: str, artifact_location: Optional[str] = None) -> str:
     """
     Create an experiment.
 
@@ -840,7 +850,7 @@ def create_experiment(name, artifact_location=None) -> str:
     return MlflowClient().create_experiment(name, artifact_location)
 
 
-def delete_experiment(experiment_id) -> None:
+def delete_experiment(experiment_id: str) -> None:
     """
     Delete an experiment from the backend store.
 
@@ -870,7 +880,7 @@ def delete_experiment(experiment_id) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-def delete_run(run_id) -> None:
+def delete_run(run_id: str) -> None:
     """
     Deletes a run with the given ID.
 
@@ -898,7 +908,7 @@ def delete_run(run_id) -> None:
     MlflowClient().delete_run(run_id)
 
 
-def get_artifact_uri(artifact_path=None) -> str:
+def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
     """
     Get the absolute URI of the specified artifact in the currently active run.
     If `path` is not specified, the artifact root URI of the currently active
@@ -950,13 +960,13 @@ def get_artifact_uri(artifact_path=None) -> str:
 
 
 def search_runs(
-    experiment_ids=None,
-    filter_string="",
-    run_view_type=ViewType.ACTIVE_ONLY,
-    max_results=SEARCH_MAX_RESULTS_PANDAS,
-    order_by=None,
-    output_format="pandas",
-) -> SearchRunsReturnType:
+    experiment_ids: Optional[List[str]] = None,
+    filter_string: str = "",
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_PANDAS,
+    order_by: Optional[List[str]] = None,
+    output_format: str = "pandas",
+) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
@@ -1104,10 +1114,10 @@ def search_runs(
 
 
 def list_run_infos(
-    experiment_id,
-    run_view_type=ViewType.ACTIVE_ONLY,
-    max_results=SEARCH_MAX_RESULTS_DEFAULT,
-    order_by=None,
+    experiment_id: str,
+    run_view_type: int = ViewType.ACTIVE_ONLY,
+    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+    order_by: Optional[List[str]] = None,
 ) -> List[RunInfo]:
     """
     Return run information for runs which belong to the experiment_id.
@@ -1230,13 +1240,13 @@ def _get_experiment_id():
 
 @autologging_integration("mlflow")
 def autolog(
-    log_input_examples=False,
-    log_model_signatures=True,
-    log_models=True,
-    disable=False,
-    exclusive=False,
-    disable_for_unsupported_versions=False,
-    silent=False,
+    log_input_examples: bool = False,
+    log_model_signatures: bool = True,
+    log_models: bool = True,
+    disable: bool = False,
+    exclusive: bool = False,
+    disable_for_unsupported_versions: bool = False,
+    silent: bool = False,
     # pylint: disable=unused-argument
 ) -> None:
     """
