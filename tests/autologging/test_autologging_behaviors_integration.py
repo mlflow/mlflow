@@ -234,9 +234,11 @@ def test_autolog_respects_silent_mode(tmpdir):
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
+    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
         for _ in range(100):
-            executor.submit(train_model)
+            e = executor.submit(train_model)
+            executions.append(e)
 
     assert all([e.result() is True for e in executions])
     assert stream.getvalue()
