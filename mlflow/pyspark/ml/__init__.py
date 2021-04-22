@@ -266,6 +266,13 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
     )
 
 
+def _get_tuning_param_maps(estimator):
+    tuning_param_maps = []
+    for eps in estimator.getEstimatorParamMaps():
+        tuning_param_maps.append({f'{k.parent}.{k.name}': str(v) for k, v in eps.items()})
+    return tuning_param_maps
+
+
 @experimental
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
@@ -330,6 +337,7 @@ def autolog(
     from mlflow.tracking.context import registry as context_registry
     from pyspark.ml.base import Estimator
     from pyspark.ml import Pipeline
+    from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
 
     global _log_model_allowlist
 
@@ -348,9 +356,7 @@ def autolog(
             )
 
         if _is_parameter_search_estimator(estimator):
-            tuning_param_maps = []
-            for eps in estimator.getEstimatorParamMaps():
-                tuning_param_maps.append({f'{k.parent}.{k.name}': str(v) for k, v in eps.items()})
+            tuning_param_maps = _get_tuning_param_maps(estimator)
 
             try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'estimator_param_maps.json')
             if isinstance(estimator.getEstimator(), Pipeline):
@@ -392,7 +398,26 @@ def autolog(
                 )
                 _logger.warning(msg)
 
-        # TODO: log parameter search results (best model parameters) as an artifact ?
+            estimator_param_maps = _get_tuning_param_maps(estimator)
+
+            metric_key = estimator.getEvaluator().getMetricName()
+            if isinstance(spark_model, CrossValidatorModel):
+                metric_key = 'avg_' + metric_key
+                metrics = spark_model.avgMetrics
+            elif isinstance(spark_model, TrainValidationSplitModel):
+                metrics = spark_model.avgMetrics
+
+            search_result = []
+            for i in len(estimator_param_maps):
+                search_result.append({
+                    'param_maps': estimator_param_maps[i],
+                    metric_key: metrics[i]
+                })
+            try_mlflow_log(
+                mlflow.log_dict,
+                search_result,
+                artifact_file="search_result.json"
+            )
 
         if log_models:
             if _should_log_model(spark_model):
