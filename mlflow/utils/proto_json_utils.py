@@ -56,6 +56,7 @@ class NumpyEncoder(JSONEncoder):
 
     def try_convert(self, o):
         import numpy as np
+        import pandas as pd
 
         def encode_binary(x):
             return base64.encodebytes(x).decode("ascii")
@@ -72,6 +73,10 @@ class NumpyEncoder(JSONEncoder):
             return o.item(), True
         if isinstance(o, bytes) or isinstance(o, bytearray):
             return encode_binary(o), True
+        if isinstance(o, np.datetime64):
+            return np.datetime_as_string(o), True
+        if isinstance(o, pd.Timestamp):
+            return o.isoformat(), True
         return o, False
 
     def default(self, o):  # pylint: disable=E0202

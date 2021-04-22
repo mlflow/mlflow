@@ -302,6 +302,8 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
     2. int -> long (upcast)
     3. float -> double (upcast)
     4. int -> double (safe conversion)
+    5. np.datetime64[x] -> datetime (any precision)
+    6. np.object -> datetime
 
     Any other type mismatch will raise error.
     """
@@ -334,6 +336,22 @@ def _enforce_mlflow_datatype(name, values: pandas.Series, t: DataType):
         # element in the array (column). Since MLflow binary type is length agnostic, we ignore
         # itemsize when matching binary columns.
         return values
+
+    if t == DataType.datetime and values.dtype.kind == t.to_numpy().kind:
+        # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
+        # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
+        # ignore precision when matching datetime columns.
+        return values
+
+    if t == DataType.datetime and values.dtype == np.object:
+        # NB: Pyspark date columns get converted to np.object when converted to a pandas
+        # DataFrame. To respect the original typing, we convert the column to datetime.
+        try:
+            return values.astype(np.datetime64, errors="raise")
+        except ValueError:
+            raise MlflowException(
+                "Failed to convert column {0} from type {1} to {2}.".format(name, values.dtype, t)
+            )
 
     numpy_type = t.to_numpy()
     if values.dtype.kind == numpy_type.kind:
@@ -692,10 +710,17 @@ def spark_udf(spark, model_uri, result_type="double"):
     names given by the struct definition (e.g. when invoked as my_udf(struct('x', 'y')), the model
     will get the data as a pandas DataFrame with 2 columns 'x' and 'y').
 
+    If a model contains a signature, the UDF can be called without specifying column name
+    arguments. In this case, the UDF will be called with column names from signature, so the
+    evaluation dataframe's column names must match the model signature's column names.
+
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
     converted to string. If the result type is not an array type, the left most column with
     matching type is returned.
+
+    NOTE: Inputs of type ``pyspark.sql.types.DateType`` are not supported on earlier versions of
+    Spark (2.4 and below).
 
     .. code-block:: python
         :caption: Example
@@ -753,6 +778,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
+    import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from pyspark.sql.functions import pandas_udf
     from pyspark.sql.types import _parse_datatype_string
@@ -780,6 +806,7 @@ def spark_udf(spark, model_uri, result_type="double"):
             artifact_uri=model_uri, output_path=local_tmpdir.path()
         )
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+        model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -847,7 +874,37 @@ def spark_udf(spark, model_uri, result_type="double"):
         else:
             return result[result.columns[0]]
 
-    return pandas_udf(predict, result_type)
+    udf = pandas_udf(predict, result_type)
+    udf.metadata = model_metadata
+
+    @functools.wraps(udf)
+    def udf_with_default_cols(*args):
+        if len(args) == 0:
+            input_schema = model_metadata.get_input_schema()
+
+            if input_schema and len(input_schema.inputs) > 0:
+                if input_schema.has_input_names():
+                    input_names = input_schema.input_names()
+                    return udf(*input_names)
+                else:
+                    raise MlflowException(
+                        message="Cannot apply udf because no column names specified. The udf "
+                        "expects {} columns with types: {}. Input column names could not be "
+                        "inferred from the model signature (column names not found).".format(
+                            len(input_schema.inputs), input_schema.inputs,
+                        ),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                _logger.warning(
+                    "Attempting to apply udf on zero columns because no column names were "
+                    "specified as arguments or inferred from the model signature."
+                )
+                return udf()
+        else:
+            return udf(*args)
+
+    return udf_with_default_cols
 
 
 def save_model(

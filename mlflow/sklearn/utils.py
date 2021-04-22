@@ -1,14 +1,15 @@
 import collections
 from distutils.version import LooseVersion
-from itertools import islice
 import inspect
 import logging
 from numbers import Number
 import numpy as np
 import time
 
+import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import _chunk_dict, _truncate_dict
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -53,66 +54,53 @@ def _get_estimator_info_tags(estimator):
     }
 
 
-def _get_Xy(args, kwargs, X_var_name, y_var_name):
-    # corresponds to: model.fit(X, y)
-    if len(args) >= 2:
-        return args[:2]
-
-    # corresponds to: model.fit(X, <y_var_name>=y)
-    if len(args) == 1:
-        return args[0], kwargs[y_var_name]
-
-    # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
-    return kwargs[X_var_name], kwargs[y_var_name]
-
-
-def _get_samples_labels_and_predictions(fitted_estimator, fit_args, fit_kwargs, fit_arg_names):
-    # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
-    # However, certain sklearn models use different variable names for X and y.
-    X_var_name, y_var_name = fit_arg_names[:2]
-    X, y_true = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
-    y_pred = fitted_estimator.predict(X)
-
-    return X, y_true, y_pred
-
-
-def _get_sample_weight(arg_names, args, kwargs):
-    sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
-
-    # corresponds to: model.fit(X, y, ..., sample_weight)
-    if len(args) > sample_weight_index:
-        return args[sample_weight_index]
-
-    # corresponds to: model.fit(X, y, ..., sample_weight=sample_weight)
-    if _SAMPLE_WEIGHT in kwargs:
-        return kwargs[_SAMPLE_WEIGHT]
-
-    return None
-
-
 def _get_arg_names(f):
     # `inspect.getargspec` doesn't return a wrapped function's argspec
     # See: https://hynek.me/articles/decorators#mangled-signatures
     return list(inspect.signature(f).parameters.keys())
 
 
-def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
+def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
     """
-    Get arguments to pass to score_func in the following steps.
+    Get arguments to pass to metric computations in the following steps.
 
     1. Extract X and y from fit_args and fit_kwargs.
-    2. If the sample_weight argument exists in both score_func and fit_func,
+    2. If the sample_weight argument exists in fit_func,
        extract it from fit_args or fit_kwargs and return (X, y, sample_weight),
        otherwise return (X, y)
 
-    :param score_func: A score function object.
     :param fit_func: A fit function object.
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
     :returns: A tuple of either (X, y, sample_weight) or (X, y).
     """
-    score_arg_names = _get_arg_names(score_func)
+
+    def _get_Xy(args, kwargs, X_var_name, y_var_name):
+        # corresponds to: model.fit(X, y)
+        if len(args) >= 2:
+            return args[:2]
+
+        # corresponds to: model.fit(X, <y_var_name>=y)
+        if len(args) == 1:
+            return args[0], kwargs[y_var_name]
+
+        # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
+        return kwargs[X_var_name], kwargs[y_var_name]
+
+    def _get_sample_weight(arg_names, args, kwargs):
+        sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
+
+        # corresponds to: model.fit(X, y, ..., sample_weight)
+        if len(args) > sample_weight_index:
+            return args[sample_weight_index]
+
+        # corresponds to: model.fit(X, y, ..., sample_weight=sample_weight)
+        if _SAMPLE_WEIGHT in kwargs:
+            return kwargs[_SAMPLE_WEIGHT]
+
+        return None
+
     fit_arg_names = _get_arg_names(fit_func)
 
     # In most cases, X_var_name and y_var_name become "X" and "y", respectively.
@@ -120,12 +108,13 @@ def _get_args_for_score(score_func, fit_func, fit_args, fit_kwargs):
     # E.g., see: https://scikit-learn.org/stable/modules/generated/sklearn.multioutput.MultiOutputClassifier.html#sklearn.multioutput.MultiOutputClassifier.fit # noqa: E501
     X_var_name, y_var_name = fit_arg_names[:2]
     Xy = _get_Xy(fit_args, fit_kwargs, X_var_name, y_var_name)
+    sample_weight = (
+        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
+        if (_SAMPLE_WEIGHT in fit_arg_names)
+        else None
+    )
 
-    if (_SAMPLE_WEIGHT in fit_arg_names) and (_SAMPLE_WEIGHT in score_arg_names):
-        sample_weight = _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
-        return (*Xy, sample_weight)
-
-    return Xy
+    return (*Xy, sample_weight)
 
 
 def _get_metrics_value_dict(metrics_list):
@@ -140,7 +129,7 @@ def _get_metrics_value_dict(metrics_list):
     return metric_value_dict
 
 
-def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
+def _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Compute and record various common metrics for classifiers
 
@@ -180,40 +169,32 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
     import sklearn
 
-    fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
-    )
-    sample_weight = (
-        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
-        if _SAMPLE_WEIGHT in fit_arg_names
-        else None
-    )
+    y_pred = fitted_estimator.predict(X)
 
     classifier_metrics = [
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "precision_score",
+            name=prefix + "precision_score",
             function=sklearn.metrics.precision_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "recall_score",
+            name=prefix + "recall_score",
             function=sklearn.metrics.recall_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "f1_score",
+            name=prefix + "f1_score",
             function=sklearn.metrics.f1_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, average="weighted", sample_weight=sample_weight
             ),
         ),
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "accuracy_score",
+            name=prefix + "accuracy_score",
             function=sklearn.metrics.accuracy_score,
             arguments=dict(
                 y_true=y_true, y_pred=y_pred, normalize=True, sample_weight=sample_weight
@@ -226,7 +207,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
         classifier_metrics.extend(
             [
                 _SklearnMetric(
-                    name=_TRAINING_PREFIX + "log_loss",
+                    name=prefix + "log_loss",
                     function=sklearn.metrics.log_loss,
                     arguments=dict(y_true=y_true, y_pred=y_pred_proba, sample_weight=sample_weight),
                 ),
@@ -242,7 +223,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
             classifier_metrics.extend(
                 [
                     _SklearnMetric(
-                        name=_TRAINING_PREFIX + "roc_auc_score",
+                        name=prefix + "roc_auc_score",
                         function=sklearn.metrics.roc_auc_score,
                         arguments=dict(
                             y_true=y_true,
@@ -258,7 +239,7 @@ def _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs):
     return _get_metrics_value_dict(classifier_metrics)
 
 
-def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
+def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Draw and record various common artifacts for classifier
 
@@ -289,17 +270,9 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     if not _is_plotting_supported():
         return []
 
-    fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    X, y_true = _get_Xy(fit_args, fit_kwargs, *fit_arg_names[:2])
-    sample_weight = (
-        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
-        if _SAMPLE_WEIGHT in fit_arg_names
-        else None
-    )
-
     classifier_artifacts = [
         _SklearnArtifact(
-            name=_TRAINING_PREFIX + "confusion_matrix",
+            name=prefix + "confusion_matrix",
             function=sklearn.metrics.plot_confusion_matrix,
             arguments=dict(
                 estimator=fitted_estimator,
@@ -319,7 +292,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
         classifier_artifacts.extend(
             [
                 _SklearnArtifact(
-                    name=_TRAINING_PREFIX + "roc_curve",
+                    name=prefix + "roc_curve",
                     function=sklearn.metrics.plot_roc_curve,
                     arguments=dict(
                         estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
@@ -327,7 +300,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
                     title="ROC curve",
                 ),
                 _SklearnArtifact(
-                    name=_TRAINING_PREFIX + "precision_recall_curve",
+                    name=prefix + "precision_recall_curve",
                     function=sklearn.metrics.plot_precision_recall_curve,
                     arguments=dict(
                         estimator=fitted_estimator, X=X, y=y_true, sample_weight=sample_weight,
@@ -340,7 +313,7 @@ def _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs):
     return classifier_artifacts
 
 
-def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
+def _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight):
     """
     Compute and record various common metrics for regressors
 
@@ -367,19 +340,11 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     """
     import sklearn
 
-    fit_arg_names = _get_arg_names(fitted_estimator.fit)
-    _, y_true, y_pred = _get_samples_labels_and_predictions(
-        fitted_estimator, fit_args, fit_kwargs, fit_arg_names
-    )
-    sample_weight = (
-        _get_sample_weight(fit_arg_names, fit_args, fit_kwargs)
-        if _SAMPLE_WEIGHT in fit_arg_names
-        else None
-    )
+    y_pred = fitted_estimator.predict(X)
 
     regressor_metrics = [
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "mse",
+            name=prefix + "mse",
             function=sklearn.metrics.mean_squared_error,
             arguments=dict(
                 y_true=y_true,
@@ -389,7 +354,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "mae",
+            name=prefix + "mae",
             function=sklearn.metrics.mean_absolute_error,
             arguments=dict(
                 y_true=y_true,
@@ -399,7 +364,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
             ),
         ),
         _SklearnMetric(
-            name=_TRAINING_PREFIX + "r2_score",
+            name=prefix + "r2_score",
             function=sklearn.metrics.r2_score,
             arguments=dict(
                 y_true=y_true,
@@ -414,9 +379,7 @@ def _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs):
     # `sklearn.metrics.mean_squared_error` does not have "squared" parameter to calculate `rmse`,
     # we compute it through np.sqrt(<value of mse>)
     metrics_value_dict = _get_metrics_value_dict(regressor_metrics)
-    metrics_value_dict[_TRAINING_PREFIX + "rmse"] = np.sqrt(
-        metrics_value_dict[_TRAINING_PREFIX + "mse"]
-    )
+    metrics_value_dict[prefix + "rmse"] = np.sqrt(metrics_value_dict[prefix + "mse"])
 
     return metrics_value_dict
 
@@ -445,17 +408,18 @@ def _log_warning_for_artifacts(func_name, func_call, err):
     _logger.warning(msg)
 
 
-def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_kwargs):
+def _log_specialized_estimator_content(
+    fitted_estimator, run_id, prefix, X, y_true, sample_weight=None
+):
     import sklearn
 
     mlflow_client = MlflowClient()
-    name_metric_dict = {}
+    metrics = dict()
     try:
         if sklearn.base.is_classifier(fitted_estimator):
-            name_metric_dict = _get_classifier_metrics(fitted_estimator, fit_args, fit_kwargs)
-
+            metrics = _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
         elif sklearn.base.is_regressor(fitted_estimator):
-            name_metric_dict = _get_regressor_metrics(fitted_estimator, fit_args, fit_kwargs)
+            metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
     except Exception as err:
         msg = (
             "Failed to autolog metrics for "
@@ -471,13 +435,15 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
             run_id,
             metrics=[
                 Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                for key, value in name_metric_dict.items()
+                for key, value in metrics.items()
             ],
         )
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
-            artifacts = _get_classifier_artifacts(fitted_estimator, fit_args, fit_kwargs)
+            artifacts = _get_classifier_artifacts(
+                fitted_estimator, prefix, X, y_true, sample_weight
+            )
         except Exception as e:
             msg = (
                 "Failed to autolog artifacts for "
@@ -493,7 +459,8 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
                 try:
                     display = artifact.function(**artifact.arguments)
                     display.ax_.set_title(artifact.title)
-                    filepath = tmp_dir.path("{}.png".format(artifact.name))
+                    artifact_path = "{}.png".format(artifact.name)
+                    filepath = tmp_dir.path(artifact_path)
                     display.figure_.savefig(filepath)
                     import matplotlib.pyplot as plt
 
@@ -503,45 +470,53 @@ def _log_specialized_estimator_content(fitted_estimator, run_id, fit_args, fit_k
 
             try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
 
-
-def _chunk_dict(d, chunk_size):
-    # Copied from: https://stackoverflow.com/a/22878842
-
-    it = iter(d)
-    for _ in range(0, len(d), chunk_size):
-        yield {k: d[k] for k in islice(it, chunk_size)}
+    return metrics
 
 
-def _truncate_dict(d, max_key_length=None, max_value_length=None):
-    def _truncate_and_ellipsize(value, max_length):
-        return str(value)[: (max_length - 3)] + "..."
+def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
+    """
+    Logs content for the given estimator, which includes metrics and artifacts that might be
+    tailored to the estimator's type (e.g., regression vs classification).
 
-    key_is_none = max_key_length is None
-    val_is_none = max_value_length is None
+    :param estimator: The estimator used to compute metrics and artifacts.
+    :param run_id: The run under which the content is logged.
+    :param prefix: A prefix used to name the logged content. Typically it's 'training_' for
+                   training-time content and user-controlled for evaluation-time content.
+    :param X: The data samples.
+    :param y_true: Labels.
+    :param sample_weight: Per-sample weights used in the computation of metrics and artifacts.
+    :return: A dict of the computed metrics.
+    """
+    metrics = _log_specialized_estimator_content(
+        fitted_estimator=estimator,
+        run_id=run_id,
+        prefix=prefix,
+        X=X,
+        y_true=y_true,
+        sample_weight=sample_weight,
+    )
 
-    if key_is_none and val_is_none:
-        raise ValueError("Must specify at least either `max_key_length` or `max_value_length`")
-
-    truncated = {}
-    for k, v in d.items():
-        should_truncate_key = (not key_is_none) and (len(str(k)) > max_key_length)
-        should_truncate_val = (not val_is_none) and (len(str(v)) > max_value_length)
-
-        new_k = _truncate_and_ellipsize(k, max_key_length) if should_truncate_key else k
-        if should_truncate_key:
-            # Use the truncated key for warning logs to avoid noisy printing to stdout
-            msg = "Truncated the key `{}`".format(new_k)
+    if hasattr(estimator, "score"):
+        try:
+            # Use the sample weight only if it is present in the score args
+            score_arg_names = _get_arg_names(estimator.score)
+            score_args = (
+                (X, y_true, sample_weight) if _SAMPLE_WEIGHT in score_arg_names else (X, y_true)
+            )
+            score = estimator.score(*score_args)
+        except Exception as e:
+            msg = (
+                estimator.score.__qualname__
+                + " failed. The 'training_score' metric will not be recorded. Scoring error: "
+                + str(e)
+            )
             _logger.warning(msg)
+        else:
+            score_key = prefix + "score"
+            try_mlflow_log(mlflow.log_metric, score_key, score)
+            metrics[score_key] = score
 
-        new_v = _truncate_and_ellipsize(v, max_value_length) if should_truncate_val else v
-        if should_truncate_val:
-            # Use the truncated key and value for warning logs to avoid noisy printing to stdout
-            msg = "Truncated the value of the key `{}`. Truncated value: `{}`".format(new_k, new_v)
-            _logger.warning(msg)
-
-        truncated[new_k] = new_v
-
-    return truncated
+    return metrics
 
 
 def _get_meta_estimators_for_autologging():

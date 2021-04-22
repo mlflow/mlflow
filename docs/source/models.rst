@@ -116,6 +116,7 @@ Model signatures are recognized and enforced by standard :ref:`MLflow model depl
 <built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
 which deploys a model as a REST API, validates inputs based on the model's signature.
 
+
 Column-based Signature Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 All flavors support column-based signatures.
@@ -195,6 +196,13 @@ MLflow will raise an error since it can not convert float to int. Note that MLfl
 serve models and to deploy models to Spark, so this can affect most model deployments. The best way
 to avoid this problem is to declare integer columns as doubles (float64) whenever there can be
 missing values.
+
+Handling Date and Timestamp
+"""""""""""""""""""""""""""
+For datetime values, Python has precision built into the type. For example, datetime values with
+day precision have NumPy type ``datetime64[D]``, while values with nanosecond precision have
+type ``datetime64[ns]``. Datetime precision is ignored for column-based model signature but is
+enforced for tensor-based signatures.
 
 How To Log Models With Signatures
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -646,6 +654,18 @@ not models that implement the `scikit-learn API
 
 For more information, see :py:mod:`mlflow.lightgbm`.
 
+CatBoost (``catboost``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``catboost`` model flavor enables logging of `CatBoost models
+<https://catboost.ai/docs/concepts/python-reference_catboost.html>`_
+in MLflow format via the :py:func:`mlflow.catboost.save_model()` and :py:func:`mlflow.catboost.log_model()` methods.
+These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.catboost.load_model()`
+method to load MLflow Models with the ``catboost`` model flavor in native CatBoost format.
+
+For more information, see :py:mod:`mlflow.catboost`.
+
 Spacy(``spaCy``)
 ^^^^^^^^^^^^^^^^^^^^
 The ``spaCy`` model flavor enables logging of `spaCy models <https://spacy.io/models>`_ in MLflow format via
@@ -916,7 +936,7 @@ in the request header as shown in the record-oriented example below.
     in the model's schema if available. If your model is sensitive to input types, it is recommended that
     a schema is provided for the model to ensure that type mismatch errors do not occur at inference time.
     In particular, DL models are typically strict about input types and will need model schema in order
-    for the model to score correctly.
+    for the model to score correctly. For complex data types, see :ref:`encoding-complex-data` below.
 
 Example requests:
 
@@ -954,6 +974,40 @@ For more information about serializing pandas DataFrames, see
 
 For more information about serializing tensor inputs using the TF serving format, see
 `TF serving's request format docs <https://www.tensorflow.org/tfx/serving/api_rest#request_format_2>`_.
+
+.. _encoding-complex-data:
+
+Encoding complex data
+~~~~~~~~~~~~~~~~~~~~~
+
+Complex data types, such as dates or binary, do not have a native JSON representation. If you include a model
+signature, MLflow can automatically decode supported data types from JSON. The following data type conversions
+are supported:
+
+* binary: data is expected to be base64 encoded, MLflow will automatically base64 decode.
+
+* datetime: data is expected as string according to
+  `ISO 8601 specification <https://www.iso.org/iso-8601-date-and-time-format.html>`_.
+  MLflow will parse this into the appropriate datetime representation on the given platform.
+
+Example requests:
+
+.. code-block:: bash
+
+    # record-oriented DataFrame input with binary column "b"
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+        {"a": 0, "b": "dGVzdCBiaW5hcnkgZGF0YSAw"},
+        {"a": 1, "b": "dGVzdCBiaW5hcnkgZGF0YSAx"},
+        {"a": 2, "b": "dGVzdCBiaW5hcnkgZGF0YSAy"}
+    ]'
+
+    # record-oriented DataFrame input with datetime column "b"
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[
+        {"a": 0, "b": "2020-01-01T00:00:00Z"},
+        {"a": 1, "b": "2020-02-01T12:34:56Z"},
+        {"a": 2, "b": "2021-03-01T00:00:00Z"}
+    ]'
+
 
 Command Line Interface
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1174,6 +1228,17 @@ Spark cluster and used to score the model.
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(struct(<feature-names>)))
 
+If a model contains a signature, the UDF can be called without specifying column name arguments.
+In this case, the UDF will be called with column names from signature, so the evaluation
+dataframe's column names must match the model signature's column names.
+
+.. rubric:: Example
+
+.. code-block:: py
+
+    pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model-with-signature>)
+    df = spark_df.withColumn("prediction", pyfunc_udf())
+
 The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value or an array of values of the same type per observation. By default, we return the first
 numeric column as a double. You can control what result is returned by supplying ``result_type``
@@ -1194,12 +1259,12 @@ argument. The following values are supported:
 * ``'string'`` or StringType_: Result is the leftmost column converted to string.
 * ArrayType_ ( StringType_ ): Return all columns converted to string.
 
-.. _IntegerType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.IntegerType
-.. _LongType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.LongType
-.. _FloatType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.FloatType
-.. _DoubleType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.DoubleType
-.. _StringType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.StringType
-.. _ArrayType: https://spark.apache.org/docs/latest/api/python/pyspark.sql.html#pyspark.sql.types.ArrayType
+.. _IntegerType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.IntegerType.html#pyspark.sql.types.IntegerType
+.. _LongType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.LongType.html#pyspark.sql.types.LongType
+.. _FloatType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.FloatType.html#pyspark.sql.types.FloatType
+.. _DoubleType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.DoubleType.html#pyspark.sql.types.DoubleType
+.. _StringType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.StringType.html#pyspark.sql.types.StringType
+.. _ArrayType: https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.sql.types.ArrayType.html#pyspark.sql.types.ArrayType
 
 .. rubric:: Example
 

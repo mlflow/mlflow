@@ -16,7 +16,6 @@ sklearn:
     maximum: "0.24.1"
     requirements: ["matplotlib"]
     run: |
-      pytest tests/sklearn/test_sklearn_training_session.py --large
       pytest tests/sklearn/test_sklearn_autolog.py --large
 
 pytorch:
@@ -108,10 +107,10 @@ keras:
     minimum: "2.2.4"
     maximum: "2.4.3"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "== dev": ["scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
+      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
+      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -172,6 +171,19 @@ lightgbm:
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+catboost:
+  package_info:
+    pip_release: "catboost"
+    install_dev: |
+      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+
+  models:
+    minimum: "0.23.1"
+    maximum: "0.25.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/catboost/test_catboost_model_export.py --large
 
 gluon:
   package_info:
@@ -259,3 +271,29 @@ statsmodels:
     maximum: "0.12.2"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
+
+spark:
+  package_info:
+    pip_release: "pyspark"
+
+  models:
+    minimum: "3.0.0"
+    maximum: "3.1.1"
+    requirements: ["boto3", "scikit-learn", "pyarrow"]
+    run: |
+      SAGEMAKER_OUT=$(mktemp)
+      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+        echo "Sagemaker container build succeeded.";
+      else
+        echo "Sagemaker container build failed, output:";
+        cat $SAGEMAKER_OUT;
+        exit 1
+      fi
+      pytest --verbose tests/spark --large --ignore tests/spark/test_mleap_model_export.py
+
+  autologging:
+    minimum: "3.0.0"
+    maximum: "3.1.1"
+    run: |
+      # TODO: Add datasource autologging tests
+      find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --verbose --large

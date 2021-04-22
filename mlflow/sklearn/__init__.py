@@ -36,6 +36,7 @@ from mlflow.utils.autologging_utils import (
     try_mlflow_log,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
+    _get_new_training_session_class,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -47,6 +48,7 @@ SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
 
 _logger = logging.getLogger(__name__)
+_SklearnTrainingSession = _get_new_training_session_class()
 
 
 def get_default_conda_env(include_cloudpickle=False):
@@ -451,82 +453,6 @@ def load_model(model_uri):
     )
 
 
-# NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now because:
-# 1. We don't currently have any use cases for allow_children=True.
-# 2. The list append & pop operations are thread-safe, so we will always clear the session stack
-#    once all _SklearnTrainingSessions exit.
-class _SklearnTrainingSession(object):
-    _session_stack = []
-
-    def __init__(self, clazz, allow_children=True):
-        """
-        A session manager for nested autologging runs.
-
-        :param clazz: A class object that this session originates from.
-        :param allow_children: If True, allows autologging in child sessions.
-                               If False, disallows autologging in all descendant sessions.
-
-        Example:
-
-        >>> class Parent: pass
-        >>> class Child: pass
-        >>> class Grandchild: pass
-
-        >>> with _SklearnTrainingSession(Parent, False) as p:
-        ...     with _SklearnTrainingSession(Child, True) as c:
-        ...         with _SklearnTrainingSession(Grandchild, True) as g:
-        ...             print(p.should_log())
-        ...             print(c.should_log())
-        ...             print(g.should_log())
-        True
-        False
-        False
-
-        >>> with _SklearnTrainingSession(Parent, True) as p:
-        ...     with _SklearnTrainingSession(Child, False) as c:
-        ...         with _SklearnTrainingSession(Grandchild, True) as g:
-        ...             print(p.should_log())
-        ...             print(c.should_log())
-        ...             print(g.should_log())
-        True
-        True
-        False
-
-        >>> with _SklearnTrainingSession(Child, True) as c1:
-        ...     with _SklearnTrainingSession(Child, True) as c2:
-        ...             print(c1.should_log())
-        ...             print(c2.should_log())
-        True
-        False
-        """
-        self.allow_children = allow_children
-        self.clazz = clazz
-        self._parent = None
-
-    def __enter__(self):
-        if len(_SklearnTrainingSession._session_stack) > 0:
-            self._parent = _SklearnTrainingSession._session_stack[-1]
-            self.allow_children = (
-                _SklearnTrainingSession._session_stack[-1].allow_children and self.allow_children
-            )
-        _SklearnTrainingSession._session_stack.append(self)
-        return self
-
-    def __exit__(self, tp, val, traceback):
-        _SklearnTrainingSession._session_stack.pop()
-
-    def should_log(self):
-        """
-        Returns True when at least one of the following conditions satisfies:
-
-        1. This session is the root session.
-        2. The parent session allows autologging and its class differs from this session's class.
-        """
-        return (self._parent is None) or (
-            self._parent.allow_children and self._parent.clazz != self.clazz
-        )
-
-
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -735,11 +661,11 @@ def autolog(
     from mlflow.models import infer_signature
     from mlflow.sklearn.utils import (
         _MIN_SKLEARN_VERSION,
+        _TRAINING_PREFIX,
         _is_supported_version,
         _chunk_dict,
-        _get_args_for_score,
-        _log_specialized_estimator_content,
-        _get_Xy,
+        _get_args_for_metrics,
+        _log_estimator_content,
         _all_estimators,
         _truncate_dict,
         _get_arg_names,
@@ -817,32 +743,6 @@ def autolog(
                      `fit()`, `fit_transform()`, ...).
         :param kwargs: The keyword arguments passed to the scikit-learn training routine.
         """
-        if hasattr(estimator, "score"):
-            try:
-                score_args = _get_args_for_score(estimator.score, estimator.fit, args, kwargs)
-                training_score = estimator.score(*score_args)
-            except Exception as e:
-                msg = (
-                    estimator.score.__qualname__
-                    + " failed. The 'training_score' metric will not be recorded. Scoring error: "
-                    + str(e)
-                )
-                _logger.warning(msg)
-            else:
-                try_mlflow_log(mlflow.log_metric, "training_score", training_score)
-
-        # log common metrics and artifacts for estimators (classifier, regressor)
-        _log_specialized_estimator_content(estimator, mlflow.active_run().info.run_id, args, kwargs)
-
-        def get_input_example():
-            # Fetch an input example using the first several rows of the array-like
-            # training data supplied to the training routine (e.g., `fit()`)
-            fit_arg_names = _get_arg_names(estimator.fit)
-            X_var_name, y_var_name = fit_arg_names[:2]
-            input_example = _get_Xy(args, kwargs, X_var_name, y_var_name)[0][
-                :INPUT_EXAMPLE_SAMPLE_ROWS
-            ]
-            return input_example
 
         def infer_model_signature(input_example):
             if not hasattr(estimator, "predict"):
@@ -852,6 +752,24 @@ def autolog(
                 )
 
             return infer_signature(input_example, estimator.predict(input_example))
+
+        (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
+
+        # log common metrics and artifacts for estimators (classifier, regressor)
+        _log_estimator_content(
+            estimator=estimator,
+            prefix=_TRAINING_PREFIX,
+            run_id=mlflow.active_run().info.run_id,
+            X=X,
+            y_true=y_true,
+            sample_weight=sample_weight,
+        )
+
+        def get_input_example():
+            # Fetch an input example using the first several rows of the array-like
+            # training data supplied to the training routine (e.g., `fit()`)
+            input_example = X[:INPUT_EXAMPLE_SAMPLE_ROWS]
+            return input_example
 
         if log_models:
             # Will only resolve `input_example` and `signature` if `log_models` is `True`.
@@ -994,3 +912,83 @@ def autolog(
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
+
+
+def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
+    """
+    Computes and logs metrics (and artifacts) for the given model and labeled dataset.
+    The metrics/artifacts mirror what is auto-logged when training a model
+    (see mlflow.sklearn.autolog).
+
+    :param model: The model to be evaluated.
+    :param X: The features for the evaluation dataset.
+    :param y_true: The labels for the evaluation dataset.
+    :param prefix: Prefix used to name metrics and artifacts.
+    :param sample_weight: Per-sample weights to apply in the computation of metrics/artifacts.
+    :return: The dict of logged metrics. Artifacts can be retrieved by inspecting the run.
+
+    ** Example **
+
+    .. code-block:: python
+
+        from sklearn.linear_model import LinearRegression
+        import mlflow
+
+        # enable autologging
+        mlflow.sklearn.autolog()
+
+        # prepare training data
+        X = np.array([[1, 1], [1, 2], [2, 2], [2, 3]])
+        y = np.dot(X, np.array([1, 2])) + 3
+
+        # prepare evaluation data
+        X_eval = np.array([[3, 3], [3, 4]])
+        y_eval = np.dot(X_eval, np.array([1,2])) + 3
+
+        # train a model
+        model = LinearRegression()
+        with mlflow.start_run() as run:
+            model.fit(X, y)
+            metrics = mlflow.sklearn.eval_and_log_metrics(model, X_eval, y_eval, prefix="val_")
+
+
+    Each metric's and artifact's name is prefixed with `prefix`, e.g., in the previous example the
+    metrics and artifacts are named 'val_XXXXX'. Note that training-time metrics are auto-logged
+    as 'training_XXXXX'. Metrics and artifacts are logged under the currently active run if one
+    exists, otherwise a new run is started and left active.
+
+    Raises an error if:
+      - prefix is empty
+      - model is not an sklearn estimator or does not support the 'predict' method
+    """
+    from mlflow.sklearn.utils import _log_estimator_content
+    from sklearn.base import BaseEstimator
+
+    if prefix is None or prefix == "":
+        raise ValueError("Must specify a non-empty prefix")
+
+    if not isinstance(model, BaseEstimator):
+        raise ValueError(
+            "The provided model was not a sklearn estimator. Please ensure the passed-in model is "
+            "a sklearn estimator subclassing sklearn.base.BaseEstimator"
+        )
+
+    if not hasattr(model, "predict"):
+        raise ValueError(
+            "Model does not support predictions. Please pass a model object defining a predict() "
+            "method"
+        )
+
+    active_run = mlflow.active_run()
+    run = active_run if active_run is not None else mlflow.start_run()
+
+    metrics = _log_estimator_content(
+        estimator=model,
+        run_id=run.info.run_id,
+        prefix=prefix,
+        X=X,
+        y_true=y_true,
+        sample_weight=sample_weight,
+    )
+
+    return metrics

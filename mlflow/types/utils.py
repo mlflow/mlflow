@@ -58,7 +58,7 @@ def clean_tensor_type(dtype: np.dtype):
     if not isinstance(dtype, np.dtype):
         raise TypeError(
             "Expected `type` to be instance of `{0}`, received `{1}`".format(
-                np.dtype, type.__class__
+                np.dtype, dtype.__class__
             )
         )
 
@@ -192,6 +192,8 @@ def _infer_numpy_dtype(dtype) -> DataType:
             "Can not infer np.object without looking at the values, call "
             "_map_numpy_array instead."
         )
+    elif dtype.kind == "M":
+        return DataType.datetime
     raise MlflowException("Unsupported numpy data type '{0}', kind '{1}'".format(dtype, dtype.kind))
 
 
@@ -255,6 +257,9 @@ def _infer_spark_type(x) -> DataType:
         return DataType.string
     elif isinstance(x, pyspark.sql.types.BinaryType):
         return DataType.binary
+    # NB: Spark differentiates date and timestamps, so we coerce both to TimestampType.
+    elif isinstance(x, (pyspark.sql.types.DateType, pyspark.sql.types.TimestampType)):
+        return DataType.datetime
     else:
         raise Exception(
             "Unsupported Spark Type '{}', MLflow schema is only supported for scalar "
