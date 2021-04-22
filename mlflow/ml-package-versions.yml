@@ -282,8 +282,8 @@ spark:
       export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
       ./build/mvn -DskipTests --no-transfer-progress clean package
       cd python
-      python setup.py sdist
-      pip install dist/*.tar.gz
+      python setup.py bdist_wheel
+      pip install dist/*.whl
 
   models:
     minimum: "3.0.0"
