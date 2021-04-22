@@ -173,11 +173,8 @@ def _get_instance_param_map_recursively(instance, level):
             expanded_param_map[logged_param_name] = param_value.uid
             # skip log estimator's nested params because they will be
             # logged in nested runs.
-            # TODO:
-            #  consider the nested case:
-            #  the tuned estimator is a pipeline or a composite estimator like OneVsRest
-            #  then nested estimators uid need logged, e.g. uids of stage in
-            #  pipeline.stages/ova.classifier
+            # Note: if the estimator is pipeline, the estimator hierarchy will be logged
+            # as an artifact.
             pass
         elif is_parameter_search_estimator and param_name == 'estimatorParamMaps':
             # this param will be saved as JSON format artifact.
@@ -355,7 +352,14 @@ def autolog(
             for eps in estimator.getEstimatorParamMaps():
                 tuning_param_maps.append({f'{k.parent}.{k.name}': str(v) for k, v in eps.items()})
 
-            try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'estimatorParamMaps.json')
+            try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'estimator_param_maps.json')
+            if isinstance(estimator.getEstimator(), Pipeline):
+                estimator_pipeline_hierarchy = _get_pipeline_stage_hierarchy(estimator)
+                try_mlflow_log(
+                    mlflow.log_dict,
+                    estimator_pipeline_hierarchy,
+                    artifact_file="estimator_pipeline_hierarchy.json"
+                )
 
         # Chunk model parameters to avoid hitting the log_batch API limit
         for chunk in _chunk_dict(
