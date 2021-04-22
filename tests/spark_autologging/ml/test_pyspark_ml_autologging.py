@@ -311,3 +311,46 @@ def test_pipeline(dataset_text):
         loaded_model = load_model_by_run_id(run_id)
         assert loaded_model.uid == model.uid
         assert run_data.artifacts == ["model", "pipeline_hierarchy.json"]
+
+
+def test_get_instance_param_map(spark_session):
+    lor = LogisticRegression(maxIter=3, standardization=False)
+    lor_params = _get_instance_param_map(lor)
+    assert (
+        lor_params["maxIter"] == 3
+        and not lor_params["standardization"]
+        and lor_params["family"] == lor.getOrDefault(lor.family)
+    )
+
+    ova = OneVsRest(classifier=lor, labelCol="abcd")
+    ova_params = _get_instance_param_map(ova)
+    assert (
+        ova_params["classifier"] == lor.uid
+        and ova_params["labelCol"] == "abcd"
+        and ova_params[f"{lor.uid}.maxIter"] == 3
+        and ova_params[f"{lor.uid}.family"] == lor.getOrDefault(lor.family)
+    )
+
+    tokenizer = Tokenizer(inputCol="text", outputCol="words")
+    hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
+    pipeline = Pipeline(stages=[tokenizer, hashingTF, ova])
+    inner_pipeline = Pipeline(stages=[hashingTF, ova])
+    nested_pipeline = Pipeline(stages=[tokenizer, inner_pipeline])
+
+    pipeline_params = _get_instance_param_map(pipeline)
+    nested_pipeline_params = _get_instance_param_map(nested_pipeline)
+
+    assert pipeline_params["stages"] == [tokenizer.uid, hashingTF.uid, ova.uid]
+    assert nested_pipeline_params["stages"] == [
+        tokenizer.uid,
+        {inner_pipeline.uid: [hashingTF.uid, ova.uid]},
+    ]
+
+    for params_to_test in [pipeline_params, nested_pipeline_params]:
+        assert (
+            params_to_test[f"{tokenizer.uid}.inputCol"] == "text"
+            and params_to_test[f"{tokenizer.uid}.outputCol"] == "words"
+        )
+        assert params_to_test[f"{hashingTF.uid}.outputCol"] == "features"
+        assert params_to_test[f"{ova.uid}.classifier"] == lor.uid
+        assert params_to_test[f"{lor.uid}.maxIter"] == 3

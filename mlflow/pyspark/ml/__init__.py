@@ -121,7 +121,7 @@ def _get_pipeline_stage_hierarchy(pipeline):
     return {pipeline.uid: stage_hierarchy}
 
 
-def _get_instance_param_map(instance):
+def _get_instance_param_map_recursively(instance, level):
     from pyspark.ml.param import Params
     from pyspark.ml.pipeline import Pipeline
     from pyspark.ml.tuning import CrossValidator, TrainValidationSplit
@@ -134,32 +134,38 @@ def _get_instance_param_map(instance):
     expanded_param_map = {}
 
     is_pipeline = isinstance(instance, Pipeline)
+    is_parameter_search_estimator = isinstance(instance, (CrossValidator, TrainValidationSplit))
 
     for k, v in param_map.items():
+        if level == 0:
+            stored_k = k
+        else:
+            stored_k = f"{instance.uid}.{k}"
+
         if is_pipeline and k == "stages":
-            expanded_param_map[k] = _get_pipeline_stage_hierarchy(instance)[instance.uid]
+            expanded_param_map[stored_k] = _get_pipeline_stage_hierarchy(instance)[instance.uid]
             for stage in instance.getStages():
-                stage_param_map = _get_instance_param_map(stage)
-                for ik, iv in stage_param_map.items():
-                    expanded_param_map[f"{stage.uid}.{ik}"] = iv
-        elif isinstance(v, Params):
-            # handle the case param value type inherits `pyspark.ml.param.Params`
-            # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
-            expanded_param_map[k] = v.uid
-            internal_param_map = _get_instance_param_map(v)
-            for ik, iv in internal_param_map.items():
-                expanded_param_map[f"{v.uid}.{ik}"] = iv
-        elif k in ["estimator", "estimatorParamMaps"] and isinstance(
-            instance, (CrossValidator, TrainValidationSplit)
-        ):
+                stage_param_map = _get_instance_param_map_recursively(stage, level + 1)
+                expanded_param_map.update(stage_param_map)
+        elif is_parameter_search_estimator and k in ["estimator", "estimatorParamMaps"]:
             # skip log estimator Param and its nested params because they will be
             # logged in nested runs.
             # TODO: Log `estimatorParamMaps` as JSON artifacts.
             pass
+        elif isinstance(v, Params):
+            # handle the case param value type inherits `pyspark.ml.param.Params`
+            # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
+            expanded_param_map[stored_k] = v.uid
+            internal_param_map = _get_instance_param_map_recursively(v, level + 1)
+            expanded_param_map.update(internal_param_map)
         else:
-            expanded_param_map[k] = v
+            expanded_param_map[stored_k] = v
 
     return expanded_param_map
+
+
+def _get_instance_param_map(instance):
+    return _get_instance_param_map_recursively(instance, level=0)
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
