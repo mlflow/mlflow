@@ -359,8 +359,10 @@ def autolog(
             tuning_param_maps = _get_tuning_param_maps(estimator)
 
             try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'estimator_param_maps.json')
+
             if isinstance(estimator.getEstimator(), Pipeline):
-                estimator_pipeline_hierarchy = _get_pipeline_stage_hierarchy(estimator)
+                estimator_pipeline_hierarchy = _get_pipeline_stage_hierarchy(
+                    estimator.getEstimator())
                 try_mlflow_log(
                     mlflow.log_dict,
                     estimator_pipeline_hierarchy,
