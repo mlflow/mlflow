@@ -313,7 +313,7 @@ def test_pipeline(dataset_text):
         assert run_data.artifacts == ["model", "pipeline_hierarchy.json"]
 
 
-def test_get_instance_param_map(spark_session):
+def test_get_instance_param_map(spark_session):  # pylint: disable=unused-argument
     lor = LogisticRegression(maxIter=3, standardization=False)
     lor_params = _get_instance_param_map(lor)
     assert (
