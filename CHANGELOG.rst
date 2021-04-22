@@ -1,5 +1,24 @@
 Changelog
 =========
+1.16.0 (2021-04-22)
+-------------------
+MLflow 1.16.0 includes several major features and improvements:
+
+Features:
+
+- Enable spark_udf to use column names from model signature by default (#4236, @Loquats)
+- Implementation: pyspark autologging for basic estimator (#4228, @WeichenXu123)
+- Add datetime data type for MLflow model signatures (#4241, @vperiyasamy)
+- [FLAVOR] Add CatBoost flavor (#2417, @harupy)
+- Add mlflow.sklearn.eval_and_log_metrics (#4218, @alkispoly-db)
+
+Bug fixes and documentation updates:
+
+- Fix (#4231, @dbczumar)
+- Fix 1.15 migration error (#4211, @dolfinus)
+
+Small bug fixes and doc updates (#4255, #4252, #4254, #4253, #4242, #4247, #4243, #4237, #4233, @harupy; #4225, @dmatrix; #4206, @mlflow-automation; #4207, @shrinath-suresh; #4264, @WeichenXu123; #3884, #3866, #3885, @ankan94; #4274, #4216, @dbczumar)
+
 1.15.0 (2021-03-26)
 -------------------
 MLflow 1.15.0 includes several features, bug fixes and improvements. Notably, it includes a number of improvements to MLflow autologging:
