@@ -58,7 +58,9 @@ class RestStore(AbstractStore):
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         """
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
+                            passed, the server will determine an appropriate number of experiments to return. 
+                            Older MLflow servers (prior to MLflow 1.17.0) are likely to return all experiments, 
+                            while newer servers may return a limited number.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
         :return: a PagedList of all known Experiment objects

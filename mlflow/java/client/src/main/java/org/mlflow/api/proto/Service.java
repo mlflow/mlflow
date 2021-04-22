@@ -12499,7 +12499,7 @@ public final class Service {
      * to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 50000];</code>
+     * <code>optional int64 max_results = 2 [default = 10000];</code>
      */
     boolean hasMaxResults();
     /**
@@ -12510,7 +12510,7 @@ public final class Service {
      * to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 50000];</code>
+     * <code>optional int64 max_results = 2 [default = 10000];</code>
      */
     long getMaxResults();
 
@@ -12554,7 +12554,7 @@ public final class Service {
     }
     private ListExperiments() {
       viewType_ = 1;
-      maxResults_ = 50000L;
+      maxResults_ = 10000L;
       pageToken_ = "";
     }
 
@@ -13785,7 +13785,7 @@ public final class Service {
      * to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 50000];</code>
+     * <code>optional int64 max_results = 2 [default = 10000];</code>
      */
     public boolean hasMaxResults() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -13798,7 +13798,7 @@ public final class Service {
      * to iterate through experiments.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 50000];</code>
+     * <code>optional int64 max_results = 2 [default = 10000];</code>
      */
     public long getMaxResults() {
       return maxResults_;
@@ -14090,7 +14090,7 @@ public final class Service {
         super.clear();
         viewType_ = 1;
         bitField0_ = (bitField0_ & ~0x00000001);
-        maxResults_ = 50000L;
+        maxResults_ = 10000L;
         bitField0_ = (bitField0_ & ~0x00000002);
         pageToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -14281,7 +14281,7 @@ public final class Service {
         return this;
       }
 
-      private long maxResults_ = 50000L;
+      private long maxResults_ = 10000L;
       /**
        * <pre>
        * Maximum number of experiments desired. If specified, max_results can be at most 10,000. 
@@ -14290,7 +14290,7 @@ public final class Service {
        * to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 50000];</code>
+       * <code>optional int64 max_results = 2 [default = 10000];</code>
        */
       public boolean hasMaxResults() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -14303,7 +14303,7 @@ public final class Service {
        * to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 50000];</code>
+       * <code>optional int64 max_results = 2 [default = 10000];</code>
        */
       public long getMaxResults() {
         return maxResults_;
@@ -14316,7 +14316,7 @@ public final class Service {
        * to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 50000];</code>
+       * <code>optional int64 max_results = 2 [default = 10000];</code>
        */
       public Builder setMaxResults(long value) {
         bitField0_ |= 0x00000002;
@@ -14332,11 +14332,11 @@ public final class Service {
        * to iterate through experiments.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 50000];</code>
+       * <code>optional int64 max_results = 2 [default = 10000];</code>
        */
       public Builder clearMaxResults() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        maxResults_ = 50000L;
+        maxResults_ = 10000L;
         onChanged();
         return this;
       }
@@ -48902,7 +48902,7 @@ public final class Service {
       "nt_id\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RPC" +
       "[$this.Response]\"\341\001\n\017ListExperiments\022#\n\t" +
       "view_type\030\001 \001(\0162\020.mlflow.ViewType\022\032\n\013max" +
-      "_results\030\002 \001(\003:\00550000\022\022\n\npage_token\030\003 \001(" +
+      "_results\030\002 \001(\003:\00510000\022\022\n\npage_token\030\003 \001(" +
       "\t\032L\n\010Response\022\'\n\013experiments\030\001 \003(\0132\022.mlf" +
       "low.Experiment\022\027\n\017next_page_token\030\002 \001(\t:" +
       "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +

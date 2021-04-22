@@ -44,6 +44,7 @@ from mlflow.utils.validation import (
     _validate_metric,
     _validate_experiment_tag,
     _validate_tag,
+    _validate_experiment_pagination,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
@@ -314,14 +315,7 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList(experiments, None)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
-        if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException(
-                "Invalid value for request parameter max_results. "
-                "It must be at most {}, but got value {}".format(
-                    SEARCH_MAX_RESULTS_THRESHOLD, max_results
-                ),
-                INVALID_PARAMETER_VALUE,
-            )
+        _validate_experiment_pagination(max_results)
         return self._list_experiments(
             view_type=view_type, max_results=max_results, page_token=page_token, eager=True
         )

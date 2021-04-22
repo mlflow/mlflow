@@ -34,6 +34,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_batch_log_limits,
     _validate_batch_log_data,
+    _validate_experiment_pagination,
 )
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
@@ -225,12 +226,7 @@ class FileStore(AbstractStore):
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList
 
-        if max_results is not None and max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException(
-                "Invalid value for request parameter max_results. It must be at "
-                "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD, max_results),
-                databricks_pb2.INVALID_PARAMETER_VALUE,
-            )
+        _validate_experiment_pagination(max_results)
         self._check_root_dir()
         rsl = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:

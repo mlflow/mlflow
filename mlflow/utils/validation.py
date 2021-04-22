@@ -33,6 +33,7 @@ MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
+MAX_EXPERIMENTS_LISTED_PER_PAGE = 10000
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
 
@@ -146,6 +147,24 @@ def _validate_model_version_tag(key, value):
     _validate_tag_name(key)
     _validate_length_limit("Model version key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+
+
+def _validate_experiment_pagination(max_results):
+    """Check that `max_results` is within an acceptable range and raise an exception if it isn't."""
+    if max_results is not None and max_results > MAX_EXPERIMENTS_LISTED_PER_PAGE:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at most {}, but got value {}".format(
+                MAX_EXPERIMENTS_LISTED_PER_PAGE, max_results
+            ),
+            INVALID_PARAMETER_VALUE,
+        )
+    if max_results is not None and max_results < 1:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at least 1, but got value {}".format(max_results),
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 def _validate_param_name(name):

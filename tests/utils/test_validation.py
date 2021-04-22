@@ -15,6 +15,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_db_type_string,
     _validate_experiment_name,
+    _validate_experiment_pagination,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [
@@ -193,6 +194,13 @@ def test_validate_experiment_name():
     for invalid_name in ["", 12, 12.7, None, {}, []]:
         with pytest.raises(MlflowException):
             _validate_experiment_name(invalid_name)
+
+
+def test_validate_experiment_pagination():
+    _validate_experiment_pagination(50)
+    for invalid_num in [-12, 0, 50000]:
+        with pytest.raises(MlflowException):
+            _validate_experiment_pagination(invalid_num)
 
 
 def test_db_type():
