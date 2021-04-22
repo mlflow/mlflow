@@ -408,7 +408,7 @@ def autolog(
                 metrics = spark_model.avgMetrics
 
             search_result = []
-            for i in len(estimator_param_maps):
+            for i in range(len(estimator_param_maps)):
                 search_result.append({
                     'param_maps': estimator_param_maps[i],
                     metric_key: metrics[i]
