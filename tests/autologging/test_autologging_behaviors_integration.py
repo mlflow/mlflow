@@ -238,6 +238,7 @@ def test_autolog_respects_silent_mode(tmpdir):
         for _ in range(100):
             executor.submit(train_model)
 
+    assert all([e.result() is True for e in executions])
     assert stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
