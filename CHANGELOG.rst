@@ -6,7 +6,7 @@ MLflow 1.16.0 includes several major features and improvements:
 
 Features:
 
-- Add PySpark ML autologging for basic estimators (e.g. LinearRegression) (#4228, @WeichenXu123)
+- Add PySpark ML autologging for basic estimators (e.g. ``LinearRegression``) (#4228, @WeichenXu123)
 - Add CatBoost model persistence APIs (#2417, @harupy)
 - Enable ``spark_udf`` to use column names from model signature by default (#4236, @Loquats)
 - Add ``datetime`` data type for model signatures (#4241, @vperiyasamy)
@@ -15,7 +15,7 @@ Features:
 Bug fixes and documentation updates:
 
 - Fix a database migration error for PostgreSQL (#4211, @dolfinus)
-- Fix a bug where ``silent=True/False`` does not respect ``disable=True``  (#4231, @dbczumar)
+- Fix autologging silent mode bugs (#4231, @dbczumar)
 
 Small bug fixes and doc updates (#4255, #4252, #4254, #4253, #4242, #4247, #4243, #4237, #4233, @harupy; #4225, @dmatrix; #4206, @mlflow-automation; #4207, @shrinath-suresh; #4264, @WeichenXu123; #3884, #3866, #3885, @ankan94; #4274, #4216, @dbczumar)
 
