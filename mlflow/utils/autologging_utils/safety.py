@@ -268,6 +268,9 @@ def is_testing():
     return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
+_AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET = set()
+
+
 def safe_patch(
     autologging_integration, destination, function_name, patch_function, manage_run=False
 ):
@@ -367,8 +370,9 @@ def safe_patch(
                 mlflow.active_run() and not _AutologgingSessionManager.active_session()
             )
 
-            if autologging_is_disabled(autologging_integration) or (
-                user_created_fluent_run_is_active and exclusive
+            if autologging_integration in _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET or \
+                    autologging_is_disabled(autologging_integration) or (
+                    user_created_fluent_run_is_active and exclusive
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created
@@ -528,7 +532,11 @@ def safe_patch(
                 if original_has_been_called:
                     return original_result
                 else:
-                    return original(*args, **kwargs)
+                    try:
+                        _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET.add(autologging_integration)
+                        return original(*args, **kwargs)
+                    finally:
+                        _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET.remove(autologging_integration)
 
     _wrap_patch(destination, function_name, safe_patch_function)
 
