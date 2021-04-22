@@ -1,7 +1,10 @@
 import logging
+import time
 from pkg_resources import resource_filename
 
 import mlflow
+from mlflow.entities import Metric, Param
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _chunk_dict, _truncate_dict, _get_fully_qualified_class_name
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -10,7 +13,12 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     try_mlflow_log,
 )
-
+from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
+from mlflow.utils.validation import (
+    MAX_PARAMS_TAGS_PER_BATCH,
+    MAX_PARAM_VAL_LENGTH,
+    MAX_ENTITY_KEY_LENGTH,
+)
 
 _logger = logging.getLogger(__name__)
 _SparkTrainingSession = _get_new_training_session_class()
@@ -90,6 +98,8 @@ def _should_log_model(spark_model):
             return all(
                 _should_log_model(stage) for stage in spark_model.stages if isinstance(stage, Model)
             )
+        elif _is_parameter_search_model(spark_model):
+            return _should_log_model(spark_model.bestModel)
         else:
             return True
     else:
@@ -105,6 +115,16 @@ def _get_estimator_info_tags(estimator):
         "estimator_name": estimator.__class__.__name__,
         "estimator_class": _get_fully_qualified_class_name(estimator),
     }
+
+
+def _is_parameter_search_estimator(instance):
+    from pyspark.ml.tuning import CrossValidator, TrainValidationSplit
+    return isinstance(instance, (CrossValidator, TrainValidationSplit))
+
+
+def _is_parameter_search_model(instance):
+    from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
+    return isinstance(instance, (CrossValidatorModel, TrainValidationSplitModel))
 
 
 def _get_pipeline_stage_hierarchy(pipeline):
@@ -149,10 +169,18 @@ def _get_instance_param_map_recursively(instance, level):
             for stage in instance.getStages():
                 stage_param_map = _get_instance_param_map_recursively(stage, level + 1)
                 expanded_param_map.update(stage_param_map)
-        elif is_parameter_search_estimator and param_name in ["estimator", "estimatorParamMaps"]:
-            # skip log estimator Param and its nested params because they will be
+        elif is_parameter_search_estimator and param_name == 'estimator':
+            expanded_param_map[logged_param_name] = param_value.uid
+            # skip log estimator's nested params because they will be
             # logged in nested runs.
-            # TODO: Log `estimatorParamMaps` as JSON artifacts.
+            # TODO:
+            #  consider the nested case:
+            #  the tuned estimator is a pipeline or a composite estimator like OneVsRest
+            #  then nested estimators uid need logged, e.g. uids of stage in
+            #  pipeline.stages/ova.classifier
+            pass
+        elif is_parameter_search_estimator and param_name == 'estimatorParamMaps':
+            # this param will be saved as JSON format artifact.
             pass
         elif isinstance(param_value, Params):
             # handle the case param value type inherits `pyspark.ml.param.Params`
@@ -168,6 +196,68 @@ def _get_instance_param_map_recursively(instance, level):
 
 def _get_instance_param_map(instance):
     return _get_instance_param_map_recursively(instance, level=0)
+
+
+def _create_child_runs_for_parameter_search(parent_estimator, parent_model, parent_run, child_tags):
+    from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
+    from itertools import zip_longest
+
+    client = MlflowClient()
+    # Use the start time of the parent parameter search run as a rough estimate for the
+    # start time of child runs, since we cannot precisely determine when each point
+    # in the parameter search space was explored
+    child_run_start_time = parent_run.info.start_time
+    child_run_end_time = int(time.time() * 1000)
+
+    estimator_param_maps = parent_estimator.getEstimatorParamMaps()
+    tuning_estimator = parent_estimator.getEstimator()
+    metric_key = parent_estimator.getEvaluator().getMetricName()
+    if isinstance(parent_model, CrossValidatorModel):
+        metric_key = 'avg_' + metric_key
+        metrics = parent_model.avgMetrics
+    elif isinstance(parent_model, TrainValidationSplitModel):
+        metrics = parent_model.avgMetrics
+    else:
+        raise RuntimeError(f'Unknown model type {type(parent_model)}.')
+
+    for i in range(len(estimator_param_maps)):
+        estimator = tuning_estimator.copy(estimator_param_maps[i])
+        tags_to_log = dict(child_tags) if child_tags else {}
+        tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
+        tags_to_log.update(_get_estimator_info_tags(estimator))
+        # TODO: add child run index into tag ?
+
+        child_run = client.create_run(
+            experiment_id=parent_run.info.experiment_id,
+            start_time=child_run_start_time,
+            tags=tags_to_log,
+        )
+
+        params_to_log = _get_instance_param_map(estimator)
+        param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
+        metrics_to_log = {metric_key: metrics[i]}
+        for params_batch, metrics_batch in zip_longest(
+                param_batches_to_log, [metrics_to_log], fillvalue={}
+        ):
+            # Trim any parameter keys / values and metric keys that exceed the limits
+            # imposed by corresponding MLflow Tracking APIs (e.g., LogParam, LogMetric)
+            truncated_params_batch = _truncate_dict(
+                params_batch, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
+            )
+            truncated_metrics_batch = _truncate_dict(
+                metrics_batch, max_key_length=MAX_ENTITY_KEY_LENGTH
+            )
+            client.log_batch(
+                run_id=child_run.info.run_id,
+                params=[
+                    Param(str(key), str(value)) for key, value in truncated_params_batch.items()
+                ],
+                metrics=[
+                    Metric(key=str(key), value=value, timestamp=child_run_end_time, step=0)
+                    for key, value in truncated_metrics_batch.items()
+                ],
+            )
+        client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
@@ -240,11 +330,7 @@ def autolog(
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
            :language: text
     """
-    from mlflow.utils.validation import (
-        MAX_PARAMS_TAGS_PER_BATCH,
-        MAX_PARAM_VAL_LENGTH,
-        MAX_ENTITY_KEY_LENGTH,
-    )
+    from mlflow.tracking.context import registry as context_registry
     from pyspark.ml.base import Estimator
     from pyspark.ml import Pipeline
 
@@ -264,16 +350,46 @@ def autolog(
                 mlflow.log_dict, pipeline_hierarchy, artifact_file="pipeline_hierarchy.json"
             )
 
+        if _is_parameter_search_estimator(estimator):
+            tuning_param_maps = []
+            for eps in estimator.getEstimatorParamMaps():
+                tuning_param_maps.append({f'{k.parent}.{k.name}': str(v) for k, v in eps.items()})
+
+            try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'estimatorParamMaps.json')
+
         # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in _chunk_dict(param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,):
+        for chunk in _chunk_dict(
+            param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+        ):
             truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
 
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
 
     def _log_posttraining_metadata(estimator, spark_model, params):
-        # TODO: Log nested runs for spark ml tuning estimators
-        #   (CrossValidator/TrainValidationSplit)
+
+        if _is_parameter_search_estimator(estimator):
+            try:
+                # Fetch environment-specific tags (e.g., user and source) to ensure that lineage
+                # information is consistent with the parent run
+                child_tags = context_registry.resolve_tags()
+                child_tags.update({MLFLOW_AUTOLOGGING: AUTOLOGGING_INTEGRATION_NAME})
+                _create_child_runs_for_parameter_search(
+                    parent_estimator=estimator,
+                    parent_model=spark_model,
+                    parent_run=mlflow.active_run(),
+                    child_tags=child_tags
+                )
+            except Exception as e:
+                import traceback
+                msg = (
+                    "Encountered exception during creation of child runs for parameter search."
+                    " Child runs may be missing. Exception: {}".format(traceback.format_exc())
+                )
+                _logger.warning(msg)
+
+        # TODO: log parameter search results (best model parameters) as an artifact ?
+
         if log_models:
             if _should_log_model(spark_model):
                 # TODO: support model signature
