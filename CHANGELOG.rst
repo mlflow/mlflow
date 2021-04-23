@@ -6,11 +6,11 @@ MLflow 1.16.0 includes several major features and improvements:
 
 Features:
 
-- Add PySpark ML autologging for basic estimators (e.g. ``LinearRegression``) (#4228, @WeichenXu123)
-- Add CatBoost model persistence APIs (#2417, @harupy)
-- Enable ``spark_udf`` to use column names from model signature by default (#4236, @Loquats)
+- Add ``mlflow.pyspark.ml.autolog()`` API for autologging of ``pyspark.ml`` estimators (#4228, @WeichenXu123)
+- Add ``mlflow.catboost.log_model``, ``mlflow.catboost.save_model``, ``mlflow.catboost.load_model`` APIs for CatBoost model persistence (#2417, @harupy)
+- Enable ``mlflow.pyfunc.spark_udf`` to use column names from model signature by default (#4236, @Loquats)
 - Add ``datetime`` data type for model signatures (#4241, @vperiyasamy)
-- Add ``mlflow.sklearn.eval_and_log_metrics`` that computes and logs metrics for the given scikit-learn model and labeled dataset. (#4218, @alkispoly-db)
+- Add ``mlflow.sklearn.eval_and_log_metrics`` API that computes and logs metrics for the given scikit-learn model and labeled dataset. (#4218, @alkispoly-db)
 
 Bug fixes and documentation updates:
 
