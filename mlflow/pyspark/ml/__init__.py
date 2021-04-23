@@ -14,6 +14,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     try_mlflow_log,
 )
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
@@ -216,14 +217,13 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
     elif isinstance(parent_model, TrainValidationSplitModel):
         metrics = parent_model.avgMetrics
     else:
-        raise RuntimeError(f'Unknown model type {type(parent_model)}.')
+        raise RuntimeError(f'Unknown parameter search model type {type(parent_model)}.')
 
     for i in range(len(estimator_param_maps)):
         estimator = tuning_estimator.copy(estimator_param_maps[i])
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(estimator))
-        # TODO: add child run index into tag ?
 
         child_run = client.create_run(
             experiment_id=parent_run.info.experiment_id,
@@ -256,6 +256,22 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
                 ],
             )
         client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
+
+
+def _log_parameter_search_results_as_artifact(param_maps, metrics, metric_name, run_id):
+    import pandas as pd
+    result_dict = {key: [] for key in param_maps[0].keys()}
+    result_dict[metric_name] = []
+    for i in range(len(param_maps)):
+        for param_name, param_value in param_maps[i].items():
+            result_dict[param_name].append(param_value)
+        result_dict[metric_name].append(metrics[i])
+
+    results_df = pd.DataFrame.from_dict(result_dict)
+    with TempDir() as t:
+        results_path = t.path("search_results.csv")
+        results_df.to_csv(results_path, index=False)
+        try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
@@ -410,16 +426,11 @@ def autolog(
             elif isinstance(spark_model, TrainValidationSplitModel):
                 metrics = spark_model.avgMetrics
 
-            search_result = []
-            for i in range(len(estimator_param_maps)):
-                search_result.append({
-                    'param_maps': estimator_param_maps[i],
-                    metric_key: metrics[i]
-                })
-            try_mlflow_log(
-                mlflow.log_dict,
-                search_result,
-                artifact_file="search_result.json"
+            _log_parameter_search_results_as_artifact(
+                estimator_param_maps,
+                metrics,
+                metric_key,
+                mlflow.active_run().info.run_id
             )
 
             if estimator.getEvaluator().isLargerBetter():
