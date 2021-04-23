@@ -1,4 +1,5 @@
 import logging
+import numpy as np
 import time
 from pkg_resources import resource_filename
 
@@ -421,11 +422,26 @@ def autolog(
                 artifact_file="search_result.json"
             )
 
+            if estimator.getEvaluator().isLargerBetter():
+                best_index = np.argmax(metrics)
+            else:
+                best_index = np.argmin(metrics)
+
+            best_param_map = estimator_param_maps[best_index]
+            try_mlflow_log(
+                mlflow.log_dict,
+                search_result,
+                artifact_file="best_parameters.json"
+            )
+
         if log_models:
             if _should_log_model(spark_model):
                 # TODO: support model signature
                 try_mlflow_log(
                     mlflow.spark.log_model, spark_model, artifact_path="model",
+                )
+                try_mlflow_log(
+                    mlflow.spark.log_model, spark_model.bestModel, artifact_path="best_model",
                 )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
