@@ -275,6 +275,17 @@ statsmodels:
 spark:
   package_info:
     pip_release: "pyspark"
+    install_dev: |
+      # TODO: Consider using cache because it takes long (20 ~ 30 min) to build spark from source
+      # on GitHub Actions environment.
+      temp_dir=$(mktemp -d)
+      git clone --depth 1 https://github.com/apache/spark $temp_dir
+      cd $temp_dir
+      export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
+      ./build/mvn -DskipTests --no-transfer-progress clean package
+      cd python
+      python setup.py bdist_wheel
+      pip install dist/*.whl
 
   models:
     minimum: "3.0.0"
