@@ -65,7 +65,7 @@ jobs:
         run: |
           echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
       - uses: actions/cache@v2
-        if: ${{ matrix.job_name == 'pyspark / dev / autologging' }}
+        if: ${{ matrix.job_name == 'spark / dev / autologging' }}
         with:
           path: ~/.cache/wheels
           key: ${{ runner.os }}-wheels-${{ steps.get-date.outputs.date }}
