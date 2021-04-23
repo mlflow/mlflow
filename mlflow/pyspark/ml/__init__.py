@@ -136,30 +136,31 @@ def _get_instance_param_map_recursively(instance, level):
     is_pipeline = isinstance(instance, Pipeline)
     is_parameter_search_estimator = isinstance(instance, (CrossValidator, TrainValidationSplit))
 
-    for k, v in param_map.items():
+    for param_name, param_value in param_map.items():
         if level == 0:
-            stored_k = k
+            logged_param_name = param_name
         else:
-            stored_k = f"{instance.uid}.{k}"
+            logged_param_name = f"{instance.uid}.{param_name}"
 
-        if is_pipeline and k == "stages":
-            expanded_param_map[stored_k] = _get_pipeline_stage_hierarchy(instance)[instance.uid]
+        if is_pipeline and param_name == "stages":
+            expanded_param_map[logged_param_name] = \
+                _get_pipeline_stage_hierarchy(instance)[instance.uid]
             for stage in instance.getStages():
                 stage_param_map = _get_instance_param_map_recursively(stage, level + 1)
                 expanded_param_map.update(stage_param_map)
-        elif is_parameter_search_estimator and k in ["estimator", "estimatorParamMaps"]:
+        elif is_parameter_search_estimator and param_name in ["estimator", "estimatorParamMaps"]:
             # skip log estimator Param and its nested params because they will be
             # logged in nested runs.
             # TODO: Log `estimatorParamMaps` as JSON artifacts.
             pass
-        elif isinstance(v, Params):
+        elif isinstance(param_value, Params):
             # handle the case param value type inherits `pyspark.ml.param.Params`
             # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
-            expanded_param_map[stored_k] = v.uid
-            internal_param_map = _get_instance_param_map_recursively(v, level + 1)
+            expanded_param_map[logged_param_name] = param_value.uid
+            internal_param_map = _get_instance_param_map_recursively(param_value, level + 1)
             expanded_param_map.update(internal_param_map)
         else:
-            expanded_param_map[stored_k] = v
+            expanded_param_map[logged_param_name] = param_value
 
     return expanded_param_map
 
