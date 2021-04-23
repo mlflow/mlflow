@@ -143,8 +143,9 @@ def _get_instance_param_map_recursively(instance, level):
             logged_param_name = f"{instance.uid}.{param_name}"
 
         if is_pipeline and param_name == "stages":
-            expanded_param_map[logged_param_name] = \
-                _get_pipeline_stage_hierarchy(instance)[instance.uid]
+            expanded_param_map[logged_param_name] = _get_pipeline_stage_hierarchy(instance)[
+                instance.uid
+            ]
             for stage in instance.getStages():
                 stage_param_map = _get_instance_param_map_recursively(stage, level + 1)
                 expanded_param_map.update(stage_param_map)
