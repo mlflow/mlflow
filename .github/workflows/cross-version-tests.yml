@@ -60,14 +60,25 @@ jobs:
         run: |
           conda install python=3.6
           python --version
+      - name: Get date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+      - uses: actions/cache@v2
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ steps.get-date.outputs.date }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Install dependencies
         run: |
           pip install -e .
           pip install -r dev/small-requirements.txt
           ${{ matrix.install }}
-      - name: Check package versions
+      - name: Check package versions & cached wheels
         run: |
           pip freeze
+          pip cache list
       - name: Run tests
         env:
           SPARK_LOCAL_IP: 127.0.0.1
