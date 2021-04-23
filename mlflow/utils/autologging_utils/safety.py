@@ -6,7 +6,6 @@ import os
 import uuid
 import warnings
 from abc import abstractmethod
-from collections import namedtuple
 from contextlib import contextmanager
 
 import mlflow
@@ -489,7 +488,7 @@ def safe_patch(
                     else:
                         patch_function(call_original, *args, **kwargs)
 
-                    _AutologgingSessionManager.active_session().state = "succeeded"
+                    session.state = "succeeded"
 
                     try_log_autologging_event(
                         AutologgingEventLogger.get_logger().log_patch_function_success,
@@ -500,7 +499,7 @@ def safe_patch(
                         kwargs,
                     )
                 except Exception as e:
-                    _AutologgingSessionManager.active_session().state = "failed"
+                    session.state = "failed"
 
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
@@ -548,10 +547,10 @@ def safe_patch(
 # - id: a unique session identifier (e.g., a UUID)
 # - state: init/succeeded/failed
 class AutologgingSession:
-    def __init__(self, integration, id, state):
+    def __init__(self, integration, id_):
         self.integration = integration
-        self.id = id
-        self.state = state
+        self.id = id_
+        self.state = "init"
 
 
 class _AutologgingSessionManager:
@@ -564,7 +563,7 @@ class _AutologgingSessionManager:
             prev_session = cls._session
             if prev_session is None:
                 session_id = uuid.uuid4().hex
-                cls._session = AutologgingSession(integration, session_id, "init")
+                cls._session = AutologgingSession(integration, session_id)
             yield cls._session
         finally:
             # Only end the session upon termination of the context if we created
