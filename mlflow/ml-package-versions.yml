@@ -276,6 +276,7 @@ spark:
   package_info:
     pip_release: "pyspark"
     install_dev: |
+      # TODO: Consider using cache. Building spark from source takes 20 ~ 30 min on GitHub Actions environment.
       temp_dir=$(mktemp -d)
       git clone --depth 1 https://github.com/apache/spark $temp_dir
       cd $temp_dir
