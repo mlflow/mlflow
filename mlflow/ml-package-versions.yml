@@ -177,6 +177,7 @@ catboost:
     pip_release: "catboost"
     install_dev: |
       pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+      pip cache list catboost --format=abspath
 
   models:
     minimum: "0.23.1"
