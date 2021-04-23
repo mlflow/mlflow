@@ -370,9 +370,10 @@ def safe_patch(
                 mlflow.active_run() and not _AutologgingSessionManager.active_session()
             )
 
-            if autologging_integration in _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET or \
-                    autologging_is_disabled(autologging_integration) or (
-                    user_created_fluent_run_is_active and exclusive
+            if (
+                autologging_integration in _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET
+                or autologging_is_disabled(autologging_integration)
+                or (user_created_fluent_run_is_active and exclusive)
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created
