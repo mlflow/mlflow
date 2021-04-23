@@ -75,6 +75,8 @@ jobs:
           key: ${{ runner.os }}-wheels-${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ runner.os }}-wheels-${{ steps.get-cache-key.outputs.key }}
+      - run: |
+          ls ~/.cache/wheels
       - name: Install dependencies
         run: |
           set -x
