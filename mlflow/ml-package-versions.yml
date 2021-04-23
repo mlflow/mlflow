@@ -279,7 +279,7 @@ spark:
       # TODO: Consider using cache because it takes long (20 ~ 30 min) to build spark from source
       # on GitHub Actions environment.
 
-      CACHE_DIR="~/.cache/wheels"
+      CACHE_DIR="$HOME/.cache/wheels"
       if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
         pip install $CACHE_DIR/pyspark-*.whl
       else
@@ -295,7 +295,7 @@ spark:
         # Move wheel in cache directory
         wheel_path=$(find dist -type f -name "*.whl")
         echo $wheel_path
-        mkdir -p $CACHE_DIR
+        mkdir -p $HOME
         cp $wheel_path $CACHE_DIR
         ls $CACHE_DIR
 
