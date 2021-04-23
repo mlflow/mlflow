@@ -291,10 +291,8 @@ spark:
 
         # Copy wheel in cache directory
         wheel_path=$(find dist -type f -name "*.whl")
-        echo $wheel_path
         mkdir -p $CACHE_DIR
         cp $wheel_path $CACHE_DIR
-        ls $CACHE_DIR
 
         # Install wheel
         pip install $wheel_path
