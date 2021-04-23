@@ -327,6 +327,26 @@ def autolog(
           supported.
           See ``log_models`` param below for details.
 
+    **How does autologging work for meta estimators?**
+          When a meta estimator (e.g. `pyspark.ml.Pipeline`_, `pyspark.ml.tuning.CrossValidator`_)
+           calls ``fit()``, it internally calls ``fit()`` on its child estimators. Autologging
+           does NOT perform logging on these constituent ``fit()`` calls.
+
+      **Pipeline**
+          In addition to recording the information discussed above, autologging for pipeline
+          records "pipeline hierarchy" which describe the structure of pipeline stages and
+          nested pipeline stages.
+
+      **Parameter search**
+          In addition to recording the information discussed above, autologging for parameter
+          search meta estimators (`pyspark.ml.tuning.CrossValidator`_ and
+          `pyspark.ml.tuning.TrainValidationSplit`_) records child runs
+          with metrics for each set of explored parameters, as well as artifacts and parameters
+          for the best model and the best parameters (if available).
+          For better readability, the "estimatorParamMaps" param in parameter search estimator
+          will be recorded as JSON format artifacts.
+          If the tuned estimator is a pipeline, then the pipeline hierarchy for the tuned estimator
+          will be recorded as well.
 
     :param log_models: If ``True``, if trained models are in allowlist, they are logged as MLflow
                        model artifacts. If ``False``, trained models are not logged.
