@@ -430,7 +430,7 @@ def autolog(
             best_param_map = estimator_param_maps[best_index]
             try_mlflow_log(
                 mlflow.log_dict,
-                search_result,
+                best_param_map,
                 artifact_file="best_parameters.json"
             )
 
@@ -440,9 +440,12 @@ def autolog(
                 try_mlflow_log(
                     mlflow.spark.log_model, spark_model, artifact_path="model",
                 )
-                try_mlflow_log(
-                    mlflow.spark.log_model, spark_model.bestModel, artifact_path="best_model",
-                )
+                if _is_parameter_search_model(spark_model):
+                    try_mlflow_log(
+                        mlflow.spark.log_model,
+                        spark_model.bestModel,
+                        artifact_path="best_model",
+                    )
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
