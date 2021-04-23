@@ -60,19 +60,22 @@ jobs:
         run: |
           conda install python=3.6
           python --version
-      - name: Get date
-        id: get-date
+      - name: Get cache key
+        id: get-cache-key
         run: |
-          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+          date=$(/bin/date -u "+%Y%m%d")
+          hash=$(echo -n "${{ matrix.install }}" | sha256sum)
+          echo "::set-output name=key::$date-$hash"
       - uses: actions/cache@v2
         if: ${{ matrix.job_name == 'spark / dev / autologging' }}
         with:
           path: ~/.cache/wheels
-          key: ${{ runner.os }}-wheels-${{ steps.get-date.outputs.date }}
+          key: ${{ runner.os }}-wheels-${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ runner.os }}-wheels-
       - name: Install dependencies
         run: |
+          set -x
           pip install -e .
           pip install -r dev/small-requirements.txt
           ${{ matrix.install }}
