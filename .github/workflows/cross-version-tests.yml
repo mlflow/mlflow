@@ -61,11 +61,12 @@ jobs:
           conda install python=3.6
           python --version
       - name: Get cache key
+        env:
+          INSTALL_COMMAND: ${{ matrix.install }}
         id: get-cache-key
         run: |
           date=$(/bin/date -u "+%Y%m%d")
-          install='${{ matrix.install }}'
-          hash=$(echo -n "$install" | sha256sum)
+          hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
           echo "::set-output name=key::$date-$hash"
       - uses: actions/cache@v2
         if: ${{ matrix.job_name == 'spark / dev / autologging' }}
