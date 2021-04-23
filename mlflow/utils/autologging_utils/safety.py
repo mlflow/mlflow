@@ -268,9 +268,6 @@ def is_testing():
     return os.environ.get(_AUTOLOGGING_TEST_MODE_ENV_VAR, "false") == "true"
 
 
-_AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET = set()
-
-
 def safe_patch(
     autologging_integration, destination, function_name, patch_function, manage_run=False
 ):
@@ -369,9 +366,13 @@ def safe_patch(
             user_created_fluent_run_is_active = (
                 mlflow.active_run() and not _AutologgingSessionManager.active_session()
             )
+            active_session_failed = (
+                _AutologgingSessionManager.active_session() is not None
+                and _AutologgingSessionManager.active_session().state == "failed"
+            )
 
             if (
-                autologging_integration in _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET
+                active_session_failed
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
             ):
@@ -488,6 +489,8 @@ def safe_patch(
                     else:
                         patch_function(call_original, *args, **kwargs)
 
+                    _AutologgingSessionManager.active_session().state = "succeeded"
+
                     try_log_autologging_event(
                         AutologgingEventLogger.get_logger().log_patch_function_success,
                         session,
@@ -497,6 +500,8 @@ def safe_patch(
                         kwargs,
                     )
                 except Exception as e:
+                    _AutologgingSessionManager.active_session().state = "failed"
+
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
                     # mode should be reraised to detect bugs in autologging implementations
@@ -533,11 +538,7 @@ def safe_patch(
                 if original_has_been_called:
                     return original_result
                 else:
-                    try:
-                        _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET.add(autologging_integration)
-                        return original(*args, **kwargs)
-                    finally:
-                        _AUTOLOGGING_INTEGRATIONS_TEMP_DISABLED_SET.remove(autologging_integration)
+                    return original(*args, **kwargs)
 
     _wrap_patch(destination, function_name, safe_patch_function)
 
@@ -545,7 +546,12 @@ def safe_patch(
 # Represents an active autologging session using two fields:
 # - integration: the name of the autologging integration corresponding to the session
 # - id: a unique session identifier (e.g., a UUID)
-AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
+# - state: init/succeeded/failed
+class AutologgingSession:
+    def __init__(self, integration, id, state):
+        self.integration = integration
+        self.id = id
+        self.state = state
 
 
 class _AutologgingSessionManager:
@@ -558,7 +564,7 @@ class _AutologgingSessionManager:
             prev_session = cls._session
             if prev_session is None:
                 session_id = uuid.uuid4().hex
-                cls._session = AutologgingSession(integration, session_id)
+                cls._session = AutologgingSession(integration, session_id, "init")
             yield cls._session
         finally:
             # Only end the session upon termination of the context if we created
