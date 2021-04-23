@@ -64,10 +64,7 @@ jobs:
         id: get-cache-key
         run: |
           date=$(/bin/date -u "+%Y%m%d")
-          install=$(cat << EOF
-          ${{ matrix.install }}
-          EOF
-          )
+          install='${{ matrix.install }}'
           hash=$(echo -n "$install" | sha256sum)
           echo "::set-output name=key::$date-$hash"
       - uses: actions/cache@v2
