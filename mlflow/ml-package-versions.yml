@@ -278,7 +278,7 @@ spark:
     install_dev: |
       CACHE_DIR="$HOME/.cache/wheels"
       if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
-        pip install $CACHE_DIR/pyspark-*.whl
+        pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
       else
         # Build wheel from source
         temp_dir=$(mktemp -d)
