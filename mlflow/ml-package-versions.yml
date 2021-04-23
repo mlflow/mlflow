@@ -280,8 +280,8 @@ spark:
       # on GitHub Actions environment.
 
       CACHE_DIR="~/.cache/wheels"
-      if [ -d "$CACHE_DIR" ] && [ find $CACHE_DIR -type f -name "pyspark-*.whl" ]; then
-        pip install "$CACHE_DIR/pyspark-*.whl"
+      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
+        pip install $CACHE_DIR/pyspark-*.whl
       else
         # Build wheel from source
         temp_dir=$(mktemp -d)
