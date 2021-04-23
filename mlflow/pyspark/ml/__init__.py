@@ -79,11 +79,17 @@ def _get_warning_msg_for_skip_log_model(model):
 
 
 def _should_log_model(spark_model):
+    from pyspark.ml.base import Model
+
     # TODO: Handle PipelineModel/CrossValidatorModel/TrainValidationSplitModel
     class_name = _get_fully_qualified_class_name(spark_model)
     if class_name in _log_model_allowlist:
         if class_name == "pyspark.ml.classification.OneVsRestModel":
             return _should_log_model(spark_model.models[0])
+        elif class_name == "pyspark.ml.pipeline.PipelineModel":
+            return all(
+                _should_log_model(stage) for stage in spark_model.stages if isinstance(stage, Model)
+            )
         else:
             return True
     else:
@@ -101,8 +107,23 @@ def _get_estimator_info_tags(estimator):
     }
 
 
-def _get_instance_param_map(instance):
+def _get_pipeline_stage_hierarchy(pipeline):
+    from pyspark.ml import Pipeline
+
+    stage_hierarchy = []
+    pipeline_stages = pipeline.getStages()
+    for stage in pipeline_stages:
+        if isinstance(stage, Pipeline):
+            hierarchy_elem = _get_pipeline_stage_hierarchy(stage)
+        else:
+            hierarchy_elem = stage.uid
+        stage_hierarchy.append(hierarchy_elem)
+    return {pipeline.uid: stage_hierarchy}
+
+
+def _get_instance_param_map_recursively(instance, level):
     from pyspark.ml.param import Params
+    from pyspark.ml.pipeline import Pipeline
     from pyspark.ml.tuning import CrossValidator, TrainValidationSplit
 
     param_map = {
@@ -111,25 +132,42 @@ def _get_instance_param_map(instance):
         if instance.isDefined(param)
     }
     expanded_param_map = {}
-    for k, v in param_map.items():
-        if isinstance(v, Params):
-            # handle the case param value type inherits `pyspark.ml.param.Params`
-            # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
-            expanded_param_map[k] = v.uid
-            internal_param_map = _get_instance_param_map(v)
-            for ik, iv in internal_param_map.items():
-                expanded_param_map[f"{v.uid}.{ik}"] = iv
-        elif k in ["estimator", "estimatorParamMaps"] and isinstance(
-            instance, (CrossValidator, TrainValidationSplit)
-        ):
+
+    is_pipeline = isinstance(instance, Pipeline)
+    is_parameter_search_estimator = isinstance(instance, (CrossValidator, TrainValidationSplit))
+
+    for param_name, param_value in param_map.items():
+        if level == 0:
+            logged_param_name = param_name
+        else:
+            logged_param_name = f"{instance.uid}.{param_name}"
+
+        if is_pipeline and param_name == "stages":
+            expanded_param_map[logged_param_name] = _get_pipeline_stage_hierarchy(instance)[
+                instance.uid
+            ]
+            for stage in instance.getStages():
+                stage_param_map = _get_instance_param_map_recursively(stage, level + 1)
+                expanded_param_map.update(stage_param_map)
+        elif is_parameter_search_estimator and param_name in ["estimator", "estimatorParamMaps"]:
             # skip log estimator Param and its nested params because they will be
             # logged in nested runs.
             # TODO: Log `estimatorParamMaps` as JSON artifacts.
             pass
+        elif isinstance(param_value, Params):
+            # handle the case param value type inherits `pyspark.ml.param.Params`
+            # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
+            expanded_param_map[logged_param_name] = param_value.uid
+            internal_param_map = _get_instance_param_map_recursively(param_value, level + 1)
+            expanded_param_map.update(internal_param_map)
         else:
-            expanded_param_map[k] = v
+            expanded_param_map[logged_param_name] = param_value
 
     return expanded_param_map
+
+
+def _get_instance_param_map(instance):
+    return _get_instance_param_map_recursively(instance, level=0)
 
 
 def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
@@ -208,6 +246,7 @@ def autolog(
         MAX_ENTITY_KEY_LENGTH,
     )
     from pyspark.ml.base import Estimator
+    from pyspark.ml import Pipeline
 
     global _log_model_allowlist
 
@@ -218,10 +257,15 @@ def autolog(
         if params and isinstance(params, dict):
             estimator = estimator.copy(params)
 
+        param_map = _get_instance_param_map(estimator)
+        if isinstance(estimator, Pipeline):
+            pipeline_hierarchy = _get_pipeline_stage_hierarchy(estimator)
+            try_mlflow_log(
+                mlflow.log_dict, pipeline_hierarchy, artifact_file="pipeline_hierarchy.json"
+            )
+
         # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in _chunk_dict(
-            _get_instance_param_map(estimator), chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
-        ):
+        for chunk in _chunk_dict(param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,):
             truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
             try_mlflow_log(mlflow.log_params, truncated)
 
