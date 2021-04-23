@@ -14,7 +14,7 @@ class MockModel(mlflow.pyfunc.PythonModel):
         pass
 
 
-with mlflow.start_run():
+with mlflow.start_run() as run:
     print("Tracking URI:", mlflow.get_tracking_uri())
     mlflow.log_param("p", "param")
     mlflow.log_metric("m", 1.0)
@@ -22,3 +22,4 @@ with mlflow.start_run():
     mlflow.pyfunc.log_model(
         artifact_path="model", python_model=MockModel(), registered_model_name="mock",
     )
+    print(mlflow.get_run(run.info.run_id))
