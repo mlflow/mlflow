@@ -71,11 +71,13 @@ jobs:
       - uses: actions/cache@v2
         if: ${{ matrix.job_name == 'spark / dev / autologging' }}
         with:
-          path: ~/.cache/wheels
+          path: /home/runner/.cache/wheels
           key: ${{ runner.os }}-wheels-${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ runner.os }}-wheels-${{ steps.get-cache-key.outputs.key }}
       - name: Install dependencies
+        env:
+          CACHE_DIR: /home/runner/.cache/wheels
         run: |
           set -x
           pip install -e .

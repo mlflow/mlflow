@@ -276,7 +276,7 @@ spark:
   package_info:
     pip_release: "pyspark"
     install_dev: |
-      CACHE_DIR="$HOME/.cache/wheels"
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
       if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
         pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
       else
