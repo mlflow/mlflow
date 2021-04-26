@@ -129,24 +129,75 @@ def _is_parameter_search_model(instance):
     return isinstance(instance, (CrossValidatorModel, TrainValidationSplitModel))
 
 
-def _get_pipeline_stage_hierarchy(pipeline):
+def _get_estimator_hierarchy_recusively(
+        estimator,
+        uid2name_map,
+        cls2count_map,
+        cls2first_uid_map):
     from pyspark.ml import Pipeline
+    from pyspark.ml.classification import OneVsRest
 
-    stage_hierarchy = []
-    pipeline_stages = pipeline.getStages()
-    for stage in pipeline_stages:
-        if isinstance(stage, Pipeline):
-            hierarchy_elem = _get_pipeline_stage_hierarchy(stage)
+    def gen_stage_name(instance):
+        stage_cls = instance.__class__.__name__
+        stage_uid = instance.uid
+
+        if stage_cls not in cls2count_map:
+            cls2count_map[stage_cls] = 1
+            uid2name_map[stage_uid] = stage_cls
+            cls2first_uid_map[stage_cls] = stage_uid
         else:
-            hierarchy_elem = stage.uid
-        stage_hierarchy.append(hierarchy_elem)
-    return {pipeline.uid: stage_hierarchy}
+            cls2count_map[stage_cls] += 1
+            uid2name_map[stage_uid] = f'{stage_cls}_{cls2count_map[stage_cls]}'
+
+        return uid2name_map[stage_uid]
+
+    stage_name = gen_stage_name(estimator)
+    if isinstance(estimator, Pipeline):
+        sub_stages = []
+        for sub_stage in estimator.getStages():
+            sub_stages.append(_get_estimator_hierarchy_recusively(
+                sub_stage, uid2name_map, cls2count_map, cls2first_uid_map
+            ))
+        return {stage_name: sub_stages}
+    elif isinstance(estimator, OneVsRest):
+        classifier = _get_estimator_hierarchy_recusively(
+            estimator, uid2name_map, cls2count_map, cls2first_uid_map
+        )
+        return {'name': stage_name, 'classifier': classifier}
+    else:
+        return stage_name
 
 
-def _get_instance_param_map_recursively(instance, level):
+def _should_log_hierarchy(estimator):
+    from pyspark.ml import Pipeline
+    from pyspark.ml.classification import OneVsRest
+    return isinstance(estimator, (Pipeline, OneVsRest))
+
+
+def _get_estimator_hierarchy_and_uid2name_map(estimator):
+    uid2name_map = {}
+    cls2count_map = {}
+    cls2first_uid_map = {}
+
+    hierarchy = _get_estimator_hierarchy_recusively(
+        estimator, uid2name_map, cls2count_map, cls2first_uid_map
+    )
+    for cls, first_uid in cls2first_uid_map.items():
+        if cls2count_map[cls] > 1:
+            # change the first stage name from "{class_name}" to "{class_name}_1"
+            uid2name_map[first_uid] = f'{cls}_1'
+
+    estimator._uid2name_map = uid2name_map
+    estimator._hierarchy = hierarchy
+
+    return hierarchy, uid2name_map
+
+
+def _get_instance_param_map_recursively(instance, level, uid2name_map):
     from pyspark.ml.param import Params
     from pyspark.ml.pipeline import Pipeline
     from pyspark.ml.tuning import CrossValidator, TrainValidationSplit
+    from pyspark.ml.evaluation import Evaluator
 
     param_map = {
         param.name: instance.getOrDefault(param)
@@ -158,19 +209,23 @@ def _get_instance_param_map_recursively(instance, level):
     is_pipeline = isinstance(instance, Pipeline)
     is_parameter_search_estimator = isinstance(instance, (CrossValidator, TrainValidationSplit))
 
+    if level == 0:
+        logged_param_name_prefix = ''
+    elif isinstance(instance, Evaluator):
+        logged_param_name_prefix = instance.__class__.__name__ + '.'
+    else:
+        logged_param_name_prefix = uid2name_map[instance.uid] + '.'
+
     for param_name, param_value in param_map.items():
-        if level == 0:
-            logged_param_name = param_name
-        else:
-            logged_param_name = f"{instance.uid}.{param_name}"
+        logged_param_name = logged_param_name_prefix + param_name
 
         if is_pipeline and param_name == "stages":
-            expanded_param_map[logged_param_name] = _get_pipeline_stage_hierarchy(instance)[
-                instance.uid
-            ]
-            for stage in instance.getStages():
-                stage_param_map = _get_instance_param_map_recursively(stage, level + 1)
-                expanded_param_map.update(stage_param_map)
+            if level == 0:
+                # Because we will log stages recursively, so only log this param in top level.
+                expanded_param_map[logged_param_name] = instance._hierarchy['stages']
+                for stage in instance.getStages():
+                    stage_param_map = _get_instance_param_map_recursively(stage, level + 1, uid2name_map)
+                    expanded_param_map.update(stage_param_map)
         elif is_parameter_search_estimator and param_name == 'estimator':
             expanded_param_map[logged_param_name] = param_value.uid
             # skip log estimator's nested params because they will be
@@ -185,7 +240,7 @@ def _get_instance_param_map_recursively(instance, level):
             # handle the case param value type inherits `pyspark.ml.param.Params`
             # e.g. param like `OneVsRest.classifier`/`CrossValidator.estimator`
             expanded_param_map[logged_param_name] = param_value.uid
-            internal_param_map = _get_instance_param_map_recursively(param_value, level + 1)
+            internal_param_map = _get_instance_param_map_recursively(param_value, level + 1, uid2name_map)
             expanded_param_map.update(internal_param_map)
         else:
             expanded_param_map[logged_param_name] = param_value
@@ -194,7 +249,9 @@ def _get_instance_param_map_recursively(instance, level):
 
 
 def _get_instance_param_map(instance):
-    return _get_instance_param_map_recursively(instance, level=0)
+    return _get_instance_param_map_recursively(
+        instance, level=0, uid2name_map=instance._uid2name_map
+    )
 
 
 def _create_child_runs_for_parameter_search(parent_estimator, parent_model, parent_run, child_tags):
@@ -285,8 +342,10 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
 
 def _get_tuning_param_maps(estimator):
     tuning_param_maps = []
+    uid2name_map = estimator.getEstimator()._uid2name_map
     for eps in estimator.getEstimatorParamMaps():
-        tuning_param_maps.append({f'{k.parent}.{k.name}': str(v) for k, v in eps.items()})
+        tuning_param_maps.append({f'{uid2name_map[k.parent]}.{k.name}': str(v)
+                                  for k, v in eps.items()})
     return tuning_param_maps
 
 
@@ -373,7 +432,6 @@ def autolog(
     """
     from mlflow.tracking.context import registry as context_registry
     from pyspark.ml.base import Estimator
-    from pyspark.ml import Pipeline
     from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
 
     global _log_model_allowlist
@@ -385,25 +443,28 @@ def autolog(
         if params and isinstance(params, dict):
             estimator = estimator.copy(params)
 
+        hierarchy, _ = _get_estimator_hierarchy_and_uid2name_map(estimator)
+
         param_map = _get_instance_param_map(estimator)
-        if isinstance(estimator, Pipeline):
-            pipeline_hierarchy = _get_pipeline_stage_hierarchy(estimator)
+        if _should_log_hierarchy(estimator):
             try_mlflow_log(
-                mlflow.log_dict, pipeline_hierarchy, artifact_file="pipeline_hierarchy.json"
+                mlflow.log_dict, hierarchy, artifact_file="estimator_hierarchy.json"
             )
 
         if _is_parameter_search_estimator(estimator):
             tuning_param_maps = _get_tuning_param_maps(estimator)
 
-            try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'estimator_param_maps.json')
+            try_mlflow_log(mlflow.log_dict, tuning_param_maps, 'tuning_param_maps.json')
 
-            if isinstance(estimator.getEstimator(), Pipeline):
-                estimator_pipeline_hierarchy = _get_pipeline_stage_hierarchy(
-                    estimator.getEstimator())
+            tuned_estimator = estimator.getEstimator()
+            tuned_estimator_hierarchy, _ = \
+                _get_estimator_hierarchy_and_uid2name_map(tuned_estimator)
+
+            if _should_log_hierarchy(tuned_estimator):
                 try_mlflow_log(
                     mlflow.log_dict,
-                    estimator_pipeline_hierarchy,
-                    artifact_file="estimator_pipeline_hierarchy.json"
+                    tuned_estimator_hierarchy,
+                    artifact_file="tuned_estimator_hierarchy.json"
                 )
 
         # Chunk model parameters to avoid hitting the log_batch API limit
