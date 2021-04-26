@@ -69,7 +69,7 @@ jobs:
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
           echo "::set-output name=key::$date-$hash"
       - uses: actions/cache@v2
-        if: ${{ matrix.job_name == 'spark / dev / autologging' }}
+        if: ${{ matrix.package == 'pyspark' && matrix.version == 'dev' }}
         with:
           path: /home/runner/.cache/wheels
           key: ${{ runner.os }}-wheels-${{ steps.get-cache-key.outputs.key }}
