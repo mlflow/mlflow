@@ -22,13 +22,15 @@ pipeline = Pipeline(stages=[assembler, scaler, lor])
 with mlflow.start_run():
     pipelineModel = pipeline.fit(train)
 
-pipelineModel.transform(test).select(pipeline.stages[-1].getPredictionCol()).show(10)
+pred = pipelineModel.transform(test)
+pred.select(pipeline.getStages()[-1].getPredictionCol()).show(10)
 
 # Nested pipeline
 nestedPipeline = Pipeline(stages=[Pipeline(stages=[assembler, scaler]), lor])
 with mlflow.start_run():
     nestedPipelineModel = nestedPipeline.fit(train)
 
-nestedPipelineModel.transform(test).select(nestedPipeline.stages[-1].getPredictionCol()).show(10)
+pred = nestedPipelineModel.transform(test)
+pred.select(nestedPipeline.getStages()[-1].getPredictionCol()).show(10)
 
 spark.stop()
