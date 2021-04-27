@@ -19,8 +19,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: |
-        echo $ImageVersion
-        echo $ImageOS
+        echo $IMAGE_VERSION
+        echo $IMAGE_OS
+        env
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
