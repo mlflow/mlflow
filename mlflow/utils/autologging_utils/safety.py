@@ -56,7 +56,8 @@ def exception_safe_function(function):
             if is_testing():
                 raise
             else:
-                _logger.warning("Encountered unexpected error during autologging: %s", e)
+                import traceback
+                _logger.warning("Encountered unexpected error during autologging: %s", traceback.format_exc())
 
     safe_function = update_wrapper_extended(safe_function, function)
     return safe_function
