@@ -6,7 +6,6 @@ import os
 import uuid
 import warnings
 from abc import abstractmethod
-from collections import namedtuple
 from contextlib import contextmanager
 
 import mlflow
@@ -366,9 +365,15 @@ def safe_patch(
             user_created_fluent_run_is_active = (
                 mlflow.active_run() and not _AutologgingSessionManager.active_session()
             )
+            active_session_failed = (
+                _AutologgingSessionManager.active_session() is not None
+                and _AutologgingSessionManager.active_session().state == "failed"
+            )
 
-            if autologging_is_disabled(autologging_integration) or (
-                user_created_fluent_run_is_active and exclusive
+            if (
+                active_session_failed
+                or autologging_is_disabled(autologging_integration)
+                or (user_created_fluent_run_is_active and exclusive)
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created
@@ -483,6 +488,8 @@ def safe_patch(
                     else:
                         patch_function(call_original, *args, **kwargs)
 
+                    session.state = "succeeded"
+
                     try_log_autologging_event(
                         AutologgingEventLogger.get_logger().log_patch_function_success,
                         session,
@@ -492,6 +499,8 @@ def safe_patch(
                         kwargs,
                     )
                 except Exception as e:
+                    session.state = "failed"
+
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
                     # mode should be reraised to detect bugs in autologging implementations
@@ -536,7 +545,12 @@ def safe_patch(
 # Represents an active autologging session using two fields:
 # - integration: the name of the autologging integration corresponding to the session
 # - id: a unique session identifier (e.g., a UUID)
-AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
+# - state: the state of AutologgingSession, will be one of running/succeeded/failed
+class AutologgingSession:
+    def __init__(self, integration, id_):
+        self.integration = integration
+        self.id = id_
+        self.state = "running"
 
 
 class _AutologgingSessionManager:
