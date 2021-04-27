@@ -559,7 +559,9 @@ def autolog(
                 )
                 _logger.warning(msg)
 
-            estimator_param_maps = _get_tuning_param_maps(estimator)
+            estimator_param_maps = _get_tuning_param_maps(
+                estimator, estimator._autologging_metadata.uid2name_map
+            )
 
             metric_key, metrics = _get_param_search_metrics(estimator, spark_model)
             _log_parameter_search_results_as_artifact(
