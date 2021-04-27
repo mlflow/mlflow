@@ -214,7 +214,7 @@ def _gen_estimator_metadata(estimator):
     uid2name_map = {}
     cls2count_map = {}
     cls2first_uid_map = {}
-    param_search_estimators = {}
+    param_search_estimators = []
 
     hierarchy = _gen_instance_metadata_recursively(
         estimator, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators

@@ -519,10 +519,12 @@ def safe_patch(
                         e,
                     )
 
+                    import traceback
                     _logger.warning(
-                        "Encountered unexpected error during %s autologging: %s",
+                        "Encountered unexpected error during %s autologging: %s, traceback: %s",
                         autologging_integration,
                         e,
+                        traceback.format_stack()
                     )
 
                 if is_testing() and not preexisting_run_for_testing:
