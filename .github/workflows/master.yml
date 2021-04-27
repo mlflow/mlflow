@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - run: |
+        echo $ImageVersion
+        echo $ImageOS
     - name: Install dependencies
       env:
         INSTALL_LARGE_PYTHON_DEPS: true
