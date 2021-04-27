@@ -16,10 +16,18 @@ def patch_destination():
     class PatchObj:
         def __init__(self):
             self.fn_call_count = 0
+            self.recurse_fn_call_count = 0
 
         def fn(self, *args, **kwargs):  # pylint: disable=unused-argument
             self.fn_call_count += 1
             return PATCH_DESTINATION_FN_DEFAULT_RESULT
+
+        def recursive_fn(self, level, max_depth):
+            self.recurse_fn_call_count += 1
+            if level == max_depth:
+                return PATCH_DESTINATION_FN_DEFAULT_RESULT
+            else:
+                return self.recursive_fn(level + 1, max_depth)
 
     return PatchObj()
 
