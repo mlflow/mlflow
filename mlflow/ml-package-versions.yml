@@ -211,14 +211,14 @@ fastai-1.x:
 
   models:
     minimum: "1.0.60"
-    maximum: "1.0.61"
+    maximum: "1.0.61" # IGNORE_UPDATE: 2.x is not supported yet
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
     minimum: "1.0.60"
-    maximum: "1.0.61"
+    maximum: "1.0.61" # IGNORE_UPDATE: 2.x is not supported yet
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
