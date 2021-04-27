@@ -142,7 +142,7 @@ AutologgingEstimatorMetadata = namedtuple('AutologgingEstimatorMetadata', [
 ])
 
 
-def _gen_instance_metadata_recusively(
+def _gen_instance_metadata_recursively(
         instance,
         uid2name_map,
         cls2count_map,
@@ -170,13 +170,14 @@ def _gen_instance_metadata_recusively(
     if isinstance(instance, Pipeline):
         sub_stages = []
         for sub_stage in instance.getStages():
-            sub_stages.append(_gen_instance_metadata_recusively(
+            sub_stages.append(_gen_instance_metadata_recursively(
                 sub_stage, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
             ))
         return {'name': instance_name, 'stages': sub_stages}
     elif isinstance(instance, OneVsRest):
-        classifier = _gen_instance_metadata_recusively(
-            instance, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
+        classifier = _gen_instance_metadata_recursively(
+            instance.getClassifier(),
+            uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
         )
         return {'name': instance_name, 'classifier': classifier}
     elif _is_parameter_search_estimator(instance):
@@ -185,10 +186,10 @@ def _gen_instance_metadata_recusively(
         tuned_estimator = instance.getEstimator()
         return {
             'name': instance_name,
-            'evaluator': _gen_instance_metadata_recusively(
+            'evaluator': _gen_instance_metadata_recursively(
                 evaluator, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
             ),
-            'tuned_estimator': _gen_instance_metadata_recusively(
+            'tuned_estimator': _gen_instance_metadata_recursively(
                 tuned_estimator, uid2name_map, cls2count_map, cls2first_uid_map,
                 param_search_estimators
             )
@@ -215,7 +216,7 @@ def _gen_estimator_metadata(estimator):
     cls2first_uid_map = {}
     param_search_estimators = {}
 
-    hierarchy = _gen_instance_metadata_recusively(
+    hierarchy = _gen_instance_metadata_recursively(
         estimator, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
     )
     for cls, first_uid in cls2first_uid_map.items():
