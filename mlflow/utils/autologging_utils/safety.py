@@ -545,12 +545,12 @@ def safe_patch(
 # Represents an active autologging session using two fields:
 # - integration: the name of the autologging integration corresponding to the session
 # - id: a unique session identifier (e.g., a UUID)
-# - state: init/succeeded/failed
+# - state: the state of AutologgingSession, will be one of running/succeeded/failed
 class AutologgingSession:
     def __init__(self, integration, id_):
         self.integration = integration
         self.id = id_
-        self.state = "init"
+        self.state = "running"
 
 
 class _AutologgingSessionManager:
