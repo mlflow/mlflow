@@ -176,7 +176,7 @@ def _gen_instance_metadata_recusively(
         return {'name': instance_name, 'stages': sub_stages}
     elif isinstance(instance, OneVsRest):
         classifier = _gen_instance_metadata_recusively(
-            instance, uid2name_map, cls2count_map, cls2first_uid_map
+            instance, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
         )
         return {'name': instance_name, 'classifier': classifier}
     elif _is_parameter_search_estimator(instance):
