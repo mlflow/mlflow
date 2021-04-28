@@ -195,15 +195,14 @@ def _gen_stage_hierarchy_recursively(
     elif _is_parameter_search_estimator(stage):
         evaluator = stage.getEvaluator()
         tuned_estimator = stage.getEstimator()
-        tuned_estimator_hierarchy = _gen_stage_hierarchy_recursively(
-            tuned_estimator, uid_to_indexed_name_map
-        )
         return {
             'name': stage_name,
             'evaluator': _gen_stage_hierarchy_recursively(
                 evaluator, uid_to_indexed_name_map
-            )[0],
-            'tuned_estimator': tuned_estimator_hierarchy
+            ),
+            'tuned_estimator': _gen_stage_hierarchy_recursively(
+                tuned_estimator, uid_to_indexed_name_map
+            )
         }
     else:
         return {'name': stage_name}
