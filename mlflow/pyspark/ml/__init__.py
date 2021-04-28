@@ -495,7 +495,6 @@ def autolog(
     """
     from mlflow.tracking.context import registry as context_registry
     from pyspark.ml.base import Estimator
-    from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
 
     global _log_model_allowlist
 
