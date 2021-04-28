@@ -990,6 +990,17 @@ allow passing HTTP authentication to the tracking server:
   of the ``requests.request`` function
   (see `requests main interface <https://requests.readthedocs.io/en/master/api/>`_).
   This can be used to use a (self-signed) client certificate.
+- ``MLFLOW_OATH2_KWARGS`` - To use the oath2's workflow implemented by providers like google, azure etc you should set
+  `variables` that query the `OAuth2Session library <https://requests-oauthlib.readthedocs.io/en/latest/oauth2_workflow.html#backend-application-flow>`_
+
+  example: list experiments (fronted by oath2 provider accepting client_credentials)
+
+.. code-block:: bash
+
+  export MLFLOW_OATH2_KWARGS='{"client_id":"abcd","client_secret": "f3_vB~y","token_url": "https://login.microsoftonline.com/abcd/oauth2/v2.0/token","scope": "abcd/.default"}'
+  export MLFLOW_TRACKING_URI=https://api-np.science-at-scale.io/mlflow-np
+
+  mlflow experiments list
 
 
 .. note::

@@ -28,6 +28,10 @@ _TRACKING_SERVER_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_SERVER_CERT_PATH"
 # see https://requests.readthedocs.io/en/master/api/
 _TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
+# sets the param required for oath2 implementation, specifically client_credentials
+# [RFC 6749] https://tools.ietf.org/html/rfc6749#section-1.3.4
+_TRACKING_OATH2_KWARGS_VAR = "MLFLOW_OATH2_KWARGS"
+
 _tracking_uri = None
 
 
@@ -126,6 +130,7 @@ def _get_default_host_creds(store_uri):
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
         client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
         server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
+        oath_kwargs=os.environ.get(_TRACKING_OATH2_KWARGS_VAR),
     )
 
 

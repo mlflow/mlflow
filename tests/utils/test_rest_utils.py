@@ -3,6 +3,7 @@
 from unittest import mock
 import numpy
 import pytest
+import json
 
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
@@ -15,6 +16,7 @@ from mlflow.utils.rest_utils import (
 )
 from mlflow.protos.service_pb2 import GetRun
 from tests import helper_functions
+from requests_oauthlib.oauth2_session import OAuth2Session
 
 
 def test_well_formed_json_error_response():
@@ -151,6 +153,32 @@ def test_http_request_server_cert_path(request):
     http_request(host_only, "/my/endpoint")
     request.assert_called_with(
         url="http://my-host/my/endpoint", verify="/some/path", headers=_DEFAULT_HEADERS,
+    )
+
+
+@mock.patch.object(OAuth2Session, "fetch_token")
+@mock.patch("requests.request")
+def test_http_request_token_from_oath2_provider_url(request, fetch_token_mock):
+    fetch_token_mock.return_value = {"access_token": "my-token"}
+    host_only = MlflowHostCreds(
+        "https://my-host",
+        oath_kwargs=json.dumps(
+            {
+                "token_url": "https://token-provider/oauth2/v2.0/token",
+                "client_id": "myclient",
+                "client_secret": "myclient-secret",
+                "scope": "myclient/.default",
+            }
+        ),
+    )
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    http_request(host_only, "/my/endpoint")
+    headers = dict(_DEFAULT_HEADERS)
+    headers["Authorization"] = "Bearer my-token"
+    request.assert_called_with(
+        url="https://my-host/my/endpoint", verify=True, headers=headers,
     )
 
 
