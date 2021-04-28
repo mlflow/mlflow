@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 import logging
 import numpy as np
 import time
@@ -138,64 +138,75 @@ def _should_log_hierarchy(estimator):
 
 
 AutologgingEstimatorMetadata = namedtuple('AutologgingEstimatorMetadata', [
-    'hierarchy', 'uid2name_map', 'param_search_estimators'
+    'hierarchy', 'uid_to_indexed_name_map', 'param_search_estimators'
 ])
 
 
-def _gen_instance_metadata_recursively(
-        instance,
-        uid2name_map,
-        cls2count_map,
-        cls2first_uid_map,
-        param_search_estimators,
+def _traverse_stage(stage):
+    from pyspark.ml import Pipeline
+    from pyspark.ml.classification import OneVsRest
+
+    yield stage
+    if isinstance(stage, Pipeline):
+        for stage in stage.getStages():
+            yield from _traverse_stage(stage)
+    elif isinstance(stage, OneVsRest):
+        yield from _traverse_stage(stage.getClassifier())
+    elif _is_parameter_search_estimator(stage):
+        yield from _traverse_stage(stage.getEstimator())
+        yield from _traverse_stage(stage.getEvaluator())
+
+
+def _get_uid_to_indexed_name_map(estimator):
+    counter = defaultdict(int)
+    uid_to_classname_and_count = {}
+    for child in _traverse_stage(estimator):
+        class_name = child.__class__.__name__
+        counter[class_name] += 1
+        uid_to_classname_and_count[child.uid] = (class_name, counter[class_name])
+    return {
+        uid: f"{class_name}_{count}" if counter[class_name] > 1 else class_name
+        for uid, (class_name, count) in uid_to_classname_and_count.items()
+    }
+
+
+def _gen_stage_hierarchy_recursively(
+        stage,
+        uid_to_indexed_name_map,
 ):
     from pyspark.ml import Pipeline
     from pyspark.ml.classification import OneVsRest
 
-    def gen_instance_name(instance):
-        stage_cls = instance.__class__.__name__
-        stage_uid = instance.uid
+    stage_name = uid_to_indexed_name_map[stage.uid]
 
-        if stage_cls not in cls2count_map:
-            cls2count_map[stage_cls] = 1
-            uid2name_map[stage_uid] = stage_cls
-            cls2first_uid_map[stage_cls] = stage_uid
-        else:
-            cls2count_map[stage_cls] += 1
-            uid2name_map[stage_uid] = f'{stage_cls}_{cls2count_map[stage_cls]}'
-
-        return uid2name_map[stage_uid]
-
-    instance_name = gen_instance_name(instance)
-    if isinstance(instance, Pipeline):
+    if isinstance(stage, Pipeline):
         sub_stages = []
-        for sub_stage in instance.getStages():
-            sub_stages.append(_gen_instance_metadata_recursively(
-                sub_stage, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
-            ))
-        return {'name': instance_name, 'stages': sub_stages}
-    elif isinstance(instance, OneVsRest):
-        classifier = _gen_instance_metadata_recursively(
-            instance.getClassifier(),
-            uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
-        )
-        return {'name': instance_name, 'classifier': classifier}
-    elif _is_parameter_search_estimator(instance):
-        param_search_estimators.append(instance)
-        evaluator = instance.getEvaluator()
-        tuned_estimator = instance.getEstimator()
-        return {
-            'name': instance_name,
-            'evaluator': _gen_instance_metadata_recursively(
-                evaluator, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
-            ),
-            'tuned_estimator': _gen_instance_metadata_recursively(
-                tuned_estimator, uid2name_map, cls2count_map, cls2first_uid_map,
-                param_search_estimators
+        for sub_stage in stage.getStages():
+            sub_hierarchy = _gen_stage_hierarchy_recursively(
+                sub_stage, uid_to_indexed_name_map
             )
+            sub_stages.append(sub_hierarchy)
+        return {'name': stage_name, 'stages': sub_stages}
+    elif isinstance(stage, OneVsRest):
+        classifier_hierarchy = _gen_stage_hierarchy_recursively(
+            stage.getClassifier(), uid_to_indexed_name_map
+        )
+        return {'name': stage_name, 'classifier': classifier_hierarchy}
+    elif _is_parameter_search_estimator(stage):
+        evaluator = stage.getEvaluator()
+        tuned_estimator = stage.getEstimator()
+        tuned_estimator_hierarchy = _gen_stage_hierarchy_recursively(
+            tuned_estimator, uid_to_indexed_name_map
+        )
+        return {
+            'name': stage_name,
+            'evaluator': _gen_stage_hierarchy_recursively(
+                evaluator, uid_to_indexed_name_map
+            )[0],
+            'tuned_estimator': tuned_estimator_hierarchy
         }
     else:
-        return instance_name
+        return {'name': stage_name}
 
 
 def _gen_estimator_metadata(estimator):
@@ -204,35 +215,21 @@ def _gen_estimator_metadata(estimator):
     The AutologgingEstimatorMetadata object includes:
      - hierarchy: the hierarchy of the estimator, it will expand
          pipeline/meta estimator/param tuning estimator
-     - uid2name_map: a map of `uid` -> `name`, each nested instance uid will be
+     - uid_to_indexed_name_map: a map of `uid` -> `name`, each nested instance uid will be
          mapped to a fixed name. The naming rule is using `{class_name}` if the
          instance type occurs once, or `{class_name}_{index}` if the instance type occurs
          multiple times. The index order is in line with depth-first traversing.
      - param_search_estimators: a list includes all param search estimators in the
          hierarchy tree.
     """
-    uid2name_map = {}
-    cls2count_map = {}
-    cls2first_uid_map = {}
-    param_search_estimators = []
-
-    hierarchy = _gen_instance_metadata_recursively(
-        estimator, uid2name_map, cls2count_map, cls2first_uid_map, param_search_estimators
-    )
-    for cls, first_uid in cls2first_uid_map.items():
-        if cls2count_map[cls] > 1:
-            # change the first stage name from "{class_name}" to "{class_name}_1"
-            uid2name_map[first_uid] = f'{cls}_1'
-
-    for i in range(len(param_search_estimators)):
-        name = param_search_estimators[i]
-        if name in cls2count_map and cls2count_map[name] > 1:
-            # change the estimator name from "{class_name}" to "{class_name}_1"
-            param_search_estimators[i] = f'{name}_1'
+    uid_to_indexed_name_map = _get_uid_to_indexed_name_map(estimator)
+    param_search_estimators = [stage for stage in _traverse_stage(estimator)
+                               if _is_parameter_search_estimator(stage)]
+    hierarchy = _gen_stage_hierarchy_recursively(estimator, uid_to_indexed_name_map)
 
     metadata = AutologgingEstimatorMetadata(
         hierarchy=hierarchy,
-        uid2name_map=uid2name_map,
+        uid_to_indexed_name_map=uid_to_indexed_name_map,
         param_search_estimators=param_search_estimators
     )
     estimator._autologging_metadata = metadata
@@ -240,7 +237,7 @@ def _gen_estimator_metadata(estimator):
     return metadata
 
 
-def _get_instance_param_map_recursively(instance, level, uid2name_map):
+def _get_instance_param_map_recursively(instance, level, uid_to_indexed_name_map):
     from pyspark.ml.param import Params
     from pyspark.ml.pipeline import Pipeline
 
@@ -257,22 +254,22 @@ def _get_instance_param_map_recursively(instance, level, uid2name_map):
     if level == 0:
         logged_param_name_prefix = ''
     else:
-        logged_param_name_prefix = uid2name_map[instance.uid] + '.'
+        logged_param_name_prefix = uid_to_indexed_name_map[instance.uid] + '.'
 
     for param_name, param_value in param_map.items():
         logged_param_name = logged_param_name_prefix + param_name
 
         if is_pipeline and param_name == "stages":
             expanded_param_map[logged_param_name] = [
-                uid2name_map[stage.uid] for stage in instance.getStages()
+                uid_to_indexed_name_map[stage.uid] for stage in instance.getStages()
             ]
             for stage in instance.getStages():
                 stage_param_map = _get_instance_param_map_recursively(
-                    stage, level + 1, uid2name_map
+                    stage, level + 1, uid_to_indexed_name_map
                 )
                 expanded_param_map.update(stage_param_map)
         elif is_parameter_search_estimator and param_name == 'estimator':
-            expanded_param_map[logged_param_name] = uid2name_map[param_value.uid]
+            expanded_param_map[logged_param_name] = uid_to_indexed_name_map[param_value.uid]
             # skip log estimator's nested params because they will be logged as JSON artifact,
             # and they will be logged in nested runs as well.
             pass
@@ -283,9 +280,9 @@ def _get_instance_param_map_recursively(instance, level, uid2name_map):
             # handle the case param value type inherits `pyspark.ml.param.Params`
             # e.g. param like
             # `OneVsRest.classifier`/`CrossValidator.evaluator`
-            expanded_param_map[logged_param_name] = uid2name_map[param_value.uid]
+            expanded_param_map[logged_param_name] = uid_to_indexed_name_map[param_value.uid]
             internal_param_map = _get_instance_param_map_recursively(
-                param_value, level + 1, uid2name_map
+                param_value, level + 1, uid_to_indexed_name_map
             )
             expanded_param_map.update(internal_param_map)
         else:
@@ -294,9 +291,9 @@ def _get_instance_param_map_recursively(instance, level, uid2name_map):
     return expanded_param_map
 
 
-def _get_instance_param_map(instance, uid2name_map, ):
+def _get_instance_param_map(instance, uid_to_indexed_name_map):
     return _get_instance_param_map_recursively(
-        instance, level=0, uid2name_map=uid2name_map
+        instance, level=0, uid_to_indexed_name_map=uid_to_indexed_name_map
     )
 
 
@@ -328,7 +325,7 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
         )
 
         params_to_log = _get_instance_param_map(
-            child_estimator, parent_estimator._autologging_metadata.uid2name_map
+            child_estimator, parent_estimator._autologging_metadata.uid_to_indexed_name_map
         )
         param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
         metrics_to_log = {metric_key: metrics[i]}
@@ -381,10 +378,10 @@ def _get_warning_msg_for_fit_call_with_a_list_of_params(estimator):
     )
 
 
-def _get_tuning_param_maps(param_search_estimator, uid2name_map):
+def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
     tuning_param_maps = []
     for eps in param_search_estimator.getEstimatorParamMaps():
-        tuning_param_maps.append({f'{uid2name_map[k.parent]}.{k.name}': str(v)
+        tuning_param_maps.append({f'{uid_to_indexed_name_map[k.parent]}.{k.name}': str(v)
                                   for k, v in eps.items()})
     return tuning_param_maps
 
@@ -404,6 +401,15 @@ def _get_param_search_metrics(param_search_estimator, param_search_model):
         raise RuntimeError(f'Unknown parameter search model type {type(param_search_model)}.')
 
     return metric_key, metrics
+
+
+def _log_estimator_params(param_map):
+    # Chunk model parameters to avoid hitting the log_batch API limit
+    for chunk in _chunk_dict(
+            param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+    ):
+        truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
+        try_mlflow_log(mlflow.log_params, truncated)
 
 
 @experimental
@@ -504,23 +510,23 @@ def autolog(
 
         artifact_dict = {}
 
-        param_map = _get_instance_param_map(estimator, autologging_metadata.uid2name_map)
+        param_map = _get_instance_param_map(estimator, autologging_metadata.uid_to_indexed_name_map)
         if _should_log_hierarchy(estimator):
             artifact_dict['hierarchy'] = autologging_metadata.hierarchy
 
         for param_search_estimator in autologging_metadata.param_search_estimators:
             param_search_estimator_name = \
-                f'{autologging_metadata.uid2name_map[param_search_estimator.uid]}'
+                f'{autologging_metadata.uid_to_indexed_name_map[param_search_estimator.uid]}'
             artifact_dict[param_search_estimator_name] = {}
 
             artifact_dict[param_search_estimator_name]['tuning_parameter_map_list'] = \
                 _get_tuning_param_maps(
-                    param_search_estimator, autologging_metadata.uid2name_map
+                    param_search_estimator, autologging_metadata.uid_to_indexed_name_map
                 )
 
             artifact_dict[param_search_estimator_name]['tuned_estimator_parameter_map'] = \
                 _get_instance_param_map_recursively(
-                    param_search_estimator.getEstimator(), 1, autologging_metadata.uid2name_map
+                    param_search_estimator.getEstimator(), 1, autologging_metadata.uid_to_indexed_name_map
                 )
 
         if artifact_dict:
@@ -528,12 +534,7 @@ def autolog(
                 mlflow.log_dict, artifact_dict, artifact_file="estimator_info.json"
             )
 
-        # Chunk model parameters to avoid hitting the log_batch API limit
-        for chunk in _chunk_dict(
-            param_map, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
-        ):
-            truncated = _truncate_dict(chunk, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH)
-            try_mlflow_log(mlflow.log_params, truncated)
+        _log_estimator_params(param_map)
 
         try_mlflow_log(mlflow.set_tags, _get_estimator_info_tags(estimator))
 
@@ -560,7 +561,7 @@ def autolog(
                 _logger.warning(msg)
 
             estimator_param_maps = _get_tuning_param_maps(
-                estimator, estimator._autologging_metadata.uid2name_map
+                estimator, estimator._autologging_metadata.uid_to_indexed_name_map
             )
 
             metric_key, metrics = _get_param_search_metrics(estimator, spark_model)
@@ -576,12 +577,17 @@ def autolog(
             else:
                 best_index = np.argmin(metrics)
 
+            # Log best_param_map as JSON artifact
             best_param_map = estimator_param_maps[best_index]
             try_mlflow_log(
                 mlflow.log_dict,
                 best_param_map,
                 artifact_file="best_parameters.json"
             )
+
+            # Log best_param_map as autologging parameters as well
+            _log_estimator_params({f'best_{param_name}': param_value
+                                   for param_name, param_value in best_param_map})
 
         if log_models:
             if _should_log_model(spark_model):
