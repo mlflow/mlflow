@@ -381,7 +381,7 @@ def test_param_search_estimator(
             "tuning_parameter_map_list"
         ] == _get_tuning_param_maps(estimator, metadata.uid_to_indexed_name_map)
 
-        assert stringify_dict_values(best_params) == load_json_artifact(
+        assert best_params == load_json_artifact(
             "best_parameters.json"
         )
 
@@ -419,7 +419,7 @@ def test_param_search_estimator(
     assert len(child_runs) == len(search_results)
 
     for row_index, row in search_results.iterrows():
-        row_params = json.loads(row.get("params", "{}").replace("'", '"'))
+        row_params = json.loads(row.get("params", "{}"))
 
         params_search_clause = " and ".join(
             [

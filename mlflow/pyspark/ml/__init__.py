@@ -352,12 +352,13 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
 
 def _log_parameter_search_results_as_artifact(param_maps, metrics, metric_name, run_id):
     import pandas as pd
+    import json
 
     result_dict = {}
     result_dict["params"] = []
     result_dict[metric_name] = []
     for i in range(len(param_maps)):
-        result_dict["params"].append(param_maps[i])
+        result_dict["params"].append(json.dumps(param_maps[i]))
         result_dict[metric_name].append(metrics[i])
 
     results_df = pd.DataFrame.from_dict(result_dict)
@@ -380,7 +381,7 @@ def _get_tuning_param_maps(param_search_estimator, uid_to_indexed_name_map):
     tuning_param_maps = []
     for eps in param_search_estimator.getEstimatorParamMaps():
         tuning_param_maps.append(
-            {f"{uid_to_indexed_name_map[k.parent]}.{k.name}": str(v) for k, v in eps.items()}
+            {f"{uid_to_indexed_name_map[k.parent]}.{k.name}": v for k, v in eps.items()}
         )
     return tuning_param_maps
 
