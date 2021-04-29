@@ -394,14 +394,14 @@ def expand_config(config):
         for key, cfg in cfgs.items():
             print("Processing", flavor_key, key)
             # Released versions
-            versions = filter_versions(
-                all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
-            )
+            min_ver = cfg["minimum"]
+            max_ver = cfg["maximum"]
+            versions = filter_versions(all_versions, min_ver, max_ver, cfg.get("unsupported"),)
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
-            if cfg["minimum"] not in versions:
-                versions.append(cfg["minimum"])
+            if min_ver not in versions:
+                versions.append(min_ver)
 
             pip_release = package_info["pip_release"]
             for ver in versions:
@@ -419,6 +419,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=ver,
+                        newer_than_max=Version(ver) > Version(max_ver),
                     )
                 )
 
@@ -439,6 +440,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=DEV_VERSION,
+                        newer_than_max=True,
                     )
                 )
     return matrix
@@ -473,7 +475,10 @@ def main():
     diff_flavor = set(filter(lambda x: x["flavor"] in changed_flavors, matrix))
 
     # If this file contains changes, re-run all the tests, otherwise re-run the affected tests.
-    include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
+    # I'LL REVERT THIS CHANGE BEFORE MERGE
+    # include = matrix if (__file__ in changed_files) else diff_config.union(diff_flavor)
+    include = diff_config.union(diff_flavor)
+    # I'LL REVERT THIS CHANGE BEFORE MERGE
     include = sorted(include, key=lambda x: x["job_name"])
     job_names = [x["job_name"] for x in include]
 
