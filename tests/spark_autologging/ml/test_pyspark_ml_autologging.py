@@ -347,7 +347,12 @@ def test_pipeline(dataset_text):
         assert run_data.artifacts == ["estimator_info.json", "model"]
 
 
-def test_param_search_estimator(spark_session, dataset_regression):
+# Test on metric of rmse (smaller is better) and r2 (larger is better)
+@pytest.mark.parametrize("metric_name", ["rmse", "r2"])
+@pytest.mark.parametrize("param_search_estimator", [CrossValidator, TrainValidationSplit])
+def test_param_search_estimator(
+        metric_name, param_search_estimator, spark_session, dataset_regression
+):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression(solver="l-bfgs", regParam=0.01)
     lrParamMaps = [
@@ -356,103 +361,100 @@ def test_param_search_estimator(spark_session, dataset_regression):
         {lr.maxIter: 2, lr.standardization: False},
     ]
     best_params = {"LinearRegression.maxIter": 200, "LinearRegression.standardization": True}
-    for ParamSearchEstimator in [CrossValidator, TrainValidationSplit]:
-        # Test on rmse (smaller is better) and r2 (larger is better)
-        for metricName in ["rmse", "r2"]:
-            eva = RegressionEvaluator(metricName=metricName)
-            estimator = ParamSearchEstimator(
-                estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva
-            )
-            with mlflow.start_run() as run:
-                model = estimator.fit(dataset_regression)
-                estimator_info = load_json_artifact("estimator_info.json")
-                metadata = _gen_estimator_metadata(estimator)
-                assert metadata.hierarchy == estimator_info["hierarchy"]
+    eva = RegressionEvaluator(metricName=metric_name)
+    estimator = param_search_estimator(
+        estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva
+    )
+    with mlflow.start_run() as run:
+        model = estimator.fit(dataset_regression)
+        estimator_info = load_json_artifact("estimator_info.json")
+        metadata = _gen_estimator_metadata(estimator)
+        assert metadata.hierarchy == estimator_info["hierarchy"]
 
-                param_search_estiamtor_info = estimator_info[
-                    metadata.uid_to_indexed_name_map[estimator.uid]
-                ]
-                assert param_search_estiamtor_info[
-                    "tuned_estimator_parameter_map"
-                ] == _get_instance_param_map_recursively(lr, 1, metadata.uid_to_indexed_name_map)
-                assert param_search_estiamtor_info[
-                    "tuning_parameter_map_list"
-                ] == _get_tuning_param_maps(estimator, metadata.uid_to_indexed_name_map)
+        param_search_estiamtor_info = estimator_info[
+            metadata.uid_to_indexed_name_map[estimator.uid]
+        ]
+        assert param_search_estiamtor_info[
+            "tuned_estimator_parameter_map"
+        ] == _get_instance_param_map_recursively(lr, 1, metadata.uid_to_indexed_name_map)
+        assert param_search_estiamtor_info[
+            "tuning_parameter_map_list"
+        ] == _get_tuning_param_maps(estimator, metadata.uid_to_indexed_name_map)
 
-                assert stringify_dict_values(best_params) == load_json_artifact(
-                    "best_parameters.json"
-                )
+        assert stringify_dict_values(best_params) == load_json_artifact(
+            "best_parameters.json"
+        )
 
-                search_results = load_json_csv("search_results.csv")
+        search_results = load_json_csv("search_results.csv")
 
-            uid_to_indexed_name_map = metadata.uid_to_indexed_name_map
-            run_id = run.info.run_id
-            run_data = get_run_data(run_id)
-            assert run_data.params == truncate_param_dict(
-                stringify_dict_values(
-                    {
-                        **_get_instance_param_map(estimator, uid_to_indexed_name_map),
-                        **{f"best_{k}": v for k, v in best_params.items()},
-                    }
-                )
-            )
-            assert run_data.tags == get_expected_class_tags(estimator)
-            assert MODEL_DIR in run_data.artifacts
-            loaded_model = load_model_by_run_id(run_id)
-            assert loaded_model.stages[0].uid == model.uid
-            loaded_best_model = load_model_by_run_id(run_id, "best_model")
-            assert loaded_best_model.stages[0].uid == model.bestModel.uid
-            assert run_data.artifacts == [
-                "best_model",
-                "best_parameters.json",
-                "estimator_info.json",
-                "model",
-                "search_results.csv",
+    uid_to_indexed_name_map = metadata.uid_to_indexed_name_map
+    run_id = run.info.run_id
+    run_data = get_run_data(run_id)
+    assert run_data.params == truncate_param_dict(
+        stringify_dict_values(
+            {
+                **_get_instance_param_map(estimator, uid_to_indexed_name_map),
+                **{f"best_{k}": v for k, v in best_params.items()},
+            }
+        )
+    )
+    assert run_data.tags == get_expected_class_tags(estimator)
+    assert MODEL_DIR in run_data.artifacts
+    loaded_model = load_model_by_run_id(run_id)
+    assert loaded_model.stages[0].uid == model.uid
+    loaded_best_model = load_model_by_run_id(run_id, "best_model")
+    assert loaded_best_model.stages[0].uid == model.bestModel.uid
+    assert run_data.artifacts == [
+        "best_model",
+        "best_parameters.json",
+        "estimator_info.json",
+        "model",
+        "search_results.csv",
+    ]
+
+    client = mlflow.tracking.MlflowClient()
+    child_runs = client.search_runs(
+        run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+    )
+    assert len(child_runs) == len(search_results)
+
+    for row_index, row in search_results.iterrows():
+        row_params = json.loads(row.get("params", "{}").replace("'", '"'))
+
+        params_search_clause = " and ".join(
+            [
+                "params.`{}` = '{}'".format(key.split(".")[1], value)
+                for key, value in row_params.items()
             ]
-
-            client = mlflow.tracking.MlflowClient()
-            child_runs = client.search_runs(
-                run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
+        )
+        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+            run_id, params_search_clause
+        )
+        child_runs = client.search_runs(run.info.experiment_id, search_filter)
+        assert len(child_runs) == 1
+        child_run = child_runs[0]
+        assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+        run_data = get_run_data(child_run.info.run_id)
+        child_estimator = estimator.getEstimator().copy(
+            estimator.getEstimatorParamMaps()[row_index]
+        )
+        run_data.tags == get_expected_class_tags(child_estimator)
+        assert run_data.params == truncate_param_dict(
+            stringify_dict_values(
+                {**_get_instance_param_map(child_estimator, uid_to_indexed_name_map),}
             )
-            assert len(child_runs) == len(search_results)
+        )
+        assert (
+            child_run.data.tags.get(MLFLOW_AUTOLOGGING)
+            == mlflow.pyspark.ml.AUTOLOGGING_INTEGRATION_NAME
+        )
 
-            for row_index, row in search_results.iterrows():
-                row_params = json.loads(row.get("params", "{}").replace("'", '"'))
-
-                params_search_clause = " and ".join(
-                    [
-                        "params.`{}` = '{}'".format(key.split(".")[1], value)
-                        for key, value in row_params.items()
-                    ]
-                )
-                search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
-                    run_id, params_search_clause
-                )
-                child_runs = client.search_runs(run.info.experiment_id, search_filter)
-                assert len(child_runs) == 1
-                child_run = child_runs[0]
-                assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
-                run_data = get_run_data(child_run.info.run_id)
-                child_estimator = estimator.getEstimator().copy(
-                    estimator.getEstimatorParamMaps()[row_index]
-                )
-                run_data.tags == get_expected_class_tags(child_estimator)
-                assert run_data.params == truncate_param_dict(
-                    stringify_dict_values(
-                        {**_get_instance_param_map(child_estimator, uid_to_indexed_name_map),}
-                    )
-                )
-                assert (
-                    child_run.data.tags.get(MLFLOW_AUTOLOGGING)
-                    == mlflow.pyspark.ml.AUTOLOGGING_INTEGRATION_NAME
-                )
-
-                metric_name = estimator.getEvaluator().getMetricName()
-                if isinstance(estimator, CrossValidator):
-                    metric_name = f"avg_{metric_name}"
-                assert math.isclose(
-                    run_data.metrics[metric_name], float(row.get(metric_name)), rel_tol=1e-6
-                )
+        metric_name = estimator.getEvaluator().getMetricName()
+        if isinstance(estimator, CrossValidator):
+            metric_name = f"avg_{metric_name}"
+        assert math.isclose(
+            run_data.metrics[metric_name], float(row.get(metric_name)), rel_tol=1e-6
+        )
 
 
 def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
@@ -558,3 +560,6 @@ def test_gen_estimator_metadata(spark_session):
         lor.uid: "LogisticRegression",
         eva.uid: "MulticlassClassificationEvaluator",
     }
+    assert metadata.uid_to_indexed_name_map[
+               metadata.param_search_estimators[0].uid
+           ] == "CrossValidator"
