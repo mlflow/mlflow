@@ -1989,9 +1989,10 @@ def test_get_orderby_clauses():
         with pytest.raises(MlflowException, match=match):
             _get_orderby_clauses(["tag.t", "tag.t"], session)
 
+        # test that an exception is NOT raised when key types are different
+        _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
+
         # test that "=" is used rather than "is" when comparing to True
         parsed = [str(x) for x in _get_orderby_clauses(["metric.a"], session)[0]]
         assert "is_nan = true" in parsed[0]
-
-        # test that an exception is NOT raised when key types are different
-        _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
+        assert "value IS NULL" in parsed[0]
