@@ -1,4 +1,5 @@
-# Exclude `pyproject.toml` from source distributions to avoid unexpected errors caused by PEP 517 backend.
+# Exclude `pyproject.toml` from source distributions to avoid unexpected errors caused by PEP 517 backend
+# See these links for more details:
 # - https://pip.pypa.io/en/stable/reference/pip/#pep-517-and-518-support
 # - https://www.python.org/dev/peps/pep-0517
 exclude pyproject.toml
