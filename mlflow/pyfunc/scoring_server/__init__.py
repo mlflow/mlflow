@@ -16,7 +16,6 @@ import json
 import logging
 import numpy as np
 import pandas as pd
-from six import reraise
 import sys
 import traceback
 
@@ -27,7 +26,13 @@ import traceback
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
-from mlflow.utils.proto_json_utils import NumpyEncoder, _dataframe_from_json
+from mlflow.utils import reraise
+from mlflow.utils.proto_json_utils import (
+    NumpyEncoder,
+    _dataframe_from_json,
+    _get_jsonable_obj,
+    parse_tf_serving_input,
+)
 
 try:
     from mlflow.pyfunc import load_model, PyFuncModel
@@ -60,6 +65,45 @@ CONTENT_TYPES = [
 _logger = logging.getLogger(__name__)
 
 
+def infer_and_parse_json_input(json_input, schema: Schema = None):
+    """
+    :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
+                       DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
+    """
+    try:
+        decoded_input = json.loads(json_input)
+    except json.decoder.JSONDecodeError:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                " formatted string."
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+
+    if isinstance(decoded_input, list):
+        return parse_json_input(json_input=json_input, orient="records", schema=schema)
+    elif isinstance(decoded_input, dict):
+        if "instances" in decoded_input or "inputs" in decoded_input:
+            try:
+                return parse_tf_serving_input(decoded_input, schema=schema)
+            except MlflowException as ex:
+                _handle_serving_error(
+                    error_message=(ex.message), error_code=MALFORMED_REQUEST,
+                )
+        else:
+            return parse_json_input(json_input=json_input, orient="split", schema=schema)
+    else:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input from JSON. Ensure that input is a valid JSON"
+                " list or dictionary."
+            ),
+            error_code=MALFORMED_REQUEST,
+        )
+
+
 def parse_json_input(json_input, orient="split", schema: Schema = None):
     """
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
@@ -68,7 +112,7 @@ def parse_json_input(json_input, orient="split", schema: Schema = None):
                    or 'records'.
     :param schema: Optional schema specification to be used during parsing.
     """
-    # pylint: disable=broad-except
+
     try:
         return _dataframe_from_json(json_input, pandas_orient=orient, schema=schema)
     except Exception:
@@ -88,7 +132,7 @@ def parse_csv_input(csv_input):
     :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
                       containing such a string representation.
     """
-    # pylint: disable=broad-except
+
     try:
         return pd.read_csv(csv_input)
     except Exception:
@@ -107,7 +151,7 @@ def parse_split_oriented_json_input_to_numpy(json_input):
     :param json_input: A JSON-formatted string representation of a Pandas DataFrame with split
                        orient, or a stream containing such a string representation.
     """
-    # pylint: disable=broad-except
+
     try:
         json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
         return pd.DataFrame(
@@ -184,13 +228,20 @@ def init(model: PyFuncModel):
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
+        elif flask.request.content_type == CONTENT_TYPE_JSON:
+            json_str = flask.request.data.decode("utf-8")
+            data = infer_and_parse_json_input(json_str, input_schema)
+        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
             data = parse_json_input(
-                json_input=flask.request.data.decode("utf-8"), orient="split", schema=input_schema
+                json_input=StringIO(flask.request.data.decode("utf-8")),
+                orient="split",
+                schema=input_schema,
             )
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(
-                json_input=flask.request.data.decode("utf-8"), orient="records", schema=input_schema
+                json_input=StringIO(flask.request.data.decode("utf-8")),
+                orient="records",
+                schema=input_schema,
             )
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
             data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode("utf-8"))
@@ -208,7 +259,7 @@ def init(model: PyFuncModel):
             )
 
         # Do the prediction
-        # pylint: disable=broad-except
+
         try:
             raw_predictions = model.predict(data)
         except MlflowException as e:
@@ -253,22 +304,3 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
 def _serve(model_uri, port, host):
     pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
-
-
-def _get_jsonable_obj(data, pandas_orient="records"):
-    """Attempt to make the data json-able via standard library.
-    Look for some commonly used types that are not jsonable and convert them into json-able ones.
-    Unknown data types are returned as is.
-
-    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
-    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
-                          dictionary using this Pandas serialization orientation.
-    """
-    if isinstance(data, np.ndarray):
-        return data.tolist()
-    if isinstance(data, pd.DataFrame):
-        return data.to_dict(orient=pandas_orient)
-    if isinstance(data, pd.Series):
-        return pd.DataFrame(data).to_dict(orient=pandas_orient)
-    else:  # by default just return whatever this is and hope for the best
-        return data

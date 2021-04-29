@@ -7,7 +7,6 @@ import sqlalchemy
 import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
 import mlflow.store.db.utils
@@ -100,7 +99,7 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
@@ -755,6 +754,8 @@ class SqlAlchemyStore(AbstractStore):
             raise MlflowException(e, INTERNAL_ERROR)
 
     def record_logged_model(self, run_id, mlflow_model):
+        from mlflow.models import Model
+
         if not isinstance(mlflow_model, Model):
             raise TypeError(
                 "Argument 'mlflow_model' should be mlflow.models.Model, got '{}'".format(

@@ -76,6 +76,109 @@ There are different kinds of remote tracking URIs:
   `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
+How Runs and Artifacts are Recorded
+===================================
+As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
+and a variety of remote file storage solutions. For storing runs and artifacts, MLflow uses two components for `storage <https://mlflow.org/docs/latest/tracking.html#storage>`_: backend store and artifact store. While the backend store persists
+MLflow entities (runs, parameters, metrics, tags, notes, metadata, etc), the artifact store persists artifacts
+(files, models, images, in-memory objects, or model summary, etc).
+
+The MLflow client can interface with a variety of `backend <https://mlflow.org/docs/latest/tracking.html#backend-stores>`_ and `artifact <https://mlflow.org/docs/latest/tracking.html#artifact-stores>`_ storage configurations.
+Here are four common configuration scenarios:
+
+Scenario 1: MLflow on localhost
+-------------------------------
+
+Many developers run MLflow on their local machine, where both the backend and artifact store share a directory
+on the local filesystem—``./mlruns``—as shown in the diagram. The MLflow client directly interfaces with an
+instance of a `FileStore` and `LocalArtifactRepository`.
+
+.. figure:: _static/images/scenario_1.png
+
+In this simple scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
+
+ * An instance of a `LocalArtifactRepository` (to store artifacts)
+ * An instance of a `FileStore` (to save MLflow entities)
+
+Scenario 2: MLflow on localhost with SQLite
+-------------------------------------------
+
+Many users also run MLflow on their local machines with a `SQLAlchemy-compatible <https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls>`_ database: `SQLite <https://sqlite.org/docs.html>`_. In this case, artifacts
+are stored under the local ``./mlruns`` directory, and MLflow entities are inserted in a SQLite database file ``mlruns.db``.
+
+.. figure:: _static/images/scenario_2.png
+
+In this scenario, the MLflow client uses the following interfaces to record MLflow entities and artifacts:
+
+ * An instance of a `LocalArtifactRepository` (to save artifacts)
+ * An instance of an `SQLAlchemyStore` (to store MLflow entities to a SQLite file ``mlruns.db``)
+
+Scenario 3: MLflow on localhost with Tracking Server
+----------------------------------------------------
+
+Similar to scenario 1 but a tracking server is launched, listening for REST request calls at the default port 5000.
+The arguments supplied to the ``mlflow server <args>`` dictate what backend and artifact stores are used.
+The default is local `FileStore`. For example, if a user launched a tracking server as
+``mlflow server --backend-store-uri sqlite:///mydb.sqlite``, then SQLite would be used for backend storage instead.
+
+As in scenario 1, MLflow uses a local `mlruns` filesystem directory as a backend store and artifact store. With a tracking
+server running, the MLflow client interacts with the tracking server via REST requests, as shown in the diagram.
+
+.. figure:: _static/images/scenario_3.png
+
+To store all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
+
+ * **Part 1a and b**:
+
+  * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
+  * The Tracking Server creates an instance of a `FileStore` to save MLflow entities and writes directly to the local `mlruns` directory
+
+For the artifacts, the MLflow client interacts with the tracking server via a REST request:
+
+ * **Part 2a, b, and c**:
+
+   * The MLflow client uses `RestStore` to send a REST request to fetch the artifact store URI location
+   * The Tracking Server responds with an artifact store URI location
+   * The MLflow client creates an instance of a `LocalArtifactRepository` and saves artifacts to the local filesystem location specified by the artifact store URI (a subdirectory of `mlruns`)
+
+Scenario 4: MLflow with remote Tracking Server, backend and artifact stores
+---------------------------------------------------------------------------
+
+MLflow also supports distributed architectures, where the tracking server, backend store, and artifact store
+reside on remote hosts. This example scenario depicts an architecture with a remote MLflow Tracking Server,
+a Postgres database for backend entity storage, and an S3 bucket for artifact storage.
+
+.. figure:: _static/images/scenario_4.png
+
+To record all runs' MLflow entities, the MLflow client interacts with the tracking server via a series of REST requests:
+
+ * **Part 1a and b**:
+
+  * The MLflow client creates an instance of a `RestStore` and sends REST API requests to log MLflow entities
+  * The Tracking Server creates an instance of an `SQLAlchemyStore` and connects to the remote host to
+    insert MLflow entities in the database
+
+For artifact logging, the MLflow client interacts with the remote Tracking Server and artifact storage host:
+
+ * **Part 2a, b, and c**:
+
+  * The MLflow client uses `RestStore` to send a REST request to fetch the artifact store URI location from the Tracking Server
+  * The Tracking Server responds with an artifact store URI location (an S3 storage URI in this case)
+  * The MLflow client creates an instance of an `S3ArtifactRepository`, connects to the remote AWS host using the
+    `boto client <https://boto3.amazonaws.com/v1/documentation/api/latest/index.html>`_ libraries, and uploads the artifacts to the S3 bucket URI location
+
+.. note::
+
+    In all scenarios, the MLflow client directly logs artifacts to the remote artifact store. It does not proxy these through the
+    tracking server.
+
+The `FileStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/file_store.py#L115>`_,
+`RestoreStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/rest_store.py#L39>`_,
+and `SQLAlchemyStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/sqlalchemy_store.py#L61>`_ are
+concrete implementations of the abstract class `AbstractStore <https://github.com/mlflow/mlflow/blob/master/mlflow/store/tracking/abstract_store.py>`_,
+and the `LocalArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/local_artifact_repo.py#L15>`_ and
+`S3ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/s3_artifact_repo.py#L14>`_ are
+concrete implementations of the abstract class `ArtifactRepository <https://github.com/mlflow/mlflow/blob/master/mlflow/store/artifact/artifact_repo.py#L13>`_.
 
 Logging Data to Runs
 ====================
@@ -87,7 +190,6 @@ shows the Python API.
   :depth: 1
   :local:
 
-.. _basic_logging_functions:
 
 Logging Functions
 ------------------
@@ -218,11 +320,19 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
   X-axis relative time - graphs the time relative to the first metric logged, for each run
 
 
+.. _automatic-logging:
+
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit
-log statements, and is currently supported for:
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
+
+There are two ways to use autologging:
+
+#. Call :py:func:`mlflow.autolog` before your training code. This will enable autologging for each supported library you have installed as soon as you import it.
+#. Use library-specific autolog calls for each library you use in your code. See below for examples.
+
+The following libraries support autologging:
 
 .. contents::
   :local:
@@ -380,6 +490,24 @@ If early stopping is activated, metrics at the best iteration will be logged as 
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
+Statsmodels (experimental)
+--------------------------
+Call :py:func:`mlflow.statsmodels.autolog` before your training code to enable automatic logging of metrics and parameters.
+
+Autologging captures the following information:
+
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+| Framework    | Metrics                | Parameters                                     | Tags          | Artifacts                                                                   |
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+| Statsmodels  | user-specified metrics | `statsmodels.base.model.Model.fit`_ parameters | --            | `MLflow Model`_ (`statsmodels.base.wrapper.ResultsWrapper`) on training end |
++--------------+------------------------+------------------------------------------------+---------------+-----------------------------------------------------------------------------+
+
+.. note::
+  - This feature is experimental - the API and format of the logged data are subject to change.
+  - Each model subclass that overrides `fit` expects and logs its own parameters.
+
+.. _statsmodels.base.model.Model.fit: https://www.statsmodels.org/dev/dev/generated/statsmodels.base.model.Model.html
+
 Spark (experimental)
 --------------------
 
@@ -420,6 +548,44 @@ Autologging captures the following information:
 |           |                        | Logs the parameters of the `EarlyStoppingCallback`_ and  |               |                                                                                                                                                                       |
 |           |                        | `OneCycleScheduler`_ callbacks                           |               |                                                                                                                                                                       |
 +-----------+------------------------+----------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+
+Pytorch (experimental)
+--------------------------
+
+Call :py:func:`mlflow.pytorch.autolog` before your Pytorch Lightning training code to enable automatic logging of metrics, parameters, and models. See example usages `here <https://github.com/chauhang/mlflow/tree/master/examples/pytorch/MNIST>`__. Note
+that currently, Pytorch autologging supports only models trained using Pytorch Lightning. 
+
+Autologging is triggered on calls to ``pytorch_lightning.trainer.Trainer.fit`` and captures the following information:
+
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| Framework/module                               | Metrics                                                     | Parameters                                                                           | Tags          | Artifacts                                                                                                                                     |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``pytorch_lightning.trainer.Trainer``          | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon.                        | --            | Model summary on training start, `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+|                                                | user-defined-metrics.                                       |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+| ``pytorch_lightning.callbacks.earlystopping``  | Training loss; validation loss; average_test_accuracy;      | ``fit()`` parameters; optimizer name; learning rate; epsilon                         | --            | Model summary on training start; `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Pytorch model) on training end;                |
+|                                                | user-defined-metrics.                                       | Parameters from the ``EarlyStopping`` callbacks.                                     |               | Best Pytorch model checkpoint, if training stops due to early stopping callback.                                                              |
+|                                                | Metrics from the ``EarlyStopping`` callbacks.               | For example, ``min_delta``, ``patience``, ``baseline``,``restore_best_weights``, etc |               |                                                                                                                                               |
+|                                                | For example, ``stopped_epoch``, ``restored_epoch``,         |                                                                                      |               |                                                                                                                                               |
+|                                                | ``restore_best_weight``, etc.                               |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
+|                                                |                                                             |                                                                                      |               |                                                                                                                                               |
++------------------------------------------------+-------------------------------------------------------------+--------------------------------------------------------------------------------------+---------------+-----------------------------------------------------------------------------------------------------------------------------------------------+
+
+If no active run exists when ``autolog()`` captures data, MLflow will automatically create a run to log information, ending the run once
+the call to ``pytorch_lightning.trainer.Trainer.fit()`` completes.
+
+If a run already exists when ``autolog()`` captures data, MLflow will log to that run but not automatically end that run after training.
+
+.. note::
+  - Parameters not explicitly passed by users (parameters that use default values) while using ``pytorch_lightning.trainer.Trainer.fit()`` are not currently automatically logged
+  - In case of a multi-optimizer scenario (such as usage of autoencoder), only the parameters for the first optimizer are logged
+  - This feature is experimental - the API and format of the logged data are subject to change
+
 
 .. _organizing_runs_in_experiments:
 

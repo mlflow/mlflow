@@ -22,6 +22,7 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.utils.rest_utils import cloud_storage_http_request
 
 ENCODING = "utf-8"
 
@@ -413,3 +414,20 @@ def yield_file_in_chunks(file, chunk_size=100000000):
                 yield chunk
             else:
                 break
+
+
+def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    uses a `chunk_size` to ensure an OOM error is not raised a large file is downloaded.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    """
+    with cloud_storage_http_request("get", http_uri, stream=True) as response:
+        response.raise_for_status()
+        with open(download_path, "wb") as output_file:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if not chunk:
+                    break
+                output_file.write(chunk)

@@ -23,7 +23,8 @@ def is_model_flavor(src):
 def iter_flavor_names():
     for root, _, files in os.walk("mlflow"):
         for f in files:
-            if not f.endswith(".py"):
+            is_private_module = f.startswith("_") and f != "__init__.py"
+            if not f.endswith(".py") or is_private_module:
                 continue
             path = os.path.join(root, f)
             src = read_file(path)

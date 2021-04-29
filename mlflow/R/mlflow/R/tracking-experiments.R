@@ -39,11 +39,11 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 
   # Return `NULL` if no experiments
   if (!length(response)) return(NULL)
-
-  response$experiments %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    tibble::as_tibble()
+  purrr::map(response$experiments, function(x) {
+    x$tags <- parse_run_data(x$tags)
+    tibble::as_tibble(x)
+  }) %>%
+    do.call(rbind, .)
 }
 
 #' Set Experiment Tag
@@ -98,6 +98,7 @@ mlflow_get_experiment <- function(experiment_id = NULL, name = NULL, client = NU
       client = client, query = list(experiment_id = experiment_id)
     )
   }
+  response$experiment$tags <- parse_run_data(response$experiment$tags)
   response$experiment %>%
     new_mlflow_experiment()
 }

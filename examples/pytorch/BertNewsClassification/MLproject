@@ -1,0 +1,26 @@
+name: bert-classification
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      max_epochs: {type: int, default: 5}
+      gpus: {type: int, default: 0}
+      accelerator: {type str, default: "None"}
+      batch_size: {type: int, default: 64}
+      num_workers: {type: int, default: 3}
+      learning_rate: {type: float, default: 0.001}
+      num_samples: {type: int, default: 15000}
+      dataset: {type: str, default: "20newsgroups"}
+
+    command: |
+          python bert_classification.py \
+            --max_epochs {max_epochs} \
+            --gpus {gpus} \
+            --accelerator {accelerator} \
+            --batch_size {batch_size} \
+            --num_workers {num_workers} \
+            --num_samples {num_samples} \
+            --lr {learning_rate} \
+            --dataset {dataset}

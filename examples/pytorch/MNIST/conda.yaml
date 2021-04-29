@@ -1,0 +1,12 @@
+channels:
+- defaults
+- conda-forge
+- pytorch
+dependencies:
+- python=3.8.2
+- pytorch=1.8.0
+- pytorch-lightning==1.0.2
+- pip
+- pip:
+  - mlflow
+  - torchvision==0.9.1

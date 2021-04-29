@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
  */
 public class MlflowClient implements Serializable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
+  private static final String DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME = "models";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final ArtifactRepositoryFactory artifactRepositoryFactory;
@@ -736,23 +737,26 @@ public class MlflowClient implements Serializable {
    *
    * This API may change or be removed in a future release without warning.
    *
-   * Return a local file or directory containing all artifacts within the given registered model
-   * version. The method will download the model version artifacts to the local file system.
+   * Returns a directory containing all artifacts within the given registered model
+   * version. The method will download the model version artifacts to the local file system. Note
+   * that this method will not work if the `download_uri` refers to a single file (and not a
+   * directory) due to the way many ArtifactRepository's `download_artifacts` handle empty subpaths.
    *
    *    <pre>
-   *        File modelVersionFile = downloadModelVersion("model", 0);
+   *        File modelVersionDir = downloadModelVersion("model", 0);
    *    </pre>
    *
    * @param modelName The name of the model
    * @param version The version number of the model
-   * @return A local file or directory ({@link java.io.File}) containing model artifacts
+   * @return A directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(String modelName, String version) {
-    String downloadUri = getModelVersionDownloadUri(modelName, version);
-
+    String path = modelName + "/" + version;
+    URIBuilder downloadUriBuilder = new URIBuilder()
+            .setScheme(DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME).setPath(path);
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
             hostCredsProvider);
-    return repository.downloadArtifactFromUri(downloadUri);
+    return repository.downloadArtifactFromUri(downloadUriBuilder.toString());
   }
 
   /**
@@ -760,19 +764,19 @@ public class MlflowClient implements Serializable {
    *
    * this api may change or be removed in a future release without warning.
    *
-   * Return a local file or directory containing all artifacts within the latest registered
+   * Returns a directory containing all artifacts within the latest registered
    * model version in the given stage. The method will download the model version artifacts
    * to the local file system.
    *
    *    <pre>
-   *        File modelVersionFile = downloadLatestModelVersion("model", "Staging");
+   *        File modelVersionDir = downloadLatestModelVersion("model", "Staging");
    *    </pre>
    *
    * (i.e., the contents of the local directory are now available).
    *
    * @param modelName The name of the model
    * @param stage The name of the stage
-   * @return A local file or directory ({@link java.io.File}) containing model artifacts
+   * @return A directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(String modelName, String stage) {
       List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));

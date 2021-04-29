@@ -1,0 +1,93 @@
+name: Cross version tests
+
+on:
+  schedule:
+    # Run this workflow daily at 7:00 UTC
+    - cron: "0 7 * * *"
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  set-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install dependencies
+        run: |
+          pip install packaging pyyaml pytest
+      - name: Test set_matrix.py
+        run: |
+          pytest dev/set_matrix.py --doctest-modules --verbose
+      - id: set-matrix
+        name: Set matrix
+        run: |
+          if [ ! "$(git branch --show-current)" == "master" ]; then
+            git fetch origin master:master
+          fi
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/ml-package-versions.yml"
+            CHANGED_FILES="$(git diff --name-only master..HEAD)"
+            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES"
+          else
+            python dev/set_matrix.py
+          fi
+  test:
+    needs: set-matrix
+    if: ${{ needs.set-matrix.outputs.is_matrix_empty == 'false' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.set-matrix.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
+          # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
+          java-version: 8
+      - name: Enable conda
+        run: |
+          echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
+      - name: Update python
+        run: |
+          conda install python=3.6
+          python --version
+      - name: Get cache key
+        env:
+          INSTALL_COMMAND: ${{ matrix.install }}
+        id: get-cache-key
+        run: |
+          date=$(date -u "+%Y%m%d")
+          hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
+          echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
+      - uses: actions/cache@v2
+        if: ${{ matrix.package == 'pyspark' && matrix.version == 'dev' }}
+        with:
+          path: /home/runner/.cache/wheels
+          key: ${{ steps.get-cache-key.outputs.key }}
+          restore-keys: |
+            ${{ steps.get-cache-key.outputs.key }}
+      - name: Install dependencies
+        env:
+          CACHE_DIR: /home/runner/.cache/wheels
+        run: |
+          set -x
+          pip install -e .
+          pip install -r dev/small-requirements.txt
+          ${{ matrix.install }}
+      - name: Check package versions
+        run: |
+          pip freeze
+      - name: Run tests
+        env:
+          SPARK_LOCAL_IP: 127.0.0.1
+        run: |
+          ${{ matrix.run }}

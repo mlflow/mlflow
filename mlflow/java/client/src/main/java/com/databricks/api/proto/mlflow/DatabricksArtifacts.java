@@ -41,6 +41,15 @@ public final class DatabricksArtifacts {
      * <code>AWS_PRESIGNED_URL = 2;</code>
      */
     AWS_PRESIGNED_URL(2),
+    /**
+     * <pre>
+     * The credential is a GCP Signed URL. For more information, see
+     * https://cloud.google.com/storage/docs/access-control/signed-urls
+     * </pre>
+     *
+     * <code>GCP_SIGNED_URL = 3;</code>
+     */
+    GCP_SIGNED_URL(3),
     ;
 
     /**
@@ -61,6 +70,15 @@ public final class DatabricksArtifacts {
      * <code>AWS_PRESIGNED_URL = 2;</code>
      */
     public static final int AWS_PRESIGNED_URL_VALUE = 2;
+    /**
+     * <pre>
+     * The credential is a GCP Signed URL. For more information, see
+     * https://cloud.google.com/storage/docs/access-control/signed-urls
+     * </pre>
+     *
+     * <code>GCP_SIGNED_URL = 3;</code>
+     */
+    public static final int GCP_SIGNED_URL_VALUE = 3;
 
 
     public final int getNumber() {
@@ -79,6 +97,7 @@ public final class DatabricksArtifacts {
       switch (value) {
         case 1: return AZURE_SAS_URI;
         case 2: return AWS_PRESIGNED_URL;
+        case 3: return GCP_SIGNED_URL;
         default: return null;
       }
     }
@@ -5824,18 +5843,19 @@ public final class DatabricksArtifacts {
       "flow.ArtifactCredentialInfo:_\342?(\n&com.da" +
       "tabricks.rpc.RPC[$this.Response]\342?1\n/com" +
       ".databricks.mlflow.api.MlflowTrackingMes" +
-      "sage*B\n\026ArtifactCredentialType\022\021\n\rAZURE_" +
-      "SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\0022\342\002\n Dat" +
-      "abricksMlflowArtifactsService\022\233\001\n\025getCre" +
-      "dentialsForRead\022\035.mlflow.GetCredentialsF" +
-      "orRead\032&.mlflow.GetCredentialsForRead.Re" +
-      "sponse\";\362\206\0317\n3\n\003GET\022&/mlflow/artifacts/c" +
-      "redentials-for-read\032\004\010\002\020\000\020\003\022\237\001\n\026getCrede" +
-      "ntialsForWrite\022\036.mlflow.GetCredentialsFo" +
-      "rWrite\032\'.mlflow.GetCredentialsForWrite.R" +
-      "esponse\"<\362\206\0318\n4\n\003GET\022\'/mlflow/artifacts/" +
-      "credentials-for-write\032\004\010\002\020\000\020\003B,\n\037com.dat" +
-      "abricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "sage*V\n\026ArtifactCredentialType\022\021\n\rAZURE_" +
+      "SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002\022\022\n\016GCP_" +
+      "SIGNED_URL\020\0032\342\002\n DatabricksMlflowArtifac" +
+      "tsService\022\233\001\n\025getCredentialsForRead\022\035.ml" +
+      "flow.GetCredentialsForRead\032&.mlflow.GetC" +
+      "redentialsForRead.Response\";\362\206\0317\n3\n\003GET\022" +
+      "&/mlflow/artifacts/credentials-for-read\032" +
+      "\004\010\002\020\000\020\003\022\237\001\n\026getCredentialsForWrite\022\036.mlf" +
+      "low.GetCredentialsForWrite\032\'.mlflow.GetC" +
+      "redentialsForWrite.Response\"<\362\206\0318\n4\n\003GET" +
+      "\022\'/mlflow/artifacts/credentials-for-writ" +
+      "e\032\004\010\002\020\000\020\003B,\n\037com.databricks.api.proto.ml" +
+      "flow\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

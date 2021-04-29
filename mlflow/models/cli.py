@@ -4,7 +4,6 @@ import os
 
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import cli_args
@@ -169,6 +168,8 @@ def build_docker(model_uri, name, install_mlflow):
 
 
 def _get_flavor_backend(model_uri, **kwargs):
+    from mlflow.models.flavor_backend_registry import get_flavor_backend
+
     with TempDir() as tmp:
         if ModelsArtifactRepository.is_models_uri(model_uri):
             underlying_model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)

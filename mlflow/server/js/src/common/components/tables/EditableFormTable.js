@@ -2,6 +2,7 @@ import React from 'react';
 import { Table, Input, Form, Icon, Popconfirm, Button } from 'antd';
 import PropTypes from 'prop-types';
 import { IconButton } from '../../components/IconButton';
+import _ from 'lodash';
 
 import './EditableFormTable.css';
 
@@ -67,6 +68,10 @@ export class EditableTable extends React.Component {
     this.columns = this.initColumns();
   }
 
+  // set table width as sum of columns rather than hard coding a width
+  // see ML-11973
+  getTotalTableWidth = () => _.sumBy(this.columns, 'width');
+
   initColumns = () => [
     ...this.props.columns.map((col) =>
       col.editable
@@ -88,7 +93,7 @@ export class EditableTable extends React.Component {
     {
       title: 'Actions',
       dataIndex: 'operation',
-      width: 100,
+      width: 200,
       render: (text, record) => {
         const { editingKey, isRequestPending } = this.state;
         const editing = this.isEditing(record);
@@ -178,6 +183,7 @@ export class EditableTable extends React.Component {
           pagination={false}
           locale={{ emptyText: 'No tags found.' }}
           scroll={{ y: 280 }}
+          style={{ width: this.getTotalTableWidth() }}
         />
       </EditableContext.Provider>
     );

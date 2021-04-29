@@ -137,62 +137,22 @@ export const getModelVersionSchemas = (state, modelName, version) => {
     const artifact = state.entities.mlModelArtifactByModelVersion[modelName][version];
     if (artifact.signature) {
       if (artifact.signature.inputs) {
-        schemaMap['inputs'] = JSON.parse(artifact.signature.inputs);
+        try {
+          schemaMap['inputs'] = JSON.parse(artifact.signature.inputs);
+        } catch (error) {
+          console.error(error);
+        }
       }
       if (artifact.signature.outputs) {
-        schemaMap['outputs'] = JSON.parse(artifact.signature.outputs);
+        try {
+          schemaMap['outputs'] = JSON.parse(artifact.signature.outputs);
+        } catch (error) {
+          console.error(error);
+        }
       }
     }
   }
   return schemaMap;
-};
-
-export const getModelVersionSchemaInputsByIndex = (state, modelName, version) => {
-  const schemas = getModelVersionSchemas(state, modelName, version);
-  const schemaInputsByIndex = {};
-  schemas.inputs.forEach((input, index) => {
-    schemaInputsByIndex[index] = {
-      key: index,
-      value: `${input.name}: ${input.type}`,
-    };
-  });
-  return schemaInputsByIndex;
-};
-
-export const getModelVersionSchemaInputsByName = (state, modelName, version) => {
-  const schemas = getModelVersionSchemas(state, modelName, version);
-  const schemaInputsByName = {};
-  schemas.inputs.forEach((input) => {
-    schemaInputsByName[input.name] = {
-      key: input.name,
-      value: input.type,
-    };
-  });
-  return schemaInputsByName;
-};
-
-export const getModelVersionSchemaOutputsByIndex = (state, modelName, version) => {
-  const schemas = getModelVersionSchemas(state, modelName, version);
-  const schemaOutputsByIndex = {};
-  schemas.outputs.forEach((output, index) => {
-    schemaOutputsByIndex[index] = {
-      key: index,
-      value: `${output.name}: ${output.type}`,
-    };
-  });
-  return schemaOutputsByIndex;
-};
-
-export const getModelVersionSchemaOutputsByName = (state, modelName, version) => {
-  const schemas = getModelVersionSchemas(state, modelName, version);
-  const schemaOutputsByName = {};
-  schemas.outputs.forEach((output) => {
-    schemaOutputsByName[output.name] = {
-      key: output.name,
-      value: output.type,
-    };
-  });
-  return schemaOutputsByName;
 };
 
 export const getModelVersion = (state, modelName, version) => {

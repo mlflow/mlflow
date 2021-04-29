@@ -19,7 +19,7 @@ import yaml
 import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
-from mlflow import pyfunc, mleap
+from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
@@ -58,17 +58,12 @@ SparkModelWithData = namedtuple(
 @pytest.fixture(scope="session", autouse=True)
 def spark_context():
     conf = pyspark.SparkConf()
-    conf.set(
-        key="spark.jars.packages",
-        value="ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
-        "ml.combust.mleap:mleap-spark_2.11:0.12.0",
-    )
     max_tries = 3
     for num_tries in range(max_tries):
         try:
             spark = get_spark_session(conf)
             return spark.sparkContext
-        except Exception as e:  # pylint: disable=broad-except
+        except Exception as e:
             if num_tries >= max_tries - 1:
                 raise
             _logger.exception(
@@ -269,36 +264,24 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
 @pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(
-        spark_model_iris.model,
-        path=model_path,
-        conda_env=spark_custom_env,
-        # Test both spark ml and mleap
-        sample_input=spark_model_iris.spark_df,
+        spark_model_iris.model, path=model_path, conda_env=spark_custom_env,
     )
-
-    # 1. score and compare pyfunc deployed in Sagemaker docker container
-    scoring_response_1 = score_model_in_sagemaker_docker_container(
+    scoring_response = score_model_in_sagemaker_docker_container(
         model_uri=model_path,
         data=spark_model_iris.pandas_df,
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
     np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response_1.content)), decimal=4
-    )
-    # 2. score and compare mleap deployed in Sagemaker docker container
-    scoring_response_2 = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=spark_model_iris.pandas_df.to_json(orient="split"),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        flavor=mlflow.mleap.FLAVOR_NAME,
-    )
-    np.testing.assert_array_almost_equal(
-        spark_model_iris.predictions, np.array(json.loads(scoring_response_2.content)), decimal=4
+        spark_model_iris.predictions, np.array(json.loads(scoring_response.content)), decimal=4
     )
 
 
 @pytest.mark.large
+@pytest.mark.skipif(
+    "dev" in pyspark.__version__,
+    reason="The dev version of pyspark built from the source doesn't exist on PyPI or Anaconda",
+)
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
 
@@ -592,31 +575,6 @@ def test_default_conda_env_strips_dev_suffix_from_pyspark_version(spark_model_ir
 
 
 @pytest.mark.large
-def test_mleap_model_log(spark_model_iris):
-    artifact_path = "model"
-    register_model_patch = mock.patch("mlflow.register_model")
-    with mlflow.start_run(), register_model_patch:
-        sparkm.log_model(
-            spark_model=spark_model_iris.model,
-            sample_input=spark_model_iris.spark_df,
-            artifact_path=artifact_path,
-            registered_model_name="Model1",
-        )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "Model1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-        )
-
-    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    config_path = os.path.join(model_path, "MLmodel")
-    mlflow_model = Model.load(config_path)
-    assert sparkm.FLAVOR_NAME in mlflow_model.flavors
-    assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-
-@pytest.mark.large
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
     spark_model_iris, model_path
 ):
@@ -634,68 +592,6 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
 
 
 @pytest.mark.large
-def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
-    spark_model_iris,
-):
-    with TempDir(chdr=True) as tmp:
-        model_path = os.path.basename(tmp.path("model"))
-        mlflow_model = Model()
-        sparkm.save_model(
-            spark_model=spark_model_iris.model,
-            path=model_path,
-            sample_input=spark_model_iris.spark_df,
-            mlflow_model=mlflow_model,
-        )
-        assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-        config_path = os.path.join(model_path, "MLmodel")
-        assert os.path.exists(config_path)
-        config = Model.load(config_path)
-        assert mleap.FLAVOR_NAME in config.flavors
-
-
-@pytest.mark.large
-def test_mleap_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
-    spark_model_iris,
-):
-    with TempDir(chdr=True) as tmp:
-        model_path = os.path.basename(tmp.path("model"))
-        mlflow_model = Model()
-        mleap.save_model(
-            spark_model=spark_model_iris.model,
-            path=model_path,
-            sample_input=spark_model_iris.spark_df,
-            mlflow_model=mlflow_model,
-        )
-        assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-        config_path = os.path.join(model_path, "MLmodel")
-        assert os.path.exists(config_path)
-        config = Model.load(config_path)
-        assert mleap.FLAVOR_NAME in config.flavors
-
-
-@pytest.mark.large
-def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produces_mleap_flavor(
-    spark_model_iris, model_path
-):
-    model_path = os.path.abspath(model_path)
-    mlflow_model = Model()
-    mleap.save_model(
-        spark_model=spark_model_iris.model,
-        path=model_path,
-        sample_input=spark_model_iris.spark_df,
-        mlflow_model=mlflow_model,
-    )
-    assert mleap.FLAVOR_NAME in mlflow_model.flavors
-
-    config_path = os.path.join(model_path, "MLmodel")
-    assert os.path.exists(config_path)
-    config = Model.load(config_path)
-    assert mleap.FLAVOR_NAME in config.flavors
-
-
-@pytest.mark.large
 def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
     spark_model_iris, model_path
 ):
@@ -706,18 +602,17 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
         )
 
 
-@pytest.mark.large
-def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
-    spark_model_iris, model_path
-):
-    class CustomTransformer(JavaModel):
-        def _transform(self, dataset):
-            return dataset
-
-    unsupported_pipeline = Pipeline(stages=[CustomTransformer()])
-    unsupported_model = unsupported_pipeline.fit(spark_model_iris.spark_df)
-
-    with pytest.raises(mleap.MLeapSerializationException):
-        mleap.save_model(
-            spark_model=unsupported_model, path=model_path, sample_input=spark_model_iris.spark_df
-        )
+def test_shutil_copytree_without_file_permissions(tmpdir):
+    src_dir = tmpdir.mkdir("src-dir")
+    dst_dir = tmpdir.mkdir("dst-dir")
+    # Test copying empty directory
+    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
+    assert len(os.listdir(dst_dir.strpath)) == 0
+    # Test copying directory with contents
+    src_dir.mkdir("subdir").join("subdir-file.txt").write("testing 123")
+    src_dir.join("top-level-file.txt").write("hi")
+    mlflow.spark._shutil_copytree_without_file_permissions(src_dir.strpath, dst_dir.strpath)
+    assert set(os.listdir(dst_dir.strpath)) == {"top-level-file.txt", "subdir"}
+    assert set(os.listdir(dst_dir.join("subdir").strpath)) == {"subdir-file.txt"}
+    assert dst_dir.join("subdir").join("subdir-file.txt").read() == "testing 123"
+    assert dst_dir.join("top-level-file.txt").read() == "hi"

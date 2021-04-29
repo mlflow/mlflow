@@ -1,3 +1,6 @@
+import os
+import pytest
+
 from click.testing import CliRunner
 from mlflow.deployments import cli
 
@@ -73,6 +76,22 @@ def test_get():
     res = runner.invoke(cli.get_deployment, ["--name", f_name, "--target", f_target])
     assert "key1: val1" in res.stdout
     assert "key2: val2" in res.stdout
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support predict due to the pandas dependency",
+)
+def test_predict(tmpdir):
+    temp_input_file_path = tmpdir.join("input.json").strpath
+    with open(temp_input_file_path, "w+t") as temp_input_file:
+        temp_input_file.write('{"data": [5000]}')
+        temp_input_file.seek(0)
+        runner = CliRunner()
+        res = runner.invoke(
+            cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file]
+        )
+        assert "1" in res.stdout
 
 
 def test_target_help():

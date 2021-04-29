@@ -1,14 +1,15 @@
 from mlflow.exceptions import MlflowException
+from mlflow.entities.model_registry import ModelVersion
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking import MlflowClient
-from mlflow.utils.annotations import experimental
 from mlflow.utils.logging_utils import eprint
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 
-@experimental
-def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS):
+def register_model(
+    model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+) -> ModelVersion:
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.
     Note that this method assumes the model registry backend URI is the same as that of the
@@ -37,7 +38,7 @@ def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLE
 
         # Log MLflow entities
         with mlflow.start_run() as run:
-           rfr = RandomForestRegressor(**params)
+           rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
            mlflow.log_params(params)
            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
 
@@ -68,7 +69,9 @@ def register_model(model_uri, name, await_registration_for=DEFAULT_AWAIT_MAX_SLE
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-        create_version_response = client.create_model_version(name, source, run_id)
+        create_version_response = client.create_model_version(
+            name, source, run_id, await_creation_for=await_registration_for
+        )
     else:
         create_version_response = client.create_model_version(
             name, source=model_uri, run_id=None, await_creation_for=await_registration_for

@@ -7,7 +7,7 @@ import debounce from 'lodash/debounce';
 import Routes from '../../routes';
 import { GenericInputModal } from './GenericInputModal';
 import { CreateExperimentForm, EXP_NAME_FIELD, ARTIFACT_LOCATION } from './CreateExperimentForm';
-import { getExperimentNameValidator } from './validation';
+import { getExperimentNameValidator } from '../../../common/forms/validations';
 
 import { createExperimentApi, listExperimentsApi } from '../../actions';
 import { getExperiments } from '../../reducers/Reducers';
@@ -50,6 +50,7 @@ export class CreateExperimentModalImpl extends Component {
     return (
       <GenericInputModal
         title='Create Experiment'
+        okText='Create'
         isOpen={isOpen}
         handleSubmit={this.handleCreateExperiment}
         onClose={this.props.onClose}

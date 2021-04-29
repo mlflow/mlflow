@@ -172,6 +172,12 @@ test('formatSource & renderSource', () => {
   // and https://stackoverflow.com/a/34772568
   expect(wrapper3.props().href).toEqual('http://localhost/?o=123#notebook/13/revision/42');
 
+  const wrapper4 = shallow(Utils.renderSource(databricksRunRevisionTags, '', 'abcd123456'));
+  expect(wrapper4.is('a')).toEqual(true);
+  expect(wrapper4.props().href).toEqual(
+    'http://localhost/#notebook/13/revision/42/mlflow/run/abcd123456',
+  );
+
   const databricksJobTags = {
     'mlflow.source.name': { value: 'job/70/run/5' },
     'mlflow.source.type': { value: 'JOB' },
@@ -181,9 +187,9 @@ test('formatSource & renderSource', () => {
     'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
   };
   expect(Utils.formatSource(databricksJobTags)).toEqual('run 5 of job 70');
-  const wrapper4 = shallow(Utils.renderSource(databricksJobTags));
-  expect(wrapper4.is('a')).toEqual(true);
-  expect(wrapper4.props().href).toEqual('http://localhost/#job/70/run/5');
+  const wrapper5 = shallow(Utils.renderSource(databricksJobTags));
+  expect(wrapper5.is('a')).toEqual(true);
+  expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
 });
 
 test('addQueryParams', () => {
@@ -342,4 +348,17 @@ test('compareExperiments', () => {
   expect(Utils.compareExperiments(expA, expB)).toEqual(-1);
 
   expect([expB, exp1, expA, exp0].sort(Utils.compareExperiments)).toEqual([exp0, exp1, expA, expB]);
+});
+
+test('normalize', () => {
+  expect(Utils.normalize('/normalized/absolute/path')).toEqual('/normalized/absolute/path');
+  expect(Utils.normalize('normalized/relative/path')).toEqual('normalized/relative/path');
+  expect(Utils.normalize('http://mlflow.org/resource')).toEqual('http://mlflow.org/resource');
+  expect(Utils.normalize('s3:/bucket/resource')).toEqual('s3:/bucket/resource');
+  expect(Utils.normalize('C:\\Windows\\Filesystem\\Path')).toEqual('C:\\Windows\\Filesystem\\Path');
+
+  expect(Utils.normalize('///redundant//absolute/path')).toEqual('/redundant/absolute/path');
+  expect(Utils.normalize('redundant//relative///path///')).toEqual('redundant/relative/path');
+  expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
+  expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
 });

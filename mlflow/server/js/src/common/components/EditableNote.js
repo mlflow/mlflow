@@ -4,6 +4,7 @@ import { Prompt } from 'react-router';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
+import './EditableNote.css';
 
 const PROMPT_MESSAGE =
   'Are you sure you want to navigate away? Your pending text changes will be lost.';
@@ -16,13 +17,28 @@ export class EditableNote extends Component {
     onSubmit: PropTypes.func,
     onCancel: PropTypes.func,
     showEditor: PropTypes.bool,
+    saveText: PropTypes.string,
+    // React-MDE props
+    toolbarCommands: PropTypes.array,
+    maxEditorHeight: PropTypes.number,
+    minEditorHeight: PropTypes.number,
+    childProps: PropTypes.object,
   };
 
   static defaultProps = {
     defaultMarkdown: '',
     defaultSelectedTab: 'write',
     showEditor: false,
+    saveText: 'Save',
     confirmLoading: false,
+    toolbarCommands: [
+      ['header', 'bold', 'italic', 'strikethrough'],
+      ['link', 'quote', 'code', 'image'],
+      ['unordered-list', 'ordered-list', 'checked-list'],
+    ],
+    maxEditorHeight: 500,
+    minEditorHeight: 200,
+    childProps: {},
   };
 
   state = {
@@ -87,7 +103,7 @@ export class EditableNote extends Component {
             onClick={this.handleSubmitClick}
             disabled={!this.contentHasChanged() || confirmLoading}
           >
-            {confirmLoading && <Icon type='loading' />} Save
+            {confirmLoading && <Icon type='loading' />} {this.props.saveText}
           </Button>
           <Button htmlType='button' onClick={this.handleCancelClick} disabled={confirmLoading}>
             Cancel
@@ -113,6 +129,11 @@ export class EditableNote extends Component {
             <div className='note-view-text-area'>
               <ReactMde
                 value={markdown}
+                minEditorHeight={this.props.minEditorHeight}
+                maxEditorHeight={this.props.maxEditorHeight}
+                minPreviewHeight={50}
+                childProps={this.props.childProps}
+                toolbarCommands={this.props.toolbarCommands}
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}

@@ -5,10 +5,6 @@ import ModelRegistryReducers, {
   getRegisteredModelTags,
   getModelVersionTags,
   getModelVersionSchemas,
-  getModelVersionSchemaInputsByIndex,
-  getModelVersionSchemaInputsByName,
-  getModelVersionSchemaOutputsByIndex,
-  getModelVersionSchemaOutputsByName,
 } from './reducers';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from './test-utils';
 import {
@@ -543,10 +539,6 @@ describe('test getModelVersionSchemas', () => {
       inputs: [],
       outputs: [],
     });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
   });
 
   test('getting schema when modelName does not exist', () => {
@@ -561,10 +553,6 @@ describe('test getModelVersionSchemas', () => {
       inputs: [],
       outputs: [],
     });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
   });
 
   test('getting schema when model version does not exist', () => {
@@ -581,10 +569,6 @@ describe('test getModelVersionSchemas', () => {
       inputs: [],
       outputs: [],
     });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
   });
 
   test('getting schema when model version exist but no schema', () => {
@@ -601,10 +585,6 @@ describe('test getModelVersionSchemas', () => {
       inputs: [],
       outputs: [],
     });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
   });
 
   test('getting schema when only input exist', () => {
@@ -632,28 +612,6 @@ describe('test getModelVersionSchemas', () => {
       ],
       outputs: [],
     });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({
-      0: {
-        key: 0,
-        value: 'column1: long',
-      },
-      1: {
-        key: 1,
-        value: 'column2: string',
-      },
-    });
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({
-      column1: {
-        key: 'column1',
-        value: 'long',
-      },
-      column2: {
-        key: 'column2',
-        value: 'string',
-      },
-    });
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({});
   });
 
   test('getting schema when only output exist', () => {
@@ -681,28 +639,6 @@ describe('test getModelVersionSchemas', () => {
         { name: 'column2', type: 'string' },
       ],
     });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({});
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({
-      0: {
-        key: 0,
-        value: 'column1: long',
-      },
-      1: {
-        key: 1,
-        value: 'column2: string',
-      },
-    });
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({
-      column1: {
-        key: 'column1',
-        value: 'long',
-      },
-      column2: {
-        key: 'column2',
-        value: 'string',
-      },
-    });
   });
 
   test('getting schema when both input output exist', () => {
@@ -715,9 +651,12 @@ describe('test getModelVersionSchemas', () => {
               run_id: 'xxx',
               signature: {
                 inputs:
-                  '[{"name": "column1", "type": "long"}, ' +
-                  '{"name": "column2", "type": "string"}]',
-                outputs: '[{"name": "score1", "type": "long"}, {"name": "score2", "type": "long"}]',
+                  '[{"name": "sepal length (cm)", "type": "double"}, ' +
+                  '{"name": "sepal width (cm)", "type": "double"}, ' +
+                  '{"name": "petal length (cm)", "type": "double"}, ' +
+                  '{"name":"petal width (cm)", "type": "double"}, ' +
+                  '{"type": "double"}]',
+                outputs: '[{"type": "double"}]',
               },
             },
           },
@@ -726,53 +665,13 @@ describe('test getModelVersionSchemas', () => {
     };
     expect(getModelVersionSchemas(state, 'model_A', 1)).toEqual({
       inputs: [
-        { name: 'column1', type: 'long' },
-        { name: 'column2', type: 'string' },
+        { name: 'sepal length (cm)', type: 'double' },
+        { name: 'sepal width (cm)', type: 'double' },
+        { name: 'petal length (cm)', type: 'double' },
+        { name: 'petal width (cm)', type: 'double' },
+        { type: 'double' },
       ],
-      outputs: [
-        { name: 'score1', type: 'long' },
-        { name: 'score2', type: 'long' },
-      ],
-    });
-    expect(getModelVersionSchemaInputsByIndex(state, 'model_A', 1)).toEqual({
-      0: {
-        key: 0,
-        value: 'column1: long',
-      },
-      1: {
-        key: 1,
-        value: 'column2: string',
-      },
-    });
-    expect(getModelVersionSchemaInputsByName(state, 'model_A', 1)).toEqual({
-      column1: {
-        key: 'column1',
-        value: 'long',
-      },
-      column2: {
-        key: 'column2',
-        value: 'string',
-      },
-    });
-    expect(getModelVersionSchemaOutputsByIndex(state, 'model_A', 1)).toEqual({
-      0: {
-        key: 0,
-        value: 'score1: long',
-      },
-      1: {
-        key: 1,
-        value: 'score2: long',
-      },
-    });
-    expect(getModelVersionSchemaOutputsByName(state, 'model_A', 1)).toEqual({
-      score1: {
-        key: 'score1',
-        value: 'long',
-      },
-      score2: {
-        key: 'score2',
-        value: 'long',
-      },
+      outputs: [{ type: 'double' }],
     });
   });
 });

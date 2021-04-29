@@ -28,7 +28,15 @@ conda create -q -n test-environment python=3.6
 source activate test-environment
 
 python --version
-pip install --upgrade pip==19.3.1
+pip install --upgrade pip
+pip --version
+
+if [[ "$MLFLOW_SKINNY" == "true" ]]; then
+  pip install . --upgrade
+else
+  pip install .[extras] --upgrade
+fi
+export MLFLOW_HOME=$(pwd)
 
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
@@ -36,6 +44,9 @@ if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
   # remote host. See https://github.com/pypa/pip/issues/8510.
   # As a workaround, we retry installation of large packages.
   retry-with-backoff pip install --quiet -r ./dev/small-requirements.txt
+fi
+if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
+  retry-with-backoff pip install --quiet -r ./dev/skinny-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   retry-with-backoff pip install --quiet -r ./dev/large-requirements.txt
@@ -48,8 +59,8 @@ if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
 fi
 
-pip install .[extras]
-export MLFLOW_HOME=$(pwd)
+# Install `mlflow-test-plugin` without dependencies
+pip install --no-dependencies tests/resources/mlflow-test-plugin
 
 # Print current environment info
 pip list
