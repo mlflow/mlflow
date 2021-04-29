@@ -69,7 +69,7 @@ jobs:
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
           echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
       - uses: actions/cache@v2
-        # We only cache wheels that take long to build
+        # We only cache wheels that take long (> 20 min) to build
         if: ${{ contains('pyspark, catboost', matrix.package) && matrix.version == 'dev' }}
         with:
           path: /home/runner/.cache/wheels
