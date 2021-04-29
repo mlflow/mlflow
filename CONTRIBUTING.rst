@@ -319,7 +319,7 @@ You can auto-format your code by running:
 
 .. code-block:: bash
 
-    black --line-length=100 --exclude=mlflow/protos .
+    black .
 
 Then, verify that the unit tests & linter pass before submitting a pull request by running:
 
