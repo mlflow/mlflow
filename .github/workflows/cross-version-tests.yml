@@ -76,12 +76,12 @@ jobs:
           key: ${{ steps.get-cache-key.outputs.key }}
           restore-keys: |
             ${{ steps.get-cache-key.outputs.key }}
-      - name: Install MLflow & test dependencies
+      - name: Install mlflow & test dependencies
         run: |
           set -x
           pip install -e .
           pip install -r dev/small-requirements.txt
-      - name: Install ML package
+      - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
           CACHE_DIR: /home/runner/.cache/wheels
         run: |
