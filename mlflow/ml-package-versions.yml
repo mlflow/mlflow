@@ -183,7 +183,7 @@ catboost:
         # Build wheel from source
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/catboost/catboost $temp_dir
-        cd $temp_dir/python_package
+        cd $temp_dir/catboost/python_package
         python setup.py bdist_wheel
 
         # Copy wheel in cache directory
