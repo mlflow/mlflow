@@ -449,9 +449,10 @@ def autolog(
           See ``log_models`` param below for details.
 
     **How does autologging work for meta estimators?**
-          When a meta estimator (e.g. `pyspark.ml.Pipeline`_, `pyspark.ml.tuning.CrossValidator`_)
-           calls ``fit()``, it internally calls ``fit()`` on its child estimators. Autologging
-           does NOT perform logging on these constituent ``fit()`` calls.
+          When a meta estimator (e.g. `Pipeline`_, `CrossValidator`_, `TrainValidationSplit`_,
+          `OneVsRest`_)
+          calls ``fit()``, it internally calls ``fit()`` on its child estimators. Autologging
+          does NOT perform logging on these constituent ``fit()`` calls.
 
           A "estimator_info.json" artifact will be logged, the artifact include an item call
           "hierarchy" which describe the hierarchy of the meta estimators. The hierarchy will
@@ -459,20 +460,26 @@ def autolog(
 
       **Parameter search**
           In addition to recording the information discussed above, autologging for parameter
-          search meta estimators (`pyspark.ml.tuning.CrossValidator`_ and
-          `pyspark.ml.tuning.TrainValidationSplit`_) records child runs
+          search meta estimators (`CrossValidator`_ and `TrainValidationSplit`_) records child runs
           with metrics for each set of explored parameters, as well as artifacts and parameters
           for the best model and the best parameters (if available).
           For better readability, the "estimatorParamMaps" param in parameter search estimator
           will be recorded inside "estimator_info" artifact, see following description.
           Inside "estimator_info.json" artifact, in addition to the "hierarchy", records 2 more
-          items:
-            - "tuning_parameter_map_list": a list contains all parameter maps used in tuning.
-            - "tuned_estimator_parameter_map": the parameter map of the tuned estimator.
+          items: "tuning_parameter_map_list": a list contains all parameter maps used in tuning,
+          and "tuned_estimator_parameter_map": the parameter map of the tuned estimator.
           Records a "best_parameters.json" artifacts, contains the best parameter it searched out.
           Records a "search_results.csv" artifacts, contains search results, it is a table with
           2 columns: "params" and "metric".
 
+    .. _OneVsRest:
+        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.classification.OneVsRest.html#pyspark.ml.classification.OneVsRest
+    .. _Pipeline:
+        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.Pipeline.html#pyspark.ml.Pipeline
+    .. _CrossValidator:
+        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.CrossValidator.html#pyspark.ml.tuning.CrossValidator
+    .. _TrainValidationSplit:
+        https://spark.apache.org/docs/latest/api/python/reference/api/pyspark.ml.tuning.TrainValidationSplit.html#pyspark.ml.tuning.TrainValidationSplit
 
     :param log_models: If ``True``, if trained models are in allowlist, they are logged as MLflow
                        model artifacts. If ``False``, trained models are not logged.
