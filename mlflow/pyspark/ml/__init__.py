@@ -352,7 +352,6 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
 def _log_parameter_search_results_as_artifact(param_maps, metrics, metric_name, run_id):
     import pandas as pd
     import json
-    from collections import defaultdict
 
     result_dict = defaultdict(list)
     result_dict["params"] = []
