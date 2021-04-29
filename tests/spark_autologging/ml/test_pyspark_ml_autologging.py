@@ -1,6 +1,7 @@
 import importlib
 import json
 import math
+import numpy as np
 import pandas as pd
 import pytest
 from collections import namedtuple
@@ -40,8 +41,6 @@ from mlflow.pyspark.ml import (
 )
 from pyspark.sql import SparkSession
 
-
-from sklearn.datasets import load_boston
 
 pytestmark = pytest.mark.large
 
@@ -87,12 +86,18 @@ def dataset_text(spark_session):
 
 @pytest.fixture(scope="module")
 def dataset_regression(spark_session):
-    features_array, label_array = load_boston(return_X_y=True)
-    n_rows = len(label_array)
-    return spark_session.createDataFrame(
-        [(float(label_array[i]), Vectors.dense(features_array[i])) for i in range(n_rows)],
-        ["label", "features"],
-    ).cache()
+    np.random.seed(1)
+    num_features = 10
+    coef = np.random.rand(num_features)
+
+    rows = []
+    for _ in range(300):
+        features = (np.random.rand(num_features) * 2.0 - 1.0) * np.random.rand()
+        err = (np.random.rand() * 2.0 - 1.0) * 0.05
+        label = float(np.dot(coef, features)) + err
+        rows.append((label, Vectors.dense(*features)))
+
+    return spark_session.createDataFrame(rows, ["label", "features"],).cache()
 
 
 def truncate_param_dict(d):
@@ -350,8 +355,8 @@ def test_pipeline(dataset_text):
 # Test on metric of rmse (smaller is better) and r2 (larger is better)
 @pytest.mark.parametrize("metric_name", ["rmse", "r2"])
 @pytest.mark.parametrize("param_search_estimator", [CrossValidator, TrainValidationSplit])
-def test_param_search_estimator(
-        metric_name, param_search_estimator, spark_session, dataset_regression
+def test_param_search_estimator(  # pylint: disable=unused-argument
+    metric_name, param_search_estimator, spark_session, dataset_regression
 ):
     mlflow.pyspark.ml.autolog()
     lr = LinearRegression(solver="l-bfgs", regParam=0.01)
@@ -362,9 +367,7 @@ def test_param_search_estimator(
     ]
     best_params = {"LinearRegression.maxIter": 200, "LinearRegression.standardization": True}
     eva = RegressionEvaluator(metricName=metric_name)
-    estimator = param_search_estimator(
-        estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva
-    )
+    estimator = param_search_estimator(estimator=lr, estimatorParamMaps=lrParamMaps, evaluator=eva)
     with mlflow.start_run() as run:
         model = estimator.fit(dataset_regression)
         estimator_info = load_json_artifact("estimator_info.json")
@@ -377,13 +380,11 @@ def test_param_search_estimator(
         assert param_search_estiamtor_info[
             "tuned_estimator_parameter_map"
         ] == _get_instance_param_map_recursively(lr, 1, metadata.uid_to_indexed_name_map)
-        assert param_search_estiamtor_info[
-            "tuning_parameter_map_list"
-        ] == _get_tuning_param_maps(estimator, metadata.uid_to_indexed_name_map)
-
-        assert best_params == load_json_artifact(
-            "best_parameters.json"
+        assert param_search_estiamtor_info["tuning_parameter_map_list"] == _get_tuning_param_maps(
+            estimator, metadata.uid_to_indexed_name_map
         )
+
+        assert best_params == load_json_artifact("best_parameters.json")
 
         search_results = load_json_csv("search_results.csv")
 
@@ -420,6 +421,8 @@ def test_param_search_estimator(
 
     for row_index, row in search_results.iterrows():
         row_params = json.loads(row.get("params", "{}"))
+        for param_name, param_value in row_params.items():
+            assert param_value == row.get(f"param.{param_name}")
 
         params_search_clause = " and ".join(
             [
@@ -438,10 +441,10 @@ def test_param_search_estimator(
         child_estimator = estimator.getEstimator().copy(
             estimator.getEstimatorParamMaps()[row_index]
         )
-        run_data.tags == get_expected_class_tags(child_estimator)
+        assert run_data.tags == get_expected_class_tags(child_estimator)
         assert run_data.params == truncate_param_dict(
             stringify_dict_values(
-                {**_get_instance_param_map(child_estimator, uid_to_indexed_name_map),}
+                {**_get_instance_param_map(child_estimator, uid_to_indexed_name_map)}
             )
         )
         assert (
@@ -499,7 +502,7 @@ def test_get_params_to_log(spark_session):  # pylint: disable=unused-argument
         assert params_to_test["LogisticRegression.maxIter"] == 3
 
 
-def test_gen_estimator_metadata(spark_session):
+def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argument
     tokenizer1 = Tokenizer(inputCol="text1", outputCol="words1")
     hashingTF1 = HashingTF(inputCol=tokenizer1.getOutputCol(), outputCol="features1")
 
@@ -560,6 +563,7 @@ def test_gen_estimator_metadata(spark_session):
         lor.uid: "LogisticRegression",
         eva.uid: "MulticlassClassificationEvaluator",
     }
-    assert metadata.uid_to_indexed_name_map[
-               metadata.param_search_estimators[0].uid
-           ] == "CrossValidator"
+    assert (
+        metadata.uid_to_indexed_name_map[metadata.param_search_estimators[0].uid]
+        == "CrossValidator"
+    )

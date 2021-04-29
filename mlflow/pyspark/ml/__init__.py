@@ -295,7 +295,6 @@ def _get_instance_param_map(instance, uid_to_indexed_name_map):
 
 
 def _create_child_runs_for_parameter_search(parent_estimator, parent_model, parent_run, child_tags):
-    from pyspark.ml.tuning import CrossValidatorModel, TrainValidationSplitModel
     from itertools import zip_longest
 
     client = MlflowClient()
@@ -353,13 +352,15 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
 def _log_parameter_search_results_as_artifact(param_maps, metrics, metric_name, run_id):
     import pandas as pd
     import json
+    from collections import defaultdict
 
-    result_dict = {}
+    result_dict = defaultdict(list)
     result_dict["params"] = []
-    result_dict[metric_name] = []
-    for i in range(len(param_maps)):
-        result_dict["params"].append(json.dumps(param_maps[i]))
-        result_dict[metric_name].append(metrics[i])
+    result_dict[metric_name] = metrics
+    for param_map in param_maps:
+        result_dict["params"].append(json.dumps(param_map))
+        for param_name, param_value in param_map.items():
+            result_dict[f"param.{param_name}"].append(param_value)
 
     results_df = pd.DataFrame.from_dict(result_dict)
     with TempDir() as t:
@@ -565,7 +566,7 @@ def autolog(
                     parent_run=mlflow.active_run(),
                     child_tags=child_tags,
                 )
-            except Exception as e:
+            except Exception:
                 import traceback
 
                 msg = (
