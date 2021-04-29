@@ -39,3 +39,6 @@ pyspark.ml.feature.UnivariateFeatureSelectorModel
 
 # composite model
 pyspark.ml.classification.OneVsRestModel
+
+# pipeline model
+pyspark.ml.pipeline.PipelineModel

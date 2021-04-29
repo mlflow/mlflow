@@ -184,6 +184,21 @@ jobs:
         export PATH="$CONDA_DIR/bin:$PATH"
         source activate test-environment
         ./dev/run-large-python-tests.sh
+    - name: Run database initialization tests
+      run: |
+        set -x
+        # Build wheel and copy it under tests/db
+        python setup.py bdist_wheel
+        cp -r dist tests/db
+
+        # Run tests
+        cd tests/db
+        docker-compose build
+        docker-compose run mlflow-postgres python log.py
+        docker-compose run mlflow-mysql python log.py
+
+        # Clean up
+        docker-compose down --rmi all --volumes
     - name: Run anaconda compatibility tests
       run: |
         ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"

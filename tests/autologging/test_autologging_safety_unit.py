@@ -1485,3 +1485,38 @@ def test_patch_runs_if_patch_should_be_applied():
     autolog(exclusive=True)
     patch_obj.new_fn()
     assert patch_impl_call_count == 3
+
+
+def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed(patch_destination):
+    patch_impl_call_count = 0
+
+    @autologging_integration(
+        "test_nested_call_autologging_disabled_when_top_level_call_autologging_failed"
+    )
+    def autolog(disable=False, exclusive=False, silent=False):
+        def patch_impl(original, *args, **kwargs):
+            nonlocal patch_impl_call_count
+            patch_impl_call_count += 1
+
+            level = kwargs["level"]
+
+            if level == 0:
+                raise RuntimeError("analog top level call autologging failure.")
+
+            return original(*args, **kwargs)
+
+        safe_patch(
+            "test_nested_call_autologging_disabled_when_top_level_call_autologging_failed",
+            patch_destination,
+            "recursive_fn",
+            patch_impl,
+        )
+
+    autolog()
+    for max_depth in [1, 2, 3]:
+        patch_impl_call_count = 0
+        patch_destination.recurse_fn_call_count = 0
+        with mlflow.start_run():
+            patch_destination.recursive_fn(level=0, max_depth=max_depth)
+        assert patch_impl_call_count == 1
+        assert patch_destination.recurse_fn_call_count == max_depth + 1

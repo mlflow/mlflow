@@ -403,15 +403,23 @@ def expand_config(config):
             if cfg["minimum"] not in versions:
                 versions.append(cfg["minimum"])
 
+            pip_release = package_info["pip_release"]
             for ver in versions:
                 job_name = " / ".join([flavor_key, ver, key])
-                requirements = ["{}=={}".format(package_info["pip_release"], ver)]
+                requirements = ["{}=={}".format(pip_release, ver)]
                 requirements.extend(process_requirements(cfg.get("requirements"), ver))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
+                    Hashabledict(
+                        flavor=flavor,
+                        job_name=job_name,
+                        install=install,
+                        run=run,
+                        package=pip_release,
+                        version=ver,
+                    )
                 )
 
             # Development version
@@ -424,7 +432,14 @@ def expand_config(config):
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
+                    Hashabledict(
+                        flavor=flavor,
+                        job_name=job_name,
+                        install=install,
+                        run=run,
+                        package=pip_release,
+                        version=DEV_VERSION,
+                    )
                 )
     return matrix
 
