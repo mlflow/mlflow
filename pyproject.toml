@@ -1,8 +1,9 @@
 [tool.black]
 line-length = 100
+# TODO: Use `--extend-exclude` once we update black version to >= 21.4b0
 exclude = '''
 /(
-  # default excludes
+  # default exclude
     \.eggs
   | \.git
   | \.hg
@@ -13,7 +14,7 @@ exclude = '''
   | buck-out
   | build
   | dist
-  # additional excludes
+  # additional exclude
   | mlflow/protos
 )/
 '''
