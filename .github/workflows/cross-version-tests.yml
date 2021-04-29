@@ -60,8 +60,26 @@ jobs:
         run: |
           conda install python=3.6
           python --version
-      - name: Install dependencies
+      - name: Get cache key
+        env:
+          INSTALL_COMMAND: ${{ matrix.install }}
+        id: get-cache-key
         run: |
+          date=$(date -u "+%Y%m%d")
+          hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
+          echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
+      - uses: actions/cache@v2
+        if: ${{ matrix.package == 'pyspark' && matrix.version == 'dev' }}
+        with:
+          path: /home/runner/.cache/wheels
+          key: ${{ steps.get-cache-key.outputs.key }}
+          restore-keys: |
+            ${{ steps.get-cache-key.outputs.key }}
+      - name: Install dependencies
+        env:
+          CACHE_DIR: /home/runner/.cache/wheels
+        run: |
+          set -x
           pip install -e .
           pip install -r dev/small-requirements.txt
           ${{ matrix.install }}

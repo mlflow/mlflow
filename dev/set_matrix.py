@@ -438,7 +438,7 @@ def expand_config(config):
                         install=install,
                         run=run,
                         package=pip_release,
-                        version=ver,
+                        version=DEV_VERSION,
                     )
                 )
     return matrix

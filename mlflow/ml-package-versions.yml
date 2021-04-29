@@ -276,16 +276,27 @@ spark:
   package_info:
     pip_release: "pyspark"
     install_dev: |
-      # TODO: Consider using cache because it takes long (20 ~ 30 min) to build spark from source
-      # on GitHub Actions environment.
-      temp_dir=$(mktemp -d)
-      git clone --depth 1 https://github.com/apache/spark $temp_dir
-      cd $temp_dir
-      export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
-      ./build/mvn -DskipTests --no-transfer-progress clean package
-      cd python
-      python setup.py bdist_wheel
-      pip install dist/*.whl
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
+        pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
+      else
+        # Build wheel from source
+        temp_dir=$(mktemp -d)
+        git clone --depth 1 https://github.com/apache/spark $temp_dir
+        cd $temp_dir
+        export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
+        ./build/mvn -DskipTests --no-transfer-progress clean package
+        cd python
+        python setup.py bdist_wheel
+
+        # Copy wheel in cache directory
+        wheel_path=$(find dist -type f -name "*.whl")
+        mkdir -p $CACHE_DIR
+        cp $wheel_path $CACHE_DIR
+
+        # Install wheel
+        pip install $wheel_path
+      fi
 
   models:
     minimum: "3.0.0"
