@@ -884,9 +884,11 @@ def _get_orderby_clauses(order_by_list, session):
                 clauses.append(
                     sql.case(
                         [
-                            # Ideally the use of "IS" is preferred here but owing to sqlalchemy translation in MSSQL we are forced to use "=" instead.
-                            # These 2 options are functionally identical / unchanged because the column (is_nan) is not nullable.
-                            # However it could become an issue if this precondition changes in the future.
+                            # Ideally the use of "IS" is preferred here but owing to sqlalchemy
+                            # translation in MSSQL we are forced to use "=" instead.
+                            # These 2 options are functionally identical / unchanged because
+                            # the column (is_nan) is not nullable. However it could become an issue
+                            # if this precondition changes in the future.
                             (subquery.c.is_nan == sqlalchemy.true(), 1),
                             (order_value.is_(None), 1),
                         ],
