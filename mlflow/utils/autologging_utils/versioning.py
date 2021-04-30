@@ -1,7 +1,7 @@
 import importlib
 import yaml
 
-from distutils.version import LooseVersion
+from packaging.version import Version
 from pkg_resources import resource_filename
 
 
@@ -21,7 +21,7 @@ FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
 
 
 def _check_version_in_range(ver, min_ver, max_ver):
-    return LooseVersion(min_ver) <= LooseVersion(ver) <= LooseVersion(max_ver)
+    return Version(min_ver) <= Version(ver) <= Version(max_ver)
 
 
 def _load_version_file_as_dict():
