@@ -21,7 +21,7 @@ class MockResponse:
         pass
 
     @classmethod
-    def from_versios(cls, versions):
+    def from_versions(cls, versions):
         return cls({"releases": {v: [v + ".whl"] for v in versions}})
 
 
@@ -56,8 +56,8 @@ xgboost:
     maximum: "0.1.1"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versios(["0.0.2"]),
-        "xgboost": MockResponse.from_versios(["0.1.2"]),
+        "sklearn": MockResponse.from_versions(["0.0.2"]),
+        "xgboost": MockResponse.from_versions(["0.1.2"]),
     }
     src_expected = """
 sklearn:
@@ -85,7 +85,7 @@ sklearn:
     maximum: "0.0.1"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versios(["0.0.2"]),
+        "sklearn": MockResponse.from_versions(["0.0.2"]),
     }
     src_expected = """
 sklearn:
@@ -108,7 +108,7 @@ sklearn:
     maximum: "0.0.1"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versios(
+        "sklearn": MockResponse.from_versions(
             [
                 # pre-release and dev-release should be filtered out
                 "0.0.3.rc1",  # pre-release
@@ -137,7 +137,7 @@ sklearn:
     unsupported: ["0.0.3"]
     maximum: "0.0.1"
 """
-    mock_responses = {"sklearn": MockResponse.from_versios(["0.0.2", "0.0.3"])}
+    mock_responses = {"sklearn": MockResponse.from_versions(["0.0.2", "0.0.3"])}
     src_expected = """
 sklearn:
   package_info:
@@ -158,7 +158,7 @@ sklearn:
     freeze: True
     maximum: "0.0.1"
 """
-    mock_responses = {"sklearn": MockResponse.from_versios(["0.0.2"])}
+    mock_responses = {"sklearn": MockResponse.from_versions(["0.0.2"])}
     src_expected = """
 sklearn:
   package_info:
