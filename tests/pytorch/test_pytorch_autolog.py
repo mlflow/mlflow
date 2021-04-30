@@ -262,15 +262,17 @@ def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
 
 @pytest.fixture
 def pytorch_model_tests():
+    mlflow.pytorch.autolog()
     model = IrisClassification()
     dm = IrisDataModule()
     dm.prepare_data()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model, dm)
-    trainer.test()
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+        trainer.test()
     client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(run.info.run_id)
     return trainer, run
 
 
