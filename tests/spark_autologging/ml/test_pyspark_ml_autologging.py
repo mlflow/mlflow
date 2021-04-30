@@ -264,21 +264,25 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
     lor = LogisticRegression()
 
     ova1 = OneVsRest(classifier=lor)
-    mlor_model = lor.fit(dataset_multinomial)
+    with mlflow.start_run():
+        mlor_model = lor.fit(dataset_multinomial)
     assert _should_log_model(mlor_model)
 
-    ova1_model = ova1.fit(dataset_multinomial)
+    with mlflow.start_run():
+        ova1_model = ova1.fit(dataset_multinomial)
     assert _should_log_model(ova1_model)
 
     tokenizer = Tokenizer(inputCol="text", outputCol="words")
     hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
     lr = LogisticRegression(maxIter=2)
     pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
-    pipeline_model = pipeline.fit(dataset_text)
+    with mlflow.start_run():
+        pipeline_model = pipeline.fit(dataset_text)
     assert _should_log_model(pipeline_model)
 
     nested_pipeline = Pipeline(stages=[tokenizer, Pipeline(stages=[hashingTF, lr])])
-    nested_pipeline_model = nested_pipeline.fit(dataset_text)
+    with mlflow.start_run():
+        nested_pipeline_model = nested_pipeline.fit(dataset_text)
     assert _should_log_model(nested_pipeline_model)
 
     with mock.patch(
@@ -290,9 +294,11 @@ def test_should_log_model(dataset_binomial, dataset_multinomial, dataset_text):
         },
     ), mock.patch("mlflow.pyspark.ml._logger.warning") as mock_warning:
         lr = LinearRegression()
-        lr_model = lr.fit(dataset_binomial)
+        with mlflow.start_run():
+            lr_model = lr.fit(dataset_binomial)
         assert _should_log_model(lr_model)
-        lor_model = lor.fit(dataset_binomial)
+        with mlflow.start_run():
+            lor_model = lor.fit(dataset_binomial)
         assert not _should_log_model(lor_model)
         mock_warning.called_once_with(_get_warning_msg_for_skip_log_model(lor_model))
         assert not _should_log_model(ova1_model)
