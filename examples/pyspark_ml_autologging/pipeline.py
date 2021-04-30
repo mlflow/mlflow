@@ -20,17 +20,16 @@ lor = LogisticRegression(maxIter=5, featuresCol=scaler.getOutputCol())
 # Non-neseted pipeline
 pipeline = Pipeline(stages=[assembler, scaler, lor])
 with mlflow.start_run():
-    pipelineModel = pipeline.fit(train)
+    pipeline_model = pipeline.fit(train)
 
-pred = pipelineModel.transform(test)
-pred.select(pipeline.getStages()[-1].getPredictionCol()).show(10)
+columns = ["features", "prediction"]
+pipeline_model.transform(test).select(columns).show()
 
 # Nested pipeline
-nestedPipeline = Pipeline(stages=[Pipeline(stages=[assembler, scaler]), lor])
+nested_pipeline = Pipeline(stages=[Pipeline(stages=[assembler, scaler]), lor])
 with mlflow.start_run():
-    nestedPipelineModel = nestedPipeline.fit(train)
+    nested_pipeline_model = nested_pipeline.fit(train)
 
-pred = nestedPipelineModel.transform(test)
-pred.select(nestedPipeline.getStages()[-1].getPredictionCol()).show(10)
+nested_pipeline_model.transform(test).select(columns).show()
 
 spark.stop()
