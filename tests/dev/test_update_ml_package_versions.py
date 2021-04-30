@@ -149,13 +149,14 @@ sklearn:
     run_test(src, src_expected, mock_responses)
 
 
-def test_ignore_update_comment_prevents_update():
+def test_freeze_field_prevents_updating_maximum_version():
     src = """
 sklearn:
   package_info:
     pip_release: sklearn
   autologging:
-    maximum: "0.0.1" # IGNORE_UPDATE: > 0.0.1 is not supported yet
+    freeze: True
+    maximum: "0.0.1"
 """
     mock_responses = {"sklearn": MockResponse.from_versios(["0.0.2"])}
     src_expected = """
@@ -163,6 +164,7 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
-    maximum: "0.0.1" # IGNORE_UPDATE: > 0.0.1 is not supported yet
+    freeze: True
+    maximum: "0.0.1"
 """
     run_test(src, src_expected, mock_responses)

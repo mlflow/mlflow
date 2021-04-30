@@ -89,20 +89,6 @@ def update_max_version(src, key, new_max_version, category):
     return re.sub(pattern, r'\g<1>"{}"'.format(new_max_version), src, flags=re.DOTALL)
 
 
-def should_ignore_update(src, key, category):
-    pattern = r"{key}:.+?{category}:.+?maximum: \".+?\"(\s+# IGNORE_UPDATE)?".format(
-        key=re.escape(key), category=category
-    )
-    # Matches the following pattern:
-    #
-    # <key>:
-    #   ...
-    #   <category>:
-    #     ...
-    #     maximum: "1.2.3" # IGNORE_UPDATE
-    return re.search(pattern, src, flags=re.DOTALL).group(1) is not None
-
-
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -125,7 +111,7 @@ def main(args):
 
     for flavor_key, config in config_dict.items():
         for category in ["autologging", "models"]:
-            if (category not in config) or should_ignore_update(new_src, flavor_key, category):
+            if (category not in config) or config[category].get("freeze", False):
                 continue
             print("Processing", flavor_key, category)
 
