@@ -249,9 +249,15 @@ def save_model(
         mlflow_model,
         loader_module="mlflow.fastai",
         data=model_data_subpath,
+<<<<<<< HEAD
         env=_CONDA_ENV_FILE_NAME,
+=======
+        env=conda_env_subpath,
     )
-    mlflow_model.add_flavor(FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath)
+    mlflow_model.add_flavor(
+        FLAVOR_NAME, fastai_version=fastai.__version__, data=model_data_subpath
+>>>>>>> cb3684ff (Fix log_model_info for all kind of TrackerCallback)
+    )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if conda_env is None:
@@ -444,8 +450,12 @@ def load_model(model_uri):
         results = loaded_model.predict(predict_data)
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.fastai"))
+    flavor_conf = _get_flavor_configuration(
+        model_path=local_model_path, flavor_name=FLAVOR_NAME
+    )
+    model_file_path = os.path.join(
+        local_model_path, flavor_conf.get("data", "model.fastai")
+    )
     return _load_model(path=model_file_path)
 
 
@@ -550,13 +560,15 @@ def autolog(
     """
     from fastai.learner import Learner
     from fastai.callback.hook import module_summary, layer_info, find_bs, _print_shapes
-    from fastai.callback.all import EarlyStoppingCallback
+    from fastai.callback.all import EarlyStoppingCallback, TrackerCallback
 
     def getFastaiCallback(metrics_logger, is_fine_tune=False):
         from mlflow.fastai.callback import __MLflowFastaiCallback
 
         return __MLflowFastaiCallback(
-            metrics_logger=metrics_logger, log_models=log_models, is_fine_tune=is_fine_tune
+            metrics_logger=metrics_logger,
+            log_models=log_models,
+            is_fine_tune=is_fine_tune,
         )
 
     def _find_callback_of_type(callback_type, callbacks):
@@ -578,11 +590,12 @@ def autolog(
             except Exception:  # pylint: disable=W0703
                 return
 
-    def _log_model_info(learner, early_stop_callback):
-        # The process excuted here, are incompatible with EarlyStoppingCallback
+    def _log_model_info(learner):
+        # The process excuted here, are incompatible with TrackerCallback
         # Hence it is removed and add again after the execution
-        if early_stop_callback:
-            learner.remove_cbs([early_stop_callback])
+        remove_cbs = [cb for cb in learner.cbs if isinstance(cb, TrackerCallback)]
+        if len(remove_cbs):
+            learner.remove_cbs(remove_cbs)
 
         xb = learner.dls.train.one_batch()[: learner.dls.train.n_inp]
         infos = layer_info(learner, *xb)
@@ -593,9 +606,9 @@ def autolog(
 
         summary = module_summary(learner, *xb)
 
-        # Add again EarlyStoppingCallback
-        if early_stop_callback:
-            learner.add_cbs([early_stop_callback])
+        # Add again TrackerCallback
+        if len(remove_cbs):
+            learner.add_cbs(remove_cbs)
 
         tempdir = tempfile.mkdtemp()
         try:
@@ -606,12 +619,16 @@ def autolog(
         finally:
             shutil.rmtree(tempdir)
 
-    def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
+    def _run_and_log_function(
+        self, original, args, kwargs, unlogged_params, is_fine_tune=False
+    ):
 
         # Check if is trying to fit while fine tuning or not
         mlflow_cbs = [cb for cb in self.cbs if cb.name == "__m_lflow_fastai"]
         fit_in_fine_tune = (
-            original.__name__ == "fit" and len(mlflow_cbs) > 0 and mlflow_cbs[0].is_fine_tune
+            original.__name__ == "fit"
+            and len(mlflow_cbs) > 0
+            and mlflow_cbs[0].is_fine_tune
         )
 
         if not fit_in_fine_tune:
@@ -621,7 +638,9 @@ def autolog(
         with batch_metrics_logger(run_id) as metrics_logger:
 
             if not fit_in_fine_tune:
-                early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, self.cbs)
+                early_stop_callback = _find_callback_of_type(
+                    EarlyStoppingCallback, self.cbs
+                )
                 _log_early_stop_callback_params(early_stop_callback)
 
                 # First try to remove if any already registered callback
@@ -629,7 +648,7 @@ def autolog(
 
                 # Log information regarding model and data without bar and print-out
                 with self.no_bar(), self.no_logging():
-                    _log_model_info(self, early_stop_callback)
+                    try_mlflow_log(_log_model_info, learner=self)
 
                 mlflowFastaiCallback = getFastaiCallback(
                     metrics_logger=metrics_logger, is_fine_tune=is_fine_tune
