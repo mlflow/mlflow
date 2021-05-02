@@ -4,7 +4,7 @@ import os
 import pytest
 
 import mlflow
-from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES, SQLITE
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -17,6 +17,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_URI_ENV_VAR,
+    _ARTIFACT_ROOT_ENV_VAR ,
     _TRACKING_USERNAME_ENV_VAR,
 )
 
@@ -128,7 +129,13 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     env = {_TRACKING_URI_ENV_VAR: uri}
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"):
+    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+        # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments`, which is called when fetching
+        # the store, results in an error when called with a mocked sqlalchemy engine.
+        # Accordingly, we mock `SqlAlchemyStore.list_experiments`
+        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
+        return_value=[],
+    ):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
@@ -146,11 +153,42 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
-    ), mock.patch("mlflow.store.db.utils._initialize_tables"):
+    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+        # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments`, which is called when fetching
+        # the store, results in an error when called with a mocked sqlalchemy engine.
+        # Accordingly, we mock `SqlAlchemyStore.list_experiments`
+        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
+        return_value=[],
+    ):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
         assert store.artifact_root_uri == artifact_uri
+
+    mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
+
+
+def test_get_store_sqlalchemy_store_with_artifact_root():
+    patch_create_engine = mock.patch("sqlalchemy.create_engine")
+    uri = "{}://hostname/database".format(SQLITE)
+    artifact_root = "file:artifact/path"
+    env = {
+        _TRACKING_URI_ENV_VAR: uri,
+        _ARTIFACT_ROOT_ENV_VAR: artifact_root,
+    }
+    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
+        "mlflow.store.db.utils._verify_schema"
+    ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
+        # In sqlalchemy 1.4.0, `SqlAlchemyStore.list_experiments`, which is called when fetching
+        # the store, results in an error when called with a mocked sqlalchemy engine.
+        # Accordingly, we mock `SqlAlchemyStore.list_experiments`
+        "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore.list_experiments",
+        return_value=[],
+    ):
+        store = _get_store()
+        assert isinstance(store, SqlAlchemyStore)
+        assert store.db_uri == uri
+        assert store.artifact_root_uri == artifact_root
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
