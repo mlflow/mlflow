@@ -115,8 +115,11 @@ class MlflowHttpCaller {
         break;
       } catch (MlflowHttpException e) {
         if (attemptsRemaining > 0) {
-          logger.warn("Request returned with status code {} (Rate limit exceeded). Retrying."
-                      + "Attempts remaining: {}.", e.getStatusCode(), attemptsRemaining);
+          logger.warn("Request returned with status code {} (Rate limit exceeded)."
+                      + " Retrying up to {} more times. Response body: {}",
+                      e.getStatusCode(),
+                      attemptsRemaining,
+                      e.getBodyMessage());
           continue;
         } else {
           throw e;
