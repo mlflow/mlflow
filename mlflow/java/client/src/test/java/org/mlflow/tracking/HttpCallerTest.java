@@ -34,7 +34,7 @@ public class HttpCallerTest {
   static StatusLine statusLine500 = mock(StatusLine.class);
   static String expectedResponseText = "expected response text.";
 
-  MlflowHostCredsProvider hostCredsProvider = new MlflowHostCredsProvider() {
+  MlflowHttpCaller caller = new MlflowHttpCaller(new MlflowHostCredsProvider() {
     @Override
     public MlflowHostCreds getHostCreds() {
       return new BasicMlflowHostCreds("http://some/host");
@@ -44,7 +44,7 @@ public class HttpCallerTest {
     public void refresh() {
       // pass
     }
-  };
+  }, 4, 1, 3, client);
 
   @BeforeSuite
   public void beforeAll() throws IOException {
@@ -70,8 +70,6 @@ public class HttpCallerTest {
 
   @Test
   public void testRequestsAreRetriedFor429s() throws IOException {
-    MlflowHttpCaller caller = new MlflowHttpCaller(hostCredsProvider, 4, 1, 1, client);
-
     when(client.execute(any(HttpUriRequest.class)))
             .thenReturn(response429) // sleep for 1 ms
             .thenReturn(response429) // sleep for 2 ms
@@ -89,8 +87,6 @@ public class HttpCallerTest {
 
   @Test
   public void testMaxRetryIntervalIsRespectedFor429s() throws IOException {
-    MlflowHttpCaller caller = new MlflowHttpCaller(hostCredsProvider, 4, 1, 1, client);
-
     when(client.execute(any(HttpUriRequest.class)))
             .thenReturn(response429) // sleep for 1 ms
             .thenReturn(response429) // sleep for 2 ms
@@ -114,8 +110,6 @@ public class HttpCallerTest {
 
   @Test
   public void testRequestsAreRetriedFor500s() throws IOException {
-    MlflowHttpCaller caller = new MlflowHttpCaller(hostCredsProvider, 4, 1, 3, client);
-
     when(client.execute(any(HttpUriRequest.class)))
             .thenReturn(response500)
             .thenReturn(response429)
@@ -139,8 +133,6 @@ public class HttpCallerTest {
 
   @Test
   public void testMaxRetryAttemptsIsRespectedFor500s() throws IOException {
-    MlflowHttpCaller caller = new MlflowHttpCaller(hostCredsProvider, 4, 1, 3, client);
-
     when(client.execute(any(HttpUriRequest.class)))
             .thenReturn(response500)
             .thenReturn(response500)

@@ -114,7 +114,7 @@ class MlflowHttpCaller {
         response = executeRequestWithRateLimitRetries(request);
         break;
       } catch (MlflowHttpException e) {
-        if (attemptsRemaining > 0) {
+        if (attemptsRemaining > 0 && e.getStatusCode() != 429) {
           logger.warn("Request returned with status code {} (Rate limit exceeded)."
                       + " Retrying up to {} more times. Response body: {}",
                       e.getStatusCode(),
