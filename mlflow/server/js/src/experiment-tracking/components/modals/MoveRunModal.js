@@ -30,7 +30,6 @@ export class MoveRunModalImpl extends Component {
     const movePromises = [];
     const newExperimentId = values[NEW_ID_FIELD];
     this.props.selectedRunIds.forEach((runId) => {
-      console.log(runId, this.props.experimentId, newExperimentId);
       movePromises.push(this.props.moveRunApi(
         runId, this.props.experimentId, newExperimentId
       ));

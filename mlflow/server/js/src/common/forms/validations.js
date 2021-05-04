@@ -29,7 +29,6 @@ export const getExperimentNameValidator = (getExistingExperimentNames) => {
 
 export const getExperimentIdValidator = (getCurrentExperimentId, getExistingExperimentIds) => {
   return (rule, value, callback) => {
-    console.log('CCCCCCCCCCCCCCCCCCCCCCCCCCC', getCurrentExperimentId(), value);
     if (value.length === 0) {
       // no need to execute below validations when no value is entered
       // eslint-disable-next-line callback-return
