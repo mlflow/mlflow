@@ -17,7 +17,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 import static org.mockito.Mockito.*;
-import org.mockito.MockitoAnnotations;
 
 public class HttpCallerTest {
 
