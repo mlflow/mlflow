@@ -570,3 +570,7 @@ Then add a line to every git commit message::
 
 Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
 automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
+
+Code of Conduct
+###############
+Refer to the `MLflow Contributor Covenant Code of Conduct <./CODE_OF_CONDUCT.rst>`_ for more information.
