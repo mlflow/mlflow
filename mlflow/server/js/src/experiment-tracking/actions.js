@@ -72,6 +72,22 @@ export const getRunApi = (runId, id = getUUID()) => {
   };
 };
 
+export const MOVE_RUN_API = 'MOVE_RUN_API';
+export const moveRunApi = (runUuid, srcExperimentId, destExperimentId, id = getUUID()) => {
+  return (dispatch) => {
+    const deleteResponse = dispatch({
+      type: MOVE_RUN_API,
+      payload: wrapDeferred(MlflowService.moveRun, { 
+        run_id: runUuid,
+        src_experiment_id: srcExperimentId,
+        dest_experiment_id: destExperimentId
+      }),
+      meta: { id: getUUID() },
+    });
+    return deleteResponse.then(() => dispatch(getRunApi(runUuid, id)));
+  };
+};
+
 export const DELETE_RUN_API = 'DELETE_RUN_API';
 export const deleteRunApi = (runUuid, id = getUUID()) => {
   return (dispatch) => {

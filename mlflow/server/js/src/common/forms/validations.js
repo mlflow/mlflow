@@ -27,6 +27,28 @@ export const getExperimentNameValidator = (getExistingExperimentNames) => {
   };
 };
 
+export const getExperimentIdValidator = (getCurrentExperimentId, getExistingExperimentIds) => {
+  return (rule, value, callback) => {
+    console.log('CCCCCCCCCCCCCCCCCCCCCCCCCCC', getCurrentExperimentId(), value);
+    if (value.length === 0) {
+      // no need to execute below validations when no value is entered
+      // eslint-disable-next-line callback-return
+      callback(undefined);
+    } else if (isNaN(value)) {
+      callback(`Experiment ID must be an integer`);
+    } else if (getCurrentExperimentId() == value) {
+      callback(`"${value}" is the current experiment ID`);
+    } else if (!getExistingExperimentIds().includes(value)) {
+      // getExistingExperimentNames returns the names of all active experiments
+      // check whether the passed value is part of the list
+      // eslint-disable-next-line callback-return
+      callback(`Experiment ID "${value}" does not exists.`);
+    } else {
+      callback(undefined); // experiment id exists
+    }
+  };
+};
+
 export const modelNameValidator = (rule, name, callback) => {
   if (name.length === 0) {
     callback(undefined);

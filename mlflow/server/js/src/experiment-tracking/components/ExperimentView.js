@@ -25,6 +25,7 @@ import ExperimentRunsTableCompactView from './ExperimentRunsTableCompactView';
 import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
+import { MoveRunModal } from './modals/MoveRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
 import { NoteInfo, NOTE_CONTENT_TAG } from '../utils/NoteUtils';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
@@ -62,10 +63,12 @@ export class ExperimentView extends Component {
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
     this.initiateSearch = this.initiateSearch.bind(this);
+    this.onMoveRun = this.onMoveRun.bind(this);
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
     this.handleLifecycleFilterInput = this.handleLifecycleFilterInput.bind(this);
     this.handleModelVersionFilterInput = this.handleModelVersionFilterInput.bind(this);
+    this.onCloseMoveRunModal = this.onCloseMoveRunModal.bind(this);
     this.onCloseDeleteRunModal = this.onCloseDeleteRunModal.bind(this);
     this.onCloseRestoreRunModal = this.onCloseRestoreRunModal.bind(this);
     this.onExpand = this.onExpand.bind(this);
@@ -153,6 +156,8 @@ export class ExperimentView extends Component {
       searchInput: '',
       // String error message, if any, from an attempted search
       searchErrorMessage: undefined,
+      // True if a model for moving one or more runs should be displayed
+      showMoveRunModal: false,
       // True if a model for deleting one or more runs should be displayed
       showDeleteRunModal: false,
       // True if a model for restoring one or more runs should be displayed
@@ -171,6 +176,7 @@ export class ExperimentView extends Component {
 
   shouldComponentUpdate(nextProps, nextState) {
     // Don't update the component if a modal is showing before and after the update try.
+    if (this.state.showMoveRunModal && nextState.showMoveRunModal) return false;
     if (this.state.showDeleteRunModal && nextState.showDeleteRunModal) return false;
     if (this.state.showRestoreRunModal && nextState.showRestoreRunModal) return false;
     return true;
@@ -262,12 +268,20 @@ export class ExperimentView extends Component {
     onboardingInformationStore.setItem('showTrackingHelper', 'false');
   }
 
+  onMoveRun() {
+    this.setState({ showMoveRunModal: true });
+  }
+
   onDeleteRun() {
     this.setState({ showDeleteRunModal: true });
   }
 
   onRestoreRun() {
     this.setState({ showRestoreRunModal: true });
+  }
+
+  onCloseMoveRunModal() {
+    this.setState({ showMoveRunModal: false });
   }
 
   onCloseDeleteRunModal() {
@@ -441,6 +455,7 @@ export class ExperimentView extends Component {
     const filteredUnbaggedMetricKeys = this.getFilteredKeys(unbaggedMetrics, ColumnTypes.METRICS);
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
+    const moveDisabled = Object.keys(this.state.runsSelected).length < 1;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const noteInfo = NoteInfo.fromTags(experimentTags);
@@ -459,6 +474,13 @@ export class ExperimentView extends Component {
     );
     return (
       <div className='ExperimentView runs-table-flex-container'>
+        <MoveRunModal
+          isOpen={this.state.showMoveRunModal}
+          onClose={this.onCloseMoveRunModal}
+          experimentId={experiment.getExperimentId()}
+          experimentName={experiment.getName()}
+          selectedRunIds={Object.keys(this.state.runsSelected)}
+        />
         <DeleteRunModal
           isOpen={this.state.showDeleteRunModal}
           onClose={this.onCloseDeleteRunModal}
@@ -608,6 +630,9 @@ export class ExperimentView extends Component {
             </span>
             <Button className='compare-button' disabled={compareDisabled} onClick={this.onCompare}>
               Compare
+            </Button>
+            <Button className='move-button' disabled={moveDisabled} onClick={this.onMoveRun}>
+              Move
             </Button>
             {this.props.lifecycleFilter === LIFECYCLE_FILTER.ACTIVE ? (
               <Button
