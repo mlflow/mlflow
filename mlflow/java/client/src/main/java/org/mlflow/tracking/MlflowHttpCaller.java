@@ -50,8 +50,8 @@ class MlflowHttpCaller {
   /**
    * Construct a new MlflowHttpCaller.
    *
-   * @param maxRateLimitIntervalSeconds The maximum number of seconds to retry a single request
-   *                                    in respone to rate limiting (error code 429).
+   * @param maxRateLimitIntervalMs The maximum amount of time, in milliseconds, to spend retrying a
+   *                               single request in response to rate limiting (error code 429).
    * @param rateLimitRetrySleepInitMs The initial backoff delay, in milliseconds, when retrying a
    *                                  request in response to rate limiting (error code 429). The
    *                                  delay is increased exponentially after each rate limiting
@@ -61,23 +61,23 @@ class MlflowHttpCaller {
    *                         retries.
    */
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
-                   int maxRateLimitIntervalSeconds,
+                   int maxRateLimitIntervalMs,
                    int rateLimitRetrySleepInitMs,
                    int maxRetryAttempts) {
     this.hostCredsProvider = hostCredsProvider;
-    this.maxRateLimitIntervalMillis = maxRateLimitIntervalSeconds;
+    this.maxRateLimitIntervalMillis = maxRateLimitIntervalMs;
     this.rateLimitRetrySleepInitMillis = rateLimitRetrySleepInitMs;
     this.maxRetryAttempts = maxRetryAttempts;
   }
 
   @VisibleForTesting
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
-                   int maxRateLimitIntervalSeconds,
+                   int maxRateLimitIntervalMs,
                    int rateLimitRetrySleepInitMs,
                    int maxRetryAttempts,
                    HttpClient client) {
     this(
-      hostCredsProvider, maxRateLimitIntervalSeconds, rateLimitRetrySleepInitMs, maxRetryAttempts);
+      hostCredsProvider, maxRateLimitIntervalMs, rateLimitRetrySleepInitMs, maxRetryAttempts);
     this.httpClient = client;
   }
 
