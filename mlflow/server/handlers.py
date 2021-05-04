@@ -25,6 +25,7 @@ from mlflow.protos.service_pb2 import (
     ListArtifacts,
     GetMetricHistory,
     CreateRun,
+    MoveRun,
     UpdateRun,
     LogMetric,
     LogParam,
@@ -343,6 +344,21 @@ def _create_run():
 
     response_message = CreateRun.Response()
     response_message.run.MergeFrom(run.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _move_run():
+    request_message = _get_request_message(MoveRun())
+    run_id = request_message.run_id or request_message.run_uuid
+    updated_info = _get_tracking_store().move_run(
+        run_id=run_id,
+        src_experiment_id=request_message.src_experiment_id,
+        dest_experiment_id=request_message.dest_experiment_id,
+    )
+    response_message = MoveRun.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -844,6 +860,7 @@ HANDLERS = {
     UpdateExperiment: _update_experiment,
     CreateRun: _create_run,
     UpdateRun: _update_run,
+    MoveRun: _move_run,
     DeleteRun: _delete_run,
     RestoreRun: _restore_run,
     LogParam: _log_param,

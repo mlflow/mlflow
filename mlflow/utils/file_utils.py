@@ -265,6 +265,10 @@ def mv(target, new_parent):
     shutil.move(target, new_parent)
 
 
+def rmdir(path):
+    shutil.rmtree(path)
+
+
 def write_to(filename, data):
     with codecs.open(filename, mode="w", encoding=ENCODING) as handle:
         handle.write(data)

@@ -375,6 +375,14 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.to_mlflow_entity()
 
+    def move_run(self, run_id, src_experiment_id, dest_experiment_id):
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            run.experiment_id = dest_experiment_id
+            self._save_to_db(objs=run, session=session)
+            run = run.to_mlflow_entity()
+
     def _get_run(self, session, run_uuid, eager=False):
         """
         :param eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),

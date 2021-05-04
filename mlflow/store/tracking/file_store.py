@@ -43,6 +43,7 @@ from mlflow.utils.file_utils import (
     exists,
     write_yaml,
     read_yaml,
+    rmdir,
     find,
     read_file_lines,
     read_file,
@@ -488,6 +489,60 @@ class FileStore(AbstractStore):
         for tag in tags:
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)
+
+    def move_run(self, run_id, src_experiment_id, dest_experiment_id):
+        src_experiment = self.get_experiment(src_experiment_id)
+        if src_experiment is None:
+            raise MlflowException(
+                "Could not find run under ID %s - no such experiment exists." % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+        dest_experiment = self.get_experiment(dest_experiment_id)
+        if dest_experiment is None:
+            raise MlflowException(
+                "Could not move run to ID %s - no such experiment exists." % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+        # resolve src and dest uri and directories
+        src_artifact_uri = self._get_artifact_dir(src_experiment_id, run_id)
+        dest_artifact_uri = self._get_artifact_dir(dest_experiment_id, run_id)
+        run_info = self._get_run_info(run_id)
+        src_run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
+        # update run experiment
+        new_run_info = RunInfo(
+            run_uuid=run_info.run_uuid,
+            run_id=run_info.run_id,
+            experiment_id=dest_experiment_id,
+            user_id=run_info.user_id,
+            status=run_info.status,
+            start_time=run_info.start_time,
+            end_time=run_info.end_time,
+            lifecycle_stage=run_info.lifecycle_stage,
+            artifact_uri=dest_artifact_uri,
+        )
+        dest_run_dir = self._get_run_dir(new_run_info.experiment_id, new_run_info.run_id)
+        mkdir(dest_run_dir)
+        run_info_dict = _make_persisted_run_info_dict(new_run_info)
+        write_yaml(dest_run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict)
+        # move the different directories
+        mv(
+            os.path.join(src_run_dir, FileStore.METRICS_FOLDER_NAME),
+            os.path.join(dest_run_dir, FileStore.METRICS_FOLDER_NAME)
+        )
+        mv(
+            os.path.join(src_run_dir, FileStore.PARAMS_FOLDER_NAME),
+            os.path.join(dest_run_dir, FileStore.PARAMS_FOLDER_NAME)
+        )
+        mv(
+            os.path.join(src_run_dir, FileStore.ARTIFACTS_FOLDER_NAME),
+            os.path.join(dest_run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
+        )
+        mv(
+            os.path.join(src_run_dir, FileStore.TAGS_FOLDER_NAME),
+            os.path.join(dest_run_dir, FileStore.TAGS_FOLDER_NAME)
+        )
+        # delete old source
+        rmdir(src_run_dir)
 
     def get_run(self, run_id):
         """
