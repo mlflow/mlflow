@@ -51,12 +51,12 @@ class MlflowHttpCaller {
    * Construct a new MlflowHttpCaller.
    *
    * @param maxRateLimitIntervalSeconds The maximum number of seconds to retry a single request
-   *                                    for rate limiting responses with error code 429.
-   * @param rateLimitRetrySleepInitMs The initial backoff delay when retrying a request for rate
-   *                                  limiting responses with error code 429. The delay is increased
-   *                                  exponentially after each 429 response until the total delay
-   *                                  incurred across all retries for the request exceeds the
-   *                                  specified maxRateLimitIntervalSeconds.
+   *                                    in respone to rate limiting (error code 429).
+   * @param rateLimitRetrySleepInitMs The initial backoff delay, in milliseconds, when retrying a
+   *                                  request in response to rate limiting (error code 429). The
+   *                                  delay is increased exponentially after each rate limiting
+   *                                  response until the total delay incurred across all retries for
+   *                                  the request exceeds the specified maxRateLimitIntervalSeconds.
    * @param maxRetryAttempts The maximum number of times to retry a request, excluding rate limit
    *                         retries.
    */
