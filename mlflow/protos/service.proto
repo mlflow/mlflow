@@ -172,6 +172,25 @@ service MlflowService {
     };
   }
 
+  // Move run to a different experiment.
+  //
+  rpc moveRun(MoveRun) returns (MoveRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/move"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/runs/move"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Move Run",
+    };
+  }
+
   // Update run metadata.
   //
   rpc updateRun(UpdateRun) returns (UpdateRun.Response) {
@@ -761,6 +780,21 @@ message CreateRun {
     // The newly created run.
     optional Run run = 1;
   }
+}
+
+message MoveRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run to move.
+  optional string run_id = 1 [(validate_required) = true];
+
+  // ID of the source experiment.
+  optional string src_experiment_id = 2;
+
+  // ID of the destination experiment.
+  optional string dest_experiment_id = 3;
+  
+  message Response {}
 }
 
 message UpdateRun {
