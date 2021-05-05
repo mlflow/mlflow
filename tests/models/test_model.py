@@ -92,26 +92,32 @@ def test_model_log():
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
 
+
 def test_model_log_with_input_example_succeeds():
     with TempDir(chdr=True) as tmp:
         experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(
-            inputs=Schema([
-                ColSpec("integer", "a"),
-                ColSpec("string", "b"),
-                ColSpec("boolean", "c"),
-                ColSpec("string", "d"),
-                ColSpec("datetime", "e")
-            ]),
+            inputs=Schema(
+                [
+                    ColSpec("integer", "a"),
+                    ColSpec("string", "b"),
+                    ColSpec("boolean", "c"),
+                    ColSpec("string", "d"),
+                    ColSpec("datetime", "e"),
+                ]
+            ),
             outputs=Schema([ColSpec(name=None, type="double")]),
         )
-        input_example = pd.DataFrame({
-            "a": np.int32(1),
-            "b": "test string",
-            "c": True,
-            "d": date.today(),
-            "e": np.datetime64("2020-01-01T00:00:00")
-        }, index=[0])
+        input_example = pd.DataFrame(
+            {
+                "a": np.int32(1),
+                "b": "test string",
+                "c": True,
+                "d": date.today(),
+                "e": np.datetime64("2020-01-01T00:00:00"),
+            },
+            index=[0],
+        )
         with mlflow.start_run(experiment_id=experiment_id) as r:
             Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
 
