@@ -454,9 +454,9 @@ def autolog(
           calls ``fit()``, it internally calls ``fit()`` on its child estimators. Autologging
           does NOT perform logging on these constituent ``fit()`` calls.
 
-          A "estimator_info.json" artifact will be logged, the artifact include an item call
-          "hierarchy" which describe the hierarchy of the meta estimators. The hierarchy will
-          expand all nested stage such as nested pipeline stages.
+          A "estimator_info.json" artifact is logged, which includes a `hierarchy` entry
+          describing the hierarchy of the meta estimator. The hierarchy includes expanded
+          entries for all nested stages, such as nested pipeline stages.
 
       **Parameter search**
           In addition to recording the information discussed above, autologging for parameter
