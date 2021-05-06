@@ -140,7 +140,7 @@ by running the following from your checkout of MLflow:
 
     conda create --name mlflow-dev-env python=3.6
     conda activate mlflow-dev-env
-    pip install -e .  [extras] # installs mlflow from current checkout with some useful extra utilities
+    pip install -e . [extras] # installs mlflow from current checkout with some useful extra utilities
 
 If you plan on doing development and testing, you will also need to install the following into the conda environment:
 
@@ -169,8 +169,13 @@ You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 Install Node Module Dependencies
 ++++++++++++++++++++++++++++++++
 
+On OSX, install the following packages required by the node modules:
+
 .. code-block:: bash
-   brew install pixman cairo pango jpeg
+
+    brew install pixman cairo pango jpeg
+
+Linux/Windows users will need to source these dependencies using the appropriate package manager on their platforms.
 
 Install Node Modules
 ++++++++++++++++++++
