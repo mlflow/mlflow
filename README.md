@@ -15,6 +15,18 @@ New pull requests to the official MLFlow repo must be created from feature branc
 
 Features that are not yet merged into the official MLFlow repo can be merged into `ni-master` in order to be released internally.
 
+### Update from upstream repo
+
+from: https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/syncing-a-fork
+
+```
+git fetch upstream
+git checkout master
+git merge upstream/master
+```
+
+(it should always "fast-forward")
+
 ## Release
 
 Release must always be done from branch `ni-master`.
