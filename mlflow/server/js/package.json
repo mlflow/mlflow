@@ -46,7 +46,7 @@
     "redux-mock-store": "^1.5.3",
     "redux-promise-middleware": "5.0.0",
     "redux-thunk": "^2.3.0",
-    "sanitize-html": "^1.18.5",
+    "sanitize-html": "^2.3.2",
     "showdown": "^1.8.6"
   },
   "devDependencies": {
