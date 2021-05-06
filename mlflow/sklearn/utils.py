@@ -73,7 +73,9 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
-    :returns: A tuple of either (X, y, sample_weight) or (X, y).
+    :returns: A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
+              `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
+              a sample weighting.
     """
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
         # corresponds to: model.fit(X, y)
