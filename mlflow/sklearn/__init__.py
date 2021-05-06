@@ -756,7 +756,7 @@ def autolog(
         (X, y_true, sample_weight) = _get_args_for_metrics(estimator.fit, args, kwargs)
 
         # log common metrics and artifacts for estimators (classifier, regressor)
-        _log_estimator_content(
+        logged_metrics = _log_estimator_content(
             estimator=estimator,
             prefix=_TRAINING_PREFIX,
             run_id=mlflow.active_run().info.run_id,
@@ -764,6 +764,12 @@ def autolog(
             y_true=y_true,
             sample_weight=sample_weight,
         )
+        if y_true is None and not logged_metrics:
+            _logger.warning(
+                "Training metrics will not be recorded because training labels were not specified."
+                " To automatically record training metrics, provide training labels as inputs to"
+                " the model training function."
+            )
 
         def get_input_example():
             # Fetch an input example using the first several rows of the array-like

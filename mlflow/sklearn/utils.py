@@ -73,7 +73,9 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
-    :returns: A tuple of either (X, y, sample_weight) or (X, y).
+    :returns: A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
+              `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
+              a sample weighting.
     """
 
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -83,10 +85,10 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
 
         # corresponds to: model.fit(X, <y_var_name>=y)
         if len(args) == 1:
-            return args[0], kwargs[y_var_name]
+            return args[0], kwargs.get(y_var_name)
 
         # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
-        return kwargs[X_var_name], kwargs[y_var_name]
+        return kwargs[X_var_name], kwargs.get(y_var_name)
 
     def _get_sample_weight(arg_names, args, kwargs):
         sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
@@ -409,35 +411,39 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    fitted_estimator, run_id, prefix, X, y_true, sample_weight=None
+    fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
 
     mlflow_client = MlflowClient()
     metrics = dict()
-    try:
-        if sklearn.base.is_classifier(fitted_estimator):
-            metrics = _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
-        elif sklearn.base.is_regressor(fitted_estimator):
-            metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
-    except Exception as err:
-        msg = (
-            "Failed to autolog metrics for "
-            + fitted_estimator.__class__.__name__
-            + ". Logging error: "
-            + str(err)
-        )
-        _logger.warning(msg)
-    else:
-        # batch log all metrics
-        try_mlflow_log(
-            mlflow_client.log_batch,
-            run_id,
-            metrics=[
-                Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                for key, value in metrics.items()
-            ],
-        )
+
+    if y_true is not None:
+        try:
+            if sklearn.base.is_classifier(fitted_estimator):
+                metrics = _get_classifier_metrics(
+                    fitted_estimator, prefix, X, y_true, sample_weight
+                )
+            elif sklearn.base.is_regressor(fitted_estimator):
+                metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
+        except Exception as err:
+            msg = (
+                "Failed to autolog metrics for "
+                + fitted_estimator.__class__.__name__
+                + ". Logging error: "
+                + str(err)
+            )
+            _logger.warning(msg)
+        else:
+            # batch log all metrics
+            try_mlflow_log(
+                mlflow_client.log_batch,
+                run_id,
+                metrics=[
+                    Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
+                    for key, value in metrics.items()
+                ],
+            )
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -473,10 +479,11 @@ def _log_specialized_estimator_content(
     return metrics
 
 
-def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
+def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_weight=None):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
-    tailored to the estimator's type (e.g., regression vs classification).
+    tailored to the estimator's type (e.g., regression vs classification). Training labels
+    are required for metric computation; metrics will be omitted if labels are not available.
 
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
@@ -496,7 +503,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
         sample_weight=sample_weight,
     )
 
-    if hasattr(estimator, "score"):
+    if hasattr(estimator, "score") and y_true is not None:
         try:
             # Use the sample weight only if it is present in the score args
             score_arg_names = _get_arg_names(estimator.score)
