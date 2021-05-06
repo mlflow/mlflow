@@ -1477,7 +1477,7 @@ def test_eval_and_log_metrics_throws_with_invalid_args():
 def test_metric_computation_handles_absent_labels():
     """
     Verifies that autologging metric computation does not fail For models that do not require
-    labels as inputs to training, such as clustering models and other unsupervised techniques
+    labels as inputs to training, such as clustering models and other unsupervised techniques.
     """
     mlflow.sklearn.autolog()
 
