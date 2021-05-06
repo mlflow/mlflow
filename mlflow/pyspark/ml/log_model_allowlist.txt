@@ -42,3 +42,8 @@ pyspark.ml.classification.OneVsRestModel
 
 # pipeline model
 pyspark.ml.pipeline.PipelineModel
+
+# Hyper-parameter tuning
+pyspark.ml.tuning.CrossValidatorModel
+pyspark.ml.tuning.TrainValidationSplitModel
+
