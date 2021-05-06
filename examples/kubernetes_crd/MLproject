@@ -1,0 +1,14 @@
+name: crd-example
+
+docker_env:
+  image:  mlflow-crd-example
+  environment: [["MLFLOW_TRACKING_URI", "http://mlflow-server:8889"]]
+  mem_limit: 512Mi
+  mem_request: 256Mi
+
+entry_points:
+  main:
+    parameters:
+      alpha: float
+      l1_ratio: {type: float, default: 0.1}
+    command: "python train.py --alpha {alpha} --l1-ratio {l1_ratio}"

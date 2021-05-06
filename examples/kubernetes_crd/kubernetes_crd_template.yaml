@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: CustomJob
+metadata:
+  name: "{project['name']}"
+  annotations:
+    # Optional
+    mlflow.org/crd-name: customjobs.mlflow.org
+    # Optional, but required for k8s log redirection to CLI
+    mlflow.org/crd-log-labels: "group_name=mlflow.org"
+    # Optional
+    #mlflow.org/poll-status-interval: "10"
+spec:
+  ttlSecondsAfterFinished: 100
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: "{project['name']}"
+        image: "{project['docker_env']['image']}"
+        command: ["{project['entry_points']['main']['command']}"]
+        env: "{project['docker_env']['environment']}"
+      resources:
+        limits:
+          memory: "{project['docker_env']['mem_limit']}"
+        requests:
+          memory: "{project['docker_env']['mem_request']}"
+      restartPolicy: Never
