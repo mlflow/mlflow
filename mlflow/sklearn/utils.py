@@ -479,7 +479,8 @@ def _log_specialized_estimator_content(
 def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_weight=None):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
-    tailored to the estimator's type (e.g., regression vs classification).
+    tailored to the estimator's type (e.g., regression vs classification). Training labels
+    are required for metric computation; metrics will be omitted if labels are not available.
 
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
