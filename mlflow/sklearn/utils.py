@@ -77,6 +77,7 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
               `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
               a sample weighting.
     """
+
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
         # corresponds to: model.fit(X, y)
         if len(args) >= 2:
@@ -420,7 +421,9 @@ def _log_specialized_estimator_content(
     if y_true is not None:
         try:
             if sklearn.base.is_classifier(fitted_estimator):
-                metrics = _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
+                metrics = _get_classifier_metrics(
+                    fitted_estimator, prefix, X, y_true, sample_weight
+                )
             elif sklearn.base.is_regressor(fitted_estimator):
                 metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
         except Exception as err:
