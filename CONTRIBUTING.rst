@@ -139,10 +139,15 @@ by running the following from your checkout of MLflow:
 .. code-block:: bash
 
     conda create --name mlflow-dev-env python=3.6
-    source activate mlflow-dev-env
+    conda activate mlflow-dev-env
+    pip install -e .  # installs mlflow from current checkout
+
+If you plan on doing development and testing, you will also need to install the following into the conda environment:
+
+.. code-block:: bash
+
     pip install -r dev-requirements.txt
     pip install -r test-requirements.txt
-    pip install -e .[extras]  # installs mlflow from current checkout
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 
@@ -160,6 +165,12 @@ JavaScript and UI
 The MLflow UI is written in JavaScript. ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
+
+Install Node Module Dependencies
+++++++++++++++++++++++++++++++++
+
+.. code-block:: bash
+   brew install pixman cairo pango jpeg
 
 Install Node Modules
 ++++++++++++++++++++
