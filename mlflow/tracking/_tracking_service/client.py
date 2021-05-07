@@ -258,7 +258,6 @@ class TrackingServiceClient(object):
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo(self, run_id):
-        # TODO(apurva-koti): ADD CACHING PER REPOSITORY HERE
         # Attempt to fetch the artifact repo from a local cache
         cached_repo = TrackingServiceClient._artifact_repos_cache.get(run_id)
         if cached_repo is not None:
