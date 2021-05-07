@@ -6,19 +6,17 @@ MLflow 1.17.0 includes several major features and improvements:
 
 Features:
 
-- Implementation: autologging for hyperparameter-tuning (#4270, @WeichenXu123)
+- Add support for hyperparameter-tuning models to ``mlflow.pyspark.ml.autolog()`` (#4270, @WeichenXu123)
 
 Bug fixes and documentation updates:
 
-- Fix PyTorch Lightning callback hook args (#4333, @dbczumar)
-- Sklearn autologging bug fix: Don't compute metrics when labels are missing (#4325, @dbczumar)
-- Make datetime.date objects JSON serializable (#4313, @vperiyasamy)
-- MLflow Java client: Retry on 500s (#4311, @dbczumar)
-- Document brew dependencies for OSX, split pip install into two sections (#4324, @tleyden)
-- Change "source activate" -> "conda activate" (#4320, @tleyden)
-- Update to include code of conduct (#4310, @dennyglee)
+- Fix PyTorch Lightning callback definition for compatibility with PyTorch Lightning 1.3.0  (#4333, @dbczumar)
+- Fix a bug in scikit-learn autologging that omitted artifacts for unsupervised models (#4325, @dbczumar)
+- Support logging ``datetime.date`` objects as part of model input examples (#4313, @vperiyasamy)
+- Implement HTTP request retries in the MLflow Java client for 500-level responses (#4311, @dbczumar)
+- Include a community code of conduct (#4310, @dennyglee)
 
-Small bug fixes and doc updates (#4276, #4263, @WeichenXu123; #4289, #4302, #3599, #4287, #4284, #4265, #4266, #4275, #4268, @harupy; #4335, #4297, @dbczumar)
+Small bug fixes and doc updates (#4276, #4263, @WeichenXu123; #4289, #4302, #3599, #4287, #4284, #4265, #4266, #4275, #4268, @harupy; #4335, #4297, @dbczumar; #4324, #4320, @tleyden)
 
 1.16.0 (2021-04-22)
 -------------------
