@@ -1,5 +1,23 @@
 Changelog
 =========
+1.17.0 (2021-05-07)
+-------------------
+MLflow 1.17.0 includes several major features and improvements:
+
+Features:
+
+- Add support for hyperparameter-tuning models to ``mlflow.pyspark.ml.autolog()`` (#4270, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- Fix PyTorch Lightning callback definition for compatibility with PyTorch Lightning 1.3.0  (#4333, @dbczumar)
+- Fix a bug in scikit-learn autologging that omitted artifacts for unsupervised models (#4325, @dbczumar)
+- Support logging ``datetime.date`` objects as part of model input examples (#4313, @vperiyasamy)
+- Implement HTTP request retries in the MLflow Java client for 500-level responses (#4311, @dbczumar)
+- Include a community code of conduct (#4310, @dennyglee)
+
+Small bug fixes and doc updates (#4276, #4263, @WeichenXu123; #4289, #4302, #3599, #4287, #4284, #4265, #4266, #4275, #4268, @harupy; #4335, #4297, @dbczumar; #4324, #4320, @tleyden)
+
 1.16.0 (2021-04-22)
 -------------------
 MLflow 1.16.0 includes several major features and improvements:
