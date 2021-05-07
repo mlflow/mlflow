@@ -7,13 +7,13 @@ sklearn:
 
   models:
     minimum: "0.20.3"
-    maximum: "0.24.1"
+    maximum: "0.24.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.24.1"
+    maximum: "0.24.2"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -40,7 +40,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.2.8"
+    maximum: "1.3.0"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -249,7 +249,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.0.5"
+    maximum: "3.0.6"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
