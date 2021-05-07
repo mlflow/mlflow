@@ -1,5 +1,25 @@
 Changelog
 =========
+1.17.0 (2021-05-07)
+-------------------
+MLflow 1.17.0 includes several major features and improvements:
+
+Features:
+
+- Implementation: autologging for hyperparameter-tuning (#4270, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- Fix PyTorch Lightning callback hook args (#4333, @dbczumar)
+- Sklearn autologging bug fix: Don't compute metrics when labels are missing (#4325, @dbczumar)
+- Make datetime.date objects JSON serializable (#4313, @vperiyasamy)
+- MLflow Java client: Retry on 500s (#4311, @dbczumar)
+- Document brew dependencies for OSX, split pip install into two sections (#4324, @tleyden)
+- Change "source activate" -> "conda activate" (#4320, @tleyden)
+- Update to include code of conduct (#4310, @dennyglee)
+
+Small bug fixes and doc updates (#4276, #4263, @WeichenXu123; #4289, #4302, #3599, #4287, #4284, #4265, #4266, #4275, #4268, @harupy; #4335, #4297, @dbczumar)
+
 1.16.0 (2021-04-22)
 -------------------
 MLflow 1.16.0 includes several major features and improvements:
