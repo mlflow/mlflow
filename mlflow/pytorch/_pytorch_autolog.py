@@ -117,7 +117,7 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
                 def on_train_epoch_end(
                     self, trainer, pl_module, *args, **kwargs
-                ):  # pylint: disable=arguments-differ
+                ):  # pylint: disable=signature-differs,unused-argument
                     """
                     Log loss and other metrics values after each train epoch
 
