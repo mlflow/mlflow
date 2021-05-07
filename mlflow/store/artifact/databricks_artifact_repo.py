@@ -61,7 +61,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        print('constructing a databricks artifact repo')
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
