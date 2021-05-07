@@ -7,6 +7,7 @@ import urllib.parse
 import urllib.request
 
 import docker
+from docker.errors import BuildError
 
 from mlflow import tracking
 from mlflow.projects.utils import get_databricks_env_vars
@@ -67,14 +68,19 @@ def build_docker_image(work_dir, repository_uri, base_image, run_id, tag=None):
     with open(build_ctx_path, "rb") as docker_build_ctx:
         _logger.info("=== Building docker image %s ===", image_uri)
         client = docker.from_env()
-        image, _ = client.images.build(
-            tag=image_uri,
-            forcerm=True,
-            dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
-            fileobj=docker_build_ctx,
-            custom_context=True,
-            encoding="gzip",
-        )
+        try:
+            image, _ = client.images.build(
+                tag=image_uri,
+                forcerm=True,
+                dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
+                fileobj=docker_build_ctx,
+                custom_context=True,
+                encoding="gzip",
+            )
+        except BuildError as e:
+            build_log = "".join([chunk["stream"] for chunk in e.build_log if "stream" in chunk])
+            _logger.error("Error building docker image %s.\nBuild log: \n%s", image_uri, build_log)
+            raise e
     try:
         os.remove(build_ctx_path)
     except Exception:
