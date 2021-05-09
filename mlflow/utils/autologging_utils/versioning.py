@@ -21,7 +21,9 @@ FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
 
 
 def _check_version_in_range(ver, min_ver, max_ver):
-    return Version(min_ver) <= Version(ver) <= Version(max_ver)
+    version = Version(ver)
+    return not version.is_devrelease and not version.is_prerelease and \
+        Version(min_ver) <= version <= Version(max_ver)
 
 
 def _load_version_file_as_dict():
