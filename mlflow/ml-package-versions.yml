@@ -176,7 +176,24 @@ catboost:
   package_info:
     pip_release: "catboost"
     install_dev: |
-      pip install git+https://github.com/catboost/catboost.git#subdirectory=catboost/python-package
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
+      else
+        # Build wheel from source
+        temp_dir=$(mktemp -d)
+        git clone --depth 1 https://github.com/catboost/catboost $temp_dir
+        cd $temp_dir/catboost/python-package
+        python setup.py bdist_wheel
+
+        # Copy wheel in cache directory
+        wheel_path=$(find dist -type f -name "*.whl")
+        mkdir -p $CACHE_DIR
+        cp $wheel_path $CACHE_DIR
+
+        # Install wheel
+        pip install $wheel_path
+      fi
 
   models:
     minimum: "0.23.1"
