@@ -29,6 +29,11 @@ def _check_version_in_range(ver, min_ver, max_ver):
     )
 
 
+def _is_pre_or_dev_release(ver):
+    v = Version(ver)
+    return v.is_devrelease or v.is_prerelease
+
+
 def _load_version_file_as_dict():
     version_file_path = resource_filename(__name__, "../../ml-package-versions.yml")
     with open(version_file_path) as f:
@@ -52,5 +57,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     """
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
+    if _is_pre_or_dev_release(actual_version):
+        return False
     min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
     return _check_version_in_range(actual_version, min_version, max_version)
