@@ -248,7 +248,7 @@ def test_autolog_respects_silent_mode(tmpdir):
     logger.info("verify that event logs are enabled")
     assert "verify that event logs are enabled" in stream.getvalue()
 
-    # TODO: Investigate why this test occasionally leaks a run, which causes `clean_up_leaked_runs`
-    # to fail.
+    # TODO: Investigate why this test occasionally leaks a run, which causes the
+    # `clean_up_leaked_runs` fixture in `tests/conftest.py` to fail.
     while mlflow.active_run():
         mlflow.end_run()
