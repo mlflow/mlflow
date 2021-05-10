@@ -14,9 +14,6 @@ class ArtifactRepository:
     """
     Abstract artifact repo that defines how to upload (log) and download potentially large
     artifacts from different storage backends.
-
-    Artifact repositories are cached per run ID upon instantiation. It is therefore not
-    recommended to alter the artifact root before a run has terminated.
     """
 
     __metaclass__ = ABCMeta
