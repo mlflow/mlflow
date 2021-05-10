@@ -111,7 +111,7 @@ def main(args):
 
     for flavor_key, config in config_dict.items():
         for category in ["autologging", "models"]:
-            if (category not in config) or config[category].get("freeze", False):
+            if (category not in config) or config[category].get("freeze_maximum", False):
                 continue
             print("Processing", flavor_key, category)
 

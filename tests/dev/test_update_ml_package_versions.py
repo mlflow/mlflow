@@ -155,7 +155,7 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
-    freeze: True
+    freeze_maximum: True
     maximum: "0.0.1"
 """
     mock_responses = {"sklearn": MockResponse.from_versions(["0.0.2"])}
@@ -164,7 +164,7 @@ sklearn:
   package_info:
     pip_release: sklearn
   autologging:
-    freeze: True
+    freeze_maximum: True
     maximum: "0.0.1"
 """
     run_test(src, src_expected, mock_responses)

@@ -211,7 +211,7 @@ fastai-1.x:
 
   models:
     # Avoid updating the maximum version to 2.x which isn't supported yet
-    freeze: True
+    freeze_maximum: True
     minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
@@ -219,7 +219,7 @@ fastai-1.x:
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
-    freeze: True
+    freeze_maximum: True
     minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
