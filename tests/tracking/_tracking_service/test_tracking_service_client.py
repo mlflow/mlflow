@@ -66,5 +66,6 @@ def test_artifact_repo_is_cached_per_run_id():
             ),
     ):
         artifact_repo = TrackingServiceClient("some_tracking_uri")._get_artifact_repo("some_run_id")
-        another_artifact_repo = TrackingServiceClient("some_tracking_uri")._get_artifact_repo("some_run_id")
+        another_artifact_repo = \
+            TrackingServiceClient("some_tracking_uri")._get_artifact_repo("some_run_id")
         assert artifact_repo is another_artifact_repo

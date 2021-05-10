@@ -275,7 +275,6 @@ class TrackingServiceClient(object):
             TrackingServiceClient._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
-
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
