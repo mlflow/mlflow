@@ -46,6 +46,8 @@ SKINNY_REQUIREMENTS = [
     "protobuf>=3.6.0",
     "pytz",
     "requests>=2.17.3",
+    "requests-oauthlib>=1.3.0",
+    "oauthlib>=1.3.0",
 ]
 
 """

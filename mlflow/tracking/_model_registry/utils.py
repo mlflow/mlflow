@@ -8,6 +8,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_INSECURE_TLS_ENV_VAR,
+    _TRACKING_OATH2_KWARGS_VAR,
     _resolve_tracking_uri,
     get_tracking_uri,
 )
@@ -127,6 +128,7 @@ def _get_rest_store(store_uri, **_):
             password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
             token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
             ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
+            oath_kwargs=os.environ.get(_TRACKING_OATH2_KWARGS_VAR),
         )
 
     return RestStore(get_default_host_creds)
