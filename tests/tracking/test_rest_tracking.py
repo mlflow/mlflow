@@ -140,12 +140,16 @@ def test_create_get_list_experiment(mlflow_client):
     }
     active_exps_paginated = mlflow_client.list_experiments(max_results=1)
     assert set([e.name for e in active_exps_paginated]) == {"Default"}
-    active_exps_second_page = mlflow_client.list_experiments(max_results=1, page_token=active_exps_paginated.page_token)
+    active_exps_second_page = mlflow_client.list_experiments(
+        max_results=1, page_token=active_exps_paginated.page_token
+    )
     assert len(active_exps_second_page) == 0
 
     all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
     first_page_names = set([e.name for e in all_exps_paginated])
-    all_exps_second_page = mlflow_client.list_experiments(max_results=1, page_token=all_exps_paginated.page_token)
+    all_exps_second_page = mlflow_client.list_experiments(
+        max_results=1, page_token=all_exps_paginated.page_token
+    )
     second_page_names = set([e.name for e in all_exps_second_page])
     assert len(first_page_names) == 1
     assert len(second_page_names) == 1
