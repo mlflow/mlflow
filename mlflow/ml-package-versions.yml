@@ -227,6 +227,8 @@ fastai-1.x:
     pip_release: "fastai"
 
   models:
+    # Avoid updating the maximum version to 2.x which isn't supported yet
+    pin_maximum: True
     minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
@@ -234,6 +236,7 @@ fastai-1.x:
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
+    pin_maximum: True
     minimum: "1.0.60"
     maximum: "1.0.61"
     requirements: ["scikit-learn"]
