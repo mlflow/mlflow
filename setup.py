@@ -46,6 +46,7 @@ SKINNY_REQUIREMENTS = [
     "protobuf>=3.6.0",
     "pytz",
     "requests>=2.17.3",
+    "packaging",
 ]
 
 """
