@@ -12,7 +12,7 @@ sklearn:
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.24.3"
+    maximum: "0.24.2"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
