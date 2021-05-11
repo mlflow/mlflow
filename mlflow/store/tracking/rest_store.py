@@ -6,6 +6,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
     GetExperiment,
     GetRun,
+    MoveRun,
     SearchRuns,
     ListExperiments,
     GetMetricHistory,
@@ -248,6 +249,13 @@ class RestStore(AbstractStore):
         if response_proto.next_page_token:
             next_page_token = response_proto.next_page_token
         return runs, next_page_token
+
+    def move_run(self, run_id, src_experiment_id, dest_experiment_id):
+        req_body = message_to_json(MoveRun(
+            run_id=run_id,
+            src_experiment_id=src_experiment_id,
+            dest_experiment_id=dest_experiment_id))
+        self._call_endpoint(MoveRun, req_body)
 
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))

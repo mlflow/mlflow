@@ -21,6 +21,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteExperiment,
     DeleteRun,
+    MoveRun,
     LogBatch,
     LogMetric,
     LogParam,
@@ -247,6 +248,15 @@ class TestRestStore(object):
             store.delete_run("u25")
             self._verify_requests(
                 mock_http, creds, "runs/delete", "POST", message_to_json(DeleteRun(run_id="u25"))
+            )
+
+        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+            store.move_run("u25", "0", "1")
+            self._verify_requests(
+                mock_http, creds, "runs/move", "POST", message_to_json(MoveRun(
+                    run_id="u25",
+                    src_experiment_id="0",
+                    dest_experiment_id="1"))
             )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
