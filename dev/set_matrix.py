@@ -440,7 +440,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=DEV_VERSION,
-                        newer_than_max=True,
+                        supported=False,
                     )
                 )
     return matrix
