@@ -12,7 +12,7 @@ sklearn:
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.24.3"
+    maximum: "0.24.2"
     requirements: ["matplotlib"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py --large
@@ -226,9 +226,9 @@ fastai-1.x:
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
-    pin_maximum: True
+    # pin_maximum: True
     minimum: "1.0.60"
-    maximum: "1.0.61"
+    maximum: "2.0.0"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
