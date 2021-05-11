@@ -448,6 +448,49 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicemoveRun:
+
+Move Run
+==========
+
+
++----------------------------+-------------+
+|          Endpoint          | HTTP Method |
++============================+=============+
+| ``2.0/mlflow/runs/move``   | ``POST``    |
++----------------------------+-------------+
+
+Move a run to a different experiment.
+
+
+
+
+.. _mlflowMoveRun:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++--------------------+------------+------------------------------------------+
+| Field Name         | Type       | Description                              |
++====================+============+==========================================+
+| run_id             | ``STRING`` | ID of the run to move.                   |
+|                    |            | This field is required.                  |
++--------------------+------------+------------------------------------------+
+| src_experiment_id  | ``STRING`` | ID of the experiment containing the run. |
+|                    |            | This field is required.                  |
++--------------------+------------+------------------------------------------+
+| dest_experiment_id | ``STRING`` | ID of the experiment to move the run to. |
+|                    |            | This field is required.                  |
++--------------------+------------+------------------------------------------+
+===========================
+
+
+
 .. _mlflowMlflowServicedeleteRun:
 
 Delete Run
