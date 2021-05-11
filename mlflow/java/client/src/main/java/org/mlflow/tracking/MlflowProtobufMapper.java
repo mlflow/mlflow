@@ -109,6 +109,14 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeMoveRun(String runId, String srcExperimentId, String destExperimentId) {
+    MoveRun.Builder builder = MoveRun.newBuilder();
+    builder.setRunId(runId);
+    builder.setSrcExperimentId(srcExperimentId);
+    builder.setDestExperimentId(destExperimentId);
+    return print(builder);
+  }
+
   String makeDeleteRun(String runId) {
     DeleteRun.Builder builder = DeleteRun.newBuilder();
     builder.setRunId(runId);

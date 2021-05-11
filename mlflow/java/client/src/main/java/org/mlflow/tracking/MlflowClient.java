@@ -305,6 +305,15 @@ public class MlflowClient implements Serializable {
   }
 
   /**
+   * Move a run with the given ID from source experiment to destination experiment
+   */
+  public void moveRun(String runId, String srcExperimentId, String destExperimentId) {
+    String ijson = mapper.makeMoveRun(runId, srcExperimentId, destExperimentId);
+    httpCaller.post("runs/move", ijson);
+  }
+
+
+  /**
    * Delete a run with the given ID.
    */
   public void deleteRun(String runId) {

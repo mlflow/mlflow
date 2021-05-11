@@ -549,6 +549,20 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void moveRun() {
+    String expName1 = createExperimentName();
+    String expName2 = createExperimentName();
+    String expId1 = client.createExperiment(expName1);
+    String expId2 = client.createExperiment(expName2);
+
+    RunInfo runCreated = client.createRun(expId1);
+    Assert.assertEquals(runCreated.getExperimentId(), expId1);
+    String moveRunId = runCreated.getRunId();
+    client.moveRun(moveRunId);
+    Assert.assertEquals(client.getRun(moveRunId).getInfo().getExperimentId(), expId2);
+  }
+
+  @Test
   public void deleteAndRestoreRun() {
     String expName = createExperimentName();
     String expId = client.createExperiment(expName);
