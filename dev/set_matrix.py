@@ -419,7 +419,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=ver,
-                        newer_than_max=Version(ver) > Version(max_ver),
+                        supported=Version(ver) <= Version(max_ver),
                     )
                 )
 
