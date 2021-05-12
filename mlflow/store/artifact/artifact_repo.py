@@ -2,7 +2,6 @@ import os
 import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
-from concurrent.futures import Future
 
 from mlflow.utils.validation import path_not_unique, bad_path_message
 from mlflow.utils.annotations import experimental
@@ -88,10 +87,8 @@ class ArtifactRepository:
             local_file_path = os.path.join(dst_path, fullpath)
             if not os.path.exists(local_dir_path):
                 os.makedirs(local_dir_path)
-            download_result = self._download_file(
-                remote_file_path=fullpath, local_path=local_file_path,
-            )
-            return download_result, local_file_path
+            self._download_file(remote_file_path=fullpath, local_path=local_file_path)
+            return local_file_path
 
         def download_artifact_dir(dir_path):
             local_dir = os.path.join(dst_path, dir_path)
@@ -104,20 +101,11 @@ class ArtifactRepository:
                 if not os.path.exists(local_dir):
                     os.makedirs(local_dir)
             else:
-                files = [file_info for file_info in dir_content if not file_info.is_dir]
-                subdirectories = [file_info for file_info in dir_content if file_info.is_dir]
-                download_results = []
-                for file_info in files:
-                    download_result, _ = download_file(file_info.path)
-                    download_results.append(download_result)
-
-                for download_result in download_results:
-                    if isinstance(download_result, Future):
-                        download_result.result()
-
-                for directory_info in subdirectories:
-                    download_artifact_dir(dir_path=directory_info.path)
-
+                for file_info in dir_content:
+                    if file_info.is_dir:
+                        download_artifact_dir(dir_path=file_info.path)
+                    else:
+                        download_file(file_info.path)
             return local_dir
 
         if dst_path is None:
@@ -145,10 +133,7 @@ class ArtifactRepository:
         if self._is_directory(artifact_path):
             return download_artifact_dir(artifact_path)
         else:
-            download_result, local_path = download_file(artifact_path)
-            if isinstance(download_result, Future):
-                download_result.result()
-            return local_path
+            return download_file(artifact_path)
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):
@@ -159,9 +144,6 @@ class ArtifactRepository:
         :param remote_file_path: Source path to the remote file, relative to the root
                                  directory of the artifact repository.
         :param local_path: The path to which to save the downloaded file.
-        :return: Either `None` (for synchronous download implementations) or an instance of
-                 `concurrent.futures.Future` representing the download operation (for asynchronous
-                 download implementations).
         """
         pass
 
