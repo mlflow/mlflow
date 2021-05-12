@@ -556,9 +556,14 @@ public class MlflowClientTest {
     String expId2 = client.createExperiment(expName2);
 
     RunInfo runCreated = client.createRun(expId1);
+    String runId = runCreated.getRunId();
+    // create tags to generate folder
+    Stack<RunTag> tags = new Stack();
+    tags.push(createTag("t1", "sampletags"));
+    client.logBatch(runId, null, null, tags);
     Assert.assertEquals(runCreated.getExperimentId(), expId1);
     String moveRunId = runCreated.getRunId();
-    client.moveRun(moveRunId);
+    client.moveRun(moveRunId, expId1, expId2);
     Assert.assertEquals(client.getRun(moveRunId).getInfo().getExperimentId(), expId2);
   }
 
