@@ -99,7 +99,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
-        # Limit the number of threads used for artifact uploads, using at most `8` threads or
+        # Limit the number of threads used for artifact uploads, using at most 8 threads or
         # 2 * the number of CPU cores available on the system (whichever is smaller)
         num_cpus = os.cpu_count() or 4
         num_artifact_workers = min(num_cpus * 2, 8)
