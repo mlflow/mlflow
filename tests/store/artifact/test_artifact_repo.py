@@ -1,7 +1,5 @@
-import os
 import posixpath
 import pytest
-from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 from mlflow.entities import FileInfo
