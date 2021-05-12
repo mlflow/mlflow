@@ -84,9 +84,8 @@ def test_get():
 )
 def test_predict(tmpdir):
     temp_input_file_path = tmpdir.join("input.json").strpath
-    with open(temp_input_file_path, "w+t") as temp_input_file:
+    with open(temp_input_file_path, "w") as temp_input_file:
         temp_input_file.write('{"data": [5000]}')
-
         runner = CliRunner()
         res = runner.invoke(
             cli.predict,
