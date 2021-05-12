@@ -33,8 +33,6 @@ export const getExperimentIdValidator = (getCurrentExperimentId, getExistingExpe
       // no need to execute below validations when no value is entered
       // eslint-disable-next-line callback-return
       callback(undefined);
-    } else if (!(Number(value) === parseInt(value, 10))) {
-      callback(`Experiment ID must be an integer`);
     } else if (getCurrentExperimentId() == value) {
       callback(`"${value}" is the current experiment ID`);
     } else if (!getExistingExperimentIds().includes(value)) {
