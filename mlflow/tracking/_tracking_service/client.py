@@ -22,12 +22,15 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from collections import OrderedDict
 
 
 class TrackingServiceClient(object):
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
+
+    _artifact_repos_cache = OrderedDict()
 
     def __init__(self, tracking_uri):
         """
@@ -255,11 +258,22 @@ class TrackingServiceClient(object):
         self.store.record_logged_model(run_id, mlflow_model)
 
     def _get_artifact_repo(self, run_id):
-        run = self.get_run(run_id)
-        artifact_uri = add_databricks_profile_info_to_artifact_uri(
-            run.info.artifact_uri, self.tracking_uri
-        )
-        return get_artifact_repository(artifact_uri)
+        # Attempt to fetch the artifact repo from a local cache
+        cached_repo = TrackingServiceClient._artifact_repos_cache.get(run_id)
+        if cached_repo is not None:
+            return cached_repo
+        else:
+            run = self.get_run(run_id)
+            artifact_uri = add_databricks_profile_info_to_artifact_uri(
+                run.info.artifact_uri, self.tracking_uri
+            )
+            artifact_repo = get_artifact_repository(artifact_uri)
+            # Cache the artifact repo to avoid a future network call, removing the oldest
+            # entry in the cache if there are too many elements
+            if len(TrackingServiceClient._artifact_repos_cache) > 1024:
+                TrackingServiceClient._artifact_repos_cache.popitem(last=False)
+            TrackingServiceClient._artifact_repos_cache[run_id] = artifact_repo
+            return artifact_repo
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
