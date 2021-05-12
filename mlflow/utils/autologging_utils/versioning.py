@@ -1,7 +1,7 @@
 import importlib
 import yaml
 
-from packaging.version import Version
+from packaging.version import Version, InvalidVersion
 from pkg_resources import resource_filename
 
 
@@ -22,6 +22,14 @@ FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY = {
 
 def _check_version_in_range(ver, min_ver, max_ver):
     return Version(min_ver) <= Version(ver) <= Version(max_ver)
+
+
+def _violates_pep_440(ver):
+    try:
+        _ = Version(ver)
+        return False
+    except InvalidVersion:
+        return True
 
 
 def _is_pre_or_dev_release(ver):
@@ -52,7 +60,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     """
     module_name, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor_name]
     actual_version = importlib.import_module(module_name).__version__
-    if _is_pre_or_dev_release(actual_version):
+    if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
     min_version, max_version, _ = get_min_max_version_and_pip_release(module_key)
     return _check_version_in_range(actual_version, min_version, max_version)
