@@ -88,7 +88,7 @@ def test_predict(tmpdir):
         temp_input_file.write('{"data": [5000]}')
     runner = CliRunner()
     res = runner.invoke(
-        cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path],
+        cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
     )
     assert "1" in res.stdout
 
@@ -107,3 +107,18 @@ def test_run_local():
     assert "Deployed locally at the key {}".format(f_name) in res.stdout
     assert "using the model from {}.".format(f_model_uri) in res.stdout
     assert "It's flavor is {} and config is {}".format(f_flavor, str({})) in res.stdout
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny Client does not support explain due to the pandas dependency",
+)
+def test_explain(tmpdir):
+    temp_input_file_path = tmpdir.join("input.json").strpath
+    with open(temp_input_file_path, "w") as temp_input_file:
+        temp_input_file.write('{"data": [5000]}')
+    runner = CliRunner()
+    res = runner.invoke(
+        cli.explain, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
+    )
+    assert "1" in res.stdout

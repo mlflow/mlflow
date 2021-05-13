@@ -258,3 +258,24 @@ def predict(target, name, input_path, output_path):
             predictions_to_json(result, fp)
     else:
         predictions_to_json(result, sys.stdout)
+
+
+@commands.command("explain")
+@deployment_name
+@target_details
+@parse_input
+@parse_output
+def explain(target, name, input_path, output_path):
+    """
+    predict the features importance for the deployed model for the given input(s)
+    """
+    import pandas as pd
+
+    df = pd.read_json(input_path)
+    client = interface.get_deploy_client(target)
+    result = client.explain(name, df)
+    if output_path:
+        with open(output_path, "w") as fp:
+            predictions_to_json(result, fp)
+    else:
+        predictions_to_json(result, sys.stdout)
