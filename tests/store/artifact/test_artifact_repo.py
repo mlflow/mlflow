@@ -1,6 +1,6 @@
 import posixpath
-import pytest
 from unittest import mock
+import pytest
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
