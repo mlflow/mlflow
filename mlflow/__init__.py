@@ -27,6 +27,23 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
+import google.protobuf
+from packaging.version import Version
+
+if Version(google.protobuf.__version__) <= Version("3.6.1"):
+    from google.protobuf.internal import enum_type_wrapper
+
+    # For version less than 3.6.1, Add EnumTypeWrapper.__getattr__ to access values
+    # see https://github.com/protocolbuffers/protobuf/pull/5234
+    class NewEnumTypeWrapper(enum_type_wrapper.EnumTypeWrapper):
+        def __getattr__(self, name):
+            """Returns the value coresponding to the given enum name."""
+            if name in self._enum_type.values_by_name:
+                return self._enum_type.values_by_name[name].number
+            raise AttributeError
+
+    enum_type_wrapper.EnumTypeWrapper = NewEnumTypeWrapper
+
 from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 import mlflow.tracking._model_registry.fluent
