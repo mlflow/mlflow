@@ -381,7 +381,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Check if the artifacts points to a directory
         if self._is_directory(artifact_path):
             local_dir, futures = download_artifact_dir(artifact_path)
-            futures.map(lambda f: f.result())
+            map(lambda f: f.result(), futures)
             return local_dir
         else:
             local_dir, future = download_file(artifact_path)
