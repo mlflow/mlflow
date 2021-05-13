@@ -230,7 +230,7 @@ class LightningMNISTClassifier(pl.LightningModule):
         """
         Prepares the data for training and prediction
         """
-        return {}
+        pass
 
     def configure_optimizers(self):
         """

@@ -117,6 +117,7 @@ class BertDataModule(pl.LightningDataModule):
         """
         Implementation of abstract class
         """
+        pass
 
     def setup(self, stage=None):
         """
