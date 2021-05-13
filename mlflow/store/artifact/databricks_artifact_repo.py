@@ -4,6 +4,7 @@ import os
 import posixpath
 import requests
 import uuid
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 from mlflow.azure.client import put_block, put_block_list
@@ -334,6 +335,58 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return self.thread_pool.submit(
             self._download_from_cloud, read_credentials.credentials, local_path,
         )
+
+    def download_artifacts(self, artifact_path):
+        """
+        Parallelized override of `download_artifacts`.
+        """
+
+        def download_file(fullpath):
+            """
+            Submit a download of `fullpath` to the thread pool and return the
+            resultant Future.
+            """
+            fullpath = fullpath.rstrip("/")
+            dirpath, _ = posixpath.split(fullpath)
+            local_dir_path = os.path.join(dst_path, dirpath)
+            local_file_path = os.path.join(dst_path, fullpath)
+            if not os.path.exists(local_dir_path):
+                os.makedirs(local_dir_path)
+            return local_file_path, self._download_file(remote_file_path=fullpath, local_path=local_file_path)
+
+        def download_artifact_dir(dir_path):
+            download_futures = []
+            local_dir = os.path.join(dst_path, dir_path)
+            dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
+                file_info
+                for file_info in self.list_artifacts(dir_path)
+                if file_info.path != "." and file_info.path != dir_path
+            ]
+            if not dir_content:  # empty dir
+                if not os.path.exists(local_dir):
+                    os.makedirs(local_dir)
+            else:
+                for file_info in dir_content:
+                    if file_info.is_dir:
+                        _, futures = download_artifact_dir(dir_path=file_info.path)
+                        download_futures += futures
+                    else:
+                        _, future = download_file(file_info.path)
+                        download_futures += [future]
+            return local_dir, download_futures
+
+        dst_path = tempfile.mkdtemp()
+        dst_path = os.path.abspath(dst_path)
+
+        # Check if the artifacts points to a directory
+        if self._is_directory(artifact_path):
+            local_dir, futures = download_artifact_dir(artifact_path)
+            futures.map(lambda f: f.result())
+            return local_dir
+        else:
+            local_dir, future = download_file(artifact_path)
+            future.result()
+            return local_dir
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
