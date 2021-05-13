@@ -11,7 +11,8 @@ from mlflow.azure.client import put_block, put_block_list
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
+
 from mlflow.protos.databricks_artifacts_pb2 import (
     DatabricksMlflowArtifactsService,
     GetCredentialsForWrite,
@@ -332,11 +333,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
             self.run_relative_artifact_repo_root_path, remote_file_path
         )
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
-        return self.thread_pool.submit(
-            self._download_from_cloud, read_credentials.credentials, local_path,
-        )
+        return self._download_from_cloud(read_credentials.credentials, local_path)
 
-    def download_artifacts(self, artifact_path):
+    def download_artifacts(self, artifact_path, dst_path=None):
         """
         Parallelized override of `download_artifacts`.
         """
@@ -352,7 +351,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             local_file_path = os.path.join(dst_path, fullpath)
             if not os.path.exists(local_dir_path):
                 os.makedirs(local_dir_path)
-            return local_file_path, self._download_file(remote_file_path=fullpath, local_path=local_file_path)
+            return local_file_path, self.thread_pool.submit(self._download_file, remote_file_path=fullpath, local_path=local_file_path)
 
         def download_artifact_dir(dir_path):
             download_futures = []
@@ -375,8 +374,26 @@ class DatabricksArtifactRepository(ArtifactRepository):
                         download_futures += [future]
             return local_dir, download_futures
 
-        dst_path = tempfile.mkdtemp()
+        if dst_path is None:
+            dst_path = tempfile.mkdtemp()
         dst_path = os.path.abspath(dst_path)
+
+        if not os.path.exists(dst_path):
+            raise MlflowException(
+                message=(
+                    "The destination path for downloaded artifacts does not"
+                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)
+                ),
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        elif not os.path.isdir(dst_path):
+            raise MlflowException(
+                message=(
+                    "The destination path for downloaded artifacts must be a directory!"
+                    " Destination path: {dst_path}".format(dst_path=dst_path)
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
         # Check if the artifacts points to a directory
         if self._is_directory(artifact_path):
