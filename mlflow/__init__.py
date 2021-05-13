@@ -43,10 +43,10 @@ if Version(google.protobuf.__version__) <= Version("3.6.1"):
 
     enum_type_wrapper.EnumTypeWrapper.__getattr__ = patched_EnumTypeWrapper__getattr__
 
-from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
-import mlflow.tracking._model_registry.fluent
-import mlflow.tracking.fluent
+from mlflow.version import VERSION as __version__  # pylint: disable=unused-import # noqa: E402
+from mlflow.utils.logging_utils import _configure_mlflow_loggers  # noqa: E402
+import mlflow.tracking._model_registry.fluent  # noqa: E402
+import mlflow.tracking.fluent  # noqa: E402
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
