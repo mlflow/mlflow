@@ -265,6 +265,17 @@
           </executions>
         </plugin>
         <plugin>
+          <groupId>org.sonatype.plugins</groupId>
+          <artifactId>nexus-staging-maven-plugin</artifactId>
+          <version>1.6.8</version>
+          <extensions>true</extensions>
+          <configuration>
+             <serverId>ossrh</serverId>
+             <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+             <autoReleaseAfterClose>true</autoReleaseAfterClose>
+          </configuration>
+        </plugin>
+        <plugin>
           <groupId>net.alchim31.maven</groupId>
           <artifactId>scala-maven-plugin</artifactId>
           <version>4.2.0</version>
