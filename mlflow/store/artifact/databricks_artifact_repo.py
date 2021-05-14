@@ -11,7 +11,11 @@ from mlflow.azure.client import put_block, put_block_list
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    INTERNAL_ERROR,
+    RESOURCE_DOES_NOT_EXIST,
+)
 
 from mlflow.protos.databricks_artifacts_pb2 import (
     DatabricksMlflowArtifactsService,
@@ -351,7 +355,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
             local_file_path = os.path.join(dst_path, fullpath)
             if not os.path.exists(local_dir_path):
                 os.makedirs(local_dir_path)
-            return local_file_path, self.thread_pool.submit(self._download_file, remote_file_path=fullpath, local_path=local_file_path)
+            return (
+                local_file_path,
+                self.thread_pool.submit(
+                    self._download_file, remote_file_path=fullpath, local_path=local_file_path
+                ),
+            )
 
         def download_artifact_dir(dir_path):
             """
