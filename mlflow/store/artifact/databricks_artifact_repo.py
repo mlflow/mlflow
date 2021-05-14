@@ -333,11 +333,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
             self.run_relative_artifact_repo_root_path, remote_file_path
         )
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
-        return self._download_from_cloud(read_credentials.credentials, local_path)
+        self._download_from_cloud(read_credentials.credentials, local_path)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
-        Parallelized override of `download_artifacts`.
+        Parallelized implementation of `download_artifacts` for Databricks.
         """
 
         def download_file(fullpath):
@@ -354,6 +354,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
             return local_file_path, self.thread_pool.submit(self._download_file, remote_file_path=fullpath, local_path=local_file_path)
 
         def download_artifact_dir(dir_path):
+            """
+            Recursively list files in the directory specified by `dir_path` and submit
+            asynchronous downloads for each encountered file, returning a list of futures
+            representing each download operation.
+            """
             download_futures = []
             local_dir = os.path.join(dst_path, dir_path)
             dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
@@ -395,13 +400,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # Check if the artifacts points to a directory
         if self._is_directory(artifact_path):
             local_dir, futures = download_artifact_dir(artifact_path)
-            map(lambda f: f.result(), futures)
+            # Join futures to ensure that all files in the directory have
+            # been downloaded prior to returning
+            for future in futures:
+                future.result()
             return local_dir
         else:
             local_dir, future = download_file(artifact_path)
+            # Join future to ensure that the file has been downloaded prior to returning
             future.result()
             return local_dir
 
