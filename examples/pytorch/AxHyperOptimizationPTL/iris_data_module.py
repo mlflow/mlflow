@@ -14,9 +14,6 @@ class IrisDataModule(pl.LightningDataModule):
         super().__init__()
         self.columns = None
 
-    def prepare_data(self):
-        pass
-
     def _get_iris_as_tensor_dataset(self):
         iris = load_iris()
         df = iris.data
