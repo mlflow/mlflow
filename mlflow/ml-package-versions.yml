@@ -304,7 +304,7 @@ spark:
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/apache/spark $temp_dir
         cd $temp_dir
-        export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
+        export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
         python setup.py bdist_wheel
