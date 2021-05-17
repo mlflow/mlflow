@@ -52,3 +52,18 @@ def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):
         client = TrackingServiceClient(databricks_uri)
         client._get_artifact_repo("some-run-id")
         get_repo_mock.assert_called_once_with(uri_for_repo)
+
+
+def test_artifact_repo_is_cached_per_run_id():
+    uri = "ftp://user:pass@host/path"
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.TrackingServiceClient.get_run",
+        return_value=Run(
+            RunInfo("uuid", "expr_id", "userid", "status", 0, 10, "active", artifact_uri=uri), None,
+        ),
+    ):
+        artifact_repo = TrackingServiceClient("some_tracking_uri")._get_artifact_repo("some_run_id")
+        another_artifact_repo = TrackingServiceClient("some_tracking_uri")._get_artifact_repo(
+            "some_run_id"
+        )
+        assert artifact_repo is another_artifact_repo

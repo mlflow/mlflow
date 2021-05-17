@@ -37,7 +37,7 @@ class PlainSectionDirective(Directive):
 
 
 def add_assets(app):
-    app.add_javascript(JS_FILE)
+    app.add_js_file(JS_FILE)
 
 
 def copy_assets(app, exception):
