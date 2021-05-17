@@ -46,8 +46,8 @@ if Version(google.protobuf.__version__) <= Version("3.6.1"):
 
 del google, Version
 
-# noqa: E402
-from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
+# pylint: disable=unused-import
+from mlflow.version import VERSION as __version__  # noqa: E402
 from mlflow.utils.logging_utils import _configure_mlflow_loggers  # noqa: E402
 import mlflow.tracking._model_registry.fluent  # noqa: E402
 import mlflow.tracking.fluent  # noqa: E402
@@ -55,7 +55,7 @@ import mlflow.tracking.fluent  # noqa: E402
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
 # See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
-import warnings
+import warnings  # noqa: E402
 
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
