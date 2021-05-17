@@ -30,6 +30,7 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 import google.protobuf
 from packaging.version import Version
 
+# This is a patch for protobuf <= 3.6.1, to make mlflow compatible with protobuf <= 3.6.1
 if Version(google.protobuf.__version__) <= Version("3.6.1"):
     from google.protobuf.internal import enum_type_wrapper
 
@@ -43,7 +44,10 @@ if Version(google.protobuf.__version__) <= Version("3.6.1"):
 
     enum_type_wrapper.EnumTypeWrapper.__getattr__ = patched_EnumTypeWrapper__getattr__
 
-from mlflow.version import VERSION as __version__  # pylint: disable=unused-import # noqa: E402
+del google, Version
+
+# noqa: E402
+from mlflow.version import VERSION as __version__  # pylint: disable=unused-import
 from mlflow.utils.logging_utils import _configure_mlflow_loggers  # noqa: E402
 import mlflow.tracking._model_registry.fluent  # noqa: E402
 import mlflow.tracking.fluent  # noqa: E402
