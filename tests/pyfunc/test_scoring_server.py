@@ -38,6 +38,11 @@ def pandas_df_with_all_types():
             "float": np.array([math.pi, 2 * math.pi, 3 * math.pi], np.float32),
             "double": [math.pi, 2 * math.pi, 3 * math.pi],
             "binary": [bytearray([1, 2, 3]), bytearray([4, 5, 6]), bytearray([7, 8, 9])],
+            "datetime": [
+                np.datetime64("2021-01-01 00:00:00"),
+                np.datetime64("2021-02-02 00:00:00"),
+                np.datetime64("2021-03-03 12:00:00"),
+            ],
         }
     )
     pdf["string"] = pd.Series(["a", "b", "c"], dtype=DataType.string.to_pandas())

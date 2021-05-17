@@ -28,7 +28,7 @@ alembic_files = [
     "../mlflow/store/db_migrations/alembic.ini",
     "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
-extra_files = ["../mlflow/ml-package-versions.yml"]
+extra_files = ["ml-package-versions.yml", "pyspark/ml/log_model_allowlist.txt"]
 
 """
 Minimal requirements for the skinny MLflow client which provides a limited
@@ -46,6 +46,7 @@ SKINNY_REQUIREMENTS = [
     "protobuf>=3.6.0",
     "pytz",
     "requests>=2.17.3",
+    "packaging",
 ]
 
 """

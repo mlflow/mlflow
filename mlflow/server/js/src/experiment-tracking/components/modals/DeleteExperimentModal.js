@@ -58,9 +58,8 @@ export class DeleteExperimentModalImpl extends Component {
             </p>
             {process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
               <p>
-                Deleted experiments are restorable for 30 days, after which they are purged.
-                <br />
-                Artifacts are not automatically purged and must be manually deleted.
+                Deleted experiments are restorable for 30 days, after which they are purged along
+                with their associated runs, including metrics, params, tags, and artifacts.
               </p>
             ) : (
               ''

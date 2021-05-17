@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import pandas as pd
-import mock
+from unittest import mock
 import os
 import yaml
 import json

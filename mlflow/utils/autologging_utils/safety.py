@@ -6,7 +6,6 @@ import os
 import uuid
 import warnings
 from abc import abstractmethod
-from collections import namedtuple
 from contextlib import contextmanager
 
 import mlflow
@@ -360,19 +359,31 @@ def safe_patch(
 
             original = gorilla.get_original_attribute(destination, function_name)
 
-            # If the autologging integration associated with this patch is disabled,
-            # call the original function and return
-            if autologging_is_disabled(autologging_integration):
-                return original(*args, **kwargs)
-
-            # Whether or not to exclude auto-autologged content from content explicitly logged via
-            # `mlflow.start_run()`
+            # Whether or not to exclude autologged content from user-created fluent runs
+            # (i.e. runs created manually via `mlflow.start_run()`)
             exclusive = get_autologging_config(autologging_integration, "exclusive", False)
+            user_created_fluent_run_is_active = (
+                mlflow.active_run() and not _AutologgingSessionManager.active_session()
+            )
+            active_session_failed = (
+                _AutologgingSessionManager.active_session() is not None
+                and _AutologgingSessionManager.active_session().state == "failed"
+            )
 
-            active_run = mlflow.active_run()
-
-            if active_run and exclusive and not _AutologgingSessionManager.active_session():
-                return original(*args, **kwargs)
+            if (
+                active_session_failed
+                or autologging_is_disabled(autologging_integration)
+                or (user_created_fluent_run_is_active and exclusive)
+            ):
+                # If the autologging integration associated with this patch is disabled,
+                # or if the current autologging integration is in exclusive mode and a user-created
+                # fluent run is active, call the original function and return. Restore the original
+                # warning behavior during original function execution, since autologging is being
+                # skipped
+                with set_non_mlflow_warnings_behavior_for_current_thread(
+                    disable_warnings=False, reroute_warnings=False,
+                ):
+                    return original(*args, **kwargs)
 
             # Whether or not the original / underlying function has been called during the
             # execution of patched code
@@ -477,6 +488,8 @@ def safe_patch(
                     else:
                         patch_function(call_original, *args, **kwargs)
 
+                    session.state = "succeeded"
+
                     try_log_autologging_event(
                         AutologgingEventLogger.get_logger().log_patch_function_success,
                         session,
@@ -486,6 +499,8 @@ def safe_patch(
                         kwargs,
                     )
                 except Exception as e:
+                    session.state = "failed"
+
                     # Exceptions thrown during execution of the original function should be
                     # propagated to the caller. Additionally, exceptions encountered during test
                     # mode should be reraised to detect bugs in autologging implementations
@@ -530,7 +545,12 @@ def safe_patch(
 # Represents an active autologging session using two fields:
 # - integration: the name of the autologging integration corresponding to the session
 # - id: a unique session identifier (e.g., a UUID)
-AutologgingSession = namedtuple("AutologgingSession", ["integration", "id"])
+# - state: the state of AutologgingSession, will be one of running/succeeded/failed
+class AutologgingSession:
+    def __init__(self, integration, id_):
+        self.integration = integration
+        self.id = id_
+        self.state = "running"
 
 
 class _AutologgingSessionManager:

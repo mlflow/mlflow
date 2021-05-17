@@ -7,16 +7,15 @@ sklearn:
 
   models:
     minimum: "0.20.3"
-    maximum: "0.24.1"
+    maximum: "0.24.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py --large
 
   autologging:
     minimum: "0.20.3"
-    maximum: "0.24.1"
+    maximum: "0.24.2"
     requirements: ["matplotlib"]
     run: |
-      pytest tests/sklearn/test_sklearn_training_session.py --large
       pytest tests/sklearn/test_sklearn_autolog.py --large
 
 pytorch:
@@ -27,7 +26,7 @@ pytorch:
 
   models:
     minimum: "1.4.0"
-    maximum: "1.8.0"
+    maximum: "1.8.1"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py --large
@@ -41,7 +40,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.2.4"
+    maximum: "1.3.0"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -108,10 +107,10 @@ keras:
     minimum: "2.2.4"
     maximum: "2.4.3"
     requirements:
-      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark==2.4.0", "pyarrow"]
-      "== dev": ["scikit-learn", "pyspark==2.4.0", "pyarrow"]
+      "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
+      "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
+      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
+      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -138,14 +137,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.3.3"
+    maximum: "1.4.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.3.3"
+    maximum: "1.4.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -161,17 +160,47 @@ lightgbm:
 
   models:
     minimum: "2.3.1"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py --large
 
   autologging:
     minimum: "2.3.1"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py --large
+
+catboost:
+  package_info:
+    pip_release: "catboost"
+    install_dev: |
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "catboost-*.whl") ]; then
+        pip install $(find $CACHE_DIR -type f -name "catboost-*.whl")
+      else
+        # Build wheel from source
+        temp_dir=$(mktemp -d)
+        git clone --depth 1 https://github.com/catboost/catboost $temp_dir
+        cd $temp_dir/catboost/python-package
+        python setup.py bdist_wheel
+
+        # Copy wheel in cache directory
+        wheel_path=$(find dist -type f -name "*.whl")
+        mkdir -p $CACHE_DIR
+        cp $wheel_path $CACHE_DIR
+
+        # Install wheel
+        pip install $wheel_path
+      fi
+
+  models:
+    minimum: "0.23.1"
+    maximum: "0.25.1"
+    requirements: ["scikit-learn"]
+    run: |
+      pytest tests/catboost/test_catboost_model_export.py --large
 
 gluon:
   package_info:
@@ -181,14 +210,14 @@ gluon:
 
   models:
     minimum: "1.5.1"
-    maximum: "1.7.0.post2"
+    maximum: "1.8.0.post0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_model_export.py --large
 
   autologging:
     minimum: "1.5.1"
-    maximum: "1.7.0.post2"
+    maximum: "1.8.0.post0"
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon_autolog/test_gluon_autolog.py --large
@@ -199,14 +228,14 @@ fastai-2.x:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.3.0"
+    maximum: "2.3.1"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_model_export.py --large
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.3.0"
+    maximum: "2.3.1"
     requirements: [torch, torchvision]
     run: |
       pytest tests/fastai/test_fastai_autolog.py --large
@@ -224,7 +253,7 @@ onnx:
 
   models:
     minimum: "1.5.0"
-    maximum: "1.8.1"
+    maximum: "1.9.0"
     requirements: ["onnxruntime", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py --large
@@ -237,7 +266,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.0.5"
+    maximum: "3.0.6"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py --large
@@ -259,3 +288,51 @@ statsmodels:
     maximum: "0.12.2"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py --large
+
+spark:
+  package_info:
+    pip_release: "pyspark"
+    install_dev: |
+      # The cross-version-tests workflow runs this command with the environment variable `CACHE_DIR`
+      if [ -d "$CACHE_DIR" ] && [ ! -z $(find $CACHE_DIR -type f -name "pyspark-*.whl") ]; then
+        pip install $(find $CACHE_DIR -type f -name "pyspark-*.whl")
+      else
+        # Build wheel from source
+        temp_dir=$(mktemp -d)
+        git clone --depth 1 https://github.com/apache/spark $temp_dir
+        cd $temp_dir
+        export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
+        ./build/mvn -DskipTests --no-transfer-progress clean package
+        cd python
+        python setup.py bdist_wheel
+
+        # Copy wheel in cache directory
+        wheel_path=$(find dist -type f -name "*.whl")
+        mkdir -p $CACHE_DIR
+        cp $wheel_path $CACHE_DIR
+
+        # Install wheel
+        pip install $wheel_path
+      fi
+
+  models:
+    minimum: "3.0.0"
+    maximum: "3.1.1"
+    requirements: ["boto3", "scikit-learn", "pyarrow"]
+    run: |
+      SAGEMAKER_OUT=$(mktemp)
+      if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+        echo "Sagemaker container build succeeded.";
+      else
+        echo "Sagemaker container build failed, output:";
+        cat $SAGEMAKER_OUT;
+        exit 1
+      fi
+      pytest --verbose tests/spark --large --ignore tests/spark/test_mleap_model_export.py
+
+  autologging:
+    minimum: "3.0.0"
+    maximum: "3.1.1"
+    run: |
+      # TODO: Add datasource autologging tests
+      find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --verbose --large
