@@ -48,6 +48,9 @@ jobs:
         sudo mkdir -p /etc/ld.so.conf.d
         sudo bash -c "cat > /etc/ld.so.conf.d/jre.conf <<< '/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64/jre/lib/amd64/server'"
         sudo ldconfig -v
+    - run: |
+        sudo apt-get clean --yes
+        sudo apt-get update --yes
     - uses: r-lib/actions/setup-r@v1
     # This step dumps the current set of R dependencies and R version into files to be used
     # as a cache key when caching/restoring R dependencies.
