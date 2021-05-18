@@ -224,12 +224,6 @@ class LightningMNISTClassifier(pl.LightningModule):
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         self.log("avg_test_acc", avg_test_acc)
 
-    def prepare_data(self):
-        """
-        Prepares the data for training and prediction
-        """
-        return {}
-
     def configure_optimizers(self):
         """
         Initializes the optimizer and learning rate scheduler
@@ -279,7 +273,6 @@ if __name__ == "__main__":
     model = LightningMNISTClassifier(**dict_args)
 
     dm = MNISTDataModule(**dict_args)
-    dm.prepare_data()
     dm.setup(stage="fit")
 
     early_stopping = EarlyStopping(
