@@ -1015,7 +1015,7 @@ def autolog(
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+    def _log_early_stop_callback_metrics(callback, history, metrics_logger, initial_epoch):
         if callback:
             callback_attrs = _get_early_stop_callback_attrs(callback)
             if callback_attrs is None:
@@ -1024,8 +1024,8 @@ def autolog(
             metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
             # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and restore_best_weights:
-                restored_epoch = stopped_epoch - max(1, patience)
+            if stopped_epoch != initial_epoch and restore_best_weights:
+                restored_epoch = stopped_epoch - patience
                 metrics_logger.record_metrics({"restored_epoch": restored_epoch})
                 restored_index = history.epoch.index(restored_epoch)
 
@@ -1087,7 +1087,8 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
+                initial_epoch = args[11] if len(args) >= 12 else kwargs.get("initial_epoch")
+                _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger, initial_epoch)
 
             _flush_queue()
             _log_artifacts_with_warning(

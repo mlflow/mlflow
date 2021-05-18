@@ -331,7 +331,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.large
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
-@pytest.mark.parametrize("patience", [0, 1, 5])
+@pytest.mark.parametrize("patience", [1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
@@ -346,7 +346,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert "stopped_epoch" in metrics
     assert "restored_epoch" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert int(metrics["stopped_epoch"]) - callback.patience == restored_epoch
     assert "loss" in history.history
     num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
