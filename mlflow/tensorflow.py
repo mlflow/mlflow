@@ -1027,7 +1027,9 @@ def autolog(
             # the value of `stopped_epoch`. `stopped_epoch` is non-zero if early stopping has
             # occurred, except in the case where training was early stopped after the first epoch
             # due to a configured patience value of zero
-            if ((stopped_epoch > 0) or (patience == 0 and expected_last_epoch > 0)) and restore_best_weights:
+            if (
+                (stopped_epoch > 0) or (patience == 0 and expected_last_epoch > 0)
+            ) and restore_best_weights:
                 restored_epoch = stopped_epoch - patience
                 metrics_logger.record_metrics({"restored_epoch": restored_epoch})
                 restored_index = history.epoch.index(restored_epoch)
@@ -1090,12 +1092,12 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0) 
+                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0)
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
                     history=history,
                     expected_last_epoch=epochs,
-                    metrics_logger=metrics_logger
+                    metrics_logger=metrics_logger,
                 )
 
             _flush_queue()
