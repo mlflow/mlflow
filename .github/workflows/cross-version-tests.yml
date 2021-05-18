@@ -1,6 +1,7 @@
 name: Cross version tests
 
 on:
+  workflow_dispatch:
   schedule:
     # Run this workflow daily at 7:00 UTC
     - cron: "0 7 * * *"
