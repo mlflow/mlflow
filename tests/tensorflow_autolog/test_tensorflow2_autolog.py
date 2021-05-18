@@ -331,7 +331,7 @@ def tf_keras_random_data_run_with_callback(
 @pytest.mark.large
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
-@pytest.mark.parametrize("patience", [1, 5])
+@pytest.mark.parametrize("patience", [0, 1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback):
     run, history, callback = tf_keras_random_data_run_with_callback
@@ -348,13 +348,10 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     restored_epoch = int(metrics["restored_epoch"])
     assert int(metrics["stopped_epoch"]) - callback.patience == restored_epoch
     assert "loss" in history.history
-    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
     metric_history = client.get_metric_history(run.info.run_id, "loss")
-    # Check the test epoch numbers are correct
-    assert num_of_epochs == max(1, callback.patience) + 1
-    # Check that MLflow has logged the metrics of the "best" model
-    assert len(metric_history) == num_of_epochs + 1
+    # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
+    assert len(metric_history) == len(history.history["loss"]) + 1
     # Check that MLflow has logged the correct data
     assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
 
@@ -362,7 +359,7 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
 @pytest.mark.large
 @pytest.mark.parametrize("restore_weights", [True])
 @pytest.mark.parametrize("callback", ["early"])
-@pytest.mark.parametrize("patience", [0, 1, 5])
+@pytest.mark.parametrize("patience", [1, 5])
 @pytest.mark.parametrize("initial_epoch", [0, 10])
 def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
     callback, restore_weights, patience, initial_epoch
@@ -398,7 +395,7 @@ def test_tf_keras_autolog_batch_metrics_logger_logs_expected_metrics(
         assert metric_name in patched_metrics_data
 
     restored_epoch = int(patched_metrics_data["restored_epoch"])
-    assert int(patched_metrics_data["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert int(patched_metrics_data["stopped_epoch"]) - callback.patience == restored_epoch
 
 
 @pytest.mark.large
