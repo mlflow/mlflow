@@ -33,7 +33,6 @@ class IterativePrune:
             mlflow.start_run(run_name="BaseModel")
         mlflow.pytorch.autolog()
         dm = MNISTDataModule(**parser_dict)
-        dm.prepare_data()
         dm.setup(stage="fit")
 
         model = LightningMNISTClassifier(**parser_dict)

@@ -113,11 +113,6 @@ class BertDataModule(pl.LightningDataModule):
         self.tokenizer = None
         self.args = kwargs
 
-    def prepare_data(self):
-        """
-        Implementation of abstract class
-        """
-
     def setup(self, stage=None):
         """
         Downloads the data, parse it and split the data into train, test, validation data
@@ -400,7 +395,6 @@ if __name__ == "__main__":
             dict_args["accelerator"] = None
 
     dm = BertDataModule(**dict_args)
-    dm.prepare_data()
     dm.setup(stage="fit")
 
     model = BertNewsClassifier(**dict_args)
