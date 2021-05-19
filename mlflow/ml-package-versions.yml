@@ -49,9 +49,7 @@ tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      # Unpin `tf-nightly` once the following issue is addressed:
-      # https://github.com/tensorflow/tensorflow/issues/46429
-      pip install 'tf-nightly==2.5.0.dev20210112'
+      pip install tf-nightly
 
   models:
     minimum: "1.15.4"
@@ -96,12 +94,6 @@ tensorflow:
 keras:
   package_info:
     pip_release: "keras"
-    install_dev: |
-      # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
-      # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
-      # Unpin `tf-nightly` once the following issue is addressed:
-      # https://github.com/tensorflow/tensorflow/issues/46429
-      pip install 'tf-nightly==2.5.0.dev20210112' 'keras>=2.4.0'
 
   models:
     minimum: "2.2.4"
