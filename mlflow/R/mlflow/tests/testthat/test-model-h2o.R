@@ -22,7 +22,7 @@ model <- h2o::h2o.randomForest(
 testthat_model_dir <- tempfile("model_")
 
 teardown({
-  h2o::h2o.shutdown(prompt = FALSE)
+  h2o::h2o.shutdown(prompt = TRUE)
   mlflow_clear_test_dir(testthat_model_dir)
 })
 
