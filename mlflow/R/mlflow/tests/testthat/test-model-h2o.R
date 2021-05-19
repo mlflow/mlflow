@@ -1,7 +1,7 @@
 context("Model h2o")
 
 setup({
-  h2o::h2o.init(port = httpuv::randomPort())
+  h2o::h2o.init()
 })
 
 idx <- withr::with_seed(3809, sample(nrow(iris)))
@@ -17,10 +17,7 @@ pkgs <- c("RCurl","jsonlite")
 for (pkg in pkgs) {
   if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
 }
-# Pin h2o to prevent version-mismatch between python and R
-install.packages("https://cran.r-project.org/src/contrib/Archive/h2o/h2o_3.30.1.3.tar.gz", repos=NULL, type="source")
-
-h2o::h2o.init()
+install.packages("h2o")
 
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
@@ -28,7 +25,7 @@ model <- h2o::h2o.randomForest(
 testthat_model_dir <- tempfile("model_")
 
 teardown({
-  h2o::h2o.shutdown(prompt = FALSE)
+  h2o::h2o.shutdown(prompt = TRUE)
   mlflow_clear_test_dir(testthat_model_dir)
 })
 
