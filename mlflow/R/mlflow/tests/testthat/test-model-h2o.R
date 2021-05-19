@@ -17,7 +17,6 @@ pkgs <- c("RCurl","jsonlite")
 for (pkg in pkgs) {
   if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
 }
-# Pin h2o to prevent version-mismatch between python and R
 install.packages("h2o")
 
 h2o::h2o.init()
