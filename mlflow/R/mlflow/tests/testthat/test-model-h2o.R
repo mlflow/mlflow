@@ -19,8 +19,6 @@ for (pkg in pkgs) {
 }
 install.packages("h2o")
 
-h2o::h2o.init()
-
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
 )
