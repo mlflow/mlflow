@@ -1,5 +1,8 @@
 context("Model h2o")
 
+setup({
+  h2o::h2o.init()
+})
 
 idx <- withr::with_seed(3809, sample(nrow(iris)))
 prediction <- "Species"
