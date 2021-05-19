@@ -20,6 +20,8 @@ for (pkg in pkgs) {
 # Pin h2o to prevent version-mismatch between python and R
 install.packages("https://cran.r-project.org/src/contrib/Archive/h2o/h2o_3.30.1.3.tar.gz", repos=NULL, type="source")
 
+print("h2o version:")
+print(packageVersion("h2o"))
 h2o::h2o.init()
 
 model <- h2o::h2o.randomForest(
