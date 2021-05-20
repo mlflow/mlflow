@@ -80,6 +80,7 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           set -x
+          pip install --upgrade pip
           pip install -e .
           pip install -r dev/small-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
