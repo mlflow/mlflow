@@ -3,7 +3,6 @@ sklearn:
     pip_release: "scikit-learn"
     install_dev: |
       # This installs scikit-learn from the default branch
-      echo "dummy change"
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
