@@ -10,22 +10,13 @@ predictors <- setdiff(colnames(iris), prediction)
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
 
-# Installing most recent h2o package, see https://docs.h2o.ai/h2o/latest-stable/h2o-docs/downloading.html#install-in-r
-if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
-if ("h2o" %in% rownames(installed.packages())) { remove.packages("h2o") }
-pkgs <- c("RCurl","jsonlite")
-for (pkg in pkgs) {
-  if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
-}
-install.packages("h2o")
-
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
 )
 testthat_model_dir <- tempfile("model_")
 
 teardown({
-  h2o::h2o.shutdown(prompt = TRUE)
+  h2o::h2o.shutdown(prompt = FALSE)
   mlflow_clear_test_dir(testthat_model_dir)
 })
 

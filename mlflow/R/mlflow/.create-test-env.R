@@ -12,7 +12,7 @@ keras::install_keras(method = "conda", envname = mlflow:::mlflow_conda_env_name(
 reticulate::conda_install("'h5py<3.0.0'", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install(Sys.getenv("MLFLOW_HOME", "../../../../."), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 reticulate::conda_install("xgboost", envname = mlflow:::mlflow_conda_env_name())
-reticulate::conda_install("h2o", envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
+reticulate::conda_install(paste0("h2o==", packageVersion("h2o")), envname = mlflow:::mlflow_conda_env_name(), pip = TRUE)
 
 # The default timeout value (60 seconds) can be insufficient for `spark_install` to complete
 options(timeout=60 * 60)
