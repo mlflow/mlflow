@@ -5,7 +5,7 @@ sklearn:
       # This installs scikit-learn from the default branch
       # Use `--use-no-pep517` as a workaround for workaround for this issue:
       # https://github.com/scikit-learn/scikit-learn/issues/20115
-      pip install git+https://github.com/scikit-learn/scikit-learn.git --use-no-pep517
+      pip install --use-no-pep517 git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.20.3"
