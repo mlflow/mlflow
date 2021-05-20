@@ -25,7 +25,7 @@ model <- h2o::h2o.randomForest(
 testthat_model_dir <- tempfile("model_")
 
 teardown({
-  h2o::h2o.shutdown(prompt = TRUE)
+  h2o::h2o.shutdown(prompt = FALSE)
   mlflow_clear_test_dir(testthat_model_dir)
 })
 
@@ -49,7 +49,7 @@ test_that("can print model correctly after it is loaded", {
 })
 
 test_that("can load and predict with python pyfunct and h2o backend", {
-  h2o::h2o.shutdown(prompt = TRUE)
+  h2o::h2o.shutdown(prompt = FALSE)
   pyfunc <- import("mlflow.pyfunc")
   py_model <- pyfunc$load_model(testthat_model_dir)
 
@@ -73,7 +73,7 @@ test_that("can load and predict with python pyfunct and h2o backend", {
 })
 
 test_that("Can predict with cli backend", {
-  h2o::h2o.shutdown(prompt = TRUE)
+  h2o::h2o.shutdown(prompt = FALSE)
   expected <- as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(test)))
 
   # # Test that we can score this model with pyfunc backend
