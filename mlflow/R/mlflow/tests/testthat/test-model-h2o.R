@@ -11,13 +11,13 @@ train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
 
 # Installing most recent h2o package, see https://docs.h2o.ai/h2o/latest-stable/h2o-docs/downloading.html#install-in-r
-if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
-if ("h2o" %in% rownames(installed.packages())) { remove.packages("h2o") }
-pkgs <- c("RCurl","jsonlite")
-for (pkg in pkgs) {
-  if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
-}
-install.packages("h2o")
+# if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
+# if ("h2o" %in% rownames(installed.packages())) { remove.packages("h2o") }
+# pkgs <- c("RCurl","jsonlite")
+# for (pkg in pkgs) {
+#   if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
+# }
+# install.packages("h2o")
 
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)
@@ -49,7 +49,6 @@ test_that("can print model correctly after it is loaded", {
 })
 
 test_that("can load and predict with python pyfunct and h2o backend", {
-  h2o::h2o.shutdown(prompt = FALSE)
   pyfunc <- import("mlflow.pyfunc")
   py_model <- pyfunc$load_model(testthat_model_dir)
 
@@ -73,7 +72,6 @@ test_that("can load and predict with python pyfunct and h2o backend", {
 })
 
 test_that("Can predict with cli backend", {
-  h2o::h2o.shutdown(prompt = FALSE)
   expected <- as.data.frame(h2o::h2o.predict(model, h2o::as.h2o(test)))
 
   # # Test that we can score this model with pyfunc backend
