@@ -2,6 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
+      pip install Cython>=0.28.5 scipy>=1.1.0
       # This installs scikit-learn from the default branch
       # Use `--no-use-pep517` as a workaround for this issue:
       # https://github.com/scikit-learn/scikit-learn/issues/20115
