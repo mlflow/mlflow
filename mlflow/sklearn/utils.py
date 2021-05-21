@@ -5,6 +5,7 @@ import logging
 from numbers import Number
 import numpy as np
 import time
+import warnings
 
 import mlflow
 from mlflow.entities import Metric, Param
@@ -579,7 +580,9 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
         try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
 
 
-def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags=None):
+def _create_child_runs_for_parameter_search(
+    cv_estimator, parent_run, max_hyper_param_runs, child_tags=None
+):
     """
     Creates a collection of child runs for a parameter search training session.
     Runs are reconstructed from the `cv_results_` attribute of the specified trained
@@ -596,6 +599,12 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
                        for each child run.
     """
     import pandas as pd
+
+    def first_custom_rank_column(df):
+        column_names = df.columns.values
+        for i, col_name in enumerate(column_names):
+            if "rank_test_" in col_name:
+                return column_names[i]
 
     client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
@@ -615,9 +624,19 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
     # the seed estimator and update them with parameter subset specified
     # in the result row
     base_params = seed_estimator.get_params(deep=should_log_params_deeply)
-
     cv_results_df = pd.DataFrame.from_dict(cv_estimator.cv_results_)
-    for _, result_row in cv_results_df.iterrows():
+    rank_column_name = "rank_test_score"
+    if rank_column_name not in cv_results_df.columns.values:
+        rank_column_name = first_custom_rank_column(cv_results_df)
+        warnings.warn(
+            "Top {} child runs will be created based on ordering in {} column. ".format(
+                max_hyper_param_runs, rank_column_name,
+            )
+            + "One can choose not to limit the number of child runs created if so desired."
+        )
+    cv_results_best_n_df = cv_results_df.nsmallest(max_hyper_param_runs, rank_column_name)
+
+    for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(seed_estimator))

@@ -463,6 +463,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    max_hyper_param_runs=5,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -654,6 +655,11 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
+    :param max_hyper_param_runs: The max number of child mlflow runs to be created for
+                                 hyper parameter search based estimators. If one only cares about
+                                 creating an mlflow child run for the best k results from the
+                                 search, then set max_hyper_param_runs to k. The default value is
+                                 to track the best 5 hyper paramters.
     """
     import pandas as pd
     import sklearn
@@ -824,6 +830,7 @@ def autolog(
                     _create_child_runs_for_parameter_search(
                         cv_estimator=estimator,
                         parent_run=mlflow.active_run(),
+                        max_hyper_param_runs=max_hyper_param_runs,
                         child_tags=child_tags,
                     )
                 except Exception as e:

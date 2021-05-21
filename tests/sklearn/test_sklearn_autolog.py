@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+import warnings
 
 import sklearn
 import sklearn.base
@@ -733,7 +734,9 @@ def test_meta_estimator_fit_performs_logging_only_once():
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
 def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+    mlflow.sklearn.autolog(
+        log_input_examples=True, log_model_signatures=True, max_hyper_param_runs=3,
+    )
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
@@ -786,12 +789,18 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
+    num_total_results = len(cv_results)
+    num_rest = max(0, num_total_results - 3)
+    cv_results_best_n_df = cv_results.nsmallest(3, "rank_test_score")
+    cv_results_rest_df = cv_results.nlargest(num_rest, "rank_test_score", keep="last")
     # We expect to have created a child run for each point in the parameter search space
-    assert len(child_runs) == len(cv_results)
+    # up to a max_hyper_param_runs = 3.
+    assert len(child_runs) == 3
+    assert len(child_runs) + num_rest == num_total_results
 
-    # Verify that each set of parameter search results has a corresponding MLflow run
-    # with the expected data
-    for _, result in cv_results.iterrows():
+    # Verify that the best max_hyper_param_runs of parameter search results
+    # have a corresponding MLflow run with the expected data
+    for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
             ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
@@ -811,6 +820,19 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         # Ensure that we do not capture separate metrics for each cross validation split, which
         # would produce very noisy metrics results
         assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
+
+    # Verify that the rest of the parameter search results do not have
+    # a corresponding MLflow run.
+    for _, result in cv_results_rest_df.iterrows():
+        result_params = result.get("params", {})
+        params_search_clause = " and ".join(
+            ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
+        )
+        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+            run_id, params_search_clause
+        )
+        child_runs = client.search_runs(run.info.experiment_id, search_filter)
+        assert len(child_runs) == 0
 
 
 def test_parameter_search_handles_large_volume_of_metric_outputs():
