@@ -251,7 +251,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install dependencies
       run: |
-        wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
+        wget https://github.com/google/protobuf/releases/download/v3.7.0/protoc-3.7.0-linux-x86_64.zip -O $HOME/protoc.zip
         sudo unzip $HOME/protoc.zip -d /usr
     - name: Run tests
       run: |
