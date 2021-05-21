@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -ex
-sudo chmod +x protoc
+sudo chmod +x $(which protoc)
 PROTOC_VERSION="$(protoc --version)"
 if [[ "$PROTOC_VERSION" != 'libprotoc 3.7.0' ]]; then
 	echo "Required libprotoc versions to be 3.7.0."
