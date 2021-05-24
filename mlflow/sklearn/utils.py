@@ -644,9 +644,7 @@ def _create_child_runs_for_parameter_search(
         rest = len(cv_results_df) - max_tuning_runs
         if rest > 0:
             _logger.info(
-                "Logging the %s best runs, %s others will be omitted.",
-                max_tuning_runs,
-                rest,
+                "Logging the %s best runs, %s others will be omitted.", max_tuning_runs, rest,
             )
 
     for _, result_row in cv_results_best_n_df.iterrows():
