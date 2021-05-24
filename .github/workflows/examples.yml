@@ -66,6 +66,10 @@ jobs:
         conda remove --all --yes --name test-environment
         ./dev/remove-conda-envs.sh
 
+    - name: Show disk usage
+      run: |
+        df –h
+
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
       run: |
