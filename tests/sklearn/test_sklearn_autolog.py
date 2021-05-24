@@ -142,6 +142,11 @@ def test_autolog_preserves_original_function_attributes():
         assert b == a
 
 
+def test_autolog_throws_error_with_negative_max_tuning_runs():
+    with pytest.raises(ValueError, match="`max_tuning_runs` must be non-negative, instead got -1."):
+        mlflow.sklearn.autolog(max_tuning_runs=-1)
+
+
 @pytest.mark.skipif(
     _is_supported_version(), reason="This test fails on supported versions of sklearn"
 )

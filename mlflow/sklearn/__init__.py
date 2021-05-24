@@ -693,6 +693,11 @@ def autolog(
         MAX_ENTITY_KEY_LENGTH,
     )
 
+    if max_tuning_runs is not None and max_tuning_runs < 0:
+        raise ValueError(
+            "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs,)
+        )
+
     if not _is_supported_version():
         warnings.warn(
             "Autologging utilities may not work properly on scikit-learn < {} ".format(

@@ -633,13 +633,21 @@ def _create_child_runs_for_parameter_search(
         if rank_column_name not in cv_results_df.columns.values:
             rank_column_name = first_custom_rank_column(cv_results_df)
             warnings.warn(
-                "Top {} child runs will be created based on ordering in {} column. ".format(
+                "Top {} child runs will be created based on ordering in {} column.".format(
                     max_tuning_runs, rank_column_name,
                 )
-                + "You can choose not to limit the number of child runs created by"
+                + " You can choose not to limit the number of child runs created by"
                 + " setting `max_tuning_runs=None`."
             )
         cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
+        # Log how many child runs will be created vs omitted.
+        rest = len(cv_results_df) - max_tuning_runs
+        if rest > 0:
+            _logger.info(
+                "Logging the {} best runs, {} others will be omitted.".format(
+                    max_tuning_runs, rest,
+                )
+            )
 
     for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
