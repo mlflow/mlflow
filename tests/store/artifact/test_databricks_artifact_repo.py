@@ -721,7 +721,7 @@ class TestDatabricksArtifactRepository(object):
     def test_artifact_logging_awaits_upload_completion(self, databricks_artifact_repo, tmpdir):
         """
         Verifies that all asynchronous artifact uploads initiated by `log_artifact()` and
-        `log_artifacts()` are joined before these methods return a result to the caller 
+        `log_artifacts()` are joined before these methods return a result to the caller
         """
         src_dir = os.path.join(str(tmpdir), "src")
         os.makedirs(src_dir)

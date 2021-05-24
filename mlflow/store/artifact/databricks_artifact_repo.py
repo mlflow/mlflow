@@ -297,10 +297,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
-        for (
-            src_file_path,
-            upload_future,
-        ) in inflight_uploads.items():
+        for (src_file_path, upload_future) in inflight_uploads.items():
             try:
                 upload_future.result()
             except Exception as e:
@@ -311,8 +308,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message=(
                     "The following failures occurred while uploading one or more artifacts"
                     " to {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri,
-                        failures=failed_uploads,
+                        artifact_root=self.artifact_uri, failures=failed_uploads,
                     )
                 )
             )
@@ -507,8 +503,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message=(
                     "The following failures occurred while downloading one or more"
                     " artifacts from {artifact_root}: {failures}".format(
-                        artifact_root=self.artifact_uri,
-                        failures=failed_downloads,
+                        artifact_root=self.artifact_uri, failures=failed_downloads,
                     )
                 )
             )
