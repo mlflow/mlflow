@@ -637,7 +637,7 @@ def _create_child_runs_for_parameter_search(
                     max_tuning_runs, rank_column_name,
                 )
                 + "You can choose not to limit the number of child runs created by"
-                + "setting `max_tuning_runs=None`."
+                + " setting `max_tuning_runs=None`."
             )
         cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
 
