@@ -90,3 +90,7 @@ jobs:
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
       run: |
         docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
+
+    - name: Show disk usage
+      run: |
+        /bin/df -h
