@@ -429,8 +429,6 @@ def _load_model(model_path, keras_module, save_format, **kwargs):
     if save_format == "h5":
         model_path = model_path + ".h5"
 
-    from packaging.version import Version
-
     if save_format == "h5" and Version(keras_module.__version__.split("-")[0]) >= Version("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
