@@ -2,7 +2,7 @@
 
 import collections
 import pytest
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import numpy as np
 import pandas as pd
@@ -828,7 +828,7 @@ def get_text_vec_model(train_samples):
 
 
 @pytest.mark.skipif(
-    LooseVersion(tf.__version__) < LooseVersion("2.3.0"),
+    Version(tf.__version__) < Version("2.3.0"),
     reason=(
         "Deserializing a model with `TextVectorization` and `Embedding`"
         "fails in tensorflow < 2.3.0. See this issue:"

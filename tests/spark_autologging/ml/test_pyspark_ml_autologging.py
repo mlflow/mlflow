@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from collections import namedtuple
-from distutils.version import LooseVersion
+from packaging.version import Version
 from unittest import mock
 
 import mlflow
@@ -170,8 +170,7 @@ def test_basic_estimator(dataset_binomial):
 
 
 @pytest.mark.skipif(
-    LooseVersion(pyspark.__version__) < LooseVersion("3.1"),
-    reason="This test require spark version >= 3.1",
+    Version(pyspark.__version__) < Version("3.1"), reason="This test require spark version >= 3.1",
 )
 def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-argument
     mlflow.pyspark.ml.autolog()  # initialize the variable `mlflow.pyspark.ml._log_model_allowlist`
