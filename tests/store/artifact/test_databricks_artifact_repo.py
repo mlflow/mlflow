@@ -652,13 +652,34 @@ class TestDatabricksArtifactRepository(object):
             )
             download_mock.assert_called_with(mock_credentials, ANY)
 
-    def test_databricks_download_file_get_request_fail(self, databricks_artifact_repo):
+    def test_databricks_download_file_get_request_fail(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_read_credentials"
         ) as read_credentials_mock, mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + ".list_artifacts"
         ) as get_list_mock, mock.patch(
-            DATABRICKS_ARTIFACT_REPOSITORY + "._download_from_cloud" 
+            "requests.get"
+        ) as request_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            read_credentials_response_proto = GetCredentialsForRead.Response(
+                credentials=mock_credentials
+            )
+            read_credentials_mock.return_value = read_credentials_response_proto
+            get_list_mock.return_value = []
+            request_mock.return_value = MlflowException("MOCK ERROR")
+            with pytest.raises(MlflowException):
+                databricks_artifact_repo.download_artifacts(test_file.strpath)
+            read_credentials_mock.assert_called_with(MOCK_RUN_ID, test_file.strpath)
+
+    def test_download_artifacts_provides_failure_info(self, databricks_artifact_repo):
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_read_credentials"
+        ) as read_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + ".list_artifacts"
+        ) as get_list_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._download_from_cloud"
         ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
@@ -668,13 +689,13 @@ class TestDatabricksArtifactRepository(object):
             )
             read_credentials_mock.return_value = read_credentials_response_proto
             get_list_mock.return_value = [
-                FileInfo(path="test_file_1.txt", is_dir=False, file_size=100),
-                FileInfo(path="test_file_2.txt", is_dir=False, file_size=200),
+                FileInfo(path="file_1.txt", is_dir=False, file_size=100),
+                FileInfo(path="file_2.txt", is_dir=False, file_size=0),
             ]
-            request_mock.return_value = MlflowException("MOCK ERROR 1")
-            # request_mock.return_value = [MlflowException("MOCK ERROR 1"), MlflowException("MOCK ERROR 2")]
-            with pytest.raises(Exception):
-            # with pytest.raises(MlflowException):
-                databricks_artifact_repo.download_artifacts("test_dir")
-            read_credentials_mock.assert_called_with(MOCK_RUN_ID, "test_file_1.txt")
-            read_credentials_mock.assert_called_with(MOCK_RUN_ID, "test_file_2.txt")
+            request_mock.side_effect = [MlflowException("MOCK ERROR 1"), MlflowException("MOCK ERROR 2")] 
+            with pytest.raises(MlflowException) as exc:
+                databricks_artifact_repo.download_artifacts("test_path")
+            assert "file_1.txt" in str(exc)
+            assert "MOCK ERROR 1" in str(exc)
+            assert "file_2.txt" in str(exc)
+            assert "MOCK ERROR 2" in str(exc)

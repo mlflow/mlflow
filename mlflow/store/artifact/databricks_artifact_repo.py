@@ -338,9 +338,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             self.run_relative_artifact_repo_root_path, remote_file_path
         )
         read_credentials = self._get_read_credentials(self.run_id, run_relative_remote_file_path)
-        print("READ CREDS", read_credentials)
         self._download_from_cloud(read_credentials.credentials, local_path)
-        print("DOWNLOADED FROM CLOUD")
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
@@ -378,8 +376,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                      the inflight download operation.
             """
             local_destination_file_path = self._create_download_destination(src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path)
-            self._download_file(src_artifact_path, local_destination_file_path)
-            print("DOWNLOADED FILEEEEE")
             download_future = self.thread_pool.submit(
                 self._download_file, remote_file_path=src_artifact_path, local_path=local_destination_file_path
             )
@@ -464,10 +460,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
         failed_downloads = {}
         for src_artifact_path, download_future in inflight_downloads.src_paths_to_futures_map.items():
             try:
-                print("AWAITING FUTURE")
-                print("FUT RESULT", download_future.result())
+                download_future.result()
             except Exception as e:
-                print("DEALING WITH EXCEPTION")
                 failed_downloads[src_artifact_path] = repr(e)
 
         if len(failed_downloads) > 0:
