@@ -1,4 +1,5 @@
 import base64
+import datetime
 
 from json import JSONEncoder
 
@@ -75,7 +76,7 @@ class NumpyEncoder(JSONEncoder):
             return encode_binary(o), True
         if isinstance(o, np.datetime64):
             return np.datetime_as_string(o), True
-        if isinstance(o, pd.Timestamp):
+        if isinstance(o, (pd.Timestamp, datetime.date)):
             return o.isoformat(), True
         return o, False
 

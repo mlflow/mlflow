@@ -196,7 +196,7 @@ html_show_sourcelink = False
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 html_show_sphinx = False
 
-html_add_permalinks = " "
+html_permalinks_icon = " "
 
 # If true, "(C) Copyright ..." is shown in the HTML footer. Default is True.
 # html_show_copyright = True
@@ -321,12 +321,16 @@ nitpick_ignore = [
     ("py:class", "enum.Enum"),
     ("py:class", "bytes"),
     ("py:class", "bytearray"),
-    # Suppress warnings that stem from type annotations for model signature
+    # Suppress warnings for missing references in type annotations
     ("py:class", "numpy.dtype"),
     ("py:class", "numpy.ndarray"),
     ("py:class", "pandas.core.series.Series"),
     ("py:class", "pandas.core.frame.DataFrame"),
+    ("py:class", "pandas.DataFrame"),
     ("py:class", "pyspark.sql.dataframe.DataFrame"),
+    ("py:class", "matplotlib.figure.Figure"),
+    ("py:class", "plotly.graph_objects.Figure"),
+    ("py:class", "PIL.Image.Image"),
     ("py:class", "mlflow.types.schema.DataType"),
     ("py:class", "mlflow.types.schema.ColSpec"),
     ("py:class", "mlflow.types.schema.TensorSpec"),

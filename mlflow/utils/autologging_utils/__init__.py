@@ -429,3 +429,78 @@ def autologging_is_disabled(integration_name):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
 
     return False
+
+
+def _get_new_training_session_class():
+    """
+    Returns a session manager class for nested autologging runs.
+
+    Examples
+    --------
+    >>> class Parent: pass
+    >>> class Child: pass
+    >>> class Grandchild: pass
+    >>>
+    >>> _TrainingSession = _get_new_training_session_class()
+    >>> with _TrainingSession(Parent, False) as p:
+    ...     with _SklearnTrainingSession(Child, True) as c:
+    ...         with _SklearnTrainingSession(Grandchild, True) as g:
+    ...             print(p.should_log(), c.should_log(), g.should_log())
+    True False False
+    >>>
+    >>> with _TrainingSession(Parent, True) as p:
+    ...     with _TrainingSession(Child, False) as c:
+    ...         with _TrainingSession(Grandchild, True) as g:
+    ...             print(p.should_log(), c.should_log(), g.should_log())
+    True True False
+    >>>
+    >>> with _TrainingSession(Child, True) as c1:
+    ...     with _TrainingSession(Child, True) as c2:
+    ...             print(c1.should_log(), c2.should_log())
+    True False
+    """
+    # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now
+    # because:
+    # 1. We don't currently have any use cases for allow_children=True.
+    # 2. The list append & pop operations are thread-safe, so we will always clear the session stack
+    #    once all _TrainingSessions exit.
+    class _TrainingSession(object):
+        _session_stack = []
+
+        def __init__(self, clazz, allow_children=True):
+            """
+            A session manager for nested autologging runs.
+
+            :param clazz: A class object that this session originates from.
+            :param allow_children: If True, allows autologging in child sessions.
+                                   If False, disallows autologging in all descendant sessions.
+            """
+            self.allow_children = allow_children
+            self.clazz = clazz
+            self._parent = None
+
+        def __enter__(self):
+            if len(_TrainingSession._session_stack) > 0:
+                self._parent = _TrainingSession._session_stack[-1]
+                self.allow_children = (
+                    _TrainingSession._session_stack[-1].allow_children and self.allow_children
+                )
+            _TrainingSession._session_stack.append(self)
+            return self
+
+        def __exit__(self, tp, val, traceback):
+            _TrainingSession._session_stack.pop()
+
+        def should_log(self):
+            """
+            Returns True when at least one of the following conditions satisfies:
+
+            1. This session is the root session.
+            2. The parent session allows autologging and its class differs from this session's
+               class.
+            """
+            return (self._parent is None) or (
+                self._parent.allow_children and self._parent.clazz != self.clazz
+            )
+
+    return _TrainingSession

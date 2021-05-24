@@ -386,7 +386,7 @@ def test_get_params_returns_dict_whose_key_or_value_exceeds_length_limit(long_pa
     X, y = get_iris()
 
     with mock.patch("sklearn.cluster.KMeans.get_params", return_value=long_params), mock.patch(
-        "mlflow.sklearn.utils._logger.warning"
+        "mlflow.utils._logger.warning"
     ) as mock_warning, mlflow.start_run() as run:
         model = sklearn.cluster.KMeans()
         model.fit(X, y)
@@ -1472,3 +1472,25 @@ def test_eval_and_log_metrics_throws_with_invalid_args():
         mlflow.sklearn.eval_and_log_metrics(
             model=SpectralClustering(), X=X, y_true=y_true, prefix="val_"
         )
+
+
+def test_metric_computation_handles_absent_labels():
+    """
+    Verifies that autologging metric computation does not fail For models that do not require
+    labels as inputs to training, such as clustering models and other unsupervised techniques.
+    """
+    mlflow.sklearn.autolog()
+
+    model = sklearn.cluster.KMeans()
+
+    with mlflow.start_run() as run:
+        # Train a clustering model solely on samples, without specifying labels
+        model.fit(X=get_iris()[0])
+
+    params, metrics, tags, artifacts = get_run_data(run.info.run_id)
+    assert params == truncate_dict(stringify_dict_values(model.get_params(deep=True)))
+    # We expect metrics to be absent because labels are required to compute autologging metrics
+    # for sklearn models
+    assert not metrics
+    assert tags == get_expected_class_tags(model)
+    assert MODEL_DIR in artifacts

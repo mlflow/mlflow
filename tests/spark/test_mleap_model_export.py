@@ -3,6 +3,7 @@ import os
 from unittest import mock
 
 import numpy as np
+import pyspark
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
 import pytest
@@ -14,15 +15,29 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.pyfunc.test_spark import get_spark_session
 
 
 from tests.spark.test_spark_model_export import (  # pylint: disable=unused-import
     model_path,
     iris_df,
-    spark_context,
     spark_model_iris,
     spark_custom_env,
 )
+
+
+@pytest.fixture(scope="session", autouse=True)
+def spark_context():
+    conf = pyspark.SparkConf()
+    conf.set(
+        key="spark.jars.packages",
+        value=(
+            "ml.combust.mleap:mleap-spark-base_2.11:0.12.0,"
+            "ml.combust.mleap:mleap-spark_2.11:0.12.0"
+        ),
+    )
+    spark_session = get_spark_session(conf)
+    return spark_session.sparkContext
 
 
 @pytest.mark.large

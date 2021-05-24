@@ -1,6 +1,5 @@
 import collections
 from distutils.version import LooseVersion
-from itertools import islice
 import inspect
 import logging
 from numbers import Number
@@ -10,6 +9,7 @@ import time
 import mlflow
 from mlflow.entities import Metric, Param
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils import _chunk_dict, _truncate_dict
 from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -73,7 +73,9 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
     :param fit_args: Positional arguments given to fit_func.
     :param fit_kwargs: Keyword arguments given to fit_func.
 
-    :returns: A tuple of either (X, y, sample_weight) or (X, y).
+    :returns: A tuple of either (X, y, sample_weight), where `y` and `sample_weight` may be
+              `None` if the specified `fit_args` and `fit_kwargs` do not specify labels or
+              a sample weighting.
     """
 
     def _get_Xy(args, kwargs, X_var_name, y_var_name):
@@ -83,10 +85,10 @@ def _get_args_for_metrics(fit_func, fit_args, fit_kwargs):
 
         # corresponds to: model.fit(X, <y_var_name>=y)
         if len(args) == 1:
-            return args[0], kwargs[y_var_name]
+            return args[0], kwargs.get(y_var_name)
 
         # corresponds to: model.fit(<X_var_name>=X, <y_var_name>=y)
-        return kwargs[X_var_name], kwargs[y_var_name]
+        return kwargs[X_var_name], kwargs.get(y_var_name)
 
     def _get_sample_weight(arg_names, args, kwargs):
         sample_weight_index = arg_names.index(_SAMPLE_WEIGHT)
@@ -409,35 +411,39 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    fitted_estimator, run_id, prefix, X, y_true, sample_weight=None
+    fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
 
     mlflow_client = MlflowClient()
     metrics = dict()
-    try:
-        if sklearn.base.is_classifier(fitted_estimator):
-            metrics = _get_classifier_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
-        elif sklearn.base.is_regressor(fitted_estimator):
-            metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
-    except Exception as err:
-        msg = (
-            "Failed to autolog metrics for "
-            + fitted_estimator.__class__.__name__
-            + ". Logging error: "
-            + str(err)
-        )
-        _logger.warning(msg)
-    else:
-        # batch log all metrics
-        try_mlflow_log(
-            mlflow_client.log_batch,
-            run_id,
-            metrics=[
-                Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                for key, value in metrics.items()
-            ],
-        )
+
+    if y_true is not None:
+        try:
+            if sklearn.base.is_classifier(fitted_estimator):
+                metrics = _get_classifier_metrics(
+                    fitted_estimator, prefix, X, y_true, sample_weight
+                )
+            elif sklearn.base.is_regressor(fitted_estimator):
+                metrics = _get_regressor_metrics(fitted_estimator, prefix, X, y_true, sample_weight)
+        except Exception as err:
+            msg = (
+                "Failed to autolog metrics for "
+                + fitted_estimator.__class__.__name__
+                + ". Logging error: "
+                + str(err)
+            )
+            _logger.warning(msg)
+        else:
+            # batch log all metrics
+            try_mlflow_log(
+                mlflow_client.log_batch,
+                run_id,
+                metrics=[
+                    Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
+                    for key, value in metrics.items()
+                ],
+            )
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -473,10 +479,11 @@ def _log_specialized_estimator_content(
     return metrics
 
 
-def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
+def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_weight=None):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
-    tailored to the estimator's type (e.g., regression vs classification).
+    tailored to the estimator's type (e.g., regression vs classification). Training labels
+    are required for metric computation; metrics will be omitted if labels are not available.
 
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
@@ -496,7 +503,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
         sample_weight=sample_weight,
     )
 
-    if hasattr(estimator, "score"):
+    if hasattr(estimator, "score") and y_true is not None:
         try:
             # Use the sample weight only if it is present in the score args
             score_arg_names = _get_arg_names(estimator.score)
@@ -517,46 +524,6 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true, sample_weight):
             metrics[score_key] = score
 
     return metrics
-
-
-def _chunk_dict(d, chunk_size):
-    # Copied from: https://stackoverflow.com/a/22878842
-
-    it = iter(d)
-    for _ in range(0, len(d), chunk_size):
-        yield {k: d[k] for k in islice(it, chunk_size)}
-
-
-def _truncate_dict(d, max_key_length=None, max_value_length=None):
-    def _truncate_and_ellipsize(value, max_length):
-        return str(value)[: (max_length - 3)] + "..."
-
-    key_is_none = max_key_length is None
-    val_is_none = max_value_length is None
-
-    if key_is_none and val_is_none:
-        raise ValueError("Must specify at least either `max_key_length` or `max_value_length`")
-
-    truncated = {}
-    for k, v in d.items():
-        should_truncate_key = (not key_is_none) and (len(str(k)) > max_key_length)
-        should_truncate_val = (not val_is_none) and (len(str(v)) > max_value_length)
-
-        new_k = _truncate_and_ellipsize(k, max_key_length) if should_truncate_key else k
-        if should_truncate_key:
-            # Use the truncated key for warning logs to avoid noisy printing to stdout
-            msg = "Truncated the key `{}`".format(new_k)
-            _logger.warning(msg)
-
-        new_v = _truncate_and_ellipsize(v, max_value_length) if should_truncate_val else v
-        if should_truncate_val:
-            # Use the truncated key and value for warning logs to avoid noisy printing to stdout
-            msg = "Truncated the value of the key `{}`. Truncated value: `{}`".format(new_k, new_v)
-            _logger.warning(msg)
-
-        truncated[new_k] = new_v
-
-    return truncated
 
 
 def _get_meta_estimators_for_autologging():

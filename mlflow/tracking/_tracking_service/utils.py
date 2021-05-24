@@ -38,7 +38,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri) -> None:
+def set_tracking_uri(uri: str) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.

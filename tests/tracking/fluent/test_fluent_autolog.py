@@ -20,12 +20,14 @@ import lightgbm
 import statsmodels
 import mxnet.gluon
 import pyspark
+import pyspark.ml
 import pytorch_lightning
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
 
-library_to_mlflow_module_without_pyspark = {
+
+library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
     fastai: mlflow.fastai,
@@ -34,10 +36,14 @@ library_to_mlflow_module_without_pyspark = {
     lightgbm: mlflow.lightgbm,
     statsmodels: mlflow.statsmodels,
     mxnet.gluon: mlflow.gluon,
+    pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
 }
 
-library_to_mlflow_module = {**library_to_mlflow_module_without_pyspark, pyspark: mlflow.spark}
+library_to_mlflow_module = {
+    **library_to_mlflow_module_without_spark_datasource,
+    pyspark: mlflow.spark,
+}
 
 
 @pytest.fixture(autouse=True)
@@ -94,7 +100,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
     with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
-        if library != pyspark:
+        if library != pyspark and library != pyspark.ml:
             autolog_mock.assert_not_called()
         mlflow.utils.import_hooks.notify_module_loaded(library)
         autolog_mock.assert_called_once()
@@ -107,7 +113,7 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
     with mock.patch("mlflow." + mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
 
-        if library == pyspark:
+        if library == pyspark or library == pyspark.ml:
             with pytest.raises(Exception, match="asdf"):
                 # mlflow.autolog() invokes mlflow.spark.autolog() immediately, rather
                 # than relying on import hooks; accordingly, we expect an exception
@@ -122,7 +128,9 @@ def test_universal_autolog_throws_if_specific_autolog_throws_in_test_mode(librar
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("library,mlflow_module", library_to_mlflow_module_without_pyspark.items())
+@pytest.mark.parametrize(
+    "library,mlflow_module", library_to_mlflow_module_without_spark_datasource.items()
+)
 def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_module):
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]
     args_to_test = {
@@ -139,7 +147,10 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     mlflow.utils.import_hooks.notify_module_loaded(library)
 
     for arg_key, arg_value in args_to_test.items():
-        assert get_autologging_config(mlflow_module.FLAVOR_NAME, arg_key, None) == arg_value
+        assert (
+            get_autologging_config(mlflow_module.autolog.integration_name, arg_key, None)
+            == arg_value
+        )
 
 
 @pytest.mark.large
