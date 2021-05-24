@@ -68,7 +68,8 @@ jobs:
 
     - name: Show disk usage
       run: |
-        df –h
+        which df
+        /bin/df -h
 
     - name: Run docker tests
       if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
