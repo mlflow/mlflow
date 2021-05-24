@@ -655,17 +655,16 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
-    :param max_tuning_runs: The maximum number of child Mlflow runs to be created for
-                            hyperparameter search estimators. If one only cares about
-                            creating an mlflow child run for the best k results(based on
-                            `rank_test_score` values) from the search, then set max_tuning_runs
+    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+                            search estimators. To create an mlflow child run for the
+                            best k results(based on `rank_test_score` values), set max_tuning_runs
                             to k. The default value is to track the best 5 search parameter sets.
-                            If `None` is passed as a value then a child run is created for each
-                            search parameter set. Note: In the case of multi-metric evaluation with
-                            a custom scorer, the first scorer’s `rank_test_score_<scorer_name>`
-                            will be used to select the best k results. One can change ordering of
-                            dict passed as `scoring` parameter for estimator to change which metric
-                            to use for selecting best k results.
+                            If `max_tuning_runs=None`, then a child run is created for each search
+                            parameter set. Note: In the case of multi-metric evaluation with a
+                            custom scorer, the first scorer’s `rank_test_score_<scorer_name>` will
+                            be used to select the best k results. To change metric used for
+                            selecting best k results, change ordering of dict passed as `scoring`
+                            parameter for estimator.
     """
     import pandas as pd
     import sklearn
