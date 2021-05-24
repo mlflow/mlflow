@@ -277,6 +277,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self._upload_to_cloud(write_credentials, local_file, run_relative_artifact_path)
 
     def log_artifacts(self, local_dir, artifact_path=None):
+        """
+        Parallelized implementation of `download_artifacts` for Databricks.
+        """
         artifact_path = artifact_path or ""
         inflight_uploads = {}
         for (dirpath, _, filenames) in os.walk(local_dir):
@@ -383,8 +386,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                                       `src_artifact_path` should be specified relative to the
                                       repository's artifact root location.
             :param dst_local_dir_path: Absolute path of the local filesystem destination directory
-                                       to which to download the specified artifact path. The
-                                       downloaded file may be written to a subdirectory of
+                                       to which to download the specified artifact. The downloaded
+                                       artifact may be written to a subdirectory of
                                        `dst_local_dir_path` if `src_artifact_path` contains
                                        subdirectories.
             :return: A tuple whose first element is the destination path of the downloaded

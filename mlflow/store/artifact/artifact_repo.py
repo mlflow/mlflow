@@ -118,8 +118,8 @@ class ArtifactRepository:
                                       `src_artifact_path` should be specified relative to the
                                       repository's artifact root location.
             :param dst_local_dir_path: Absolute path of the local filesystem destination directory
-                                       to which to download the specified artifact path. The
-                                       downloaded file may be written to a subdirectory of
+                                       to which to download the specified artifact. The downloaded
+                                       artifact may be written to a subdirectory of
                                        `dst_local_dir_path` if `src_artifact_path` contains
                                        subdirectories.
             :return: A local filesystem path referring to the downloaded file.
