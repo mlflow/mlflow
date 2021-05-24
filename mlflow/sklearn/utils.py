@@ -626,7 +626,7 @@ def _create_child_runs_for_parameter_search(
     base_params = seed_estimator.get_params(deep=should_log_params_deeply)
     cv_results_df = pd.DataFrame.from_dict(cv_estimator.cv_results_)
 
-    if max_tuning_runs == None:
+    if max_tuning_runs is None:
         cv_results_best_n_df = cv_results_df
     else:
         rank_column_name = "rank_test_score"

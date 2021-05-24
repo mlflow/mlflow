@@ -792,7 +792,7 @@ def test_parameter_search_estimators_produce_expected_outputs(
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
     num_total_results = len(cv_results)
-    if max_tuning_runs == None:
+    if max_tuning_runs is None:
         cv_results_best_n_df = cv_results
         cv_results_rest_df = pd.DataFrame()
     else:
