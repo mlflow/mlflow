@@ -840,7 +840,7 @@ class TestDatabricksArtifactRepository(object):
                 databricks_artifact_repo.log_artifacts(str(tmpdir), "test_artifacts")
 
             assert MOCK_RUN_ROOT_URI in str(exc)
-            assert src_file1_path in str(exc)
+            assert "file_1.txt" in str(exc)
             assert "MOCK ERROR 1" in str(exc)
-            assert src_file2_path in str(exc)
+            assert "file_2.txt" in str(exc)
             assert "MOCK ERROR 2" in str(exc)

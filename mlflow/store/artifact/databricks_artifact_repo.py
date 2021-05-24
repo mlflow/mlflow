@@ -308,9 +308,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         if len(failed_uploads) > 0:
             raise MlflowException(
-                message="The following failures occurred while uploading one or more artifacts to {artifact_root}: {failures}".format(
-                    artifact_root=self.artifact_uri,
-                    failures=failed_uploads,
+                message=(
+                    "The following failures occurred while uploading one or more artifacts"
+                    " to {artifact_root}: {failures}".format(
+                        artifact_root=self.artifact_uri,
+                        failures=failed_uploads,
+                    )
                 )
             )
 
@@ -404,7 +407,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
             return InflightDownloads(
                 local_dst_path=local_destination_file_path,
-                src_paths_to_futures_map={src_artifact_path: download_future,},
+                src_paths_to_futures_map={src_artifact_path: download_future},
             )
 
         def download_artifact_dir(src_artifact_dir_path, dst_local_dir_path):
@@ -501,9 +504,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         if len(failed_downloads) > 0:
             raise MlflowException(
-                message="The following failures occurred while downloading one or more artifacts from {artifact_root}: {failures}".format(
-                    artifact_root=self.artifact_uri,
-                    failures=failed_downloads,
+                message=(
+                    "The following failures occurred while downloading one or more"
+                    " artifacts from {artifact_root}: {failures}".format(
+                        artifact_root=self.artifact_uri,
+                        failures=failed_downloads,
+                    )
                 )
             )
 
