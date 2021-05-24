@@ -581,7 +581,7 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
 
 
 def _create_child_runs_for_parameter_search(
-    cv_estimator, parent_run, max_hyper_param_runs, child_tags=None
+    cv_estimator, parent_run, max_tuning_runs, child_tags=None
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -602,9 +602,9 @@ def _create_child_runs_for_parameter_search(
 
     def first_custom_rank_column(df):
         column_names = df.columns.values
-        for i, col_name in enumerate(column_names):
+        for col_name in column_names:
             if "rank_test_" in col_name:
-                return column_names[i]
+                return col_name
 
     client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
@@ -625,16 +625,21 @@ def _create_child_runs_for_parameter_search(
     # in the result row
     base_params = seed_estimator.get_params(deep=should_log_params_deeply)
     cv_results_df = pd.DataFrame.from_dict(cv_estimator.cv_results_)
-    rank_column_name = "rank_test_score"
-    if rank_column_name not in cv_results_df.columns.values:
-        rank_column_name = first_custom_rank_column(cv_results_df)
-        warnings.warn(
-            "Top {} child runs will be created based on ordering in {} column. ".format(
-                max_hyper_param_runs, rank_column_name,
+
+    if max_tuning_runs == None:
+        cv_results_best_n_df = cv_results_df
+    else:
+        rank_column_name = "rank_test_score"
+        if rank_column_name not in cv_results_df.columns.values:
+            rank_column_name = first_custom_rank_column(cv_results_df)
+            warnings.warn(
+                "Top {} child runs will be created based on ordering in {} column. ".format(
+                    max_tuning_runs, rank_column_name,
+                )
+                + "You can choose not to limit the number of child runs created by"
+                + "setting `max_tuning_runs=None`."
             )
-            + "One can choose not to limit the number of child runs created if so desired."
-        )
-    cv_results_best_n_df = cv_results_df.nsmallest(max_hyper_param_runs, rank_column_name)
+        cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
 
     for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}

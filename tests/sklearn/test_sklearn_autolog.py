@@ -732,9 +732,12 @@ def test_meta_estimator_fit_performs_logging_only_once():
     ],
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
-def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
+@pytest.mark.parametrize("max_tuning_runs", [None, 3])
+def test_parameter_search_estimators_produce_expected_outputs(
+    cv_class, search_space, backend, max_tuning_runs
+):
     mlflow.sklearn.autolog(
-        log_input_examples=True, log_model_signatures=True, max_hyper_param_runs=3,
+        log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
     )
 
     svc = sklearn.svm.SVC()
@@ -789,15 +792,19 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
     num_total_results = len(cv_results)
-    num_rest = max(0, num_total_results - 3)
-    cv_results_best_n_df = cv_results.nsmallest(3, "rank_test_score")
-    cv_results_rest_df = cv_results.nlargest(num_rest, "rank_test_score", keep="last")
-    # We expect to have created a child run for each point in the parameter search space
-    # up to a max_hyper_param_runs = 3.
-    assert len(child_runs) == 3
-    assert len(child_runs) + num_rest == num_total_results
+    if max_tuning_runs == None:
+        cv_results_best_n_df = cv_results
+        cv_results_rest_df = pd.DataFrame()
+    else:
+        num_rest = max(0, num_total_results - max_tuning_runs)
+        cv_results_best_n_df = cv_results.nsmallest(max_tuning_runs, "rank_test_score")
+        cv_results_rest_df = cv_results.nlargest(num_rest, "rank_test_score", keep="last")
+        # We expect to have created a child run for each point in the parameter search space
+        # up to max_tuning_runs.
+        assert len(child_runs) == max_tuning_runs
+        assert len(child_runs) + num_rest == num_total_results
 
-    # Verify that the best max_hyper_param_runs of parameter search results
+    # Verify that the best max_tuning_runs of parameter search results
     # have a corresponding MLflow run with the expected data
     for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
