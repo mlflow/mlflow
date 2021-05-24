@@ -26,8 +26,7 @@ jobs:
         CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
         EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
 
-        echo "CHANGED_FILES:"
-        echo "$CHANGED_FILES"
+        echo -e "CHANGED_FILES:\nCHANGED_FILES"
         echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
         echo "::set-output name=examples_changed::$EXAMPLES_CHANGED"
 
@@ -78,8 +77,7 @@ jobs:
         CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
         DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
 
-        echo "CHANGED_FILES:"
-        echo "$CHANGED_FILES"
+        echo -e "CHANGED_FILES:\nCHANGED_FILES"
         echo "DOCKER_CHANGED: $DOCKER_CHANGED"
         echo "::set-output name=docker_changed::$DOCKER_CHANGED"
 
