@@ -694,7 +694,10 @@ class TestDatabricksArtifactRepository(object):
                 FileInfo(path="file_1.txt", is_dir=False, file_size=100),
                 FileInfo(path="file_2.txt", is_dir=False, file_size=0),
             ]
-            download_mock.side_effect = [MlflowException("MOCK ERROR 1"), MlflowException("MOCK ERROR 2")]
+            download_mock.side_effect = [
+                MlflowException("MOCK ERROR 1"),
+                MlflowException("MOCK ERROR 2"),
+            ]
 
             with pytest.raises(MlflowException) as exc:
                 databricks_artifact_repo.download_artifacts("test_path")
@@ -728,7 +731,9 @@ class TestDatabricksArtifactRepository(object):
                 FileInfo(path="file_2.txt", is_dir=False, file_size=0),
             ]
 
-            def mock_download_from_cloud(cloud_credential, local_file_path):  # pylint: disable=unused-argument
+            def mock_download_from_cloud(
+                cloud_credential, local_file_path
+            ):  # pylint: disable=unused-argument
                 # Sleep in order to simulate a longer-running asynchronous download
                 time.sleep(2)
                 with open(local_file_path, "w") as f:
@@ -775,8 +780,10 @@ class TestDatabricksArtifactRepository(object):
             )
             write_credentials_mock.return_value = write_credentials_response_proto
 
-            def mock_upload_to_cloud(cloud_credentials, local_file_path, artifact_path):  # pylint: disable=unused-argument
-                # Sleep in order to simulate a longer-running asynchronous upload 
+            def mock_upload_to_cloud(
+                cloud_credentials, local_file_path, artifact_path
+            ):  # pylint: disable=unused-argument
+                # Sleep in order to simulate a longer-running asynchronous upload
                 time.sleep(2)
                 dst_path = os.path.join(dst_dir, artifact_path)
                 os.makedirs(os.path.dirname(dst_path), exist_ok=True)
@@ -791,13 +798,13 @@ class TestDatabricksArtifactRepository(object):
             assert os.path.exists(expected_dst_dir_file1_path)
             assert os.path.exists(expected_dst_dir_file2_path)
             with open(expected_dst_dir_file1_path, "r") as f:
-                assert(f.read() == "file1") 
+                assert f.read() == "file1"
             with open(expected_dst_dir_file2_path, "r") as f:
-                assert(f.read() == "file2") 
+                assert f.read() == "file2"
 
             databricks_artifact_repo.log_artifact(src_file1_path)
 
             expected_dst_file_path = os.path.join(dst_dir, "file_1.txt")
             assert os.path.exists(expected_dst_file_path)
             with open(expected_dst_file_path, "r") as f:
-                assert(f.read() == "file1") 
+                assert f.read() == "file1"

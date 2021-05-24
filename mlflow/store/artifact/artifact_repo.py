@@ -82,7 +82,7 @@ class ArtifactRepository:
         :return: The absolute path to a local filesystem location to be used as a destination
                  for downloading the artifact specified by `src_artifact_path`.
         """
-        src_artifact_path = src_artifact_path.rstrip("/") # Ensure correct dirname for trailing '/'
+        src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
         dirpath = posixpath.dirname(src_artifact_path)
         local_dir_path = os.path.join(dst_local_dir_path, dirpath)
         local_file_path = os.path.join(dst_local_dir_path, src_artifact_path)
@@ -124,8 +124,12 @@ class ArtifactRepository:
                                        subdirectories.
             :return: A local filesystem path referring to the downloaded file.
             """
-            local_destination_file_path = self._create_download_destination(src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path)
-            self._download_file(remote_file_path=src_artifact_path, local_path=local_destination_file_path)
+            local_destination_file_path = self._create_download_destination(
+                src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
+            )
+            self._download_file(
+                remote_file_path=src_artifact_path, local_path=local_destination_file_path
+            )
             return local_destination_file_path
 
         def download_artifact_dir(src_artifact_dir_path, dst_local_dir_path):
@@ -141,9 +145,14 @@ class ArtifactRepository:
             else:
                 for file_info in dir_content:
                     if file_info.is_dir:
-                        download_artifact_dir(src_artifact_dir_path=file_info.path, dst_local_dir_path=dst_local_dir_path)
+                        download_artifact_dir(
+                            src_artifact_dir_path=file_info.path,
+                            dst_local_dir_path=dst_local_dir_path,
+                        )
                     else:
-                        download_artifact(src_artifact_path=file_info.path, dst_local_dir_path=dst_local_dir_path)
+                        download_artifact(
+                            src_artifact_path=file_info.path, dst_local_dir_path=dst_local_dir_path
+                        )
             return local_dir
 
         if dst_path is None:
@@ -169,7 +178,9 @@ class ArtifactRepository:
 
         # Check if the artifacts points to a directory
         if self._is_directory(artifact_path):
-            return download_artifact_dir(src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path)
+            return download_artifact_dir(
+                src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path
+            )
         else:
             return download_artifact(src_artifact_path=artifact_path, dst_local_dir_path=dst_path)
 

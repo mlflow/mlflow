@@ -345,15 +345,15 @@ class DatabricksArtifactRepository(ArtifactRepository):
         Parallelized implementation of `download_artifacts` for Databricks.
         """
 
-        # Represents one or more in-progress artifact downloads to a local filesystem location 
+        # Represents one or more in-progress artifact downloads to a local filesystem location
         InflightDownloads = namedtuple(
             "InflightDownloads",
             [
-                # The local filesystem destination path to which artifacts are being downloaded 
+                # The local filesystem destination path to which artifacts are being downloaded
                 "local_dst_path",
                 # A map from artifact source paths, given relative to the repository's artifact
-                # root location, to futures representing their corresponding download operations 
-                "src_paths_to_futures_map"
+                # root location, to futures representing their corresponding download operations
+                "src_paths_to_futures_map",
             ],
         )
 
@@ -375,15 +375,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
                      file on the local filesystem and whose second element is a Future representing
                      the inflight download operation.
             """
-            local_destination_file_path = self._create_download_destination(src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path)
+            local_destination_file_path = self._create_download_destination(
+                src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
+            )
             download_future = self.thread_pool.submit(
-                self._download_file, remote_file_path=src_artifact_path, local_path=local_destination_file_path
+                self._download_file,
+                remote_file_path=src_artifact_path,
+                local_path=local_destination_file_path,
             )
             return InflightDownloads(
                 local_dst_path=local_destination_file_path,
-                src_paths_to_futures_map={
-                    src_artifact_path: download_future,
-                },
+                src_paths_to_futures_map={src_artifact_path: download_future,},
             )
 
         def download_artifact_dir(src_artifact_dir_path, dst_local_dir_path):
@@ -415,7 +417,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             dir_content = [  # prevent infinite loop, sometimes the dir is recursively included
                 file_info
                 for file_info in self.list_artifacts(src_artifact_dir_path)
-                if file_info.path != "." and file_info.path != src_artifact_dir_path 
+                if file_info.path != "." and file_info.path != src_artifact_dir_path
             ]
             if not dir_content:  # empty dir
                 if not os.path.exists(local_dir):
@@ -423,12 +425,19 @@ class DatabricksArtifactRepository(ArtifactRepository):
             else:
                 for file_info in dir_content:
                     if file_info.is_dir:
-                        inflight_downloads = download_artifact_dir(src_artifact_dir_path=file_info.path, dst_local_dir_path=dst_local_dir_path)
+                        inflight_downloads = download_artifact_dir(
+                            src_artifact_dir_path=file_info.path,
+                            dst_local_dir_path=dst_local_dir_path,
+                        )
                     else:
-                        inflight_downloads = download_artifact(src_artifact_path=file_info.path, dst_local_dir_path=dst_local_dir_path)
+                        inflight_downloads = download_artifact(
+                            src_artifact_path=file_info.path, dst_local_dir_path=dst_local_dir_path
+                        )
                     src_paths_to_futures_map.update(inflight_downloads.src_paths_to_futures_map)
 
-            return InflightDownloads(local_dst_path=local_dir, src_paths_to_futures_map=src_paths_to_futures_map)
+            return InflightDownloads(
+                local_dst_path=local_dir, src_paths_to_futures_map=src_paths_to_futures_map
+            )
 
         if dst_path is None:
             dst_path = tempfile.mkdtemp()
@@ -452,13 +461,20 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
 
         if self._is_directory(artifact_path):
-            inflight_downloads = download_artifact_dir(src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path)
+            inflight_downloads = download_artifact_dir(
+                src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path
+            )
         else:
-            inflight_downloads = download_artifact(src_artifact_path=artifact_path, dst_local_dir_path=dst_path)
+            inflight_downloads = download_artifact(
+                src_artifact_path=artifact_path, dst_local_dir_path=dst_path
+            )
 
         # Join futures to ensure that all artifacts have been downloaded prior to returning
         failed_downloads = {}
-        for src_artifact_path, download_future in inflight_downloads.src_paths_to_futures_map.items():
+        for (
+            src_artifact_path,
+            download_future,
+        ) in inflight_downloads.src_paths_to_futures_map.items():
             try:
                 download_future.result()
             except Exception as e:
@@ -466,10 +482,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         if len(failed_downloads) > 0:
             raise MlflowException(
-                message="The following failures occurred while downloading one or more artifacts: {}".format(failed_downloads) 
+                message="The following failures occurred while downloading one or more artifacts: {}".format(
+                    failed_downloads
+                )
             )
-        
-        return inflight_downloads.local_dst_path 
+
+        return inflight_downloads.local_dst_path
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
