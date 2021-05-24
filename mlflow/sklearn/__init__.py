@@ -656,15 +656,15 @@ def autolog(
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
     :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
-                            search estimators. To create an mlflow child run for the
-                            best k results(based on `rank_test_score` values), set max_tuning_runs
-                            to k. The default value is to track the best 5 search parameter sets.
-                            If `max_tuning_runs=None`, then a child run is created for each search
-                            parameter set. Note: In the case of multi-metric evaluation with a
-                            custom scorer, the first scorer’s `rank_test_score_<scorer_name>` will
-                            be used to select the best k results. To change metric used for
-                            selecting best k results, change ordering of dict passed as `scoring`
-                            parameter for estimator.
+                            search estimators. To create child runs for the best `k` results from
+                            the search, set `max_tuning_runs` to `k`. The default value is to track
+                            the best 5 search parameter sets. If `max_tuning_runs=None`, then
+                            a child run is created for each search parameter set. Note: The best k
+                            results is based on ordering in `rank_test_score`. In the case of
+                            multi-metric evaluation with a custom scorer, the first scorer’s
+                            `rank_test_score_<scorer_name>` will be used to select the best k
+                            results. To change metric used for selecting best k results, change
+                            ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
     import sklearn
