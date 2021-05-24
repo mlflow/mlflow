@@ -278,7 +278,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_path = artifact_path or ""
-        upload_futures = []
+        inflight_uploads = {}
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
@@ -290,10 +290,26 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 upload_future = self.thread_pool.submit(
                     self.log_artifact, file_path, artifact_subdir
                 )
-                upload_futures.append(upload_future)
+                inflight_uploads[file_path] = upload_future
 
-        for upload_future in upload_futures:
-            upload_future.result()
+        # Join futures to ensure that all artifacts have been uploaded prior to returning
+        failed_uploads = {}
+        for (
+            src_file_path,
+            upload_future,
+        ) in inflight_uploads.items():
+            try:
+                upload_future.result()
+            except Exception as e:
+                failed_uploads[src_file_path] = repr(e)
+
+        if len(failed_uploads) > 0:
+            raise MlflowException(
+                message="The following failures occurred while uploading one or more artifacts to {artifact_root}: {failures}".format(
+                    artifact_root=self.artifact_uri,
+                    failures=failed_uploads,
+                )
+            )
 
     def list_artifacts(self, path=None):
         if path:
@@ -482,8 +498,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         if len(failed_downloads) > 0:
             raise MlflowException(
-                message="The following failures occurred while downloading one or more artifacts: {}".format(
-                    failed_downloads
+                message="The following failures occurred while downloading one or more artifacts from {artifact_root}: {failures}".format(
+                    artifact_root=self.artifact_uri,
+                    failures=failed_downloads,
                 )
             )
 

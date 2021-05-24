@@ -675,38 +675,6 @@ class TestDatabricksArtifactRepository(object):
                 databricks_artifact_repo.download_artifacts(test_file.strpath)
             read_credentials_mock.assert_called_with(MOCK_RUN_ID, test_file.strpath)
 
-    def test_download_artifacts_provides_failure_info(self, databricks_artifact_repo):
-        with mock.patch(
-            DATABRICKS_ARTIFACT_REPOSITORY + "._get_read_credentials"
-        ) as read_credentials_mock, mock.patch(
-            DATABRICKS_ARTIFACT_REPOSITORY + ".list_artifacts"
-        ) as get_list_mock, mock.patch(
-            DATABRICKS_ARTIFACT_REPOSITORY + "._download_from_cloud"
-        ) as download_mock:
-            mock_credentials = ArtifactCredentialInfo(
-                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
-            )
-            read_credentials_response_proto = GetCredentialsForRead.Response(
-                credentials=mock_credentials
-            )
-            read_credentials_mock.return_value = read_credentials_response_proto
-            get_list_mock.return_value = [
-                FileInfo(path="file_1.txt", is_dir=False, file_size=100),
-                FileInfo(path="file_2.txt", is_dir=False, file_size=0),
-            ]
-            download_mock.side_effect = [
-                MlflowException("MOCK ERROR 1"),
-                MlflowException("MOCK ERROR 2"),
-            ]
-
-            with pytest.raises(MlflowException) as exc:
-                databricks_artifact_repo.download_artifacts("test_path")
-
-            assert "file_1.txt" in str(exc)
-            assert "MOCK ERROR 1" in str(exc)
-            assert "file_2.txt" in str(exc)
-            assert "MOCK ERROR 2" in str(exc)
-
     def test_download_artifacts_awaits_download_completion(self, databricks_artifact_repo, tmpdir):
         """
         Verifies that all asynchronous artifact downloads are joined before `download_artifacts()`
@@ -808,3 +776,71 @@ class TestDatabricksArtifactRepository(object):
             assert os.path.exists(expected_dst_file_path)
             with open(expected_dst_file_path, "r") as f:
                 assert f.read() == "file1"
+
+    def test_download_artifacts_provides_failure_info(self, databricks_artifact_repo):
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_read_credentials"
+        ) as read_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + ".list_artifacts"
+        ) as get_list_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._download_from_cloud"
+        ) as download_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            read_credentials_response_proto = GetCredentialsForRead.Response(
+                credentials=mock_credentials
+            )
+            read_credentials_mock.return_value = read_credentials_response_proto
+            get_list_mock.return_value = [
+                FileInfo(path="file_1.txt", is_dir=False, file_size=100),
+                FileInfo(path="file_2.txt", is_dir=False, file_size=0),
+            ]
+            download_mock.side_effect = [
+                MlflowException("MOCK ERROR 1"),
+                MlflowException("MOCK ERROR 2"),
+            ]
+
+            with pytest.raises(MlflowException) as exc:
+                databricks_artifact_repo.download_artifacts("test_path")
+
+            assert MOCK_RUN_ROOT_URI in str(exc)
+            assert "file_1.txt" in str(exc)
+            assert "MOCK ERROR 1" in str(exc)
+            assert "file_2.txt" in str(exc)
+            assert "MOCK ERROR 2" in str(exc)
+
+    def test_log_artifacts_provides_failure_info(self, databricks_artifact_repo, tmpdir):
+        src_file1_path = os.path.join(str(tmpdir), "file_1.txt")
+        with open(src_file1_path, "w") as f:
+            f.write("file1")
+        src_file2_path = os.path.join(str(tmpdir), "file_2.txt")
+        with open(src_file2_path, "w") as f:
+            f.write("file2")
+
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
+        ) as write_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._upload_to_cloud"
+        ) as upload_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            write_credentials_response_proto = GetCredentialsForWrite.Response(
+                credentials=mock_credentials
+            )
+            write_credentials_mock.return_value = write_credentials_response_proto
+
+            upload_mock.side_effect = [
+                MlflowException("MOCK ERROR 1"),
+                MlflowException("MOCK ERROR 2"),
+            ]
+
+            with pytest.raises(MlflowException) as exc:
+                databricks_artifact_repo.log_artifacts(str(tmpdir), "test_artifacts")
+
+            assert MOCK_RUN_ROOT_URI in str(exc)
+            assert src_file1_path in str(exc)
+            assert "MOCK ERROR 1" in str(exc)
+            assert src_file2_path in str(exc)
+            assert "MOCK ERROR 2" in str(exc)
