@@ -381,11 +381,8 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
-
-            # The dev version of XGBoost (e.g. '1.5.0-SNAPSHOT') doesn't match the scheme
-            # defined in PEP 440 and causes `packaging.version.Version` to fail.
-            # As a workaround, replace 'SNAPSHOT' with 'dev':
-            # https://github.com/dmlc/xgboost/blob/81bdfb835d0d0244c86649e74d2dc3c00beb3942/python-package/xgboost/VERSION#L1  # noqa
+            # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+            #       https://github.com/dmlc/xgboost/issues/6984
             if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
