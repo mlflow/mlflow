@@ -256,7 +256,7 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install spacy-nightly
+      pip install git+https://github.com/explosion/spaCy
 
   models:
     minimum: "2.2.4"
