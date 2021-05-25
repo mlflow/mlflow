@@ -62,6 +62,10 @@ jobs:
         conda remove --all --yes --name test-environment
         ./dev/remove-conda-envs.sh
 
+    - name: Show disk usage
+      run: |
+        df -h
+
   docker:
     runs-on: ubuntu-latest
     steps:
