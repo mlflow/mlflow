@@ -694,8 +694,11 @@ def autolog(
     )
 
     if max_tuning_runs is not None and max_tuning_runs < 0:
-        raise ValueError(
-            "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs,)
+        raise MlflowException(
+            message=(
+                "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     if not _is_supported_version():

@@ -13,6 +13,7 @@ import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -24,6 +25,7 @@ from mlflow.sklearn.utils import (
     _is_plotting_supported,
     _get_arg_names,
     _truncate_dict,
+    _log_child_runs_info,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
@@ -143,8 +145,28 @@ def test_autolog_preserves_original_function_attributes():
 
 
 def test_autolog_throws_error_with_negative_max_tuning_runs():
-    with pytest.raises(ValueError, match="`max_tuning_runs` must be non-negative, instead got -1."):
+    with pytest.raises(
+        MlflowException, match="`max_tuning_runs` must be non-negative, instead got -1."
+    ):
         mlflow.sklearn.autolog(max_tuning_runs=-1)
+
+
+@pytest.mark.parametrize(
+    "max_tuning_runs, total_runs, output_statment",
+    [
+        (0, 4, "Logging no runs, all will be omitted"),
+        (0, 1, "Logging no runs, one run will be omitted"),
+        (1, 1, "Logging the best run, no runs will be omitted"),
+        (5, 4, "Logging all runs, no runs will be omitted"),
+        (4, 4, "Logging all runs, no runs will be omitted"),
+        (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
+    ],
+)
+def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statment):
+    with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
+        _log_child_runs_info(max_tuning_runs, total_runs)
+        mock_info.assert_called_once()
+        mock_info.called_once_with(output_statment)
 
 
 @pytest.mark.skipif(

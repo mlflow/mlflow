@@ -580,6 +580,29 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
         try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
 
 
+# Log how many child runs will be created vs omitted based on `max_tuning_runs`.
+def _log_child_runs_info(max_tuning_runs, total_runs):
+    rest = total_runs - max_tuning_runs
+
+    # Set logging statement for runs to be logged.
+    if max_tuning_runs == 0:
+        logging_phrase = "no runs"
+    elif max_tuning_runs == 1:
+        logging_phrase = "the best run"
+    else:
+        logging_phrase = "the {} best runs".format(max_tuning_runs)
+
+    # Set logging statement for runs to be omitted.
+    if rest <= 0:
+        omitting_phrase = "no runs"
+    elif rest == 1:
+        omitting_phrase = "one run"
+    else:
+        omitting_phrase = "{} runs".format(rest)
+
+    _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
+
+
 def _create_child_runs_for_parameter_search(
     cv_estimator, parent_run, max_tuning_runs, child_tags=None
 ):
@@ -641,11 +664,7 @@ def _create_child_runs_for_parameter_search(
             )
         cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
         # Log how many child runs will be created vs omitted.
-        rest = len(cv_results_df) - max_tuning_runs
-        if rest > 0:
-            _logger.info(
-                "Logging the %s best runs, %s others will be omitted.", max_tuning_runs, rest,
-            )
+        _log_child_runs_info(max_tuning_runs, len(cv_results_df))
 
     for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
