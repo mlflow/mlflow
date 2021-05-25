@@ -463,6 +463,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
+    max_tuning_runs=5,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -654,6 +655,16 @@ def autolog(
     :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
                    autologging. If ``False``, show all events and warnings during scikit-learn
                    autologging.
+    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+                            search estimators. To create child runs for the best `k` results from
+                            the search, set `max_tuning_runs` to `k`. The default value is to track
+                            the best 5 search parameter sets. If `max_tuning_runs=None`, then
+                            a child run is created for each search parameter set. Note: The best k
+                            results is based on ordering in `rank_test_score`. In the case of
+                            multi-metric evaluation with a custom scorer, the first scorer’s
+                            `rank_test_score_<scorer_name>` will be used to select the best k
+                            results. To change metric used for selecting best k results, change
+                            ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
     import sklearn
@@ -681,6 +692,14 @@ def autolog(
         MAX_PARAM_VAL_LENGTH,
         MAX_ENTITY_KEY_LENGTH,
     )
+
+    if max_tuning_runs is not None and max_tuning_runs < 0:
+        raise MlflowException(
+            message=(
+                "`max_tuning_runs` must be non-negative, instead got {}.".format(max_tuning_runs)
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if not _is_supported_version():
         warnings.warn(
@@ -824,6 +843,7 @@ def autolog(
                     _create_child_runs_for_parameter_search(
                         cv_estimator=estimator,
                         parent_run=mlflow.active_run(),
+                        max_tuning_runs=max_tuning_runs,
                         child_tags=child_tags,
                     )
                 except Exception as e:
