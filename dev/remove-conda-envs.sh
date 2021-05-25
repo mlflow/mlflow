@@ -13,9 +13,9 @@ if [ ! -z "$mlflow_envs" ]; then
   do
     conda remove --all --yes --name $env
   done
-
-  conda clean --all --yes
-  conda env list
 fi
+
+conda clean --all --yes
+conda env list
 
 set +ex
