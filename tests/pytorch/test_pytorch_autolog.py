@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import pytest
 import pytorch_lightning as pl
 import torch
@@ -135,7 +135,7 @@ def pytorch_model_with_callback(patience):
     )
 
     with TempDir() as tmp:
-        keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
+        keyword = "dirpath" if Version(pl.__version__) >= Version("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
             **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
@@ -184,7 +184,7 @@ def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_m
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
 
     with TempDir() as tmp:
-        keyword = "dirpath" if LooseVersion(pl.__version__) >= LooseVersion("1.2.0") else "filepath"
+        keyword = "dirpath" if Version(pl.__version__) >= Version("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
             **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
@@ -282,7 +282,7 @@ def test_get_optimizer_name():
 
 
 @pytest.mark.skipif(
-    LooseVersion(pl.__version__) < LooseVersion("1.1.0"),
+    Version(pl.__version__) < Version("1.1.0"),
     reason="`LightningOptimizer` doesn't exist in pytorch-lightning < 1.1.0",
 )
 def test_get_optimizer_name_with_lightning_optimizer():

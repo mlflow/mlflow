@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import logging
 import mlflow.pytorch
 import os
@@ -43,7 +43,7 @@ def _get_optimizer_name(optimizer):
     https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.html
     #pytorch_lightning.trainer.trainer.Trainer.params.enable_pl_optimizer
     """
-    if LooseVersion(pl.__version__) < LooseVersion("1.1.0"):
+    if Version(pl.__version__) < Version("1.1.0"):
         return optimizer.__class__.__name__
     else:
         from pytorch_lightning.core.optimizer import LightningOptimizer
@@ -113,7 +113,7 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
             # epochs (related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986)
             # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
             # in pytorch-lightning >= 1.2.0.
-            if LooseVersion(pl.__version__) >= LooseVersion("1.2.0"):
+            if Version(pl.__version__) >= Version("1.2.0"):
 
                 # NB: Override `on_train_epoch_end` with an additional `*args` parameter for
                 # compatibility with versions of pytorch-lightning <= 1.2.0, which required an

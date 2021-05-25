@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 import json
 import pytest
@@ -75,7 +75,13 @@ def test_xgb_autolog_logs_default_params(bst_params, dtrain):
         #   https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
         # In < 1.3.0, it's False:
         #   https://xgboost.readthedocs.io/en/release_1.2.0/python/python_api.html#xgboost.train
-        "maximize": None if LooseVersion(xgb.__version__) >= LooseVersion("1.3.0") else False,
+        # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+        #       https://github.com/dmlc/xgboost/issues/6984
+        "maximize": (
+            None
+            if Version(xgb.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0")
+            else False
+        ),
         "early_stopping_rounds": None,
         "verbose_eval": True,
     }

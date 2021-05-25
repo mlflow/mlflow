@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 
 import numpy as np
@@ -66,7 +66,7 @@ def load_model(model_uri, ctx):
     symbol = sym.load(model_arch_path)
     inputs = sym.var("data", dtype="float32")
     net = gluon.SymbolBlock(symbol, inputs)
-    if LooseVersion(mxnet.__version__) >= LooseVersion("2.0.0"):
+    if Version(mxnet.__version__) >= Version("2.0.0"):
         net.load_parameters(model_params_path, ctx)
     else:
         net.collect_params().load(model_params_path, ctx)
