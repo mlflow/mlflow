@@ -1,11 +1,14 @@
 import os
+from datetime import date
 
 import mlflow
-from mlflow.models.utils import _save_example
+import pandas as pd
+import numpy as np
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models import Model
 from mlflow.models.signature import ModelSignature
+from mlflow.models.utils import _save_example
 from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import _dataframe_from_json
@@ -88,3 +91,43 @@ def test_model_log():
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
+
+
+def test_model_log_with_input_example_succeeds():
+    with TempDir(chdr=True) as tmp:
+        experiment_id = mlflow.create_experiment("test")
+        sig = ModelSignature(
+            inputs=Schema(
+                [
+                    ColSpec("integer", "a"),
+                    ColSpec("string", "b"),
+                    ColSpec("boolean", "c"),
+                    ColSpec("string", "d"),
+                    ColSpec("datetime", "e"),
+                ]
+            ),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+        input_example = pd.DataFrame(
+            {
+                "a": np.int32(1),
+                "b": "test string",
+                "c": True,
+                "d": date.today(),
+                "e": np.datetime64("2020-01-01T00:00:00"),
+            },
+            index=[0],
+        )
+        with mlflow.start_run(experiment_id=experiment_id) as r:
+            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+
+        local_path = _download_artifact_from_uri(
+            "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
+        )
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+        x = _dataframe_from_json(path, schema=sig.inputs)
+
+        # date column will get deserialized into string
+        input_example["d"] = input_example["d"].apply(lambda x: x.isoformat())
+        assert x.equals(input_example)

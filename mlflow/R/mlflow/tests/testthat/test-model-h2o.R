@@ -1,7 +1,7 @@
 context("Model h2o")
 
 setup({
-  h2o::h2o.init(port = httpuv::randomPort())
+  h2o::h2o.init()
 })
 
 idx <- withr::with_seed(3809, sample(nrow(iris)))
@@ -9,18 +9,6 @@ prediction <- "Species"
 predictors <- setdiff(colnames(iris), prediction)
 train <- iris[idx[1:100], ]
 test <- iris[idx[101:nrow(iris)], ]
-
-# Installing most recent h2o package, see https://docs.h2o.ai/h2o/latest-stable/h2o-docs/downloading.html#install-in-r
-if ("package:h2o" %in% search()) { detach("package:h2o", unload=TRUE) }
-if ("h2o" %in% rownames(installed.packages())) { remove.packages("h2o") }
-pkgs <- c("RCurl","jsonlite")
-for (pkg in pkgs) {
-  if (! (pkg %in% rownames(installed.packages()))) { install.packages(pkg) }
-}
-# Pin h2o to prevent version-mismatch between python and R
-install.packages("https://cran.r-project.org/src/contrib/Archive/h2o/h2o_3.30.1.3.tar.gz", repos=NULL, type="source")
-
-h2o::h2o.init()
 
 model <- h2o::h2o.randomForest(
   x = predictors, y = prediction, training_frame = h2o::as.h2o(train)

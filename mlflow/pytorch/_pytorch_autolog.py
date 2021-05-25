@@ -115,7 +115,14 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
             # in pytorch-lightning >= 1.2.0.
             if LooseVersion(pl.__version__) >= LooseVersion("1.2.0"):
 
-                def on_train_epoch_end(self, trainer, pl_module, _):
+                # NB: Override `on_train_epoch_end` with an additional `*args` parameter for
+                # compatibility with versions of pytorch-lightning <= 1.2.0, which required an
+                # `outputs` argument that was not used and is no longer defined in
+                # pytorch-lightning >= 1.3.0
+
+                def on_train_epoch_end(
+                    self, trainer, pl_module, *args
+                ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
                     """
                     Log loss and other metrics values after each train epoch
 

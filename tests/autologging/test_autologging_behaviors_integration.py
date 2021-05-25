@@ -36,6 +36,7 @@ AUTOLOGGING_INTEGRATIONS_TO_TEST = {
     mlflow.fastai: "fastai",
     mlflow.statsmodels: "statsmodels",
     mlflow.spark: "pyspark",
+    mlflow.pyspark.ml: "pyspark",
 }
 
 
@@ -74,13 +75,15 @@ def test_autologging_integrations_expose_configs_and_support_disablement(integra
     for integration in AUTOLOGGING_INTEGRATIONS_TO_TEST:
         integration.autolog(disable=False)
 
-    assert not autologging_is_disabled(integration.FLAVOR_NAME)
-    assert not get_autologging_config(integration.FLAVOR_NAME, "disable", True)
+    integration_name = integration.autolog.integration_name
+
+    assert not autologging_is_disabled(integration_name)
+    assert not get_autologging_config(integration_name, "disable", True)
 
     integration.autolog(disable=True)
 
-    assert autologging_is_disabled(integration.FLAVOR_NAME)
-    assert get_autologging_config(integration.FLAVOR_NAME, "disable", False)
+    assert autologging_is_disabled(integration_name)
+    assert get_autologging_config(integration_name, "disable", False)
 
 
 @pytest.mark.parametrize("integration", AUTOLOGGING_INTEGRATIONS_TO_TEST.keys())
@@ -231,13 +234,21 @@ def test_autolog_respects_silent_mode(tmpdir):
 
     mlflow.sklearn.autolog(silent=False, log_input_examples=True)
 
+    executions = []
     with ThreadPoolExecutor(max_workers=50) as executor:
         for _ in range(100):
-            executor.submit(train_model)
+            e = executor.submit(train_model)
+            executions.append(e)
 
+    assert all([e.result() is True for e in executions])
     assert stream.getvalue()
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
     assert warnings.showwarning == og_showwarning
     logger.info("verify that event logs are enabled")
     assert "verify that event logs are enabled" in stream.getvalue()
+
+    # TODO: Investigate why this test occasionally leaks a run, which causes the
+    # `clean_up_leaked_runs` fixture in `tests/conftest.py` to fail.
+    while mlflow.active_run():
+        mlflow.end_run()

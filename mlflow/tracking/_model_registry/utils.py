@@ -33,7 +33,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 _registry_uri = None
 
 
-def set_registry_uri(uri):
+def set_registry_uri(uri: str) -> None:
     """
     Set the registry server URI. This method is especially useful if you have a registry server
     that's different from the tracking server.
@@ -80,7 +80,7 @@ def _get_registry_uri_from_context():
     return _registry_uri
 
 
-def get_registry_uri():
+def get_registry_uri() -> str:
     """
     Get the current registry URI. If none has been specified, defaults to the tracking URI.
 
