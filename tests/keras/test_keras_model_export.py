@@ -1,6 +1,6 @@
 # pep8: disable=E501
 
-from distutils.version import LooseVersion
+from packaging.version import Version
 import h5py
 import os
 import json
@@ -51,7 +51,7 @@ def fix_random_seed():
     random.seed(SEED)
     np.random.seed(SEED)
 
-    if LooseVersion(tf.__version__) >= LooseVersion("2.0.0"):
+    if Version(tf.__version__) >= Version("2.0.0"):
         tf.random.set_seed(SEED)
     else:
         tf.set_random_seed(SEED)
@@ -81,7 +81,7 @@ def model(data):
         # `lr` was renamed to `learning_rate` in keras 2.3.0:
         # https://github.com/keras-team/keras/releases/tag/2.3.0
         {"lr": lr}
-        if LooseVersion(keras.__version__) < LooseVersion("2.3.0")
+        if Version(keras.__version__) < Version("2.3.0")
         else {"learning_rate": lr}
     )
     model.compile(loss="mean_squared_error", optimizer=SGD(**kwargs))
@@ -185,7 +185,7 @@ def test_that_keras_module_arg_works(model_path):
             # pylint: disable=unused-argument
 
             # `Dataset.value` was removed in `h5py == 3.0.0`
-            if LooseVersion(h5py.__version__) >= LooseVersion("3.0.0"):
+            if Version(h5py.__version__) >= Version("3.0.0"):
                 return MyModel(file.get("x")[()].decode("utf-8"))
             else:
                 return MyModel(file.get("x").value)
