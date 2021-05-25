@@ -16,7 +16,7 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 import shutil
 import json
@@ -381,8 +381,9 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
-
-            if LooseVersion(xgboost.__version__) >= LooseVersion("1.3.0"):
+            # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+            #       https://github.com/dmlc/xgboost/issues/6984
+            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa

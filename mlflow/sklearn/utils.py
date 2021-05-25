@@ -1,5 +1,5 @@
 import collections
-from distutils.version import LooseVersion
+from packaging.version import Version
 import inspect
 import logging
 from numbers import Number
@@ -682,7 +682,7 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
 def _is_supported_version():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion(_MIN_SKLEARN_VERSION)
+    return Version(sklearn.__version__) >= Version(_MIN_SKLEARN_VERSION)
 
 
 # Util function to check whether a metric is able to be computed in given sklearn version
@@ -692,7 +692,7 @@ def _is_metric_supported(metric_name):
     # This dict can be extended to store special metrics' specific supported versions
     _metric_supported_version = {"roc_auc_score": "0.22.2"}
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
+    return Version(sklearn.__version__) >= Version(_metric_supported_version[metric_name])
 
 
 # Util function to check whether artifact plotting functions are able to be computed
@@ -700,7 +700,7 @@ def _is_metric_supported(metric_name):
 def _is_plotting_supported():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
+    return Version(sklearn.__version__) >= Version("0.22.0")
 
 
 def _all_estimators():

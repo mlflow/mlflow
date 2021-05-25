@@ -18,7 +18,7 @@ import time
 import tempfile
 from collections import namedtuple
 import pandas
-from distutils.version import LooseVersion
+from packaging.version import Version
 from threading import RLock
 
 import mlflow
@@ -295,7 +295,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     """
     import tensorflow
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         validation_tf_graph = tensorflow.Graph()
         validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
         with validation_tf_graph.as_default():
@@ -361,7 +361,7 @@ def load_model(model_uri, tf_sess=None):
     """
     import tensorflow
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         if not tf_sess:
             tf_sess = tensorflow.get_default_session()
             if not tf_sess:
@@ -424,7 +424,7 @@ def _load_tensorflow_saved_model(
     """
     import tensorflow
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         loaded = tensorflow.saved_model.loader.load(
             sess=tf_sess, tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
         )
@@ -477,7 +477,7 @@ def _load_pyfunc(path):
         tf_meta_graph_tags,
         tf_signature_def_key,
     ) = _get_and_parse_flavor_configuration(model_path=path)
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         tf_graph = tensorflow.Graph()
         tf_sess = tensorflow.Session(graph=tf_graph)
         with tf_graph.as_default():
@@ -811,7 +811,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         out_list += [__MLflowTfKerasCallback()]
     else:
         out_list += [__MLflowTfKeras2Callback()]
@@ -901,7 +901,7 @@ def autolog(
 
     atexit.register(_flush_queue)
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("1.12"):
+    if Version(tensorflow.__version__) < Version("1.12"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
@@ -1038,7 +1038,7 @@ def autolog(
                     key: history.history[key][restored_index] for key in history.history.keys()
                 }
                 # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
-                if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+                if Version(tensorflow.__version__) < Version("2.0.0"):
                     if "loss" in restored_metrics:
                         restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
                     if "acc" in restored_metrics:
@@ -1195,7 +1195,7 @@ def autolog(
         (tensorflow.keras.Model, "fit", FitPatch),
     ]
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
+    if Version(tensorflow.__version__) < Version("2.1.0"):
         # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
         # To avoid unintentional creation of nested MLflow runs caused by a patched
         # `fit_generator()` method calling a patched `fit()` method, we only patch
@@ -1211,7 +1211,7 @@ def autolog(
     ]
 
     # Add compat.v1 Estimator patching for versions of tensfor that are 2.0+.
-    if LooseVersion(tensorflow.__version__) >= LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) >= Version("2.0.0"):
         old_estimator_class = tensorflow.compat.v1.estimator.Estimator
         v1_train = (old_estimator_class, "train", train)
         v1_export_saved_model = (old_estimator_class, "export_saved_model", export_saved_model)
