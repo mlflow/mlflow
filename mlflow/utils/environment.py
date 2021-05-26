@@ -13,7 +13,7 @@ def _mlflow_conda_env(
     path=None, additional_pip_deps=None, install_mlflow=True,
 ):
     """
-    Creates a Conda environment with the specified package channels and dependencies. If there are
+    Creates a Conda environment with the specified pip dependencies. If there are
     any pip dependencies, including from the install_mlflow parameter, then pip will be added to
     the conda dependencies. This is done to ensure that the pip inside the conda environment is
     used to install the pip dependencies.

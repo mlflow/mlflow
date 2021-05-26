@@ -69,10 +69,12 @@ def get_default_conda_env():
         :caption: Output
 
         conda env {'name': 'mlflow-env',
-                   'channels': ['defaults', 'conda-forge', 'pytorch'],
-                   'dependencies': ['python=3.7.5', 'pytorch=1.5.1',
-                                    'torchvision=0.6.1',
-                                    'pip', {'pip': ['mlflow', 'cloudpickle==1.6.0']}]}
+                   'channels': ['conda-forge'],
+                   'dependencies': ['python=3.7.5',
+                                    {'pip': ['pytorch=1.5.1',
+                                             'torchvision=0.6.1',
+                                             'mlflow',
+                                             'cloudpickle==1.6.0']}]}
     """
     import torch
     import torchvision
