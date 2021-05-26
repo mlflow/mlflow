@@ -83,8 +83,7 @@ def get_default_conda_env():
     pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
 
     return _mlflow_conda_env(
-        additional_pip_deps=["pyspark={}".format(pyspark_version)],
-        additional_conda_channels=None,
+        additional_pip_deps=["pyspark={}".format(pyspark_version)], additional_conda_channels=None,
     )
 
 

@@ -63,11 +63,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
 
         keras_module = keras
     if keras_module.__name__ == "keras":
-        # Temporary fix: the created conda environment has issues installing keras >= 2.3.1
-        if Version(keras_module.__version__) < Version("2.3.1"):
-            conda_deps.append("keras=={}".format(keras_module.__version__))
-        else:
-            pip_deps.append("keras=={}".format(keras_module.__version__))
+        pip_deps.append("keras=={}".format(keras_module.__version__))
     if include_cloudpickle:
         import cloudpickle
 
@@ -80,10 +76,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     if Version(tf.__version__) < Version("2.4"):
         pip_deps.append("h5py<3.0.0")
 
-    return _mlflow_conda_env(
-        additional_pip_deps=pip_deps,
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=pip_deps, additional_conda_channels=None,)
 
 
 def save_model(

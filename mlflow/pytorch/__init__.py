@@ -84,7 +84,7 @@ def get_default_conda_env():
             # We include CloudPickle in the default environment because
             # it's required by the default pickle module used by `save_model()`
             # and `log_model()`: `mlflow.pytorch.pickle_module`.
-            "cloudpickle=={}".format(cloudpickle.__version__)
+            "cloudpickle=={}".format(cloudpickle.__version__),
         ],
         additional_conda_channels=["pytorch"],
     )
