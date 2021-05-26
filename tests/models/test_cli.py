@@ -64,6 +64,33 @@ def sk_model(iris_data):
     return knn_model
 
 
+def test_mlflow_models_serve():
+    import numpy as np
+    import pandas as pd
+
+    class MyModel(pyfunc.PythonModel):
+        def predict(self, context, model_input):  # pylint: disable=unused-variable
+            return np.array([1, 2, 3])
+
+    model = MyModel()
+
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(artifact_path="model", python_model=model)
+        model_uri = mlflow.get_artifact_uri("model")
+
+    data = pd.DataFrame({"a": [0]})
+
+    scoring_response = pyfunc_serve_and_score_model(
+        model_uri=model_uri,
+        data=data,
+        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        extra_args=["--no-conda"],
+    )
+    assert scoring_response.status_code == 200
+    served_model_preds = np.array(json.loads(scoring_response.content))
+    np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
+
+
 @pytest.mark.large
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
     if no_conda:
