@@ -126,12 +126,12 @@ def test_load_pyfunc(tmpdir):
 def test_merge_environment():
 
     test_shap_env = {
-        "channels": ["defaults", "conda-forge"],
+        "channels": ["conda-forge"],
         "dependencies": ["python=3.8.5", "pip", {"pip": ["mlflow", "shap==0.38.0"]}],
     }
 
     test_model_env = {
-        "channels": ["defaults", "conda-forge"],
+        "channels": ["conda-forge"],
         "dependencies": [
             "python=3.8.5",
             "pip",
@@ -141,7 +141,7 @@ def test_merge_environment():
 
     expected_merged_env = {
         "name": "mlflow-env",
-        "channels": ["defaults", "conda-forge"],
+        "channels": ["conda-forge"],
         "dependencies": [
             "python={}".format(PYTHON_VERSION),
             "pip",
