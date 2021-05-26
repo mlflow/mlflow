@@ -22,7 +22,7 @@ from mlflow.store.tracking.file_store import FileStore
 from mlflow.exceptions import MlflowException
 from mlflow.entities import ViewType
 
-from tests import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 
 def test_server_static_prefix_validation():
