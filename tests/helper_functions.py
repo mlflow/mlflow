@@ -7,7 +7,7 @@ import string
 import time
 import signal
 import socket
-from subprocess import Popen
+from subprocess import Popen, CREATE_NEW_PROCESS_GROUP
 import uuid
 import sys
 
@@ -172,18 +172,28 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    proc = Popen(
-        cmd,
-        stdout=stdout,
-        stderr=stderr,
-        universal_newlines=True,
-        env=env,
-        # Assign the scoring process to a process group. All child processes of the
-        # scoring process will be assigned to this group as well. This allows child
-        # processes of the scoring process to be terminated successfully
-        preexec_fn=os.setsid,
-    )
-    return proc
+    if os.name != "nt":
+        return Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # Assign the scoring process to a process group. All child processes of the
+            # scoring process will be assigned to this group as well. This allows child
+            # processes of the scoring process to be terminated successfully
+            preexec_fn=os.setsid,
+        )
+    else:
+        return Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # On Windows, `os.setsid` and `preexec_fn` are unavailable
+            creationflags=CREATE_NEW_PROCESS_GROUP,
+        )
 
 
 class RestEndpoint:
