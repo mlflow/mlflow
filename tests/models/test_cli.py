@@ -65,9 +65,6 @@ def sk_model(iris_data):
 
 
 def test_mlflow_models_serve():
-    import numpy as np
-    import pandas as pd
-
     class MyModel(pyfunc.PythonModel):
         def predict(self, context, model_input):  # pylint: disable=unused-variable
             return np.array([1, 2, 3])
