@@ -7,7 +7,7 @@ import string
 import time
 import signal
 import socket
-from subprocess import Popen, CREATE_NEW_PROCESS_GROUP
+import subprocess
 import uuid
 import sys
 
@@ -79,7 +79,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = Popen(cmd,)
+    p = subprocess.Popen(cmd,)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -173,7 +173,7 @@ def _get_mlflow_home():
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
     if os.name != "nt":
-        return Popen(
+        return subprocess.Popen(
             cmd,
             stdout=stdout,
             stderr=stderr,
@@ -185,14 +185,14 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
             preexec_fn=os.setsid,
         )
     else:
-        return Popen(
+        return subprocess.Popen(
             cmd,
             stdout=stdout,
             stderr=stderr,
             universal_newlines=True,
             env=env,
             # On Windows, `os.setsid` and `preexec_fn` are unavailable
-            creationflags=CREATE_NEW_PROCESS_GROUP,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
         )
 
 
