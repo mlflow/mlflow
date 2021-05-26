@@ -13,6 +13,7 @@ import sklearn.datasets
 import sklearn.model_selection
 from scipy.stats import uniform
 
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
 from mlflow.models.utils import _read_example
@@ -24,6 +25,7 @@ from mlflow.sklearn.utils import (
     _is_plotting_supported,
     _get_arg_names,
     _truncate_dict,
+    _log_child_runs_info,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
@@ -140,6 +142,31 @@ def test_autolog_preserves_original_function_attributes():
 
     for b, a in zip(before, after):
         assert b == a
+
+
+def test_autolog_throws_error_with_negative_max_tuning_runs():
+    with pytest.raises(
+        MlflowException, match="`max_tuning_runs` must be non-negative, instead got -1."
+    ):
+        mlflow.sklearn.autolog(max_tuning_runs=-1)
+
+
+@pytest.mark.parametrize(
+    "max_tuning_runs, total_runs, output_statment",
+    [
+        (0, 4, "Logging no runs, all will be omitted"),
+        (0, 1, "Logging no runs, one run will be omitted"),
+        (1, 1, "Logging the best run, no runs will be omitted"),
+        (5, 4, "Logging all runs, no runs will be omitted"),
+        (4, 4, "Logging all runs, no runs will be omitted"),
+        (2, 5, "Logging the 2 best runs, 3 runs will be omitted"),
+    ],
+)
+def test_autolog_max_tuning_runs_logs_info_correctly(max_tuning_runs, total_runs, output_statment):
+    with mock.patch("mlflow.sklearn.utils._logger.info") as mock_info:
+        _log_child_runs_info(max_tuning_runs, total_runs)
+        mock_info.assert_called_once()
+        mock_info.called_once_with(output_statment)
 
 
 @pytest.mark.skipif(
@@ -732,8 +759,13 @@ def test_meta_estimator_fit_performs_logging_only_once():
     ],
 )
 @pytest.mark.parametrize("backend", [None, "threading", "loky"])
-def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_space, backend):
-    mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
+@pytest.mark.parametrize("max_tuning_runs", [None, 3])
+def test_parameter_search_estimators_produce_expected_outputs(
+    cv_class, search_space, backend, max_tuning_runs
+):
+    mlflow.sklearn.autolog(
+        log_input_examples=True, log_model_signatures=True, max_tuning_runs=max_tuning_runs,
+    )
 
     svc = sklearn.svm.SVC()
     cv_model = cv_class(svc, search_space, n_jobs=5, return_train_score=True)
@@ -786,12 +818,22 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         run.info.experiment_id, "tags.`mlflow.parentRunId` = '{}'".format(run_id)
     )
     cv_results = pd.DataFrame.from_dict(cv_model.cv_results_)
-    # We expect to have created a child run for each point in the parameter search space
-    assert len(child_runs) == len(cv_results)
+    num_total_results = len(cv_results)
+    if max_tuning_runs is None:
+        cv_results_best_n_df = cv_results
+        cv_results_rest_df = pd.DataFrame()
+    else:
+        num_rest = max(0, num_total_results - max_tuning_runs)
+        cv_results_best_n_df = cv_results.nsmallest(max_tuning_runs, "rank_test_score")
+        cv_results_rest_df = cv_results.nlargest(num_rest, "rank_test_score", keep="last")
+        # We expect to have created a child run for each point in the parameter search space
+        # up to max_tuning_runs.
+        assert len(child_runs) == max_tuning_runs
+        assert len(child_runs) + num_rest == num_total_results
 
-    # Verify that each set of parameter search results has a corresponding MLflow run
-    # with the expected data
-    for _, result in cv_results.iterrows():
+    # Verify that the best max_tuning_runs of parameter search results
+    # have a corresponding MLflow run with the expected data
+    for _, result in cv_results_best_n_df.iterrows():
         result_params = result.get("params", {})
         params_search_clause = " and ".join(
             ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
@@ -811,6 +853,19 @@ def test_parameter_search_estimators_produce_expected_outputs(cv_class, search_s
         # Ensure that we do not capture separate metrics for each cross validation split, which
         # would produce very noisy metrics results
         assert len([metric for metric in child_metrics.keys() if metric.startswith("split")]) == 0
+
+    # Verify that the rest of the parameter search results do not have
+    # a corresponding MLflow run.
+    for _, result in cv_results_rest_df.iterrows():
+        result_params = result.get("params", {})
+        params_search_clause = " and ".join(
+            ["params.`{}` = '{}'".format(key, value) for key, value in result_params.items()]
+        )
+        search_filter = "tags.`mlflow.parentRunId` = '{}' and {}".format(
+            run_id, params_search_clause
+        )
+        child_runs = client.search_runs(run.info.experiment_id, search_filter)
+        assert len(child_runs) == 0
 
 
 def test_parameter_search_handles_large_volume_of_metric_outputs():
