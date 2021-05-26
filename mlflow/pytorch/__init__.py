@@ -78,11 +78,9 @@ def get_default_conda_env():
     import torchvision
 
     return _mlflow_conda_env(
-        additional_conda_deps=[
+        additional_pip_deps=[
             "pytorch={}".format(torch.__version__),
             "torchvision={}".format(torchvision.__version__),
-        ],
-        additional_pip_deps=[
             # We include CloudPickle in the default environment because
             # it's required by the default pickle module used by `save_model()`
             # and `log_model()`: `mlflow.pytorch.pickle_module`.

@@ -57,7 +57,6 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     """
     import tensorflow as tf
 
-    conda_deps = []  # if we use tf.keras we only need to declare dependency on tensorflow
     pip_deps = []
     if keras_module is None:
         import keras
@@ -73,14 +72,8 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         import cloudpickle
 
         pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-    # Temporary fix: conda-forge currently does not have tensorflow > 1.14
-    # The Keras pyfunc representation requires the TensorFlow
-    # backend for Keras. Therefore, the conda environment must
-    # include TensorFlow
-    if Version(tf.__version__) <= Version("1.13.2"):
-        conda_deps.append("tensorflow=={}".format(tf.__version__))
-    else:
-        pip_deps.append("tensorflow=={}".format(tf.__version__))
+
+    pip_deps.append("tensorflow=={}".format(tf.__version__))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467
@@ -88,7 +81,6 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         pip_deps.append("h5py<3.0.0")
 
     return _mlflow_conda_env(
-        additional_conda_deps=conda_deps,
         additional_pip_deps=pip_deps,
         additional_conda_channels=None,
     )

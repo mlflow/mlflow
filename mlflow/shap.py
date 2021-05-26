@@ -82,7 +82,7 @@ def get_default_conda_env():
     pip_deps = ["shap=={}".format(shap.__version__)]
 
     return _mlflow_conda_env(
-        additional_conda_deps=[], additional_pip_deps=pip_deps, additional_conda_channels=None,
+        additional_pip_deps=pip_deps, additional_conda_channels=None,
     )
 
 
