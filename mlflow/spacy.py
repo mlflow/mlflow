@@ -38,7 +38,7 @@ def get_default_conda_env():
     import spacy
 
     return _mlflow_conda_env(
-        additional_pip_deps=["spacy=={}".format(spacy.__version__)], additional_conda_channels=None,
+        additional_pip_deps=["spacy=={}".format(spacy.__version__)]
     )
 
 

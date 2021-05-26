@@ -47,7 +47,6 @@ def get_default_conda_env():
             # include OnnxRuntime
             "onnxruntime=={}".format(onnxruntime.__version__),
         ],
-        additional_conda_channels=None,
     )
 
 
