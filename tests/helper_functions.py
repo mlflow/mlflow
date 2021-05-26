@@ -223,8 +223,15 @@ class RestEndpoint:
         if self._proc.poll() is None:
             # Terminate the process group containing the scoring process.
             # This will terminate all child processes of the scoring process
-            pgrp = os.getpgid(self._proc.pid)
-            os.killpg(pgrp, signal.SIGTERM)
+            if os.name != "nt":
+                pgrp = os.getpgid(self._proc.pid)
+                os.killpg(pgrp, signal.SIGTERM)
+            else:
+                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3  # noqa
+                import signal
+
+                self._proc.send_signal(signal.CTRL_BREAK_EVENT)
+                self._proc.kill()
 
     def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
