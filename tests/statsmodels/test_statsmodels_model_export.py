@@ -55,9 +55,7 @@ def model_path(tmpdir, subdir="model"):
 @pytest.fixture
 def statsmodels_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env, additional_conda_deps=["statsmodels"], additional_pip_deps=["pytest"]
-    )
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "statsmodels"])
     return conda_env
 
 
@@ -116,7 +114,7 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+                _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
                 mlflow.statsmodels.log_model(
                     statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
@@ -197,7 +195,7 @@ def test_log_model_calls_register_model(ols_model):
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-        _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+        _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
         mlflow.statsmodels.log_model(
             statsmodels_model=ols_model.model,
             artifact_path=artifact_path,
@@ -217,7 +215,7 @@ def test_log_model_no_registered_model_name(ols_model):
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-        _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+        _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
         mlflow.statsmodels.log_model(
             statsmodels_model=ols_model.model, artifact_path=artifact_path, conda_env=conda_env
         )

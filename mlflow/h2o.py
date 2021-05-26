@@ -31,9 +31,7 @@ def get_default_conda_env():
     """
     import h2o
 
-    return _mlflow_conda_env(
-        additional_pip_deps=["h2o=={}".format(h2o.__version__)]
-    )
+    return _mlflow_conda_env(additional_pip_deps=["h2o=={}".format(h2o.__version__)])
 
 
 def save_model(

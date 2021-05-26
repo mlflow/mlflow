@@ -220,7 +220,7 @@ def model_path(tmpdir):
 def onnx_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
-        conda_env, additional_conda_deps=["pytest", "torch"], additional_pip_deps=["onnx"],
+        conda_env, additional_pip_deps=["onnx", "pytest", "torch"],
     )
     return conda_env
 

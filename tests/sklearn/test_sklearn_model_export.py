@@ -77,7 +77,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def sklearn_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_conda_deps=["scikit-learn", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn", "pytest"])
     return conda_env
 
 

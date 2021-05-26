@@ -153,11 +153,7 @@ def test_merge_environment():
 
     assert sorted(expected_merged_env["channels"]) == sorted(actual_merged_env["channels"])
 
-    expected_pip_deps = mlflow.shap._get_pip_dependencies(
-        expected_merged_env
-    )
-    actual_pip_deps = mlflow.shap._get_pip_dependencies(
-        actual_merged_env
-    )
+    expected_pip_deps = mlflow.shap._get_pip_dependencies(expected_merged_env)
+    actual_pip_deps = mlflow.shap._get_pip_dependencies(actual_merged_env)
 
     assert sorted(expected_pip_deps) == sorted(actual_pip_deps)

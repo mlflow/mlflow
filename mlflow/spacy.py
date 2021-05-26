@@ -37,9 +37,7 @@ def get_default_conda_env():
     """
     import spacy
 
-    return _mlflow_conda_env(
-        additional_pip_deps=["spacy=={}".format(spacy.__version__)]
-    )
+    return _mlflow_conda_env(additional_pip_deps=["spacy=={}".format(spacy.__version__)])
 
 
 def save_model(

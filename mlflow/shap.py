@@ -512,9 +512,7 @@ def _merge_environments(shap_environment, model_environment):
 
     merged_pip_deps = list(set(shap_pip_deps + model_pip_deps))
 
-    return _mlflow_conda_env(
-        additional_pip_deps=merged_pip_deps,
-    )
+    return _mlflow_conda_env(additional_pip_deps=merged_pip_deps,)
 
 
 @experimental

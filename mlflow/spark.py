@@ -82,9 +82,7 @@ def get_default_conda_env():
     # available for installation from Anaconda or PyPI
     pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
 
-    return _mlflow_conda_env(
-        additional_pip_deps=["pyspark=={}".format(pyspark_version)]
-    )
+    return _mlflow_conda_env(additional_pip_deps=["pyspark=={}".format(pyspark_version)])
 
 
 def log_model(
