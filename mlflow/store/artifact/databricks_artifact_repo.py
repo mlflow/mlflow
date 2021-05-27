@@ -442,6 +442,12 @@ class DatabricksArtifactRepository(ArtifactRepository):
             page_token = response.next_page_token
         return infos
 
+    def _download_file(self, remote_file_path, local_path):
+        """
+        _download_file is unused in this repository's implementation and is only defined out
+        of necessity because it is an abstract method in the `ArtifactRepository` base class
+        """
+
     def download_artifacts(self, artifact_path, dst_path=None):
         """
         Parallelized implementation of `download_artifacts` for Databricks.
