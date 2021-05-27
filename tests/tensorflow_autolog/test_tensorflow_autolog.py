@@ -225,6 +225,7 @@ def tf_keras_random_data_run_with_callback(
             patience=patience,
             min_delta=99999999,
             restore_best_weights=restore_weights,
+            verbose=1,
         )
     else:
         callback = tf.keras.callbacks.ProgbarLogger(count_mode="samples")
@@ -256,16 +257,13 @@ def test_tf_keras_autolog_early_stop_logs(tf_keras_random_data_run_with_callback
     assert "restored_epoch" in metrics
     assert "epoch_loss" in metrics
     restored_epoch = int(metrics["restored_epoch"])
-    assert int(metrics["stopped_epoch"]) - max(1, callback.patience) == restored_epoch
+    assert int(metrics["stopped_epoch"]) - callback.patience == restored_epoch
     assert "loss" in history.history
-    num_of_epochs = len(history.history["loss"])
     client = mlflow.tracking.MlflowClient()
     # TF 1.X TB callback logs loss as `epoch_loss`
     metric_history = client.get_metric_history(run.info.run_id, "epoch_loss")
-    # Check the test epoch numbers are correct
-    assert num_of_epochs == max(1, callback.patience) + 1
-    # Check that MLflow has logged the metrics of the "best" model
-    assert len(metric_history) == num_of_epochs + 1
+    # Check that MLflow has logged the metrics of the "best" model, in addition to per-epoch metrics
+    assert len(metric_history) == len(history.history["loss"]) + 1
     # Check that MLflow has logged the correct data
     assert history.history["loss"][history.epoch.index(restored_epoch)] == metric_history[-1].value
 
@@ -534,6 +532,14 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     client = mlflow.tracking.MlflowClient()
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, "loss")
     assert all((x.step - 1) % 100 == 0 for x in metrics)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("export", [True, False])
+def test_tf_estimator_autolog_logs_tensorboard_logs(tf_estimator_random_data_run):
+    client = mlflow.tracking.MlflowClient()
+    artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
+    assert any(["tensorboard_logs" in a.path and a.is_dir for a in artifacts])
 
 
 @pytest.mark.large

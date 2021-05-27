@@ -1,0 +1,20 @@
+[tool.black]
+line-length = 100
+# TODO: Use `--extend-exclude` once we update black version to >= 21.4b0
+exclude = '''
+/(
+  # default exclude
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  # additional exclude
+  | mlflow/protos
+)/
+'''

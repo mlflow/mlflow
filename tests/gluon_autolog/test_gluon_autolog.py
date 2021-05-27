@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import random
 import warnings
 
@@ -17,7 +17,7 @@ import mlflow.gluon
 from mlflow.utils.autologging_utils import BatchMetricsLogger
 from unittest.mock import patch
 
-if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
+if Version(mx.__version__) >= Version("2.0.0"):
     from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
 else:
     from mxnet.metric import Accuracy  # pylint: disable=import-error
@@ -35,7 +35,7 @@ class LogsDataset(Dataset):
 
 
 def is_mxnet_older_than_1_6_0():
-    return LooseVersion(mx.__version__) < LooseVersion("1.6.0")
+    return Version(mx.__version__) < Version("1.6.0")
 
 
 def get_metrics():

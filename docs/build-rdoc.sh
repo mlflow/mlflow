@@ -2,6 +2,13 @@
 
 set -ex
 pushd ../mlflow/R/mlflow
+
+# `gert` requires `libgit2`:
+# https://github.com/r-lib/gert#installation
+sudo add-apt-repository ppa:cran/libgit2
+sudo apt-get update
+sudo apt-get install --yes libssh2-1-dev libgit2-dev
+
 Rscript -e 'install.packages("devtools", repos = "https://cloud.r-project.org")'
 Rscript -e 'devtools::install_dev_deps(dependencies = TRUE)'
 # Install Rd2md from source as a temporary fix for the rendering of code examples, until

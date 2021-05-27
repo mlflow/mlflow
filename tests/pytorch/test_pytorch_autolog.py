@@ -1,15 +1,16 @@
-from distutils.version import LooseVersion
-
+from packaging.version import Version
 import pytest
 import pytorch_lightning as pl
 import torch
-from iris import IrisClassification
+from iris import IrisClassification, IrisClassificationWithoutValidation
 import mlflow
 import mlflow.pytorch
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 from mlflow.utils.file_utils import TempDir
+from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from mlflow.utils.autologging_utils import BatchMetricsLogger
+from mlflow.pytorch._pytorch_autolog import _get_optimizer_name
 from unittest.mock import patch
 
 NUM_EPOCHS = 20
@@ -19,8 +20,23 @@ NUM_EPOCHS = 20
 def pytorch_model():
     mlflow.pytorch.autolog()
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model, dm)
+    client = mlflow.tracking.MlflowClient()
+    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    return trainer, run
+
+
+@pytest.fixture
+def pytorch_model_without_validation():
+    mlflow.pytorch.autolog()
+    model = IrisClassificationWithoutValidation()
+    dm = IrisDataModuleWithoutValidation()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
+    trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     return trainer, run
@@ -31,8 +47,10 @@ def pytorch_model():
 def test_pytorch_autolog_log_models_configuration(log_models):
     mlflow.pytorch.autolog(log_models=log_models)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
+    trainer.fit(model, dm)
     client = mlflow.tracking.MlflowClient()
     run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
     run_id = run.info.run_id
@@ -56,15 +74,15 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     data = run.data
 
     # Checking if metrics are logged
-    assert "loss" in data.metrics
-    assert "val_loss" in data.metrics
+    client = mlflow.tracking.MlflowClient()
+    for metric_key in ["loss", "train_acc", "val_loss", "val_acc"]:
+        assert metric_key in run.data.metrics
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
+        assert len(metric_history) == NUM_EPOCHS
 
     # Testing optimizer parameters are logged
     assert "optimizer_name" in data.params
-
-    # In pytorch-lightning >= 1.1.0, optimizer names are prefixed with "Lightning".
-    prefix = "Lightning" if LooseVersion(pl.__version__) >= LooseVersion("1.1.0") else ""
-    assert data.params["optimizer_name"] == prefix + "Adam"
+    assert data.params["optimizer_name"] == "Adam"
 
     # Testing model_summary.txt is saved
     client = mlflow.tracking.MlflowClient()
@@ -73,13 +91,27 @@ def test_pytorch_autolog_logs_expected_data(pytorch_model):
     assert "model_summary.txt" in artifacts
 
 
+def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_without_validation):
+    trainer, run = pytorch_model_without_validation
+    assert trainer.disable_validation
+
+    client = mlflow.tracking.MlflowClient()
+    for metric_key in ["loss", "train_acc"]:
+        assert metric_key in run.data.metrics
+        metric_history = client.get_metric_history(run.info.run_id, metric_key)
+        assert len(metric_history) == NUM_EPOCHS
+
+
 # pylint: disable=unused-argument
 def test_pytorch_autolog_persists_manually_created_run():
     with mlflow.start_run() as manual_run:
         mlflow.pytorch.autolog()
         model = IrisClassification()
+        dm = IrisDataModule()
+        dm.setup(stage="fit")
         trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-        trainer.fit(model)
+        trainer.fit(model, dm)
+        trainer.test()
         assert mlflow.active_run() is not None
         assert mlflow.active_run().info.run_id == manual_run.info.run_id
 
@@ -92,6 +124,8 @@ def test_pytorch_autolog_ends_auto_created_run(pytorch_model):
 def pytorch_model_with_callback(patience):
     mlflow.pytorch.autolog()
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
     early_stopping = EarlyStopping(
         monitor="val_loss",
         mode="min",
@@ -101,21 +135,15 @@ def pytorch_model_with_callback(patience):
     )
 
     with TempDir() as tmp:
+        keyword = "dirpath" if Version(pl.__version__) >= Version("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            filepath=tmp.path(),
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
 
         trainer = pl.Trainer(
-            max_epochs=NUM_EPOCHS * 2,
-            callbacks=[early_stopping],
-            checkpoint_callback=checkpoint_callback,
+            max_epochs=NUM_EPOCHS * 2, callbacks=[early_stopping, checkpoint_callback],
         )
-        trainer.fit(model)
+        trainer.fit(model, dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -151,24 +179,20 @@ def test_pytorch_autolog_model_can_load_from_artifact(pytorch_model_with_callbac
 def test_pytorch_with_early_stopping_autolog_log_models_configuration_with(log_models, patience):
     mlflow.pytorch.autolog(log_models=log_models)
     model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
     early_stopping = EarlyStopping(monitor="val_loss", mode="min", patience=patience, verbose=True)
 
     with TempDir() as tmp:
+        keyword = "dirpath" if Version(pl.__version__) >= Version("1.2.0") else "filepath"
         checkpoint_callback = ModelCheckpoint(
-            filepath=tmp.path(),
-            save_top_k=1,
-            verbose=True,
-            monitor="val_loss",
-            mode="min",
-            prefix="",
+            **{keyword: tmp.path()}, save_top_k=1, verbose=True, monitor="val_loss", mode="min",
         )
 
         trainer = pl.Trainer(
-            max_epochs=NUM_EPOCHS * 2,
-            callbacks=[early_stopping],
-            checkpoint_callback=checkpoint_callback,
+            max_epochs=NUM_EPOCHS * 2, callbacks=[early_stopping, checkpoint_callback],
         )
-        trainer.fit(model)
+        trainer.fit(model, dm)
 
         client = mlflow.tracking.MlflowClient()
         run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
@@ -188,15 +212,6 @@ def test_pytorch_early_stop_params_logged(pytorch_model_with_callback, patience)
     assert float(data.params["patience"]) == patience
     assert "min_delta" in data.params
     assert "stopped_epoch" in data.params
-
-
-@pytest.mark.parametrize("patience", [3])
-def test_pytorch_early_stop_metrics_logged(pytorch_model_with_callback):
-    _, run = pytorch_model_with_callback
-    data = run.data
-    assert "stopped_epoch" in data.metrics
-    assert "wait_count" in data.metrics
-    assert "restored_epoch" in data.metrics
 
 
 @pytest.mark.parametrize("patience", [3])
@@ -232,20 +247,25 @@ def test_pytorch_autolog_batch_metrics_logger_logs_expected_metrics(patience):
 def test_pytorch_autolog_non_early_stop_callback_does_not_log(pytorch_model):
     trainer, run = pytorch_model
     client = mlflow.tracking.MlflowClient()
-    metric_history = client.get_metric_history(run.info.run_id, "loss")
+    loss_metric_history = client.get_metric_history(run.info.run_id, "loss")
+    val_loss_metric_history = client.get_metric_history(run.info.run_id, "val_loss")
     assert trainer.max_epochs == NUM_EPOCHS
-    assert len(metric_history) == NUM_EPOCHS
+    assert len(loss_metric_history) == NUM_EPOCHS
+    assert len(val_loss_metric_history) == NUM_EPOCHS
 
 
 @pytest.fixture
 def pytorch_model_tests():
+    mlflow.pytorch.autolog()
     model = IrisClassification()
-
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=NUM_EPOCHS)
-    trainer.fit(model)
-    trainer.test()
+    with mlflow.start_run() as run:
+        trainer.fit(model, dm)
+        trainer.test()
     client = mlflow.tracking.MlflowClient()
-    run = client.get_run(client.list_run_infos(experiment_id="0")[0].run_id)
+    run = client.get_run(run.info.run_id)
     return trainer, run
 
 
@@ -254,3 +274,19 @@ def test_pytorch_test_metrics_logged(pytorch_model_tests):
     data = run.data
     assert "test_loss" in data.metrics
     assert "test_acc" in data.metrics
+
+
+def test_get_optimizer_name():
+    adam = torch.optim.Adam(torch.nn.Linear(1, 1).parameters())
+    assert _get_optimizer_name(adam) == "Adam"
+
+
+@pytest.mark.skipif(
+    Version(pl.__version__) < Version("1.1.0"),
+    reason="`LightningOptimizer` doesn't exist in pytorch-lightning < 1.1.0",
+)
+def test_get_optimizer_name_with_lightning_optimizer():
+    from pytorch_lightning.core.optimizer import LightningOptimizer
+
+    adam = torch.optim.Adam(torch.nn.Linear(1, 1).parameters())
+    assert _get_optimizer_name(LightningOptimizer(adam)) == "Adam"

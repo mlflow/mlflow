@@ -1,9 +1,10 @@
+from packaging.version import Version
 import logging
 import mlflow.pytorch
 import os
-import pytorch_lightning as pl
 import shutil
 import tempfile
+import pytorch_lightning as pl
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.utilities import rank_zero_only
 
@@ -30,6 +31,28 @@ every_n_epoch = 1
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
+
+
+def _get_optimizer_name(optimizer):
+    """
+    In pytorch-lightining 1.1.0, `LightningOptimizer` was introduced:
+    https://github.com/PyTorchLightning/pytorch-lightning/pull/4658
+
+    If a user sets `enable_pl_optimizer` to True when instantiating a `Trainer` object,
+    each optimizer will be wrapped by `LightningOptimizer`:
+    https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.trainer.trainer.html
+    #pytorch_lightning.trainer.trainer.Trainer.params.enable_pl_optimizer
+    """
+    if Version(pl.__version__) < Version("1.1.0"):
+        return optimizer.__class__.__name__
+    else:
+        from pytorch_lightning.core.optimizer import LightningOptimizer
+
+        return (
+            optimizer._optimizer.__class__.__name__
+            if isinstance(optimizer, LightningOptimizer)
+            else optimizer.__class__.__name__
+        )
 
 
 @rank_zero_only
@@ -65,14 +88,16 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
             def __init__(self):
                 self.early_stopping = False
 
-            def on_epoch_end(self, trainer, pl_module):
-                """
-                Log loss and other metrics values after each epoch
+            def _log_metrics(self, trainer, pl_module):
+                # pytorch-lightning runs a few steps of validation in the beginning of training
+                # as a sanity check to catch bugs without having to wait for the training routine
+                # to complete. During this check, we should skip logging metrics.
+                # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#num-sanity-val-steps # noqa
+                if trainer.running_sanity_check:
+                    return
 
-                :param trainer: pytorch lightning trainer instance
-                :param pl_module: pytorch lightning base module
-                """
                 if (pl_module.current_epoch + 1) % every_n_epoch == 0:
+                    # `trainer.callback_metrics` contains both training and validation metrics
                     cur_metrics = trainer.callback_metrics
                     # Cast metric value as  float before passing into logger.
                     metrics = dict(map(lambda x: (x[0], float(x[1])), cur_metrics.items()))
@@ -82,6 +107,66 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                 for callback in trainer.callbacks:
                     if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
                         self._early_stop_check(callback)
+
+            _pl_version = Version(pl.__version__)
+
+            # In pytorch-lightning >= 1.4.0, validation is run inside the training epoch and
+            # `trainer.callback_metrics` contains both training and validation metrics of the
+            # current training epoch when `on_train_epoch_end` is called:
+            # https://github.com/PyTorchLightning/pytorch-lightning/pull/7357
+            if _pl_version >= Version("1.4.0dev"):
+
+                def on_train_epoch_end(
+                    self, trainer, pl_module, *args
+                ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+                    self._log_metrics(trainer, pl_module)
+
+            # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
+            # metrics records because `on_epoch_end` is called after both train and validation
+            # epochs (related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986)
+            # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
+            # in pytorch-lightning >= 1.2.0.
+            elif _pl_version >= Version("1.2.0"):
+
+                # NB: Override `on_train_epoch_end` with an additional `*args` parameter for
+                # compatibility with versions of pytorch-lightning <= 1.2.0, which required an
+                # `outputs` argument that was not used and is no longer defined in
+                # pytorch-lightning >= 1.3.0
+
+                def on_train_epoch_end(
+                    self, trainer, pl_module, *args
+                ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+                    """
+                    Log loss and other metrics values after each train epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    # If validation loop is enabled (meaning `validation_step` is overridden),
+                    # log metrics in `on_validaion_epoch_end` to avoid logging the same metrics
+                    # records twice
+                    if trainer.disable_validation:
+                        self._log_metrics(trainer, pl_module)
+
+                def on_validation_epoch_end(self, trainer, pl_module):
+                    """
+                    Log loss and other metrics values after each validation epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    self._log_metrics(trainer, pl_module)
+
+            else:
+
+                def on_epoch_end(self, trainer, pl_module):
+                    """
+                    Log loss and other metrics values after each epoch
+
+                    :param trainer: pytorch lightning trainer instance
+                    :param pl_module: pytorch lightning base module
+                    """
+                    self._log_metrics(trainer, pl_module)
 
             def on_train_start(self, trainer, pl_module):
                 """
@@ -108,7 +193,9 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
                 if hasattr(trainer, "optimizers"):
                     optimizer = trainer.optimizers[0]
-                    try_mlflow_log(mlflow.log_param, "optimizer_name", type(optimizer).__name__)
+                    try_mlflow_log(
+                        mlflow.log_param, "optimizer_name", _get_optimizer_name(optimizer)
+                    )
 
                     if hasattr(optimizer, "defaults"):
                         try_mlflow_log(mlflow.log_params, optimizer.defaults)

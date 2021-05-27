@@ -1,6 +1,7 @@
 import os
+import time
+import shutil
 
-from azure.storage.blob import BlobClient
 import pytest
 import posixpath
 from requests.models import Response
@@ -26,6 +27,7 @@ DATABRICKS_ARTIFACT_REPOSITORY = (
 
 MOCK_AZURE_SIGNED_URI = "http://this_is_a_mock_sas_for_azure"
 MOCK_AWS_SIGNED_URI = "http://this_is_a_mock_presigned_uri_for_aws?"
+MOCK_GCP_SIGNED_URL = "http://this_is_a_mock_signed_url_for_gcp?"
 MOCK_RUN_ID = "MOCK-RUN-ID"
 MOCK_HEADERS = [
     ArtifactCredentialInfo.HttpHeader(name="Mock-Name1", value="Mock-Value1"),
@@ -217,34 +219,44 @@ class TestDatabricksArtifactRepository(object):
     def test_log_artifact_azure_with_headers(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
-        expected_headers = {header.name: header.value for header in MOCK_HEADERS}
-        mock_blob_service = mock.MagicMock(autospec=BlobClient)
+        mock_azure_headers = {
+            "x-ms-encryption-scope": "test-scope",
+            "x-ms-tags": "some-tags",
+            "x-ms-blob-type": "some-type",
+        }
+        filtered_azure_headers = {
+            "x-ms-encryption-scope": "test-scope",
+            "x-ms-tags": "some-tags",
+        }
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
         ) as write_credentials_mock, mock.patch(
-            "azure.storage.blob.BlobClient.from_blob_url"
-        ) as mock_create_blob_client:
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_SAS_URI,
-                headers=MOCK_HEADERS,
+                headers=[
+                    ArtifactCredentialInfo.HttpHeader(name=header_name, value=header_value)
+                    for header_name, header_value in mock_azure_headers.items()
+                ],
             )
             write_credentials_response_proto = GetCredentialsForWrite.Response(
                 credentials=mock_credentials
             )
             write_credentials_mock.return_value = write_credentials_response_proto
-
-            mock_create_blob_client.return_value = mock_blob_service
-            mock_blob_service.stage_block.side_effect = None
-            mock_blob_service.commit_block_list.side_effect = None
-
+            request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            mock_create_blob_client.assert_called_with(
-                blob_url=MOCK_AZURE_SIGNED_URI, credential=None, headers=expected_headers
+            request_mock.assert_called_with(
+                "put",
+                MOCK_AZURE_SIGNED_URI + "?comp=blocklist",
+                ANY,
+                headers=filtered_azure_headers,
             )
-            mock_blob_service.stage_block.assert_called_with(ANY, ANY, headers=expected_headers)
-            mock_blob_service.commit_block_list.assert_called_with(ANY, headers=expected_headers)
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
@@ -268,11 +280,14 @@ class TestDatabricksArtifactRepository(object):
     def test_log_artifact_aws(
         self, databricks_artifact_repo, test_file, artifact_path, expected_location
     ):
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
         ) as write_credentials_mock, mock.patch(
-            DATABRICKS_ARTIFACT_REPOSITORY + "._aws_upload_file"
-        ) as aws_upload_mock:
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
@@ -280,10 +295,10 @@ class TestDatabricksArtifactRepository(object):
                 credentials=mock_credentials
             )
             write_credentials_mock.return_value = write_credentials_response_proto
-            aws_upload_mock.return_value = None
+            request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            aws_upload_mock.assert_called_with(mock_credentials, test_file.strpath)
+            request_mock.assert_called_with("put", MOCK_AWS_SIGNED_URI, ANY, headers={})
 
     @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
     def test_log_artifact_aws_with_headers(
@@ -292,9 +307,12 @@ class TestDatabricksArtifactRepository(object):
         expected_headers = {header.name: header.value for header in MOCK_HEADERS}
         mock_response = Response()
         mock_response.status_code = 200
+        mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI,
                 type=ArtifactCredentialType.AWS_PRESIGNED_URL,
@@ -307,14 +325,89 @@ class TestDatabricksArtifactRepository(object):
             request_mock.return_value = mock_response
             databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
             write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
-            request_mock.assert_called_with(ANY, ANY, headers=expected_headers)
+            request_mock.assert_called_with(
+                "put", MOCK_AWS_SIGNED_URI, ANY, headers=expected_headers
+            )
 
     def test_log_artifact_aws_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
-        ) as write_credentials_mock, mock.patch("requests.put") as request_mock:
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
             mock_credentials = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            write_credentials_response_proto = GetCredentialsForWrite.Response(
+                credentials=mock_credentials
+            )
+            write_credentials_mock.return_value = write_credentials_response_proto
+            request_mock.side_effect = MlflowException("MOCK ERROR")
+            with pytest.raises(MlflowException):
+                databricks_artifact_repo.log_artifact(test_file.strpath)
+            write_credentials_mock.assert_called_with(MOCK_RUN_ID, ANY)
+
+    @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
+    def test_log_artifact_gcp(
+        self, databricks_artifact_repo, test_file, artifact_path, expected_location
+    ):
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response.close = lambda: None
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
+            )
+            write_credentials_response_proto = GetCredentialsForWrite.Response(
+                credentials=mock_credentials
+            )
+            write_credentials_mock.return_value = write_credentials_response_proto
+            request_mock.return_value = mock_response
+            databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+            write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
+            request_mock.assert_called_with("put", MOCK_GCP_SIGNED_URL, ANY, headers={})
+
+    @pytest.mark.parametrize("artifact_path,expected_location", [(None, "test.txt")])
+    def test_log_artifact_gcp_with_headers(
+        self, databricks_artifact_repo, test_file, artifact_path, expected_location
+    ):
+        expected_headers = {header.name: header.value for header in MOCK_HEADERS}
+        mock_response = Response()
+        mock_response.status_code = 200
+        mock_response.close = lambda: None
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_GCP_SIGNED_URL,
+                type=ArtifactCredentialType.GCP_SIGNED_URL,
+                headers=MOCK_HEADERS,
+            )
+            write_credentials_response_proto = GetCredentialsForWrite.Response(
+                credentials=mock_credentials
+            )
+            write_credentials_mock.return_value = write_credentials_response_proto
+            request_mock.return_value = mock_response
+            databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
+            write_credentials_mock.assert_called_with(MOCK_RUN_ID, expected_location)
+            request_mock.assert_called_with(
+                "put", MOCK_GCP_SIGNED_URL, ANY, headers=expected_headers
+            )
+
+    def test_log_artifact_gcp_presigned_url_error(self, databricks_artifact_repo, test_file):
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
+        ) as write_credentials_mock, mock.patch(
+            "mlflow.utils.rest_utils.cloud_storage_http_request"
+        ) as request_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
             )
             write_credentials_response_proto = GetCredentialsForWrite.Response(
                 credentials=mock_credentials
@@ -505,6 +598,7 @@ class TestDatabricksArtifactRepository(object):
             ("test_file.txt", None, ArtifactCredentialType.AZURE_SAS_URI),
             ("output/test_file", None, ArtifactCredentialType.AZURE_SAS_URI),
             ("test_file.txt", "", ArtifactCredentialType.AWS_PRESIGNED_URL),
+            ("test_file.txt", "", ArtifactCredentialType.GCP_SIGNED_URL),
         ],
     )
     def test_databricks_download_file(
@@ -580,3 +674,173 @@ class TestDatabricksArtifactRepository(object):
             with pytest.raises(MlflowException):
                 databricks_artifact_repo.download_artifacts(test_file.strpath)
             read_credentials_mock.assert_called_with(MOCK_RUN_ID, test_file.strpath)
+
+    def test_download_artifacts_awaits_download_completion(self, databricks_artifact_repo, tmpdir):
+        """
+        Verifies that all asynchronous artifact downloads are joined before `download_artifacts()`
+        returns a result to the caller
+        """
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_read_credentials"
+        ) as read_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + ".list_artifacts"
+        ) as get_list_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._download_from_cloud"
+        ) as download_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            read_credentials_response_proto = GetCredentialsForRead.Response(
+                credentials=mock_credentials
+            )
+            read_credentials_mock.return_value = read_credentials_response_proto
+            get_list_mock.return_value = [
+                FileInfo(path="file_1.txt", is_dir=False, file_size=100),
+                FileInfo(path="file_2.txt", is_dir=False, file_size=0),
+            ]
+
+            def mock_download_from_cloud(
+                cloud_credential, local_file_path
+            ):  # pylint: disable=unused-argument
+                # Sleep in order to simulate a longer-running asynchronous download
+                time.sleep(2)
+                with open(local_file_path, "w") as f:
+                    f.write("content")
+
+            download_mock.side_effect = mock_download_from_cloud
+
+            databricks_artifact_repo.download_artifacts("test_path", str(tmpdir))
+
+            expected_file1_path = os.path.join(str(tmpdir), "file_1.txt")
+            expected_file2_path = os.path.join(str(tmpdir), "file_2.txt")
+            for path in [expected_file1_path, expected_file2_path]:
+                assert os.path.exists(path)
+                with open(path, "r") as f:
+                    assert f.read() == "content"
+
+    def test_artifact_logging_awaits_upload_completion(self, databricks_artifact_repo, tmpdir):
+        """
+        Verifies that all asynchronous artifact uploads initiated by `log_artifact()` and
+        `log_artifacts()` are joined before these methods return a result to the caller
+        """
+        src_dir = os.path.join(str(tmpdir), "src")
+        os.makedirs(src_dir)
+        src_file1_path = os.path.join(src_dir, "file_1.txt")
+        with open(src_file1_path, "w") as f:
+            f.write("file1")
+        src_file2_path = os.path.join(src_dir, "file_2.txt")
+        with open(src_file2_path, "w") as f:
+            f.write("file2")
+
+        dst_dir = os.path.join(str(tmpdir), "dst")
+        os.makedirs(dst_dir)
+
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
+        ) as write_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._upload_to_cloud"
+        ) as upload_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            write_credentials_response_proto = GetCredentialsForWrite.Response(
+                credentials=mock_credentials
+            )
+            write_credentials_mock.return_value = write_credentials_response_proto
+
+            def mock_upload_to_cloud(
+                cloud_credentials, local_file_path, artifact_path
+            ):  # pylint: disable=unused-argument
+                # Sleep in order to simulate a longer-running asynchronous upload
+                time.sleep(2)
+                dst_path = os.path.join(dst_dir, artifact_path)
+                os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+                shutil.copyfile(src=local_file_path, dst=dst_path)
+
+            upload_mock.side_effect = mock_upload_to_cloud
+
+            databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
+
+            expected_dst_dir_file1_path = os.path.join(dst_dir, "dir_artifact", "file_1.txt")
+            expected_dst_dir_file2_path = os.path.join(dst_dir, "dir_artifact", "file_2.txt")
+            assert os.path.exists(expected_dst_dir_file1_path)
+            assert os.path.exists(expected_dst_dir_file2_path)
+            with open(expected_dst_dir_file1_path, "r") as f:
+                assert f.read() == "file1"
+            with open(expected_dst_dir_file2_path, "r") as f:
+                assert f.read() == "file2"
+
+            databricks_artifact_repo.log_artifact(src_file1_path)
+
+            expected_dst_file_path = os.path.join(dst_dir, "file_1.txt")
+            assert os.path.exists(expected_dst_file_path)
+            with open(expected_dst_file_path, "r") as f:
+                assert f.read() == "file1"
+
+    def test_download_artifacts_provides_failure_info(self, databricks_artifact_repo):
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_read_credentials"
+        ) as read_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + ".list_artifacts"
+        ) as get_list_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._download_from_cloud"
+        ) as download_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            read_credentials_response_proto = GetCredentialsForRead.Response(
+                credentials=mock_credentials
+            )
+            read_credentials_mock.return_value = read_credentials_response_proto
+            get_list_mock.return_value = [
+                FileInfo(path="file_1.txt", is_dir=False, file_size=100),
+                FileInfo(path="file_2.txt", is_dir=False, file_size=0),
+            ]
+            download_mock.side_effect = [
+                MlflowException("MOCK ERROR 1"),
+                MlflowException("MOCK ERROR 2"),
+            ]
+
+            with pytest.raises(MlflowException) as exc:
+                databricks_artifact_repo.download_artifacts("test_path")
+
+            assert MOCK_RUN_ROOT_URI in str(exc)
+            assert "file_1.txt" in str(exc)
+            assert "MOCK ERROR 1" in str(exc)
+            assert "file_2.txt" in str(exc)
+            assert "MOCK ERROR 2" in str(exc)
+
+    def test_log_artifacts_provides_failure_info(self, databricks_artifact_repo, tmpdir):
+        src_file1_path = os.path.join(str(tmpdir), "file_1.txt")
+        with open(src_file1_path, "w") as f:
+            f.write("file1")
+        src_file2_path = os.path.join(str(tmpdir), "file_2.txt")
+        with open(src_file2_path, "w") as f:
+            f.write("file2")
+
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credentials"
+        ) as write_credentials_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._upload_to_cloud"
+        ) as upload_mock:
+            mock_credentials = ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            )
+            write_credentials_response_proto = GetCredentialsForWrite.Response(
+                credentials=mock_credentials
+            )
+            write_credentials_mock.return_value = write_credentials_response_proto
+
+            upload_mock.side_effect = [
+                MlflowException("MOCK ERROR 1"),
+                MlflowException("MOCK ERROR 2"),
+            ]
+
+            with pytest.raises(MlflowException) as exc:
+                databricks_artifact_repo.log_artifacts(str(tmpdir), "test_artifacts")
+
+            assert MOCK_RUN_ROOT_URI in str(exc)
+            assert "file_1.txt" in str(exc)
+            assert "MOCK ERROR 1" in str(exc)
+            assert "file_2.txt" in str(exc)
+            assert "MOCK ERROR 2" in str(exc)

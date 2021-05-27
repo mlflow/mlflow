@@ -139,10 +139,16 @@ by running the following from your checkout of MLflow:
 .. code-block:: bash
 
     conda create --name mlflow-dev-env python=3.6
-    source activate mlflow-dev-env
+    conda activate mlflow-dev-env
+    pip install -e . [extras] # installs mlflow from current checkout with some useful extra utilities
+
+If you plan on doing development and testing, you will also need to install the following into the conda environment:
+
+.. code-block:: bash
+
     pip install -r dev-requirements.txt
     pip install -r test-requirements.txt
-    pip install -e .  # installs mlflow from current checkout
+    pip install -e .[extras]  # installs mlflow from current checkout
 
 You may need to run ``conda install cmake`` for the test requirements to properly install, as ``onnx`` needs ``cmake``.
 
@@ -160,6 +166,17 @@ JavaScript and UI
 The MLflow UI is written in JavaScript. ``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
+
+Install Node Module Dependencies
+++++++++++++++++++++++++++++++++
+
+On OSX, install the following packages required by the node modules:
+
+.. code-block:: bash
+
+    brew install pixman cairo pango jpeg
+
+Linux/Windows users will need to source these dependencies using the appropriate package manager on their platforms.
 
 Install Node Modules
 ++++++++++++++++++++
@@ -319,7 +336,7 @@ You can auto-format your code by running:
 
 .. code-block:: bash
 
-    black --line-length=100 --exclude=mlflow/protos .
+    black .
 
 Then, verify that the unit tests & linter pass before submitting a pull request by running:
 
@@ -570,3 +587,7 @@ Then add a line to every git commit message::
 
 Use your real name (sorry, no pseudonyms or anonymous contributions). You can sign your commit 
 automatically with ``git commit -s`` after you set your ``user.name`` and ``user.email`` git configs.
+
+Code of Conduct
+###############
+Refer to the `MLflow Contributor Covenant Code of Conduct <./CODE_OF_CONDUCT.rst>`_ for more information.

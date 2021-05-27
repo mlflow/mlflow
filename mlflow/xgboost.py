@@ -16,6 +16,7 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
+from packaging.version import Version
 import os
 import shutil
 import json
@@ -44,10 +45,18 @@ from mlflow.utils.autologging_utils import (
     log_fn_args_as_params,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
-    _InputExampleInfo,
+    InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
 )
+
+# Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
+# `ExceptionSafeAbstractClass` as 'unused-import': https://github.com/PyCQA/pylint/issues/1630
+# To avoid this bug, disable 'unused-import' on this line.
+from mlflow.utils.autologging_utils import (  # pylint: disable=unused-import
+    ExceptionSafeAbstractClass,
+)
+
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 FLAVOR_NAME = "xgboost"
@@ -292,6 +301,8 @@ def autolog(
     log_models=True,
     disable=False,
     exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=W0102,unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
@@ -328,6 +339,12 @@ def autolog(
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      xgboost that have not been tested against this version of the MLflow client
+                      or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during XGBoost
+                   autologging. If ``False``, show all events and warnings during XGBoost
+                   autologging.
     """
     import xgboost
     import numpy as np
@@ -349,11 +366,11 @@ def autolog(
                         "cannot gather example input when dataset is loaded from a file."
                     )
 
-                input_example_info = _InputExampleInfo(
+                input_example_info = InputExampleInfo(
                     input_example=deepcopy(data[:INPUT_EXAMPLE_SAMPLE_ROWS])
                 )
-            except Exception as e:  # pylint: disable=broad-except
-                input_example_info = _InputExampleInfo(error_msg=str(e))
+            except Exception as e:
+                input_example_info = InputExampleInfo(error_msg=str(e))
 
             setattr(self, "input_example_info", input_example_info)
 
@@ -364,13 +381,53 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
+            # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+            #       https://github.com/dmlc/xgboost/issues/6984
+            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
+                # In xgboost >= 1.3.0, user-defined callbacks should inherit
+                # `xgboost.callback.TrainingCallback`:
+                # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa
 
-            @exception_safe_function
-            def callback(env):
-                metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
-                eval_results.append(dict(env.evaluation_result_list))
+                class Callback(
+                    xgboost.callback.TrainingCallback, metaclass=ExceptionSafeAbstractClass,
+                ):
+                    def after_iteration(self, model, epoch, evals_log):
+                        """
+                        Run after each iteration. Return True when training should stop.
+                        """
+                        # `evals_log` is a nested dict (type: Dict[str, Dict[str, List[float]]])
+                        # that looks like this:
+                        # {
+                        #   "train": {
+                        #     "auc": [0.5, 0.6, 0.7, ...],
+                        #     ...
+                        #   },
+                        #   ...
+                        # }
+                        evaluation_result_dict = {}
+                        for data_name, metric_dict in evals_log.items():
+                            for metric_name, metric_values_on_each_iter in metric_dict.items():
+                                key = "{}-{}".format(data_name, metric_name)
+                                # The last element in `metric_values_on_each_iter` corresponds to
+                                # the meric on the current iteration
+                                evaluation_result_dict[key] = metric_values_on_each_iter[-1]
 
-            return callback
+                        metrics_logger.record_metrics(evaluation_result_dict, epoch)
+                        eval_results.append(evaluation_result_dict)
+
+                        # Return `False` to indicate training should not stop
+                        return False
+
+                return Callback()
+
+            else:
+
+                @exception_safe_function
+                def callback(env):
+                    metrics_logger.record_metrics(dict(env.evaluation_result_list), env.iteration)
+                    eval_results.append(dict(env.evaluation_result_list))
+
+                return callback
 
         def log_feature_importance_plot(features, importance, importance_type):
             """
@@ -468,7 +525,7 @@ def autolog(
                 imp = model.get_score(importance_type=imp_type)
                 features, importance = zip(*imp.items())
                 log_feature_importance_plot(features, importance, imp_type)
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _logger.exception(
                     "Failed to log feature importance plot. XGBoost autologging "
                     "will ignore the failure and continue. Exception: "

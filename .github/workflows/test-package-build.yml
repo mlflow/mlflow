@@ -1,0 +1,128 @@
+name: Test package build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        type: ["full", "skinny"]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          node-version: "12"
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+
+      - name: Set environment variable for skinny client build
+        if: ${{ matrix.type == 'skinny' }}
+        run: |
+          echo "MLFLOW_SKINNY=true" >> $GITHUB_ENV
+
+      - name: Build UI
+        if: ${{ matrix.type == 'full' }}
+        working-directory: mlflow/server/js
+        env:
+          # Prevent warnings (emitted from react-pdf) from being treated as errors
+          # https://github.com/wojtekmaj/react-pdf/issues/280
+          CI: false
+        run: |
+          npm install
+          npm run build
+
+      - name: Install dependencies
+        run: |
+          pip install wheel twine
+
+      - name: Build distribution files
+        id: build-dist
+        run: |
+          # Build distribution files
+          python setup.py sdist bdist_wheel
+
+          # List distribution files and check their file sizes
+          ls -lh dist
+
+          # Set step outputs
+          sdist_path=$(find dist -type f -name "*.tar.gz")
+          wheel_path=$(find dist -type f -name "*.whl")
+          wheel_name=$(basename $wheel_path)
+          wheel_size=$(stat -c %s $wheel_path)
+          echo "::set-output name=sdist-path::${sdist_path}"
+          echo "::set-output name=wheel-path::${wheel_path}"
+          echo "::set-output name=wheel-name::${wheel_name}"
+          echo "::set-output name=wheel-size::${wheel_size}"
+
+      - name: Run twine check
+        run: |
+          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Test installation from tarball
+        run: |
+          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+
+      - name: Test installation from wheel
+        run: |
+          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
+          python -c "import mlflow; print(mlflow.__version__)"
+
+      # Anyone with read access can download the uploaded wheel on GitHub.
+      - name: Store wheel
+        uses: actions/upload-artifact@v2
+        if: github.event_name == 'push'
+        with:
+          name: ${{ steps.build-dist.outputs.wheel-name }}
+          path: ${{ steps.build-dist.outputs.wheel-path }}
+
+      - name: Remove old wheels
+        uses: actions/github-script@v3
+        if: github.event_name == 'push'
+        env:
+          WHEEL_SIZE: ${{ steps.build-dist.outputs.wheel-size }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+
+            // For some reason, the newly-uploaded wheel in the previous step is not included.
+            const artifactsResp = await github.actions.listArtifactsForRepo({
+              owner,
+              repo,
+            });
+            const wheels = artifactsResp.data.artifacts.filter(({ name }) => name.endsWith(".whl"));
+
+            // The storage usage limit for a free github account is up to 500 MB. See the page below for details:
+            // https://docs.github.com/en/github/setting-up-and-managing-billing-and-payments-on-github/about-billing-for-github-actions
+            MAX_SIZE_IN_BYTES = 300_000_000; // 300 MB
+
+            let index = 0;
+            let sum = parseInt(process.env.WHEEL_SIZE);  // include the newly-uploaded wheel
+            for (const [idx, { size_in_bytes }] of wheels.entries()) {
+              index = idx;
+              sum += size_in_bytes;
+              if (sum > MAX_SIZE_IN_BYTES) {
+                break;
+              }
+            }
+
+            if (sum <= MAX_SIZE_IN_BYTES) {
+              return;
+            }
+
+            // Delete old wheels
+            const promises = wheels.slice(index).map(({ id: artifact_id }) =>
+              github.actions.deleteArtifact({
+                owner,
+                repo,
+                artifact_id,
+              })
+            );
+            Promise.all(promises).then(data => console.log(data));

@@ -8,7 +8,7 @@ import subprocess
 import logging
 import uuid
 
-from distutils.version import StrictVersion
+from packaging.version import Version
 
 from mlflow import get_tracking_uri, get_registry_uri
 from mlflow import pyfunc
@@ -138,9 +138,7 @@ def build_image(
 
     model_pyfunc_conf, _ = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
-        "3.0.0"
-    ):
+    if model_python_version is not None and Version(model_python_version) < Version("3.0.0"):
         raise MlflowException(
             message=(
                 "Azure ML can only deploy models trained in Python 3 and above. See"
@@ -351,9 +349,7 @@ def deploy(
         run_id_tag = run_id
     except AttributeError:
         run_id = str(uuid.uuid4())
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
-        "3.0.0"
-    ):
+    if model_python_version is not None and Version(model_python_version) < Version("3.0.0"):
         raise MlflowException(
             message=(
                 "Azure ML can only deploy models trained in Python 3 and above. See"
@@ -410,8 +406,8 @@ def deploy(
 
             _logger.info(
                 "Registered an Azure Model with name: `%s` and version: `%s`",
-                registered_model.name,
-                registered_model.version,
+                mlflow_model.name,
+                azure_model_id,
             )
 
         # Attempt to retrieve an AzureML Model object which we intend to deploy
@@ -419,7 +415,7 @@ def deploy(
             try:
                 registered_model = AzureModel(workspace, id=azure_model_id)
                 _logger.info("Found registered model in AzureML with ID '%s'", azure_model_id)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 _logger.info(
                     "Unable to find model in AzureML with ID '%s', will register the model.\n"
                     "Exception was: %s",

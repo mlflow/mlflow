@@ -218,3 +218,32 @@ def test_get_s3_file_upload_extra_args_invalid_json():
 
     with pytest.raises(ValueError):
         S3ArtifactRepository.get_s3_file_upload_extra_args()
+
+
+def test_delete_artifacts(s3_artifact_root, tmpdir):
+    subdir_path = str(tmpdir.mkdir("subdir"))
+    nested_path = os.path.join(subdir_path, "nested")
+    os.makedirs(nested_path)
+    path_a = os.path.join(subdir_path, "a.txt")
+    path_b = os.path.join(subdir_path, "b.tar.gz")
+    path_c = os.path.join(nested_path, "c.csv")
+
+    with open(path_a, "w") as f:
+        f.write("A")
+    with tarfile.open(path_b, "w:gz") as f:
+        f.add(path_a)
+    with open(path_c, "w") as f:
+        f.write("col1,col2\n1,3\n2,4\n")
+
+    repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
+    repo.log_artifacts(subdir_path)
+
+    # confirm that artifacts are present
+    artifact_file_names = [obj.path for obj in repo.list_artifacts()]
+    assert "a.txt" in artifact_file_names
+    assert "b.tar.gz" in artifact_file_names
+    assert "nested" in artifact_file_names
+
+    repo.delete_artifacts()
+    tmpdir_objects = repo.list_artifacts()
+    assert not tmpdir_objects

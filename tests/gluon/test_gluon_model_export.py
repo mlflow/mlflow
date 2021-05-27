@@ -1,4 +1,4 @@
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 import warnings
 import yaml
@@ -28,7 +28,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
-if LooseVersion(mx.__version__) >= LooseVersion("2.0.0"):
+if Version(mx.__version__) >= Version("2.0.0"):
     from mxnet.gluon.metric import Accuracy  # pylint: disable=import-error
 else:
     from mxnet.metric import Accuracy  # pylint: disable=import-error
@@ -72,9 +72,7 @@ def gluon_model(model_data):
     )
 
     # `metrics` was renamed in mxnet 1.6.0: https://github.com/apache/incubator-mxnet/pull/17048
-    arg_name = (
-        "metrics" if LooseVersion(mx.__version__) < LooseVersion("1.6.0") else "train_metrics"
-    )
+    arg_name = "metrics" if Version(mx.__version__) < Version("1.6.0") else "train_metrics"
     est = estimator.Estimator(
         net=model, loss=SoftmaxCrossEntropyLoss(), trainer=trainer, **{arg_name: Accuracy()}
     )
@@ -99,6 +97,9 @@ def test_model_save_load(gluon_model, model_data, model_path):
     test_pyfunc_data = pd.DataFrame(test_data.asnumpy())
     pyfunc_preds = pyfunc_loaded.predict(test_pyfunc_data)
     assert all(np.argmax(pyfunc_preds.values, axis=1) == expected.asnumpy())
+    # test with numpy array input
+    pyfunc_preds = pyfunc_loaded.predict(test_pyfunc_data.values)
+    assert all(np.argmax(pyfunc_preds, axis=1) == expected.asnumpy())
 
 
 @pytest.mark.large
@@ -120,7 +121,7 @@ def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    assert np.array_equal(_read_example(mlflow_model, path), example)
 
 
 @pytest.mark.large

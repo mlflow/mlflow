@@ -1,0 +1,15 @@
+channels:
+- defaults
+- conda-forge
+- pytorch
+dependencies:
+- python=3.8.2
+- pytorch>=1.6.0
+- pip
+- pip:
+  - mlflow
+  - torchvision
+  - cloudpickle==1.6.0
+  - pytorch_lightning>=1.0.5
+  - ax-platform
+  - prettytable

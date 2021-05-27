@@ -17,6 +17,7 @@ pytest tests/azureml --large
 pytest tests/models --large
 pytest tests/xgboost --large
 pytest tests/lightgbm --large
+pytest tests/catboost --large
 pytest tests/statsmodels --large
 pytest tests/gluon --large
 pytest tests/gluon_autolog --large
@@ -25,6 +26,7 @@ pytest tests/fastai --large
 pytest tests/shap --large
 pytest tests/utils/test_model_utils.py --large
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
-
+pytest tests/autologging --large
+find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
 
 test $err = 0

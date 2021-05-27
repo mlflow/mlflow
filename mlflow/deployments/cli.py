@@ -1,11 +1,9 @@
 import click
 import sys
 import json
-import pandas as pd
 from mlflow.utils import cli_args
 from mlflow.deployments import interface
-from mlflow.pyfunc.scoring_server import _get_jsonable_obj
-from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.utils.proto_json_utils import NumpyEncoder, _get_jsonable_obj
 
 
 def _user_args_to_dict(user_list):
@@ -69,7 +67,7 @@ parse_custom_arguments = click.option(
 )
 
 parse_input = click.option(
-    "--input-path", "-I", required=True, help="Path to input json file for prediction",
+    "--input-path", "-I", required=True, help="Path to input json file for prediction"
 )
 
 parse_output = click.option(
@@ -250,6 +248,8 @@ def predict(target, name, input_path, output_path):
     """
     Predict the results for the deployed model for the given input(s)
     """
+    import pandas as pd
+
     df = pd.read_json(input_path)
     client = interface.get_deploy_client(target)
     result = client.predict(name, df)

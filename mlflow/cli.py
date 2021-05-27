@@ -6,19 +6,13 @@ import logging
 import click
 from click import UsageError
 
-import mlflow.azureml.cli
 import mlflow.db
 import mlflow.experiments
-import mlflow.models.cli
 import mlflow.deployments.cli
 import mlflow.projects as projects
 import mlflow.runs
-import mlflow.sagemaker.cli
 import mlflow.store.artifact.cli
-import mlflow.store.db.utils
 from mlflow import tracking
-from mlflow.server import _run_server
-from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
@@ -261,6 +255,8 @@ def ui(backend_store_uri, default_artifact_root, port, host):
     need to pass ``--host 0.0.0.0`` to listen on all network interfaces (or a specific interface
     address).
     """
+    from mlflow.server import _run_server
+    from mlflow.server.handlers import initialize_backend_stores
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -274,7 +270,7 @@ def ui(backend_store_uri, default_artifact_root, port, host):
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
@@ -364,6 +360,8 @@ def server(
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
     """
+    from mlflow.server import _run_server
+    from mlflow.server.handlers import initialize_backend_stores
 
     _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
 
@@ -383,7 +381,7 @@ def server(
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
-    except Exception as e:  # pylint: disable=broad-except
+    except Exception as e:
         _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
@@ -443,8 +441,8 @@ def gc(backend_store_uri, run_ids):
         run = backend_store.get_run(run_id)
         if run.info.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException(
-                "Run {} is not in `deleted` lifecycle stage. Only runs in "
-                "`deleted` lifecycle stage can be deleted.".format(run_id)
+                "Run % is not in `deleted` lifecycle stage. Only runs in "
+                "`deleted` lifecycle stage can be deleted." % run_id
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.delete_artifacts()
@@ -452,14 +450,25 @@ def gc(backend_store_uri, run_ids):
         print("Run with ID %s has been permanently deleted." % str(run_id))
 
 
-cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.deployments.cli.commands)
-cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
-cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+
+try:
+    # pylint: disable=unused-import
+    import mlflow.models.cli
+    import mlflow.azureml.cli
+    import mlflow.sagemaker.cli
+
+    cli.add_command(mlflow.azureml.cli.commands)
+    cli.add_command(mlflow.sagemaker.cli.commands)
+    cli.add_command(mlflow.models.cli.commands)
+except ImportError as e:
+    # We are conditional loading these commands since the skinny client does
+    # not support them due to the pandas and numpy dependencies of MLflow Models
+    pass
 
 if __name__ == "__main__":
     cli()

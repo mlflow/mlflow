@@ -44,7 +44,7 @@ import urllib.request
 
 import yaml
 
-VERSIONS_YAML_PATH = "ml-package-versions.yml"
+VERSIONS_YAML_PATH = "mlflow/ml-package-versions.yml"
 DEV_VERSION = "dev"
 
 
@@ -99,7 +99,7 @@ def get_released_versions(package_name):
         #
         # > pip install 'xgboost==0.7'
         # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
-        if len(dist_files) > 0
+        if len(dist_files) > 0 and (not dist_files[0]["yanked"])
     }
     return versions
 
@@ -403,15 +403,23 @@ def expand_config(config):
             if cfg["minimum"] not in versions:
                 versions.append(cfg["minimum"])
 
+            pip_release = package_info["pip_release"]
             for ver in versions:
                 job_name = " / ".join([flavor_key, ver, key])
-                requirements = ["{}=={}".format(package_info["pip_release"], ver)]
+                requirements = ["{}=={}".format(pip_release, ver)]
                 requirements.extend(process_requirements(cfg.get("requirements"), ver))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
+                    Hashabledict(
+                        flavor=flavor,
+                        job_name=job_name,
+                        install=install,
+                        run=run,
+                        package=pip_release,
+                        version=ver,
+                    )
                 )
 
             # Development version
@@ -424,7 +432,14 @@ def expand_config(config):
                 run = remove_comments(cfg["run"])
 
                 matrix.append(
-                    Hashabledict(flavor=flavor, job_name=job_name, install=install, run=run,)
+                    Hashabledict(
+                        flavor=flavor,
+                        job_name=job_name,
+                        install=install,
+                        run=run,
+                        package=pip_release,
+                        version=DEV_VERSION,
+                    )
                 )
     return matrix
 

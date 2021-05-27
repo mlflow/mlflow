@@ -38,7 +38,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import extract_db_type_from_uri
-from tests.resources.db.initial_models import Base as InitialBase
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 
@@ -947,7 +947,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase, AbstractStoreTest):
         run_view_type=ViewType.ALL,
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
     ):
-        exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
+        exps = [experiment_id] if isinstance(experiment_id, str) else experiment_id
         return [
             r.info.run_id
             for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)
@@ -1852,11 +1852,18 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     assert param.key in fetched_run.data.params
 
 
+def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(tmpdir):
+    db_uri = "sqlite:///{}/mlflow.db".format(tmpdir.strpath)
+    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
+    store.delete_experiment("0")
+    assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
+    SqlAlchemyStore(db_uri, ARTIFACT_URI)
+
+
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
-    then migrates their DB. TODO: update this test in MLflow 1.1 to use InitialBase from
-    mlflow.store.db.initial_models.
+    then migrates their DB.
     """
 
     def setUp(self):
@@ -1992,3 +1999,8 @@ def test_get_orderby_clauses():
 
         # test that an exception is NOT raised when key types are different
         _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
+
+        # test that "=" is used rather than "is" when comparing to True
+        parsed = [str(x) for x in _get_orderby_clauses(["metric.a"], session)[0]]
+        assert "is_nan = true" in parsed[0]
+        assert "value IS NULL" in parsed[0]

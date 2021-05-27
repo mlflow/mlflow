@@ -3,6 +3,7 @@ from unittest import mock
 
 from mlflow.entities import SourceType, ViewType, RunTag, Run, RunInfo
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
+from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -297,7 +298,7 @@ def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_stor
     run_id = "runid"
     client = MlflowClient(tracking_uri="http://10.123.1231.11")
     mock_registry_store.create_model_version.return_value = ModelVersion(
-        "name", 1, 0, 1, source="source", run_id=run_id
+        "name", 1, 0, 1, source="source", run_id=run_id,
     )
     model_version = client.create_model_version("name", "source", "runid")
     assert model_version.name == "name"
@@ -348,7 +349,7 @@ def test_create_model_version_explicitly_set_run_link(mock_registry_store):
         )
 
 
-def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store,):
+def test_create_model_version_run_link_in_notebook_with_default_profile(mock_registry_store):
     experiment_id = "test-exp-id"
     hostname = "https://workspace.databricks.com/"
     workspace_id = "10002"
@@ -375,6 +376,23 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(mock_reg
         mock_registry_store.create_model_version.assert_called_once_with(
             "name", "source", "runid", [], workspace_url, None
         )
+
+
+def test_create_model_version_non_ready_model(mock_registry_store):
+    run_id = "runid"
+    client = MlflowClient(tracking_uri="http://10.123.1231.11")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id=run_id,
+        status=ModelVersionStatus.to_string(ModelVersionStatus.FAILED_REGISTRATION),
+    )
+    with pytest.raises(MlflowException) as exc:
+        client.create_model_version("name", "source")
+        assert "Model version creation failed for model name" in exc.value
 
 
 def test_create_model_version_run_link_with_configured_profile(mock_registry_store):
