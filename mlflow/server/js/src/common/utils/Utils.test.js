@@ -108,16 +108,16 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(non_project_source)).toEqual('source3');
   expect(Utils.renderSource(non_project_source)).toEqual('source3');
 
-  // formatSource should return a string, renderSource should return an HTML element.
+  // formatSource should return a string, renderSource should return an HTML element (with the correct source url).
   const github_url = {
-    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps.git' },
+    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps_git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps_git:entry');
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href='https://github.com/mlflow/mlflow-apps' target='_top'>
-      mlflow-apps:entry
+    <a href='https://github.com/mlflow/mlflow-apps_git' target='_top'>
+      mlflow-apps_git:entry
     </a>,
   );
 
@@ -134,14 +134,14 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_url = {
-    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
+    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps_git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps_git:entry');
   expect(Utils.renderSource(bitbucket_url)).toEqual(
-    <a href='https://bitbucket.org/mlflow/mlflow-apps' target='_top'>
-      mlflow-apps:entry
+    <a href='https://bitbucket.org/mlflow/mlflow-apps_git' target='_top'>
+      mlflow-apps_git:entry
     </a>,
   );
 
