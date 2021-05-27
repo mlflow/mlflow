@@ -231,6 +231,7 @@ Docker container environment
       image: mlflow-docker-example-environment
       volumes: ["/local/path:/container/mount/path"]
       environment: [["NEW_ENV_VAR", "new_var_value"], "VAR_TO_COPY_FROM_HOST_ENVIRONMENT"]
+      mask_log_params: ["NAME_OF_ENV_VAR_TO_MASK_IN_LOG"]      
 
   In this example our docker container will have one additional local volume mounted, and two additional environment variables: one newly-defined, and one copied from the host system.
 

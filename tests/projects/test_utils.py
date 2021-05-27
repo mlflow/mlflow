@@ -13,6 +13,7 @@ from mlflow.projects.utils import (
     _is_zip_uri,
     _fetch_project,
     _parse_subdirectory,
+    get_log_command,
     get_or_create_run,
     fetch_and_validate_project,
     load_project,
@@ -178,3 +179,23 @@ def test_fetch_create_and_log(tmpdir):
             assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
             assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
             assert user_param == run.data.params
+
+
+def test_get_log_command():
+    CMD1 = "docker run -e VAR1=abcd -e VAR2=efgh -P PARAM1=ijklmn test"
+    EXP_CMD1 = "docker run -e VAR1=**** -e VAR2=**** -P PARAM1=**** test"
+    CMD2 = "docker run -e VAR1=abcd -e VAR2=efgh -P PARAM1=ijklmn"
+    EXP_CMD2 = "docker run -e VAR1=**** -e VAR2=**** -P PARAM1=****"
+    CMD3 = "docker run -e VAR1=abcd -e VAR2=efgh PARAM1=ijklmn "
+    EXP_CMD3 = "docker run -e VAR1=**** -e VAR2=**** -P PARAM1=**** "
+
+    mask_log_params1 = ["VAR1", "VAR2", "PARAM1"]
+
+    t_cmd1 = get_log_command(mask_log_params1, CMD1)
+    assert t_cmd1 == EXP_CMD1
+
+    t_cmd2 = get_log_command(mask_log_params1, CMD2)
+    assert t_cmd2 == EXP_CMD2
+
+    t_cmd3 = get_log_command(mask_log_params1, CMD3)
+    assert t_cmd3 == EXP_CMD3
