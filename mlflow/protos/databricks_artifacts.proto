@@ -100,14 +100,25 @@ message GetCredentialsForRead {
   // The ID of the MLflow Run for which to fetch artifact read credentials
   optional string run_id = 1 [(validate_required) = true];
 
-  // The artifact path, relative to the Run's artifact root location, for which to
+  // The artifact paths, relative to the Run's artifact root location, for which to
   // fetch artifact read credentials
-  optional string path = 2 [(validate_required) = true];
+  repeated string path = 2;
+
+  // Token specifying the page of credentials to fetch for large requests that require pagination
+  optional string page_token = 3;
 
   message Response {
 
-    // Credentials for reading from the specified artifact location
-    optional ArtifactCredentialInfo credentials = 1;
+    // DEPRECATED: Credentials for reading from a single specified artifact location.
+    // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
+    // This field is populated with the first element of the new `credential_infos` field
+    // optional ArtifactCredentialInfo credentials = 1 [deprecated = true];
+
+    // Credentials for reading from the specified artifact locations
+    repeated ArtifactCredentialInfo credential_infos = 2;
+
+    // Token used to fetch the next page of credentials for large requests that require pagination
+    optional string next_page_token = 3;
 
   }
 }
@@ -119,14 +130,25 @@ message GetCredentialsForWrite {
   // The ID of the MLflow Run for which to fetch artifact write credentials
   optional string run_id = 1 [(validate_required) = true];
 
-  // The artifact path, relative to the Run's artifact root location, for which to
+  // The artifact paths, relative to the Run's artifact root location, for which to
   // fetch artifact write credentials
-  optional string path = 2 [(validate_required) = true];
+  repeated string path = 2;
+
+  // Token specifying the page of credentials to fetch for large requests that require pagination
+  optional string page_token = 3;
 
   message Response {
 
-    // Credentials for writing to the specified artifacts location
-    optional ArtifactCredentialInfo credentials = 1;
+    // DEPRECATED: Credentials for writing to a single specified artifact location.
+    // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
+    // This field is populated with the first element of the new `credential_infos` field
+    // optional ArtifactCredentialInfo credentials = 1 [deprecated = true];
+
+    // Credentials for writing to the specified artifact locations
+    repeated ArtifactCredentialInfo credential_infos = 2;
+
+    // Token used to fetch the next page of credentials for large requests that require pagination
+    optional string next_page_token = 3;
 
   }
 }
