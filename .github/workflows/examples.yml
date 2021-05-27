@@ -55,7 +55,7 @@ jobs:
         SPARK_LOCAL_IP: 127.0.0.1
       run: |
         source activate test-environment
-        pytest --verbose tests/examples --durations=30 --large
+        pytest tests/examples --durations=30 --large
 
     - name: Remove conda environments
       run: |
