@@ -74,7 +74,7 @@ def get_default_conda_env(include_cloudpickle=False):
 
     import fastai
 
-    pip_deps = ["fastai={}".format(fastai.__version__)]
+    pip_deps = ["fastai=={}".format(fastai.__version__)]
     if include_cloudpickle:
         import cloudpickle
 
