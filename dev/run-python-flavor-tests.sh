@@ -8,25 +8,25 @@ export MLFLOW_HOME=$(pwd)
 
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
-pytest --verbose tests/pytorch --large
-pytest --verbose tests/h2o --large
-pytest --verbose tests/onnx --large
-pytest --verbose tests/pyfunc --large
-pytest --verbose tests/sklearn --large
-pytest --verbose tests/azureml --large
-pytest --verbose tests/models --large
-pytest --verbose tests/xgboost --large
-pytest --verbose tests/lightgbm --large
-pytest --verbose tests/catboost --large
-pytest --verbose tests/statsmodels --large
-pytest --verbose tests/gluon --large
-pytest --verbose tests/gluon_autolog --large
-pytest --verbose tests/spacy --large
-pytest --verbose tests/fastai --large
-pytest --verbose tests/shap --large
-pytest --verbose tests/utils/test_model_utils.py --large
-pytest --verbose tests/tracking/fluent/test_fluent_autolog.py --large
-pytest --verbose tests/autologging --large
+pytest tests/pytorch --large
+pytest tests/h2o --large
+pytest tests/onnx --large
+pytest tests/pyfunc --large
+pytest tests/sklearn --large
+pytest tests/azureml --large
+pytest tests/models --large
+pytest tests/xgboost --large
+pytest tests/lightgbm --large
+pytest tests/catboost --large
+pytest tests/statsmodels --large
+pytest tests/gluon --large
+pytest tests/gluon_autolog --large
+pytest tests/spacy --large
+pytest tests/fastai --large
+pytest tests/shap --large
+pytest tests/utils/test_model_utils.py --large
+pytest tests/tracking/fluent/test_fluent_autolog.py --large
+pytest tests/autologging --large
 find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
 
 test $err = 0
