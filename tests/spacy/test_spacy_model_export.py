@@ -68,7 +68,7 @@ def spacy_model_with_data():
 @pytest.fixture
 def spacy_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_conda_deps=["pytest"], additional_pip_deps=["spacy"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "spacy"])
     return conda_env
 
 

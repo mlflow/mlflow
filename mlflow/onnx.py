@@ -40,7 +40,6 @@ def get_default_conda_env():
     import onnxruntime
 
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         additional_pip_deps=[
             "onnx=={}".format(onnx.__version__),
             # The ONNX pyfunc representation requires the OnnxRuntime
@@ -48,7 +47,6 @@ def get_default_conda_env():
             # include OnnxRuntime
             "onnxruntime=={}".format(onnxruntime.__version__),
         ],
-        additional_conda_channels=None,
     )
 
 

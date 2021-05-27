@@ -40,8 +40,12 @@ def pyfunc_custom_env_file(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
     return conda_env
 
@@ -49,8 +53,12 @@ def pyfunc_custom_env_file(tmpdir):
 @pytest.fixture
 def pyfunc_custom_env_dict():
     return _mlflow_conda_env(
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
 
 

@@ -5,7 +5,6 @@ from mlflow.utils import PYTHON_VERSION
 _conda_header = """\
 name: mlflow-env
 channels:
-  - defaults
   - conda-forge
 """
 

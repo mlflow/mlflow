@@ -42,7 +42,7 @@ _logger = logging.getLogger(__name__)
 @pytest.fixture
 def spark_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_conda_deps=["pyspark", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark", "pytest"])
     return conda_env
 
 
