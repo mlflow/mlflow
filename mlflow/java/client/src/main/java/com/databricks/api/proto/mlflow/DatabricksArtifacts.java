@@ -7235,17 +7235,17 @@ public final class DatabricksArtifacts {
       "\342?1\n/com.databricks.mlflow.api.MlflowTra" +
       "ckingMessage*V\n\026ArtifactCredentialType\022\021" +
       "\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002" +
-      "\022\022\n\016GCP_SIGNED_URL\020\0032\342\002\n DatabricksMlflo" +
-      "wArtifactsService\022\233\001\n\025getCredentialsForR" +
+      "\022\022\n\016GCP_SIGNED_URL\020\0032\344\002\n DatabricksMlflo" +
+      "wArtifactsService\022\234\001\n\025getCredentialsForR" +
       "ead\022\035.mlflow.GetCredentialsForRead\032&.mlf" +
-      "low.GetCredentialsForRead.Response\";\362\206\0317" +
-      "\n3\n\003GET\022&/mlflow/artifacts/credentials-f" +
-      "or-read\032\004\010\002\020\000\020\003\022\237\001\n\026getCredentialsForWri" +
-      "te\022\036.mlflow.GetCredentialsForWrite\032\'.mlf" +
-      "low.GetCredentialsForWrite.Response\"<\362\206\031" +
-      "8\n4\n\003GET\022\'/mlflow/artifacts/credentials-" +
-      "for-write\032\004\010\002\020\000\020\003B,\n\037com.databricks.api." +
-      "proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "low.GetCredentialsForRead.Response\"<\362\206\0318" +
+      "\n4\n\004POST\022&/mlflow/artifacts/credentials-" +
+      "for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentialsForWr" +
+      "ite\022\036.mlflow.GetCredentialsForWrite\032\'.ml" +
+      "flow.GetCredentialsForWrite.Response\"=\362\206" +
+      "\0319\n5\n\004POST\022\'/mlflow/artifacts/credential" +
+      "s-for-write\032\004\010\002\020\000\020\003B,\n\037com.databricks.ap" +
+      "i.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

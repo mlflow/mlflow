@@ -23,7 +23,7 @@ service DatabricksMlflowArtifactsService {
   rpc getCredentialsForRead (GetCredentialsForRead) returns (GetCredentialsForRead.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/artifacts/credentials-for-read"
         since { major: 2, minor: 0 },
       }],
@@ -35,7 +35,7 @@ service DatabricksMlflowArtifactsService {
   rpc getCredentialsForWrite (GetCredentialsForWrite) returns (GetCredentialsForWrite.Response) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
+        method: "POST",
         path: "/mlflow/artifacts/credentials-for-write"
         since { major: 2, minor: 0 },
       }],

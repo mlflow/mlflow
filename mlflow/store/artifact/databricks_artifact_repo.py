@@ -278,20 +278,27 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
         try:
-            download_file_using_http_uri(cloud_credential_info.signed_read_uri, dst_local_file_path, _DOWNLOAD_CHUNK_SIZE)
+            download_file_using_http_uri(cloud_credential_info.signed_uri, dst_local_file_path, _DOWNLOAD_CHUNK_SIZE)
         except Exception as err:
             raise MlflowException(err)
 
-    def log_artifact(self, local_file, artifact_path=None):
-        basename = os.path.basename(local_file)
-        artifact_path = artifact_path or ""
-        artifact_path = posixpath.join(artifact_path, basename)
-        if len(artifact_path) > 0:
+    def _get_run_relative_artifact_path_for_upload(self, src_file_path, dst_artifact_dir):
+        basename = os.path.basename(src_file_path)
+        dst_artifact_dir = dst_artifact_dir or ""
+        dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
+        if len(dst_artifact_dir) > 0:
             run_relative_artifact_path = posixpath.join(
-                self.run_relative_artifact_repo_root_path, artifact_path
+                self.run_relative_artifact_repo_root_path, dst_artifact_dir
             )
         else:
             run_relative_artifact_path = self.run_relative_artifact_repo_root_path
+        return run_relative_artifact_path
+
+    def log_artifact(self, local_file, artifact_path=None):
+        run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
+            src_file_path=local_file,
+            dst_artifact_dir=artifact_path,
+        )
         write_credential_info = self._get_write_credential_infos(run_id=self.run_id, paths=[run_relative_artifact_path])[0]
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
@@ -303,27 +310,48 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         Parallelized implementation of `download_artifacts` for Databricks.
         """
+        StagedArtifactUpload = namedtuple(
+            "StagedArtifactUpload",
+            [
+                "src_file_path",
+                "dst_artifact_path",
+            ],
+        )
+
         artifact_path = artifact_path or ""
 
-        file_paths_to_upload = []
+        staged_uploads = []
         for (dirpath, _, filenames) in os.walk(local_dir):
+            artifact_subdir = artifact_path
             if dirpath != local_dir:
                 rel_path = os.path.relpath(dirpath, local_dir)
                 rel_path = relative_path_to_artifact_path(rel_path)
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                file_paths_to_upload.append(file_path)
+                dst_artifact_path = self._get_run_relative_artifact_path_for_upload(
+                    src_file_path=file_path,
+                    dst_artifact_dir=artifact_subdir,
+                )
+                staged_uploads.append(
+                    StagedArtifactUpload(
+                        src_file_path=file_path,
+                        dst_artifact_path=dst_artifact_path,
+                    )
+                )
 
-        write_credential_infos = self._get_write_credential_infos(run_id=self.run_id, paths=file_paths_to_upload)
+        write_credential_infos = self._get_write_credential_infos(
+            run_id=self.run_id,
+            paths=[staged_upload.dst_artifact_path for staged_upload in staged_uploads],
+        )
 
         inflight_uploads = {}
-        for file_path, write_credential_info in zip(file_paths_to_upload, write_credential_infos):
+        for staged_upload, write_credential_info in zip(staged_uploads, write_credential_infos):
             upload_future = self.thread_pool.submit(
                 self._upload_to_cloud,
                 cloud_credential_info=write_credential_info,
-                src_file_path=file_path,
-                dst_artifact_path=artifact_subdir,
+                src_file_path=staged_upload.src_file_path,
+                dst_artifact_path=staged_upload.dst_artifact_path,
             )
             inflight_uploads[file_path] = upload_future
 
@@ -390,14 +418,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         # Represents an in-progress file artifact download to a local filesystem location
         InflightDownload = namedtuple(
-            'InflightDownload',
+            "InflightDownload",
             [
                 # The artifact path, given relative to the repository's artifact root location
-                "artifact_src_path",
+                "src_artifact_path",
                 # The local filesystem destination path to which artifacts are being downloaded
-                "local_dst_path",
+                "dst_local_path",
                 # A future representing the artifact download operation
-                "future",
+                "download_future",
             ],
         )
 
@@ -430,18 +458,18 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
             inflight_downloads = []
             for src_artifact_path, read_credential_info in zip(src_artifact_paths, read_credential_infos):
-                local_dst_path = self._create_download_destination(
+                dst_local_path = self._create_download_destination(
                     src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
                 )
                 download_future = self.thread_pool.submit(
                     self._download_from_cloud,
                     cloud_credential_info=read_credential_info,
-                    dst_local_file_path=local_dst_path,
+                    dst_local_file_path=dst_local_path,
                 )
                 inflight_downloads.append(
                     InflightDownload(
                         src_artifact_path=src_artifact_path,
-                        local_dst_path=local_dst_path,
+                        dst_local_path=dst_local_path,
                         download_future=download_future,
                     )
                 )
@@ -524,7 +552,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
 
         if self._is_directory(artifact_path):
-            local_dst_path, inflight_downloads = async_download_artifact_dir(
+            dst_local_path, inflight_downloads = async_download_artifact_dir(
                 src_artifact_dir_path=artifact_path, dst_local_dir_path=dst_path
             )
         else:
@@ -532,7 +560,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 src_artifact_paths=[artifact_path], dst_local_dir_path=dst_path
             )
             assert len(inflight_downloads) == 1, "Expected one inflight download for a file artifact, got {} downloads".format(len(inflight_downloads))
-            local_dst_path = inflight_downloads[0].local_dst_path
+            dst_local_path = inflight_downloads[0].dst_local_path
 
         # Join futures to ensure that all artifacts have been downloaded prior to returning
         failed_downloads = {}
@@ -552,7 +580,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
             )
 
-        return local_dst_path
+        return dst_local_path
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
