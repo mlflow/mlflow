@@ -119,7 +119,6 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                 def on_train_epoch_end(
                     self, trainer, pl_module, *args
                 ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
-
                     self._log_metrics(trainer, pl_module)
 
             # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
