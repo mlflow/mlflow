@@ -144,7 +144,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         page_token = None
         while True:
             if page_token:
-                json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=paths, page_token=page_token))
+                json_body = message_to_json(
+                    GetCredentialsForWrite(run_id=run_id, path=paths, page_token=page_token)
+                )
             else:
                 json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=paths))
 
@@ -164,7 +166,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         page_token = None
         while True:
             if page_token:
-                json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=paths, page_token=page_token))
+                json_body = message_to_json(
+                    GetCredentialsForRead(run_id=run_id, path=paths, page_token=page_token)
+                )
             else:
                 json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=paths))
 
@@ -251,13 +255,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path):
+    def _upload_to_cloud(
+        self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+    ):
         """
         Upload a local file to the specified run-relative `dst_run_relative_artifact_path` using
         the supplied `cloud_credential_info`.
         """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
-            self._azure_upload_file(cloud_credential_info, src_file_path, dst_run_relative_artifact_path)
+            self._azure_upload_file(
+                cloud_credential_info, src_file_path, dst_run_relative_artifact_path
+            )
         elif cloud_credential_info.type in [
             ArtifactCredentialType.AWS_PRESIGNED_URL,
             ArtifactCredentialType.GCP_SIGNED_URL,
@@ -281,7 +289,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
         try:
-            download_file_using_http_uri(cloud_credential_info.signed_uri, dst_local_file_path, _DOWNLOAD_CHUNK_SIZE)
+            download_file_using_http_uri(
+                cloud_credential_info.signed_uri, dst_local_file_path, _DOWNLOAD_CHUNK_SIZE
+            )
         except Exception as err:
             raise MlflowException(err)
 
@@ -313,14 +323,15 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-            src_file_path=local_file,
-            dst_artifact_dir=artifact_path,
+            src_file_path=local_file, dst_artifact_dir=artifact_path,
         )
-        write_credential_info = self._get_write_credential_infos(run_id=self.run_id, paths=[run_relative_artifact_path])[0]
+        write_credential_info = self._get_write_credential_infos(
+            run_id=self.run_id, paths=[run_relative_artifact_path]
+        )[0]
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,
-            dst_run_relative_artifact_path=run_relative_artifact_path
+            dst_run_relative_artifact_path=run_relative_artifact_path,
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -349,8 +360,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
                 dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
-                    src_file_path=file_path,
-                    dst_artifact_dir=artifact_subdir,
+                    src_file_path=file_path, dst_artifact_dir=artifact_subdir,
                 )
                 staged_uploads.append(
                     StagedArtifactUpload(
@@ -361,7 +371,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         write_credential_infos = self._get_write_credential_infos(
             run_id=self.run_id,
-            paths=[staged_upload.dst_run_relative_artifact_path for staged_upload in staged_uploads],
+            paths=[
+                staged_upload.dst_run_relative_artifact_path for staged_upload in staged_uploads
+            ],
         )
 
         inflight_uploads = {}
@@ -476,7 +488,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
 
             inflight_downloads = []
-            for src_artifact_path, read_credential_info in zip(src_artifact_paths, read_credential_infos):
+            for src_artifact_path, read_credential_info in zip(
+                src_artifact_paths, read_credential_infos
+            ):
                 dst_local_path = self._create_download_destination(
                     src_artifact_path=src_artifact_path, dst_local_dir_path=dst_local_dir_path
                 )
@@ -533,7 +547,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
             else:
                 inflight_downloads += async_download_file_artifacts_from_paths(
                     src_artifact_paths=[
-                        artifact_info.path for artifact_info in dir_content
+                        artifact_info.path
+                        for artifact_info in dir_content
                         if not artifact_info.is_dir
                     ],
                     dst_local_dir_path=dst_local_dir_path,
@@ -578,7 +593,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
             inflight_downloads = async_download_file_artifacts_from_paths(
                 src_artifact_paths=[artifact_path], dst_local_dir_path=dst_path
             )
-            assert len(inflight_downloads) == 1, "Expected one inflight download for a file artifact, got {} downloads".format(len(inflight_downloads))
+            assert (
+                len(inflight_downloads) == 1
+            ), "Expected one inflight download for a file artifact, got {} downloads".format(
+                len(inflight_downloads)
+            )
             dst_local_path = inflight_downloads[0].dst_local_path
 
         # Join futures to ensure that all artifacts have been downloaded prior to returning
