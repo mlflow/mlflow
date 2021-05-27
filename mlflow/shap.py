@@ -481,13 +481,14 @@ def save_explainer(
 save_model = save_explainer
 
 
-def _get_pip_dependencies(conda_env):
+def _get_conda_and_pip_dependencies(conda_env):
     """
-    Extract pip dependencies from conda environments
+    Extract conda and pip dependencies from conda environments
 
     :param conda_env: Conda environment
     """
 
+    conda_deps = []
     pip_deps = []
 
     for dependency in conda_env["dependencies"]:
@@ -495,8 +496,11 @@ def _get_pip_dependencies(conda_env):
             for pip_dependency in dependency["pip"]:
                 if pip_dependency != "mlflow":
                     pip_deps.append(pip_dependency)
+        else:
+            if dependency.split("=")[0] != "python" and dependency.split("=")[0] != "pip":
+                conda_deps.append(dependency)
 
-    return pip_deps
+    return conda_deps, pip_deps
 
 
 def _merge_environments(shap_environment, model_environment):
@@ -507,12 +511,25 @@ def _merge_environments(shap_environment, model_environment):
     :param model_environment: Underlying model conda environment.
     """
 
-    shap_pip_deps = _get_pip_dependencies(shap_environment)
-    model_pip_deps = _get_pip_dependencies(model_environment)
+    # merge the channels from the two environments and remove the default conda
+    # channels if present since its added later in `_mlflow_conda_env`
 
+    merged_conda_channels = list(
+        set(shap_environment["channels"] + model_environment["channels"])
+        - set(["conda-forge"])
+    )
+
+    shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)
+    model_conda_deps, model_pip_deps = _get_conda_and_pip_dependencies(model_environment)
+
+    merged_conda_deps = list(set(shap_conda_deps + model_conda_deps))
     merged_pip_deps = list(set(shap_pip_deps + model_pip_deps))
 
-    return _mlflow_conda_env(additional_pip_deps=merged_pip_deps,)
+    return _mlflow_conda_env(
+        additional_conda_deps=merged_conda_deps,
+        additional_pip_deps=merged_pip_deps,
+        additional_conda_channels=merged_conda_channels,
+    )
 
 
 @experimental
