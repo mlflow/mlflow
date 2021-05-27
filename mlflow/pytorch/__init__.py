@@ -15,7 +15,7 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
-from distutils.version import LooseVersion
+from packaging.version import Version
 import posixpath
 
 import mlflow
@@ -585,7 +585,7 @@ def _load_model(path, **kwargs):
     else:
         model_path = path
 
-    if LooseVersion(torch.__version__) >= LooseVersion("1.5.0"):
+    if Version(torch.__version__) >= Version("1.5.0"):
         return torch.load(model_path, **kwargs)
     else:
         try:

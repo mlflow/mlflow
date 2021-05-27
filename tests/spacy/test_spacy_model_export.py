@@ -1,7 +1,7 @@
 import os
 import random
 from collections import namedtuple
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import pandas as pd
 import pytest
@@ -25,9 +25,7 @@ from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
-IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = LooseVersion(spacy.__version__) >= LooseVersion(
-    "3.0.0"
-)
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
 
 
 @pytest.fixture(scope="module")

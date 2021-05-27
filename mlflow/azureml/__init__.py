@@ -8,7 +8,7 @@ import subprocess
 import logging
 import uuid
 
-from distutils.version import StrictVersion
+from packaging.version import Version
 
 from mlflow import get_tracking_uri, get_registry_uri
 from mlflow import pyfunc
@@ -138,9 +138,7 @@ def build_image(
 
     model_pyfunc_conf, _ = _load_pyfunc_conf_with_model(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
-        "3.0.0"
-    ):
+    if model_python_version is not None and Version(model_python_version) < Version("3.0.0"):
         raise MlflowException(
             message=(
                 "Azure ML can only deploy models trained in Python 3 and above. See"
@@ -351,9 +349,7 @@ def deploy(
         run_id_tag = run_id
     except AttributeError:
         run_id = str(uuid.uuid4())
-    if model_python_version is not None and StrictVersion(model_python_version) < StrictVersion(
-        "3.0.0"
-    ):
+    if model_python_version is not None and Version(model_python_version) < Version("3.0.0"):
         raise MlflowException(
             message=(
                 "Azure ML can only deploy models trained in Python 3 and above. See"

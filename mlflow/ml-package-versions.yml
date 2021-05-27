@@ -49,9 +49,7 @@ tensorflow:
   package_info:
     pip_release: "tensorflow"
     install_dev: |
-      # Unpin `tf-nightly` once the following issue is addressed:
-      # https://github.com/tensorflow/tensorflow/issues/46429
-      pip install 'tf-nightly==2.5.0.dev20210112'
+      pip install tf-nightly
 
   models:
     minimum: "1.15.4"
@@ -96,12 +94,6 @@ tensorflow:
 keras:
   package_info:
     pip_release: "keras"
-    install_dev: |
-      # In keras >= 2.4.0, `keras` simply redirects to `tensorflow.keras`:
-      # https://github.com/keras-team/keras#multi-backend-keras-and-tfkeras
-      # Unpin `tf-nightly` once the following issue is addressed:
-      # https://github.com/tensorflow/tensorflow/issues/46429
-      pip install 'tf-nightly==2.5.0.dev20210112' 'keras>=2.4.0'
 
   models:
     minimum: "2.2.4"
@@ -109,8 +101,7 @@ keras:
     requirements:
       "< 2.3.1": ["tensorflow==1.15.4", "h5py<3.0", "scikit-learn", "pyspark", "pyarrow"]
       "== 2.3.1": ["tensorflow==2.2.1", "scikit-learn", "pyspark", "pyarrow"]
-      "> 2.3.1": ["tensorflow", "scikit-learn", "pyspark", "pyarrow"]
-      "== dev": ["scikit-learn", "pyspark", "pyarrow"]
+      "> 2.3.1": ["tensorflow<2.5.0", "scikit-learn", "pyspark", "pyarrow"]
     run: |
       pytest tests/keras/test_keras_model_export.py --large
 
@@ -122,7 +113,7 @@ keras:
       # keras 2.3.1 is incompatible with tensorflow > 2.2.1 and causes the issue reported here:
       # https://github.com/tensorflow/tensorflow/issues/38589
       "== 2.3.1": ["tensorflow==2.2.1"]
-      "> 2.3.1, != dev": ["tensorflow"]
+      "> 2.3.1": ["tensorflow<2.5.0"]
     run: |
       pytest --verbose tests/keras_autolog/test_keras_autolog.py --large
 
@@ -265,7 +256,7 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install spacy-nightly
+      pip install git+https://github.com/explosion/spaCy
 
   models:
     minimum: "2.2.4"
@@ -304,7 +295,7 @@ spark:
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/apache/spark $temp_dir
         cd $temp_dir
-        export MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=1g"
+        export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
         python setup.py bdist_wheel

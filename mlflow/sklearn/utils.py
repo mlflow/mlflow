@@ -1,10 +1,11 @@
 import collections
-from distutils.version import LooseVersion
+from packaging.version import Version
 import inspect
 import logging
 from numbers import Number
 import numpy as np
 import time
+import warnings
 
 import mlflow
 from mlflow.entities import Metric, Param
@@ -579,7 +580,32 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
         try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
 
 
-def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags=None):
+# Log how many child runs will be created vs omitted based on `max_tuning_runs`.
+def _log_child_runs_info(max_tuning_runs, total_runs):
+    rest = total_runs - max_tuning_runs
+
+    # Set logging statement for runs to be logged.
+    if max_tuning_runs == 0:
+        logging_phrase = "no runs"
+    elif max_tuning_runs == 1:
+        logging_phrase = "the best run"
+    else:
+        logging_phrase = "the {} best runs".format(max_tuning_runs)
+
+    # Set logging statement for runs to be omitted.
+    if rest <= 0:
+        omitting_phrase = "no runs"
+    elif rest == 1:
+        omitting_phrase = "one run"
+    else:
+        omitting_phrase = "{} runs".format(rest)
+
+    _logger.info("Logging %s, %s will be omitted.", logging_phrase, omitting_phrase)
+
+
+def _create_child_runs_for_parameter_search(
+    cv_estimator, parent_run, max_tuning_runs, child_tags=None
+):
     """
     Creates a collection of child runs for a parameter search training session.
     Runs are reconstructed from the `cv_results_` attribute of the specified trained
@@ -596,6 +622,12 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
                        for each child run.
     """
     import pandas as pd
+
+    def first_custom_rank_column(df):
+        column_names = df.columns.values
+        for col_name in column_names:
+            if "rank_test_" in col_name:
+                return col_name
 
     client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
@@ -615,9 +647,26 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
     # the seed estimator and update them with parameter subset specified
     # in the result row
     base_params = seed_estimator.get_params(deep=should_log_params_deeply)
-
     cv_results_df = pd.DataFrame.from_dict(cv_estimator.cv_results_)
-    for _, result_row in cv_results_df.iterrows():
+
+    if max_tuning_runs is None:
+        cv_results_best_n_df = cv_results_df
+    else:
+        rank_column_name = "rank_test_score"
+        if rank_column_name not in cv_results_df.columns.values:
+            rank_column_name = first_custom_rank_column(cv_results_df)
+            warnings.warn(
+                "Top {} child runs will be created based on ordering in {} column.".format(
+                    max_tuning_runs, rank_column_name,
+                )
+                + " You can choose not to limit the number of child runs created by"
+                + " setting `max_tuning_runs=None`."
+            )
+        cv_results_best_n_df = cv_results_df.nsmallest(max_tuning_runs, rank_column_name)
+        # Log how many child runs will be created vs omitted.
+        _log_child_runs_info(max_tuning_runs, len(cv_results_df))
+
+    for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(seed_estimator))
@@ -682,7 +731,7 @@ def _create_child_runs_for_parameter_search(cv_estimator, parent_run, child_tags
 def _is_supported_version():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion(_MIN_SKLEARN_VERSION)
+    return Version(sklearn.__version__) >= Version(_MIN_SKLEARN_VERSION)
 
 
 # Util function to check whether a metric is able to be computed in given sklearn version
@@ -692,7 +741,7 @@ def _is_metric_supported(metric_name):
     # This dict can be extended to store special metrics' specific supported versions
     _metric_supported_version = {"roc_auc_score": "0.22.2"}
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion(_metric_supported_version[metric_name])
+    return Version(sklearn.__version__) >= Version(_metric_supported_version[metric_name])
 
 
 # Util function to check whether artifact plotting functions are able to be computed
@@ -700,7 +749,7 @@ def _is_metric_supported(metric_name):
 def _is_plotting_supported():
     import sklearn
 
-    return LooseVersion(sklearn.__version__) >= LooseVersion("0.22.0")
+    return Version(sklearn.__version__) >= Version("0.22.0")
 
 
 def _all_estimators():

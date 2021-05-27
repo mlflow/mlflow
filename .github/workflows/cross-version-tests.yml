@@ -1,6 +1,7 @@
 name: Cross version tests
 
 on:
+  workflow_dispatch:
   schedule:
     # Run this workflow daily at 7:00 UTC
     - cron: "0 7 * * *"
@@ -58,7 +59,12 @@ jobs:
           echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
       - name: Update python
         run: |
-          conda install python=3.6
+          if [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]]; then
+            python_version=3.7
+          else
+            python_version=3.6
+          fi
+          conda install python=$python_version
           python --version
       - name: Get cache key
         env:
