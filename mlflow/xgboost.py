@@ -72,10 +72,8 @@ def get_default_conda_env():
     import xgboost as xgb
 
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         # XGBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["xgboost=={}".format(xgb.__version__)],
-        additional_conda_channels=None,
+        additional_pip_deps=["xgboost=={}".format(xgb.__version__)]
     )
 
 
