@@ -55,7 +55,9 @@ def get_default_conda_env():
     """
     import statsmodels
 
-    return _mlflow_conda_env(additional_pip_deps=["statsmodels=={}".format(statsmodels.__version__)])
+    return _mlflow_conda_env(
+        additional_pip_deps=["statsmodels=={}".format(statsmodels.__version__)]
+    )
 
 
 def save_model(
