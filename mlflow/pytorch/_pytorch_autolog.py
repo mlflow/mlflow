@@ -110,9 +110,10 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
 
             _pl_version = Version(pl.__version__)
 
-            # In pytorch-lightning >= 1.4.0, `trainer.callback_metrics` contains both training and
-            # validation metrics at the end of a traning epoch because validation is run inside
-            # the traning loop (see https://github.com/PyTorchLightning/pytorch-lightning/pull/7357)
+            # In pytorch-lightning >= 1.4.0, validation is run inside the training epoch and
+            # `trainer.callback_metrics` contains both training and validation metrics of the
+            # current training epoch when `on_train_epoch_end` is called:
+            # https://github.com/PyTorchLightning/pytorch-lightning/pull/7357
             if _pl_version >= Version("1.4.0dev"):
 
                 def on_train_epoch_end(
