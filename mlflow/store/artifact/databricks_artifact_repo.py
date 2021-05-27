@@ -144,9 +144,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         page_token = None
         while True:
             if page_token:
-                json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=paths))
-            else:
                 json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=paths, page_token=page_token))
+            else:
+                json_body = message_to_json(GetCredentialsForWrite(run_id=run_id, path=paths))
 
             response = self._call_endpoint(
                 DatabricksMlflowArtifactsService, GetCredentialsForWrite, json_body
@@ -164,9 +164,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         page_token = None
         while True:
             if page_token:
-                json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=paths))
-            else:
                 json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=paths, page_token=page_token))
+            else:
+                json_body = message_to_json(GetCredentialsForRead(run_id=run_id, path=paths))
 
             response = self._call_endpoint(
                 DatabricksMlflowArtifactsService, GetCredentialsForRead, json_body
@@ -251,9 +251,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
         except Exception as err:
             raise MlflowException(err)
 
-    def _upload_to_cloud(self, cloud_credential_info, src_file_path, dst_artifact_path):
+    def _upload_to_cloud(self, cloud_credential_info, src_file_path, dst_run_relative_artifact_path):
+        """
+        Upload a local file to the specified run-relative `dst_run_relative_artifact_path` using
+        the supplied `cloud_credential_info`.
+        """
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
-            self._azure_upload_file(cloud_credential_info, src_file_path, dst_artifact_path)
+            self._azure_upload_file(cloud_credential_info, src_file_path, dst_run_relative_artifact_path)
         elif cloud_credential_info.type in [
             ArtifactCredentialType.AWS_PRESIGNED_URL,
             ArtifactCredentialType.GCP_SIGNED_URL,
@@ -266,8 +270,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _download_from_cloud(self, cloud_credential_info, dst_local_file_path):
         """
-        Downloads a file from the input `cloud_credential_info` and saves it to
-        `dst_local_file_path`.
+        Download a file from the input `cloud_credential_info` and save it to `dst_local_file_path`.
         """
         if cloud_credential_info.type not in [
             ArtifactCredentialType.AZURE_SAS_URI,
@@ -283,6 +286,20 @@ class DatabricksArtifactRepository(ArtifactRepository):
             raise MlflowException(err)
 
     def _get_run_relative_artifact_path_for_upload(self, src_file_path, dst_artifact_dir):
+        """
+        Obtain the run-relative destination artifact path for uploading the file specified by
+        `src_file_path` to the artifact directory specified by `dst_artifact_dir` within the
+        MLflow Run associated with the artifact repository.
+
+        :param src_file_path: The path to the source file on the local filesystem.
+        :param dst_artifact_dir: The destination artifact directory, specified as a POSIX-style
+                                 path relative to the artifact repository's root URI (note that
+                                 this is not equivalent to the associated MLflow Run's artifact
+                                 root location).
+        :return: A POSIX-style artifact path to be used as the destination for the file upload.
+                 This path is specified relative to the root of the MLflow Run associated with
+                 the artifact repository.
+        """
         basename = os.path.basename(src_file_path)
         dst_artifact_dir = dst_artifact_dir or ""
         dst_artifact_dir = posixpath.join(dst_artifact_dir, basename)
@@ -303,7 +320,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self._upload_to_cloud(
             cloud_credential_info=write_credential_info,
             src_file_path=local_file,
-            dst_artifact_path=run_relative_artifact_path
+            dst_run_relative_artifact_path=run_relative_artifact_path
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -313,8 +330,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         StagedArtifactUpload = namedtuple(
             "StagedArtifactUpload",
             [
+                # Local filesystem path of the source file to upload
                 "src_file_path",
-                "dst_artifact_path",
+                # Run-relative artifact path specifying the upload destination
+                "dst_run_relative_artifact_path",
             ],
         )
 
@@ -329,20 +348,20 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)
-                dst_artifact_path = self._get_run_relative_artifact_path_for_upload(
+                dst_run_relative_artifact_path = self._get_run_relative_artifact_path_for_upload(
                     src_file_path=file_path,
                     dst_artifact_dir=artifact_subdir,
                 )
                 staged_uploads.append(
                     StagedArtifactUpload(
                         src_file_path=file_path,
-                        dst_artifact_path=dst_artifact_path,
+                        dst_run_relative_artifact_path=dst_run_relative_artifact_path,
                     )
                 )
 
         write_credential_infos = self._get_write_credential_infos(
             run_id=self.run_id,
-            paths=[staged_upload.dst_artifact_path for staged_upload in staged_uploads],
+            paths=[staged_upload.dst_run_relative_artifact_path for staged_upload in staged_uploads],
         )
 
         inflight_uploads = {}
@@ -351,9 +370,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 self._upload_to_cloud,
                 cloud_credential_info=write_credential_info,
                 src_file_path=staged_upload.src_file_path,
-                dst_artifact_path=staged_upload.dst_artifact_path,
+                dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
             )
-            inflight_uploads[file_path] = upload_future
+            inflight_uploads[staged_upload.src_file_path] = upload_future
 
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
