@@ -555,7 +555,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 for file_info in self.list_artifacts(src_artifact_dir_path)
                 if file_info.path != "." and file_info.path != src_artifact_dir_path
             ]
-
             if not dir_content:  # empty dir
                 if not os.path.exists(local_dir):
                     os.makedirs(local_dir, exist_ok=True)
