@@ -157,9 +157,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         for paths_chunk in chunk_list(paths, _MAX_CREDENTIALS_REQUEST_SIZE):
             while True:
                 json_body = message_to_json(
-                    request_message_class(
-                        run_id=run_id, path=paths_chunk, page_token=page_token
-                    )
+                    request_message_class(run_id=run_id, path=paths_chunk, page_token=page_token)
                 )
                 response = self._call_endpoint(
                     DatabricksMlflowArtifactsService, request_message_class, json_body
@@ -232,7 +230,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     credential_info = self._get_write_credential_infos(
                         run_id=self.run_id, paths=[artifact_path]
                     )[0]
-                    put_block_list(credential_info.signed_uri, uploading_block_list, headers=headers)
+                    put_block_list(
+                        credential_info.signed_uri, uploading_block_list, headers=headers
+                    )
                 else:
                     raise e
         except Exception as err:
