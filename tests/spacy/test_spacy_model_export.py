@@ -166,6 +166,27 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(spacy_custom_env, "r") as f:
+        spacy_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert spacy_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+
+
+@pytest.mark.large
+def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
+    spacy_model_with_data, model_path, spacy_custom_env
+):
+    mlflow.spacy.save_model(
+        spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env
+    )
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spacy_custom_env
@@ -221,6 +242,32 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == spacy_custom_env_text
+
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(spacy_model_with_data, spacy_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.spacy.log_model(
+            spacy_model=spacy_model_with_data.model,
+            artifact_path=artifact_path,
+            conda_env=spacy_custom_env,
+        )
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
+
+    #pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(spacy_custom_env, "r") as f:
+        spacy_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+    assert spacy_custom_env_parsed["dependencies"][-1]["pip"] == requirements
 
 
 @pytest.mark.large

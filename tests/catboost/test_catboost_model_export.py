@@ -235,6 +235,21 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_path != custom_env
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
 
+@pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(reg_model, model_path, custom_env):
+    mlflow.catboost.save_model(cb_model=reg_model.model, path=model_path, conda_env=custom_env)
+
+    #pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(custom_env, "r") as f:
+        cb_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert cb_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
@@ -261,6 +276,25 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_mo
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != custom_env
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=custom_env)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    #pyfunc_conf = _get_flavor_configuration(model_path=local_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_pip_req_path = os.path.join(local_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(custom_env, "r") as f:
+        cb_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert cb_custom_env_parsed["dependencies"][-1]["pip"] == requirements
 
 
 @pytest.mark.large

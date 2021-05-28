@@ -424,6 +424,49 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == pytorch_custom_env_text
 
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_model_save_persists_requirements_in_mlflow_model_directory(sequential_model, model_path, pytorch_custom_env):
+    mlflow.pytorch.save_model(
+        pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env
+    )
+
+    #pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(pytorch_custom_env, "r") as f:
+        pytorch_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert pytorch_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_model_log_persists_requirements_in_mlflow_model_directory(sequential_model, pytorch_custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path=artifact_path,
+            conda_env=pytorch_custom_env,
+        )
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
+
+    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(pytorch_custom_env, "r") as f:
+        pytorch_custom_env_parsed = yaml.safe_load(f)
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+    assert pytorch_custom_env_parsed["dependencies"][-1]["pip"] == requirements
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
