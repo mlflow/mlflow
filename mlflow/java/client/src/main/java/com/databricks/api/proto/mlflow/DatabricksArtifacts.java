@@ -2752,7 +2752,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -2762,7 +2762,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -2771,7 +2771,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -2780,7 +2780,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4082,7 +4082,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4094,7 +4094,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4105,7 +4105,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4116,7 +4116,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact read credentials
+     * fetch artifact read credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4666,7 +4666,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4678,7 +4678,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4689,7 +4689,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4700,7 +4700,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4712,7 +4712,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4730,7 +4730,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4748,7 +4748,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4764,7 +4764,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4778,7 +4778,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact read credentials
+       * fetch artifact read credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -4979,7 +4979,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4989,7 +4989,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -4998,7 +4998,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -5007,7 +5007,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -6309,7 +6309,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -6321,7 +6321,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -6332,7 +6332,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -6343,7 +6343,7 @@ public final class DatabricksArtifacts {
     /**
      * <pre>
      * The artifact paths, relative to the Run's artifact root location, for which to
-     * fetch artifact write credentials
+     * fetch artifact write credentials. Must not be empty.
      * </pre>
      *
      * <code>repeated string path = 2;</code>
@@ -6893,7 +6893,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6905,7 +6905,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6916,7 +6916,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6927,7 +6927,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6939,7 +6939,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6957,7 +6957,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6975,7 +6975,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -6991,7 +6991,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -7005,7 +7005,7 @@ public final class DatabricksArtifacts {
       /**
        * <pre>
        * The artifact paths, relative to the Run's artifact root location, for which to
-       * fetch artifact write credentials
+       * fetch artifact write credentials. Must not be empty.
        * </pre>
        *
        * <code>repeated string path = 2;</code>
@@ -7219,33 +7219,33 @@ public final class DatabricksArtifacts {
       "aders\030\004 \003(\0132).mlflow.ArtifactCredentialI" +
       "nfo.HttpHeader\022,\n\004type\030\005 \001(\0162\036.mlflow.Ar" +
       "tifactCredentialType\032)\n\nHttpHeader\022\014\n\004na" +
-      "me\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\217\002\n\025GetCredentia" +
+      "me\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\225\002\n\025GetCredentia" +
       "lsForRead\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030" +
-      "\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032]\n\010Response\0228\n" +
+      "\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032c\n\010Response\0228\n" +
       "\020credential_infos\030\002 \003(\0132\036.mlflow.Artifac" +
       "tCredentialInfo\022\027\n\017next_page_token\030\003 \001(\t" +
-      ":_\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\342?1\n/com.databricks.mlflow.api.Mlfl" +
-      "owTrackingMessage\"\220\002\n\026GetCredentialsForW" +
-      "rite\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030\002 \003(\t" +
-      "\022\022\n\npage_token\030\003 \001(\t\032]\n\010Response\0228\n\020cred" +
-      "ential_infos\030\002 \003(\0132\036.mlflow.ArtifactCred" +
-      "entialInfo\022\027\n\017next_page_token\030\003 \001(\t:_\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\342?1\n/com.databricks.mlflow.api.MlflowTra" +
-      "ckingMessage*V\n\026ArtifactCredentialType\022\021" +
-      "\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_URL\020\002" +
-      "\022\022\n\016GCP_SIGNED_URL\020\0032\344\002\n DatabricksMlflo" +
-      "wArtifactsService\022\234\001\n\025getCredentialsForR" +
-      "ead\022\035.mlflow.GetCredentialsForRead\032&.mlf" +
-      "low.GetCredentialsForRead.Response\"<\362\206\0318" +
-      "\n4\n\004POST\022&/mlflow/artifacts/credentials-" +
-      "for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentialsForWr" +
-      "ite\022\036.mlflow.GetCredentialsForWrite\032\'.ml" +
-      "flow.GetCredentialsForWrite.Response\"=\362\206" +
-      "\0319\n5\n\004POST\022\'/mlflow/artifacts/credential" +
-      "s-for-write\032\004\010\002\020\000\020\003B,\n\037com.databricks.ap" +
-      "i.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "J\004\010\001\020\002:_\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]\342?1\n/com.databricks.mlflow.ap" +
+      "i.MlflowTrackingMessage\"\226\002\n\026GetCredentia" +
+      "lsForWrite\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path" +
+      "\030\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032c\n\010Response\0228" +
+      "\n\020credential_infos\030\002 \003(\0132\036.mlflow.Artifa" +
+      "ctCredentialInfo\022\027\n\017next_page_token\030\003 \001(" +
+      "\tJ\004\010\001\020\002:_\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\342?1\n/com.databricks.mlflow.a" +
+      "pi.MlflowTrackingMessage*V\n\026ArtifactCred" +
+      "entialType\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRE" +
+      "SIGNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\0032\344\002\n Dat" +
+      "abricksMlflowArtifactsService\022\234\001\n\025getCre" +
+      "dentialsForRead\022\035.mlflow.GetCredentialsF" +
+      "orRead\032&.mlflow.GetCredentialsForRead.Re" +
+      "sponse\"<\362\206\0318\n4\n\004POST\022&/mlflow/artifacts/" +
+      "credentials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCred" +
+      "entialsForWrite\022\036.mlflow.GetCredentialsF" +
+      "orWrite\032\'.mlflow.GetCredentialsForWrite." +
+      "Response\"=\362\206\0319\n5\n\004POST\022\'/mlflow/artifact" +
+      "s/credentials-for-write\032\004\010\002\020\000\020\003B,\n\037com.d" +
+      "atabricks.api.proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

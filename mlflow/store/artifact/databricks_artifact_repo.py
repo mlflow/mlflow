@@ -51,11 +51,11 @@ from mlflow.utils.uri import (
 _logger = logging.getLogger(__name__)
 _AZURE_MAX_BLOCK_CHUNK_SIZE = 100000000  # Max. size of each block allowed is 100 MB in stage_block
 _DOWNLOAD_CHUNK_SIZE = 100000000
+_MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
-_MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 
 
 class DatabricksArtifactRepository(ArtifactRepository):
@@ -156,23 +156,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         for paths_chunk in chunk_list(paths, _MAX_CREDENTIALS_REQUEST_SIZE):
             while True:
-                if page_token:
-                    json_body = message_to_json(
-                        request_message_class(
-                            run_id=run_id, path=paths_chunk, page_token=page_token
-                        )
+                json_body = message_to_json(
+                    request_message_class(
+                        run_id=run_id, path=paths_chunk, page_token=page_token
                     )
-                else:
-                    json_body = message_to_json(
-                        request_message_class(run_id=run_id, path=paths_chunk)
-                    )
-
+                )
                 response = self._call_endpoint(
                     DatabricksMlflowArtifactsService, request_message_class, json_body
                 )
                 credential_infos += response.credential_infos
                 page_token = response.next_page_token
-
                 if not page_token or len(response.credential_infos) == 0:
                     break
 
@@ -221,10 +214,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                             "Failed to authorize request, possibly due to credential expiration."
                             " Refreshing credentials and trying again..."
                         )
-                        credentials = self._get_write_credential_infos(
+                        credential_info = self._get_write_credential_infos(
                             run_id=self.run_id, paths=[artifact_path]
                         )[0]
-                        put_block(credentials.signed_uri, block_id, chunk, headers=headers)
+                        put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
                     else:
                         raise e
                 uploading_block_list.append(block_id)
@@ -236,10 +229,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                         "Failed to authorize request, possibly due to credential expiration."
                         " Refreshing credentials and trying again..."
                     )
-                    credentials = self._get_write_credential_infos(
+                    credential_info = self._get_write_credential_infos(
                         run_id=self.run_id, paths=[artifact_path]
                     )[0]
-                    put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
+                    put_block_list(credential_info.signed_uri, uploading_block_list, headers=headers)
                 else:
                     raise e
         except Exception as err:
@@ -421,14 +414,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         infos = []
         page_token = None
         while True:
-            if page_token:
-                json_body = message_to_json(
-                    ListArtifacts(run_id=self.run_id, path=run_relative_path, page_token=page_token)
-                )
-            else:
-                json_body = message_to_json(
-                    ListArtifacts(run_id=self.run_id, path=run_relative_path)
-                )
+            json_body = message_to_json(
+                ListArtifacts(run_id=self.run_id, path=run_relative_path, page_token=page_token)
+            )
             response = self._call_endpoint(MlflowService, ListArtifacts, json_body)
             artifact_list = response.files
             # If `path` is a file, ListArtifacts returns a single list element with the

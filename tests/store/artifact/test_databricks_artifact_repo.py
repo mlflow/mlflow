@@ -655,7 +655,8 @@ class TestDatabricksArtifactRepository(object):
             databricks_artifact_repo._get_read_credential_infos(
                 MOCK_RUN_ID, paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
             )
-            assert call_endpoint_mock.call_count == message_mock.call_count == 3
+            assert call_endpoint_mock.call_count == 3
+            assert message_mock.call_count == 3
             message_mock.assert_has_calls(
                 [
                     mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
