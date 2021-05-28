@@ -546,7 +546,7 @@ def safe_patch(
 
 
 def revert_patches(autologging_integration):
-    print("len: ", len(_AUTOLOGGING_PATCHES))
+    # print("len: ", len(_AUTOLOGGING_PATCHES))
     if autologging_integration in _AUTOLOGGING_PATCHES:
         for patch in _AUTOLOGGING_PATCHES.get(autologging_integration):
             gorilla.revert(patch)
