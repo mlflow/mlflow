@@ -331,7 +331,7 @@ def apply(patch):
                 setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
-    setattr(patch.destination, _ACTIVE_PATCH, patch)
+    # setattr(patch.destination, _ACTIVE_PATCH, patch)
 
 
 def revert(patch):
@@ -346,7 +346,6 @@ def revert(patch):
     to ``True`` when applying the patch and overriding an existing attribute.
     """
     if getattr(patch.destination, _ACTIVE_PATCH, None) != patch:
-        # print("SKIPPING")
         return
 
     try:
@@ -358,6 +357,7 @@ def revert(patch):
                 % (patch.destination.__name__,))
 
     original_name = _ORIGINAL_NAME % (patch.name,)
+    # print('atoof: ', original, patch.destination, patch.name, original_name)
     if not getattr(patch.destination, original_name):
         return
 
@@ -366,7 +366,7 @@ def revert(patch):
     # print(patch.destination, patch.name, hasattr(patch.destination, original_name))
     # print(getattr(patch.destination, _ACTIVE_PATCH), patch)
     delattr(patch.destination, original_name)
-    delattr(patch.destination, _ACTIVE_PATCH)
+    # delattr(patch.destination, _ACTIVE_PATCH)
 
 
 def patch(destination, name=None, settings=None):
