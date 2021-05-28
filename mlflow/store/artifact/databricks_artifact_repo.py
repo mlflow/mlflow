@@ -142,6 +142,15 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return run_response.run.info.artifact_uri
 
     def _get_credential_infos(self, request_message_class, run_id, paths):
+        """
+        Issue one or more requests for artifact credentials, providing read or write
+        access to the specified run-relative artifact `paths` within the MLflow Run specified
+        by `run_id`. The type of access credentials, read or write, is specified by 
+        `request_message_class`.
+
+        :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
+                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        """
         credential_infos = []
         page_token = None
 
@@ -170,9 +179,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return credential_infos
 
     def _get_write_credential_infos(self, run_id, paths):
+        """
+        :return: A list of `ArtifactCredentialInfo` objects providing write access to the specified
+                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        """
         return self._get_credential_infos(GetCredentialsForWrite, run_id, paths)
 
     def _get_read_credential_infos(self, run_id, paths):
+        """
+        :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
+                 run-relative artifact `paths` within the MLflow Run specified by `run_id`.
+        """
         return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
 
     def _extract_headers_from_credentials(self, headers):
