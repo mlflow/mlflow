@@ -145,7 +145,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         Issue one or more requests for artifact credentials, providing read or write
         access to the specified run-relative artifact `paths` within the MLflow Run specified
-        by `run_id`. The type of access credentials, read or write, is specified by 
+        by `run_id`. The type of access credentials, read or write, is specified by
         `request_message_class`.
 
         :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
