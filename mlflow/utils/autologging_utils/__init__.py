@@ -23,6 +23,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (  # noqa: E402
 from mlflow.utils.autologging_utils.safety import (  # noqa: E402
     try_mlflow_log,
     update_wrapper_extended,
+    revert_patches,
 )
 from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
@@ -342,6 +343,10 @@ def autologging_integration(name):
             )
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
+
+            if get_autologging_config(name, "disable", True):
+                revert_patches(name)
+                return
 
             is_silent_mode = get_autologging_config(name, "silent", False)
             # Reroute non-MLflow warnings encountered during autologging enablement to an
