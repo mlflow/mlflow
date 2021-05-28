@@ -230,6 +230,7 @@ from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.environment import _get_additional_pip_dep
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.protos.databricks_pb2 import (
@@ -1256,6 +1257,11 @@ def _save_model_with_loader_module_and_data_path(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    pip_req_subpath = "requirements.txt"
+    pip_deps = _get_additional_pip_dep(conda_env)
+    with open(os.path.join(path, pip_req_subpath), "w") as f:
+        f.write(pip_deps)
 
     mlflow.pyfunc.add_to_model(
         mlflow_model, loader_module=loader_module, code=code, data=data, env=conda_env_subpath

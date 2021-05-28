@@ -18,7 +18,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _get_additional_pip_dep
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -458,6 +458,11 @@ def save_explainer(
 
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    pip_req_subpath = "requirements.txt"
+    pip_deps = _get_additional_pip_dep(conda_env)
+    with open(os.path.join(path, pip_req_subpath), "w") as f:
+        f.write(pip_deps)
 
     pyfunc.add_to_model(
         mlflow_model,

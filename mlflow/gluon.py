@@ -14,7 +14,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _get_additional_pip_dep
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
@@ -210,7 +210,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     # The epoch argument of the export method does not play any role in selecting
-    # a specific epoch's paramaters, and is there only for display purposes.
+    # a specific epoch's parameters, and is there only for display purposes.
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
     with open(os.path.join(path, "architecture.txt"), "w") as fp:
         fp.write(str(gluon_model))
@@ -222,6 +222,12 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    pip_req_subpath = "requirements.txt"
+    pip_deps = _get_additional_pip_dep(conda_env)
+    with open(os.path.join(path, pip_req_subpath), "w") as f:
+        f.write(pip_deps)
+
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon", env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
