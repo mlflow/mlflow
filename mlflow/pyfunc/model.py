@@ -37,9 +37,7 @@ def get_default_conda_env():
              :class:`PythonModel` is provided.
     """
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         additional_pip_deps=["cloudpickle=={}".format(cloudpickle.__version__)],
-        additional_conda_channels=None,
     )
 
 

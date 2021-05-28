@@ -25,7 +25,7 @@ jobs:
           pip install packaging pyyaml pytest
       - name: Test set_matrix.py
         run: |
-          pytest dev/set_matrix.py --doctest-modules --verbose
+          pytest dev/set_matrix.py --doctest-modules
       - id: set-matrix
         name: Set matrix
         run: |

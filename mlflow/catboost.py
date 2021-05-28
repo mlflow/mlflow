@@ -47,10 +47,8 @@ def get_default_conda_env():
     import catboost as cb
 
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         # CatBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["catboost=={}".format(cb.__version__)],
-        additional_conda_channels=None,
+        additional_pip_deps=["catboost=={}".format(cb.__version__)]
     )
 
 

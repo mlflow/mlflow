@@ -42,7 +42,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def gluon_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_conda_deps=["mxnet", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["mxnet", "pytest"])
     return conda_env
 
 

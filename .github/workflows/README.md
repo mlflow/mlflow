@@ -50,5 +50,5 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files 
 ## How to run doctests in `dev/set_matrix.py`
 
 ```sh
-pytest dev/set_matrix.py --doctest-modules --verbose
+pytest dev/set_matrix.py --doctest-modules
 ```

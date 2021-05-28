@@ -108,12 +108,25 @@ def _create_patch_fit(log_every_n_epoch=1, log_models=True):
                     if isinstance(callback, pl.callbacks.early_stopping.EarlyStopping):
                         self._early_stop_check(callback)
 
+            _pl_version = Version(pl.__version__)
+
+            # In pytorch-lightning >= 1.4.0, validation is run inside the training epoch and
+            # `trainer.callback_metrics` contains both training and validation metrics of the
+            # current training epoch when `on_train_epoch_end` is called:
+            # https://github.com/PyTorchLightning/pytorch-lightning/pull/7357
+            if _pl_version >= Version("1.4.0dev"):
+
+                def on_train_epoch_end(
+                    self, trainer, pl_module, *args
+                ):  # pylint: disable=signature-differs,arguments-differ,unused-argument
+                    self._log_metrics(trainer, pl_module)
+
             # In pytorch-lightning >= 1.2.0, logging metrics in `on_epoch_end` results in duplicate
             # metrics records because `on_epoch_end` is called after both train and validation
             # epochs (related PR: https://github.com/PyTorchLightning/pytorch-lightning/pull/5986)
             # As a workaround, use `on_train_epoch_end` and `on_validation_epoch_end` instead
             # in pytorch-lightning >= 1.2.0.
-            if Version(pl.__version__) >= Version("1.2.0"):
+            elif _pl_version >= Version("1.2.0"):
 
                 # NB: Override `on_train_epoch_end` with an additional `*args` parameter for
                 # compatibility with versions of pytorch-lightning <= 1.2.0, which required an

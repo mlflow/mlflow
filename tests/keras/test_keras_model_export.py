@@ -159,7 +159,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def keras_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(conda_env, additional_conda_deps=["keras", "tensorflow", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["keras", "tensorflow", "pytest"])
     return conda_env
 
 
