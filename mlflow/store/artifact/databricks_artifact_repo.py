@@ -26,6 +26,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 )
 from mlflow.protos.service_pb2 import MlflowService, GetRun, ListArtifacts
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
@@ -54,6 +55,7 @@ _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
+_MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 
 
 class DatabricksArtifactRepository(ArtifactRepository):
@@ -139,32 +141,38 @@ class DatabricksArtifactRepository(ArtifactRepository):
         run_response = self._call_endpoint(MlflowService, GetRun, json_body)
         return run_response.run.info.artifact_uri
 
-    def _get_credential_infos(self, request_message_class, run_id, paths=None):
+    def _get_credential_infos(self, request_message_class, run_id, paths):
         credential_infos = []
         page_token = None
-        while True:
-            if page_token:
-                json_body = message_to_json(
-                    request_message_class(run_id=run_id, path=paths, page_token=page_token)
+
+        for paths_chunk in chunk_list(paths, _MAX_CREDENTIALS_REQUEST_SIZE):
+            while True:
+                if page_token:
+                    json_body = message_to_json(
+                        request_message_class(
+                            run_id=run_id, path=paths_chunk, page_token=page_token
+                        )
+                    )
+                else:
+                    json_body = message_to_json(
+                        request_message_class(run_id=run_id, path=paths_chunk)
+                    )
+
+                response = self._call_endpoint(
+                    DatabricksMlflowArtifactsService, request_message_class, json_body
                 )
-            else:
-                json_body = message_to_json(request_message_class(run_id=run_id, path=paths))
+                credential_infos += response.credential_infos
+                page_token = response.next_page_token
 
-            response = self._call_endpoint(
-                DatabricksMlflowArtifactsService, request_message_class, json_body
-            )
-            credential_infos += response.credential_infos
-            page_token = response.next_page_token
-
-            if not page_token or len(response.credential_infos) == 0:
-                break
+                if not page_token or len(response.credential_infos) == 0:
+                    break
 
         return credential_infos
 
-    def _get_write_credential_infos(self, run_id, paths=None):
+    def _get_write_credential_infos(self, run_id, paths):
         return self._get_credential_infos(GetCredentialsForWrite, run_id, paths)
 
-    def _get_read_credential_infos(self, run_id, paths=None):
+    def _get_read_credential_infos(self, run_id, paths):
         return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
 
     def _extract_headers_from_credentials(self, headers):

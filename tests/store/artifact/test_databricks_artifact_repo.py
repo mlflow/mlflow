@@ -509,7 +509,7 @@ class TestDatabricksArtifactRepository(object):
             artifacts = databricks_artifact_repo.list_artifacts("a.txt")
             assert len(artifacts) == 0
 
-    def test_paginated_list_artifacts(self, databricks_artifact_repo):
+    def test_list_artifacts_handles_pagination(self, databricks_artifact_repo):
         list_artifacts_proto_mock_1 = [
             FileInfo(path="a.txt", is_dir=False, file_size=100),
             FileInfo(path="b", is_dir=True, file_size=0),
@@ -556,7 +556,12 @@ class TestDatabricksArtifactRepository(object):
             ]
             message_mock.assert_has_calls(calls)
 
-    def test_paginated_get_credentials_for_read(self, databricks_artifact_repo):
+    def test_get_read_credential_infos_handles_pagination(self, databricks_artifact_repo):
+        """
+        Verifies that the `get_read_credential_infos` method, which is used to resolve read access
+        credentials for a collection of artifacts, handles paginated responses properly, issuing
+        incremental requests until all pages have been consumed
+        """
         credential_infos_mock_1 = [
             ArtifactCredentialInfo(
                 signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -587,18 +592,84 @@ class TestDatabricksArtifactRepository(object):
                 GetCredentialsForRead.Response(credential_infos=credential_infos_mock_3,),
             ]
             call_endpoint_mock.side_effect = get_credentials_for_read_responses
-            read_credential_infos = databricks_artifact_repo._get_read_credential_infos(MOCK_RUN_ID)
+            read_credential_infos = databricks_artifact_repo._get_read_credential_infos(
+                MOCK_RUN_ID, ["testpath"],
+            )
             assert read_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
             message_mock.assert_has_calls(
                 [
-                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path="")),
-                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path="", page_token="2")),
-                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path="", page_token="3")),
+                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"])),
+                    mock.call(
+                        GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
+                    ),
+                    mock.call(
+                        GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
+                    ),
                 ]
             )
             assert call_endpoint_mock.call_count == 3
 
-    def test_paginated_get_credentials_for_write(self, databricks_artifact_repo):
+    def test_get_read_credential_infos_respects_max_request_size(self, databricks_artifact_repo):
+        """
+        Verifies that the `_get_read_credential_infos` method, which is used to resolve read access
+        credentials for a collection of artifacts, handles paginated responses properly, issuing
+        incremental requests until all pages have been consumed
+        """
+        # Create 3 chunks of paths, two of which have the maximum request size and one of which
+        # is smaller than the maximum chunk size. Aggregate and pass these to
+        # `_get_read_credential_infos`, validating that this method decomposes the aggregate
+        # list into these expected chunks and makes 3 separate requests
+        paths_chunk_1 = ["path1"] * 2000
+        paths_chunk_2 = ["path2"] * 2000
+        paths_chunk_3 = ["path3"] * 5
+        credential_infos_mock_1 = [
+            ArtifactCredentialInfo(
+                signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            for _ in range(2000)
+        ]
+        credential_infos_mock_2 = [
+            ArtifactCredentialInfo(
+                signed_uri="http://mock_url_2", type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            for _ in range(2000)
+        ]
+        credential_infos_mock_3 = [
+            ArtifactCredentialInfo(
+                signed_uri="http://mock_url_3", type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            for _ in range(5)
+        ]
+
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE + ".message_to_json"
+        ) as message_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._call_endpoint"
+        ) as call_endpoint_mock:
+            call_endpoint_mock.side_effect = [
+                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_1,),
+                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_2,),
+                GetCredentialsForRead.Response(credential_infos=credential_infos_mock_3,),
+            ]
+
+            databricks_artifact_repo._get_read_credential_infos(
+                MOCK_RUN_ID, paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
+            )
+            assert call_endpoint_mock.call_count == message_mock.call_count == 3
+            message_mock.assert_has_calls(
+                [
+                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
+                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
+                    mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
+                ]
+            )
+
+    def test_get_write_credential_infos_handles_pagination(self, databricks_artifact_repo):
+        """
+        Verifies that the `_get_write_credential_infos` method, which is used to resolve write
+        access credentials for a collection of artifacts, handles paginated responses properly,
+        issuing incremental requests until all pages have been consumed
+        """
         credential_infos_mock_1 = [
             ArtifactCredentialInfo(
                 signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
@@ -630,17 +701,80 @@ class TestDatabricksArtifactRepository(object):
             ]
             call_endpoint_mock.side_effect = get_credentials_for_write_responses
             write_credential_infos = databricks_artifact_repo._get_write_credential_infos(
-                MOCK_RUN_ID
+                MOCK_RUN_ID, ["testpath"],
             )
             assert write_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
             message_mock.assert_has_calls(
                 [
-                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path="")),
-                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path="", page_token="2")),
-                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path="", page_token="3")),
+                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"])),
+                    mock.call(
+                        GetCredentialsForWrite(
+                            run_id=MOCK_RUN_ID, path=["testpath"], page_token="2"
+                        )
+                    ),
+                    mock.call(
+                        GetCredentialsForWrite(
+                            run_id=MOCK_RUN_ID, path=["testpath"], page_token="3"
+                        )
+                    ),
                 ]
             )
             assert call_endpoint_mock.call_count == 3
+
+    def test_get_write_credential_infos_respects_max_request_size(self, databricks_artifact_repo):
+        """
+        Verifies that the `_get_write_credential_infos` method, which is used to resolve write access
+        credentials for a collection of artifacts, batches requests according to a maximum request
+        size configured by the backend
+        """
+        # Create 3 chunks of paths, two of which have the maximum request size and one of which
+        # is smaller than the maximum chunk size. Aggregate and pass these to
+        # `_get_write_credential_infos`, validating that this method decomposes the aggregate
+        # list into these expected chunks and makes 3 separate requests
+        paths_chunk_1 = ["path1"] * 2000
+        paths_chunk_2 = ["path2"] * 2000
+        paths_chunk_3 = ["path3"] * 5
+        credential_infos_mock_1 = [
+            ArtifactCredentialInfo(
+                signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            for _ in range(2000)
+        ]
+        credential_infos_mock_2 = [
+            ArtifactCredentialInfo(
+                signed_uri="http://mock_url_2", type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            for _ in range(2000)
+        ]
+        credential_infos_mock_3 = [
+            ArtifactCredentialInfo(
+                signed_uri="http://mock_url_3", type=ArtifactCredentialType.AWS_PRESIGNED_URL
+            )
+            for _ in range(5)
+        ]
+
+        with mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE + ".message_to_json"
+        ) as message_mock, mock.patch(
+            DATABRICKS_ARTIFACT_REPOSITORY + "._call_endpoint"
+        ) as call_endpoint_mock:
+            call_endpoint_mock.side_effect = [
+                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_1,),
+                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_2,),
+                GetCredentialsForWrite.Response(credential_infos=credential_infos_mock_3,),
+            ]
+
+            databricks_artifact_repo._get_write_credential_infos(
+                MOCK_RUN_ID, paths_chunk_1 + paths_chunk_2 + paths_chunk_3,
+            )
+            assert call_endpoint_mock.call_count == message_mock.call_count == 3
+            message_mock.assert_has_calls(
+                [
+                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
+                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
+                    mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
+                ]
+            )
 
     @pytest.mark.parametrize(
         "remote_file_path, local_path, cloud_credential_type",

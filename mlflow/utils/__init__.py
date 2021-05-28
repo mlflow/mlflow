@@ -63,6 +63,11 @@ def reraise(tp, value, tb=None):
         tb = None
 
 
+def chunk_list(l, chunk_size):
+    for i in range(0, len(l), chunk_size):
+        yield l[i : i + chunk_size]
+
+
 def _chunk_dict(d, chunk_size):
     """
     Splits a dictionary into chunks of the specified size.
