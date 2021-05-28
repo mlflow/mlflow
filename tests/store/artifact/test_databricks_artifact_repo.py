@@ -723,9 +723,9 @@ class TestDatabricksArtifactRepository(object):
 
     def test_get_write_credential_infos_respects_max_request_size(self, databricks_artifact_repo):
         """
-        Verifies that the `_get_write_credential_infos` method, which is used to resolve write access
-        credentials for a collection of artifacts, batches requests according to a maximum request
-        size configured by the backend
+        Verifies that the `_get_write_credential_infos` method, which is used to resolve write
+        access credentials for a collection of artifacts, batches requests according to a maximum
+        request size configured by the backend
         """
         # Create 3 chunks of paths, two of which have the maximum request size and one of which
         # is smaller than the maximum chunk size. Aggregate and pass these to
