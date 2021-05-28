@@ -18,7 +18,10 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 )
 from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.dbfs_artifact_repo import DatabricksArtifactRepository
+from mlflow.store.artifact.dbfs_artifact_repo import (
+    DatabricksArtifactRepository,
+    _MAX_CREDENTIALS_REQUEST_SIZE,
+)
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
@@ -615,24 +618,29 @@ class TestDatabricksArtifactRepository(object):
         credentials for a collection of artifacts, handles paginated responses properly, issuing
         incremental requests until all pages have been consumed
         """
+        assert _MAX_CREDENTIALS_REQUEST_SIZE == 2000, (
+            "The maximum request size configured by the client should be consistent with the"
+            " Databricks backend. Only update this value of the backend limit has changed."
+        )
+
         # Create 3 chunks of paths, two of which have the maximum request size and one of which
         # is smaller than the maximum chunk size. Aggregate and pass these to
         # `_get_read_credential_infos`, validating that this method decomposes the aggregate
         # list into these expected chunks and makes 3 separate requests
-        paths_chunk_1 = ["path1"] * 2000
-        paths_chunk_2 = ["path2"] * 2000
+        paths_chunk_1 = ["path1"] * _MAX_CREDENTIALS_REQUEST_SIZE
+        paths_chunk_2 = ["path2"] * _MAX_CREDENTIALS_REQUEST_SIZE
         paths_chunk_3 = ["path3"] * 5
         credential_infos_mock_1 = [
             ArtifactCredentialInfo(
                 signed_uri="http://mock_url_1", type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
-            for _ in range(2000)
+            for _ in range(_MAX_CREDENTIALS_REQUEST_SIZE)
         ]
         credential_infos_mock_2 = [
             ArtifactCredentialInfo(
                 signed_uri="http://mock_url_2", type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
-            for _ in range(2000)
+            for _ in range(_MAX_CREDENTIALS_REQUEST_SIZE)
         ]
         credential_infos_mock_3 = [
             ArtifactCredentialInfo(
