@@ -297,7 +297,7 @@ def test_model_log_without_pyfunc_flavor():
         )
 
         loaded_model = Model.load(model_path)
-        assert loaded_model.flavors.keys() == {"spacy"}
+        assert "spacy" in loaded_model.flavors
 
 
 def _train_model(nlp, train_data, n_iter=5):
@@ -332,6 +332,8 @@ def _get_train_test_dataset(cats_to_fetch, limit=100):
 
 
 def _predict(spacy_model, test_x):
-    return pd.DataFrame(
-        {"predictions": test_x.iloc[:, 0].apply(lambda text: spacy_model(text).cats)}
-    )
+    objs = test_x.iloc[:, 0].apply(lambda text: spacy_model(text).to_json())
+    pdf = pd.DataFrame.from_records(objs)
+    if "cats" in pdf.columns:
+        pdf["predictions"] = pdf["cats"]
+    return pdf
