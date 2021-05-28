@@ -280,6 +280,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
         xgb_custom_env_parsed = yaml.safe_load(f)
     with open(saved_pip_req_path, "r") as f:
         requirements = f.read().split("\n")
+
     assert xgb_custom_env_parsed["dependencies"][-1]["pip"] == requirements
 
 
