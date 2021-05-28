@@ -244,6 +244,7 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
+REQ = "req"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
@@ -251,7 +252,7 @@ PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
+def add_to_model(model, loader_module, data=None, code=None, env=None, req=None, **kwargs):
     """
     Add a ``pyfunc`` spec to the model configuration.
 
@@ -281,6 +282,8 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
         parms[DATA] = data
     if env:
         parms[ENV] = env
+    if req:
+        parms[REQ] = req
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
