@@ -542,9 +542,12 @@ def deploy_transform_job(
     :param compression_type: The compression type of the transform data.
     :param split_type: The method to split the transform job's data files into smaller batches.
     :param accept: The multipurpose internet mail extension (MIME) type of the output data.
-    :param assemble_with: The method to assemble the results of the transform job as a single S3 object.
-    :param input_filter: A JSONPath expression used to select a portion of the input data for the transform job.
-    :param output_filter: A JSONPath expression used to select a portion of the output data from the transform job.
+    :param assemble_with: The method to assemble the results of the transform job as
+            a single S3 object.
+    :param input_filter: A JSONPath expression used to select a portion of the input data for
+            the transform job.
+    :param output_filter: A JSONPath expression used to select a portion of the output data from
+            the transform job.
     :param join_resource: The source of the data to join with the transformed data.
 
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
@@ -569,9 +572,9 @@ def deploy_transform_job(
                           https://aws.amazon.com/sagemaker/pricing/instance-types/.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
-                       new SageMaker model associated with this batch transform job. The acceptable values
-                       for this parameter are identical to those of the ``VpcConfig`` parameter in
-                       the `SageMaker boto3 client's create_model method
+                       new SageMaker model associated with this batch transform job. The acceptable
+                       values for this parameter are identical to those of the ``VpcConfig``
+                       parameter in the `SageMaker boto3 client's create_model method
                        <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
                        #SageMaker.Client.create_model>`_. For more information, see
                        https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
@@ -712,26 +715,28 @@ def terminate_transform_job(
     :param archive: If ``True``, resources associated with the specified batch transform job,
                     such as its associated models and model artifacts, are preserved.
                     If ``False``, these resources are deleted. In order to use ``archive=False``,
-                    ``terminate_transform_job()`` must be executed synchronously with ``synchronous=True``.
+                    ``terminate_transform_job()`` must be executed synchronously
+                    with ``synchronous=True``.
     :param synchronous: If `True`, this function blocks until the termination process succeeds
                         or encounters an irrecoverable failure. If `False`, this function
-                        returns immediately after starting the termination process. It will not wait
-                        for the termination process to complete; in this case, the caller is
+                        returns immediately after starting the termination process. It will not
+                        wait for the termination process to complete; in this case, the caller is
                         responsible for monitoring the status of the termination process via native
                         SageMaker APIs or the AWS console.
     :param timeout_seconds: If `synchronous` is `True`, the termination process returns after the
                             specified number of seconds if no definitive result (success or failure)
                             is achieved. Once the function returns, the caller is responsible
-                            for monitoring the status of the termination process via native SageMaker
-                            APIs or the AWS console. If `synchronous` is False, this parameter
-                            is ignored.
+                            for monitoring the status of the termination process via native
+                            SageMaker APIs or the AWS console. If `synchronous` is False, this
+                            parameter is ignored.
     """
     import boto3
 
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
-                "Resources must be archived when `terminate_transform_job()` is executed in non-synchronous mode."
+                "Resources must be archived when `terminate_transform_job()`\
+                    is executed in non-synchronous mode."
                 " Either set `synchronous=True` or `archive=True`."
             ),
             error_code=INVALID_PARAMETER_VALUE,
@@ -751,7 +756,8 @@ def terminate_transform_job(
 
         if transform_job_info["TransformJobStatus"] == "Stopping":
             return _SageMakerOperationStatus.in_progress(
-                "Termination is still in progress. Current batch transform job status: {transform_job_status}".format(
+                "Termination is still in progress. Current batch transform job status:\
+                    {transform_job_status}".format(
                     transform_job_status=transform_job_info["TransformJobStatus"]
                 )
             )
@@ -1008,7 +1014,8 @@ def _create_sagemaker_transform_job(
     :param model_name: The name to assign the new SageMaker model that will be associated with the
                        specified batch transform job.
     :param model_s3_path: S3 path where we stored the model artifacts.
-    :param model_uri: URI of the MLflow model to associate with the specified SageMaker batch transform job.
+    :param model_uri: URI of the MLflow model to associate with the specified SageMaker batch
+                        transform job.
     :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
     :param flavor: The name of the flavor of the model to use for deployment.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
@@ -1024,9 +1031,12 @@ def _create_sagemaker_transform_job(
     :param split_type: The method to split the transform job's data files into smaller batches.
     :param s3_output_path: The S3 path to store the output results of the Sagemaker transform job.
     :param accept: The multipurpose internet mail extension (MIME) type of the output data.
-    :param assemble_with: The method to assemble the results of the transform job as a single S3 object.
-    :param input_filter: A JSONPath expression used to select a portion of the input data for the transform job.
-    :param output_filter: A JSONPath expression used to select a portion of the output data from the transform job.
+    :param assemble_with: The method to assemble the results of the transform job as a single
+                        S3 object.
+    :param input_filter: A JSONPath expression used to select a portion of the input data for the
+                        transform job.
+    :param output_filter: A JSONPath expression used to select a portion of the output data from
+                        the transform job.
     :param join_resource: The source of the data to join with the transformed data.
     """
     _logger.info("Creating new batch transform job with name: %s ...", job_name)
@@ -1088,7 +1098,8 @@ def _create_sagemaker_transform_job(
         transform_job_status = transform_job_info["TransformJobStatus"]
         if transform_job_status == "InProgress":
             return _SageMakerOperationStatus.in_progress(
-                'Waiting for batch transform job to reach the "Completed" state. Current batch transform job status:'
+                'Waiting for batch transform job to reach the "Completed" state. \
+                    Current batch transform job status:'
                 ' "{transform_job_status}"'.format(transform_job_status=transform_job_status)
             )
         elif transform_job_status == "Completed":
@@ -1317,7 +1328,8 @@ def _update_sagemaker_endpoint(
             failure_reason = endpoint_info.get(
                 "FailureReason",
                 (
-                    "An unknown SageMaker failure occurred. Please see the SageMaker console logs for"  # noqa
+                    "An unknown SageMaker failure occurred. \
+                    Please see the SageMaker console logs for"  # noqa
                     " more information."
                 ),
             )
@@ -1442,8 +1454,8 @@ def _find_endpoint(endpoint_name, sage_client):
 
 def _find_transform_job(job_name, sage_client):
     """
-    Finds a SageMaker batch transform job with the specified name in the caller's AWS account, returning a
-    NoneType if the endpoint is not found.
+    Finds a SageMaker batch transform job with the specified name in the caller's AWS account,
+    returning a NoneType if the endpoint is not found.
 
     :param sage_client: A boto3 client for SageMaker.
     :return: If the endpoint exists, a dictionary of endpoint attributes. If the endpoint does not

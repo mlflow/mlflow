@@ -411,8 +411,8 @@ def test_deploy_in_throw_exception_after_transform_job_creation_fails(
     def fail_transform_job_creations(self, operation_name, operation_kwargs):
         """
         Processes all boto3 client operations according to the following rules:
-        - If the operation is a transform job creation, create the transform job and set its status to
-          ``TransformJob.STATUS_FAILED``.
+        - If the operation is a transform job creation, create the transform job and
+          set its status to ``TransformJob.STATUS_FAILED``.
         - Else, execute the client operation as normal
         """
         result = boto_caller(self, operation_name, operation_kwargs)
@@ -468,7 +468,7 @@ def test_attempting_to_terminate_in_asynchronous_mode_without_archiving_throws_e
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
-def test_terminate_in_synchronous_mode_waits_for_transform_job_termination_to_complete_before_returning(
+def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_before_returning(
     pretrained_model, sagemaker_client
 ):
     transform_job_termination_latency = 10

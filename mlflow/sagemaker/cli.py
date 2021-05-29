@@ -291,8 +291,8 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
     "--instance-type",
     "-t",
     default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
-    help="The type of SageMaker ML instance on which to perform the batch transform job. For a list of"
-    " supported instance types, see"
+    help="The type of SageMaker ML instance on which to perform the batch transform job."
+    " For a list of supported instance types, see"
     " https://aws.amazon.com/sagemaker/pricing/instance-types/.",
 )
 @click.option(
@@ -452,12 +452,12 @@ def deploy_transform_job(
 )
 def terminate_transform_job(job_name, region_name, archive, asynchronous, timeout):
     """
-    Terminate the specified Sagemaker batch transform job. Unless ``--archive`` is specified, all SageMaker resources
-    associated with the batch transform job are deleted as well.
+    Terminate the specified Sagemaker batch transform job. Unless ``--archive`` is specified,
+    all SageMaker resources associated with the batch transform job are deleted as well.
 
     By default, unless the ``--async`` flag is specified, this command will block until
-    either the termination process completes (definitively succeeds or fails) or the specified timeout
-    elapses.
+    either the termination process completes (definitively succeeds or fails) or the specified
+    timeout elapses.
     """
     mlflow.sagemaker.terminate_transform_job(
         job_name=job_name,

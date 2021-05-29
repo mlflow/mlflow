@@ -718,9 +718,10 @@ class TransformJob(TimestampedResource):
         :param model_name: The name of the model to associate with the TransformJob.
         :param transform_input: The input data source and the way transform job consumes it.
         :param transform_output: The output results of the transform job.
-        :param transform_resources: The ML instance types and instance count to use for the transform job.
-        :param data_processing: The data structure to specify the inference data and associate data to the
-                                prediction results.
+        :param transform_resources: The ML instance types and instance count to use for the
+                                    transform job.
+        :param data_processing: The data structure to specify the inference data and associate data
+                                to the prediction results.
         :param tags: Arbitrary tags to associate with the transform job.
         :param latest_operation: The most recent operation that was invoked on the transform job,
                                  represented as an TransformJobOperation object.
@@ -813,10 +814,10 @@ class TransformJobOperation:
 
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
-        :param latency_seconds: The latency of the operation, in seconds. Before the time window specified
-                        by this latency elapses, the operation will have the status specified by
-                        ``pending_status``. After the time window elapses, the operation will
-                        have the status  specified by ``completed_status``.
+        :param latency_seconds: The latency of the operation, in seconds. Before the time window
+                        specified by this latency elapses, the operation will have the status
+                        specified by ``pending_status``. After the time window elapses, the
+                        operation will have the status  specified by ``completed_status``.
         :param pending_status: The status that the operation should reflect *before* the latency
                                window has elapsed.
         :param completed_status: The status that the operation should reflect *after* the latency
