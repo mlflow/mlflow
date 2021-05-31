@@ -33,7 +33,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _compare_conda_env_requirements,
+)
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
@@ -615,14 +618,7 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
     #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(pyfunc_custom_env, "r") as f:
-        pyfunc_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-
-    assert pyfunc_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
@@ -697,13 +693,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(pyfunc_custom_env, "r") as f:
-        pyfunc_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-    assert pyfunc_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

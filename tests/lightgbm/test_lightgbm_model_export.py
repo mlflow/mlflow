@@ -26,7 +26,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _compare_conda_env_requirements,
+)
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -210,14 +213,7 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(lgb_custom_env, "r") as f:
-        lgb_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-
-    assert lgb_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(lgb_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
@@ -275,13 +271,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(lgb_model, lg
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(lgb_custom_env, "r") as f:
-        lgb_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-    assert lgb_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(lgb_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

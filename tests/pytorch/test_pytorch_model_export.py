@@ -29,6 +29,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
+from tests.helper_functions import _compare_conda_env_requirements
 
 _logger = logging.getLogger(__name__)
 
@@ -437,16 +438,10 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
 
     saved_pip_req_path = os.path.join(model_path, "additional_requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(pytorch_custom_env, "r") as f:
-        pytorch_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-
-    assert pytorch_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
 
 
+@pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_persists_requirements_in_mlflow_model_directory(
     sequential_model, pytorch_custom_env
@@ -466,13 +461,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "additional_requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(pytorch_custom_env, "r") as f:
-        pytorch_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-    assert pytorch_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

@@ -37,7 +37,10 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _compare_conda_env_requirements,
+)
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -446,14 +449,7 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(keras_custom_env, "r") as f:
-        keras_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-
-    assert keras_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
@@ -471,13 +467,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
 
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(keras_custom_env, "r") as f:
-        keras_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-    assert keras_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

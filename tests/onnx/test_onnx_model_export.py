@@ -20,7 +20,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import infer_signature, Model
 from mlflow.models.utils import _read_example
 from mlflow.utils.file_utils import TempDir
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, _compare_conda_env_requirements
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -479,14 +479,7 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=onnx_custom_env)
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(onnx_custom_env, "r") as f:
-        onnx_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-
-    assert onnx_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
@@ -546,13 +539,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(onnx_model, o
 
     # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
-    assert os.path.exists(saved_pip_req_path)
-
-    with open(onnx_custom_env, "r") as f:
-        onnx_custom_env_parsed = yaml.safe_load(f)
-    with open(saved_pip_req_path, "r") as f:
-        requirements = f.read().split("\n")
-    assert onnx_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+    _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
