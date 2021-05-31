@@ -15,6 +15,7 @@ import CompareRunUtil from './CompareRunUtil';
 import Utils from '../../common/utils/Utils';
 import { Tabs } from 'antd';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
+import ArtifactPage from './ArtifactPage';
 
 const { TabPane } = Tabs;
 
@@ -181,6 +182,25 @@ export class CompareRunView extends Component {
                 },
                 Utils.formatMetric,
               )}
+              <tr>
+                <th
+                  scope='rowgroup'
+                  className='inter-title'
+                  colSpan={this.props.runInfos.length + 1}
+                >
+                  <h2>Artifacts</h2>
+                </th>
+              </tr>
+              <tr>
+              <td></td>
+              {this.props.runInfos.map((r) => (
+                  <td>
+                  <ArtifactPage
+                    runUuid={r.run_uuid}
+                  />
+                </td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>
@@ -227,6 +247,25 @@ export class CompareRunView extends Component {
         </Tabs>
       </div>
     );
+  }
+
+
+  renderArtifacts(runIds){
+    return (
+      <tr>
+                <td></td>
+                <td>
+                  <ArtifactPage
+                    runUuid='201721229e3d487dba15255d6567004c'
+                  />
+                </td>
+                <td>
+                  <ArtifactPage
+                    runUuid='581997d584d14b249cb92d04d21664b6'
+                  />
+                </td>
+              </tr>
+    )
   }
 
   // eslint-disable-next-line no-unused-vars
