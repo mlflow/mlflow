@@ -695,7 +695,7 @@ message ListExperiments {
     // All experiments.
     repeated Experiment experiments = 1;
 
-    // Pagination token to request next page of models for the same query.
+    // Pagination token to request next page of experiments for the same query.
     optional string next_page_token = 2;
   }
 }
