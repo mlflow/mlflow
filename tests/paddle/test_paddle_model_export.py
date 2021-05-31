@@ -323,11 +323,11 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(pd_model, model_p
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_uri=model_path,
-            data=pd_model.inference_dataframe,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-            flavor=mlflow.pyfunc.FLAVOR_NAME,
-            activity_polling_timeout_seconds=100)
+        model_uri=model_path,
+        data=pd_model.inference_dataframe,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        flavor=mlflow.pyfunc.FLAVOR_NAME,
+        activity_polling_timeout_seconds=100)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 
     pd.testing.assert_frame_equal(
