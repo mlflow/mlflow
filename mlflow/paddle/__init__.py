@@ -25,6 +25,8 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration
 
 FLAVOR_NAME = "paddle"
 
