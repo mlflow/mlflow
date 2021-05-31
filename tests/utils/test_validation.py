@@ -198,8 +198,10 @@ def test_validate_experiment_name():
 
 def test_validate_experiment_pagination():
     _validate_experiment_pagination(50)
-    for invalid_num in [-12, 0, 50000]:
-        with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="It must be at most 1000"):
+        _validate_experiment_pagination(50000)
+    for invalid_num in [-12, 0]:
+        with pytest.raises(MlflowException, match="It must be at least 1"):
             _validate_experiment_pagination(invalid_num)
 
 
