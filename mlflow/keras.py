@@ -25,7 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env, _get_additional_pip_dep
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -266,9 +266,7 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # save additional pip dependencies from conda_env to path/requirements.txt
-    pip_deps = _get_additional_pip_dep(conda_env)
-    with open(os.path.join(path, _PIP_ENV_SUBPATH), "w") as f:
-        f.write(pip_deps)
+    _log_pip_requirements(conda_env, os.path.join(path, _PIP_ENV_SUBPATH))
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(

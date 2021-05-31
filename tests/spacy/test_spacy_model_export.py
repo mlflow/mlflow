@@ -158,14 +158,14 @@ def test_model_log(spacy_model_with_data, tracking_uri_mock):  # pylint: disable
 
 
 @pytest.mark.large
-def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
+def test_model_save_persists_requirements_in_mlflow_model_directory(
     spacy_model_with_data, model_path, spacy_custom_env
 ):
     mlflow.spacy.save_model(
         spacy_model=spacy_model_with_data.model, path=model_path, conda_env=spacy_custom_env
     )
 
-    pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     assert os.path.exists(saved_pip_req_path)
@@ -245,7 +245,9 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
-def test_model_log_persists_requirements_in_mlflow_model_directory(spacy_model_with_data, spacy_custom_env):
+def test_model_log_persists_requirements_in_mlflow_model_directory(
+    spacy_model_with_data, spacy_custom_env
+):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.spacy.log_model(
@@ -259,7 +261,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(spacy_model_w
             )
         )
 
-    #pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
+    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     assert os.path.exists(saved_pip_req_path)
 

@@ -611,9 +611,9 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
         conda_env=pyfunc_custom_env,
     )
 
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
+    # pyfunc_conf = _get_flavor_configuration(
+    #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
+    # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     assert os.path.exists(saved_pip_req_path)
 
@@ -667,7 +667,9 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
-def test_model_log_persists_requirements_in_mlflow_model_directory(sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env):
+def test_model_log_persists_requirements_in_mlflow_model_directory(
+    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env
+):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
@@ -691,9 +693,9 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(sklearn_knn_m
             )
         )
 
-    pyfunc_conf = _get_flavor_configuration(
-        model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    )
+    # pyfunc_conf = _get_flavor_configuration(
+    #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
+    # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     assert os.path.exists(saved_pip_req_path)
 
@@ -702,6 +704,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(sklearn_knn_m
     with open(saved_pip_req_path, "r") as f:
         requirements = f.read().split("\n")
     assert pyfunc_custom_env_parsed["dependencies"][-1]["pip"] == requirements
+
 
 @pytest.mark.large
 def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(

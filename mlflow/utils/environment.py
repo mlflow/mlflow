@@ -74,5 +74,10 @@ def _get_additional_pip_dep(conda_env):
     if conda_env is not None:
         for dep in conda_env["dependencies"]:
             if isinstance(dep, dict) and "pip" in dep:
-                return _mlflow_additional_pip_env(pip_deps=dep["pip"])
-    return ""
+                return dep["pip"]
+    return []
+
+
+def _log_pip_requirements(conda_env, path):
+    pip_deps = _get_additional_pip_dep(conda_env)
+    _mlflow_additional_pip_env(pip_deps, path=path)
