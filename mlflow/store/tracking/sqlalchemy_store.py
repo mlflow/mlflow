@@ -299,6 +299,9 @@ class SqlAlchemyStore(AbstractStore):
                     session.query(SqlExperiment)
                     .options(*query_options)
                     .filter(*conditions)
+                    .order_by(
+                        SqlExperiment.creation_time.desc(), SqlExperiment.experiment_id.desc()
+                    )
                     .offset(offset)
                     .limit(max_results_for_query)
                     .all()
