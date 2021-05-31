@@ -57,6 +57,7 @@ class RestStore(AbstractStore):
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
         """
+        :param view_type: Qualify requested type of experiments.
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
                             passed, the server will determine an appropriate number of experiments
                             to return. Older MLflow servers (prior to MLflow 1.17.0) are likely to

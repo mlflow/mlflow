@@ -330,6 +330,7 @@ class MlflowClient(object):
         page_token: Optional[str] = None,
     ) -> PagedList[Experiment]:
         """
+        :param view_type: Qualify requested type of experiments.
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
                             passed, all experiments will be returned at once.
         :param page_token: Token specifying the next page of results. It should be obtained from
