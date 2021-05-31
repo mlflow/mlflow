@@ -12687,7 +12687,7 @@ public final class Service {
 
       /**
        * <pre>
-       * Pagination token to request next page of models for the same query.
+       * Pagination token to request next page of experiments for the same query.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -12695,7 +12695,7 @@ public final class Service {
       boolean hasNextPageToken();
       /**
        * <pre>
-       * Pagination token to request next page of models for the same query.
+       * Pagination token to request next page of experiments for the same query.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -12703,7 +12703,7 @@ public final class Service {
       java.lang.String getNextPageToken();
       /**
        * <pre>
-       * Pagination token to request next page of models for the same query.
+       * Pagination token to request next page of experiments for the same query.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -12862,7 +12862,7 @@ public final class Service {
       private volatile java.lang.Object nextPageToken_;
       /**
        * <pre>
-       * Pagination token to request next page of models for the same query.
+       * Pagination token to request next page of experiments for the same query.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -12872,7 +12872,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Pagination token to request next page of models for the same query.
+       * Pagination token to request next page of experiments for the same query.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -12893,7 +12893,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Pagination token to request next page of models for the same query.
+       * Pagination token to request next page of experiments for the same query.
        * </pre>
        *
        * <code>optional string next_page_token = 2;</code>
@@ -13598,7 +13598,7 @@ public final class Service {
         private java.lang.Object nextPageToken_ = "";
         /**
          * <pre>
-         * Pagination token to request next page of models for the same query.
+         * Pagination token to request next page of experiments for the same query.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -13608,7 +13608,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Pagination token to request next page of models for the same query.
+         * Pagination token to request next page of experiments for the same query.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -13629,7 +13629,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Pagination token to request next page of models for the same query.
+         * Pagination token to request next page of experiments for the same query.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -13649,7 +13649,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Pagination token to request next page of models for the same query.
+         * Pagination token to request next page of experiments for the same query.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -13666,7 +13666,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Pagination token to request next page of models for the same query.
+         * Pagination token to request next page of experiments for the same query.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
@@ -13679,7 +13679,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Pagination token to request next page of models for the same query.
+         * Pagination token to request next page of experiments for the same query.
          * </pre>
          *
          * <code>optional string next_page_token = 2;</code>
