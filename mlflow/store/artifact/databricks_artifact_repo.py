@@ -152,9 +152,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
         credential_infos = []
-        page_token = None
 
         for paths_chunk in chunk_list(paths, _MAX_CREDENTIALS_REQUEST_SIZE):
+            page_token = None
             while True:
                 json_body = message_to_json(
                     request_message_class(run_id=run_id, path=paths_chunk, page_token=page_token)
