@@ -175,8 +175,7 @@ def _save_model_with_class_artifacts_params(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pip_req_subpath = "requirements.txt"
-    _log_pip_requirements(conda_env, os.path.join(path, pip_req_subpath))
+    _log_pip_requirements(conda_env, path)
 
     saved_code_subpath = None
     if code_paths is not None:

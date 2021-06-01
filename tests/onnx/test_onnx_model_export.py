@@ -477,7 +477,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     onnx_model, model_path, onnx_custom_env
 ):
     mlflow.onnx.save_model(onnx_model=onnx_model, path=model_path, conda_env=onnx_custom_env)
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
 
@@ -537,7 +536,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(onnx_model, o
             )
         )
 
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(onnx_custom_env, saved_pip_req_path)
 

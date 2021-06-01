@@ -172,7 +172,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 ):
     mlflow.gluon.save_model(gluon_model=gluon_model, path=model_path, conda_env=gluon_custom_env)
 
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(gluon_custom_env, saved_pip_req_path)
 
@@ -232,7 +231,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(gluon_model, 
             )
         )
 
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(gluon_custom_env, saved_pip_req_path)
 

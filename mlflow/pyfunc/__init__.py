@@ -244,7 +244,6 @@ MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
 ENV = "env"
-REQ = "req"
 PY_VERSION = "python_version"
 
 _logger = logging.getLogger(__name__)
@@ -252,7 +251,7 @@ PyFuncInput = Union[pandas.DataFrame, np.ndarray, List[Any], Dict[str, Any]]
 PyFuncOutput = Union[pandas.DataFrame, pandas.Series, np.ndarray, list]
 
 
-def add_to_model(model, loader_module, data=None, code=None, env=None, req=None, **kwargs):
+def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
     """
     Add a ``pyfunc`` spec to the model configuration.
 
@@ -269,22 +268,22 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, req=None,
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
+    :param req: pip requirements file.
     :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
     :return: Updated model configuration.
     """
-    parms = deepcopy(kwargs)
-    parms[MAIN] = loader_module
-    parms[PY_VERSION] = PYTHON_VERSION
+    params = deepcopy(kwargs)
+    params[MAIN] = loader_module
+    params[PY_VERSION] = PYTHON_VERSION
     if code:
-        parms[CODE] = code
+        params[CODE] = code
     if data:
-        parms[DATA] = data
+        params[DATA] = data
     if env:
-        parms[ENV] = env
-    if req:
-        parms[REQ] = req
-    return model.add_flavor(FLAVOR_NAME, **parms)
+        params[ENV] = env
+
+    return model.add_flavor(FLAVOR_NAME, **params)
 
 
 def _load_model_env(path):

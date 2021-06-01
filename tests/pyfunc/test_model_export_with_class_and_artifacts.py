@@ -614,9 +614,6 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
         conda_env=pyfunc_custom_env,
     )
 
-    # pyfunc_conf = _get_flavor_configuration(
-    #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
@@ -689,9 +686,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
             )
         )
 
-    # pyfunc_conf = _get_flavor_configuration(
-    #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 

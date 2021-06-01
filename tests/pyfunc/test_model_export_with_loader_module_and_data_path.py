@@ -774,9 +774,6 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
         "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
     )
 
-    # pyfunc_conf = _get_flavor_configuration(
-    #     model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
-    # )
     saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
     assert os.path.exists(saved_pip_req_path)
 

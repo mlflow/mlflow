@@ -447,7 +447,6 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 ):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
 
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
@@ -465,7 +464,6 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(model, keras_
             )
         )
 
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
