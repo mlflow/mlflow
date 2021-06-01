@@ -231,7 +231,7 @@ class Patch(object):
         is_equal = self.__eq__(other)
         return is_equal if is_equal is NotImplemented else not is_equal
 
-    def __hash__(self):
+    def __hash__(self):  # pylint: disable=useless-super-delegation
         return super().__hash__()
 
     def _update(self, **kwargs):
@@ -331,7 +331,7 @@ def apply(patch):
                 setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
-    # setattr(patch.destination, _ACTIVE_PATCH, patch)
+    setattr(patch.destination, _ACTIVE_PATCH, patch)
 
 
 def revert(patch):
@@ -352,21 +352,21 @@ def revert(patch):
         original = get_original_attribute(patch.destination, patch.name)
     except AttributeError:
         raise RuntimeError(
-                "Cannot revert the attribute named '%s' since the setting "
-                "'store_hit' was not set to True when applying the patch."
-                % (patch.destination.__name__,))
+            "Cannot revert the attribute named '%s' since the setting "
+            "'store_hit' was not set to True when applying the patch."
+            % (patch.destination.__name__,)
+        )
 
     original_name = _ORIGINAL_NAME % (patch.name,)
-    # print('atoof: ', original, patch.destination, patch.name, original_name)
     if not getattr(patch.destination, original_name):
         return
 
-
     setattr(patch.destination, patch.name, original)
-    # print(patch.destination, patch.name, hasattr(patch.destination, original_name))
-    # print(getattr(patch.destination, _ACTIVE_PATCH), patch)
-    delattr(patch.destination, original_name)
-    # delattr(patch.destination, _ACTIVE_PATCH)
+
+    if original_name in patch.destination.__dict__:
+        delattr(patch.destination, original_name)
+    if _ACTIVE_PATCH in patch.destination.__dict__:
+        delattr(patch.destination, _ACTIVE_PATCH)
 
 
 def patch(destination, name=None, settings=None):
