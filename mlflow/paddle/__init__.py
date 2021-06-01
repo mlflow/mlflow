@@ -1,8 +1,10 @@
 """
-The ``mlflow.paddle`` module provides an API for logging and loading paddle models. This
-module exports paddle models with the following flavors:
+The ``mlflow.paddle`` module provides an API for logging and loading paddle models.
+This module exports paddle models with the following flavors:
+
 Paddle (native) format
     This is the main flavor that can be loaded back into paddle.
+
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
     NOTE: The `mlflow.pyfunc` flavor is only added for paddle models that define `predict()`,
@@ -69,9 +71,11 @@ def save_model(
     """
     Save a paddle model to a path on the local file system. Produces an MLflow Model
     containing the following flavors:
+
         - :py:mod:`mlflow.paddle`
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for paddle models
           that define `predict()`, since `predict()` is required for pyfunc model inference.
+
     :param pd_model: paddle model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -81,6 +85,7 @@ def save_model(
                       :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
+
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -89,6 +94,7 @@ def save_model(
                                 'paddle=2.1.0'
                             ]
                         }
+
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -97,6 +103,7 @@ def save_model(
                       column omitted) and valid model output (e.g. model predictions generated on
                       the training dataset), for example:
                       .. code-block:: python
+
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
@@ -106,6 +113,7 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+
     .. code-block:: python
         :caption: Example
 
@@ -232,18 +240,23 @@ def load_model(model_uri):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
-                      - ``/Users/me/path/to/local/model``
-                      - ``relative/path/to/local/model``
-                      - ``s3://my_bucket/path/to/model``
-                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-                      - ``models:/<model_name>/<model_version>``
-                      - ``models:/<model_name>/<stage>``
-                      For more information about supported URI schemes, see
-                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
-                      artifact-locations>`_.
+
+            - ``/Users/me/path/to/local/model``
+            - ``relative/path/to/local/model``
+            - ``s3://my_bucket/path/to/model``
+            - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+            - ``models:/<model_name>/<model_version>``
+            - ``models:/<model_name>/<stage>``
+
+    For more information about supported URI schemes, see
+    `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+    artifact-locations>`_.
+
     :return: A paddle model.
+
     .. code-block:: python
         :caption: Example
+
         import mlflow.paddle
         pd_model = mlflow.paddle.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/pd_models")
         # use Pandas DataFrame to make predictions
@@ -304,6 +317,7 @@ def log_model(
                       column omitted) and valid model output (e.g. model predictions generated on
                       the training dataset), for example:
                       .. code-block:: python
+
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
