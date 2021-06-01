@@ -465,7 +465,8 @@ def test_autologging_integration_forwards_positional_and_keyword_arguments_as_ex
     def autolog(foo=7, bar=10, disable=False, silent=False):
         return foo, bar, disable
 
-    assert autolog(1, bar=2, disable=True) == (1, 2, True)
+    assert autolog(1, bar=2, disable=True) == None
+    assert autolog(1, bar=2, disable=False) == (1, 2, False)
 
 
 def test_autologging_integration_validates_structure_of_autolog_function():
@@ -514,16 +515,7 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     AutologgingEventLogger.set_logger(logger)
 
     autolog_success("a", bar=9, disable=True)
-    assert len(logger.calls) == 1
-    call = logger.calls[0]
-    assert call.integration == "test_success"
-    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
-    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
-    # in keyword format
-    assert call.call_args == ()
-    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True, "silent": False}
-
-    logger.reset()
+    assert len(logger.calls) == 0
 
     with pytest.raises(Exception, match="autolog failed"):
         autolog_failure(82, disable=False, silent=True)
