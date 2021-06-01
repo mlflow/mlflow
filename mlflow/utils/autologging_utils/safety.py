@@ -546,11 +546,23 @@ def safe_patch(
 
 
 def revert_patches(autologging_integration):
-    if autologging_integration in _AUTOLOGGING_PATCHES:
-        for patch in _AUTOLOGGING_PATCHES.get(autologging_integration):
-            gorilla.revert(patch)
+    """
+    Reverts all patches on the specified destination class for autologging disablement
+    purposes.
+    :param autologging_integration: The name of the autologging integration associated with the
+                                    patch. Note: If called via fluent api
+                                    (`autologging_integration="mlfow"`), then revert all patches
+                                    for all active autologging integrations.
+    """
+    if name == "mlflow":
+        for active_integration in _AUTOLOGGING_PATCHES.keys():
+            revert_patches(active_integration)
+        return
 
-        _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
+    for patch in _AUTOLOGGING_PATCHES.get(autologging_integration, []):
+        gorilla.revert(patch)
+
+    _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
 
 
 # Represents an active autologging session using two fields:
@@ -632,7 +644,15 @@ def _wrap_patch(destination, name, patch, settings=None):
     return patch
 
 
+
 def _store_patch(autologging_integration, patch):
+    """
+    Stores a patch for a specified autologging_integration class. Later to be used for being able
+    to revert the patch when disabling autologging.
+    :param autologging_integration: The name of the autologging integration associated with the
+                                    patch.
+    :param patch: The patch to be stored.
+    """
     if autologging_integration in _AUTOLOGGING_PATCHES:
         _AUTOLOGGING_PATCHES[autologging_integration].add(patch)
     else:
