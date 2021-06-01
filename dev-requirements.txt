@@ -5,3 +5,4 @@ sphinx-click
 scikit-learn
 scipy
 kubernetes
+paddlepaddle
