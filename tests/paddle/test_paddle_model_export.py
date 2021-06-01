@@ -1,17 +1,17 @@
 from collections import namedtuple
 import pytest
 import numpy as np
-import wget
 import os
 import mock
 import yaml
-import json
-
-import pandas as pd
 
 import paddle
 from paddle.nn import Linear
 import paddle.nn.functional as F
+
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+from sklearn import preprocessing
 
 import mlflow.pyfunc as pyfunc
 import mlflow.paddle
@@ -38,30 +38,18 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
 @pytest.fixture(scope="session")
 def get_dataset():
-    url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/housing/housing.data'
+    X, y = load_boston(return_X_y=True)
 
-    datafile = Path('housing.data')
-    if not datafile.exists():
-        datafile = wget.download(url)
+    min_max_scaler = preprocessing.MinMaxScaler()
+    X_min_max = min_max_scaler.fit_transform(X)
+    X_normalized = preprocessing.scale(X_min_max, with_std=False)
 
-    data = np.fromfile(datafile, sep=' ', dtype=np.float32)
-    feature_names = ['CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE',
-                     'DIS', 'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MEDV']
-    feature_num = len(feature_names)
-    data = data.reshape([data.shape[0] // feature_num, feature_num])
-    ratio = 0.8
-    offset = int(data.shape[0] * ratio)
-    training_data = data[:offset]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_normalized, y, test_size=0.2, random_state=42)
 
-    maximums, minimums, avgs = training_data.max(axis=0), training_data.min(axis=0), \
-        training_data.sum(axis=0) / training_data.shape[0]
-
-    for i in range(feature_num):
-        data[:, i] = (data[:, i] - avgs[i]) / (maximums[i] - minimums[i])
-
-    training_data = data[:offset]
-    test_data = data[offset:]
-    return training_data, test_data
+    y_train = y_train.reshape(-1, 1)
+    y_test = y_test.reshape(-1, 1)
+    return np.concatenate((X_train, y_train), axis=1), np.concatenate((X_test, y_test), axis=1)
 
 
 @pytest.fixture
@@ -89,8 +77,8 @@ def pd_model():
         mini_batches = [training_data[k : k + BATCH_SIZE]
                         for k in range(0, len(training_data), BATCH_SIZE)]
         for iter_id, mini_batch in enumerate(mini_batches):
-            x = np.array(mini_batch[:, :-1])
-            y = np.array(mini_batch[:, -1:])
+            x = np.array(mini_batch[:, :-1]).astype('float32')
+            y = np.array(mini_batch[:, -1:]).astype('float32')
             house_features = paddle.to_tensor(x)
             prices = paddle.to_tensor(y)
             predicts = model(house_features)
@@ -118,7 +106,7 @@ def pd_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
-        additional_pip_deps=["paddle", "pytest", "wget"])
+        additional_pip_deps=["paddle", "pytest"])
     return conda_env
 
 
@@ -126,7 +114,7 @@ def pd_custom_env(tmpdir):
 def test_model_save_load(pd_model, model_path):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path)
 
-    reloaded_pd_model, _ = mlflow.paddle.load_model(model_uri=model_path)
+    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
     np.testing.assert_array_almost_equal(
@@ -149,7 +137,7 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    reloaded_model, params = mlflow.paddle.load_model(model_uri=model_uri)
+    reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
         pd_model.model(pd_model.inference_dataframe),
         reloaded_model(pd_model.inference_dataframe))
@@ -179,7 +167,7 @@ def test_model_log(pd_model, model_path):
                     run_id=mlflow.active_run().info.run_id,
                     artifact_path=artifact_path)
 
-                reloaded_pd_model, params = mlflow.paddle.load_model(model_uri=model_uri)
+                reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
                     model(pd_model.inference_dataframe),
                     reloaded_pd_model(pd_model.inference_dataframe)
@@ -317,23 +305,3 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.paddle.get_default_conda_env()
-
-
-@pytest.mark.release
-def test_sagemaker_docker_model_scoring_with_default_conda_env(pd_model, model_path):
-    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=None)
-    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
-
-    scoring_response = score_model_in_sagemaker_docker_container(
-        model_uri=model_path,
-        data=pd_model.inference_dataframe,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        flavor=mlflow.pyfunc.FLAVOR_NAME,
-        activity_polling_timeout_seconds=100)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
-
-    pd.testing.assert_frame_equal(
-        deployed_model_preds,
-        pd.DataFrame(reloaded_pyfunc.predict(pd_model.inference_dataframe)),
-        check_dtype=False,
-        check_less_precise=6)
