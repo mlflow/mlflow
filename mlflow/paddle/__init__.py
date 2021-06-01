@@ -9,9 +9,11 @@ Paddle (native) format
     since `predict()` is required for pyfunc model inference.
 """
 
+from mlflow.utils.autologging_utils.safety import ExceptionSafeAbstractClass
 import os
 import logging
 import yaml
+import inspect
 
 import mlflow
 from mlflow import pyfunc
@@ -20,6 +22,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -27,6 +30,17 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
+
+from mlflow.utils.autologging_utils import (
+    autologging_integration,
+    safe_patch,
+    exception_safe_function,
+    ExceptionSafeClass,
+    PatchFunction,
+    try_mlflow_log,
+    log_fn_args_as_params,
+    batch_metrics_logger,
+)
 
 FLAVOR_NAME = "paddle"
 
@@ -42,6 +56,7 @@ def get_default_conda_env():
 
     pip_deps = ["paddlepaddle=={}".format(paddle.__version__)]
     return _mlflow_conda_env(additional_pip_deps=pip_deps, additional_conda_channels=None)
+
 
 def save_model(
     pd_model,
@@ -93,6 +108,7 @@ def save_model(
                           base64-encoded.
     .. code-block:: python
         :caption: Example
+
         import mlflow.paddle
         import paddle
         from paddle.nn import Linear
@@ -100,72 +116,63 @@ def save_model(
         import numpy as np
         import os
         import random
+        from sklearn.datasets import load_boston
+        from sklearn.model_selection import train_test_split
+        from sklearn import preprocessing
 
         def load_data():
             # dataset on boston housing prediction
-            datafile = './work/housing.data'
-            data = np.fromfile(datafile, sep=' ', dtype=np.float32)
-            feature_names = [ 'CRIM', 'ZN', 'INDUS', 'CHAS', 'NOX', 'RM', 'AGE', \
-                            'DIS', 'RAD', 'TAX', 'PTRATIO', 'B', 'LSTAT', 'MEDV' ]
-            feature_num = len(feature_names)
-            data = data.reshape([data.shape[0] // feature_num, feature_num])
-            ratio = 0.8
-            offset = int(data.shape[0] * ratio)
-            training_data = data[:offset]
+            X, y = load_boston(return_X_y=True)
 
-            maximums, minimums, avgs = training_data.max(axis=0), training_data.min(axis=0), \
-                                        training_data.sum(axis=0) / training_data.shape[0]
-            
-            global max_values
-            global min_values
-            global avg_values
-            max_values = maximums
-            min_values = minimums
-            avg_values = avgs
+            min_max_scaler = preprocessing.MinMaxScaler()
+            X_min_max = min_max_scaler.fit_transform(X)
+            X_normalized = preprocessing.scale(X_min_max, with_std=False)
 
-            for i in range(feature_num):
-                data[:, i] = (data[:, i] - avgs[i]) / (maximums[i] - minimums[i])
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_normalized, y, test_size=0.2, random_state=42)
 
-            training_data = data[:offset]
-            test_data = data[offset:]
-            return training_data, test_data
+            y_train = y_train.reshape(-1, 1)
+            y_test = y_test.reshape(-1, 1)
+            return np.concatenate((X_train, y_train), axis=1), np.concatenate((X_test, y_test), axis=1)
 
         class Regressor(paddle.nn.Layer):
 
             def __init__(self):
                 super(Regressor, self).__init__()
-                
+
                 self.fc = Linear(in_features=13, out_features=1)
 
             @paddle.jit.to_static
             def forward(self, inputs):
                 x = self.fc(inputs)
                 return x
-            
+
         model = Regressor()
         model.train()
         training_data, test_data = load_data()
-        opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters()) 
+        opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
 
-        EPOCH_NUM = 10  
-        BATCH_SIZE = 10 
+        EPOCH_NUM = 10
+        BATCH_SIZE = 10
 
         for epoch_id in range(EPOCH_NUM):
             np.random.shuffle(training_data)
-            mini_batches = [training_data[k:k+BATCH_SIZE] for k in range(0, len(training_data), BATCH_SIZE)]
+            mini_batches = [training_data[k : k + BATCH_SIZE]
+                for k in range(0, len(training_data), BATCH_SIZE)]
             for iter_id, mini_batch in enumerate(mini_batches):
-                x = np.array(mini_batch[:, :-1]) 
-                y = np.array(mini_batch[:, -1:]) 
+                x = np.array(mini_batch[:, :-1]).astype('float32')
+                y = np.array(mini_batch[:, -1:]).astype('float32')
                 house_features = paddle.to_tensor(x)
                 prices = paddle.to_tensor(y)
-                
+
                 predicts = model(house_features)
-                
+
                 loss = F.square_error_cost(predicts, label=prices)
                 avg_loss = paddle.mean(loss)
                 if iter_id%20==0:
-                    print("epoch: {}, iter: {}, loss is: {}".format(epoch_id, iter_id, avg_loss.numpy()))
-                
+                    print("epoch: {}, iter: {}, loss is: {}".format(
+                        epoch_id, iter_id, avg_loss.numpy()))
+
                 avg_loss.backward()
                 opt.step()
                 opt.clear_grad()
@@ -183,7 +190,7 @@ def save_model(
         raise MlflowException(
             message="Path '{}' already exists".format(path), error_code=RESOURCE_ALREADY_EXISTS
         )
-    
+
     os.makedirs(path)
     if mlflow_model is None:
         mlflow_model = Model()
@@ -193,7 +200,7 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
 
     model_data_subpath = 'model'
-    output_path=os.path.join(path, model_data_subpath)
+    output_path = os.path.join(path, model_data_subpath)
 
     paddle.jit.save(pd_model, output_path)
 
@@ -220,8 +227,8 @@ def save_model(
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
+
 def load_model(model_uri):
-    import paddle
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
@@ -243,11 +250,12 @@ def load_model(model_uri):
         np_array = ...
         predictions = pd_model(np_array)
     """
-
+    import paddle
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
-    return paddle.jit.load(pd_model_artifacts_path), paddle.load(pd_model_artifacts_path)
+    return paddle.jit.load(pd_model_artifacts_path)
+
 
 def log_model(
     pd_model,
@@ -262,9 +270,11 @@ def log_model(
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
     containing the following flavors:
+
         - :py:mod:`mlflow.paddle`
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for paddle models
           that define `predict()`, since `predict()` is required for pyfunc model inference.
+
     :param pd_model: paddle model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -274,6 +284,7 @@ def log_model(
                       :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
+
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -282,6 +293,7 @@ def log_model(
                                 'paddlepaddle=2.1.0'
                             ]
                         }
+
     :param registered_model_name: (Experimental) If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -304,8 +316,12 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
+
+
     .. code-block:: python
         :caption: Example
+
+        import mlflow.paddle
         def load_data():
             ...
         class Regressor():
@@ -313,14 +329,14 @@ def log_model(
         model = Regressor()
         model.train()
         training_data, test_data = load_data()
-        opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters()) 
+        opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
 
-        EPOCH_NUM = 10  
-        BATCH_SIZE = 10 
+        EPOCH_NUM = 10
+        BATCH_SIZE = 10
 
         for epoch_id in range(EPOCH_NUM):
             ...
-        
+
         mlflow.log_param('learning_rate', 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = ...
@@ -336,6 +352,7 @@ def log_model(
         input_example=input_example,
         await_registration_for=await_registration_for,
     )
+
 
 def _load_pyfunc(path):
     """
@@ -372,7 +389,7 @@ class _PaddleWrapper(object):
             raise TypeError("Input data should be pandas.DataFrame or numpy.ndarray")
         inp_data = np.squeeze(inp_data)
 
-        self.pd_model[0].eval()
+        self.pd_model.eval()
 
-        predicted = self.pd_model[0](inp_data)
+        predicted = self.pd_model(inp_data)
         return pd.DataFrame(predicted.numpy())
