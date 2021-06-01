@@ -18,7 +18,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 )
 from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.dbfs_artifact_repo import (
+from mlflow.store.artifact.databricks_artifact_repo import (
     DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
 )
