@@ -384,8 +384,7 @@ def _save_model_metadata(
     with open(os.path.join(dst_dir, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pip_req_subpath = "requirements.txt"
-    _log_pip_requirements(conda_env, os.path.join(dst_dir, pip_req_subpath))
+    _log_pip_requirements(conda_env, dst_dir)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB

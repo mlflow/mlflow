@@ -133,8 +133,7 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
-    pip_req_subpath = "requirements.txt"
-    _log_pip_requirements(conda_env, os.path.join(path, pip_req_subpath))
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.h2o", data=model_data_subpath, env=conda_env_subpath

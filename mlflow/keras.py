@@ -266,7 +266,7 @@ def save_model(
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
     # save additional pip dependencies from conda_env to path/requirements.txt
-    _log_pip_requirements(conda_env, os.path.join(path, _PIP_ENV_SUBPATH))
+    _log_pip_requirements(conda_env, path)
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(

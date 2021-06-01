@@ -428,44 +428,6 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_model_save_persists_requirements_in_mlflow_model_directory(
-    sequential_model, model_path, pytorch_custom_env
-):
-    mlflow.pytorch.save_model(
-        pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env
-    )
-
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-
-    saved_pip_req_path = os.path.join(model_path, "additional_requirements.txt")
-    _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("scripted_model", [True, False])
-def test_model_log_persists_requirements_in_mlflow_model_directory(
-    sequential_model, pytorch_custom_env
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.pytorch.log_model(
-            pytorch_model=sequential_model,
-            artifact_path=artifact_path,
-            conda_env=pytorch_custom_env,
-        )
-        model_path = _download_artifact_from_uri(
-            "runs:/{run_id}/{artifact_path}".format(
-                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-            )
-        )
-
-    # pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_pip_req_path = os.path.join(model_path, "additional_requirements.txt")
-    _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
-
-
-@pytest.mark.large
-@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model, model_path
 ):

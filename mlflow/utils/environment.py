@@ -1,4 +1,5 @@
 import yaml
+import os
 
 from mlflow.utils import PYTHON_VERSION
 
@@ -78,6 +79,6 @@ def _get_additional_pip_dep(conda_env):
     return []
 
 
-def _log_pip_requirements(conda_env, path):
+def _log_pip_requirements(conda_env, path, requirements_file="requirements.txt"):
     pip_deps = _get_additional_pip_dep(conda_env)
-    _mlflow_additional_pip_env(pip_deps, path=path)
+    _mlflow_additional_pip_env(pip_deps, path=os.path.join(path, requirements_file))
