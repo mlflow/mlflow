@@ -156,10 +156,10 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 @pytest.mark.large
 def test_universal_autolog_calls_pyspark_immediately():
     from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_PATCHES
+
     mlflow.autolog()
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
     assert mlflow.spark.FLAVOR_NAME in _AUTOLOGGING_PATCHES
-
 
     mlflow.autolog(disable=True)
     assert mlflow.spark.FLAVOR_NAME not in _AUTOLOGGING_PATCHES
@@ -167,7 +167,6 @@ def test_universal_autolog_calls_pyspark_immediately():
     mlflow.autolog(disable=False)
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
     assert mlflow.spark.FLAVOR_NAME in _AUTOLOGGING_PATCHES
-
 
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         # there should be no import hook on pyspark since autologging was already
@@ -240,14 +239,12 @@ def test_autolog_obeys_disabled():
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert "sklearn" not in _AUTOLOGGING_PATCHES
 
-
     mlflow.autolog(disable=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert not get_autologging_config("sklearn", "disable")
     assert "sklearn" in _AUTOLOGGING_PATCHES
     mlflow.sklearn.autolog(disable=True)
     assert "sklearn" not in _AUTOLOGGING_PATCHES
-
 
     AUTOLOGGING_INTEGRATIONS.clear()
     mlflow.autolog(disable_for_unsupported_versions=False)
