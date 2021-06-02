@@ -7,10 +7,14 @@ if [[ "$PROTOC_VERSION" != 'libprotoc 3.6.0' && "$PROTOC_VERSION" != 'libprotoc 
 	echo "We found: $PROTOC_VERSION"
 	exit 1
 fi
+
 PROTOS="mlflow/protos"
+JAVA_OUT="mlflow/java/client/src/main/java"
+mkdir -p "$JAVA_OUT"
+
 protoc -I="$PROTOS" \
     --python_out="$PROTOS" \
-    --java_out="mlflow/java/client/src/main/java" \
+    --java_out="$JAVA_OUT" \
     "$PROTOS"/databricks.proto \
     "$PROTOS"/service.proto \
     "$PROTOS"/model_registry.proto \
