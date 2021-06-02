@@ -2,7 +2,11 @@
 # $ pushd dev
 # $ DOCKER_BUILDKIT=1 docker build -t gen-protos -f Dockerfile.protos .
 # $ popd
-# $ docker run --rm -v $(pwd)/mlflow/protos:/app/mlflow/protos -v $(pwd)/generate-protos.sh:/app/generate-protos.sh gen-protos ./generate-protos.sh
+# $ docker run --rm \
+#     -v $(pwd)/mlflow/protos:/app/mlflow/protos \
+#     -v $(pwd)/mlflow/java/client/src/main/java:/app/mlflow/java/client/src/main/java \
+#     -v $(pwd)/generate-protos.sh:/app/generate-protos.sh \
+#     gen-protos ./generate-protos.sh
 
 FROM ubuntu:20.04
 

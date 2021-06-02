@@ -426,6 +426,7 @@ Alternatively, you can build protobuf files using Docker:
     popd
     docker run --rm \
       -v $(pwd)/mlflow/protos:/app/mlflow/protos \
+      -v $(pwd)/mlflow/java/client/src/main/java:/app/mlflow/java/client/src/main/java \
       -v $(pwd)/generate-protos.sh:/app/generate-protos.sh \
       gen-protos ./generate-protos.sh
 
