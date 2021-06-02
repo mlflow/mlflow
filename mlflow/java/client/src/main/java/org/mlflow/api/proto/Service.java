@@ -12493,10 +12493,10 @@ public final class Service {
 
     /**
      * <pre>
-     * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-     * Servers may impose a default max_results of their choice if unspecified by the client.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-     * to iterate through experiments.
+     * Maximum number of experiments desired. If unspecified, defaults to 1000.
+     * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+     * Callers of this endpoint are encouraged to pass max_results explicitly and
+     * leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -12504,10 +12504,10 @@ public final class Service {
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-     * Servers may impose a default max_results of their choice if unspecified by the client.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-     * to iterate through experiments.
+     * Maximum number of experiments desired. If unspecified, defaults to 1000.
+     * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+     * Callers of this endpoint are encouraged to pass max_results explicitly and
+     * leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -13779,10 +13779,10 @@ public final class Service {
     private long maxResults_;
     /**
      * <pre>
-     * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-     * Servers may impose a default max_results of their choice if unspecified by the client.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-     * to iterate through experiments.
+     * Maximum number of experiments desired. If unspecified, defaults to 1000.
+     * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+     * Callers of this endpoint are encouraged to pass max_results explicitly and
+     * leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -13792,10 +13792,10 @@ public final class Service {
     }
     /**
      * <pre>
-     * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-     * Servers may impose a default max_results of their choice if unspecified by the client.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-     * to iterate through experiments.
+     * Maximum number of experiments desired. If unspecified, defaults to 1000.
+     * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+     * Callers of this endpoint are encouraged to pass max_results explicitly and
+     * leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -14284,10 +14284,10 @@ public final class Service {
       private long maxResults_ = 1000L;
       /**
        * <pre>
-       * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-       * Servers may impose a default max_results of their choice if unspecified by the client.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-       * to iterate through experiments.
+       * Maximum number of experiments desired. If unspecified, defaults to 1000.
+       * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+       * Callers of this endpoint are encouraged to pass max_results explicitly and
+       * leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -14297,10 +14297,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-       * Servers may impose a default max_results of their choice if unspecified by the client.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-       * to iterate through experiments.
+       * Maximum number of experiments desired. If unspecified, defaults to 1000.
+       * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+       * Callers of this endpoint are encouraged to pass max_results explicitly and
+       * leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -14310,10 +14310,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-       * Servers may impose a default max_results of their choice if unspecified by the client.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-       * to iterate through experiments.
+       * Maximum number of experiments desired. If unspecified, defaults to 1000.
+       * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+       * Callers of this endpoint are encouraged to pass max_results explicitly and
+       * leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 1000];</code>
@@ -14326,10 +14326,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of experiments desired. If specified, max_results can be at most 1000.
-       * Servers may impose a default max_results of their choice if unspecified by the client.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and leverage page_token
-       * to iterate through experiments.
+       * Maximum number of experiments desired. If unspecified, defaults to 1000.
+       * Servers may impose the maximum threshold (&gt;= 1000) on max_results.
+       * Callers of this endpoint are encouraged to pass max_results explicitly and
+       * leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 1000];</code>
