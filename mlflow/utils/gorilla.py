@@ -29,7 +29,6 @@ import pkgutil
 import sys
 import types
 
-
 __version__ = "0.3.0"
 
 
@@ -325,8 +324,13 @@ def apply(patch):
             prev_patch = getattr(patch.destination, _ACTIVE_PATCH, None)
             if not hasattr(patch.destination, original_name) or (
                 prev_patch
-                and prev_patch.destination != patch.destination
-                and issubclass(patch.destination, prev_patch.destination)
+                and (
+                    prev_patch.name != patch.name
+                    or (
+                        prev_patch.destination != patch.destination
+                        and issubclass(patch.destination, prev_patch.destination)
+                    )
+                )
             ):
                 setattr(patch.destination, original_name, target)
 
@@ -349,9 +353,7 @@ def revert(patch):
         return
 
     try:
-        original = getattr(patch.destination, _ORIGINAL_NAME % (patch.name,), None)
-        if original is None:
-            return
+        original = get_original_attribute(patch.destination, patch.name)
     except AttributeError:
         raise RuntimeError(
             "Cannot revert the attribute named '%s' since the setting "
