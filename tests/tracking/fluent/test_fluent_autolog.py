@@ -135,7 +135,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]
     args_to_test = {
         "log_models": False,
-        "disable": True,
+        "disable": False,
         "exclusive": True,
         "disable_for_unsupported_versions": True,
         "silent": True,
@@ -155,14 +155,19 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
 @pytest.mark.large
 def test_universal_autolog_calls_pyspark_immediately():
+    from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_PATCHES
     mlflow.autolog()
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+    assert mlflow.spark.FLAVOR_NAME in _AUTOLOGGING_PATCHES
+
 
     mlflow.autolog(disable=True)
-    assert autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+    assert mlflow.spark.FLAVOR_NAME not in _AUTOLOGGING_PATCHES
 
     mlflow.autolog(disable=False)
     assert not autologging_is_disabled(mlflow.spark.FLAVOR_NAME)
+    assert mlflow.spark.FLAVOR_NAME in _AUTOLOGGING_PATCHES
+
 
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         # there should be no import hook on pyspark since autologging was already
@@ -172,7 +177,7 @@ def test_universal_autolog_calls_pyspark_immediately():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
+@pytest.mark.parametrize("config", [{"disable": False}])
 def test_universal_autolog_attaches_pyspark_import_hook_if_pyspark_isnt_installed(config):
     with mock.patch("mlflow.spark.autolog", wraps=mlflow.spark.autolog) as autolog_mock:
         autolog_mock.integration_name = "spark"
@@ -210,7 +215,7 @@ def test_universal_autolog_makes_expected_event_logging_calls():
     logger = TestLogger()
     AutologgingEventLogger.set_logger(logger)
 
-    mlflow.autolog(exclusive=True, disable=True)
+    mlflow.autolog(exclusive=True, disable=False)
 
     universal_autolog_event_logging_calls = [
         call for call in logger.calls if call.integration == "mlflow"
@@ -218,27 +223,31 @@ def test_universal_autolog_makes_expected_event_logging_calls():
     assert len(universal_autolog_event_logging_calls) == 1
     call = universal_autolog_event_logging_calls[0]
     assert call.integration == "mlflow"
-    assert {"disable": True, "exclusive": True}.items() <= call.call_kwargs.items()
+    assert {"disable": False, "exclusive": True}.items() <= call.call_kwargs.items()
 
 
 def test_autolog_obeys_disabled():
     from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from mlflow.utils.autologging_utils.safety import _AUTOLOGGING_PATCHES
 
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
-    assert get_autologging_config("sklearn", "disable")
+    assert "sklearn" not in _AUTOLOGGING_PATCHES
 
     mlflow.autolog()
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
-    assert get_autologging_config("sklearn", "disable")
+    assert "sklearn" not in _AUTOLOGGING_PATCHES
+
 
     mlflow.autolog(disable=False)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
     assert not get_autologging_config("sklearn", "disable")
+    assert "sklearn" in _AUTOLOGGING_PATCHES
     mlflow.sklearn.autolog(disable=True)
-    assert get_autologging_config("sklearn", "disable")
+    assert "sklearn" not in _AUTOLOGGING_PATCHES
+
 
     AUTOLOGGING_INTEGRATIONS.clear()
     mlflow.autolog(disable_for_unsupported_versions=False)

@@ -555,7 +555,8 @@ def revert_patches(autologging_integration):
                                     for all active autologging integrations.
     """
     if autologging_integration == "mlflow":
-        for active_integration in _AUTOLOGGING_PATCHES.keys():
+        active_integrations = list(_AUTOLOGGING_PATCHES.keys())
+        for active_integration in active_integrations:
             revert_patches(active_integration)
         return
 

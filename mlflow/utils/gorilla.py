@@ -349,7 +349,9 @@ def revert(patch):
         return
 
     try:
-        original = get_original_attribute(patch.destination, patch.name)
+        original = getattr(patch.destination, _ORIGINAL_NAME % (patch.name,), None)
+        if original is None:
+            return
     except AttributeError:
         raise RuntimeError(
             "Cannot revert the attribute named '%s' since the setting "
@@ -358,7 +360,7 @@ def revert(patch):
         )
 
     original_name = _ORIGINAL_NAME % (patch.name,)
-    if not getattr(patch.destination, original_name):
+    if not getattr(patch.destination, original_name, None):
         return
 
     setattr(patch.destination, patch.name, original)
