@@ -422,7 +422,7 @@ Alternatively, you can build protobuf files using Docker:
 .. code-block:: bash
 
     pushd dev
-    DOCKER_BUILDKIT=1 docker build -t "gen-protos" -f Dockerfile.protos .
+    DOCKER_BUILDKIT=1 docker build -t gen-protos -f Dockerfile.protos .
     popd
     docker run --rm \
       -v $(pwd)/mlflow/protos:/app/mlflow/protos \

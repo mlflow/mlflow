@@ -1,6 +1,6 @@
 # How to build protobuf files using this Dockerfile:
 # $ pushd dev
-# $ DOCKER_BUILDKIT=1 docker build -t "gen-protos" -f Dockerfile.protos .
+# $ DOCKER_BUILDKIT=1 docker build -t gen-protos -f Dockerfile.protos .
 # $ popd
 # $ docker run --rm -v $(pwd)/mlflow/protos:/app/mlflow/protos -v $(pwd)/generate-protos.sh:/app/generate-protos.sh gen-protos ./generate-protos.sh
 
