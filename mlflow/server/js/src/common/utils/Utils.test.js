@@ -362,3 +362,42 @@ test('normalize', () => {
   expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
   expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
 });
+
+test('getGitRepoUrl', () => {
+  expect(Utils.getGitRepoUrl('git@github.com:mflow/mflow.git')).toEqual(
+    'https://github.com/mflow/mflow',
+  );
+  expect(Utils.getGitRepoUrl('https://github.com/torvalds/linux.git')).toEqual(
+    'https://github.com/torvalds/linux',
+  );
+  expect(Utils.getGitRepoUrl('https://github.com/takabayashi/test_mlflow_git.git')).toEqual(
+    'https://github.com/takabayashi/test_mlflow_git',
+  );
+  expect(Utils.getGitRepoUrl('git@bitbucket.org:mlflow/mlflow-apps_git.git')).toEqual(
+    'https://bitbucket.org/mlflow/mlflow-apps_git',
+  );
+  expect(Utils.getGitRepoUrl('git@gitlab.com:mlflow/mlflow-apps.git')).toEqual(
+    'https://gitlab.com/mlflow/mlflow-apps',
+  );
+});
+
+test('getGitCommitUrl', () => {
+  expect(Utils.getGitCommitUrl('git@github.com:mflow/mflow.git', 'v001')).toEqual(
+    'https://github.com/mflow/mflow/tree/v001/',
+  );
+  expect(Utils.getGitCommitUrl('git@github.com:mflow/mflow.git')).toEqual(
+    'https://github.com/mflow/mflow/tree/undefined/',
+  );
+  expect(Utils.getGitCommitUrl('https://github.com/torvalds/linux.git', 'v001')).toEqual(
+    'https://github.com/torvalds/linux/tree/v001/',
+  );
+  expect(
+    Utils.getGitCommitUrl('https://github.com/takabayashi/test_mlflow_git.git', 'v001'),
+  ).toEqual('https://github.com/takabayashi/test_mlflow_git/tree/v001/');
+  expect(Utils.getGitCommitUrl('git@bitbucket.org:mlflow/mlflow-apps_git.git', 'v001')).toEqual(
+    'https://bitbucket.org/mlflow/mlflow-apps_git/src/v001/',
+  );
+  expect(Utils.getGitCommitUrl('git@gitlab.com:mlflow/mlflow-apps.git', 'v001')).toEqual(
+    'https://gitlab.com/mlflow/mlflow-apps/tree/v001/',
+  );
+});
