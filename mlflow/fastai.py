@@ -26,7 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _save_example
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -185,6 +185,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.fastai", data=model_data_subpath, env=conda_env_subpath
