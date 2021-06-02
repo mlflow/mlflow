@@ -2,7 +2,7 @@ from collections import namedtuple
 import pytest
 import numpy as np
 import os
-import mock
+from unittest import mock
 import yaml
 
 import paddle
@@ -24,7 +24,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-# from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
