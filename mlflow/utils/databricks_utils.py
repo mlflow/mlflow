@@ -134,6 +134,13 @@ def get_notebook_path():
         return _get_extra_context("notebook_path")
 
 
+def get_databricks_runtime():
+    spark_session = _get_active_spark_session()
+    if spark_session is None:
+        return None
+    return spark_session.conf.get("spark.databricks.clusterUsageTags.sparkVersion")
+
+
 def get_cluster_id():
     spark_session = _get_active_spark_session()
     if spark_session is None:
