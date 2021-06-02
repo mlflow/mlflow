@@ -35,6 +35,7 @@ from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
 # `mlflow.utils.autologging_utils` module
 from mlflow.utils.autologging_utils.safety import *  # noqa: E402
 from mlflow.utils.autologging_utils.events import *  # noqa: E402
+from mlflow.utils.autologging_utils.client import *  # noqa: E402
 
 
 INPUT_EXAMPLE_SAMPLE_ROWS = 5

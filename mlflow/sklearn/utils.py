@@ -412,11 +412,10 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
 
-    mlflow_client = MlflowClient()
     metrics = dict()
 
     if y_true is not None:
@@ -436,15 +435,7 @@ def _log_specialized_estimator_content(
             )
             _logger.warning(msg)
         else:
-            # batch log all metrics
-            try_mlflow_log(
-                mlflow_client.log_batch,
-                run_id,
-                metrics=[
-                    Metric(key=str(key), value=value, timestamp=int(time.time() * 1000), step=0)
-                    for key, value in metrics.items()
-                ],
-            )
+            client.log_metrics(run_id=run_id, metrics=metrics)
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -475,12 +466,12 @@ def _log_specialized_estimator_content(
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
-            try_mlflow_log(mlflow_client.log_artifacts, run_id, tmp_dir.path())
+            try_mlflow_log(MlflowClient().log_artifacts, run_id, tmp_dir.path())
 
     return metrics
 
 
-def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_weight=None):
+def _log_estimator_content(client, estimator, run_id, prefix, X, y_true=None, sample_weight=None):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
     tailored to the estimator's type (e.g., regression vs classification). Training labels
@@ -496,6 +487,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_wei
     :return: A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
+        client=client,
         fitted_estimator=estimator,
         run_id=run_id,
         prefix=prefix,
@@ -521,7 +513,7 @@ def _log_estimator_content(estimator, run_id, prefix, X, y_true=None, sample_wei
             _logger.warning(msg)
         else:
             score_key = prefix + "score"
-            try_mlflow_log(mlflow.log_metric, score_key, score)
+            client.log_metrics(run_id=run_id, metrics={score_key: score})
             metrics[score_key] = score
 
     return metrics
@@ -604,7 +596,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
 
 
 def _create_child_runs_for_parameter_search(
-    cv_estimator, parent_run, max_tuning_runs, child_tags=None
+    client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -629,7 +621,6 @@ def _create_child_runs_for_parameter_search(
             if "rank_test_" in col_name:
                 return col_name
 
-    client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
     # start time of child runs, since we cannot precisely determine when each point
     # in the parameter search space was explored
@@ -680,7 +671,10 @@ def _create_child_runs_for_parameter_search(
 
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
-        param_batches_to_log = _chunk_dict(params_to_log, chunk_size=MAX_PARAMS_TAGS_PER_BATCH)
+        client.log_params(
+            run_id=child_run.info.run_id,
+            params=params_to_log
+        )
 
         # Parameters values are recorded twice in the set of search `cv_results_`:
         # once within a `params` column with dictionary values and once within
@@ -691,40 +685,17 @@ def _create_child_runs_for_parameter_search(
         # metrics for each training split, which is fairly verbose; accordingly, we filter
         # out per-split metrics in favor of aggregate metrics (mean, std, etc.)
         excluded_metric_prefixes = ["param", "split"]
-        metric_batches_to_log = _chunk_dict(
-            {
-                key: value
-                for key, value in result_row.iteritems()
-                if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
-                and isinstance(value, Number)
-            },
-            chunk_size=min(
-                MAX_ENTITIES_PER_BATCH - MAX_PARAMS_TAGS_PER_BATCH, MAX_METRICS_PER_BATCH
-            ),
+        metrics_to_log =  {
+            key: value
+            for key, value in result_row.iteritems()
+            if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
+            and isinstance(value, Number)
+        }
+        client.log_metrics(
+            run_id=child_run.info.run_id,
+            metrics=metrics_to_log,
         )
-
-        for params_batch, metrics_batch in zip_longest(
-            param_batches_to_log, metric_batches_to_log, fillvalue={}
-        ):
-            # Trim any parameter keys / values and metric keys that exceed the limits
-            # imposed by corresponding MLflow Tracking APIs (e.g., LogParam, LogMetric)
-            truncated_params_batch = _truncate_dict(
-                params_batch, MAX_ENTITY_KEY_LENGTH, MAX_PARAM_VAL_LENGTH
-            )
-            truncated_metrics_batch = _truncate_dict(
-                metrics_batch, max_key_length=MAX_ENTITY_KEY_LENGTH
-            )
-            client.log_batch(
-                run_id=child_run.info.run_id,
-                params=[
-                    Param(str(key), str(value)) for key, value in truncated_params_batch.items()
-                ],
-                metrics=[
-                    Metric(key=str(key), value=value, timestamp=child_run_end_time, step=0)
-                    for key, value in truncated_metrics_batch.items()
-                ],
-            )
-
+        
         client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
 
 
