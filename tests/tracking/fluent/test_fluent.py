@@ -1,8 +1,5 @@
 from collections import defaultdict
 from importlib import reload
-from mlflow.experiments import delete_experiment
-from mlflow.store import tracking
-from mlflow.protos.service_pb2 import ACTIVE_ONLY
 
 import os
 import random
@@ -281,7 +278,7 @@ def test_list_experiments(view_type, tmpdir):
     try:
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
 
-        # Verify the pagination behavior
+        # Confirm multiple fetches are required to get all experiments
         client = mlflow.tracking.MlflowClient(url)
         first_page = client.list_experiments(view_type)
         assert len(first_page) == 1000
