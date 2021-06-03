@@ -144,9 +144,10 @@ def _get_model_registry_store(backend_store_uri=None):
 def initialize_backend_stores(backend_store_uri=None, default_artifact_root=None):
     _get_tracking_store(backend_store_uri, default_artifact_root)
     try:
+        import ipdb; ipdb.set_trace()
         _get_model_registry_store(backend_store_uri)
-    except UnsupportedModelRegistryStoreURIException:
-        pass
+    except UnsupportedModelRegistryStoreURIException as e:
+        raise e
 
 
 def _get_request_json(flask_request=request):
