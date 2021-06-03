@@ -18,7 +18,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
 )
 from mlflow.utils.uri import construct_run_url
-from mlflow.utils.databricks_utils import get_databricks_runtime, get_session
+from mlflow.utils.databricks_utils import get_databricks_runtime
 
 
 @pytest.fixture

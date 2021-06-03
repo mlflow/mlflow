@@ -69,7 +69,6 @@ class TestFlavor(object):
 
 
 def test_model_log():
-    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
     with TempDir(chdr=True) as tmp:
         experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(
