@@ -270,7 +270,7 @@ def test_list_experiments(view_type, tmpdir):
         lifecycle_stages = LifecycleStage.view_type_to_stages(view_type)
         experiments = [
             SqlExperiment(
-                name=f"exp_{i}",
+                name=f"exp_{i + 1}",
                 lifecycle_stage=random.choice(lifecycle_stages),
                 artifact_location=tmpdir.strpath,
             )
