@@ -13,6 +13,8 @@ from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import _dataframe_from_json
 
+from unittest import mock
+
 
 def test_model_save_load():
     m = Model(
@@ -67,6 +69,7 @@ class TestFlavor(object):
 
 
 def test_model_log():
+    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
     with TempDir(chdr=True) as tmp:
         experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(
@@ -91,6 +94,27 @@ def test_model_log():
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
+
+
+def test_model_log_with_databricks_runtime():
+    dbr = "8.3.x-snapshot-gpu-ml-scala2.12"
+    with TempDir(chdr=True) as tmp, mock.patch(
+        "mlflow.models.model.get_databricks_runtime", return_value=dbr
+    ):
+        experiment_id = mlflow.create_experiment("test")
+        sig = ModelSignature(
+            inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
+            outputs=Schema([ColSpec(name=None, type="double")]),
+        )
+        input_example = {"x": 1, "y": 2}
+        with mlflow.start_run(experiment_id=experiment_id) as r:
+            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+
+        local_path = _download_artifact_from_uri(
+            "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
+        )
+        loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        assert loaded_model.databricks_runtime == dbr
 
 
 def test_model_log_with_input_example_succeeds():
