@@ -17,6 +17,7 @@ import yaml
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.pytorch import get_default_conda_env
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
@@ -24,7 +25,7 @@ from mlflow.models.utils import _read_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _mlflow_additional_pip_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -918,6 +919,11 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
             run_id=mlflow.active_run().info.run_id, model_path="models"
         )
 
+        # check if the requirements file is different from the default requirements file
+        conda_env = get_default_conda_env()
+        pip_deps = conda_env["dependencies"][-1]["pip"]
+        assert _mlflow_additional_pip_env(pip_deps) != content_expected
+
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
             model_config_path = os.path.join(model_path, "MLmodel")
@@ -943,6 +949,12 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
         mlflow.pytorch.save_model(
             pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file
         )
+
+        # check if the requirements file is different from the default requirements file
+        conda_env = get_default_conda_env()
+        pip_deps = conda_env["dependencies"][-1]["pip"]
+        assert _mlflow_additional_pip_env(pip_deps) != content_expected
+
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
         flavor_config = model_config.flavors["pytorch"]
