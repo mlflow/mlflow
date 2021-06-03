@@ -138,7 +138,9 @@ def get_databricks_runtime():
     if is_in_databricks_notebook() or is_in_databricks_job():
         spark_session = _get_active_spark_session()
         if spark_session is not None:
-            return spark_session.conf.get("spark.databricks.clusterUsageTags.sparkVersion", default=None)
+            return spark_session.conf.get(
+                "spark.databricks.clusterUsageTags.sparkVersion", default=None
+            )
     return None
 
 
