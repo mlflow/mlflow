@@ -438,6 +438,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == pytorch_custom_env_text
 
+
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_log_persists_requirements_in_mlflow_model_directory(
