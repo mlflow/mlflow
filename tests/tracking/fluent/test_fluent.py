@@ -1,5 +1,8 @@
 from collections import defaultdict
 from importlib import reload
+from mlflow.experiments import delete_experiment
+from mlflow.store import tracking
+from mlflow.protos.service_pb2 import ACTIVE_ONLY
 
 import os
 import random
@@ -23,6 +26,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    ViewType,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -248,36 +252,44 @@ def test_get_experiment_by_name():
         assert experiment.experiment_id == exp_id
 
 
-def test_list_experiments(tmpdir):
+@pytest.mark.parametrize("view_type", [ViewType.ACTIVE_ONLY, ViewType.DELETED_ONLY, ViewType.ALL])
+def test_list_experiments(view_type, tmpdir):
     sqlite_uri = "sqlite:///" + os.path.join(tmpdir.strpath, "test.db")
     store = SqlAlchemyStore(sqlite_uri, default_artifact_root=tmpdir.strpath)
 
     # This value must be larger than the default value for `max_results` in the ListExperiments PRC
     num_experiments = 1001
 
+    if view_type == ViewType.DELETED_ONLY:
+        # Delete the default experiment
+        mlflow.tracking.MlflowClient(sqlite_uri).delete_experiment("0")
+
     # This is a bit hacky but much faster than creating experiments one by one with
     # `mlflow.create_experiment`
     with store.ManagedSessionMaker() as session:
+        lifecycle_stages = LifecycleStage.view_type_to_stages(view_type)
         experiments = [
             SqlExperiment(
-                name=f"exp_{i}", lifecycle_stage="active", artifact_location=tmpdir.strpath
+                name=f"exp_{i}",
+                lifecycle_stage=random.choice(lifecycle_stages),
+                artifact_location=tmpdir.strpath,
             )
-            for i in range(num_experiments)
+            for i in range(num_experiments - 1)
         ]
         session.add_all(experiments)
-
-    # Now we should have `num_experiments` + 1 (default experiment) in the database
 
     try:
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
         mlflow.set_tracking_uri(url)
 
         # `max_results` is unspecified
-        assert len(mlflow.list_experiments()) == num_experiments + 1
+        assert len(mlflow.list_experiments(view_type)) == num_experiments
         # `max_results` is larger than the number of experiments in the database
-        assert len(mlflow.list_experiments(max_results=num_experiments + 2)) == num_experiments + 1
+        assert len(mlflow.list_experiments(view_type, num_experiments + 1)) == num_experiments
+        # `max_results` is equal to the number of experiments in the database
+        assert len(mlflow.list_experiments(view_type, num_experiments)) == num_experiments
         # `max_results` is smaller than the number of experiments in the database
-        assert len(mlflow.list_experiments(max_results=100)) == 100
+        assert len(mlflow.list_experiments(view_type, num_experiments - 1)) == num_experiments - 1
     finally:
         process.terminate()
 
