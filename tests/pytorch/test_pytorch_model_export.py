@@ -950,7 +950,7 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
             pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file
         )
 
-        # check if the requirements file is different from the default requirements file
+        # Verify that explicitly specified requirements file overrides default requirements file
         conda_env = get_default_conda_env()
         pip_deps = conda_env["dependencies"][-1]["pip"]
         assert _mlflow_additional_pip_env(pip_deps) != content_expected
