@@ -1,7 +1,5 @@
 from collections import defaultdict
 from importlib import reload
-from mlflow.protos.service_pb2 import ViewType
-from mlflow.store.model_registry import sqlalchemy_store
 
 import os
 import random
