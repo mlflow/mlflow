@@ -13,7 +13,7 @@ import mlflow.projects as projects
 import mlflow.runs
 import mlflow.store.artifact.cli
 from mlflow import tracking
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_STORE_BACKEND_URI
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_BACKEND_STORE_URI
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
@@ -228,7 +228,7 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_STORE_BACKEND_URI,
+    default=DEFAULT_BACKEND_STORE_URI,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -257,8 +257,6 @@ def ui(backend_store_uri, default_artifact_root, port, host):
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
-
-    print(backend_store_uri, default_artifact_root)
 
     try:
         initialize_backend_stores(backend_store_uri, default_artifact_root)
@@ -293,7 +291,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_STORE_BACKEND_URI,
+    default=DEFAULT_BACKEND_STORE_URI,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
