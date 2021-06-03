@@ -553,6 +553,7 @@ def revert_patches(autologging_integration):
     """
     Reverts all patches on the specified destination class for autologging disablement
     purposes.
+
     :param autologging_integration: The name of the autologging integration associated with the
                                     patch. Note: If called via fluent api
                                     (`autologging_integration="mlfow"`), then revert all patches
@@ -653,6 +654,7 @@ def _store_patch(autologging_integration, patch):
     """
     Stores a patch for a specified autologging_integration class. Later to be used for being able
     to revert the patch when disabling autologging.
+
     :param autologging_integration: The name of the autologging integration associated with the
                                     patch.
     :param patch: The patch to be stored.
