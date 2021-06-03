@@ -109,12 +109,12 @@ class TrackingServiceClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(
-        self, view_type=None, max_results=SEARCH_MAX_RESULTS_DEFAULT, page_token=None
-    ):
+    def list_experiments(self, view_type=None, max_results=None, page_token=None):
         """
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
+        :param max_results: If passed, specifies the maximum number of experiments desired.
+                            If not, all experiments will be returned for the File and SQLAlchemy
+                            backends. For the REST backend, the server will determine an
+                            appropriate number of experiments to return.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
         :return: PagedList of :py:class:`mlflow.entities.Experiment`
