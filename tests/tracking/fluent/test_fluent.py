@@ -280,8 +280,18 @@ def test_list_experiments(view_type, tmpdir):
 
     try:
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
-        mlflow.set_tracking_uri(url)
 
+        # Verify the pagination behavior
+        client = mlflow.tracking.MlflowClient(sqlite_uri)
+        first_page = client.list_experiments(view_type)
+        assert len(first_page) == 1000
+        assert first_page.token is not None
+        second_page = client.list_experiments(view_type, page_token=first_page.token)
+        assert len(second_page) == 1
+        assert second_page.token is None
+
+        # Test the fluent `list_experiments`
+        mlflow.set_tracking_uri(url)
         # `max_results` is unspecified
         assert len(mlflow.list_experiments(view_type)) == num_experiments
         # `max_results` is larger than the number of experiments in the database
