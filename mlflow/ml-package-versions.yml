@@ -2,10 +2,7 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      # TODO: Remove `pip install Cython numpy scipy` and `--no-use-pep517` once
-      #       https://github.com/scikit-learn/scikit-learn/issues/20189 is fixed
-      pip install Cython numpy scipy
-      pip install --no-use-pep517 git+https://github.com/scikit-learn/scikit-learn.git
+      pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "0.20.3"
