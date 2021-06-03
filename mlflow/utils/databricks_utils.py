@@ -135,15 +135,14 @@ def get_notebook_path():
 
 
 def get_databricks_runtime():
-    try:
+    if is_in_databricks_notebook() or is_in_databricks_job():
         spark_session = _get_active_spark_session()
         return (
             None
             if spark_session is None
             else spark_session.conf.get("spark.databricks.clusterUsageTags.sparkVersion")
         )
-    except Exception:
-        return None
+    return None
 
 
 def get_cluster_id():
