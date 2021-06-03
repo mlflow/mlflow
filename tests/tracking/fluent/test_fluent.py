@@ -282,13 +282,13 @@ def test_list_experiments(view_type, tmpdir):
         url, process = _init_server(sqlite_uri, root_artifact_uri=tmpdir.strpath)
 
         # Verify the pagination behavior
-        client = mlflow.tracking.MlflowClient(sqlite_uri)
+        client = mlflow.tracking.MlflowClient(url)
         first_page = client.list_experiments(view_type)
         assert len(first_page) == 1000
-        assert first_page.token is not None
+        assert first_page.token != ""
         second_page = client.list_experiments(view_type, page_token=first_page.token)
         assert len(second_page) == 1
-        assert second_page.token is None
+        assert second_page.token == ""
 
         # Test the fluent `list_experiments`
         mlflow.set_tracking_uri(url)
