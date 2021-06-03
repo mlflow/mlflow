@@ -13,6 +13,6 @@ import os
 import mlflow
 
 DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH = "./mlruns"
-DEFAULT_BACKEND_STORE_URI = f"sqlite://{os.path.abspath(os.path.join(mlflow.__path__[0], DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))}/mlruns.db"
+DEFAULT_BACKEND_STORE_URI = f"sqlite:///{os.path.abspath(os.path.join(mlflow.__path__[0], DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))}/default.db"
 SEARCH_MAX_RESULTS_DEFAULT = 1000
 SEARCH_MAX_RESULTS_THRESHOLD = 50000
