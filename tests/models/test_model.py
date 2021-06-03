@@ -93,6 +93,7 @@ def test_model_log():
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = _dataframe_from_json(path)
         assert x.to_dict(orient="records")[0] == input_example
+        assert not hasattr(loaded_model, "databricks_runtime")
 
 
 def test_model_log_with_databricks_runtime():
