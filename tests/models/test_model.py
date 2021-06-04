@@ -114,6 +114,16 @@ def test_model_log_with_databricks_runtime():
             "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
         )
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
+        assert loaded_model.run_id == r.info.run_id
+        assert loaded_model.artifact_path == "some/path"
+        assert loaded_model.flavors == {
+            "flavor1": {"a": 1, "b": 2},
+            "flavor2": {"x": 1, "y": 2},
+        }
+        assert loaded_model.signature == sig
+        path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
+        x = _dataframe_from_json(path)
+        assert x.to_dict(orient="records")[0] == input_example
         assert loaded_model.databricks_runtime == dbr
 
 
