@@ -488,18 +488,18 @@ def _default_model_version():
     return ModelVersion("model name", 1, creation_timestamp=123, status="READY")
 
 
-def test_get_databricks_runtime_nondb(mock_spark_session):
-    runtime = get_databricks_runtime()
-    assert runtime is None
-    mock_spark_session.conf.get.assert_not_called()
-
-
 def test_get_databricks_runtime_no_spark_session():
     with mock.patch(
         "mlflow.utils.databricks_utils._get_active_spark_session", return_value=None
     ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
         runtime = get_databricks_runtime()
         assert runtime is None
+
+
+def test_get_databricks_runtime_nondb(mock_spark_session):
+    runtime = get_databricks_runtime()
+    assert runtime is None
+    mock_spark_session.conf.get.assert_not_called()
 
 
 def test_get_databricks_runtime_in_notebook(mock_spark_session):

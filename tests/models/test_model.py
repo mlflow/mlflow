@@ -68,20 +68,28 @@ class TestFlavor(object):
         mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
+def _log_model_with_signature_and_example(tmp_path, sig, input_example):
+    experiment_id = mlflow.create_experiment("test")
+
+    with mlflow.start_run(experiment_id=experiment_id) as run:
+        Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+
+    local_path = _download_artifact_from_uri(
+        "runs:/{}/some/path".format(run.info.run_id), output_path=tmp_path.path("")
+    )
+
+    return local_path, run
+
+
 def test_model_log():
     with TempDir(chdr=True) as tmp:
-        experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
             outputs=Schema([ColSpec(name=None, type="double")]),
         )
         input_example = {"x": 1, "y": 2}
-        with mlflow.start_run(experiment_id=experiment_id) as r:
-            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+        local_path, r = _log_model_with_signature_and_example(tmp, sig, input_example)
 
-        local_path = _download_artifact_from_uri(
-            "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
-        )
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
         assert loaded_model.artifact_path == "some/path"
@@ -101,18 +109,13 @@ def test_model_log_with_databricks_runtime():
     with TempDir(chdr=True) as tmp, mock.patch(
         "mlflow.models.model.get_databricks_runtime", return_value=dbr
     ):
-        experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(
             inputs=Schema([ColSpec("integer", "x"), ColSpec("integer", "y")]),
             outputs=Schema([ColSpec(name=None, type="double")]),
         )
         input_example = {"x": 1, "y": 2}
-        with mlflow.start_run(experiment_id=experiment_id) as r:
-            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
+        local_path, r = _log_model_with_signature_and_example(tmp, sig, input_example)
 
-        local_path = _download_artifact_from_uri(
-            "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
-        )
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         assert loaded_model.run_id == r.info.run_id
         assert loaded_model.artifact_path == "some/path"
@@ -129,7 +132,6 @@ def test_model_log_with_databricks_runtime():
 
 def test_model_log_with_input_example_succeeds():
     with TempDir(chdr=True) as tmp:
-        experiment_id = mlflow.create_experiment("test")
         sig = ModelSignature(
             inputs=Schema(
                 [
@@ -152,12 +154,8 @@ def test_model_log_with_input_example_succeeds():
             },
             index=[0],
         )
-        with mlflow.start_run(experiment_id=experiment_id) as r:
-            Model.log("some/path", TestFlavor, signature=sig, input_example=input_example)
 
-        local_path = _download_artifact_from_uri(
-            "runs:/{}/some/path".format(r.info.run_id), output_path=tmp.path("")
-        )
+        local_path, _ = _log_model_with_signature_and_example(tmp, sig, input_example)
         loaded_model = Model.load(os.path.join(local_path, "MLmodel"))
         path = os.path.join(local_path, loaded_model.saved_input_example_info["artifact_path"])
         x = _dataframe_from_json(path, schema=sig.inputs)
