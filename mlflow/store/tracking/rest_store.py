@@ -315,6 +315,8 @@ class DatabricksRestStore(RestStore):
     GetExperimentByName is available everywhere.
     """
 
+    _LISTEXPERIMENTS_MAX_RESULT_SIZE_PER_PAGE = 1000
+
     def get_experiment_by_name(self, experiment_name):
         try:
             req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
@@ -332,3 +334,17 @@ class DatabricksRestStore(RestStore):
                         return experiment
                 return None
             raise e
+
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
+        # To guarantee that the `max_results` field is always present in the request sent by
+        # Mlflow client >= 1.18.0 in Databricks, set the default value if it's unspecified.
+        # This allows the MLflow backend in Databricks to infer the client version by examining
+        # the presence of the `max_results` field, and determine what to return.
+        max_results = (
+            DatabricksRestStore._LISTEXPERIMENTS_MAX_RESULT_SIZE_PER_PAGE
+            if max_results is None
+            else max_results
+        )
+        return super().list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token
+        )

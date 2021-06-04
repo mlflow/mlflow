@@ -682,11 +682,11 @@ message ListExperiments {
   // If unspecified, return only active experiments.
   optional ViewType view_type = 1;
 
-  // Maximum number of experiments desired. If unspecified, defaults to 1000.
-  // Servers may impose the maximum threshold (>= 1000) on max_results.
+  // Maximum number of experiments desired.
+  // Servers may select a desired default value and threshold for `max_results`.
   // Callers of this endpoint are encouraged to pass max_results explicitly and
   // leverage page_token to iterate through experiments.
-  optional int64 max_results = 2 [default = 1000];
+  optional int64 max_results = 2;
 
   // Pagination token to go to the next page based on a previous query.
   optional string page_token = 3;

@@ -437,6 +437,29 @@ class TestRestStore(object):
             )
             assert mock_http.call_count == 1
 
+    def test_databricks_rest_store_list_experiments(self):
+        creds = MlflowHostCreds("https://hello")
+        store = DatabricksRestStore(lambda: creds)
+
+        with mock.patch.object(RestStore, "list_experiments") as mock_list_experiments:
+            store.list_experiments(max_results=None)
+            mock_list_experiments.assert_called_once()
+            assert (
+                mock_list_experiments.call_args[1]["max_results"]
+                == DatabricksRestStore._LISTEXPERIMENTS_MAX_RESULT_SIZE_PER_PAGE
+            )
+
+        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http_request:
+            try:
+                store.list_experiments(max_results=None)
+            except MlflowException as e:
+                # Suppress an error caused by a mock response
+                assert "MagicMock" in e.message
+            mock_http_request.assert_called_once()
+            assert mock_http_request.call_args[1]["params"]["max_results"] == str(
+                DatabricksRestStore._LISTEXPERIMENTS_MAX_RESULT_SIZE_PER_PAGE
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
