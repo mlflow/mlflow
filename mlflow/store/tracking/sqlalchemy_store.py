@@ -235,25 +235,6 @@ class SqlAlchemyStore(AbstractStore):
             return str(experiment.experiment_id)
 
     def _list_experiments(
-        self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY, eager=False
-    ):
-        """
-        :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
-                      are not eagerly loaded and will be loaded if/when their corresponding
-                      object properties are accessed from a resulting ``SqlExperiment`` object.
-        """
-        stages = LifecycleStage.view_type_to_stages(view_type)
-        conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
-        if ids and len(ids) > 0:
-            int_ids = [int(eid) for eid in ids]
-            conditions.append(SqlExperiment.experiment_id.in_(int_ids))
-        if names and len(names) > 0:
-            conditions.append(SqlExperiment.name.in_(names))
-
-        query_options = self._get_eager_experiment_query_options() if eager else []
-        return session.query(SqlExperiment).options(*query_options).filter(*conditions).all()
-
-    def _list_experiments(
         self,
         ids=None,
         names=None,
@@ -263,10 +244,6 @@ class SqlAlchemyStore(AbstractStore):
         eager=False,
     ):
         """
-        :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                            passed, all experiments will be returned.
-        :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
         :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
                       are not eagerly loaded and will be loaded if/when their corresponding
                       object properties are accessed from a resulting ``SqlExperiment`` object.
