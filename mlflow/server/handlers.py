@@ -508,7 +508,10 @@ def _get_metric_history():
 def _list_experiments():
     request_message = _get_request_message(ListExperiments())
     experiment_entities = _get_tracking_store().list_experiments(
-        **{key: val for key, val in request_message.ListFields()}
+        # `ListFields` returns a list of (FieldDescriptor, value) tuples for present fields:
+        # https://googleapis.dev/python/protobuf/latest/google/protobuf/message.html
+        # #google.protobuf.message.Message.ListFields
+        **{field.name: val for field, val in request_message.ListFields()}
     )
     response_message = ListExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
