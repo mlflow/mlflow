@@ -508,9 +508,7 @@ def _get_metric_history():
 def _list_experiments():
     request_message = _get_request_message(ListExperiments())
     experiment_entities = _get_tracking_store().list_experiments(
-        view_type=request_message.view_type,
-        max_results=request_message.max_results,
-        page_token=request_message.page_token,
+        **{key: val for key, val in request_message.ListFields()}
     )
     response_message = ListExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])

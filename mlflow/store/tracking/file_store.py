@@ -235,15 +235,6 @@ class FileStore(AbstractStore):
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList
 
-        # In proto2, `max_results` (which is a numeric field) defaults to 0 if it's absent
-        # in the request. For example, this function is called with `max_results = 0`
-        # in the following example:
-        #
-        # $ mlflow server --backend-store-uri mlruns --host 127.0.0.1
-        # $ curl http://127.0.0.1:5000/api/2.0/mlflow/experiments/list
-        #
-        # As a workaround, set `max_results` to None and return all experiments
-        max_results = None if max_results == 0 else max_results
         _validate_experiment_pagination(max_results)
         self._check_root_dir()
         rsl = []
