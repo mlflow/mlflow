@@ -320,23 +320,15 @@ class SqlAlchemyStore(AbstractStore):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         page_token=None,
     ):
-        max_results = (
-            None
-            if (
-                # In proto2, `max_results` (which is a numeric field) defaults to 0 if it's absent
-                # in the request. For example, this function is called with `max_results = 0`
-                # in the following example:
-                #
-                # $ mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1
-                # $ curl http://127.0.0.1:5000/api/2.0/mlflow/experiments/list
-                #
-                # As a workaround, set `max_results` to None and return all experiments
-                max_results
-                == 0
-            )
-            else max_results
-        )
-
+        # In proto2, `max_results` (which is a numeric field) defaults to 0 if it's absent
+        # in the request. For example, this function is called with `max_results = 0`
+        # in the following example:
+        #
+        # $ mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1
+        # $ curl http://127.0.0.1:5000/api/2.0/mlflow/experiments/list
+        #
+        # As a workaround, set `max_results` to None and return all experiments
+        max_results = None if max_results == 0 else max_results
         _validate_experiment_pagination(max_results)
         return self._list_experiments(
             view_type=view_type, max_results=max_results, page_token=page_token, eager=True
