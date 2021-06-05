@@ -24,7 +24,11 @@ from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store.tracking import (
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.validation import (
     _validate_metric_name,
@@ -222,10 +226,31 @@ class FileStore(AbstractStore):
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
 
-    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None):
+    def list_experiments(
+        self,
+        view_type=ViewType.ACTIVE_ONLY,
+        max_results=SEARCH_MAX_RESULTS_DEFAULT,
+        page_token=None,
+    ):
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList
 
+        max_results = (
+            None
+            if (
+                # In proto2, `max_results` (which is a numeric field) defaults to 0 if it's absent
+                # in the request. For example, this function is called with `max_results = 0`
+                # in the following example:
+                #
+                # $ mlflow server --backend-store-uri mlruns --host 127.0.0.1
+                # $ curl http://127.0.0.1:5000/api/2.0/mlflow/experiments/list
+                #
+                # As a workaround, set `max_results` to None and return all experiments
+                max_results
+                == 0
+            )
+            else max_results
+        )
         _validate_experiment_pagination(max_results)
         self._check_root_dir()
         rsl = []

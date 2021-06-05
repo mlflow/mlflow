@@ -42,7 +42,11 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     ErrorCode,
 )
-from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
+from mlflow.store.tracking.rest_store import (
+    RestStore,
+    DatabricksRestStore,
+    _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
@@ -379,7 +383,12 @@ class TestRestStore(object):
 
             mock_http.side_effect = response_fn
             result = store.get_experiment_by_name("abc")
-            expected_message2 = ListExperiments(view_type=ViewType.ALL)
+            max_results = (
+                None
+                if store_class == RestStore
+                else _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
+            )
+            expected_message2 = ListExperiments(view_type=ViewType.ALL, max_results=max_results)
             self._verify_requests(
                 mock_http,
                 creds,
@@ -387,6 +396,7 @@ class TestRestStore(object):
                 "GET",
                 message_to_json(expected_message0),
             )
+            print(mock_http.call_args_list)
             self._verify_requests(
                 mock_http, creds, "experiments/list", "GET", message_to_json(expected_message2)
             )
