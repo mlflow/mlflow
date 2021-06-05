@@ -336,14 +336,14 @@ class DatabricksRestStore(RestStore):
                 return None
             elif e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                 # Fall back to using ListExperiments-based implementation.
-                for experiments in self._iter_list_experiments_pages(ViewType.ALL):
+                for experiments in self._paginate_list_experiments(ViewType.ALL):
                     for experiment in experiments:
                         if experiment.name == experiment_name:
                             return experiment
                 return None
             raise e
 
-    def _iter_list_experiments_pages(self, view_type):
+    def _paginate_list_experiments(self, view_type):
         page_token = None
         while True:
             experiments = self.list_experiments(view_type=view_type, page_token=page_token)
