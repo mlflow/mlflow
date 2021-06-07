@@ -242,14 +242,6 @@ def log_explanation(predict_function, features, artifact_path=None):
     import matplotlib.pyplot as plt
     import shap
 
-    # get autologging params here
-    # module_name = predict_function.__module__
-    # if module_name in mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS:
-    #     conf_was_set = True
-    # else:
-    #     conf_was_set = False
-    #
-    # if conf_was_set:
     original_config_dict = mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS
 
     new_config = original_config_dict.copy()
