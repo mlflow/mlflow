@@ -91,26 +91,26 @@ input_example
   reference to an artifact with :ref:`input example <input-example>`.
 
 databricks_runtime
-    Databricks runtime version and type, if the model was saved in a Databricks notebook or job.
+    Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
 
 
 
 
 Additional Logged Files
 ^^^^^^^^^^^^^^^^^^^^^^^
-For environment recreation, two additional files are automatically logged whenever a model is saved. These files can then be used to reinstall dependencies through either ``conda`` or ``pip``.
+For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logoged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
 
 conda.yaml
     When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
 requirements.txt
-    The requirements file is created from the pip dependencies inside of the conda environment. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment. 
+    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment. 
 
 The following shows an example of saving a model with a specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
 
 .. code-block:: py
 
     conda_env = {
-        'channels': ['defaults', 'conda-forge'],
+        'channels': ['conda-forge'],
         'dependencies': [
             'python=3.8.8',
             'pip'],
@@ -121,14 +121,13 @@ The following shows an example of saving a model with a specified conda environm
         ],
         'name': 'mlflow-env'
     }
-    mlflow.sklearn.save_model(model, "my_model", conda_env=conda_env)
+    mlflow.sklearn.log_model(model, "my_model", conda_env=conda_env)
 
 The written ``conda.yaml`` file:
 
 .. code-block:: text
 
     channels:
-      - defaults
       - conda-forge
       dependencies:
       - python=3.8.8
