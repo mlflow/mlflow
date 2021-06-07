@@ -1,5 +1,6 @@
 from collections import defaultdict
 from importlib import reload
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 import os
 import random
@@ -254,8 +255,7 @@ def test_list_experiments(view_type, tmpdir):
     sqlite_uri = "sqlite:///" + os.path.join(tmpdir.strpath, "test.db")
     store = SqlAlchemyStore(sqlite_uri, default_artifact_root=tmpdir.strpath)
 
-    # This value must be larger than the default value for `max_results` in the ListExperiments PRC
-    num_experiments = 1001
+    num_experiments = SEARCH_MAX_RESULTS_DEFAULT + 1
 
     if view_type == ViewType.DELETED_ONLY:
         # Delete the default experiment
