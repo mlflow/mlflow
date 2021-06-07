@@ -69,7 +69,10 @@ class TestRestStore(object):
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
                 "method": "GET",
-                "params": {"view_type": "ACTIVE_ONLY"},
+                "params": {
+                    "view_type": "ACTIVE_ONLY",
+                    "max_results": str(SEARCH_MAX_RESULTS_DEFAULT),
+                },
                 "url": "https://hello/api/2.0/mlflow/experiments/list",
                 "headers": _DEFAULT_HEADERS,
                 "verify": True,
@@ -456,7 +459,7 @@ class TestRestStore(object):
             mock_list_experiments.assert_called_once()
             assert (
                 mock_list_experiments.call_args[1]["max_results"]
-                == DatabricksRestStore._LISTEXPERIMENTS_MAX_RESULT_SIZE_PER_PAGE
+                == _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
             )
 
         with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http_request:
@@ -467,7 +470,7 @@ class TestRestStore(object):
                 assert "MagicMock" in e.message
             mock_http_request.assert_called_once()
             assert mock_http_request.call_args[1]["params"]["max_results"] == str(
-                DatabricksRestStore._LISTEXPERIMENTS_MAX_RESULT_SIZE_PER_PAGE
+                _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
             )
 
 
