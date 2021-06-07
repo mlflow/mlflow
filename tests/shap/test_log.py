@@ -108,7 +108,7 @@ def test_sklearn_log_explainer_pyfunc():
         np.testing.assert_allclose(shap_values_original.values, shap_values_new, rtol=100, atol=100)
 
 
-def test_log_explainer_doesnt_create_autologged_run():
+def test_log_explanation_doesnt_create_autologged_run():
     mlflow.sklearn.autolog(disable=False, exclusive=False)
     dataset = sklearn.datasets.load_boston()
     X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
