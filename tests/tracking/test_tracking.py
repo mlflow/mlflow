@@ -184,15 +184,16 @@ def test_list_experiments_paginated_returns_in_correct_order():
 def test_list_experiments_paginated_errors():
     client = tracking.MlflowClient()
     # test that providing a completely invalid page token throws
-    with pytest.raises(MlflowException) as exception_context:
+    with pytest.raises(MlflowException, match="Invalid page token") as exception_context:
         client.list_experiments(page_token="evilhax", max_results=20)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # test that providing too large of a max_results throws
-    with pytest.raises(MlflowException) as exception_context:
+    with pytest.raises(
+        MlflowException, match="Invalid value for request parameter max_results"
+    ) as exception_context:
         client.list_experiments(page_token=None, max_results=int(1e15))
-        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-    assert "Invalid value for request parameter max_results" in exception_context.value.message
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
