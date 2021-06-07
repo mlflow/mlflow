@@ -254,7 +254,7 @@ def log_explanation(predict_function, features, artifact_path=None):
 
     new_config = original_config_dict.copy()
     for integration in original_config_dict:
-        new_config[integration]["disabled"] = True
+        new_config[integration]["disable"] = True
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
     background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
