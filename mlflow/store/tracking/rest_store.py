@@ -77,7 +77,7 @@ class RestStore(AbstractStore):
             ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)
         )
         response_proto = self._call_endpoint(ListExperiments, req_body)
-        experiments = list(map(Experiment.from_proto), response_proto.experiments)
+        experiments = [Experiment.from_proto(x) for x in response_proto.experiments]
         # If the response doesn't contain `next_page_token`, `response_proto.next_page_token`
         # returns an empty string (default value for a string proto field).
         token = (
