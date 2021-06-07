@@ -150,19 +150,25 @@ def _validate_model_version_tag(key, value):
 
 
 def _validate_experiment_pagination(max_results):
-    """Check that `max_results` is within an acceptable range and raise an exception if it isn't."""
-    if max_results is not None and max_results > MAX_EXPERIMENTS_LISTED_PER_PAGE:
+    """
+    Check that `max_results` is within an acceptable range and raise an exception if it isn't.
+    """
+    if max_results is None:
+        return False
+
+    if max_results < 1:
+        raise MlflowException(
+            "Invalid value for request parameter max_results. "
+            "It must be at least 1, but got value {}".format(max_results),
+            INVALID_PARAMETER_VALUE,
+        )
+
+    if max_results > MAX_EXPERIMENTS_LISTED_PER_PAGE:
         raise MlflowException(
             "Invalid value for request parameter max_results. "
             "It must be at most {}, but got value {}".format(
                 MAX_EXPERIMENTS_LISTED_PER_PAGE, max_results
             ),
-            INVALID_PARAMETER_VALUE,
-        )
-    if max_results is not None and max_results < 1:
-        raise MlflowException(
-            "Invalid value for request parameter max_results. "
-            "It must be at least 1, but got value {}".format(max_results),
             INVALID_PARAMETER_VALUE,
         )
 
