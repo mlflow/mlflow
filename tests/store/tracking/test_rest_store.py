@@ -396,7 +396,6 @@ class TestRestStore(object):
                 "GET",
                 message_to_json(expected_message0),
             )
-            print(mock_http.call_args_list)
             self._verify_requests(
                 mock_http, creds, "experiments/list", "GET", message_to_json(expected_message2)
             )
