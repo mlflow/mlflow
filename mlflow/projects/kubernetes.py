@@ -119,9 +119,7 @@ class KubernetesSubmittedRun(SubmittedRun):
 
         return self._status == RunStatus.FINISHED
 
-    def _update_status(self, kube_api=None):
-        if not kube_api:
-            kube_api = kubernetes.client.BatchV1Api()
+    def _update_status(self, kube_api):
         api_response = kube_api.read_namespaced_job_status(
             name=self._job_name, namespace=self._job_namespace, pretty=True
         )
@@ -147,7 +145,8 @@ class KubernetesSubmittedRun(SubmittedRun):
 
     def get_status(self):
         status = self._status
-        return status if RunStatus.is_terminated(status) else self._update_status()
+        kube_api = kubernetes.client.BatchV1Api()
+        return status if RunStatus.is_terminated(status) else self._update_status(kube_api)
 
     def cancel(self):
         with self._status_lock:
