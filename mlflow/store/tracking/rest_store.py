@@ -348,7 +348,7 @@ class DatabricksRestStore(RestStore):
             experiments = self.list_experiments(view_type=view_type, page_token=page_token)
             yield experiments
 
-            if experiments.page_token == "":
+            if not experiments.page_token:
                 break
             page_token = experiments.page_token
 

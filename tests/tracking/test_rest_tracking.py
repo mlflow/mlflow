@@ -140,7 +140,7 @@ def test_create_get_list_experiment(mlflow_client):
     }
     active_exps_paginated = mlflow_client.list_experiments(max_results=1)
     assert set([e.name for e in active_exps_paginated]) == {"Default"}
-    assert active_exps_paginated.token == ""
+    assert active_exps_paginated.token is None
 
     all_exps_paginated = mlflow_client.list_experiments(max_results=1, view_type=ViewType.ALL)
     first_page_names = set([e.name for e in all_exps_paginated])
