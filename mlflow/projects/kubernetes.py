@@ -114,7 +114,7 @@ class KubernetesSubmittedRun(SubmittedRun):
         return self._mlflow_run_id
 
     def wait(self):
-        while not RunStatus.is_terminated(self._update_status(self._kube_api)):
+        while not RunStatus.is_terminated(self._update_status()):
             time.sleep(self.POLL_STATUS_INTERVAL)
 
         return self._status == RunStatus.FINISHED
