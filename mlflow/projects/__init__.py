@@ -149,15 +149,33 @@ def _run(
             run_id=active_run.info.run_id,
         )
         image_digest = kb.push_image_to_registry(image.tags[0])
+
+        env_vars = get_run_env_vars(
+            run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
+        )
+        # Override environment variables via MLProject file
+        if hasattr(project, "docker_env"):
+            for kv in project.docker_env["environment"]:
+                k, v = None, None
+                if isinstance(kv, list) and len(kv) == 2:
+                    k, v = kv[0], kv[1]
+                elif isinstance(kv, str):
+                    k, v = kv, os.environ.get(kv, "")
+                else:
+                    _logger.fatal(
+                        "Malformed docker_env.environment: "
+                        "Expected array elements to be either 2-element arrays and/or strings"
+                    )
+                env_vars[k] = v
+
         submitted_run = kb.run_kubernetes_job(
-            project.name,
+            project,
             active_run,
             image.tags[0],
             image_digest,
+            entry_point,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
-            get_run_env_vars(
-                run_id=active_run.info.run_uuid, experiment_id=active_run.info.experiment_id
-            ),
+            env_vars,
             kube_config.get("kube-context", None),
             kube_config["kube-job-template"],
         )
