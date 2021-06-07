@@ -77,11 +77,13 @@ class RestStore(AbstractStore):
             ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)
         )
         response_proto = self._call_endpoint(ListExperiments, req_body)
-        protos = [
-            Experiment.from_proto(experiment_proto)
-            for experiment_proto in response_proto.experiments
-        ]
-        return PagedList(protos, response_proto.next_page_token)
+        experiments = list(map(Experiment.from_proto), response_proto.experiments)
+        # If the response doesn't contain `next_page_token`, `response_proto.next_page_token`
+        # returns an empty string (default value for a string proto field).
+        token = (
+            response_proto.next_page_token if response_proto.HasField("next_page_token") else None
+        )
+        return PagedList(experiments, token)
 
     def create_experiment(self, name, artifact_location=None):
         """

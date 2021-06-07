@@ -514,7 +514,7 @@ def _list_experiments():
     experiment_entities = _get_tracking_store().list_experiments(**params)
     response_message = ListExperiments.Response()
     response_message.experiments.extend([e.to_proto() for e in experiment_entities])
-    if hasattr(experiment_entities, "token") and experiment_entities.token:
+    if experiment_entities.token:
         response_message.next_page_token = experiment_entities.token
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

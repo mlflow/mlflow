@@ -42,6 +42,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     ErrorCode,
 )
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.rest_store import (
     RestStore,
     DatabricksRestStore,
@@ -384,7 +385,7 @@ class TestRestStore(object):
             mock_http.side_effect = response_fn
             result = store.get_experiment_by_name("abc")
             max_results = (
-                None
+                SEARCH_MAX_RESULTS_DEFAULT
                 if store_class == RestStore
                 else _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
             )
