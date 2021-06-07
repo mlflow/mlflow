@@ -120,7 +120,6 @@ class TrackingServiceClient(object):
         :return: PagedList of :py:class:`mlflow.entities.Experiment`
         """
         final_view_type = ViewType.ACTIVE_ONLY if view_type is None else view_type
-        # TODO consider constant limit
         return self.store.list_experiments(
             view_type=final_view_type, max_results=max_results, page_token=page_token
         )
