@@ -458,7 +458,14 @@ def load_model(model_uri):
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-    log_input_examples=False, log_model_signatures=True, log_models=True, disable=False
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_models=True,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+    max_tuning_runs=5,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for scikit-learn estimators.
@@ -644,6 +651,22 @@ def autolog(
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
                       If ``False``, autologged content is logged to the active fluent run,
                       which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      scikit-learn that have not been tested against this version of the MLflow
+                      client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during scikit-learn
+                   autologging. If ``False``, show all events and warnings during scikit-learn
+                   autologging.
+    :param max_tuning_runs: The maximum number of child Mlflow runs created for hyperparameter
+                            search estimators. To create child runs for the best `k` results from
+                            the search, set `max_tuning_runs` to `k`. The default value is to track
+                            the best 5 search parameter sets. If `max_tuning_runs=None`, then
+                            a child run is created for each search parameter set. Note: The best k
+                            results is based on ordering in `rank_test_score`. In the case of
+                            multi-metric evaluation with a custom scorer, the first scorer’s
+                            `rank_test_score_<scorer_name>` will be used to select the best k
+                            results. To change metric used for selecting best k results, change
+                            ordering of dict passed as `scoring` parameter for estimator.
     """
     import pandas as pd
     import sklearn

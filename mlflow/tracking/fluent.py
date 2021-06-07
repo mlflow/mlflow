@@ -18,7 +18,12 @@ from mlflow.tracking import artifact_utils, _get_store
 from mlflow.tracking.context import registry as context_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env
-from mlflow.utils.autologging_utils import _is_testing, autologging_integration
+from mlflow.utils.autologging_utils import (
+    is_testing,
+    autologging_integration,
+    AUTOLOGGING_INTEGRATIONS,
+    autologging_is_disabled,
+)
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -810,22 +815,6 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
-def list_experiments(view_type=ViewType.ACTIVE_ONLY, max_results=None):
-    """
-    :param view_type: Qualify requested type of experiments.
-    :param max_results: If passed, specifies the maximum number of experiments desired. If not
-                        passed, all experiments will be returned.
-    :return: A list of Experiment objects
-    """
-
-    def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().list_experiments(
-            view_type=view_type, max_results=number_to_get, page_token=next_page_token
-        )
-
-    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
-
-
 def create_experiment(name: str, artifact_location: Optional[str] = None) -> str:
     """
     Create an experiment.
@@ -1193,7 +1182,7 @@ def list_run_infos(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
-def _paginate(paginated_fn, max_results_per_page, max_results=None):
+def _paginate(paginated_fn, max_results_per_page, max_results):
     """
     Intended to be a general use pagination utility.
 
@@ -1203,17 +1192,15 @@ def _paginate(paginated_fn, max_results_per_page, max_results=None):
     :param max_results_per_page:
     :type max_results_per_page: The maximum number of results to retrieve per page
     :param max_results:
-    :type max_results: The maximum number of results to retrieve overall. If unspecified, returns
-                       all results.
+    :type max_results: The maximum number of results to retrieve overall
     :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
         entities than specified by max_results
     :rtype: list[object]
     """
     all_results = []
     next_page_token = None
-    returns_all = max_results is None
-    while returns_all or len(all_results) < max_results:
-        num_to_get = max_results_per_page if returns_all else max_results - len(all_results)
+    while len(all_results) < max_results:
+        num_to_get = max_results - len(all_results)
         if num_to_get < max_results_per_page:
             page_results = paginated_fn(num_to_get, next_page_token)
         else:
@@ -1310,6 +1297,15 @@ def autolog(
                        are also omitted when ``log_models`` is ``False``.
     :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
                     enables all supported autologging integrations.
+    :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
+                      If ``False``, autologged content is logged to the active fluent run,
+                      which may be user-created.
+    :param disable_for_unsupported_versions: If ``True``, disable autologging for versions of
+                      all integration libraries that have not been tested against this version
+                      of the MLflow client or are incompatible.
+    :param silent: If ``True``, suppress all event logs and warnings from MLflow during autologging
+                   setup and training execution. If ``False``, show all events and warnings during
+                   autologging setup and training execution.
 
     .. code-block:: python
         :caption: Example
@@ -1430,7 +1426,7 @@ def autolog(
             ) and not autologging_params.get("silent", False):
                 _logger.info("Autologging successfully enabled for %s.", module.__name__)
         except Exception as e:
-            if _is_testing():
+            if is_testing():
                 # Raise unexpected exceptions in test mode in order to detect
                 # errors within dependent autologging integrations
                 raise
