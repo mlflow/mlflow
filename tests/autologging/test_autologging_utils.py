@@ -26,6 +26,8 @@ from mlflow.utils.autologging_utils.safety import _wrap_patch, AutologgingSessio
 from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     _check_version_in_range,
+    _is_pre_or_dev_release,
+    _violates_pep_440,
     is_flavor_supported_for_associated_package_versions,
 )
 
@@ -681,6 +683,19 @@ def test_check_version_in_range():
     assert _check_version_in_range("1.0.3", "1.0.1", "1.0.3.post1")
 
 
+def test_is_pre_or_dev_release():
+    assert _is_pre_or_dev_release("0.24.0rc1")
+    assert _is_pre_or_dev_release("0.24.0dev1")
+    assert not _is_pre_or_dev_release("0.24.0")
+
+
+def test_violates_pep_440():
+    assert _violates_pep_440("0.24.0-SNAPSHOT")
+    assert not _violates_pep_440("0.24.0rc1")
+    assert not _violates_pep_440("0.24.0dev1")
+    assert not _violates_pep_440("0.24.0")
+
+
 _module_version_info_dict_patch = {
     "sklearn": {
         "package_info": {"pip_release": "scikit-learn"},
@@ -744,6 +759,9 @@ _module_version_info_dict_patch = {
         ("xgboost", "0.89", False),
         ("sklearn", "0.20.3", True),
         ("sklearn", "0.20.2", False),
+        ("sklearn", "0.23.0rc1", False),
+        ("sklearn", "0.23.0dev0", False),
+        ("sklearn", "0.23.0-SNAPSHOT", False),
         ("pytorch", "1.0.5", True),
         ("pytorch", "1.0.4", False),
         ("pyspark.ml", "3.1.0", True),

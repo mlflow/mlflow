@@ -29,7 +29,7 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files 
 # How to run doctests:
 
 ```
-pytest dev/set_matrix.py --doctest-modules --verbose
+pytest dev/set_matrix.py --doctest-modules
 ```
 """
 
@@ -99,7 +99,7 @@ def get_released_versions(package_name):
         #
         # > pip install 'xgboost==0.7'
         # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
-        if len(dist_files) > 0
+        if len(dist_files) > 0 and (not dist_files[0]["yanked"])
     }
     return versions
 

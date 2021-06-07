@@ -18,7 +18,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "h2o"
@@ -31,11 +31,7 @@ def get_default_conda_env():
     """
     import h2o
 
-    return _mlflow_conda_env(
-        additional_conda_deps=None,
-        additional_pip_deps=["h2o=={}".format(h2o.__version__)],
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=["h2o=={}".format(h2o.__version__)])
 
 
 def save_model(
@@ -136,6 +132,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.h2o", data=model_data_subpath, env=conda_env_subpath

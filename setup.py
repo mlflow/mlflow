@@ -43,9 +43,10 @@ SKINNY_REQUIREMENTS = [
     "entrypoints",
     "gitpython>=2.1.0",
     "pyyaml",
-    "protobuf>=3.6.0",
+    "protobuf>=3.7.0",
     "pytz",
     "requests>=2.17.3",
+    "packaging",
 ]
 
 """

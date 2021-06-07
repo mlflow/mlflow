@@ -7,9 +7,10 @@ import string
 import time
 import signal
 import socket
-from subprocess import Popen
+import subprocess
 import uuid
 import sys
+import yaml
 
 import pandas as pd
 import pytest
@@ -79,7 +80,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = Popen(cmd,)
+    p = subprocess.Popen(cmd,)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -172,18 +173,28 @@ def _get_mlflow_home():
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
-    proc = Popen(
-        cmd,
-        stdout=stdout,
-        stderr=stderr,
-        universal_newlines=True,
-        env=env,
-        # Assign the scoring process to a process group. All child processes of the
-        # scoring process will be assigned to this group as well. This allows child
-        # processes of the scoring process to be terminated successfully
-        preexec_fn=os.setsid,
-    )
-    return proc
+    if os.name != "nt":
+        return subprocess.Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # Assign the scoring process to a process group. All child processes of the
+            # scoring process will be assigned to this group as well. This allows child
+            # processes of the scoring process to be terminated successfully
+            preexec_fn=os.setsid,
+        )
+    else:
+        return subprocess.Popen(
+            cmd,
+            stdout=stdout,
+            stderr=stderr,
+            universal_newlines=True,
+            env=env,
+            # On Windows, `os.setsid` and `preexec_fn` are unavailable
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+        )
 
 
 class RestEndpoint:
@@ -213,8 +224,13 @@ class RestEndpoint:
         if self._proc.poll() is None:
             # Terminate the process group containing the scoring process.
             # This will terminate all child processes of the scoring process
-            pgrp = os.getpgid(self._proc.pid)
-            os.killpg(pgrp, signal.SIGTERM)
+            if os.name != "nt":
+                pgrp = os.getpgid(self._proc.pid)
+                os.killpg(pgrp, signal.SIGTERM)
+            else:
+                # https://stackoverflow.com/questions/47016723/windows-equivalent-for-spawning-and-killing-separate-process-group-in-python-3  # noqa
+                self._proc.send_signal(signal.CTRL_BREAK_EVENT)
+                self._proc.kill()
 
     def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
@@ -299,3 +315,14 @@ def create_mock_response(status_code, text):
     response.status_code = status_code
     response.text = text
     return response
+
+
+def _compare_conda_env_requirements(env_path, req_path):
+    assert os.path.exists(req_path)
+
+    with open(env_path, "r") as f:
+        custom_env_parsed = yaml.safe_load(f)
+    with open(req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert custom_env_parsed["dependencies"][-1]["pip"] == requirements

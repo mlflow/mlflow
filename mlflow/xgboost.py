@@ -16,7 +16,7 @@ XGBoost (native) format
 .. _scikit-learn API:
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
-from distutils.version import LooseVersion
+from packaging.version import Version
 import os
 import shutil
 import json
@@ -33,7 +33,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -72,10 +72,8 @@ def get_default_conda_env():
     import xgboost as xgb
 
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         # XGBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["xgboost=={}".format(xgb.__version__)],
-        additional_conda_channels=None,
+        additional_pip_deps=["xgboost=={}".format(xgb.__version__)]
     )
 
 
@@ -160,6 +158,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model, loader_module="mlflow.xgboost", data=model_data_subpath, env=conda_env_subpath
@@ -381,8 +381,9 @@ def autolog(
             """
             Create a callback function that records evaluation results.
             """
-
-            if LooseVersion(xgboost.__version__) >= LooseVersion("1.3.0"):
+            # TODO: Remove `replace("SNAPSHOT", "dev")` once the following issue is addressed:
+            #       https://github.com/dmlc/xgboost/issues/6984
+            if Version(xgboost.__version__.replace("SNAPSHOT", "dev")) >= Version("1.3.0"):
                 # In xgboost >= 1.3.0, user-defined callbacks should inherit
                 # `xgboost.callback.TrainingCallback`:
                 # https://xgboost.readthedocs.io/en/latest/python/callbacks.html#defining-your-own-callback  # noqa

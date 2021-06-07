@@ -18,7 +18,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
@@ -37,9 +37,7 @@ def get_default_conda_env():
              :class:`PythonModel` is provided.
     """
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         additional_pip_deps=["cloudpickle=={}".format(cloudpickle.__version__)],
-        additional_conda_channels=None,
     )
 
 
@@ -176,6 +174,8 @@ def _save_model_with_class_artifacts_params(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     saved_code_subpath = None
     if code_paths is not None:

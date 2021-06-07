@@ -1,6 +1,7 @@
 name: Cross version tests
 
 on:
+  workflow_dispatch:
   schedule:
     # Run this workflow daily at 7:00 UTC
     - cron: "0 7 * * *"
@@ -24,7 +25,7 @@ jobs:
           pip install packaging pyyaml pytest
       - name: Test set_matrix.py
         run: |
-          pytest dev/set_matrix.py --doctest-modules --verbose
+          pytest dev/set_matrix.py --doctest-modules
       - id: set-matrix
         name: Set matrix
         run: |
@@ -58,7 +59,12 @@ jobs:
           echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
       - name: Update python
         run: |
-          conda install python=3.6
+          if [[ "${{ matrix.package }}" = "scikit-learn" && "${{ matrix.version }}" = "dev" ]]; then
+            python_version=3.7
+          else
+            python_version=3.6
+          fi
+          conda install python=$python_version
           python --version
       - name: Get cache key
         env:
@@ -69,8 +75,8 @@ jobs:
           hash=$(echo -n "$INSTALL_COMMAND" | sha256sum)
           echo "::set-output name=key::$ImageOS-$ImageVersion-wheels-$date-$hash"
       - uses: actions/cache@v2
-        # We only cache wheels that take long (> 20 min) to build
-        if: ${{ contains('pyspark, catboost', matrix.package) && matrix.version == 'dev' }}
+        # We only cache wheels that take long (> 10 min) to build
+        if: ${{ contains('pyspark, catboost, scikit-learn', matrix.package) && matrix.version == 'dev' }}
         with:
           path: /home/runner/.cache/wheels
           key: ${{ steps.get-cache-key.outputs.key }}

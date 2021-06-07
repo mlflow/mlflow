@@ -9,7 +9,6 @@ import pytorch_lightning as pl
 def train_evaluate(params, max_epochs=100):
     model = IrisClassification(**params)
     dm = IrisDataModule()
-    dm.prepare_data()
     dm.setup(stage="fit")
     trainer = pl.Trainer(max_epochs=max_epochs)
     mlflow.pytorch.autolog()

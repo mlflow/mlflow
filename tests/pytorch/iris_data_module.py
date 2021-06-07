@@ -14,7 +14,7 @@ class IrisDataModuleBase(pl.LightningDataModule):
         super().__init__()
         self.columns = None
 
-    def prepare_data(self):
+    def _get_iris_as_tensor_dataset(self):
         iris = load_iris()
         df = iris.data
         self.columns = iris.feature_names
@@ -28,7 +28,7 @@ class IrisDataModuleBase(pl.LightningDataModule):
 
         # Assign train/val datasets for use in dataloaders
         if stage == "fit" or stage is None:
-            iris_full = self.prepare_data()
+            iris_full = self._get_iris_as_tensor_dataset()
             self.train_set, self.val_set = random_split(iris_full, [130, 20])
 
         # Assign test dataset for use in dataloader(s)

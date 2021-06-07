@@ -96,7 +96,7 @@ class PyFuncBackend(FlavorBackend):
             if os.name != "nt":
                 subprocess.Popen(["bash", "-c", command], env=command_env).wait()
             else:
-                subprocess.Popen([command.split(" ")], env=command_env).wait()
+                subprocess.Popen(command, env=command_env).wait()
 
     def can_score_model(self):
         if self._no_conda:

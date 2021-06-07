@@ -24,7 +24,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -56,9 +56,7 @@ def get_default_conda_env():
     import statsmodels
 
     return _mlflow_conda_env(
-        additional_conda_deps=["statsmodels={}".format(statsmodels.__version__)],
-        additional_pip_deps=None,
-        additional_conda_channels=None,
+        additional_pip_deps=["statsmodels=={}".format(statsmodels.__version__)]
     )
 
 
@@ -144,6 +142,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     pyfunc.add_to_model(
         mlflow_model,

@@ -37,12 +37,6 @@ class MNISTDataModule(pl.LightningDataModule):
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
         )
 
-    def prepare_data(self):
-        """
-        Implementation of abstract class
-        """
-        pass
-
     def setup(self, stage=None):
         """
         Downloads the data, parse it and split the data into train, test, validation data
@@ -226,12 +220,6 @@ class LightningMNISTClassifier(pl.LightningModule):
         avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
         self.log("avg_test_acc", avg_test_acc)
 
-    def prepare_data(self):
-        """
-        Prepares the data for training and prediction
-        """
-        return {}
-
     def configure_optimizers(self):
         """
         Initializes the optimizer and learning rate scheduler
@@ -264,7 +252,6 @@ if __name__ == "__main__":
             dict_args["accelerator"] = None
 
     dm = MNISTDataModule(**dict_args)
-    dm.prepare_data()
     dm.setup(stage="fit")
 
     model = LightningMNISTClassifier(**dict_args)
