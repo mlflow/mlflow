@@ -154,7 +154,7 @@ def _validate_experiment_pagination(max_results):
     Check that `max_results` is within an acceptable range and raise an exception if it isn't.
     """
     if max_results is None:
-        return False
+        return
 
     if max_results < 1:
         raise MlflowException(
