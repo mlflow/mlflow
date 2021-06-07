@@ -376,12 +376,6 @@ class MlflowClient(object):
             - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
             - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
-        # Disallow calling this function with a non-positive `max_results`
-        if max_results is not None and max_results < 1:
-            raise ValueError(
-                f"Invalid value for `max_results`. It must be positive, but got {max_results}"
-            )
-
         return self._tracking_client.list_experiments(
             view_type=view_type, max_results=max_results, page_token=page_token
         )
