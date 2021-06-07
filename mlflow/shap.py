@@ -243,20 +243,18 @@ def log_explanation(predict_function, features, artifact_path=None):
     import shap
 
     # get autologging params here
-    module_name = predict_function.__module__
-    if module_name in mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS:
-        conf_was_set = True
-    else:
-        conf_was_set = False
+    # module_name = predict_function.__module__
+    # if module_name in mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS:
+    #     conf_was_set = True
+    # else:
+    #     conf_was_set = False
+    #
+    # if conf_was_set:
+    original_config_dict = mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS
 
-    if conf_was_set:
-        original_config = mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS[module_name]
-    else:
-        original_config = {}
-
-    new_config = original_config.copy()
-    new_config["disabled"] = True
-    mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS[module_name] = new_config
+    new_config = original_config_dict.copy()
+    for integration in original_config_dict:
+        new_config[integration]["disabled"] = True
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
     background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
@@ -272,10 +270,7 @@ def log_explanation(predict_function, features, artifact_path=None):
     _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
     plt.close(fig)
 
-    if conf_was_set:
-        mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS[module_name] = original_config
-    else:
-        mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS.pop(module_name, None)
+    mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS = original_config_dict
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
 
