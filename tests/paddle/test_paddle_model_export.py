@@ -44,7 +44,8 @@ def get_dataset():
     X_normalized = preprocessing.scale(X_min_max, with_std=False)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X_normalized, y, test_size=0.2, random_state=42)
+        X_normalized, y, test_size=0.2, random_state=42
+    )
 
     y_train = y_train.reshape(-1, 1)
     y_test = y_test.reshape(-1, 1)
@@ -73,25 +74,27 @@ def pd_model():
 
     for epoch_id in range(EPOCH_NUM):
         np.random.shuffle(training_data)
-        mini_batches = [training_data[k : k + BATCH_SIZE]
-                        for k in range(0, len(training_data), BATCH_SIZE)]
+        mini_batches = [
+            training_data[k : k + BATCH_SIZE] for k in range(0, len(training_data), BATCH_SIZE)
+        ]
         for iter_id, mini_batch in enumerate(mini_batches):
-            x = np.array(mini_batch[:, :-1]).astype('float32')
-            y = np.array(mini_batch[:, -1:]).astype('float32')
+            x = np.array(mini_batch[:, :-1]).astype("float32")
+            y = np.array(mini_batch[:, -1:]).astype("float32")
             house_features = paddle.to_tensor(x)
             prices = paddle.to_tensor(y)
             predicts = model(house_features)
             loss = F.square_error_cost(predicts, label=prices)
             avg_loss = paddle.mean(loss)
             if iter_id % 20 == 0:
-                print("epoch: {}, iter: {}, loss is: {}".format(
-                    epoch_id, iter_id, avg_loss.numpy()))
+                print(
+                    "epoch: {}, iter: {}, loss is: {}".format(epoch_id, iter_id, avg_loss.numpy())
+                )
 
             avg_loss.backward()
             opt.step()
             opt.clear_grad()
 
-    np_test_data = np.array(test_data).astype('float32')
+    np_test_data = np.array(test_data).astype("float32")
     return ModelWithData(model=model, inference_dataframe=np_test_data[:, :-1])
 
 
@@ -103,9 +106,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def pd_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_pip_deps=["paddle", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=["paddle", "pytest"])
     return conda_env
 
 
@@ -118,12 +119,12 @@ def test_model_save_load(pd_model, model_path):
 
     np.testing.assert_array_almost_equal(
         pd_model.model(pd_model.inference_dataframe),
-        reloaded_pyfunc.predict(pd_model.inference_dataframe)
+        reloaded_pyfunc.predict(pd_model.inference_dataframe),
     )
 
     np.testing.assert_array_almost_equal(
         reloaded_pd_model(pd_model.inference_dataframe),
-        reloaded_pyfunc.predict(pd_model.inference_dataframe)
+        reloaded_pyfunc.predict(pd_model.inference_dataframe),
     )
 
 
@@ -138,8 +139,8 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
-        pd_model.model(pd_model.inference_dataframe),
-        reloaded_model(pd_model.inference_dataframe))
+        pd_model.model(pd_model.inference_dataframe), reloaded_model(pd_model.inference_dataframe)
+    )
 
 
 @pytest.mark.large
@@ -158,18 +159,16 @@ def test_model_log(pd_model, model_path):
                 _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
                 mlflow.paddle.log_model(
-                    pd_model=model,
-                    artifact_path=artifact_path,
-                    conda_env=conda_env
+                    pd_model=model, artifact_path=artifact_path, conda_env=conda_env
                 )
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
-                    run_id=mlflow.active_run().info.run_id,
-                    artifact_path=artifact_path)
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                )
 
                 reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
                 np.testing.assert_array_almost_equal(
                     model(pd_model.inference_dataframe),
-                    reloaded_pd_model(pd_model.inference_dataframe)
+                    reloaded_pd_model(pd_model.inference_dataframe),
                 )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -193,13 +192,14 @@ def test_log_model_calls_register_model(tracking_uri_mock, pd_model):
             pd_model=pd_model.model,
             artifact_path=artifact_path,
             conda_env=None,
-            registered_model_name="AdsModel1")
-        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
-                                                            artifact_path=artifact_path)
+            registered_model_name="AdsModel1",
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
         mlflow.register_model.assert_called_once_with(
-            model_uri,
-            "AdsModel1",
-            await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS)
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_log_model_no_registered_model_name(pd_model):
@@ -207,18 +207,16 @@ def test_log_model_no_registered_model_name(pd_model):
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.paddle.log_model(
-            pd_model=pd_model.model,
-            artifact_path=artifact_path,
-            conda_env=None,
+            pd_model=pd_model.model, artifact_path=artifact_path, conda_env=None,
         )
         mlflow.register_model.assert_not_called()
 
 
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
-        pd_model, model_path, pd_custom_env):
-    mlflow.paddle.save_model(
-        pd_model=pd_model.model, path=model_path, conda_env=pd_custom_env)
+    pd_model, model_path, pd_custom_env
+):
+    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=pd_custom_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -236,8 +234,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
     conda_env = dict(mlflow.paddle.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.paddle.save_model(
-        pd_model=pd_model.model, path=model_path, conda_env=conda_env)
+    mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -249,16 +246,15 @@ def test_model_save_accepts_conda_env_as_dict(pd_model, model_path):
 
 
 @pytest.mark.large
-def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
-        pd_model, pd_custom_env):
+def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(pd_model, pd_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(pd_model=pd_model.model,
-                                artifact_path=artifact_path,
-                                conda_env=pd_custom_env)
+        mlflow.paddle.log_model(
+            pd_model=pd_model.model, artifact_path=artifact_path, conda_env=pd_custom_env
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -275,7 +271,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        pd_model, model_path):
+    pd_model, model_path
+):
     mlflow.paddle.save_model(pd_model=pd_model.model, path=model_path, conda_env=None)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -288,14 +285,16 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 
 @pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        pd_model):
+    pd_model,
+):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.paddle.log_model(pd_model=pd_model.model, artifact_path=artifact_path,
-                                conda_env=None)
+        mlflow.paddle.log_model(
+            pd_model=pd_model.model, artifact_path=artifact_path, conda_env=None
+        )
         model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)

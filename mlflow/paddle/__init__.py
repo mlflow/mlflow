@@ -11,11 +11,9 @@ Paddle (native) format
     since `predict()` is required for pyfunc model inference.
 """
 
-from mlflow.utils.autologging_utils.safety import ExceptionSafeAbstractClass
 import os
 import logging
 import yaml
-import inspect
 
 import mlflow
 from mlflow import pyfunc
@@ -24,25 +22,11 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.annotations import experimental
-from mlflow.utils.autologging_utils import autologging_integration
-
-from mlflow.utils.autologging_utils import (
-    autologging_integration,
-    safe_patch,
-    exception_safe_function,
-    ExceptionSafeClass,
-    PatchFunction,
-    try_mlflow_log,
-    log_fn_args_as_params,
-    batch_metrics_logger,
-)
 
 FLAVOR_NAME = "paddle"
 
@@ -207,7 +191,7 @@ def save_model(
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
 
-    model_data_subpath = 'model'
+    model_data_subpath = "model"
     output_path = os.path.join(path, model_data_subpath)
 
     paddle.jit.save(pd_model, output_path)
@@ -221,6 +205,8 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    _log_pip_requirements(conda_env, path)
+
     # `PyFuncModel` only works for paddle models that define `predict()`.
     pyfunc.add_to_model(
         mlflow_model,
@@ -229,9 +215,7 @@ def save_model(
         env=conda_env_subpath,
     )
     mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        pickled_model=model_data_subpath,
-        paddle_version=paddle.__version__,
+        FLAVOR_NAME, pickled_model=model_data_subpath, paddle_version=paddle.__version__,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
@@ -264,6 +248,7 @@ def load_model(model_uri):
         predictions = pd_model(np_array)
     """
     import paddle
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
