@@ -44,7 +44,7 @@ from mlflow.utils.validation import (
     _validate_metric,
     _validate_experiment_tag,
     _validate_tag,
-    _validate_experiment_pagination,
+    _validate_list_experiments_max_results,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
 
@@ -297,7 +297,7 @@ class SqlAlchemyStore(AbstractStore):
         max_results=SEARCH_MAX_RESULTS_DEFAULT,
         page_token=None,
     ):
-        _validate_experiment_pagination(max_results)
+        _validate_list_experiments_max_results(max_results)
         return self._list_experiments(
             view_type=view_type, max_results=max_results, page_token=page_token, eager=True
         )

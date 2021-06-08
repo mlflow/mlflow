@@ -1,6 +1,7 @@
 import copy
 import pytest
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
@@ -15,7 +16,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_db_type_string,
     _validate_experiment_name,
-    _validate_experiment_pagination,
+    _validate_list_experiments_max_results,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [
@@ -196,13 +197,14 @@ def test_validate_experiment_name():
             _validate_experiment_name(invalid_name)
 
 
-def test_validate_experiment_pagination():
-    _validate_experiment_pagination(50)
+def test_validate_list_experiments_max_results():
+    client = mlflow.tracking.MlflowClient()
+    client.list_experiments(max_results=50)
     with pytest.raises(MlflowException, match="It must be at most 1000"):
-        _validate_experiment_pagination(50000)
+        client.list_experiments(max_results=50000)
     for invalid_num in [-12, 0]:
         with pytest.raises(MlflowException, match="It must be at least 1"):
-            _validate_experiment_pagination(invalid_num)
+            client.list_experiments(max_results=invalid_num)
 
 
 def test_db_type():

@@ -149,7 +149,7 @@ def _validate_model_version_tag(key, value):
     _validate_length_limit("Model version value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
-def _validate_experiment_pagination(max_results):
+def _validate_list_experiments_max_results(max_results):
     """
     Check that `max_results` is within an acceptable range and raise an exception if it isn't.
     """

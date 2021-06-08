@@ -38,7 +38,7 @@ from mlflow.utils.validation import (
     _validate_experiment_id,
     _validate_batch_log_limits,
     _validate_batch_log_data,
-    _validate_experiment_pagination,
+    _validate_list_experiments_max_results,
 )
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (
@@ -235,7 +235,7 @@ class FileStore(AbstractStore):
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList
 
-        _validate_experiment_pagination(max_results)
+        _validate_list_experiments_max_results(max_results)
         self._check_root_dir()
         rsl = []
         if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
