@@ -1,0 +1,28 @@
+name: Auto-format
+on: issue_comment
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    # Run this workflow when a comment is created on a pull request and the comment is equal to
+    # 'auto-format'
+    if: ${{ github.event.issue.pull_request && github.event.comment.body == 'auto-format' }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.6"
+      - name: Install black
+        run: |
+          pip install "$(grep 'black==' dev/lint-requirements.txt)"
+      - name: Run black
+        run: |
+          black .
+      - name: Push commit
+        run: |
+          git config --global user.name 'mlflow-automation'
+          git config --global user.email 'mlflow-automation@users.noreply.github.com'
+          git commit -sam "Auto format"
+          git push
