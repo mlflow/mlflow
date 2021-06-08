@@ -1,5 +1,28 @@
 Changelog
 =========
+1.17.1.dev0 (2021-06-08)
+------------------------
+MLflow 1.17.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Log databricks runtime in MLmodel (#4421, @stevenchen-db)
+- PyTorch log additional pip requirements in `requirements.txt` (#4422, @stevenchen-db)
+- Logging additional pip dependencies in requirements.txt  (#4409, @stevenchen-db)
+- Limit # of child runs created for hyperparam search models (#4382, @mohamad-arabi)
+- Parallelize Databricks artifact downloading and uploading (#4260, @dbczumar)
+
+Bug fixes and documentation updates:
+
+- change default value of verify to None (#4047, @PeterSulcs)
+- Fix forced default experiment creation (#4352, @asaf400)
+- Fix `mlflow models serve` failure in Windows (#4377, @simonvanbernem)
+- Fix #2551 (#4238, @naor2013)
+- Fix for TensorFlow 2.5 compatibility (#4371, @dbczumar)
+- Fix version checking in disable_for_unsupported_versions (#4303, @WeichenXu123)
+
+Small bug fixes and doc updates (#4393, #4368, #4360, @WeichenXu123; #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4402, #4261, @dbczumar)
+
 1.17.0 (2021-05-07)
 -------------------
 MLflow 1.17.0 includes several major features and improvements:
