@@ -267,7 +267,14 @@ def predict(target, name, input_path, output_path):
 @parse_output
 def explain(target, name, input_path, output_path):
     """
-    predict the features importance for the deployed model for the given input(s)
+    Generate explanations of model predictions on the specified input for
+    the deployed model for the given input(s).Explanation output formats vary
+    by deployment target, and can include details like feature importance for
+    understanding/debugging predictions. Run `mlflow deployments help` or
+    consult the documentation for your plugin for details on explanation format.
+    For information about the input data formats accepted by this function,
+    see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools
     """
     import pandas as pd
 

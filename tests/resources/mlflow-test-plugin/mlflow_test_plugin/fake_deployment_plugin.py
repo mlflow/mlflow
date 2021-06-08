@@ -28,7 +28,6 @@ class PluginDeploymentClient(BaseDeploymentClient):
         return "1"
 
     def explain(self, deployment_name, df):
-        # pylint: disable=unused-argument
         return "1"
 
 
