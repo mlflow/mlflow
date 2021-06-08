@@ -125,7 +125,8 @@ def save_model(
 
             y_train = y_train.reshape(-1, 1)
             y_test = y_test.reshape(-1, 1)
-            return np.concatenate((X_train, y_train), axis=1), np.concatenate((X_test, y_test), axis=1)
+            return np.concatenate((X_train, y_train), axis=1), 
+                np.concatenate((X_test, y_test), axis=1)
 
         class Regressor(paddle.nn.Layer):
 
