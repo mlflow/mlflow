@@ -8,7 +8,6 @@ import yaml
 import paddle
 from paddle.nn import Linear
 import paddle.nn.functional as F
-
 from sklearn.datasets import load_boston
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
@@ -25,7 +24,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
@@ -53,12 +51,11 @@ def pd_model():
     class Regressor(paddle.nn.Layer):
         def __init__(self):
             super(Regressor, self).__init__()
-            self.fc = Linear(in_features=13, out_features=1)
+            self.fc_ = Linear(in_features=13, out_features=1)
 
         @paddle.jit.to_static
-        def forward(self, inputs):
-            x = self.fc(inputs)
-            return x
+        def forward(self, inputs):  # pylint: disable=W0221
+            return self.fc_(inputs)
 
     model = Regressor()
     model.train()
@@ -179,7 +176,7 @@ def test_model_log(pd_model, model_path):
                 mlflow.set_tracking_uri(old_uri)
 
 
-def test_log_model_calls_register_model(tracking_uri_mock, pd_model):
+def test_log_model_calls_register_model(pd_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
