@@ -21,6 +21,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.helper_functions import _compare_conda_env_requirements
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
 
@@ -237,6 +238,16 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    reg_model, model_path, custom_env
+):
+    mlflow.catboost.save_model(cb_model=reg_model.model, path=model_path, conda_env=custom_env)
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(reg_model, model_path):
     conda_env = mlflow.catboost.get_default_conda_env()
     conda_env["dependencies"].append("pytest")
@@ -261,6 +272,18 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(reg_mo
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != custom_env
     assert read_yaml(saved_conda_env_path) == read_yaml(custom_env)
+
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, custom_env):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.catboost.log_model(reg_model.model, artifact_path, conda_env=custom_env)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    local_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    saved_pip_req_path = os.path.join(local_path, "requirements.txt")
+    _compare_conda_env_requirements(custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
