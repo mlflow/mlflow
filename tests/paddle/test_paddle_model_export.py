@@ -15,7 +15,6 @@ from sklearn import preprocessing
 
 import mlflow.pyfunc as pyfunc
 import mlflow.paddle
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -27,9 +26,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
-from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import
-
-from pathlib import Path
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
@@ -187,7 +183,6 @@ def test_log_model_calls_register_model(tracking_uri_mock, pd_model):
     artifact_path = "model"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
-        # _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
         mlflow.paddle.log_model(
             pd_model=pd_model.model,
             artifact_path=artifact_path,
