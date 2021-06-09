@@ -17,6 +17,7 @@ jobs:
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
     steps:
       - uses: actions/checkout@v2
+        fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
@@ -31,16 +32,12 @@ jobs:
         run: |
           if [ ! "$(git branch --show-current)" == "master" ]; then
             git fetch origin master:master
-            git fetch origin pull/${{ github.event.pull_request.number }}/head:$GITHUB_HEAD_REF
-            git remote -v
-            # git checkout master
-            git --no-pager log -n 3
-            git --no-pager branch -a
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # git fetch origin pull/${{ github.event.pull_request.number }}/head:${{ github.head_ref }}
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/ml-package-versions.yml"
-            CHANGED_FILES="$(git diff --name-only master...$GITHUB_HEAD_REF)"
+            CHANGED_FILES="$(git diff --name-only master...HEAD)"
 
             python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES"
           else
