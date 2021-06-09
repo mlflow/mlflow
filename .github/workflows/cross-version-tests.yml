@@ -31,6 +31,7 @@ jobs:
         run: |
           if [ ! "$(git branch --show-current)" == "master" ]; then
             git fetch origin master:master
+            git fetch origin pull/${{ github.event.pull_request.number }}/head:$GITHUB_HEAD_REF
             git remote -v
             # git checkout master
             git --no-pager log -n 3
@@ -39,7 +40,7 @@ jobs:
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/ml-package-versions.yml"
-            CHANGED_FILES="$(git diff --name-only ${{ github.base_ref }}...remotes/pull/4438/merge)"
+            CHANGED_FILES="$(git diff --name-only master...$GITHUB_HEAD_REF)"
 
             python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES"
           else
