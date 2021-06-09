@@ -1,10 +1,8 @@
 """
 The ``mlflow.paddle`` module provides an API for logging and loading paddle models.
 This module exports paddle models with the following flavors:
-
 Paddle (native) format
     This is the main flavor that can be loaded back into paddle.
-
 :py:mod:`mlflow.pyfunc`
     Produced for use by generic pyfunc-based deployment tools and batch inference.
     NOTE: The `mlflow.pyfunc` flavor is only added for paddle models that define `predict()`,
@@ -55,11 +53,9 @@ def save_model(
     """
     Save a paddle model to a path on the local file system. Produces an MLflow Model
     containing the following flavors:
-
         - :py:mod:`mlflow.paddle`
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for paddle models
           that define `predict()`, since `predict()` is required for pyfunc model inference.
-
     :param pd_model: paddle model to be saved.
     :param path: Local path where the model is to be saved.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -69,7 +65,6 @@ def save_model(
                       :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
-
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -78,7 +73,6 @@ def save_model(
                                 'paddle=2.1.0'
                             ]
                         }
-
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: (Experimental) :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
@@ -87,7 +81,6 @@ def save_model(
                       column omitted) and valid model output (e.g. model predictions generated on
                       the training dataset), for example:
                       .. code-block:: python
-
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
@@ -97,10 +90,8 @@ def save_model(
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
-
     .. code-block:: python
         :caption: Example
-
         import mlflow.paddle
         import paddle
         from paddle.nn import Linear
@@ -111,44 +102,33 @@ def save_model(
         from sklearn.datasets import load_boston
         from sklearn.model_selection import train_test_split
         from sklearn import preprocessing
-
         def load_data():
             # dataset on boston housing prediction
             X, y = load_boston(return_X_y=True)
-
             min_max_scaler = preprocessing.MinMaxScaler()
             X_min_max = min_max_scaler.fit_transform(X)
             X_normalized = preprocessing.scale(X_min_max, with_std=False)
-
             X_train, X_test, y_train, y_test = train_test_split(
                 X_normalized, y, test_size=0.2, random_state=42)
-
             y_train = y_train.reshape(-1, 1)
             y_test = y_test.reshape(-1, 1)
             return np.concatenate(
                 (X_train, y_train), axis=1),np.concatenate((X_test, y_test), axis=1
             )
-
         class Regressor(paddle.nn.Layer):
-
             def __init__(self):
                 super(Regressor, self).__init__()
-
                 self.fc = Linear(in_features=13, out_features=1)
-
             @paddle.jit.to_static
             def forward(self, inputs):
                 x = self.fc(inputs)
                 return x
-
         model = Regressor()
         model.train()
         training_data, test_data = load_data()
         opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
-
         EPOCH_NUM = 10
         BATCH_SIZE = 10
-
         for epoch_id in range(EPOCH_NUM):
             np.random.shuffle(training_data)
             mini_batches = [training_data[k : k + BATCH_SIZE]
@@ -158,20 +138,15 @@ def save_model(
                 y = np.array(mini_batch[:, -1:]).astype('float32')
                 house_features = paddle.to_tensor(x)
                 prices = paddle.to_tensor(y)
-
                 predicts = model(house_features)
-
                 loss = F.square_error_cost(predicts, label=prices)
                 avg_loss = paddle.mean(loss)
                 if iter_id%20==0:
                     print("epoch: {}, iter: {}, loss is: {}".format(
                         epoch_id, iter_id, avg_loss.numpy()))
-
                 avg_loss.backward()
                 opt.step()
                 opt.clear_grad()
-
-
         mlflow.log_param('learning_rate', 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = './test-out'
@@ -196,7 +171,10 @@ def save_model(
     model_data_subpath = "model"
     output_path = os.path.join(path, model_data_subpath)
 
-    paddle.jit.save(pd_model, output_path)
+    if pd_model.__class__.__name__ == "Model":
+        pd_model.save(output_path, training=False)
+    else:
+        paddle.jit.save(pd_model, output_path)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -226,23 +204,18 @@ def load_model(model_uri):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
-
             - ``/Users/me/path/to/local/model``
             - ``relative/path/to/local/model``
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
-
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
     artifact-locations>`_.
-
     :return: A paddle model.
-
     .. code-block:: python
         :caption: Example
-
         import mlflow.paddle
         pd_model = mlflow.paddle.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/pd_models")
         # use Pandas DataFrame to make predictions
@@ -270,11 +243,9 @@ def log_model(
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
     containing the following flavors:
-
         - :py:mod:`mlflow.paddle`
         - :py:mod:`mlflow.pyfunc`. NOTE: This flavor is only included for paddle models
           that define `predict()`, since `predict()` is required for pyfunc model inference.
-
     :param pd_model: paddle model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -284,7 +255,6 @@ def log_model(
                       :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
-
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -293,7 +263,6 @@ def log_model(
                                 'paddlepaddle=2.1.0'
                             ]
                         }
-
     :param registered_model_name: (Experimental) If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
@@ -304,7 +273,6 @@ def log_model(
                       column omitted) and valid model output (e.g. model predictions generated on
                       the training dataset), for example:
                       .. code-block:: python
-
                         from mlflow.models.signature import infer_signature
                         train = df.drop_column("target_label")
                         predictions = ... # compute model predictions
@@ -317,11 +285,8 @@ def log_model(
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
-
-
     .. code-block:: python
         :caption: Example
-
         import mlflow.paddle
         def load_data():
             ...
@@ -331,13 +296,10 @@ def log_model(
         model.train()
         training_data, test_data = load_data()
         opt = paddle.optimizer.SGD(learning_rate=0.01, parameters=model.parameters())
-
         EPOCH_NUM = 10
         BATCH_SIZE = 10
-
         for epoch_id in range(EPOCH_NUM):
             ...
-
         mlflow.log_param('learning_rate', 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = ...
