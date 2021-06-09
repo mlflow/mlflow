@@ -7,5 +7,5 @@ dependencies:
   - sklearn
   - cloudpickle==1.6.0
   - boto3
-  - pytorch==1.6.0
+  - torch==1.6.0
   - torchvision==0.7.0

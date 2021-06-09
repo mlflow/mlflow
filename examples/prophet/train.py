@@ -41,7 +41,7 @@ conda_env = {
     "channels": ["conda-forge"],
     "dependencies": [
         {
-            'pip': [
+            "pip": [
                 "fbprophet=={}".format(fbprophet.__version__),
                 "cloudpickle=={}".format(cloudpickle.__version__),
             ]
