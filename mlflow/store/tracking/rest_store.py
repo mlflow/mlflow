@@ -57,10 +57,7 @@ class RestStore(AbstractStore):
         return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
     def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        page_token=None,
+        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
     ):
         """
         :param view_type: Qualify requested type of experiments.
@@ -353,10 +350,7 @@ class DatabricksRestStore(RestStore):
             page_token = experiments.page_token
 
     def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=_LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS,
-        page_token=None,
+        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
     ):
         # When we call `mlflow.tracking.MlflowClient.list_experiments` without specifying
         # `max_results`, this function is called `max_results = None`:

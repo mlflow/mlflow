@@ -227,10 +227,7 @@ class FileStore(AbstractStore):
         return list_subdirs(self.trash_folder, full_path)
 
     def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        page_token=None,
+        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
     ):
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList

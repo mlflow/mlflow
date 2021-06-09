@@ -292,10 +292,7 @@ class SqlAlchemyStore(AbstractStore):
             return PagedList(experiments, None)
 
     def list_experiments(
-        self,
-        view_type=ViewType.ACTIVE_ONLY,
-        max_results=SEARCH_MAX_RESULTS_DEFAULT,
-        page_token=None,
+        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
     ):
         _validate_list_experiments_max_results(max_results)
         return self._list_experiments(
