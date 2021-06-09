@@ -205,5 +205,6 @@ class BaseDeploymentClient(abc.ABC):
         :param df: Pandas DataFrame to use for explaining feature importance in model prediction
         :return: An exception if the implementation is not available in deployment target's class
         """
-        raise MlflowException("Computing model explanations is not yet supported "
-                              "for this deployment target")
+        raise MlflowException(
+            "Computing model explanations is not yet supported for this deployment target"
+        )

@@ -3,7 +3,6 @@ import os
 from mlflow import deployments
 from mlflow.deployments.plugin_manager import DeploymentPlugins
 from mlflow.exceptions import MlflowException
-import pandas
 
 f_model_uri = "fake_model_uri"
 f_deployment_id = "fake_deployment_name"
@@ -80,17 +79,16 @@ def test_explain_with_no_target_implementation():
     from unittest import mock
     from mlflow_test_plugin import fake_deployment_plugin
 
-    mock_error = MlflowException('Computing model explanations is not '
-                                 'supported for this deployment target')
+    mock_error = MlflowException("MOCK ERROR")
     target_client = deployments.get_deploy_client(f_target)
-    with mock.patch.object(fake_deployment_plugin.PluginDeploymentClient,
-                           "explain", return_value=mock_error) as mock_explain:
-        res = target_client.explain(f_target, pandas.DataFrame())
-        assert (type(res) == MlflowException)
+    plugin = fake_deployment_plugin.PluginDeploymentClient
+    with mock.patch.object(plugin, "explain", return_value=mock_error) as mock_explain:
+        res = target_client.explain(f_target, "test")
+        assert type(res) == MlflowException
         mock_explain.assert_called_once()
 
 
 def test_explain_with_target_implementation():
     target_client = deployments.get_deploy_client(f_target)
-    res = target_client.explain(f_target, pandas.DataFrame())
-    assert res == '1'
+    res = target_client.explain(f_target, "test")
+    assert res == "1"

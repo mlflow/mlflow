@@ -117,15 +117,13 @@ def test_explain(tmpdir):
 def test_explain_with_no_target_implementation(tmpdir):
     from unittest import mock
 
-    temp_input_file_path = tmpdir.join("input.json").strpath
-    with open(temp_input_file_path, "w") as temp_input_file:
+    file_path = tmpdir.join("input.json").strpath
+    with open(file_path, "w") as temp_input_file:
         temp_input_file.write('{"data": [5000]}')
-    mock_error = MlflowException('Computing model explanations is not supported '
-                                 'for this deployment target')
+    mock_error = MlflowException("MOCK ERROR")
     with mock.patch.object(CliRunner, "invoke", return_value=mock_error) as mock_explain:
         res = runner.invoke(
-            cli.explain, ["--target", f_target, "--name",
-                          f_name, "--input-path", temp_input_file_path]
+            cli.explain, ["--target", f_target, "--name", f_name, "--input-path", file_path]
         )
-        assert (type(res) == MlflowException)
+        assert type(res) == MlflowException
         mock_explain.assert_called_once()
