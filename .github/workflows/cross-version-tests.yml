@@ -31,7 +31,7 @@ jobs:
         run: |
           if [ ! "$(git branch --show-current)" == "master" ]; then
             git fetch origin master:master
-            git remove -v
+            git remote -v
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
