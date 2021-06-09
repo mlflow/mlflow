@@ -33,7 +33,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _compare_conda_env_requirements,
+)
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
@@ -108,8 +111,12 @@ def pyfunc_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
     return conda_env
 
@@ -117,14 +124,12 @@ def pyfunc_custom_env(tmpdir):
 def _conda_env():
     # NB: We need mlflow as a dependency in the environment.
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         install_mlflow=False,
         additional_pip_deps=[
             "-e " + os.path.dirname(mlflow.__path__[0]),
             "cloudpickle=={}".format(cloudpickle.__version__),
             "scikit-learn=={}".format(sklearn.__version__),
         ],
-        additional_conda_channels=None,
     )
 
 
@@ -591,6 +596,29 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 @pytest.mark.large
+def test_save_model_persists_requirements_in_mlflow_model_directory(
+    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmpdir
+):
+    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=sklearn_model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+    )
+
+    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    mlflow.pyfunc.save_model(
+        path=pyfunc_model_path,
+        artifacts={"sk_model": sklearn_model_path},
+        python_model=main_scoped_model_class(predict_fn=None),
+        conda_env=pyfunc_custom_env,
+    )
+
+    saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
+    _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
 def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env
 ):
@@ -629,6 +657,37 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
+
+
+@pytest.mark.large
+def test_model_log_persists_requirements_in_mlflow_model_directory(
+    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env
+):
+    sklearn_artifact_path = "sk_model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        sklearn_run_id = mlflow.active_run().info.run_id
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            artifacts={
+                "sk_model": utils_get_artifact_uri(
+                    artifact_path=sklearn_artifact_path, run_id=sklearn_run_id
+                )
+            },
+            python_model=main_scoped_model_class(predict_fn=None),
+            conda_env=pyfunc_custom_env,
+        )
+        pyfunc_model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path
+            )
+        )
+
+    saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
+    _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large

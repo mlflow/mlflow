@@ -9,13 +9,14 @@ Keras (native) format
 """
 import importlib
 import os
+import re
 import yaml
 import tempfile
 import shutil
 
 import pandas as pd
 
-from distutils.version import LooseVersion
+from packaging.version import Version
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -24,7 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -47,6 +48,7 @@ _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 _MODEL_SAVE_PATH = "model"
 # Conda env subpath when saving/loading model
 _CONDA_ENV_SUBPATH = "conda.yaml"
+_PIP_ENV_SUBPATH = "requirements.txt"
 
 
 def get_default_conda_env(include_cloudpickle=False, keras_module=None):
@@ -56,41 +58,25 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     """
     import tensorflow as tf
 
-    conda_deps = []  # if we use tf.keras we only need to declare dependency on tensorflow
     pip_deps = []
     if keras_module is None:
         import keras
 
         keras_module = keras
     if keras_module.__name__ == "keras":
-        # Temporary fix: the created conda environment has issues installing keras >= 2.3.1
-        if LooseVersion(keras_module.__version__) < LooseVersion("2.3.1"):
-            conda_deps.append("keras=={}".format(keras_module.__version__))
-        else:
-            pip_deps.append("keras=={}".format(keras_module.__version__))
+        pip_deps.append("keras=={}".format(keras_module.__version__))
     if include_cloudpickle:
         import cloudpickle
 
         pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-    # Temporary fix: conda-forge currently does not have tensorflow > 1.14
-    # The Keras pyfunc representation requires the TensorFlow
-    # backend for Keras. Therefore, the conda environment must
-    # include TensorFlow
-    if LooseVersion(tf.__version__) <= LooseVersion("1.13.2"):
-        conda_deps.append("tensorflow=={}".format(tf.__version__))
-    else:
-        pip_deps.append("tensorflow=={}".format(tf.__version__))
+
+    pip_deps.append("tensorflow=={}".format(tf.__version__))
 
     # Tensorflow<2.4 does not work with h5py>=3.0.0
     # see https://github.com/tensorflow/tensorflow/issues/44467
-    if LooseVersion(tf.__version__) < LooseVersion("2.4"):
+    if Version(tf.__version__) < Version("2.4"):
         pip_deps.append("h5py<3.0.0")
-
-    return _mlflow_conda_env(
-        additional_conda_deps=conda_deps,
-        additional_pip_deps=pip_deps,
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=pip_deps)
 
 
 def save_model(
@@ -176,7 +162,7 @@ def save_model(
             try:
                 import keras
 
-                if LooseVersion(keras.__version__) < LooseVersion("2.2.0"):
+                if Version(keras.__version__) < Version("2.2.0"):
                     import keras.engine
 
                     return isinstance(model, keras.engine.Model)
@@ -278,6 +264,9 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, _CONDA_ENV_SUBPATH), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # save additional pip dependencies from conda_env to path/requirements.txt
+    _log_pip_requirements(conda_env, path)
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(
@@ -429,11 +418,10 @@ def _load_model(model_path, keras_module, save_format, **kwargs):
     if save_format == "h5":
         model_path = model_path + ".h5"
 
-    from distutils.version import StrictVersion
-
-    if save_format == "h5" and StrictVersion(
-        keras_module.__version__.split("-")[0]
-    ) >= StrictVersion("2.2.3"):
+    # keras in tensorflow used to have a '-tf' suffix in the version:
+    # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
+    unsuffixed_version = re.sub(r"-tf$", "", keras_module.__version__)
+    if save_format == "h5" and Version(unsuffixed_version) >= Version("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         import h5py
@@ -498,7 +486,7 @@ def _load_pyfunc(path):
     should_compile = save_format == "tf"
     K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == "tensorflow":
-        if LooseVersion(tf.__version__) < LooseVersion("2.0.0"):
+        if Version(tf.__version__) < Version("2.0.0"):
             graph = tf.Graph()
             sess = tf.Session(graph=graph)
             # By default tf backed models depend on the global graph and session.
@@ -706,9 +694,9 @@ def autolog(
         return __MLflowKerasCallback()
 
     def _early_stop_check(callbacks):
-        if LooseVersion(keras.__version__) < LooseVersion("2.3.0") or LooseVersion(
-            keras.__version__
-        ) >= LooseVersion("2.4.0"):
+        if Version(keras.__version__) < Version("2.3.0") or Version(keras.__version__) >= Version(
+            "2.4.0"
+        ):
             es_callback = keras.callbacks.EarlyStopping
         else:
             es_callback = keras.callbacks.callbacks.EarlyStopping
@@ -803,5 +791,5 @@ def autolog(
     # To avoid unintentional creation of nested MLflow runs caused by a patched
     # `fit_generator()` method calling a patched `fit()` method, we only patch
     # `fit_generator()` in Keras < 2.4.0.
-    if LooseVersion(keras.__version__) < LooseVersion("2.4.0"):
+    if Version(keras.__version__) < Version("2.4.0"):
         safe_patch(FLAVOR_NAME, keras.Model, "fit_generator", fit_generator, manage_run=True)

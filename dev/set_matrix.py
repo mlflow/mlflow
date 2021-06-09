@@ -29,7 +29,7 @@ python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files 
 # How to run doctests:
 
 ```
-pytest dev/set_matrix.py --doctest-modules --verbose
+pytest dev/set_matrix.py --doctest-modules
 ```
 """
 
@@ -99,7 +99,7 @@ def get_released_versions(package_name):
         #
         # > pip install 'xgboost==0.7'
         # ERROR: Could not find a version that satisfies the requirement xgboost==0.7
-        if len(dist_files) > 0
+        if len(dist_files) > 0 and (not dist_files[0]["yanked"])
     }
     return versions
 
@@ -394,14 +394,14 @@ def expand_config(config):
         for key, cfg in cfgs.items():
             print("Processing", flavor_key, key)
             # Released versions
-            versions = filter_versions(
-                all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
-            )
+            min_ver = cfg["minimum"]
+            max_ver = cfg["maximum"]
+            versions = filter_versions(all_versions, min_ver, max_ver, cfg.get("unsupported"),)
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
-            if cfg["minimum"] not in versions:
-                versions.append(cfg["minimum"])
+            if min_ver not in versions:
+                versions.append(min_ver)
 
             pip_release = package_info["pip_release"]
             for ver in versions:
@@ -419,6 +419,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=ver,
+                        supported=Version(ver) <= Version(max_ver),
                     )
                 )
 
@@ -439,6 +440,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=DEV_VERSION,
+                        supported=False,
                     )
                 )
     return matrix

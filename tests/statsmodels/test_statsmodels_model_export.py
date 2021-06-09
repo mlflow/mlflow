@@ -20,7 +20,10 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (
+    score_model_in_sagemaker_docker_container,
+    _compare_conda_env_requirements,
+)
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 
@@ -55,9 +58,7 @@ def model_path(tmpdir, subdir="model"):
 @pytest.fixture
 def statsmodels_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env, additional_conda_deps=["statsmodels"], additional_pip_deps=["pytest"]
-    )
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "statsmodels"])
     return conda_env
 
 
@@ -116,7 +117,7 @@ def _test_model_log(statsmodels_model, model_path, *predict_args):
 
                 artifact_path = "model"
                 conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-                _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+                _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
 
                 mlflow.statsmodels.log_model(
                     statsmodels_model=model, artifact_path=artifact_path, conda_env=conda_env
@@ -197,7 +198,7 @@ def test_log_model_calls_register_model(ols_model):
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-        _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+        _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
         mlflow.statsmodels.log_model(
             statsmodels_model=ols_model.model,
             artifact_path=artifact_path,
@@ -217,7 +218,7 @@ def test_log_model_no_registered_model_name(ols_model):
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
         conda_env = os.path.join(tmp.path(), "conda_env.yaml")
-        _mlflow_conda_env(conda_env, additional_conda_deps=["statsmodels"])
+        _mlflow_conda_env(conda_env, additional_pip_deps=["statsmodels"])
         mlflow.statsmodels.log_model(
             statsmodels_model=ols_model.model, artifact_path=artifact_path, conda_env=conda_env
         )
@@ -242,6 +243,18 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == statsmodels_custom_env_parsed
+
+
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    ols_model, model_path, statsmodels_custom_env
+):
+
+    mlflow.statsmodels.save_model(
+        statsmodels_model=ols_model.model, path=model_path, conda_env=statsmodels_custom_env
+    )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(statsmodels_custom_env, saved_pip_req_path)
 
 
 def test_model_save_accepts_conda_env_as_dict(ols_model, model_path):
@@ -286,6 +299,26 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == statsmodels_custom_env_parsed
+
+
+def test_model_log_persists_requirements_in_mlflow_model_directory(
+    ols_model, statsmodels_custom_env
+):
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.statsmodels.log_model(
+            statsmodels_model=ols_model.model,
+            artifact_path=artifact_path,
+            conda_env=statsmodels_custom_env,
+        )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(statsmodels_custom_env, saved_pip_req_path)
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(

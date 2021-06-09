@@ -125,7 +125,7 @@ class SqlAlchemyStore(AbstractStore):
         if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
-        if len(self.list_experiments()) == 0:
+        if len(self.list_experiments(view_type=ViewType.ALL)) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
 
@@ -883,7 +883,16 @@ def _get_orderby_clauses(order_by_list, session):
             if SearchUtils.is_metric(key_type, "="):
                 clauses.append(
                     sql.case(
-                        [(subquery.c.is_nan.is_(True), 1), (order_value.is_(None), 1)], else_=0
+                        [
+                            # Ideally the use of "IS" is preferred here but owing to sqlalchemy
+                            # translation in MSSQL we are forced to use "=" instead.
+                            # These 2 options are functionally identical / unchanged because
+                            # the column (is_nan) is not nullable. However it could become an issue
+                            # if this precondition changes in the future.
+                            (subquery.c.is_nan == sqlalchemy.true(), 1),
+                            (order_value.is_(None), 1),
+                        ],
+                        else_=0,
                     ).label("clause_%s" % clause_id)
                 )
             else:  # other entities do not have an 'is_nan' field

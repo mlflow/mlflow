@@ -1852,6 +1852,14 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db():
     assert param.key in fetched_run.data.params
 
 
+def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(tmpdir):
+    db_uri = "sqlite:///{}/mlflow.db".format(tmpdir.strpath)
+    store = SqlAlchemyStore(db_uri, ARTIFACT_URI)
+    store.delete_experiment("0")
+    assert store.get_experiment("0").lifecycle_stage == entities.LifecycleStage.DELETED
+    SqlAlchemyStore(db_uri, ARTIFACT_URI)
+
+
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
     Test case where user has an existing DB with schema generated before MLflow 1.0,
@@ -1991,3 +1999,8 @@ def test_get_orderby_clauses():
 
         # test that an exception is NOT raised when key types are different
         _get_orderby_clauses(["param.a", "metric.a", "tag.a"], session)
+
+        # test that "=" is used rather than "is" when comparing to True
+        parsed = [str(x) for x in _get_orderby_clauses(["metric.a"], session)[0]]
+        assert "is_nan = true" in parsed[0]
+        assert "value IS NULL" in parsed[0]

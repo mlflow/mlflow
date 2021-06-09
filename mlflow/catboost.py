@@ -27,7 +27,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -47,10 +47,8 @@ def get_default_conda_env():
     import catboost as cb
 
     return _mlflow_conda_env(
-        additional_conda_deps=None,
         # CatBoost is not yet available via the default conda channels, so we install it via pip
-        additional_pip_deps=["catboost=={}".format(cb.__version__)],
-        additional_conda_channels=None,
+        additional_pip_deps=["catboost=={}".format(cb.__version__)]
     )
 
 
@@ -135,6 +133,8 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(

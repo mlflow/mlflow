@@ -18,7 +18,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -81,9 +81,7 @@ def get_default_conda_env():
 
     pip_deps = ["shap=={}".format(shap.__version__)]
 
-    return _mlflow_conda_env(
-        additional_conda_deps=[], additional_pip_deps=pip_deps, additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=pip_deps)
 
 
 def _load_pyfunc(path):
@@ -461,6 +459,8 @@ def save_explainer(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    _log_pip_requirements(conda_env, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.shap",
@@ -517,8 +517,7 @@ def _merge_environments(shap_environment, model_environment):
     # channels if present since its added later in `_mlflow_conda_env`
 
     merged_conda_channels = list(
-        set(shap_environment["channels"] + model_environment["channels"])
-        - set(["defaults", "conda-forge"])
+        set(shap_environment["channels"] + model_environment["channels"]) - set(["conda-forge"])
     )
 
     shap_conda_deps, shap_pip_deps = _get_conda_and_pip_dependencies(shap_environment)

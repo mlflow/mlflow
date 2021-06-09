@@ -17,6 +17,7 @@ import yaml
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+from mlflow.pytorch import get_default_conda_env
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
@@ -24,11 +25,12 @@ from mlflow.models.utils import _read_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _mlflow_additional_pip_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
+from tests.helper_functions import _compare_conda_env_requirements
 
 _logger = logging.getLogger(__name__)
 
@@ -158,11 +160,7 @@ def model_path(tmpdir):
 @pytest.fixture
 def pytorch_custom_env(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
-    _mlflow_conda_env(
-        conda_env,
-        additional_conda_deps=["pytorch", "torchvision", "pytest"],
-        additional_conda_channels=["pytorch"],
-    )
+    _mlflow_conda_env(conda_env, additional_pip_deps=["pytorch", "torchvision", "pytest"])
     return conda_env
 
 
@@ -385,6 +383,19 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 @pytest.mark.parametrize("scripted_model", [True, False])
+def test_model_save_persists_requirements_in_mlflow_model_directory(
+    sequential_model, model_path, pytorch_custom_env
+):
+    mlflow.pytorch.save_model(
+        pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env
+    )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
@@ -427,6 +438,28 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_text = f.read()
     assert saved_conda_env_text == pytorch_custom_env_text
+
+
+@pytest.mark.large
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_model_log_persists_requirements_in_mlflow_model_directory(
+    sequential_model, pytorch_custom_env
+):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            pytorch_model=sequential_model,
+            artifact_path=artifact_path,
+            conda_env=pytorch_custom_env,
+        )
+        model_path = _download_artifact_from_uri(
+            "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+            )
+        )
+
+    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    _compare_conda_env_requirements(pytorch_custom_env, saved_pip_req_path)
 
 
 @pytest.mark.large
@@ -886,6 +919,11 @@ def test_requirements_file_log_model(create_requirements_file, sequential_model)
             run_id=mlflow.active_run().info.run_id, model_path="models"
         )
 
+        # Verify that explicitly specified requirements file overrides default requirements file
+        conda_env = get_default_conda_env()
+        pip_deps = conda_env["dependencies"][-1]["pip"]
+        assert _mlflow_additional_pip_env(pip_deps) != content_expected
+
         with TempDir(remove_on_exit=True) as tmp:
             model_path = _download_artifact_from_uri(model_uri, tmp.path())
             model_config_path = os.path.join(model_path, "MLmodel")
@@ -911,6 +949,12 @@ def test_requirements_file_save_model(create_requirements_file, sequential_model
         mlflow.pytorch.save_model(
             pytorch_model=sequential_model, path=model_path, requirements_file=requirements_file
         )
+
+        # Verify that explicitly specified requirements file overrides default requirements file
+        conda_env = get_default_conda_env()
+        pip_deps = conda_env["dependencies"][-1]["pip"]
+        assert _mlflow_additional_pip_env(pip_deps) != content_expected
+
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
         flavor_config = model_config.flavors["pytorch"]

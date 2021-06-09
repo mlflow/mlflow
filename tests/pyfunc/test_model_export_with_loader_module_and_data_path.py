@@ -40,8 +40,12 @@ def pyfunc_custom_env_file(tmpdir):
     conda_env = os.path.join(str(tmpdir), "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
     return conda_env
 
@@ -49,8 +53,12 @@ def pyfunc_custom_env_file(tmpdir):
 @pytest.fixture
 def pyfunc_custom_env_dict():
     return _mlflow_conda_env(
-        additional_conda_deps=["scikit-learn", "pytest", "cloudpickle"],
-        additional_pip_deps=["-e " + os.path.dirname(mlflow.__path__[0])],
+        additional_pip_deps=[
+            "scikit-learn",
+            "pytest",
+            "cloudpickle",
+            "-e " + os.path.dirname(mlflow.__path__[0]),
+        ],
     )
 
 
@@ -741,6 +749,38 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == pyfunc_custom_env_dict
+
+
+@pytest.mark.large
+def test_log_model_persists_requirements_in_mlflow_model_directory(
+    sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
+):
+    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    with mlflow.start_run():
+        mlflow.pyfunc.log_model(
+            artifact_path=pyfunc_artifact_path,
+            data_path=sk_model_path,
+            loader_module=os.path.basename(__file__)[:-3],
+            code_path=[__file__],
+            conda_env=pyfunc_custom_env_dict,
+        )
+        run_id = mlflow.active_run().info.run_id
+
+    pyfunc_model_path = _download_artifact_from_uri(
+        "runs:/{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=pyfunc_artifact_path)
+    )
+
+    saved_pip_req_path = os.path.join(pyfunc_model_path, "requirements.txt")
+    assert os.path.exists(saved_pip_req_path)
+
+    with open(saved_pip_req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert pyfunc_custom_env_dict["dependencies"][-1]["pip"] == requirements
 
 
 @pytest.mark.large

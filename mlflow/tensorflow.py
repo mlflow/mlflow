@@ -18,7 +18,7 @@ import time
 import tempfile
 from collections import namedtuple
 import pandas
-from distutils.version import LooseVersion
+from packaging.version import Version
 from threading import RLock
 
 import mlflow
@@ -33,7 +33,7 @@ from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, get_artifact_uri
 from mlflow.utils.annotations import keyword_only, experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
@@ -74,11 +74,7 @@ def get_default_conda_env():
     """
     import tensorflow
 
-    return _mlflow_conda_env(
-        additional_conda_deps=["tensorflow={}".format(tensorflow.__version__)],
-        additional_pip_deps=None,
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=["tensorflow=={}".format(tensorflow.__version__)])
 
 
 @keyword_only
@@ -278,6 +274,8 @@ def save_model(
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
 
+    _log_pip_requirements(conda_env, path)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         saved_model_dir=model_dir_subpath,
@@ -295,7 +293,7 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     """
     import tensorflow
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         validation_tf_graph = tensorflow.Graph()
         validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
         with validation_tf_graph.as_default():
@@ -361,7 +359,7 @@ def load_model(model_uri, tf_sess=None):
     """
     import tensorflow
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         if not tf_sess:
             tf_sess = tensorflow.get_default_session()
             if not tf_sess:
@@ -424,7 +422,7 @@ def _load_tensorflow_saved_model(
     """
     import tensorflow
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         loaded = tensorflow.saved_model.loader.load(
             sess=tf_sess, tags=tf_meta_graph_tags, export_dir=tf_saved_model_dir
         )
@@ -477,7 +475,7 @@ def _load_pyfunc(path):
         tf_meta_graph_tags,
         tf_signature_def_key,
     ) = _get_and_parse_flavor_configuration(model_path=path)
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         tf_graph = tensorflow.Graph()
         tf_sess = tensorflow.Session(graph=tf_graph)
         with tf_graph.as_default():
@@ -811,7 +809,7 @@ def _setup_callbacks(lst, log_models, metrics_logger):
     else:
         log_dir = _TensorBoardLogDir(location=tb.log_dir, is_temp=False)
         out_list = lst
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) < Version("2.0.0"):
         out_list += [__MLflowTfKerasCallback()]
     else:
         out_list += [__MLflowTfKeras2Callback()]
@@ -901,7 +899,7 @@ def autolog(
 
     atexit.register(_flush_queue)
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("1.12"):
+    if Version(tensorflow.__version__) < Version("1.12"):
         warnings.warn("Could not log to MLflow. TensorFlow versions below 1.12 are not supported.")
         return
 
@@ -1015,7 +1013,7 @@ def autolog(
         except Exception:  # pylint: disable=W0703
             return None
 
-    def _log_early_stop_callback_metrics(callback, history, metrics_logger):
+    def _log_early_stop_callback_metrics(callback, history, expected_last_epoch, metrics_logger):
         if callback:
             callback_attrs = _get_early_stop_callback_attrs(callback)
             if callback_attrs is None:
@@ -1023,9 +1021,14 @@ def autolog(
             stopped_epoch, restore_best_weights, patience = callback_attrs
             metrics_logger.record_metrics({"stopped_epoch": stopped_epoch})
 
-            # Weights are restored only if early stopping occurs
-            if stopped_epoch != 0 and restore_best_weights:
-                restored_epoch = stopped_epoch - max(1, patience)
+            # Only log restored model metrics if early stopping occurs, as determined by the
+            # the value of `stopped_epoch`. `stopped_epoch` is non-zero if early stopping has
+            # occurred, except in the case where training was early stopped after the first epoch
+            # due to a configured patience value of zero
+            if (
+                (stopped_epoch > 0) or (patience == 0 and expected_last_epoch > 0)
+            ) and restore_best_weights:
+                restored_epoch = stopped_epoch - patience
                 metrics_logger.record_metrics({"restored_epoch": restored_epoch})
                 restored_index = history.epoch.index(restored_epoch)
 
@@ -1033,7 +1036,7 @@ def autolog(
                     key: history.history[key][restored_index] for key in history.history.keys()
                 }
                 # Metrics are logged as 'epoch_loss' and 'epoch_acc' in TF 1.X
-                if LooseVersion(tensorflow.__version__) < LooseVersion("2.0.0"):
+                if Version(tensorflow.__version__) < Version("2.0.0"):
                     if "loss" in restored_metrics:
                         restored_metrics["epoch_loss"] = restored_metrics.pop("loss")
                     if "acc" in restored_metrics:
@@ -1087,7 +1090,13 @@ def autolog(
 
                 history = original(inst, *args, **kwargs)
 
-                _log_early_stop_callback_metrics(early_stop_callback, history, metrics_logger)
+                epochs = args[3] if len(args) >= 4 else kwargs.get("epochs", 0)
+                _log_early_stop_callback_metrics(
+                    callback=early_stop_callback,
+                    history=history,
+                    expected_last_epoch=epochs,
+                    metrics_logger=metrics_logger,
+                )
 
             _flush_queue()
             _log_artifacts_with_warning(
@@ -1184,7 +1193,7 @@ def autolog(
         (tensorflow.keras.Model, "fit", FitPatch),
     ]
 
-    if LooseVersion(tensorflow.__version__) < LooseVersion("2.1.0"):
+    if Version(tensorflow.__version__) < Version("2.1.0"):
         # `fit_generator()` is deprecated in TF >= 2.1.0 and simply wraps `fit()`.
         # To avoid unintentional creation of nested MLflow runs caused by a patched
         # `fit_generator()` method calling a patched `fit()` method, we only patch
@@ -1200,7 +1209,7 @@ def autolog(
     ]
 
     # Add compat.v1 Estimator patching for versions of tensfor that are 2.0+.
-    if LooseVersion(tensorflow.__version__) >= LooseVersion("2.0.0"):
+    if Version(tensorflow.__version__) >= Version("2.0.0"):
         old_estimator_class = tensorflow.compat.v1.estimator.Estimator
         v1_train = (old_estimator_class, "train", train)
         v1_export_saved_model = (old_estimator_class, "export_saved_model", export_saved_model)

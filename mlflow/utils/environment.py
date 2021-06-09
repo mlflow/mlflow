@@ -1,11 +1,11 @@
 import yaml
+import os
 
 from mlflow.utils import PYTHON_VERSION
 
 _conda_header = """\
 name: mlflow-env
 channels:
-  - defaults
   - conda-forge
 """
 
@@ -54,3 +54,31 @@ def _mlflow_conda_env(
         return None
     else:
         return env
+
+
+def _mlflow_additional_pip_env(
+    pip_deps, path=None,
+):
+    requirements = "\n".join(pip_deps)
+    if path is not None:
+        with open(path, "w") as out:
+            out.write(requirements)
+        return None
+    else:
+        return requirements
+
+
+def _get_additional_pip_dep(conda_env):
+    """
+    :return: The additional pip dependencies from the conda env
+    """
+    if conda_env is not None:
+        for dep in conda_env["dependencies"]:
+            if isinstance(dep, dict) and "pip" in dep:
+                return dep["pip"]
+    return []
+
+
+def _log_pip_requirements(conda_env, path, requirements_file="requirements.txt"):
+    pip_deps = _get_additional_pip_dep(conda_env)
+    _mlflow_additional_pip_env(pip_deps, path=os.path.join(path, requirements_file))

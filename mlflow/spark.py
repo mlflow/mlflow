@@ -36,7 +36,7 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils.file_utils import TempDir
@@ -82,11 +82,7 @@ def get_default_conda_env():
     # available for installation from Anaconda or PyPI
     pyspark_version = re.sub(r"(\.?)dev.*", "", pyspark.__version__)
 
-    return _mlflow_conda_env(
-        additional_conda_deps=["pyspark={}".format(pyspark_version)],
-        additional_pip_deps=None,
-        additional_conda_channels=None,
-    )
+    return _mlflow_conda_env(additional_pip_deps=["pyspark=={}".format(pyspark_version)])
 
 
 def log_model(
@@ -387,6 +383,8 @@ def _save_model_metadata(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(dst_dir, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, dst_dir)
 
     mlflow_model.add_flavor(
         FLAVOR_NAME, pyspark_version=pyspark.__version__, model_data=_SPARK_MODEL_PATH_SUB
