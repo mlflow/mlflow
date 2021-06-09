@@ -260,7 +260,7 @@ def _load_pyfunc(path):
     return _SpacyModelWrapper(_load_model(path))
 
 
-def load_model(model_uri, **spacy_load_kwrags):
+def load_model(model_uri, **kwargs):
     """
     Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
 
@@ -277,6 +277,11 @@ def load_model(model_uri, **spacy_load_kwrags):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
                       artifact-locations>`_.
 
+    :param kwargs: Extra keyword arguments to pass through to `spacy.load()` like config, disable, exclude,
+                   etc. Example usage: ``mlflow.spacy.load_model(model_uri, exclude=["ner"], disable=["x"])``
+                   For more info on kwargs available spaCy docs for model load.
+
+
     :return: A spaCy loaded model
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -284,4 +289,4 @@ def load_model(model_uri, **spacy_load_kwrags):
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`
     spacy_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.spacy"))
-    return _load_model(path=spacy_model_file_path, **spacy_load_kwrags)
+    return _load_model(path=spacy_model_file_path, **kwargs)
