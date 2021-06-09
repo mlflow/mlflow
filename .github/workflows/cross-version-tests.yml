@@ -33,6 +33,7 @@ jobs:
             git fetch origin master:master
             git remote -v
             git checkout master
+            git --no-pager log -n 3
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
