@@ -224,11 +224,11 @@ def log_model(
     )
 
 
-def _load_model(path):
+def _load_model(path, **kwargs):
     import spacy
 
     path = os.path.abspath(path)
-    return spacy.load(path)
+    return spacy.load(path, **kwargs)
 
 
 class _SpacyModelWrapper:
@@ -260,7 +260,7 @@ def _load_pyfunc(path):
     return _SpacyModelWrapper(_load_model(path))
 
 
-def load_model(model_uri):
+def load_model(model_uri, **spacy_load_kwrags):
     """
     Load a spaCy model from a local file (if ``run_id`` is ``None``) or a run.
 
@@ -284,4 +284,4 @@ def load_model(model_uri):
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.spacy`
     spacy_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.spacy"))
-    return _load_model(path=spacy_model_file_path)
+    return _load_model(path=spacy_model_file_path, **spacy_load_kwrags)
