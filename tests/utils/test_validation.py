@@ -16,7 +16,6 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_db_type_string,
     _validate_experiment_name,
-    _validate_list_experiments_max_results,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [

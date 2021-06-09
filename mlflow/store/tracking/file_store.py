@@ -26,7 +26,6 @@ import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-    SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
