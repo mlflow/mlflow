@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - python=3.6
-  - pip
+  - pip=20.0.2
   - pip:
     - numpy==1.14.3
     - pandas==0.22.0
