@@ -32,6 +32,7 @@ jobs:
           if [ ! "$(git branch --show-current)" == "master" ]; then
             git fetch origin master:master
             git remote -v
+            git checkout master
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
