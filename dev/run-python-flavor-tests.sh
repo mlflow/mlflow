@@ -24,6 +24,7 @@ pytest tests/gluon_autolog --large
 pytest tests/spacy --large
 pytest tests/fastai --large
 pytest tests/shap --large
+pytest tests/paddle --large
 pytest tests/utils/test_model_utils.py --large
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
 pytest tests/autologging --large
