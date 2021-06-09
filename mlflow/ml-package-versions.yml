@@ -39,7 +39,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.3.0"
+    maximum: "1.3.4"
     requirements: ["torchvision", "scikit-learn"]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py --large
@@ -52,7 +52,7 @@ tensorflow:
 
   models:
     minimum: "1.15.4"
-    maximum: "2.4.1"
+    maximum: "2.5.0"
     requirements:
       "< 2.2": ["h5py<3.0", "scikit-learn"]
     run: |
@@ -72,7 +72,7 @@ tensorflow:
 
   autologging:
     minimum: "1.15.4"
-    maximum: "2.4.1"
+    maximum: "2.5.0"
     requirements:
       "< 2.2": ["h5py<3.0"]
     run: |
@@ -127,14 +127,14 @@ xgboost:
 
   models:
     minimum: "0.90"
-    maximum: "1.4.1"
+    maximum: "1.4.2"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py --large
 
   autologging:
     minimum: "0.90"
-    maximum: "1.4.1"
+    maximum: "1.4.2"
     requirements: ["scikit-learn", "matplotlib"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py --large
@@ -187,7 +187,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "0.25.1"
+    maximum: "0.26"
     requirements: ["scikit-learn"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py --large
@@ -310,7 +310,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.1.1"
+    maximum: "3.1.2"
     requirements: ["boto3", "scikit-learn", "pyarrow"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -325,7 +325,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.1.1"
+    maximum: "3.1.2"
     run: |
       # TODO: Add datasource autologging tests
       find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
