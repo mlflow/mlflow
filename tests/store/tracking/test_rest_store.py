@@ -42,11 +42,9 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     ErrorCode,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.rest_store import (
     RestStore,
     DatabricksRestStore,
-    _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
@@ -69,10 +67,7 @@ class TestRestStore(object):
             kwargs = dict((k, v) for k, v in kwargs.items() if v is not None)
             assert kwargs == {
                 "method": "GET",
-                "params": {
-                    "view_type": "ACTIVE_ONLY",
-                    "max_results": str(SEARCH_MAX_RESULTS_DEFAULT),
-                },
+                "params": {"view_type": "ACTIVE_ONLY"},
                 "url": "https://hello/api/2.0/mlflow/experiments/list",
                 "headers": _DEFAULT_HEADERS,
                 "verify": True,
@@ -387,12 +382,7 @@ class TestRestStore(object):
 
             mock_http.side_effect = response_fn
             result = store.get_experiment_by_name("abc")
-            max_results = (
-                SEARCH_MAX_RESULTS_DEFAULT
-                if store_class == RestStore
-                else _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
-            )
-            expected_message2 = ListExperiments(view_type=ViewType.ALL, max_results=max_results)
+            expected_message2 = ListExperiments(view_type=ViewType.ALL)
             self._verify_requests(
                 mock_http,
                 creds,
@@ -449,29 +439,6 @@ class TestRestStore(object):
                 message_to_json(expected_message0),
             )
             assert mock_http.call_count == 1
-
-    def test_databricks_rest_store_list_experiments(self):
-        creds = MlflowHostCreds("https://hello")
-        store = DatabricksRestStore(lambda: creds)
-
-        with mock.patch.object(RestStore, "list_experiments") as mock_list_experiments:
-            store.list_experiments(max_results=None)
-            mock_list_experiments.assert_called_once()
-            assert (
-                mock_list_experiments.call_args[1]["max_results"]
-                == _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
-            )
-
-        with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http_request:
-            try:
-                store.list_experiments(max_results=None)
-            except MlflowException as e:
-                # Suppress an error caused by a mock response
-                assert "MagicMock" in e.message
-            mock_http_request.assert_called_once()
-            assert mock_http_request.call_args[1]["params"]["max_results"] == str(
-                _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
-            )
 
 
 if __name__ == "__main__":

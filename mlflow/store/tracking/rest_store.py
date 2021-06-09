@@ -308,9 +308,6 @@ class RestStore(AbstractStore):
         self._call_endpoint(LogModel, req_body)
 
 
-_LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS = 1000
-
-
 class DatabricksRestStore(RestStore):
     """
     Databricks-specific RestStore implementation that provides different fallback
@@ -348,28 +345,3 @@ class DatabricksRestStore(RestStore):
             if not experiments.page_token:
                 break
             page_token = experiments.page_token
-
-    def list_experiments(
-        self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
-    ):
-        # When we call `mlflow.tracking.MlflowClient.list_experiments` without specifying
-        # `max_results`, this function is called `max_results = None`:
-        #
-        # improt mlflow
-        # client = mlflow.tracking.MlflowClient(tracking_uri="https://...")
-        # client.list_experiments()
-        # ^ This calls `client._tracking_client.store.list_experiments(..., max_results=None)`
-        #
-        # To guarantee that the `max_results` field is always present in the request sent by
-        # MLflow client >= 1.18.0, set the default value if `max_results` is None.
-        # This allows MLflow backend in Databricks to infer the client version by examining
-        # the presence of the `max_results` field and determine what to return.
-        max_results = (
-            _LIST_EXPERIMENTS_MAX_RESULTS_DEFAULT_IN_DATABRICKS
-            if max_results is None
-            else max_results
-        )
-
-        return super().list_experiments(
-            view_type=view_type, max_results=max_results, page_token=page_token
-        )
