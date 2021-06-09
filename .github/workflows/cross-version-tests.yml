@@ -17,7 +17,8 @@ jobs:
       is_matrix_empty: ${{ steps.set-matrix.outputs.is_matrix_empty }}
     steps:
       - uses: actions/checkout@v2
-        fetch-depth: 0
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v2
         with:
           python-version: "3.6"
