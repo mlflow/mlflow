@@ -34,6 +34,7 @@ jobs:
             git remote -v
             # git checkout master
             git --no-pager log -n 3
+            git --no-pager branch -a
           fi
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
