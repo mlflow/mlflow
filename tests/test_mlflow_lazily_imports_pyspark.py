@@ -5,8 +5,8 @@ if __name__ == "__main__":
     import sys
     import mlflow  # pylint: disable=unused-import
 
-    cached_packages = set(k.split(".")[0] for k in sys.modules.keys())
-    assert "pyspark" not in cached_packages
+    pyspark_modules = [k for k in sys.modules.keys() if k.split(".")[0] == "pyspark"]
+    assert pyspark_modules == []
 
     # Make sure `pyspark` can be imported
     import pyspark  # pylint: disable=unused-import
