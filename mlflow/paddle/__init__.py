@@ -195,7 +195,7 @@ def save_model(
     model_data_subpath = "model"
     output_path = os.path.join(path, model_data_subpath)
 
-    if pd_model.__class__.__name__ == "Model":
+    if isinstance(pd_model, paddle.Model):
         pd_model.save(output_path, training=False)
     else:
         paddle.jit.save(pd_model, output_path)
