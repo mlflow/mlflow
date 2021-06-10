@@ -335,10 +335,7 @@ def test_model_save_load_built_in_high_level_api(pd_model_built_in_high_level_ap
     reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
 
-    low_level_test_dataset = []
-    for line in test_dataset:
-        data, _ = line
-        low_level_test_dataset.append(data)
+    low_level_test_dataset = [x[0] for x in test_dataset]
 
     np.testing.assert_array_almost_equal(
         np.array(model.predict(test_dataset)).squeeze(),
@@ -366,10 +363,7 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
 
-    low_level_test_dataset = []
-    for line in test_dataset:
-        data, _ = line
-        low_level_test_dataset.append(data)
+    low_level_test_dataset = [x[0] for x in test_dataset]
 
     np.testing.assert_array_almost_equal(
         np.array(model.predict(test_dataset)).squeeze(),
@@ -401,10 +395,8 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
                 )
 
                 reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
-                low_level_test_dataset = []
-                for line in test_dataset:
-                    data, _ = line
-                    low_level_test_dataset.append(data)
+
+                low_level_test_dataset = [x[0] for x in test_dataset]
 
                 np.testing.assert_array_almost_equal(
                     np.array(model.predict(test_dataset)).squeeze(),
