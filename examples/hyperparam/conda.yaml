@@ -5,6 +5,7 @@ dependencies:
   - python=3.6
   - pip
   - pip:
+    - numpy
     - click
     - pandas==0.22.0
     - scipy
