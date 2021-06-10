@@ -11,6 +11,7 @@ module.exports = async ({ github, core, context }) => {
   const headSha = data.head.sha;
 
   console.log(data);
+  console.log(context);
   console.log(sha);
   console.log(headSha);
 };
