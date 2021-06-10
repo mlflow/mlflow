@@ -15,6 +15,7 @@ if __name__ == "__main__":
         "mleap",
         "onnx",
         "pytorch_lightning",
+        "pyspark",
         "shap",
         "sklearn",
         "spacy",
