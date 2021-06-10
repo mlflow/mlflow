@@ -7,5 +7,5 @@ module.exports = async ({ github, core, context }) => {
     pull_number,
   });
 
-  return { skip: data.head.sha === context.after };
+  return data.head.sha === context.after;
 };
