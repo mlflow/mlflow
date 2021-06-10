@@ -263,6 +263,7 @@ jobs:
 
   protos:
     runs-on: ubuntu-latest
+    needs: skip
     if: ${{ needs.skip.outputs.skip == 'true' }}
     steps:
     - uses: actions/checkout@v2
