@@ -43,6 +43,9 @@ extensions = [
     "sphinx_click.ext",
 ]
 
+# Set `typing.TYPE_CHECKING` to True
+set_type_checking_flag = True
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
