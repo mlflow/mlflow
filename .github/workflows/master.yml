@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Validate
-        uses: actions/github-script@v3
+        uses: actions/github-script@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           result-encoding: string
@@ -27,7 +27,7 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/get-last-commit-in-pr.js`
             );
-            return script({ github, core, context });
+            return await script({ github, core, context });
   # lint:
   #   runs-on: ubuntu-latest
   #   steps:
