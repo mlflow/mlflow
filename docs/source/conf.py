@@ -37,14 +37,10 @@ import languagesections
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.autodoc.typehints",
     "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",
     "sphinx_click.ext",
 ]
-
-# Set `typing.TYPE_CHECKING` to True
-set_type_checking_flag = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -341,6 +337,7 @@ nitpick_ignore = [
     ("py:class", "mlflow.types.schema.Schema"),
     ("py:class", "mlflow.models.model.Model"),
     ("py:class", "mlflow.models.signature.ModelSignature"),
+    ("py:class", "MlflowInferableDataset"),
 ]
 
 
