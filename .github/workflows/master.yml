@@ -26,7 +26,7 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/get-last-commit-in-pr.js`
             );
-            script({ github, core, context });
+            return script({ github, core, context });
   # lint:
   #   runs-on: ubuntu-latest
   #   steps:
@@ -266,21 +266,21 @@ jobs:
     needs: skip
     if: ${{ needs.skip.outputs.skip == 'true' }}
     steps:
-    - uses: actions/checkout@v2
-    - name: Test building Docker image
-      working-directory: dev
-      env:
-        DOCKER_BUILDKIT: 1
-      run: |
-        docker build -t gen-protos -f Dockerfile.protos .
-        docker run --rm gen-protos protoc --version
-    - name: Install dependencies
-      run: |
-        wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
-        sudo unzip $HOME/protoc.zip -d /usr
-    - name: Run tests
-      run: |
-        ./test-generate-protos.sh
+      - uses: actions/checkout@v2
+      - name: Test building Docker image
+        working-directory: dev
+        env:
+          DOCKER_BUILDKIT: 1
+        run: |
+          docker build -t gen-protos -f Dockerfile.protos .
+          docker run --rm gen-protos protoc --version
+      - name: Install dependencies
+        run: |
+          wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
+          sudo unzip $HOME/protoc.zip -d /usr
+      - name: Run tests
+        run: |
+          ./test-generate-protos.sh
 
   # flavors:
   #   runs-on: ubuntu-latest
