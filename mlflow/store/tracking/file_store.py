@@ -228,6 +228,14 @@ class FileStore(AbstractStore):
     def list_experiments(
         self, view_type=ViewType.ACTIVE_ONLY, max_results=None, page_token=None,
     ):
+        """
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: PagedList of :py:class:`mlflow.entities.Experiment`
+        """
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList
 
