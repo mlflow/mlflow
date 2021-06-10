@@ -125,7 +125,7 @@ def save_model(
     spark_model,
     sample_input,
     path,
-    mlflow_model=Model(),
+    mlflow_model=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
 ):
@@ -185,6 +185,9 @@ def save_model(
 
 
     """
+    if mlflow_model is None:
+        mlflow_model = Model()
+
     add_to_model(
         mlflow_model=mlflow_model, path=path, spark_model=spark_model, sample_input=sample_input
     )
