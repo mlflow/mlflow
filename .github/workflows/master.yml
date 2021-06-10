@@ -14,7 +14,7 @@ env:
   CONDA_DIR: /usr/share/miniconda
 
 jobs:
-  skip:
+  get-skip:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -264,8 +264,8 @@ jobs:
 
   protos:
     runs-on: ubuntu-latest
-    needs: skip
-    if: ${{ needs.skip.outputs.result == 'true' }}
+    needs: get-skip
+    if: ${{ needs.get-skip.outputs.result == 'true' }}
     steps:
       - uses: actions/checkout@v2
       - name: Test building Docker image
