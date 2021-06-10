@@ -8,7 +8,7 @@ module.exports = async ({ github, core, context }) => {
   });
 
   console.log(data.head.sha);
-  console.log(context.after);
+  console.log(context.payload.after);
 
-  return data.head.sha === context.after;
+  return data.head.sha === context.payload.after;
 };
