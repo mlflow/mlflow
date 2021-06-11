@@ -10,9 +10,9 @@ dependencies:
     - pandas==0.22.0
     - scipy
     - scikit-learn==0.19.1
-    - tensorflow==1.15.2
+    - tensorflow==1.13.1
     - matplotlib==2.2.2
-    - keras==2.2.4
+    - keras==2.3.1
     - mlflow>=1.6
     - Gpy==1.9.5
     - GpyOpt==1.2.5
