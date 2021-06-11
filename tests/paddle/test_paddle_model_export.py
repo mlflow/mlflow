@@ -304,17 +304,18 @@ def get_dataset_built_in_high_level_api():
     return train_dataset, eval_dataset
 
 
+class UCIHousing(paddle.nn.Layer):
+    def __init__(self):
+        super(UCIHousing, self).__init__()
+        self.fc_ = paddle.nn.Linear(13, 1, None)
+
+    def forward(self, inputs):  # pylint: disable=arguments-differ
+        pred = self.fc_(inputs)
+        return pred
+
+
 @pytest.fixture
 def pd_model_built_in_high_level_api():
-    class UCIHousing(paddle.nn.Layer):
-        def __init__(self):
-            super(UCIHousing, self).__init__()
-            self.fc_ = paddle.nn.Linear(13, 1, None)
-
-        def forward(self, inputs):  # pylint: disable=arguments-differ
-            pred = self.fc_(inputs)
-            return pred
-
     train_dataset, test_dataset = get_dataset_built_in_high_level_api()
 
     model = paddle.Model(UCIHousing())
@@ -426,15 +427,6 @@ def test_model_retrain_built_in_high_level_api(
 ):
     model = pd_model_built_in_high_level_api.model
     mlflow.paddle.save_model(pd_model=model, path=model_path, training=True)
-
-    class UCIHousing(paddle.nn.Layer):
-        def __init__(self):
-            super(UCIHousing, self).__init__()
-            self.fc_ = paddle.nn.Linear(13, 1, None)
-
-        def forward(self, inputs):  # pylint: disable=arguments-differ
-            pred = self.fc_(inputs)
-            return pred
 
     training_dataset, test_dataset = get_dataset_built_in_high_level_api()
 
