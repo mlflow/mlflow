@@ -72,7 +72,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
     actual_version = importlib.import_module(module_name).__version__
 
     # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
-    if module_name == "pyspark"(is_in_databricks_notebook() or is_in_databricks_job()):
+    if module_name == "pyspark" and (is_in_databricks_notebook() or is_in_databricks_job()):
         actual_version = _strip_dev_prefix(actual_version)
 
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
