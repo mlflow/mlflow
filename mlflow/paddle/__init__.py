@@ -47,6 +47,7 @@ def get_default_conda_env():
 def save_model(
     pd_model,
     path,
+    training=False,
     conda_env=None,
     mlflow_model=None,
     signature: ModelSignature = None,
@@ -62,6 +63,9 @@ def save_model(
 
     :param pd_model: paddle model to be saved.
     :param path: Local path where the model is to be saved.
+    :param training: This only works when model is trained using PaddlePaddle high level api.
+                     When flag `training` is set True, the model supports both re-training and
+                     inference. If set False, the model saved only supports inference.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -196,7 +200,7 @@ def save_model(
     output_path = os.path.join(path, model_data_subpath)
 
     if isinstance(pd_model, paddle.Model):
-        pd_model.save(output_path, training=False)
+        pd_model.save(output_path, training=training)
     else:
         paddle.jit.save(pd_model, output_path)
 
@@ -224,7 +228,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def load_model(model_uri):
+def load_model(model_uri, model=None, skip_mismatch=False, reset_optimizer=False):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
@@ -235,6 +239,16 @@ def load_model(model_uri):
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
+
+    :param model: If it is not None, the type should be paddle.Model which is a model
+                  built with PaddlePaddle high level api and supports retraining
+    :param skip_mismatch: This only works when `model` is not None, its type is Paddle.Model
+                          and it supports retrain. Default is False. If it is set true, `load_model`
+                          will ignore the parameters whose shape or name mismatch with
+                          those in model files that are saved previously.
+    :param reset_optimizer: This only works when `model` is not None, its type is Paddle.Model
+                            and it supports retrain. Default is False. If it is set true, the
+                            `load_model` will ignore the optimizer provided.
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -256,7 +270,24 @@ def load_model(model_uri):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
-    return paddle.jit.load(pd_model_artifacts_path)
+    if not model:
+        return paddle.jit.load(pd_model_artifacts_path)
+    elif not isinstance(model, paddle.Model):
+        raise TypeError("Argument 'model' should be a paddle.Model, if it is not None")
+    else:
+        support_retrain = _check_if_model_supports_retrain(local_model_path)
+        if not support_retrain:
+            raise TypeError(
+                "The model doee not support re-train. \
+                Please set flag training=True when the paddle model is saved"
+            )
+        else:
+            model.load(
+                pd_model_artifacts_path,
+                skip_mismatch=skip_mismatch,
+                reset_optimizer=reset_optimizer,
+            )
+            return model
 
 
 def log_model(
@@ -394,3 +425,9 @@ class _PaddleWrapper(object):
 
         predicted = self.pd_model(inp_data)
         return pd.DataFrame(predicted.numpy())
+
+
+def _check_if_model_supports_retrain(path):
+    print(path)
+    file_list = os.listdir(path)
+    return any(".pdparams" in file for file in file_list)

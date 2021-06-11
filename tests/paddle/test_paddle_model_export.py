@@ -413,3 +413,50 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
             finally:
                 mlflow.end_run()
                 mlflow.set_tracking_uri(old_uri)
+
+
+@pytest.fixture
+def model_retrain_path(tmpdir):
+    return os.path.join(str(tmpdir), "model_retrain")
+
+
+@pytest.mark.large
+def test_model_retrain_built_in_high_level_api(
+    pd_model_built_in_high_level_api, model_path, model_retrain_path
+):
+    model = pd_model_built_in_high_level_api.model
+    mlflow.paddle.save_model(pd_model=model, path=model_path, training=True)
+
+    class UCIHousing(paddle.nn.Layer):
+        def __init__(self):
+            super(UCIHousing, self).__init__()
+            self.fc_ = paddle.nn.Linear(13, 1, None)
+
+        def forward(self, inputs):  # pylint: disable=arguments-differ
+            pred = self.fc_(inputs)
+            return pred
+
+    training_dataset, test_dataset = get_dataset_built_in_high_level_api()
+
+    model_retrain = paddle.Model(UCIHousing())
+    model_retrain = mlflow.paddle.load_model(model_uri=model_path, model=model_retrain)
+    optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
+    model_retrain.prepare(optim, paddle.nn.MSELoss())
+
+    model_retrain.fit(training_dataset, epochs=6, batch_size=8, verbose=1)
+
+    mlflow.paddle.save_model(pd_model=model_retrain, path=model_retrain_path, training=False)
+
+    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_retrain_path)
+    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_retrain_path)
+    low_level_test_dataset = [x[0] for x in test_dataset]
+
+    np.testing.assert_array_almost_equal(
+        np.array(model_retrain.predict(test_dataset)).squeeze(),
+        np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+    )
+
+    np.testing.assert_array_almost_equal(
+        np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
+        np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+    )
