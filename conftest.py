@@ -41,6 +41,16 @@ def pytest_addoption(parser):
         default=False,
         help="Ignore tests for model flavors.",
     )
+    parser.addoption(
+        "--lazy-import",
+        action="store_true",
+        dest="lazy_import",
+        default=False,
+        help=(
+            "Special flag that should be enabled when running "
+            "tests/test_mlflow_lazily_imports_ml_packages.py"
+        ),
+    )
 
 
 def pytest_configure(config):
@@ -51,6 +61,8 @@ def pytest_configure(config):
         markexpr.append("not large")
     elif config.option.large_only:
         markexpr.append("large")
+    if not config.option.lazy_import:
+        markexpr.append("not lazy_import")
     if not config.option.release:
         markexpr.append("not release")
     if not config.option.requires_ssh:
