@@ -43,7 +43,7 @@ def _is_pre_or_dev_release(ver):
     return v.is_devrelease or v.is_prerelease
 
 
-def _strip_dev_prefix(version):
+def _strip_dev_version_suffix(version):
     return re.sub(r"(\.?)dev.*", "", version)
 
 
@@ -73,7 +73,7 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
 
     # In Databricks, treat 'pyspark 3.x.y.dev0' as 'pyspark 3.x.y'
     if module_name == "pyspark" and (is_in_databricks_notebook() or is_in_databricks_job()):
-        actual_version = _strip_dev_prefix(actual_version)
+        actual_version = _strip_dev_version_suffix(actual_version)
 
     if _violates_pep_440(actual_version) or _is_pre_or_dev_release(actual_version):
         return False
