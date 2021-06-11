@@ -1,12 +1,12 @@
 name: xgboost-example
 channels:
-  - defaults
-  - anaconda
   - conda-forge
 dependencies:
   - python=3.6
-  - xgboost
   - pip
   - pip:
       - mlflow>=1.6.0
+      - scipy
+      - scikit-learn==0.19.1
       - matplotlib
+      - xgboost

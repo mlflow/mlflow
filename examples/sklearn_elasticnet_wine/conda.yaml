@@ -1,6 +1,6 @@
 name: tutorial
 channels:
-  - defaults
+  - conda-forge
 dependencies:
   - python=3.6
   - pip
