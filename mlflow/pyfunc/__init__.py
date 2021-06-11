@@ -1221,7 +1221,7 @@ def log_model(
 
 
 def _save_model_with_loader_module_and_data_path(
-    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=Model()
+    path, loader_module, data_path=None, code_paths=None, conda_env=None, mlflow_model=None
 ):
     """
     Export model as a generic Python function model.
@@ -1250,6 +1250,9 @@ def _save_model_with_loader_module_and_data_path(
         for code_path in code_paths:
             _copy_file_or_tree(src=code_path, dst=path, dst_dir="code")
         code = "code"
+
+    if mlflow_model is None:
+        mlflow_model = Model()
 
     conda_env_subpath = "mlflow_env.yml"
     if conda_env is None:
