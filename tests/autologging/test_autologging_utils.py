@@ -808,7 +808,7 @@ def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, 
             assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
             mock_job.assert_called()
         # Not in Databricks
-        assert is_flavor_supported_for_associated_package_versions(flavor) == False
+        assert is_flavor_supported_for_associated_package_versions(flavor) is False
 
 
 @mock.patch(
