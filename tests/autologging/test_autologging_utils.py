@@ -27,6 +27,7 @@ from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     _check_version_in_range,
     _is_pre_or_dev_release,
+    _strip_dev_version_suffix,
     _violates_pep_440,
     is_flavor_supported_for_associated_package_versions,
 )
@@ -689,6 +690,13 @@ def test_is_pre_or_dev_release():
     assert not _is_pre_or_dev_release("0.24.0")
 
 
+def test_strip_dev_version_suffix():
+    assert _strip_dev_version_suffix("1.0.dev0") == "1.0"
+    assert _strip_dev_version_suffix("1.0dev0") == "1.0"
+    assert _strip_dev_version_suffix("1.0.dev") == "1.0"
+    assert _strip_dev_version_suffix("1.0") == "1.0"
+
+
 def test_violates_pep_440():
     assert _violates_pep_440("0.24.0-SNAPSHOT")
     assert not _violates_pep_440("0.24.0rc1")
@@ -776,6 +784,40 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
     module_name, _ = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor]
     with mock.patch(module_name + ".__version__", module_version):
         assert expected_result == is_flavor_supported_for_associated_package_versions(flavor)
+
+
+@pytest.mark.parametrize(
+    "flavor,module_version,expected_result",
+    [
+        ("pyspark.ml", "3.1.2.dev0", False),
+        ("pyspark.ml", "3.1.1.dev0", True),
+        ("pyspark.ml", "3.0.1.dev0", True),
+        ("pyspark.ml", "3.0.0.dev0", False),
+    ],
+)
+@mock.patch(
+    "mlflow.utils.autologging_utils.versioning._module_version_info_dict",
+    _module_version_info_dict_patch,
+)
+def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, expected_result):
+    module_name, _ = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor]
+    with mock.patch(module_name + ".__version__", module_version):
+        # In Databricks
+        with mock.patch(
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_notebook",
+            return_value=True,
+        ) as mock_notebook:
+            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
+            mock_notebook.assert_called()
+
+        with mock.patch(
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_job", return_value=True,
+        ) as mock_job:
+            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
+            mock_job.assert_called()
+
+        # Not in Databricks
+        assert is_flavor_supported_for_associated_package_versions(flavor) is False
 
 
 @mock.patch(
