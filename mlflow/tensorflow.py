@@ -491,7 +491,7 @@ def _load_pyfunc(path):
         loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
             export_dir=tf_saved_model_dir, tags=tf_meta_graph_tags
         )
-        return _TF2Wrapper(infer=loaded_model.signatures[tf_signature_def_key])
+        return _TF2Wrapper(model=loaded_model, infer=loaded_model.signatures[tf_signature_def_key])
 
 
 class _TFWrapper(object):
@@ -552,10 +552,16 @@ class _TF2Wrapper(object):
     ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions >= 2.0.0.
     """
 
-    def __init__(self, infer):
+    def __init__(self, model, infer):
         """
+        :param model: A Tensorflow SavedModel.
         :param infer: Tensorflow function returned by a saved model that is used for inference.
         """
+        # Note: we need to retain the model reference in TF2Wrapper object, because the infer
+        #  function in tensorflow will be `ConcreteFunction` which only retains WeakRefs to the
+        #  variables they close over.
+        #  See https://www.tensorflow.org/guide/function#deleting_tfvariables_between_function_calls
+        self.model = model
         self.infer = infer
 
     def predict(self, data):
