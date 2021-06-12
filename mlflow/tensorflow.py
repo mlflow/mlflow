@@ -557,6 +557,10 @@ class _TF2Wrapper(object):
         :param model: A Tensorflow SavedModel.
         :param infer: Tensorflow function returned by a saved model that is used for inference.
         """
+        # Note: we need retain the model reference in TF2Wrapper object, because the infer function
+        #  in tensorflow will be `ConcreteFunction` which only retains WeakRefs to the variables
+        #  they close over.
+        #  See https://www.tensorflow.org/guide/function#deleting_tfvariables_between_function_calls
         self.model = model
         self.infer = infer
 

@@ -682,7 +682,7 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
 
 
 @pytest.mark.large
-def test_tf_saved_model_model_with_serving_default_signature(tmpdir):
+def test_tf_saved_model_model_with_tf_keras_api(tmpdir):
     tf.random.set_seed(1337)
 
     mlflow_model_path = os.path.join(str(tmpdir), "mlflow_model")
