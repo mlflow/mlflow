@@ -43,6 +43,9 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
 )
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
 
+# Flag indicating whether autologging is globally disabled for all integrations.
+AUTOLOGGING_GLOBALLY_DISABLED = False
+
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
 
@@ -429,6 +432,19 @@ def autologging_is_disabled(integration_name):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
 
     return False
+
+
+@contextlib.contextmanager
+def global_disable_autologging():
+    """
+    Disables autologging globally for all integrations.
+    This is useful in cases where the unpatched function is needed over the patched version.
+    Use in a with-block to disable autologging temporarily.
+    """
+    global AUTOLOGGING_GLOBALLY_DISABLED
+    AUTOLOGGING_GLOBALLY_DISABLED = True
+    yield None
+    AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
 def _get_new_training_session_class():

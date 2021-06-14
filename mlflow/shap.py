@@ -240,15 +240,10 @@ def log_explanation(predict_function, features, artifact_path=None):
     import matplotlib.pyplot as plt
     import shap
 
-    original_config_dict = mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS
-
-    new_config = original_config_dict.copy()
-    for integration in original_config_dict:
-        new_config[integration]["disable"] = True
-
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
     background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
-    explainer = shap.KernelExplainer(predict_function, background_data)
+    with mlflow.utils.autologging_utils.global_disable_autologging():
+        explainer = shap.KernelExplainer(predict_function, background_data)
     shap_values = explainer.shap_values(features)
 
     _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
@@ -259,8 +254,6 @@ def log_explanation(predict_function, features, artifact_path=None):
     fig.tight_layout()
     _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
     plt.close(fig)
-
-    mlflow.utils.autologging_utils.AUTOLOGGING_INTEGRATIONS = original_config_dict
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
 
