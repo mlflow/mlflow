@@ -22,11 +22,12 @@ model.prepare(optim, paddle.nn.MSELoss())
 
 model.fit(train_dataset, epochs=6, batch_size=8, verbose=1)
 
-sk_path_dir = "./test-out"
-mlflow.paddle.save_model(model, sk_path_dir)
-print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+with mlflow.start_run() as run:
+    mlflow.paddle.log_model(model, "model")
+    print("Model saved in run %s" % run.info.run_uuid)
 
-# load model
-pd_model = mlflow.paddle.load_model("test-out")
-np_test_data = np.array([x[0] for x in eval_dataset])
-print(pd_model(np_test_data))
+    # load model
+    model_path = mlflow.get_artifact_uri("model")
+    pd_model = mlflow.paddle.load_model(model_path)
+    np_test_data = np.array([x[0] for x in eval_dataset])
+    print(pd_model(np_test_data))

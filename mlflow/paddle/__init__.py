@@ -241,18 +241,11 @@ def load_model(model_uri, model=None, **kwargs):
             - ``models:/<model_name>/<stage>``
 
     :param model: Required when loading a `paddle.Model` model. Must be an instance of
-                  `paddle.Model`. Note that the instance of `paddle.Model` must be set
-                  `training=True` when saved.
-    :param skip_mismatch: This only works when `model` is not None. Must be an instance
-                          of `paddle.Model`. Note that the instance of `paddle.Model`
-                          must be set `training=True` when saved. Default is False. If
-                          set true, `load_model` will ignore the parameters whose shape
-                          or name mismatch with those in model files that are saved
-                          previously.
-    :param reset_optimizer: This only works when `model` is not None. Must be an instance
-                            of `paddle.Model`. Note that the instance of `paddle.Model` must
-                            be set `training=True` when saved. Default is False. If set true,
-                            the `load_model` will ignore the optimizer provided.
+                  `paddle.Model`.
+                  NOTE: The instance of `paddle.Model` must be set `training=True` when
+                  saved.
+    :param kwargs: The keyword arguments passed to the PaddlePaddle model save method
+                   (i.e., `paddle.jit.save()```, ```model.save()```)
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -275,7 +268,7 @@ def load_model(model_uri, model=None, **kwargs):
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     if not model:
-        return paddle.jit.load(pd_model_artifacts_path)
+        return paddle.jit.load(pd_model_artifacts_path, **kwargs)
     elif not isinstance(model, paddle.Model):
         raise TypeError("Argument 'model' should be a paddle.Model, if it is not None")
     else:
@@ -285,11 +278,11 @@ def load_model(model_uri, model=None, **kwargs):
                 "The model doee not support re-train. \
                 Please set flag training=True when the paddle model is saved"
             )
-        else:
-            model.load(
-                pd_model_artifacts_path, **kwargs,
-            )
-            return model
+
+        model.load(
+            pd_model_artifacts_path, **kwargs,
+        )
+        return model
 
 
 def log_model(
