@@ -174,8 +174,8 @@ catboost:
         temp_dir=$(mktemp -d)
         git clone https://github.com/catboost/catboost $temp_dir
         cd $temp_dir/catboost/python-package
-        git checkout 9b0375cce7f142ef21c586d29721e920d4b3ebb6
-        # git checkout 4059dfa5294c7b7d0220d5312c53e75bba9dd18e
+        # git checkout 9b0375cce7f142ef21c586d29721e920d4b3ebb6
+        git checkout 4059dfa5294c7b7d0220d5312c53e75bba9dd18e
         python setup.py bdist_wheel
 
         # Copy wheel in cache directory
