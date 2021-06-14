@@ -123,6 +123,7 @@ xgboost:
       temp_dir=$(mktemp -d)
       git clone --recursive https://github.com/dmlc/xgboost $temp_dir
       cd $temp_dir/python-package
+      git log -1
       python setup.py install
 
   models:
@@ -146,6 +147,7 @@ lightgbm:
       temp_dir=$(mktemp -d)
       git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
       cd $temp_dir/python-package
+      git log -1
       python setup.py install
 
   models:
@@ -174,6 +176,7 @@ catboost:
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/catboost/catboost $temp_dir
         cd $temp_dir/catboost/python-package
+        git log -1
         python setup.py bdist_wheel
 
         # Copy wheel in cache directory
@@ -241,6 +244,7 @@ onnx:
       temp_dir=$(mktemp -d)
       git clone https://github.com/onnx/onnx.git $temp_dir
       cd $temp_dir
+      git log -1
       git submodule update --init --recursive
       python setup.py install
 
@@ -294,6 +298,7 @@ spark:
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/apache/spark $temp_dir
         cd $temp_dir
+        git log -1
         export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
