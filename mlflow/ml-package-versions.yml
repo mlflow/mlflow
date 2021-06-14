@@ -174,7 +174,7 @@ catboost:
         temp_dir=$(mktemp -d)
         git clone --depth 1 https://github.com/catboost/catboost $temp_dir
         cd $temp_dir/catboost/python-package
-        python mk_wheel.py --build-widget no
+        python mk_wheel.py --build-widget no -DHAVE_CUDA=no
         # python setup.py bdist_wheel
 
         # Copy wheel in cache directory
