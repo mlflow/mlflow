@@ -228,7 +228,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def load_model(model_uri, model=None, skip_mismatch=False, reset_optimizer=False):
+def load_model(model_uri, model=None, **kwargs):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
@@ -240,15 +240,19 @@ def load_model(model_uri, model=None, skip_mismatch=False, reset_optimizer=False
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
 
-    :param model: If it is not None, the type should be paddle.Model which is a model
-                  built with PaddlePaddle high level api and supports retraining
-    :param skip_mismatch: This only works when `model` is not None, its type is Paddle.Model
-                          and it supports retrain. Default is False. If it is set true, `load_model`
-                          will ignore the parameters whose shape or name mismatch with
-                          those in model files that are saved previously.
-    :param reset_optimizer: This only works when `model` is not None, its type is Paddle.Model
-                            and it supports retrain. Default is False. If it is set true, the
-                            `load_model` will ignore the optimizer provided.
+    :param model: Required when loading a `paddle.Model` model. Must be an instance of
+                  `paddle.Model`. Note that the instance of `paddle.Model` must be set
+                  `training=False` when saved.
+    :param skip_mismatch: This only works when `model` is not None. Must be an instance
+                          of `paddle.Model`. Note that the instance of `paddle.Model`
+                          must be set `training=False` when saved. Default is False. If
+                          set true, `load_model` will ignore the parameters whose shape
+                          or name mismatch with those in model files that are saved
+                          previously.
+    :param reset_optimizer: This only works when `model` is not None. Must be an instance
+                            of `paddle.Model`. Note that the instance of `paddle.Model` must
+                            be set `training=False` when saved. Default is False. If set true,
+                            the `load_model` will ignore the optimizer provided.
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -283,9 +287,7 @@ def load_model(model_uri, model=None, skip_mismatch=False, reset_optimizer=False
             )
         else:
             model.load(
-                pd_model_artifacts_path,
-                skip_mismatch=skip_mismatch,
-                reset_optimizer=reset_optimizer,
+                pd_model_artifacts_path, **kwargs,
             )
             return model
 
