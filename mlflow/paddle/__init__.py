@@ -242,16 +242,16 @@ def load_model(model_uri, model=None, **kwargs):
 
     :param model: Required when loading a `paddle.Model` model. Must be an instance of
                   `paddle.Model`. Note that the instance of `paddle.Model` must be set
-                  `training=False` when saved.
+                  `training=True` when saved.
     :param skip_mismatch: This only works when `model` is not None. Must be an instance
                           of `paddle.Model`. Note that the instance of `paddle.Model`
-                          must be set `training=False` when saved. Default is False. If
+                          must be set `training=True` when saved. Default is False. If
                           set true, `load_model` will ignore the parameters whose shape
                           or name mismatch with those in model files that are saved
                           previously.
     :param reset_optimizer: This only works when `model` is not None. Must be an instance
                             of `paddle.Model`. Note that the instance of `paddle.Model` must
-                            be set `training=False` when saved. Default is False. If set true,
+                            be set `training=True` when saved. Default is False. If set true,
                             the `load_model` will ignore the optimizer provided.
 
     For more information about supported URI schemes, see
