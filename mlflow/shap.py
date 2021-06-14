@@ -241,8 +241,8 @@ def log_explanation(predict_function, features, artifact_path=None):
     import shap
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
-    background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
     with mlflow.utils.autologging_utils.global_disable_autologging():
+        background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
         explainer = shap.KernelExplainer(predict_function, background_data)
     shap_values = explainer.shap_values(features)
 
