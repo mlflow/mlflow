@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.databricks_utils import get_databricks_runtime
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 _logger = logging.getLogger(__name__)
@@ -46,6 +47,10 @@ class Model(object):
         if run_id:
             self.run_id = run_id
             self.artifact_path = artifact_path
+
+        databricks_runtime = get_databricks_runtime()
+        if databricks_runtime:
+            self.databricks_runtime = databricks_runtime
         self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature

@@ -18,7 +18,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 
@@ -104,7 +104,7 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model()
+    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=None
 ):
     """
     :param path: The path to which to save the Python model.
@@ -127,6 +127,9 @@ def _save_model_with_class_artifacts_params(
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
+    if mlflow_model is None:
+        mlflow_model = Model()
+
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
@@ -174,6 +177,8 @@ def _save_model_with_class_artifacts_params(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    _log_pip_requirements(conda_env, path)
 
     saved_code_subpath = None
     if code_paths is not None:

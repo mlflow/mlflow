@@ -24,9 +24,11 @@ pytest tests/gluon_autolog --large
 pytest tests/spacy --large
 pytest tests/fastai --large
 pytest tests/shap --large
+pytest tests/paddle --large
 pytest tests/utils/test_model_utils.py --large
 pytest tests/tracking/fluent/test_fluent_autolog.py --large
 pytest tests/autologging --large
 find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
+pytest tests/test_mlflow_lazily_imports_ml_packages.py --lazy-import
 
 test $err = 0

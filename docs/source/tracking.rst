@@ -325,7 +325,7 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging
 =================
 
-Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements.
+Automatic logging allows you to log metrics, parameters, and models without the need for explicit log statements. 
 
 There are two ways to use autologging:
 
@@ -337,6 +337,8 @@ The following libraries support autologging:
 .. contents::
   :local:
   :depth: 1
+
+For flavors that automatically save models as an artifact, `additional files <https://mlflow.org/docs/latest/models.html#storage-format>`_ for dependency management are logged.
 
 
 Scikit-learn (experimental)

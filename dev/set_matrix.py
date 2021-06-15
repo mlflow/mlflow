@@ -394,14 +394,14 @@ def expand_config(config):
         for key, cfg in cfgs.items():
             print("Processing", flavor_key, key)
             # Released versions
-            versions = filter_versions(
-                all_versions, cfg["minimum"], cfg["maximum"], cfg.get("unsupported"),
-            )
+            min_ver = cfg["minimum"]
+            max_ver = cfg["maximum"]
+            versions = filter_versions(all_versions, min_ver, max_ver, cfg.get("unsupported"),)
             versions = select_latest_micro_versions(versions)
 
             # Explicitly include the minimum supported version
-            if cfg["minimum"] not in versions:
-                versions.append(cfg["minimum"])
+            if min_ver not in versions:
+                versions.append(min_ver)
 
             pip_release = package_info["pip_release"]
             for ver in versions:
@@ -419,6 +419,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=ver,
+                        supported=Version(ver) <= Version(max_ver),
                     )
                 )
 
@@ -439,6 +440,7 @@ def expand_config(config):
                         run=run,
                         package=pip_release,
                         version=DEV_VERSION,
+                        supported=False,
                     )
                 )
     return matrix
