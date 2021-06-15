@@ -661,7 +661,7 @@ def _create_child_runs_for_parameter_search(
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(seed_estimator))
-        child_run = client.create_run(
+        pending_child_run_id = client.create_run(
             experiment_id=parent_run.info.experiment_id,
             start_time=child_run_start_time,
             tags=tags_to_log,
@@ -672,7 +672,7 @@ def _create_child_runs_for_parameter_search(
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
         client.log_params(
-            run_id=child_run.info.run_id,
+            run_id=pending_child_run_id,
             params=params_to_log
         )
 
@@ -692,11 +692,11 @@ def _create_child_runs_for_parameter_search(
             and isinstance(value, Number)
         }
         client.log_metrics(
-            run_id=child_run.info.run_id,
+            run_id=pending_child_run_id,
             metrics=metrics_to_log,
         )
-        
-        client.set_terminated(run_id=child_run.info.run_id, end_time=child_run_end_time)
+
+        client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
 
 
 def _is_supported_version():
