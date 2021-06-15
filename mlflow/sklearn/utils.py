@@ -466,7 +466,7 @@ def _log_specialized_estimator_content(
                 except Exception as e:
                     _log_warning_for_artifacts(artifact.name, artifact.function, e)
 
-            try_mlflow_log(MlflowClient().log_artifacts, run_id, tmp_dir.path())
+            try_mlflow_log(client.log_artifact, run_id, tmp_dir.path())
 
     return metrics
 
@@ -555,7 +555,7 @@ def _is_parameter_search_estimator(estimator):
     )
 
 
-def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
+def _log_parameter_search_results_as_artifact(client, cv_results_df, run_id):
     """
     Records a collection of parameter search results as an MLflow artifact
     for the specified run.
@@ -569,7 +569,7 @@ def _log_parameter_search_results_as_artifact(cv_results_df, run_id):
     with TempDir() as t:
         results_path = t.path("cv_results.csv")
         cv_results_df.to_csv(results_path, index=False)
-        try_mlflow_log(MlflowClient().log_artifact, run_id, results_path)
+        try_mlflow_log(client.log_artifact, run_id, results_path)
 
 
 # Log how many child runs will be created vs omitted based on `max_tuning_runs`.

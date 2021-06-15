@@ -1,3 +1,4 @@
+import os
 import time
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
@@ -52,9 +53,9 @@ class LoggingOperations:
     def __init__(self, runs_to_futures_map):
         self._runs_to_futures_map = runs_to_futures_map
 
-    def result(self):
+    def await_completion(self):
         for run_id, future in self._runs_to_futures_map.items():
-            future.result()
+            future.await_completion()
 
 
 class AutologgingBatchingClient:
@@ -67,19 +68,19 @@ class AutologgingBatchingClient:
     def __init__(self):
         self._client = MlflowClient()
         self._pending_ops_by_run_id = {}
-        self._thread_pool = ThreadPoolExecutor(max_workers=8)
 
-    def _get_pending_operations(self, run_id):
-        if run_id not in self._pending_ops_by_run_id:
-            self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)
-        return self._pending_ops_by_run_id[run_id]
+        # Limit the number of threads used for logging operations, using at most 8 threads or
+        # 2 * the number of CPU cores available on the system (whichever is smaller)
+        num_cpus = os.cpu_count() or 4
+        num_logging_workers = min(num_cpus * 2, 8)
+        self._thread_pool = ThreadPoolExecutor(max_workers=num_logging_workers)
 
     def create_run(
         self,
         experiment_id: str,
         start_time: Optional[int] = None,
         tags: Optional[Dict[str, Any]] = None,
-    ) -> Run:
+    ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes.
         """
@@ -141,32 +142,13 @@ class AutologgingBatchingClient:
         Flushes all queued logging operations, resulting in the creation or mutation of runs
         and run metadata.
 
-        :param synchronous: If `True`, logging operations are performed synchronously, and a result
-                            is only returned once all operations are complete. If `False`
-                            logging operations are performed asynchronously, and an
-                            `LoggingOperations` object is returned that represents the ongoing
-                            logging operations.
-        :return: `None` if `synchronous` is `True`, or an instance of `LoggingOperations` if
-                 `synchronous` is `False`.
+        :param synchronous: If `True`, logging operations are performed synchronously, and a
+                            `LoggingOperations` result object is only returned once all operations
+                            are complete. If `False`, logging operations are performed
+                            asynchronously, and an `LoggingOperations` object is returned that
+                            represents the ongoing logging operations.
+        :return: A `LoggingOperations` instance.
         """
-        # if synchronous:
-        #     for pending_operations in self._pending_ops_by_run_id.values():
-        #         self._flush_pending_operations(
-        #             pending_operations=pending_operations,
-        #             synchronous=True
-        #         )
-        # else:
-        #     runs_to_futures_map = {}
-        #     for pending_operations in self._pending_ops_by_run_id.values():
-        #         future = self._thread_pool.submit(
-        #             self._flush_pending_operations,
-        #             pending_operations=pending_operations,
-        #             synchronous=False,
-        #         )
-        #         runs_to_futures_map[pending_operations.run_id] = future
-        #
-        #     return LoggingOperations(runs_to_futures_map)
-
         runs_to_futures_map = {}
         for pending_operations in self._pending_ops_by_run_id.values():
             future = self._thread_pool.submit(
@@ -174,21 +156,17 @@ class AutologgingBatchingClient:
                 pending_operations=pending_operations,
             )
             runs_to_futures_map[pending_operations.run_id] = future
-
         self._pending_ops_by_run_id = {}
 
         logging_ops = LoggingOperations(runs_to_futures_map)
         if synchronous:
-            logging_ops.result()
-        print("RETURNED")
+            logging_ops.await_completion()
         return logging_ops
 
-    # def _evaluate_fn(self, synchronous, fn, *args, **kwargs):
-    #     if synchronous:
-    #         return fn(*args, **kwargs)
-    #     else:
-    #         return self._thread_pool.submit(fn, *args, **kwargs)
-
+    def _get_pending_operations(self, run_id):
+        if run_id not in self._pending_ops_by_run_id:
+            self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)
+        return self._pending_ops_by_run_id[run_id]
 
     def _flush_pending_operations(self, pending_operations):
         if pending_operations.create_run:
@@ -207,7 +185,6 @@ class AutologgingBatchingClient:
                 },
             )
             pending_operations.run_id = new_run.info.run_id
-            print("CREATED NEW RUN", new_run.info.run_id)
         
         run_id = pending_operations.run_id
         assert not isinstance(run_id, PendingRunId)

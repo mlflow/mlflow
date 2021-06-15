@@ -872,7 +872,7 @@ def autolog(
                 try:
                     cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
                     _log_parameter_search_results_as_artifact(
-                        cv_results_df, mlflow.active_run().info.run_id
+                        client, cv_results_df, mlflow.active_run().info.run_id
                     )
                 except Exception as e:
 
