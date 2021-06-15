@@ -180,6 +180,7 @@ class AutologgingBatchingClient:
         logging_ops = LoggingOperations(runs_to_futures_map)
         if synchronous:
             logging_ops.result()
+        print("RETURNED")
         return logging_ops
 
     # def _evaluate_fn(self, synchronous, fn, *args, **kwargs):
@@ -206,6 +207,7 @@ class AutologgingBatchingClient:
                 },
             )
             pending_operations.run_id = new_run.info.run_id
+            print("CREATED NEW RUN", new_run.info.run_id)
         
         run_id = pending_operations.run_id
         assert not isinstance(run_id, PendingRunId)
