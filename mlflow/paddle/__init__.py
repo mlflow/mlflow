@@ -241,7 +241,7 @@ def load_model(model_uri, model=None, **kwargs):
             - ``models:/<model_name>/<stage>``
 
     :param model: Required when loading a `paddle.Model` model.
-                  Must be an instance of `paddle.Model`.
+                  Must be an instance of `paddle.Model` saved with `training=True`.
     :param kwargs: The keyword arguments to pass to `paddle.jit.load`
                    or `model.load`.
 
@@ -275,8 +275,9 @@ def load_model(model_uri, model=None, **kwargs):
         support_retrain = _check_if_model_supports_retrain(local_model_path)
         if not support_retrain:
             raise TypeError(
-                "The model doee not support re-train. \
-                Please set flag training=True when the paddle model is saved"
+                "Invalid model for retraining. \
+                Please set `training=True` when the `paddle.Model` model is saved. \
+                Or set `model=None` for inference only."
             )
 
         model.load(
