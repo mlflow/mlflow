@@ -47,7 +47,7 @@ class _PendingRunOperations:
         self.metrics_queue += (metrics or [])
 
 
-class AsyncLoggingOperations:
+class LoggingOperations:
 
     def __init__(self, runs_to_futures_map):
         self._runs_to_futures_map = runs_to_futures_map
@@ -144,28 +144,49 @@ class AutologgingBatchingClient:
         :param synchronous: If `True`, logging operations are performed synchronously, and a result
                             is only returned once all operations are complete. If `False`
                             logging operations are performed asynchronously, and an
-                            `AsyncLoggingOperations` object is returned that represents the ongoing
+                            `LoggingOperations` object is returned that represents the ongoing
                             logging operations.
-        :return: `None` if `synchronous` is `True`, or an instance of `AsyncLoggingOperations` if
+        :return: `None` if `synchronous` is `True`, or an instance of `LoggingOperations` if
                  `synchronous` is `False`.
         """
-        if synchronous:
-            for pending_operations in self._pending_ops_by_run_id.values():
-                self._flush_pending_operations(
-                    pending_operations=pending_operations,
-                    synchronous=True
-                )
-        else:
-            runs_to_futures_map = {}
-            for pending_operations in self._pending_ops_by_run_id.values():
-                future = self._thread_pool.submit(
-                    self._flush_pending_operations,
-                    pending_operations=pending_operations,
-                    synchronous=False,
-                )
-                runs_to_futures_map[pending_operations.run_id] = future
+        # if synchronous:
+        #     for pending_operations in self._pending_ops_by_run_id.values():
+        #         self._flush_pending_operations(
+        #             pending_operations=pending_operations,
+        #             synchronous=True
+        #         )
+        # else:
+        #     runs_to_futures_map = {}
+        #     for pending_operations in self._pending_ops_by_run_id.values():
+        #         future = self._thread_pool.submit(
+        #             self._flush_pending_operations,
+        #             pending_operations=pending_operations,
+        #             synchronous=False,
+        #         )
+        #         runs_to_futures_map[pending_operations.run_id] = future
+        #
+        #     return LoggingOperations(runs_to_futures_map)
 
-            return AsyncLoggingOperations(runs_to_futures_map)
+        runs_to_futures_map = {}
+        for pending_operations in self._pending_ops_by_run_id.values():
+            future = self._thread_pool.submit(
+                self._flush_pending_operations,
+                pending_operations=pending_operations,
+                synchronous=False,
+            )
+            runs_to_futures_map[pending_operations.run_id] = future
+
+        logging_ops = LoggingOperations(runs_to_futures_map)
+        if synchronous:
+            logging_ops.result()
+        return logging_ops
+
+    # def _evaluate_fn(self, synchronous, fn, *args, **kwargs):
+    #     if synchronous:
+    #         return fn(*args, **kwargs)
+    #     else:
+    #         return self._thread_pool.submit(fn, *args, **kwargs)
+
 
     def _flush_pending_operations(self, pending_operations, synchronous):
         if pending_operations.create_run:
@@ -188,6 +209,8 @@ class AutologgingBatchingClient:
         run_id = pending_operations.run_id
         assert not isinstance(run_id, PendingRunId)
 
+        logging_futures = []
+
         param_batches_to_log = chunk_list(
             pending_operations.params_queue,
             chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
@@ -196,7 +219,6 @@ class AutologgingBatchingClient:
             pending_operations.tags_queue,
             chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         )
-
         for params_batch, tags_batch in zip_longest(
             param_batches_to_log, tag_batches_to_log, fillvalue=[]
         ):
@@ -207,25 +229,37 @@ class AutologgingBatchingClient:
             metrics_batch = pending_operations.metrics_queue[:metrics_batch_size]
             pending_operations.metrics_queue = pending_operations.metrics_queue[metrics_batch_size:]
 
-            self._client.log_batch(
-                run_id=run_id,
-                metrics=metrics_batch,
-                params=params_batch,
-                tags=tags_batch,
+            logging_futures.append(
+                self._thread_pool.submit(
+                    self._client.log_batch,
+                    run_id=run_id,
+                    metrics=metrics_batch,
+                    params=params_batch,
+                    tags=tags_batch,
+                )
             )
 
         for metrics_batch in chunk_list(pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH):
-            self._client.log_batch(
-                run_id=run_id,
-                metrics=metrics_batch,
+            logging_futures.append(
+                self._thread_pool.submit(
+                    self._client.log_batch,
+                    run_id=run_id,
+                    metrics=metrics_batch,
+                )
             )
 
         if pending_operations.set_terminated:
-            self._client.set_terminated(
-                run_id=run_id,
-                status=pending_operations.set_terminated.status,
-                end_time=pending_operations.set_terminated.end_time,
+            logging_futures.append(
+                self._thread_pool.submit(
+                    self._client.set_terminated,
+                    run_id=run_id,
+                    status=pending_operations.set_terminated.status,
+                    end_time=pending_operations.set_terminated.end_time,
+                )
             )
+
+        for future in logging_futures:
+            future.result()
 
 
 __all__ = [
