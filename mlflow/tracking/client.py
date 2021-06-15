@@ -325,7 +325,7 @@ class MlflowClient(object):
 
     def list_experiments(
         self,
-        view_type: Optional[str] = None,
+        view_type: int = ViewType.ACTIVE_ONLY,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[Experiment]:

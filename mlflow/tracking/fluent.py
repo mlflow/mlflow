@@ -817,8 +817,8 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
 
 
 def list_experiments(
-    view_type: Optional[str] = None, max_results: Optional[int] = None,
-) -> PagedList[Experiment]:
+    view_type: int = ViewType.ACTIVE_ONLY, max_results: Optional[int] = None,
+) -> List[Experiment]:
     """
         :param view_type: Qualify requested type of experiments.
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
