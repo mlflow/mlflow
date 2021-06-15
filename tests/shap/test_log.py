@@ -124,6 +124,7 @@ def test_log_explanation_doesnt_create_autologged_run():
     assert not metrics
     assert not params
     assert all("mlflow." in key for key in tags)
+    assert "mlflow.autologging" not in tags
 
 
 def test_load_pyfunc(tmpdir):

@@ -605,10 +605,11 @@ def test_autologging_is_disabled_returns_expected_values():
     assert autologging_is_disabled("test_integration_for_disable_check") is False
 
 
-def test_autologging_global_disable_restores_behavior():
+def test_autologging_disable_restores_behavior():
     import pandas as pd
     from sklearn.datasets import load_boston
     from sklearn.linear_model import LinearRegression
+
     mlflow.sklearn.autolog()
 
     dataset = load_boston()
@@ -626,7 +627,7 @@ def test_autologging_global_disable_restores_behavior():
     assert run.data.params
 
     run = mlflow.start_run()
-    with mlflow.utils.autologging_utils.global_disable_autologging():
+    with mlflow.utils.autologging_utils.disable_autologging():
         model.fit(X, y)
     mlflow.end_run()
     run = MlflowClient().get_run(run.info.run_id)
