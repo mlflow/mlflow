@@ -28,7 +28,8 @@ class PendingRunId:
 
 class _PendingRunOperations:
 
-    def __init__(self):
+    def __init__(self, run_id):
+        self.run_id = run_id
         self.create_run = None
         self.set_terminated = None
         self.params_queue = []
@@ -66,11 +67,11 @@ class AutologgingBatchingClient:
     def __init__(self):
         self._client = MlflowClient()
         self._pending_ops_by_run_id = {}
-        self._thread_pool = ThreadPoolExecutor(max_workers=4)
+        self._thread_pool = ThreadPoolExecutor(max_workers=8)
 
     def _get_pending_operations(self, run_id):
         if run_id not in self._pending_ops_by_run_id:
-            self._pending_ops_by_run_id[run_id] = _PendingRunOperations()
+            self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)
         return self._pending_ops_by_run_id[run_id]
 
     def create_run(
@@ -149,40 +150,43 @@ class AutologgingBatchingClient:
                  `synchronous` is `False`.
         """
         if synchronous:
-            for run_id, pending_operations in self._pending_ops_by_run_id.items():
+            for pending_operations in self._pending_ops_by_run_id.values():
                 self._flush_pending_operations(
-                    run_id=run_id,
                     pending_operations=pending_operations,
                     synchronous=True
                 )
         else:
             runs_to_futures_map = {}
-            for run_id, pending_operations in self._pending_ops_by_run_id.items():
+            for pending_operations in self._pending_ops_by_run_id.values():
                 future = self._thread_pool.submit(
                     self._flush_pending_operations,
-                    run_id=run_id,
                     pending_operations=pending_operations,
                     synchronous=False,
                 )
-                runs_to_futures_map[run_id] = future
+                runs_to_futures_map[pending_operations.run_id] = future
 
             return AsyncLoggingOperations(runs_to_futures_map)
 
-    def _flush_pending_operations(self, run_id, pending_operations, synchronous):
+    def _flush_pending_operations(self, pending_operations, synchronous):
         if pending_operations.create_run:
             create_run_tags = pending_operations.create_run.tags
             num_additional_tags_to_include_during_creation = MAX_ENTITIES_PER_BATCH - len(create_run_tags)
             if num_additional_tags_to_include_during_creation > 0:
                 create_run_tags.extend(pending_operations.tags_queue[:num_additional_tags_to_include_during_creation])
                 pending_operations.tags_queue = pending_operations.tags_queue[num_additional_tags_to_include_during_creation:]
-
-            run_id = self._client.create_run(
+            
+            new_run = self._client.create_run(
                 experiment_id=pending_operations.create_run.experiment_id,
                 start_time=pending_operations.create_run.start_time,
-                tags=create_run_tags,
+                tags={
+                    tag.key: tag.value
+                    for tag in create_run_tags
+                },
             )
-        else:
-            assert not isinstance(run_id, PendingRunId)
+            pending_operations.run_id = new_run.info.run_id
+        
+        run_id = pending_operations.run_id
+        assert not isinstance(run_id, PendingRunId)
 
         param_batches_to_log = chunk_list(
             pending_operations.params_queue,
