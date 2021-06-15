@@ -115,9 +115,9 @@ class TrackingServiceClient(object):
             For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
 
         :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search expressions.
-            If the underlying tracking store supports pagination, the token for the next page may
-            be obtained via the ``token`` attribute of the returned object.
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object.
         """
         return self.store.list_run_infos(
             experiment_id, run_view_type, max_results, order_by, page_token
