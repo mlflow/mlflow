@@ -329,7 +329,7 @@ def apply(patch):
                 prev_patch
                 and prev_patch.destination != patch.destination
                 and issubclass(patch.destination, prev_patch.destination)
-                ):
+            ):
                 setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
