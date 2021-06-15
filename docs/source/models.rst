@@ -40,7 +40,10 @@ format. For example, :py:mod:`mlflow.sklearn` outputs models as follows:
     # Directory written by mlflow.sklearn.save_model(model, "my_model")
     my_model/
     ├── MLmodel
-    └── model.pkl
+    ├── model.pkl
+    ├── conda.yaml
+    └── requirements.txt
+    
 
 And its ``MLmodel`` file describes two flavors:
 
@@ -87,6 +90,61 @@ signature
 input_example
   reference to an artifact with :ref:`input example <input-example>`.
 
+databricks_runtime
+    Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
+
+
+
+
+Additional Logged Files
+^^^^^^^^^^^^^^^^^^^^^^^
+For environment recreation, we automatically log ``conda.yaml`` and ``requirements.txt`` files whenever a model is logged. These files can then be used to reinstall dependencies using either ``conda`` or ``pip``.
+
+conda.yaml
+    When saving a model, MLflow provides the option to pass in a conda environment parameter that can contain dependencies used by the model. If no conda environment is provided, a default environment is created based on the flavor of the model. This conda environment is then saved in ``conda.yaml``.
+requirements.txt
+    The requirements file is created from the `pip portion <https://www.anaconda.com/blog/using-pip-in-a-conda-environment>`_ of the ``conda.yaml`` environment specification. Additional pip dependencies can be added to ``requirements.txt`` by including them as a pip dependency in a conda environment and logging the model with the environment. 
+
+The following shows an example of saving a model with a manually specified conda environment and the corresponding content of the generated ``conda.yaml`` and ``requirements.txt`` files.
+
+.. code-block:: py
+
+    conda_env = {
+        'channels': ['conda-forge'],
+        'dependencies': [
+            'python=3.8.8',
+            'pip'],
+        'pip': [
+            'mlflow',
+            'scikit-learn==0.23.2',
+            'cloudpickle==1.6.0'
+        ],
+        'name': 'mlflow-env'
+    }
+    mlflow.sklearn.log_model(model, "my_model", conda_env=conda_env)
+
+The written ``conda.yaml`` file:
+
+.. code-block:: text
+
+    channels:
+      - conda-forge
+      dependencies:
+      - python=3.8.8
+      - pip
+      - pip:
+        - mlflow
+        - scikit-learn==0.23.2
+        - cloudpickle==1.6.0
+    name: mlflow-env
+
+The written ``requirements.txt`` file:
+
+.. code-block:: text
+
+    mlflow
+    scikit-learn==0.23.2
+    cloudpickle==1.6.0
 
 .. _model-metadata:
 

@@ -18,6 +18,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PROJECT_ENTRY_POINT,
 )
 from mlflow.utils.uri import construct_run_url
+from mlflow.utils.databricks_utils import get_databricks_runtime
 
 
 @pytest.fixture
@@ -30,6 +31,14 @@ def mock_store():
 def mock_registry_store():
     with mock.patch("mlflow.tracking._model_registry.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
+
+
+@pytest.fixture
+def mock_spark_session():
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_active_spark_session"
+    ) as mock_spark_session:
+        yield mock_spark_session.return_value
 
 
 @pytest.fixture
@@ -477,3 +486,33 @@ def test_create_model_version_copy_not_called_to_nondb(mock_registry_store):
 
 def _default_model_version():
     return ModelVersion("model name", 1, creation_timestamp=123, status="READY")
+
+
+def test_get_databricks_runtime_no_spark_session():
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_active_spark_session", return_value=None
+    ), mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
+        runtime = get_databricks_runtime()
+        assert runtime is None
+
+
+def test_get_databricks_runtime_nondb(mock_spark_session):
+    runtime = get_databricks_runtime()
+    assert runtime is None
+    mock_spark_session.conf.get.assert_not_called()
+
+
+def test_get_databricks_runtime_in_notebook(mock_spark_session):
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True):
+        get_databricks_runtime()
+        mock_spark_session.conf.get.assert_called_once_with(
+            "spark.databricks.clusterUsageTags.sparkVersion", default=None
+        )
+
+
+def test_get_databricks_runtime_in_job(mock_spark_session):
+    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_job", return_value=True):
+        get_databricks_runtime()
+        mock_spark_session.conf.get.assert_called_once_with(
+            "spark.databricks.clusterUsageTags.sparkVersion", default=None
+        )

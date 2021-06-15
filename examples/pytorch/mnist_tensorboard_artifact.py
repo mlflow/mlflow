@@ -19,7 +19,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
-from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 
 # Command-line arguments
@@ -143,7 +142,6 @@ def train(epoch):
     for batch_idx, (data, target) in enumerate(train_loader):
         if args.cuda:
             data, target = data.cuda(), target.cuda()
-        data, target = Variable(data), Variable(target)
         optimizer.zero_grad()
         output = model(data)
         loss = F.nll_loss(output, target)
@@ -172,7 +170,6 @@ def test(epoch):
         for data, target in test_loader:
             if args.cuda:
                 data, target = data.cuda(), target.cuda()
-            data, target = Variable(data), Variable(target)
             output = model(data)
             test_loss += F.nll_loss(
                 output, target, reduction="sum"

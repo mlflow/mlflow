@@ -25,7 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -48,6 +48,7 @@ _KERAS_SAVE_FORMAT_PATH = "save_format.txt"
 _MODEL_SAVE_PATH = "model"
 # Conda env subpath when saving/loading model
 _CONDA_ENV_SUBPATH = "conda.yaml"
+_PIP_ENV_SUBPATH = "requirements.txt"
 
 
 def get_default_conda_env(include_cloudpickle=False, keras_module=None):
@@ -75,7 +76,6 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     # see https://github.com/tensorflow/tensorflow/issues/44467
     if Version(tf.__version__) < Version("2.4"):
         pip_deps.append("h5py<3.0.0")
-
     return _mlflow_conda_env(additional_pip_deps=pip_deps)
 
 
@@ -264,6 +264,9 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, _CONDA_ENV_SUBPATH), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    # save additional pip dependencies from conda_env to path/requirements.txt
+    _log_pip_requirements(conda_env, path)
 
     # append loader_module, data and env data to mlflow_model
     pyfunc.add_to_model(

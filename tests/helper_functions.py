@@ -10,6 +10,7 @@ import socket
 import subprocess
 import uuid
 import sys
+import yaml
 
 import pandas as pd
 import pytest
@@ -314,3 +315,14 @@ def create_mock_response(status_code, text):
     response.status_code = status_code
     response.text = text
     return response
+
+
+def _compare_conda_env_requirements(env_path, req_path):
+    assert os.path.exists(req_path)
+
+    with open(env_path, "r") as f:
+        custom_env_parsed = yaml.safe_load(f)
+    with open(req_path, "r") as f:
+        requirements = f.read().split("\n")
+
+    assert custom_env_parsed["dependencies"][-1]["pip"] == requirements

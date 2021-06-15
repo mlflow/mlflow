@@ -30,7 +30,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.annotations import experimental
-from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils.environment import _mlflow_conda_env, _log_pip_requirements
 from mlflow.utils.file_utils import _copy_file_or_tree, TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -71,7 +71,7 @@ def get_default_conda_env():
         conda env {'name': 'mlflow-env',
                    'channels': ['conda-forge'],
                    'dependencies': ['python=3.7.5',
-                                    {'pip': ['pytorch==1.5.1',
+                                    {'pip': ['torch==1.5.1',
                                              'torchvision==0.6.1',
                                              'mlflow',
                                              'cloudpickle==1.6.0']}]}
@@ -81,7 +81,7 @@ def get_default_conda_env():
 
     return _mlflow_conda_env(
         additional_pip_deps=[
-            "pytorch=={}".format(torch.__version__),
+            "torch=={}".format(torch.__version__),
             "torchvision=={}".format(torchvision.__version__),
             # We include CloudPickle in the default environment because
             # it's required by the default pickle module used by `save_model()`
@@ -485,18 +485,6 @@ def save_model(
 
     torchserve_artifacts_config = {}
 
-    if requirements_file:
-        if not isinstance(requirements_file, str):
-            raise TypeError("Path to requirements file should be a string")
-
-        with TempDir() as tmp_requirements_dir:
-            _download_artifact_from_uri(
-                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
-            )
-            rel_path = os.path.basename(requirements_file)
-            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
-            shutil.move(tmp_requirements_dir.path(rel_path), path)
-
     if extra_files:
         torchserve_artifacts_config[_EXTRA_FILES_KEY] = []
         if not isinstance(extra_files, list):
@@ -521,6 +509,20 @@ def save_model(
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+    if requirements_file:
+        if not isinstance(requirements_file, str):
+            raise TypeError("Path to requirements file should be a string")
+
+        with TempDir() as tmp_requirements_dir:
+            _download_artifact_from_uri(
+                artifact_uri=requirements_file, output_path=tmp_requirements_dir.path()
+            )
+            rel_path = os.path.basename(requirements_file)
+            torchserve_artifacts_config[_REQUIREMENTS_FILE_KEY] = {"path": rel_path}
+            shutil.move(tmp_requirements_dir.path(rel_path), path)
+    else:
+        _log_pip_requirements(conda_env, path)
 
     if code_paths is not None:
         code_dir_subpath = "code"
