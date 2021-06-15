@@ -1129,7 +1129,7 @@ def list_run_infos(
            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
 
-    :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
+    :return: A list of :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the
         search expressions.
 
     .. code-block:: python
