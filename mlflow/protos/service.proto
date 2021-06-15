@@ -683,9 +683,9 @@ message ListExperiments {
   optional ViewType view_type = 1;
 
   // Maximum number of experiments desired.
-  // Servers may select a desired default value and threshold for `max_results`.
-  // All servers are guaranteed to support a `max_results` threshold of at least 1,000
-  // but may support more. Callers of this endpoint are encouraged to pass max_results
+  // Servers may select a desired default `max_results` value. All servers are
+  // guaranteed to support a `max_results` threshold of at least 1,000 but may
+  // support more. Callers of this endpoint are encouraged to pass max_results
   // explicitly and leverage page_token to iterate through experiments.
   optional int64 max_results = 2;
 
