@@ -172,9 +172,10 @@ class AutologgingBatchingClient:
             future = self._thread_pool.submit(
                 self._flush_pending_operations,
                 pending_operations=pending_operations,
-                synchronous=False,
             )
             runs_to_futures_map[pending_operations.run_id] = future
+
+        self._pending_ops_by_run_id = {}
 
         logging_ops = LoggingOperations(runs_to_futures_map)
         if synchronous:
@@ -188,7 +189,7 @@ class AutologgingBatchingClient:
     #         return self._thread_pool.submit(fn, *args, **kwargs)
 
 
-    def _flush_pending_operations(self, pending_operations, synchronous):
+    def _flush_pending_operations(self, pending_operations):
         if pending_operations.create_run:
             create_run_tags = pending_operations.create_run.tags
             num_additional_tags_to_include_during_creation = MAX_ENTITIES_PER_BATCH - len(create_run_tags)
