@@ -337,7 +337,9 @@ class MlflowClient(object):
                             to return.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
-        :return: PagedList of :py:class:`mlflow.entities.Experiment`
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
 
         .. code-block:: python
             :caption: Example

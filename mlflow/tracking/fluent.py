@@ -825,7 +825,7 @@ def list_experiments(
                             passed, all experiments will be returned.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
-        :return: A list of :py:class:`mlflow.entities.Experiment`
+        :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
         """
 
     def pagination_wrapper_func(number_to_get, next_page_token):

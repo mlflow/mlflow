@@ -64,7 +64,9 @@ class RestStore(AbstractStore):
                             passed, the server will pick a maximum number of results to return.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
-        :return: a PagedList of all known Experiment objects
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
         req_body = message_to_json(
             ListExperiments(view_type=view_type, max_results=max_results, page_token=page_token)

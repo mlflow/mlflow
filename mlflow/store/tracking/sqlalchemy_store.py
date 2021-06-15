@@ -300,7 +300,9 @@ class SqlAlchemyStore(AbstractStore):
                             passed, all experiments will be returned.
         :param page_token: Token specifying the next page of results. It should be obtained from
                             a ``list_experiments`` call.
-        :return: PagedList of :py:class:`mlflow.entities.Experiment`
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
         _validate_list_experiments_max_results(max_results)
         return self._list_experiments(

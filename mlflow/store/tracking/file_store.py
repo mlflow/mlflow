@@ -233,8 +233,10 @@ class FileStore(AbstractStore):
         :param max_results: If passed, specifies the maximum number of experiments desired. If not
                             passed, all experiments will be returned.
         :param page_token: Token specifying the next page of results. It should be obtained from
-                            a ``list_experiments`` call.
-        :return: PagedList of :py:class:`mlflow.entities.Experiment`
+                           a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
         """
         from mlflow.utils.search_utils import SearchUtils
         from mlflow.store.entities.paged_list import PagedList
