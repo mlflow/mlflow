@@ -123,9 +123,9 @@ xgboost:
     pip_release: "xgboost"
     install_dev: |
       temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/dmlc/xgboost $temp_dir
+      git clone --recursive https://github.com/dmlc/xgboost.git $temp_dir
+      git --git-dir=$temp_dir/.git rev-parse HEAD
       cd $temp_dir/python-package
-      git log -1
       python setup.py install
 
   models:
@@ -148,8 +148,8 @@ lightgbm:
     install_dev: |
       temp_dir=$(mktemp -d)
       git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
+      git --git-dir=$temp_dir/.git rev-parse HEAD
       cd $temp_dir/python-package
-      git log -1
       python setup.py install
 
   models:
@@ -176,9 +176,9 @@ catboost:
       else
         # Build wheel from source
         temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/catboost/catboost $temp_dir
+        git clone --depth 1 https://github.com/catboost/catboost.git $temp_dir
+        git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir/catboost/python-package
-        git log -1
         python setup.py bdist_wheel
 
         # Copy wheel in cache directory
@@ -245,8 +245,8 @@ onnx:
       sudo apt-get install protobuf-compiler libprotoc-dev
       temp_dir=$(mktemp -d)
       git clone https://github.com/onnx/onnx.git $temp_dir
+      git --git-dir=$temp_dir/.git rev-parse HEAD
       cd $temp_dir
-      git log -1
       git submodule update --init --recursive
       python setup.py install
 
@@ -300,9 +300,9 @@ spark:
       else
         # Build wheel from source
         temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/apache/spark $temp_dir
+        git clone --depth 1 https://github.com/apache/spark.git $temp_dir
+        git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir
-        git log -1
         export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
         cd python
