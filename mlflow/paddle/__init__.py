@@ -240,12 +240,10 @@ def load_model(model_uri, model=None, **kwargs):
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
 
-    :param model: Required when loading a `paddle.Model` model. Must be an instance of
-                  `paddle.Model`.
-                  NOTE: The instance of `paddle.Model` must be set `training=True` when
-                  saved.
-    :param kwargs: The keyword arguments passed to the PaddlePaddle model save method
-                   (i.e., `paddle.jit.save()```, ```model.save()```)
+    :param model: Required when loading a `paddle.Model` model.
+                  Must be an instance of `paddle.Model`.
+    :param kwargs: The keyword arguments to pass to `paddle.jit.load`
+                   or `model.load`.
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -270,7 +268,9 @@ def load_model(model_uri, model=None, **kwargs):
     if not model:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)
     elif not isinstance(model, paddle.Model):
-        raise TypeError("Argument 'model' should be a paddle.Model, if it is not None")
+        raise TypeError(
+            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(type(model))
+        )
     else:
         support_retrain = _check_if_model_supports_retrain(local_model_path)
         if not support_retrain:
