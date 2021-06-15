@@ -2,7 +2,8 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      head_sha=$(git ls-remote https://github.com/scikit-learn/scikit-learn.git HEAD | cut -f1)
+      pip install "git+https://github.com/scikit-learn/scikit-learn.git@$head_sha"
 
   models:
     minimum: "0.20.3"
@@ -34,8 +35,8 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      # This installs pytorch-lightning from the default branch
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+      head_sha=$(git ls-remote https://github.com/PytorchLightning/pytorch-lightning.git HEAD | cut -f1)
+      pip install "git+https://github.com/PytorchLightning/pytorch-lightning.git@$head_sha"
 
   autologging:
     minimum: "1.0.5"
@@ -259,7 +260,8 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install git+https://github.com/explosion/spaCy
+      head_sha=$(git ls-remote https://github.com/explosion/spaCy.git HEAD | cut -f1)
+      pip install "git+https://github.com/explosion/spaCy.git@$head_sha"
 
   models:
     minimum: "2.2.4"
@@ -272,7 +274,8 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels
+      head_sha=$(git ls-remote https://github.com/statsmodels/statsmodels.git HEAD | cut -f1)
+      pip install "git+https://github.com/statsmodels/statsmodels.git@$head_sha"
 
   models:
     minimum: "0.11.1"
