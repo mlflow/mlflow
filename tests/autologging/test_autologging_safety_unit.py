@@ -386,7 +386,7 @@ def test_autolog_respects_disable_flag(patch_destination):
     ) as patched_fn_logger:
         patch_destination.fn()
         assert patch_impl_call_count == 1
-        assert hasattr(patch_destination, "_gorilla_active_patch")
+        assert hasattr(patch_destination, "_gorilla_active_patch_fn")
         assert hasattr(patch_destination, "_gorilla_original_fn")
         assert patched_fn_logger.call_count == 1
 
@@ -636,7 +636,9 @@ def test_safe_patch_provides_original_function_with_expected_signature(
 
 
 def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invocation(
-    patch_destination, test_autologging_integration, mock_event_logger,
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
 ):
     patch_session = None
     og_call_kwargs = {}
@@ -669,7 +671,9 @@ def test_safe_patch_makes_expected_event_logging_calls_for_successful_patch_invo
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation_throws(
-    patch_destination, test_autologging_integration, mock_event_logger,
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
 ):
     patch_session = None
     exc_to_raise = Exception("thrown from patch")
@@ -714,7 +718,9 @@ def test_safe_patch_makes_expected_event_logging_calls_when_patch_implementation
 
 
 def test_safe_patch_makes_expected_event_logging_calls_when_original_function_throws(
-    patch_destination, test_autologging_integration, mock_event_logger,
+    patch_destination,
+    test_autologging_integration,
+    mock_event_logger,
 ):
     exc_to_raise = Exception("thrown from patch")
 
@@ -739,7 +745,8 @@ def test_safe_patch_makes_expected_event_logging_calls_when_original_function_th
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_safe_patch_succeeds_when_event_logging_throws_in_standard_mode(
-    patch_destination, test_autologging_integration,
+    patch_destination,
+    test_autologging_integration,
 ):
     patch_preamble_called = False
     patch_postamble_called = False
