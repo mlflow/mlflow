@@ -28,7 +28,9 @@ import torchtext.datasets as td
 def get_20newsgroups(num_samples):
     categories = ["alt.atheism", "talk.religion.misc", "comp.graphics", "sci.space"]
     X, y = fetch_20newsgroups(subset="train", categories=categories, return_X_y=True)
-    return pd.DataFrame(data=X, columns=["description"]).assign(label=y).sample(n=num_samples)
+    return pd.DataFrame(
+        data=X, columns=["description"]).assign(label=y).sample(n=num_samples, replace=True
+        )
 
 
 def process_label(rating):
