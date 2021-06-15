@@ -181,7 +181,8 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
           with the `FAILED` if an unhandled exception is thrown during function execution
 
     Note that, if nested runs or non-fluent runs are created by `patch_function`, `patch_function`
-    is responsible for terminating them by the time it terminates (or in the event of an exception).
+    is responsible for terminating them by the time it terminates
+    (or in the event of an exception).
 
     :param autologging_integration: The autologging integration associated
                                     with the `patch_function`.
@@ -336,10 +337,10 @@ def safe_patch(
         # during model serialization by ML frameworks such as scikit-learn
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         with set_mlflow_events_and_warnings_behavior_globally(
-            # MLflow warnings emitted during autologging training sessions are likely not actionable
-            # and result from the autologging implementation invoking another MLflow API.
-            # Accordingly, we reroute these warnings to the MLflow event logger with level WARNING
-            # For reference, see recommended warning and event logging behaviors from
+            # MLflow warnings emitted during autologging training sessions are likely not
+            # actionable and result from the autologging implementation invoking another MLflow
+            # API. Accordingly, we reroute these warnings to the MLflow event logger with level
+            # WARNING For reference, see recommended warning and event logging behaviors from
             # https://docs.python.org/3/howto/logging.html#when-to-use-logging
             reroute_warnings=True,
             disable_event_logs=is_silent_mode,
@@ -348,9 +349,9 @@ def safe_patch(
             # non-MLflow Warnings emitted during the autologging preamble (before the original /
             # underlying ML function is called) and postamble (after the original / underlying ML
             # function is called) are likely not actionable and result from the autologging
-            # implementation invoking an API from a dependent library. Accordingly, we reroute these
-            # warnings to the MLflow event logger with level WARNING. For reference, see recommended
-            # warning and event logging behaviors from
+            # implementation invoking an API from a dependent library. Accordingly, we reroute
+            # these warnings to the MLflow event logger with level WARNING. For reference, see
+            # recommended warning and event logging behaviors from
             # https://docs.python.org/3/howto/logging.html#when-to-use-logging
             reroute_warnings=True,
             disable_warnings=is_silent_mode,
@@ -440,8 +441,8 @@ def safe_patch(
                             original_has_been_called = True
 
                             nonlocal original_result
-                            # Show all non-MLflow warnings as normal (i.e. not as event logs) during
-                            # original function execution, even if silent mode is enabled
+                            # Show all non-MLflow warnings as normal (i.e. not as event logs)
+                            # during original function execution, even if silent mode is enabled
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
                             with set_non_mlflow_warnings_behavior_for_current_thread(

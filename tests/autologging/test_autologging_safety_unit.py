@@ -95,7 +95,14 @@ class MockEventLogger(AutologgingEventLogger):
             )
         )
 
-    def log_patch_function_success(self, session, patch_obj, function_name, call_args, call_kwargs):
+    def log_patch_function_success(
+        self,
+        session,
+        patch_obj,
+        function_name,
+        call_args,
+        call_kwargs
+    ):
         self.calls.append(
             MockEventLogger.LoggerCall(
                 "patch_success", session, patch_obj, function_name, call_args, call_kwargs, None
@@ -1232,7 +1239,12 @@ def test_validate_args_succeeds_when_extra_args_are_exception_safe_functions_or_
     autologging_call_kwargs["foo"].append(exception_safe_function(lambda: "foo"))
     autologging_call_kwargs["new"] = Safe()
 
-    _validate_args(user_call_args, user_call_kwargs, autologging_call_args, autologging_call_kwargs)
+    _validate_args(
+        user_call_args,
+        user_call_kwargs,
+        autologging_call_args,
+        autologging_call_kwargs
+    )
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
@@ -1366,7 +1378,9 @@ def test_validate_autologging_run_validates_run_status_correctly():
 
     MlflowClient().set_terminated(run_id_failed, status=RunStatus.to_string(RunStatus.FAILED))
     assert (
-        RunStatus.from_string(MlflowClient().get_run(run_id_failed).info.status) == RunStatus.FAILED
+        RunStatus.from_string(
+            MlflowClient().get_run(run_id_failed).info.status
+        ) == RunStatus.FAILED
     )
     _validate_autologging_run("test_integration", run_id_finished)
 
@@ -1519,7 +1533,9 @@ def test_patch_runs_if_patch_should_be_applied():
     assert patch_impl_call_count == 3
 
 
-def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed(patch_destination):
+def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed(
+    patch_destination
+):
     patch_impl_call_count = 0
 
     @autologging_integration(
