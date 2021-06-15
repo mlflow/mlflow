@@ -34789,7 +34789,10 @@ public final class Service {
 
     /**
      * <pre>
-     * Maximum number of runs desired. Max threshold is 50000
+     * Maximum number of runs desired. If unspecified, defaults to 1000.
+     * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+     * but may support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -34797,7 +34800,10 @@ public final class Service {
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of runs desired. Max threshold is 50000
+     * Maximum number of runs desired. If unspecified, defaults to 1000.
+     * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+     * but may support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -36210,7 +36216,10 @@ public final class Service {
     private int maxResults_;
     /**
      * <pre>
-     * Maximum number of runs desired. Max threshold is 50000
+     * Maximum number of runs desired. If unspecified, defaults to 1000.
+     * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+     * but may support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -36220,7 +36229,10 @@ public final class Service {
     }
     /**
      * <pre>
-     * Maximum number of runs desired. Max threshold is 50000
+     * Maximum number of runs desired. If unspecified, defaults to 1000.
+     * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+     * but may support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -37116,7 +37128,10 @@ public final class Service {
       private int maxResults_ = 1000;
       /**
        * <pre>
-       * Maximum number of runs desired. Max threshold is 50000
+       * Maximum number of runs desired. If unspecified, defaults to 1000.
+       * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+       * but may support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -37126,7 +37141,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of runs desired. Max threshold is 50000
+       * Maximum number of runs desired. If unspecified, defaults to 1000.
+       * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+       * but may support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -37136,7 +37154,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of runs desired. Max threshold is 50000
+       * Maximum number of runs desired. If unspecified, defaults to 1000.
+       * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+       * but may support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int32 max_results = 5 [default = 1000];</code>
@@ -37149,7 +37170,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Maximum number of runs desired. Max threshold is 50000
+       * Maximum number of runs desired. If unspecified, defaults to 1000.
+       * All servers are guaranteed to support a `max_results` threshold of at least 50,000
+       * but may support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int32 max_results = 5 [default = 1000];</code>
