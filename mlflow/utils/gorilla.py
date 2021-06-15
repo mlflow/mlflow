@@ -60,7 +60,8 @@ _PATTERN = "_gorilla_%s"
 # Pattern for the name of the overidden attributes to be stored.
 _ORIGINAL_NAME = _PATTERN % ("original_%s",)
 
-_ACTIVE_PATCH = "_gorilla_active_patch"
+# Pattern for the name of the patch attributes to be stored.
+_ACTIVE_PATCH = "_gorilla_active_patch_%s"
 
 # Attribute for the decorator data.
 _DECORATOR_DATA = _PATTERN % ("decorator_data",)
@@ -311,6 +312,7 @@ def apply(patch):
 
         if settings.store_hit:
             original_name = _ORIGINAL_NAME % (patch.name,)
+            curr_active_patch = _ACTIVE_PATCH % (patch.name,)
             # For certain MLflow Models use cases, such as scikit-learn autologging, we patch
             # a method on a parent class
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`) and
@@ -321,21 +323,17 @@ def apply(patch):
             # overriden method (e.g., `feature_extraction.text.TfidfVectorizer.fit_transform()`),
             # rather than the parent method
             # (e.g., `sklearn.feature_extraction.text.CountVectorizer.fit_transform()`)
-            prev_patch = getattr(patch.destination, _ACTIVE_PATCH, None)
+            prev_patch = getattr(patch.destination, curr_active_patch, None)
+
             if not hasattr(patch.destination, original_name) or (
                 prev_patch
-                and (
-                    prev_patch.name != patch.name
-                    or (
-                        prev_patch.destination != patch.destination
-                        and issubclass(patch.destination, prev_patch.destination)
-                    )
-                )
-            ):
+                and prev_patch.destination != patch.destination
+                and issubclass(patch.destination, prev_patch.destination)
+                ):
                 setattr(patch.destination, original_name, target)
 
     setattr(patch.destination, patch.name, patch.obj)
-    setattr(patch.destination, _ACTIVE_PATCH, patch)
+    setattr(patch.destination, curr_active_patch, patch)
 
 
 def revert(patch):
@@ -349,7 +347,8 @@ def revert(patch):
     This is only possible if the attribute :attr:`Settings.store_hit` was set
     to ``True`` when applying the patch and overriding an existing attribute.
     """
-    if getattr(patch.destination, _ACTIVE_PATCH, None) != patch:
+    curr_active_patch = _ACTIVE_PATCH % (patch.name,)
+    if not hasattr(patch.destination, curr_active_patch):
         return
 
     try:
@@ -369,8 +368,8 @@ def revert(patch):
 
     if original_name in patch.destination.__dict__:
         delattr(patch.destination, original_name)
-    if _ACTIVE_PATCH in patch.destination.__dict__:
-        delattr(patch.destination, _ACTIVE_PATCH)
+    if curr_active_patch in patch.destination.__dict__:
+        delattr(patch.destination, curr_active_patch)
 
 
 def patch(destination, name=None, settings=None):
