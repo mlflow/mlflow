@@ -288,6 +288,7 @@ def load_model(model_uri, model=None, **kwargs):
 def log_model(
     pd_model,
     artifact_path,
+    training=False,
     conda_env=None,
     registered_model_name=None,
     signature: ModelSignature = None,
@@ -379,6 +380,7 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        training=training,
     )
 
 
