@@ -347,6 +347,8 @@ def revert(patch):
     This is only possible if the attribute :attr:`Settings.store_hit` was set
     to ``True`` when applying the patch and overriding an existing attribute.
     """
+    # If an curr_active_patch has not been set on destination class for the current patch,
+    # then there is no reverting to do.
     curr_active_patch = _ACTIVE_PATCH % (patch.name,)
     if not hasattr(patch.destination, curr_active_patch):
         return
@@ -366,8 +368,13 @@ def revert(patch):
 
     setattr(patch.destination, patch.name, original)
 
+    # We are only deleting the attribute if it is defined on the
+    # destination class as opposed to being inherited from parent class.
     if original_name in patch.destination.__dict__:
         delattr(patch.destination, original_name)
+    # If an curr_active_patch has been set on the destination class,
+    # then remove that attribute as well to properly clean up patched code.
+    # This is undoing the custom changes to gorilla.py's code in the `apply()`.
     if curr_active_patch in patch.destination.__dict__:
         delattr(patch.destination, curr_active_patch)
 
