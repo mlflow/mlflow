@@ -940,7 +940,10 @@ message SearchRuns {
   // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
-  // Maximum number of runs desired. Max threshold is 50000
+  // Maximum number of runs desired. If unspecified, defaults to 1000.
+  // Servers may select a desired maximum threshold for `max_results`.
+  // Callers of this endpoint are encouraged to pass max_results explicitly and
+  // leverage page_token to iterate through experiments.
   optional int32 max_results = 5 [default = 1000];
 
   // List of columns to be ordered by, including attributes, params, metrics, and tags with an
