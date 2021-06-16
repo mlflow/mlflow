@@ -719,17 +719,17 @@ def autolog(
         referred to be `func_name` on the instance of `clazz` referred to by `self` & records
         MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
         """
-        client = MlflowAutologgingQueueingClient()
-        _log_pretraining_metadata(client, self, *args, **kwargs)
-        params_logging_future = client.flush(synchronous=False)
+        autologging_client = MlflowAutologgingQueueingClient()
+        _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
+        params_logging_future = autologging_client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
-        _log_posttraining_metadata(client, self, *args, **kwargs)
-        client.flush(synchronous=True)
+        _log_posttraining_metadata(autologging_client, self, *args, **kwargs)
+        autologging_client.flush(synchronous=True)
         params_logging_future.await_completion()
         return fit_output
 
     def _log_pretraining_metadata(
-        client, estimator, *args, **kwargs
+        autologging_client, estimator, *args, **kwargs
     ):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
@@ -737,6 +737,8 @@ def autolog(
         (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
         MLflow run that can be referenced via the fluent Tracking API.
 
+        :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                                   efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
         :param args: The arguments passed to the scikit-learn training routine (e.g.,
                      `fit()`, `fit_transform()`, ...).
@@ -750,21 +752,23 @@ def autolog(
         # for these seed estimators.
         should_log_params_deeply = not _is_parameter_search_estimator(estimator)
         run_id = mlflow.active_run().info.run_id
-        client.log_params(
+        autologging_client.log_params(
             run_id=mlflow.active_run().info.run_id,
             params=estimator.get_params(deep=should_log_params_deeply),
         )
-        client.set_tags(
+        autologging_client.set_tags(
             run_id=run_id, tags=_get_estimator_info_tags(estimator),
         )
 
-    def _log_posttraining_metadata(client, estimator, *args, **kwargs):
+    def _log_posttraining_metadata(autologging_client, estimator, *args, **kwargs):
         """
         Records metadata for a scikit-learn estimator after training has completed.
         This is intended to be invoked within a patched scikit-learn training routine
         (e.g., `fit()`, `fit_transform()`, ...) and assumes the existence of an active
         MLflow run that can be referenced via the fluent Tracking API.
 
+        :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                                   efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
         :param args: The arguments passed to the scikit-learn training routine (e.g.,
                      `fit()`, `fit_transform()`, ...).
@@ -784,7 +788,7 @@ def autolog(
 
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
-            client=client,
+            autologging_client=autologging_client,
             estimator=estimator,
             prefix=_TRAINING_PREFIX,
             run_id=mlflow.active_run().info.run_id,
@@ -834,7 +838,7 @@ def autolog(
                 )
 
             if hasattr(estimator, "best_score_"):
-                client.log_metrics(
+                autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics={"best_cv_score": estimator.best_score_},
                 )
@@ -844,7 +848,7 @@ def autolog(
                     "best_{param_name}".format(param_name=param_name): param_value
                     for param_name, param_value in estimator.best_params_.items()
                 }
-                client.log_params(
+                autologging_client.log_params(
                     run_id=mlflow.active_run().info.run_id, params=best_params,
                 )
 
@@ -855,7 +859,7 @@ def autolog(
                     child_tags = context_registry.resolve_tags()
                     child_tags.update({MLFLOW_AUTOLOGGING: FLAVOR_NAME})
                     _create_child_runs_for_parameter_search(
-                        client=client,
+                        autologging_client=autologging_client,
                         cv_estimator=estimator,
                         parent_run=mlflow.active_run(),
                         max_tuning_runs=max_tuning_runs,
@@ -1023,9 +1027,9 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     active_run = mlflow.active_run()
     run = active_run if active_run is not None else mlflow.start_run()
 
-    client = MlflowAutologgingQueueingClient()
+    autologging_client = MlflowAutologgingQueueingClient()
     metrics = _log_estimator_content(
-        client=client,
+        autologging_client=autologging_client,
         estimator=model,
         run_id=run.info.run_id,
         prefix=prefix,
@@ -1033,6 +1037,6 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
         y_true=y_true,
         sample_weight=sample_weight,
     )
-    client.flush()
+    autologging_client.flush()
 
     return metrics

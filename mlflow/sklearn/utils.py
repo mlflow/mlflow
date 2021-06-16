@@ -412,7 +412,7 @@ def _log_warning_for_artifacts(func_name, func_call, err):
 
 
 def _log_specialized_estimator_content(
-    client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
+    autologging_client, fitted_estimator, run_id, prefix, X, y_true=None, sample_weight=None
 ):
     import sklearn
 
@@ -435,7 +435,7 @@ def _log_specialized_estimator_content(
             )
             _logger.warning(msg)
         else:
-            client.log_metrics(run_id=run_id, metrics=metrics)
+            autologging_client.log_metrics(run_id=run_id, metrics=metrics)
 
     if sklearn.base.is_classifier(fitted_estimator):
         try:
@@ -471,12 +471,16 @@ def _log_specialized_estimator_content(
     return metrics
 
 
-def _log_estimator_content(client, estimator, run_id, prefix, X, y_true=None, sample_weight=None):
+def _log_estimator_content(
+    autologging_client, estimator, run_id, prefix, X, y_true=None, sample_weight=None
+):
     """
     Logs content for the given estimator, which includes metrics and artifacts that might be
     tailored to the estimator's type (e.g., regression vs classification). Training labels
     are required for metric computation; metrics will be omitted if labels are not available.
 
+    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                               efficiently logging run data to MLflow Tracking.
     :param estimator: The estimator used to compute metrics and artifacts.
     :param run_id: The run under which the content is logged.
     :param prefix: A prefix used to name the logged content. Typically it's 'training_' for
@@ -487,7 +491,7 @@ def _log_estimator_content(client, estimator, run_id, prefix, X, y_true=None, sa
     :return: A dict of the computed metrics.
     """
     metrics = _log_specialized_estimator_content(
-        client=client,
+        autologging_client=autologging_client,
         fitted_estimator=estimator,
         run_id=run_id,
         prefix=prefix,
@@ -513,7 +517,7 @@ def _log_estimator_content(client, estimator, run_id, prefix, X, y_true=None, sa
             _logger.warning(msg)
         else:
             score_key = prefix + "score"
-            client.log_metrics(run_id=run_id, metrics={score_key: score})
+            autologging_client.log_metrics(run_id=run_id, metrics={score_key: score})
             metrics[score_key] = score
 
     return metrics
@@ -596,7 +600,7 @@ def _log_child_runs_info(max_tuning_runs, total_runs):
 
 
 def _create_child_runs_for_parameter_search(
-    client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
+    autologging_client, cv_estimator, parent_run, max_tuning_runs, child_tags=None
 ):
     """
     Creates a collection of child runs for a parameter search training session.
@@ -606,6 +610,8 @@ def _create_child_runs_for_parameter_search(
     for each point in the parameter search space. For additional information, see
     `https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html`_. # noqa: E501
 
+    :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
+                               efficiently logging run data to MLflow Tracking.
     :param cv_estimator: The trained parameter search estimator for which to create
                          child runs.
     :param parent_run: A py:class:`mlflow.entities.Run` object referring to the parent
@@ -661,7 +667,7 @@ def _create_child_runs_for_parameter_search(
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
         tags_to_log.update(_get_estimator_info_tags(seed_estimator))
-        pending_child_run_id = client.create_run(
+        pending_child_run_id = autologging_client.create_run(
             experiment_id=parent_run.info.experiment_id,
             start_time=child_run_start_time,
             tags=tags_to_log,
@@ -671,7 +677,7 @@ def _create_child_runs_for_parameter_search(
 
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
-        client.log_params(run_id=pending_child_run_id, params=params_to_log)
+        autologging_client.log_params(run_id=pending_child_run_id, params=params_to_log)
 
         # Parameters values are recorded twice in the set of search `cv_results_`:
         # once within a `params` column with dictionary values and once within
@@ -688,11 +694,11 @@ def _create_child_runs_for_parameter_search(
             if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
             and isinstance(value, Number)
         }
-        client.log_metrics(
+        autologging_client.log_metrics(
             run_id=pending_child_run_id, metrics=metrics_to_log,
         )
 
-        client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
+        autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
 
 
 def _is_supported_version():
