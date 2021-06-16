@@ -819,10 +819,7 @@ def autolog(
             )
 
             log_model(
-                estimator,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
+                estimator, artifact_path="model", signature=signature, input_example=input_example,
             )
 
         if _is_parameter_search_estimator(estimator):
