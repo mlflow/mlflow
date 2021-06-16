@@ -9,8 +9,6 @@ from collections import namedtuple
 from unittest import mock
 
 import mlflow
-import mlflow.sklearn
-from sklearn.cluster import KMeans
 import mlflow.utils.autologging_utils as autologging_utils
 from mlflow.entities import RunStatus
 from mlflow.tracking.client import MlflowClient
@@ -1487,35 +1485,6 @@ def test_patch_runs_if_patch_should_be_applied():
     autolog(exclusive=True)
     patch_obj.new_fn()
     assert patch_impl_call_count == 3
-
-
-@pytest.mark.parametrize("integration", [mlflow, mlflow.sklearn])
-def test_autolog_reverts_patched_code_when_disabled(integration):
-    # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
-    model = KMeans()
-    original_fit = model.fit
-    original_fit_transform = model.fit_transform
-    original_fit_predict = model.fit_predict
-
-    integration.autolog(disable=False)
-    patched_fit = model.fit
-    patched_fit_transform = model.fit_transform
-    patched_fit_predict = model.fit_predict
-    assert patched_fit != original_fit
-    assert patched_fit_transform != original_fit_transform
-    assert patched_fit_predict != original_fit_predict
-
-    integration.autolog(disable=True)
-    reverted_fit = model.fit
-    reverted_fit_transform = model.fit_transform
-    reverted_fit_predict = model.fit_predict
-
-    assert reverted_fit == original_fit
-    assert reverted_fit_transform == original_fit_transform
-    assert reverted_fit_predict == original_fit_predict
-    assert reverted_fit != patched_fit
-    assert reverted_fit_transform != patched_fit_transform
-    assert reverted_fit_predict != patched_fit_predict
 
 
 def test_nested_call_autologging_disabled_when_top_level_call_autologging_failed(patch_destination):

@@ -150,6 +150,39 @@ def test_autolog_respects_disable_flag(setup_keras_model):
     assert params
 
 
+def test_autolog_reverts_patched_code_when_disabled():
+    # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
+    from sklearn.cluster import KMeans
+
+    # Before any patching.
+    model = KMeans()
+    original_fit = model.fit
+    original_fit_transform = model.fit_transform
+    original_fit_predict = model.fit_predict
+
+    # After patching.
+    mlflow.sklearn.autolog(disable=False)
+    patched_fit = model.fit
+    patched_fit_transform = model.fit_transform
+    patched_fit_predict = model.fit_predict
+    assert patched_fit != original_fit
+    assert patched_fit_transform != original_fit_transform
+    assert patched_fit_predict != original_fit_predict
+
+    # After revert of patching.
+    mlflow.sklearn.autolog(disable=True)
+    reverted_fit = model.fit
+    reverted_fit_transform = model.fit_transform
+    reverted_fit_predict = model.fit_predict
+
+    assert reverted_fit == original_fit
+    assert reverted_fit_transform == original_fit_transform
+    assert reverted_fit_predict == original_fit_predict
+    assert reverted_fit != patched_fit
+    assert reverted_fit_transform != patched_fit_transform
+    assert reverted_fit_predict != patched_fit_predict
+
+
 def test_autolog_respects_disable_flag_across_import_orders():
     def test():
         from sklearn import svm, datasets
