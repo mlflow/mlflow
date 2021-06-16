@@ -245,7 +245,7 @@ class MlflowAutologgingQueueingClient:
             )
             metrics_batch = pending_operations.metrics_queue[:metrics_batch_size]
             pending_operations.metrics_queue = pending_operations.metrics_queue[metrics_batch_size:]
-            
+
             operation_results.append(
                 self._try_operation(
                     self._client.log_batch,
@@ -260,11 +260,7 @@ class MlflowAutologgingQueueingClient:
             pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
         ):
             operation_results.append(
-                self._try_operation(
-                    self._client.log_batch,
-                    run_id=run_id,
-                    metrics=metrics_batch,
-                )
+                self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch,)
             )
 
         if pending_operations.set_terminated:
