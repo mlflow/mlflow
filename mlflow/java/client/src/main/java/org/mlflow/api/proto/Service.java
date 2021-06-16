@@ -12494,9 +12494,10 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of experiments desired.
-     * Servers may select a desired default value and threshold for `max_results`.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and
-     * leverage page_token to iterate through experiments.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2;</code>
@@ -12505,9 +12506,10 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of experiments desired.
-     * Servers may select a desired default value and threshold for `max_results`.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and
-     * leverage page_token to iterate through experiments.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2;</code>
@@ -13780,9 +13782,10 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of experiments desired.
-     * Servers may select a desired default value and threshold for `max_results`.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and
-     * leverage page_token to iterate through experiments.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2;</code>
@@ -13793,9 +13796,10 @@ public final class Service {
     /**
      * <pre>
      * Maximum number of experiments desired.
-     * Servers may select a desired default value and threshold for `max_results`.
-     * Callers of this endpoint are encouraged to pass max_results explicitly and
-     * leverage page_token to iterate through experiments.
+     * Servers may select a desired default `max_results` value. All servers are
+     * guaranteed to support a `max_results` threshold of at least 1,000 but may
+     * support more. Callers of this endpoint are encouraged to pass max_results
+     * explicitly and leverage page_token to iterate through experiments.
      * </pre>
      *
      * <code>optional int64 max_results = 2;</code>
@@ -14285,9 +14289,10 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of experiments desired.
-       * Servers may select a desired default value and threshold for `max_results`.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and
-       * leverage page_token to iterate through experiments.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2;</code>
@@ -14298,9 +14303,10 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of experiments desired.
-       * Servers may select a desired default value and threshold for `max_results`.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and
-       * leverage page_token to iterate through experiments.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2;</code>
@@ -14311,9 +14317,10 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of experiments desired.
-       * Servers may select a desired default value and threshold for `max_results`.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and
-       * leverage page_token to iterate through experiments.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2;</code>
@@ -14327,9 +14334,10 @@ public final class Service {
       /**
        * <pre>
        * Maximum number of experiments desired.
-       * Servers may select a desired default value and threshold for `max_results`.
-       * Callers of this endpoint are encouraged to pass max_results explicitly and
-       * leverage page_token to iterate through experiments.
+       * Servers may select a desired default `max_results` value. All servers are
+       * guaranteed to support a `max_results` threshold of at least 1,000 but may
+       * support more. Callers of this endpoint are encouraged to pass max_results
+       * explicitly and leverage page_token to iterate through experiments.
        * </pre>
        *
        * <code>optional int64 max_results = 2;</code>
