@@ -63,9 +63,9 @@ def save_model(
 
     :param pd_model: paddle model to be saved.
     :param path: Local path where the model is to be saved.
-    :param training: This only works when model is trained using PaddlePaddle high level api.
-                     When flag `training` is set True, the model supports both re-training and
-                     inference. If set False, the model saved only supports inference.
+    :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
+                     If set to True, the saved model supports both re-training and
+                     inference. If set to False, it only supports inference.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -306,6 +306,9 @@ def log_model(
 
     :param pd_model: paddle model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
+                     If set to True, the saved model supports both re-training and
+                     inference. If set to False, it only supports inference.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
