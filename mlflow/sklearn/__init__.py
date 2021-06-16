@@ -1023,8 +1023,9 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     active_run = mlflow.active_run()
     run = active_run if active_run is not None else mlflow.start_run()
 
+    client = MlflowAutologgingQueueingClient()
     metrics = _log_estimator_content(
-        client=MlflowAutologgingQueueingClient(),
+        client=client,
         estimator=model,
         run_id=run.info.run_id,
         prefix=prefix,
@@ -1032,5 +1033,6 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
         y_true=y_true,
         sample_weight=sample_weight,
     )
+    client.flush()
 
     return metrics
