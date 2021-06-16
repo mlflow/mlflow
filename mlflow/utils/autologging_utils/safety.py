@@ -558,12 +558,6 @@ def revert_patches(autologging_integration):
                                     (`autologging_integration="mlfow"`), then revert all patches
                                     for all active autologging integrations.
     """
-    if autologging_integration == "mlflow":
-        active_integrations = list(_AUTOLOGGING_PATCHES.keys())
-        for active_integration in active_integrations:
-            revert_patches(active_integration)
-        return
-
     for patch in _AUTOLOGGING_PATCHES.get(autologging_integration, []):
         gorilla.revert(patch)
 
