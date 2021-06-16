@@ -25,8 +25,8 @@ _PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time
 
 class PendingRunId:
     """
-    Serves as a placeholder for the ID of a run that does not yet exist. For example,
-    when a run is created 
+    Serves as a placeholder for the ID of a run that does not yet exist, enabling additional
+    metadata (e.g. metrics, params, ...) to be enqueued for the run prior to its creation.
     """
 
 
