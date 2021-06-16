@@ -7,6 +7,7 @@ import json
 import logging
 import pickle
 from unittest import mock
+from packaging.version import Version
 
 import pytest
 import numpy as np
