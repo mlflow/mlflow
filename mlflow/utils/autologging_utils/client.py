@@ -169,7 +169,10 @@ class MlflowAutologgingQueueingClient:
                             are complete. If `False`, run operations are performed asynchronously,
                             and an `RunOperations` object is returned that represents the ongoing
                             run operations.
-        :return: A `RunOperations` instance.
+        :return: A `RunOperations` instance representing the flushed operations. These operations
+                 are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
+                 operations may still be inflight. Operation completion can be synchronously waited
+                 on via `RunOperations.await_completion()`.
         """
         logging_futures = []
         for pending_operations in self._pending_ops_by_run_id.values():
