@@ -275,9 +275,9 @@ def load_model(model_uri, model=None, **kwargs):
         support_retrain = _check_if_model_supports_retrain(local_model_path)
         if not support_retrain:
             raise TypeError(
-                "Invalid model for retraining. \
-                Please set `training=True` when the `paddle.Model` model is saved. \
-                Or set `model=None` for inference only."
+                "This model can't be loaded via `model.load` because a '.pdparams' file "
+                "doesn't exist. Please leave `model` unspecified to load the model via "
+                "`paddle.jit.load` or set `training` to True when saving a model."
             )
 
         model.load(
