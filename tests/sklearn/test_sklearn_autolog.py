@@ -24,9 +24,9 @@ from mlflow.sklearn.utils import (
     _is_metric_supported,
     _is_plotting_supported,
     _get_arg_names,
-    _truncate_dict,
     _log_child_runs_info,
 )
+from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
