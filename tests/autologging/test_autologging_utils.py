@@ -466,7 +466,6 @@ def test_autologging_integration_forwards_positional_and_keyword_arguments_as_ex
     def autolog(foo=7, bar=10, disable=False, silent=False):
         return foo, bar, disable
 
-    assert autolog(1, bar=2, disable=True) is None
     assert autolog(1, bar=2, disable=False) == (1, 2, False)
 
 
