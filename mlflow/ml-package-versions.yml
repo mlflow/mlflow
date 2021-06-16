@@ -2,7 +2,8 @@ sklearn:
   package_info:
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      head_sha=$(git ls-remote https://github.com/scikit-learn/scikit-learn.git HEAD | cut -f1)
+      pip install git+https://github.com/scikit-learn/scikit-learn.git@$head_sha
 
   models:
     minimum: "0.20.3"
@@ -34,8 +35,8 @@ pytorch-lightning:
   package_info:
     pip_release: "pytorch-lightning"
     install_dev: |
-      # This installs pytorch-lightning from the default branch
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+      head_sha=$(git ls-remote https://github.com/PytorchLightning/pytorch-lightning.git HEAD | cut -f1)
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@$head_sha
 
   autologging:
     minimum: "1.0.5"
@@ -121,7 +122,8 @@ xgboost:
     pip_release: "xgboost"
     install_dev: |
       temp_dir=$(mktemp -d)
-      git clone --recursive https://github.com/dmlc/xgboost $temp_dir
+      git clone --recursive https://github.com/dmlc/xgboost.git $temp_dir
+      git --git-dir=$temp_dir/.git rev-parse HEAD
       cd $temp_dir/python-package
       python setup.py install
 
@@ -145,6 +147,7 @@ lightgbm:
     install_dev: |
       temp_dir=$(mktemp -d)
       git clone --recursive https://github.com/microsoft/LightGBM.git $temp_dir
+      git --git-dir=$temp_dir/.git rev-parse HEAD
       cd $temp_dir/python-package
       python setup.py install
 
@@ -172,7 +175,8 @@ catboost:
       else
         # Build wheel from source
         temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/catboost/catboost $temp_dir
+        git clone --depth 1 https://github.com/catboost/catboost.git $temp_dir
+        git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir/catboost/python-package
         python setup.py bdist_wheel
 
@@ -240,6 +244,7 @@ onnx:
       sudo apt-get install protobuf-compiler libprotoc-dev
       temp_dir=$(mktemp -d)
       git clone https://github.com/onnx/onnx.git $temp_dir
+      git --git-dir=$temp_dir/.git rev-parse HEAD
       cd $temp_dir
       git submodule update --init --recursive
       python setup.py install
@@ -255,7 +260,8 @@ spacy:
   package_info:
     pip_release: "spacy"
     install_dev: |
-      pip install git+https://github.com/explosion/spaCy
+      head_sha=$(git ls-remote https://github.com/explosion/spaCy.git HEAD | cut -f1)
+      pip install git+https://github.com/explosion/spaCy.git@$head_sha
 
   models:
     minimum: "2.2.4"
@@ -268,13 +274,14 @@ statsmodels:
   package_info:
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels
+      head_sha=$(git ls-remote https://github.com/statsmodels/statsmodels.git HEAD | cut -f1)
+      pip install git+https://github.com/statsmodels/statsmodels.git@$head_sha
 
   models:
     minimum: "0.11.1"
     maximum: "0.12.2"
     run: |
-        pytest tests/statsmodels/test_statsmodels_model_export.py --large
+      pytest tests/statsmodels/test_statsmodels_model_export.py --large
 
   autologging:
     minimum: "0.11.1"
@@ -292,7 +299,8 @@ spark:
       else
         # Build wheel from source
         temp_dir=$(mktemp -d)
-        git clone --depth 1 https://github.com/apache/spark $temp_dir
+        git clone --depth 1 https://github.com/apache/spark.git $temp_dir
+        git --git-dir=$temp_dir/.git rev-parse HEAD
         cd $temp_dir
         export MAVEN_OPTS="-Xss256m -Xmx2g -XX:ReservedCodeCacheSize=1g"
         ./build/mvn -DskipTests --no-transfer-progress clean package
