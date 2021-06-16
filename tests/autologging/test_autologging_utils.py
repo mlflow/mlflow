@@ -606,6 +606,43 @@ def test_autologging_is_disabled_returns_expected_values():
     assert autologging_is_disabled("test_integration_for_disable_check") is False
 
 
+def test_autologging_disable_restores_behavior():
+    import pandas as pd
+    from sklearn.datasets import load_boston
+    from sklearn.linear_model import LinearRegression
+
+    mlflow.sklearn.autolog()
+
+    dataset = load_boston()
+    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
+    y = dataset.target[:50]
+
+    # train a model
+    model = LinearRegression()
+
+    run = mlflow.start_run()
+    model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert run.data.metrics
+    assert run.data.params
+
+    run = mlflow.start_run()
+    with mlflow.utils.autologging_utils.disable_autologging():
+        model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert not run.data.metrics
+    assert not run.data.params
+
+    run = mlflow.start_run()
+    model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert run.data.metrics
+    assert run.data.params
+
+
 def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
     AutologgingEventLogger.set_logger(AutologgingEventLogger())
 
