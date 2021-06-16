@@ -108,7 +108,8 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(non_project_source)).toEqual('source3');
   expect(Utils.renderSource(non_project_source)).toEqual('source3');
 
-  // formatSource should return a string, renderSource should return an HTML element (with the correct source url).
+  // formatSource should return a string, renderSource should return an HTML element
+  // with the correct source url.
   const github_url = {
     'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps-git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
