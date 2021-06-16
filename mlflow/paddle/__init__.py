@@ -264,7 +264,7 @@ def load_model(model_uri, model=None, **kwargs):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
-    if not model:
+    if model is None:
         return paddle.jit.load(pd_model_artifacts_path, **kwargs)
     elif not isinstance(model, paddle.Model):
         raise TypeError(

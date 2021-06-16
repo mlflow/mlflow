@@ -442,7 +442,7 @@ def test_model_retrain_built_in_high_level_api(
     with pytest.raises(TypeError, match="This model can't be loaded"):
         mlflow.paddle.load_model(model_uri=model_retrain_path, model=model_retrain)
 
-    error_model = str(0)
+    error_model = 0
     error_model_type = type(error_model)
     with pytest.raises(
         TypeError,
