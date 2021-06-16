@@ -33,7 +33,7 @@ class PendingRunId:
 class RunOperations:
     """
     Represents a collection of operations on one or more MLflow Runs, such as run creation
-    or metric logging. 
+    or metric logging.
     """
 
     def __init__(self, operation_futures):
@@ -90,11 +90,11 @@ class MlflowAutologgingQueueingClient:
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
-        instance that can be used as input to other client logging APIs (e.g. `log_metrics`, 
+        instance that can be used as input to other client logging APIs (e.g. `log_metrics`,
         `log_params`, ...).
 
         :return: A `PendingRunId` that can be passed as the `run_id` parameter to other client
-                 logging APIs, such as `log_params` and `log_metrics`. 
+                 logging APIs, such as `log_params` and `log_metrics`.
         """
         tags = tags or {}
         tags = _truncate_dict(
@@ -209,7 +209,7 @@ class MlflowAutologgingQueueingClient:
     def _flush_pending_operations(self, pending_operations):
         """
         Synchronously and sequentially flushes the specified list of pending run operations.
-        
+
         NB: Operations are not parallelized on a per-run basis because MLflow's File Store, which
         is frequently used for local ML development, does not support threadsafe metadata logging
         within a given run.
@@ -306,7 +306,7 @@ class _PendingRunOperations:
 
     def enqueue(self, params=None, tags=None, metrics=None, create_run=None, set_terminated=None):
         """
-        Enqueues a new pending logging operation for the associated MLflow Run. 
+        Enqueues a new pending logging operation for the associated MLflow Run.
         """
         if create_run:
             assert not self.create_run, "Attempted to create the same run multiple times"
