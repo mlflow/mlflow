@@ -33,7 +33,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
-    try_mlflow_log,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _get_new_training_session_class,
@@ -819,8 +818,7 @@ def autolog(
                 _logger,
             )
 
-            try_mlflow_log(
-                log_model,
+            log_model(
                 estimator,
                 artifact_path="model",
                 signature=signature,
@@ -829,8 +827,7 @@ def autolog(
 
         if _is_parameter_search_estimator(estimator):
             if hasattr(estimator, "best_estimator_") and log_models:
-                try_mlflow_log(
-                    log_model,
+                log_model(
                     estimator.best_estimator_,
                     artifact_path="best_estimator",
                     signature=signature,
