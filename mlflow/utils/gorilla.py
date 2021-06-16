@@ -346,6 +346,11 @@ def revert(patch):
     ----
     This is only possible if the attribute :attr:`Settings.store_hit` was set
     to ``True`` when applying the patch and overriding an existing attribute.
+
+    Notice:
+    This method is taken from
+    https://github.com/christophercrouzet/gorilla/blob/v0.4.0/gorilla.py#L318-L351
+    with modifictions for autologging disablement purposes.
     """
     # If an curr_active_patch has not been set on destination class for the current patch,
     # then there is no reverting to do.
