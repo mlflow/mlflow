@@ -53,8 +53,8 @@ class RunOperations:
         if len(failed_operations) > 0:
             raise MlflowException(
                 message=(
-                    " Failed to log content to one or more runs due to the following"
-                    " errors: {errors}".format(errors=failed_operations)
+                    "The following failures occurred while performing one or more logging"
+                    " operations: {failures}".format(failures=failed_operations)
                 )
             )
 
@@ -195,6 +195,12 @@ class MlflowAutologgingQueueingClient:
             self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)
         return self._pending_ops_by_run_id[run_id]
 
+    def _try_operation(self, fn, *args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except Exception as e:
+            return e
+
     def _flush_pending_operations(self, pending_operations):
         """
         Flushes the specified list of pending run operations, blocking on the completion
@@ -223,6 +229,8 @@ class MlflowAutologgingQueueingClient:
         run_id = pending_operations.run_id
         assert not isinstance(run_id, PendingRunId), "Run ID cannot be pending for logging"
 
+        operation_results = []
+
         param_batches_to_log = chunk_list(
             pending_operations.params_queue, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         )
@@ -237,21 +245,45 @@ class MlflowAutologgingQueueingClient:
             )
             metrics_batch = pending_operations.metrics_queue[:metrics_batch_size]
             pending_operations.metrics_queue = pending_operations.metrics_queue[metrics_batch_size:]
-
-            self._client.log_batch(
-                run_id=run_id, metrics=metrics_batch, params=params_batch, tags=tags_batch,
+            
+            operation_results.append(
+                self._try_operation(
+                    self._client.log_batch,
+                    run_id=run_id,
+                    metrics=metrics_batch,
+                    params=params_batch,
+                    tags=tags_batch,
+                )
             )
 
         for metrics_batch in chunk_list(
             pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
         ):
-            self._client.log_batch(run_id=run_id, metrics=metrics_batch)
+            operation_results.append(
+                self._try_operation(
+                    self._client.log_batch,
+                    run_id=run_id,
+                    metrics=metrics_batch,
+                )
+            )
 
         if pending_operations.set_terminated:
-            self._client.set_terminated(
-                run_id=run_id,
-                status=pending_operations.set_terminated.status,
-                end_time=pending_operations.set_terminated.end_time,
+            operation_results.append(
+                self._try_operation(
+                    self._client.set_terminated,
+                    run_id=run_id,
+                    status=pending_operations.set_terminated.status,
+                    end_time=pending_operations.set_terminated.end_time,
+                )
+            )
+
+        failures = [result for result in operation_results if isinstance(result, Exception)]
+        if len(failures) > 0:
+            raise MlflowException(
+                message=(
+                    "Failed to perform one or more operations on the run with ID {run_id}."
+                    " Failed operations: {failures}".format(run_id=run_id, failures=failures,)
+                )
             )
 
 
