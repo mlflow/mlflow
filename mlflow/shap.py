@@ -8,6 +8,7 @@ import numpy as np
 
 import mlflow
 import types
+import mlflow.utils.autologging_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -240,18 +241,19 @@ def log_explanation(predict_function, features, artifact_path=None):
     import shap
 
     artifact_path = _DEFAULT_ARTIFACT_PATH if artifact_path is None else artifact_path
-    background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
-    explainer = shap.KernelExplainer(predict_function, background_data)
-    shap_values = explainer.shap_values(features)
+    with mlflow.utils.autologging_utils.disable_autologging():
+        background_data = shap.kmeans(features, min(_MAXIMUM_BACKGROUND_DATA_SIZE, len(features)))
+        explainer = shap.KernelExplainer(predict_function, background_data)
+        shap_values = explainer.shap_values(features)
 
-    _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
-    _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(explainer.expected_value, _BASE_VALUES_FILE_NAME, artifact_path)
+        _log_numpy(shap_values, _SHAP_VALUES_FILE_NAME, artifact_path)
 
-    shap.summary_plot(shap_values, features, plot_type="bar", show=False)
-    fig = plt.gcf()
-    fig.tight_layout()
-    _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
-    plt.close(fig)
+        shap.summary_plot(shap_values, features, plot_type="bar", show=False)
+        fig = plt.gcf()
+        fig.tight_layout()
+        _log_matplotlib_figure(fig, _SUMMARY_BAR_PLOT_FILE_NAME, artifact_path)
+        plt.close(fig)
 
     return append_to_uri_path(mlflow.active_run().info.artifact_uri, artifact_path)
 

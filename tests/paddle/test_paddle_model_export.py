@@ -54,7 +54,7 @@ def pd_model():
             self.fc_ = Linear(in_features=13, out_features=1)
 
         @paddle.jit.to_static
-        def forward(self, inputs):  # pylint: disable=W0221
+        def forward(self, inputs):  # pylint: disable=arguments-differ
             return self.fc_(inputs)
 
     model = Regressor()
@@ -295,3 +295,222 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         conda_env = yaml.safe_load(f)
 
     assert conda_env == mlflow.paddle.get_default_conda_env()
+
+
+@pytest.fixture(scope="session")
+def get_dataset_built_in_high_level_api():
+    train_dataset = paddle.text.datasets.UCIHousing(mode="train")
+    eval_dataset = paddle.text.datasets.UCIHousing(mode="test")
+    return train_dataset, eval_dataset
+
+
+class UCIHousing(paddle.nn.Layer):
+    def __init__(self):
+        super(UCIHousing, self).__init__()
+        self.fc_ = paddle.nn.Linear(13, 1, None)
+
+    def forward(self, inputs):  # pylint: disable=arguments-differ
+        pred = self.fc_(inputs)
+        return pred
+
+
+@pytest.fixture
+def pd_model_built_in_high_level_api():
+    train_dataset, test_dataset = get_dataset_built_in_high_level_api()
+
+    model = paddle.Model(UCIHousing())
+    optim = paddle.optimizer.Adam(learning_rate=0.01, parameters=model.parameters())
+    model.prepare(optim, paddle.nn.MSELoss())
+
+    model.fit(train_dataset, epochs=6, batch_size=8, verbose=1)
+
+    return ModelWithData(model=model, inference_dataframe=test_dataset)
+
+
+@pytest.mark.large
+def test_model_save_load_built_in_high_level_api(pd_model_built_in_high_level_api, model_path):
+    model = pd_model_built_in_high_level_api.model
+    test_dataset = pd_model_built_in_high_level_api.inference_dataframe
+    mlflow.paddle.save_model(pd_model=model, path=model_path)
+
+    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+
+    low_level_test_dataset = [x[0] for x in test_dataset]
+
+    np.testing.assert_array_almost_equal(
+        np.array(model.predict(test_dataset)).squeeze(),
+        np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+    )
+
+    np.testing.assert_array_almost_equal(
+        np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
+        np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+    )
+
+
+def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
+    pd_model_built_in_high_level_api, model_path, mock_s3_bucket
+):
+    model = pd_model_built_in_high_level_api.model
+    test_dataset = pd_model_built_in_high_level_api.inference_dataframe
+    mlflow.paddle.save_model(pd_model=model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
+
+    low_level_test_dataset = [x[0] for x in test_dataset]
+
+    np.testing.assert_array_almost_equal(
+        np.array(model.predict(test_dataset)).squeeze(),
+        np.array(reloaded_model(np.array(low_level_test_dataset))).squeeze(),
+    )
+
+
+@pytest.mark.large
+def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path):
+    old_uri = mlflow.get_tracking_uri()
+    model = pd_model_built_in_high_level_api.model
+    test_dataset = pd_model_built_in_high_level_api.inference_dataframe
+    with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        for should_start_run in [False, True]:
+            try:
+                mlflow.set_tracking_uri("test")
+                if should_start_run:
+                    mlflow.start_run()
+
+                artifact_path = "model"
+                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+                _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
+
+                mlflow.paddle.log_model(
+                    pd_model=model, artifact_path=artifact_path, conda_env=conda_env
+                )
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                )
+
+                reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_uri)
+
+                low_level_test_dataset = [x[0] for x in test_dataset]
+
+                np.testing.assert_array_almost_equal(
+                    np.array(model.predict(test_dataset)).squeeze(),
+                    np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
+                )
+
+                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+                model_config = Model.load(os.path.join(model_path, "MLmodel"))
+                assert pyfunc.FLAVOR_NAME in model_config.flavors
+                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+                assert os.path.exists(os.path.join(model_path, env_path))
+
+            finally:
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_uri)
+
+
+@pytest.fixture
+def model_retrain_path(tmpdir):
+    return os.path.join(str(tmpdir), "model_retrain")
+
+
+@pytest.mark.large
+def test_model_retrain_built_in_high_level_api(
+    pd_model_built_in_high_level_api, model_path, model_retrain_path
+):
+    model = pd_model_built_in_high_level_api.model
+    mlflow.paddle.save_model(pd_model=model, path=model_path, training=True)
+
+    training_dataset, test_dataset = get_dataset_built_in_high_level_api()
+
+    model_retrain = paddle.Model(UCIHousing())
+    model_retrain = mlflow.paddle.load_model(model_uri=model_path, model=model_retrain)
+    optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
+    model_retrain.prepare(optim, paddle.nn.MSELoss())
+
+    model_retrain.fit(training_dataset, epochs=6, batch_size=8, verbose=1)
+
+    mlflow.paddle.save_model(pd_model=model_retrain, path=model_retrain_path, training=False)
+
+    with pytest.raises(TypeError, match="This model can't be loaded"):
+        mlflow.paddle.load_model(model_uri=model_retrain_path, model=model_retrain)
+
+    error_model = 0
+    error_model_type = type(error_model)
+    with pytest.raises(
+        TypeError,
+        match="Invalid object type `{}` for `model`, must be `paddle.Model`".format(
+            error_model_type
+        ),
+    ):
+        mlflow.paddle.load_model(model_uri=model_retrain_path, model=error_model)
+
+    reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_retrain_path)
+    reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_retrain_path)
+    low_level_test_dataset = [x[0] for x in test_dataset]
+
+    np.testing.assert_array_almost_equal(
+        np.array(model_retrain.predict(test_dataset)).squeeze(),
+        np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+    )
+
+    np.testing.assert_array_almost_equal(
+        np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
+        np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+    )
+
+
+@pytest.mark.large
+def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, model_path):
+    old_uri = mlflow.get_tracking_uri()
+    model = pd_model_built_in_high_level_api.model
+
+    _, test_dataset = get_dataset_built_in_high_level_api()
+
+    with TempDir(chdr=True, remove_on_exit=True) as tmp:
+        for should_start_run in [False, True]:
+            try:
+                mlflow.set_tracking_uri("test")
+                if should_start_run:
+                    mlflow.start_run()
+
+                artifact_path = "model"
+                conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+                _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
+
+                mlflow.paddle.log_model(
+                    pd_model=model, artifact_path=artifact_path, conda_env=conda_env, training=True
+                )
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+                )
+
+                model_uri = mlflow.get_artifact_uri("model")
+
+                model_retrain = paddle.Model(UCIHousing())
+                optim = paddle.optimizer.Adam(learning_rate=0.015, parameters=model.parameters())
+                model_retrain.prepare(optim, paddle.nn.MSELoss())
+                model_retrain = mlflow.paddle.load_model(model_uri=model_uri, model=model_retrain)
+
+                np.testing.assert_array_almost_equal(
+                    np.array(model.predict(test_dataset)).squeeze(),
+                    np.array(model_retrain.predict(test_dataset)).squeeze(),
+                )
+
+                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+                model_config = Model.load(os.path.join(model_path, "MLmodel"))
+                assert pyfunc.FLAVOR_NAME in model_config.flavors
+                assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]
+                env_path = model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.ENV]
+                assert os.path.exists(os.path.join(model_path, env_path))
+
+            finally:
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_uri)
