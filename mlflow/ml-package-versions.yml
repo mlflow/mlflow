@@ -310,7 +310,7 @@ spark:
 
   models:
     minimum: "3.0.0"
-    maximum: "3.1.1"
+    maximum: "3.1.2"
     requirements: ["boto3", "scikit-learn", "pyarrow"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
@@ -325,7 +325,7 @@ spark:
 
   autologging:
     minimum: "3.0.0"
-    maximum: "3.1.1"
+    maximum: "3.1.2"
     run: |
       # TODO: Add datasource autologging tests
       find tests/spark_autologging/ml -name 'test*.py' | xargs -L 1 pytest --large
