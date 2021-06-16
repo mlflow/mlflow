@@ -815,6 +815,24 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
     return MlflowClient().get_experiment_by_name(name)
 
 
+def list_experiments(
+    view_type: int = ViewType.ACTIVE_ONLY, max_results: Optional[int] = None,
+) -> List[Experiment]:
+    """
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned.
+        :return: A list of :py:class:`Experiment <mlflow.entities.Experiment>` objects.
+        """
+
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().list_experiments(
+            view_type=view_type, max_results=number_to_get, page_token=next_page_token,
+        )
+
+    return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
+
+
 def create_experiment(name: str, artifact_location: Optional[str] = None) -> str:
     """
     Create an experiment.
@@ -1182,7 +1200,7 @@ def list_run_infos(
     return _paginate(pagination_wrapper_func, SEARCH_MAX_RESULTS_DEFAULT, max_results)
 
 
-def _paginate(paginated_fn, max_results_per_page, max_results):
+def _paginate(paginated_fn, max_results_per_page, max_results=None):
     """
     Intended to be a general use pagination utility.
 
@@ -1192,15 +1210,17 @@ def _paginate(paginated_fn, max_results_per_page, max_results):
     :param max_results_per_page:
     :type max_results_per_page: The maximum number of results to retrieve per page
     :param max_results:
-    :type max_results: The maximum number of results to retrieve overall
+    :type max_results: The maximum number of results to retrieve overall. If unspecified,
+                       all results will be retrieved.
     :return: Returns a list of entities, as determined by the paginated_fn parameter, with no more
         entities than specified by max_results
     :rtype: list[object]
     """
     all_results = []
     next_page_token = None
-    while len(all_results) < max_results:
-        num_to_get = max_results - len(all_results)
+    returns_all = max_results is None
+    while returns_all or len(all_results) < max_results:
+        num_to_get = max_results_per_page if returns_all else max_results - len(all_results)
         if num_to_get < max_results_per_page:
             page_results = paginated_fn(num_to_get, next_page_token)
         else:

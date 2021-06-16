@@ -323,9 +323,23 @@ class MlflowClient(object):
             experiment_id, run_view_type, max_results, order_by, page_token
         )
 
-    def list_experiments(self, view_type: Optional[str] = None) -> List[Experiment]:
+    def list_experiments(
+        self,
+        view_type: int = ViewType.ACTIVE_ONLY,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Experiment]:
         """
-        :return: List of :py:class:`mlflow.entities.Experiment`
+        :param view_type: Qualify requested type of experiments.
+        :param max_results: If passed, specifies the maximum number of experiments desired. If not
+                            passed, all experiments will be returned for the File and SQL backends.
+                            For the REST backend, the server will pick a maximum number of results
+                            to return.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``list_experiments`` call.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+                 :py:class:`Experiment <mlflow.entities.Experiment>` objects. The pagination token
+                 for the next page can be obtained via the ``token`` attribute of the object.
 
         .. code-block:: python
             :caption: Example
@@ -366,7 +380,9 @@ class MlflowClient(object):
             - experiment_id: 1, name: Experiment 1, lifecycle_stage: active
             - experiment_id: 2, name: Experiment 2, lifecycle_stage: deleted
         """
-        return self._tracking_client.list_experiments(view_type)
+        return self._tracking_client.list_experiments(
+            view_type=view_type, max_results=max_results, page_token=page_token
+        )
 
     def get_experiment(self, experiment_id: str) -> Experiment:
         """
