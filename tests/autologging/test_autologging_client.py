@@ -3,7 +3,10 @@ import pytest
 from unittest import mock
 
 import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import _truncate_dict
+from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 from mlflow.utils.validation import (
     MAX_ENTITY_KEY_LENGTH,
     MAX_PARAM_VAL_LENGTH,
@@ -11,8 +14,6 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
     MAX_METRICS_PER_BATCH,
 )
-from mlflow.tracking.client import MlflowClient
-from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 
 
 pytestmark = pytest.mark.large
@@ -217,3 +218,35 @@ def test_flush_clears_pending_operations():
         # Verify that performing a second flush did not result in any additional logging API calls,
         # since no new run content was added prior to the flush
         assert logging_call_count_2 == logging_call_count_1
+
+
+def test_logging_failures_are_handled_as_expected():
+    experiment_name = "test_run_creation_termination"
+    MlflowClient().create_experiment(experiment_name)
+    experiment_id = MlflowClient().get_experiment_by_name(experiment_name).experiment_id
+
+    with mock.patch(
+        "mlflow.utils.autologging_utils.client.MlflowClient.log_batch"
+    ) as log_batch_mock:
+        log_batch_mock.side_effect = Exception("Batch logging failed!")
+
+        client = MlflowAutologgingQueueingClient()
+        pending_run_id = client.create_run(experiment_id=experiment_id)
+        client.log_metrics(run_id=pending_run_id, metrics={"a": 1})
+        client.set_terminated(run_id=pending_run_id, status="KILLED")
+
+        with pytest.raises(MlflowException) as exc:
+            client.flush()
+
+        runs = mlflow.search_runs(experiment_ids=[experiment_id], output_format="list")
+        assert len(runs) == 1
+        run = runs[0]
+        # Verify that metrics are absent due to the failure of batch logging
+        assert not run.data.metrics
+        # Verify that the run termination operation was still performed successfully
+        assert run.info.status == "KILLED"
+
+        assert "Failed to perform one or more operations on the run with ID {run_id}".format(
+            run_id=run.info.run_id
+        ) in str(exc)
+        assert "Batch logging failed!" in str(exc)

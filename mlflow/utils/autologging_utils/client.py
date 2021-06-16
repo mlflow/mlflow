@@ -208,8 +208,11 @@ class MlflowAutologgingQueueingClient:
 
     def _flush_pending_operations(self, pending_operations):
         """
-        Flushes the specified list of pending run operations, blocking on the completion
-        of all operations.
+        Synchronously and sequentially flushes the specified list of pending run operations.
+        
+        NB: Operations are not parallelized on a per-run basis because MLflow's File Store, which
+        is frequently used for local ML development, does not support threadsafe metadata logging
+        within a given run.
         """
         if pending_operations.create_run:
             create_run_tags = pending_operations.create_run.tags
