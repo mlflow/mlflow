@@ -79,7 +79,8 @@ class MlflowAutologgingQueueingClient:
         # Limit the number of threads used for run operations, using at most 8 threads or
         # 2 * the number of CPU cores available on the system (whichever is smaller)
         num_cpus = os.cpu_count() or 4
-        num_logging_workers = min(num_cpus * 2, 8)
+        num_logging_workers = 9 
+        # num_logging_workers = min(num_cpus * 2, 8)
         self._thread_pool = ThreadPoolExecutor(max_workers=num_logging_workers)
 
     def create_run(
@@ -240,49 +241,63 @@ class MlflowAutologgingQueueingClient:
             metrics_batch = pending_operations.metrics_queue[:metrics_batch_size]
             pending_operations.metrics_queue = pending_operations.metrics_queue[metrics_batch_size:]
 
-            logging_futures.append(
-                self._thread_pool.submit(
-                    self._client.log_batch,
-                    run_id=run_id,
-                    metrics=metrics_batch,
-                    params=params_batch,
-                    tags=tags_batch,
-                )
+
+            self._client.log_batch(
+                run_id=run_id,
+                metrics=metrics_batch,
+                params=params_batch,
+                tags=tags_batch,
             )
+
+            # logging_futures.append(
+            #     self._thread_pool.submit(
+            #         self._client.log_batch,
+            #         run_id=run_id,
+            #         metrics=metrics_batch,
+            #         params=params_batch,
+            #         tags=tags_batch,
+            #     )
+            # )
 
         for metrics_batch in chunk_list(
             pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
         ):
-            logging_futures.append(
-                self._thread_pool.submit(
-                    self._client.log_batch, run_id=run_id, metrics=metrics_batch,
-                )
-            )
+            self._client.log_batch(run_id=run_id, metrics=metrics_batch)
+            # logging_futures.append(
+            #     self._thread_pool.submit(
+            #         self._client.log_batch, run_id=run_id, metrics=metrics_batch,
+            #     )
+            # )
 
         if pending_operations.set_terminated:
-            logging_futures.append(
-                self._thread_pool.submit(
-                    self._client.set_terminated,
-                    run_id=run_id,
-                    status=pending_operations.set_terminated.status,
-                    end_time=pending_operations.set_terminated.end_time,
-                )
+            self._client.set_terminated(
+                run_id=run_id,
+                status=pending_operations.set_terminated.status,
+                end_time=pending_operations.set_terminated.end_time,
             )
+            # logging_futures.append(
+            #     self._thread_pool.submit(
+            #         self._client.set_terminated,
+            #         run_id=run_id,
+            #         status=pending_operations.set_terminated.status,
+            #         end_time=pending_operations.set_terminated.end_time,
+            #     )
+            # )
 
-        failures = []
-        for future in logging_futures:
-            try:
-                future.result()
-            except Exception as e:
-                failures.append(e)
-
-        if len(failures) > 0:
-            raise MlflowException(
-                message=(
-                    "Failed to perform one or more operations on the run with ID {run_id}."
-                    " Failed operations: {failures}".format(run_id=run_id, failures=failures,)
-                )
-            )
+        # failures = []
+        # for future in logging_futures:
+        #     try:
+        #         future.result()
+        #     except Exception as e:
+        #         failures.append(e)
+        #
+        # if len(failures) > 0:
+        #     raise MlflowException(
+        #         message=(
+        #             "Failed to perform one or more operations on the run with ID {run_id}."
+        #             " Failed operations: {failures}".format(run_id=run_id, failures=failures,)
+        #         )
+        #     )
 
 
 class _PendingRunOperations:

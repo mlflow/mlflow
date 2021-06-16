@@ -44,6 +44,7 @@ ESTIMATOR_NAME = "estimator_name"
 MODEL_DIR = "model"
 
 pytestmark = pytest.mark.large
+pytestmark = pytest.mark.notrackingurimock
 
 
 def get_iris():
@@ -754,12 +755,15 @@ def test_meta_estimator_fit_performs_logging_only_once():
 @pytest.mark.parametrize(
     "cv_class, search_space",
     [
-        (sklearn.model_selection.GridSearchCV, {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}),
+        # (sklearn.model_selection.GridSearchCV, {"kernel": ("linear", "rbf"), "C": [1, 5, 10]}),
         (sklearn.model_selection.RandomizedSearchCV, {"C": uniform(loc=0, scale=4)}),
     ],
 )
-@pytest.mark.parametrize("backend", [None, "threading", "loky"])
-@pytest.mark.parametrize("max_tuning_runs", [None, 3])
+@pytest.mark.parametrize("backend", [None])
+# @pytest.mark.parametrize("backend", [None, "threading", "loky"])
+@pytest.mark.parametrize("max_tuning_runs", [8])
+# @pytest.mark.parametrize("max_tuning_runs", [None])
+# @pytest.mark.parametrize("max_tuning_runs", [None, 3])
 def test_parameter_search_estimators_produce_expected_outputs(
     cv_class, search_space, backend, max_tuning_runs
 ):
