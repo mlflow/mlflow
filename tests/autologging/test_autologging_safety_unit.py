@@ -361,7 +361,8 @@ def test_safe_patch_returns_original_result_without_second_call_when_patch_posta
     assert patch_impl_called
 
 
-def test_autolog_respects_disable_flag(patch_destination):
+def test_safe_patch_respects_disable_flag(patch_destination):
+
     patch_impl_call_count = 0
 
     @autologging_integration("test_respects_disable")
@@ -373,39 +374,13 @@ def test_autolog_respects_disable_flag(patch_destination):
 
         safe_patch("test_respects_disable", patch_destination, "fn", patch_impl)
 
-    # autolog() should not short circuit if disable=False.
-    with mock.patch(
-        "mlflow.utils.autologging_utils.AutologgingEventLogger.log_autolog_called"
-    ) as autolog_logger:
-        autolog(disable=False)
-        assert autolog_logger.call_count == 1
+    autolog(disable=False)
+    patch_destination.fn()
+    assert patch_impl_call_count == 1
 
-    # Destination method should be wrapped if autolog is invoked with disable=False.
-    with mock.patch(
-        "mlflow.utils.autologging_utils.AutologgingEventLogger.log_patch_function_start"
-    ) as patched_fn_logger:
-        patch_destination.fn()
-        assert patch_impl_call_count == 1
-        assert hasattr(patch_destination, "_gorilla_active_patch_fn")
-        assert hasattr(patch_destination, "_gorilla_original_fn")
-        assert patched_fn_logger.call_count == 1
-
-    # autolog() should short circuit if disable=True.
-    with mock.patch(
-        "mlflow.utils.autologging_utils.AutologgingEventLogger.log_autolog_called"
-    ) as autolog_logger:
-        autolog(disable=True)
-        assert autolog_logger.call_count == 0
-
-    # Destination method should not be wrapped if autolog is invoked with disable=True.
-    with mock.patch(
-        "mlflow.utils.autologging_utils.AutologgingEventLogger.log_patch_function_start"
-    ) as patched_fn_logger:
-        patch_destination.fn()
-        assert patch_impl_call_count == 1
-        assert not hasattr(patch_destination, "_gorilla_active_patch")
-        assert not hasattr(patch_destination, "_gorilla_original_fn")
-        assert patched_fn_logger.call_count == 0
+    autolog(disable=True)
+    patch_destination.fn()
+    assert patch_impl_call_count == 1
 
 
 def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
