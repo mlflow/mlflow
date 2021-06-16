@@ -384,8 +384,7 @@ def safe_patch(
                 # warning behavior during original function execution, since autologging is being
                 # skipped
                 with set_non_mlflow_warnings_behavior_for_current_thread(
-                    disable_warnings=False,
-                    reroute_warnings=False,
+                    disable_warnings=False, reroute_warnings=False,
                 ):
                     return original(*args, **kwargs)
 
@@ -406,9 +405,7 @@ def safe_patch(
                     log_fn(*args)
                 except Exception as e:
                     _logger.debug(
-                        "Failed to log autologging event via '%s'. Exception: %s",
-                        log_fn,
-                        e,
+                        "Failed to log autologging event via '%s'. Exception: %s", log_fn, e,
                     )
 
             with _AutologgingSessionManager.start_session(autologging_integration) as session:
@@ -446,8 +443,7 @@ def safe_patch(
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
                             with set_non_mlflow_warnings_behavior_for_current_thread(
-                                disable_warnings=False,
-                                reroute_warnings=False,
+                                disable_warnings=False, reroute_warnings=False,
                             ):
                                 original_result = original(*og_args, **og_kwargs)
 
@@ -756,10 +752,9 @@ def _validate_args(
 
         if type(autologging_call_input) in [list, tuple]:
             length_difference = len(autologging_call_input) - len(user_call_input)
-            assert (
-                length_difference >= 0
-            ), "{} expected inputs are missing from the call" " to the original function.".format(
-                length_difference
+            assert length_difference >= 0, (
+                "{} expected inputs are missing from the call"
+                " to the original function.".format(length_difference)
             )
             # If the autologging call input is longer than the user call input, we `zip_longest`
             # will pad the user call input with `None` values to ensure that the subsequent calls
