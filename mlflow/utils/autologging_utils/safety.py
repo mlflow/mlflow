@@ -9,6 +9,7 @@ from abc import abstractmethod
 from contextlib import contextmanager
 
 import mlflow
+import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
@@ -374,6 +375,7 @@ def safe_patch(
                 active_session_failed
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
+                or mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created
