@@ -196,6 +196,11 @@ class MlflowAutologgingQueueingClient:
         return self._pending_ops_by_run_id[run_id]
 
     def _try_operation(self, fn, *args, **kwargs):
+        """
+        Attempt to evaluate the specified function, `fn`, on the specified `*args` and `**kwargs`,
+        returning either the result of the function evaluation (if evaluation was successful) or
+        the exception raised by the function evaluation (if evaluation was unsuccesful).
+        """
         try:
             return fn(*args, **kwargs)
         except Exception as e:
