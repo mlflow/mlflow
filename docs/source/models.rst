@@ -1385,7 +1385,7 @@ Community Model Flavors
 -----------------------
 
 MLflow VizMod
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 The `mlflow-vizmod <https://github.com/JHibbard/mlflow-vizmod/>`_ project allows data scientists
 to be more productive with their visualizations. We treat visualizations as models - just like ML
@@ -1411,8 +1411,8 @@ Example:
     viz_iris = (
         alt.Chart(df_iris)
           .mark_circle(size=60)
-          .encode(x="x", y="y", color="z:N",)
-          .properties(height=375, width=575,)
+          .encode(x="x", y="y", color="z:N")
+          .properties(height=375, width=575)
           .interactive()
     )
 
@@ -1420,5 +1420,5 @@ Example:
         model=viz_iris,
         artifact_path="viz",
         style="vegalite",
-        input_example=df_iris,
+        input_example=df_iris.head(5),
     )
