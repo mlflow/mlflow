@@ -349,7 +349,7 @@ def autologging_integration(name):
 
             # If disabling autologging using fluent api, then every active integration's autolog
             # needs to be called with disable=True. So do not short circuit and let
-            # `mlflow.autolog()` envoke all active integrations with disable=True.
+            # `mlflow.autolog()` invoke all active integrations with disable=True.
             if name != "mlflow" and get_autologging_config(name, "disable", True):
                 revert_patches(name)
                 return
