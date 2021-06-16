@@ -867,7 +867,7 @@ class MlflowClient(object):
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """
-        Write a local file or directory to the remote ``artifact_uri``.
+        await_completionWrite a local file or directory to the remote ``artifact_uri``.
 
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.

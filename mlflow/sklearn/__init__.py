@@ -37,7 +37,7 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     _get_new_training_session_class,
-    AutologgingBatchingClient,
+    MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -719,13 +719,13 @@ def autolog(
         referred to be `func_name` on the instance of `clazz` referred to by `self` & records
         MLflow parameters, metrics, tags, and artifacts to a corresponding MLflow Run.
         """
-        client = AutologgingBatchingClient()
+        client = MlflowAutologgingQueueingClient()
         _log_pretraining_metadata(client, self, *args, **kwargs)
         params_logging_future = client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
         _log_posttraining_metadata(client, self, *args, **kwargs)
         client.flush(synchronous=True)
-        params_logging_future.result()
+        params_logging_future.await_completion()
         return fit_output
 
     def _log_pretraining_metadata(client, estimator, *args, **kwargs):  # pylint: disable=unused-argument
@@ -872,7 +872,7 @@ def autolog(
                 try:
                     cv_results_df = pd.DataFrame.from_dict(estimator.cv_results_)
                     _log_parameter_search_results_as_artifact(
-                        client, cv_results_df, mlflow.active_run().info.run_id
+                        cv_results_df, mlflow.active_run().info.run_id
                     )
                 except Exception as e:
 
@@ -1024,7 +1024,7 @@ def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
     run = active_run if active_run is not None else mlflow.start_run()
 
     metrics = _log_estimator_content(
-        client=AutologgingBatchingClient(),
+        client=MlflowAutologgingQueueingClient(),
         estimator=model,
         run_id=run.info.run_id,
         prefix=prefix,
