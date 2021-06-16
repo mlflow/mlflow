@@ -272,8 +272,8 @@ def load_model(model_uri, model=None, **kwargs):
             "Invalid object type `{}` for `model`, must be `paddle.Model`".format(type(model))
         )
     else:
-        support_retrain = _check_if_model_supports_retrain(local_model_path)
-        if not support_retrain:
+        contains_pdparams = _contains_pdparams(local_model_path)
+        if not contains_pdparams:
             raise TypeError(
                 "This model can't be loaded via `model.load` because a '.pdparams' file "
                 "doesn't exist. Please leave `model` unspecified to load the model via "
@@ -425,7 +425,6 @@ class _PaddleWrapper(object):
         return pd.DataFrame(predicted.numpy())
 
 
-def _check_if_model_supports_retrain(path):
-    print(path)
+def _contains_pdparams(path):
     file_list = os.listdir(path)
     return any(".pdparams" in file for file in file_list)

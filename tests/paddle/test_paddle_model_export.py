@@ -439,6 +439,9 @@ def test_model_retrain_built_in_high_level_api(
 
     mlflow.paddle.save_model(pd_model=model_retrain, path=model_retrain_path, training=False)
 
+    with pytest.raises(TypeError, match="This model can't be loaded"):
+        mlflow.paddle.load_model(model_uri=model_retrain_path, model=model_retrain)
+
     reloaded_pd_model = mlflow.paddle.load_model(model_uri=model_retrain_path)
     reloaded_pyfunc = pyfunc.load_pyfunc(model_uri=model_retrain_path)
     low_level_test_dataset = [x[0] for x in test_dataset]
