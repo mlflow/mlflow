@@ -240,8 +240,7 @@ def load_model(model_uri, model=None, **kwargs):
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
 
-    :param model: Required when loading a `paddle.Model` model.
-                  Must be an instance of `paddle.Model` saved with `training=True`.
+    :param model: Required when loading a `paddle.Model` model saved with `training=True`.
     :param kwargs: The keyword arguments to pass to `paddle.jit.load`
                    or `model.load`.
 
