@@ -671,10 +671,7 @@ def _create_child_runs_for_parameter_search(
 
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
-        client.log_params(
-            run_id=pending_child_run_id,
-            params=params_to_log
-        )
+        client.log_params(run_id=pending_child_run_id, params=params_to_log)
 
         # Parameters values are recorded twice in the set of search `cv_results_`:
         # once within a `params` column with dictionary values and once within
@@ -685,15 +682,14 @@ def _create_child_runs_for_parameter_search(
         # metrics for each training split, which is fairly verbose; accordingly, we filter
         # out per-split metrics in favor of aggregate metrics (mean, std, etc.)
         excluded_metric_prefixes = ["param", "split"]
-        metrics_to_log =  {
+        metrics_to_log = {
             key: value
             for key, value in result_row.iteritems()
             if not any([key.startswith(prefix) for prefix in excluded_metric_prefixes])
             and isinstance(value, Number)
         }
         client.log_metrics(
-            run_id=pending_child_run_id,
-            metrics=metrics_to_log,
+            run_id=pending_child_run_id, metrics=metrics_to_log,
         )
 
         client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)

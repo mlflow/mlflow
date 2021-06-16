@@ -728,7 +728,9 @@ def autolog(
         params_logging_future.await_completion()
         return fit_output
 
-    def _log_pretraining_metadata(client, estimator, *args, **kwargs):  # pylint: disable=unused-argument
+    def _log_pretraining_metadata(
+        client, estimator, *args, **kwargs
+    ):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
         This is intended to be invoked within a patched scikit-learn training routine
@@ -753,8 +755,7 @@ def autolog(
             params=estimator.get_params(deep=should_log_params_deeply),
         )
         client.set_tags(
-            run_id=run_id,
-            tags=_get_estimator_info_tags(estimator),
+            run_id=run_id, tags=_get_estimator_info_tags(estimator),
         )
 
     def _log_posttraining_metadata(client, estimator, *args, **kwargs):
@@ -844,8 +845,7 @@ def autolog(
                     for param_name, param_value in estimator.best_params_.items()
                 }
                 client.log_params(
-                    run_id=mlflow.active_run().info.run_id,
-                    params=best_params,
+                    run_id=mlflow.active_run().info.run_id, params=best_params,
                 )
 
             if hasattr(estimator, "cv_results_"):
