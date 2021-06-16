@@ -190,13 +190,13 @@ class Utils {
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
-      url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
+      url = baseUrl + match[1] + '/' + match[2].replace(/\.git$/, '');
       if (match[3]) {
         url = url + '/tree/master/' + match[3];
       }
     } else if (bitbucketMatch) {
       const baseUrl = 'https://bitbucket.org/';
-      url = baseUrl + bitbucketMatch[1] + '/' + bitbucketMatch[2].replace(/.git/, '');
+      url = baseUrl + bitbucketMatch[1] + '/' + bitbucketMatch[2].replace(/\.git$/, '');
       if (bitbucketMatch[3]) {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
@@ -216,7 +216,7 @@ class Utils {
         baseUrl +
         match[1] +
         '/' +
-        match[2].replace(/.git/, '') +
+        match[2].replace(/\.git$/, '') +
         '/tree/' +
         sourceVersion +
         '/' +
@@ -227,7 +227,7 @@ class Utils {
         baseUrl +
         bitbucketMatch[1] +
         '/' +
-        bitbucketMatch[2].replace(/.git/, '') +
+        bitbucketMatch[2].replace(/\.git$/, '') +
         '/src/' +
         sourceVersion +
         '/' +

@@ -817,35 +817,12 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         pickle_module=pickle,
     )
 
-    mlflow_torch_pickle_load = mlflow_pytorch_pickle_module.Unpickler
-
-    pickle_call_results = {"mlflow_torch_pickle_load_called": False}
-
-    def validate_mlflow_torch_pickle_load_called(*args, **kwargs):
-        pickle_call_results["mlflow_torch_pickle_load_called"] = True
-        return mlflow_torch_pickle_load(*args, **kwargs)
-
-    log_messages = []
-
-    def custom_warn(message_text, *args, **kwargs):
-        log_messages.append(message_text % args % kwargs)
-
-    with mock.patch(
-        "mlflow.pytorch.pickle_module.Unpickler"
-    ) as mlflow_torch_pickle_load_mock, mock.patch("mlflow.pytorch._logger.warning") as warn_mock:
-        mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
-        warn_mock.side_effect = custom_warn
+    with mock.patch("torch.load") as torch_load_mock, mock.patch(
+        "mlflow.pytorch._logger.warning"
+    ) as warn_mock:
         mlflow.pytorch.load_model(model_uri=model_path, pickle_module=mlflow_pytorch_pickle_module)
-
-    assert all(pickle_call_results.values())
-    assert any(
-        [
-            "does not match the pickle module that was used to save the model" in log_message
-            and pickle.__name__ in log_message
-            and mlflow_pytorch_pickle_module.__name__ in log_message
-            for log_message in log_messages
-        ]
-    )
+        torch_load_mock.assert_called_with(mock.ANY, pickle_module=mlflow_pytorch_pickle_module)
+        warn_mock.assert_any_call(mock.ANY, mlflow_pytorch_pickle_module.__name__, pickle.__name__)
 
 
 @pytest.mark.large
