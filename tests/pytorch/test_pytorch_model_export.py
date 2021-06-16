@@ -807,11 +807,6 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
 
 
 @pytest.mark.large
-@pytest.mark.skipif(
-    Version(torch.__version__) >= Version("1.9.0"),
-    reason="From pytorch 1.9.0, torch.load() creates a subclass from the passed Unpickler. "
-           "Refer: https://github.com/pytorch/pytorch/pull/53139",
-)
 def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     module_scoped_subclassed_model, model_path
 ):
