@@ -1,5 +1,6 @@
 import logging
 import os
+from shlex import quote
 
 import subprocess
 import posixpath
@@ -118,14 +119,23 @@ class PyFuncBackend(FlavorBackend):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
             os.mkdir(model_cwd)
             model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+
+            docker_env_vars = {
+                DISABLE_ENV_CREATION: "true"
+            }
+            if os.environ.get("GUNICORN_CMD_ARGS"):
+                docker_env_vars["GUNICORN_CMD_ARGS"] = os.environ.get("GUNICORN_CMD_ARGS")
+            env_string = "\n".join(
+                "ENV {key}={value}".format(key=key, value=quote(value))
+                for key, value in docker_env_vars.items())
             return """
                 COPY {model_dir} /opt/ml/model
                 RUN python -c \
                 'from mlflow.models.container import _install_pyfunc_deps;\
                 _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow})'
-                ENV {disable_env}="true"
+                {env_string}
                 """.format(
-                disable_env=DISABLE_ENV_CREATION,
+                env_string=env_string,
                 model_dir=str(posixpath.join("model_dir", os.path.basename(model_path))),
                 install_mlflow=repr(install_mlflow),
             )
