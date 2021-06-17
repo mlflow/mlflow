@@ -484,8 +484,12 @@ def autolog(
             "callbacks",
             "learning_rates",
         ]
-        params_to_log_for_fn = get_mlflow_run_params_for_fn_args(original, args, kwargs, unlogged_params)
-        autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=params_to_log_for_fn)
+        params_to_log_for_fn = get_mlflow_run_params_for_fn_args(
+            original, args, kwargs, unlogged_params
+        )
+        autologging_client.log_params(
+            run_id=mlflow.active_run().info.run_id, params=params_to_log_for_fn
+        )
 
         param_logging_operations = autologging_client.flush(synchronous=False)
 
