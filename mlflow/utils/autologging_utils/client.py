@@ -61,7 +61,7 @@ class RunOperations:
 
 class MlflowAutologgingQueueingClient:
     """
-    Efficienty implements a subset of MLflow Tracking's  `MlflowClient` and fluent APIs to provide
+    Efficiently implements a subset of MLflow Tracking's  `MlflowClient` and fluent APIs to provide
     automatic batching and async execution of run operations by way of queueing, as well as
     parameter / tag truncation for autologging use cases. Run operations defined by this client,
     such as `create_run` and `log_metrics`, enqueue data for future persistence to MLflow
@@ -189,7 +189,8 @@ class MlflowAutologgingQueueingClient:
 
     def _get_pending_operations(self, run_id):
         """
-        :return: A `_PendingRunOperations` containing all pending operations for the specified
+        :return: A `_PendingRunOperations` containing all pending operations for the
+                 specified `run_id`.
         """
         if run_id not in self._pending_ops_by_run_id:
             self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)
