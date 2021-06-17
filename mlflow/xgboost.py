@@ -522,9 +522,19 @@ def autolog(
             )
             if early_stopping:
                 extra_step = len(eval_results)
-                metrics_logger.record_metrics({"stopped_iteration": extra_step - 1})
-                metrics_logger.record_metrics({"best_iteration": model.best_iteration})
-                metrics_logger.record_metrics(eval_results[model.best_iteration], extra_step)
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics={
+                        "stopped_iteration": extra_step - 1,
+                        "best_iteration": model.best_iteration,
+                    },
+                )
+                autologging_client.log_metrics(
+                    run_id=mlflow.active_run().info.run_id,
+                    metrics=eval_results[model.best_iteration],
+                    step=extra_step,
+                )
+                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging feature importance as artifacts.
         for imp_type in importance_types:
@@ -580,13 +590,12 @@ def autolog(
             )
 
             log_model(
-                model,
-                artifact_path="model",
-                signature=signature,
-                input_example=input_example,
+                model, artifact_path="model", signature=signature, input_example=input_example,
             )
 
         param_logging_operations.await_completion()
+        if early_stopping:
+            early_stopping_logging_operations.await_completion()
 
         return model
 

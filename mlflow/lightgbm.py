@@ -471,7 +471,6 @@ def autolog(
             )
             if early_stopping:
                 extra_step = len(eval_results)
-
                 autologging_client.log_metrics(
                     run_id=mlflow.active_run().info.run_id,
                     metrics={
@@ -487,6 +486,7 @@ def autolog(
                     metrics=last_iter_results,
                     step=extra_step,
                 )
+                early_stopping_logging_operations = autologging_client.flush(synchronous=False)
 
         # logging feature importance as artifacts.
         for imp_type in ["split", "gain"]:
@@ -544,8 +544,9 @@ def autolog(
                 model, artifact_path="model", signature=signature, input_example=input_example,
             )
 
-        autologging_client.flush(synchronous=True)
         param_logging_operations.await_completion()
+        if early_stopping:
+            early_stopping_logging_operations.await_completion()
 
         return model
 
