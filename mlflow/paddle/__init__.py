@@ -47,6 +47,7 @@ def get_default_conda_env():
 def save_model(
     pd_model,
     path,
+    training=False,
     conda_env=None,
     mlflow_model=None,
     signature: ModelSignature = None,
@@ -62,6 +63,9 @@ def save_model(
 
     :param pd_model: paddle model to be saved.
     :param path: Local path where the model is to be saved.
+    :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
+                     If set to True, the saved model supports both re-training and
+                     inference. If set to False, it only supports inference.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -171,7 +175,6 @@ def save_model(
                 opt.step()
                 opt.clear_grad()
 
-
         mlflow.log_param('learning_rate', 0.01)
         mlflow.paddle.log_model(model, "model")
         sk_path_dir = './test-out'
@@ -196,7 +199,10 @@ def save_model(
     model_data_subpath = "model"
     output_path = os.path.join(path, model_data_subpath)
 
-    paddle.jit.save(pd_model, output_path)
+    if isinstance(pd_model, paddle.Model):
+        pd_model.save(output_path, training=training)
+    else:
+        paddle.jit.save(pd_model, output_path)
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
@@ -222,7 +228,7 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
 
-def load_model(model_uri):
+def load_model(model_uri, model=None, **kwargs):
     """
     Load a paddle model from a local file or a run.
     :param model_uri: The location, in URI format, of the MLflow model, for example:
@@ -233,6 +239,10 @@ def load_model(model_uri):
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``models:/<model_name>/<model_version>``
             - ``models:/<model_name>/<stage>``
+
+    :param model: Required when loading a `paddle.Model` model saved with `training=True`.
+    :param kwargs: The keyword arguments to pass to `paddle.jit.load`
+                   or `model.load`.
 
     For more information about supported URI schemes, see
     `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
@@ -254,12 +264,31 @@ def load_model(model_uri):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     pd_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
-    return paddle.jit.load(pd_model_artifacts_path)
+    if model is None:
+        return paddle.jit.load(pd_model_artifacts_path, **kwargs)
+    elif not isinstance(model, paddle.Model):
+        raise TypeError(
+            "Invalid object type `{}` for `model`, must be `paddle.Model`".format(type(model))
+        )
+    else:
+        contains_pdparams = _contains_pdparams(local_model_path)
+        if not contains_pdparams:
+            raise TypeError(
+                "This model can't be loaded via `model.load` because a '.pdparams' file "
+                "doesn't exist. Please leave `model` unspecified to load the model via "
+                "`paddle.jit.load` or set `training` to True when saving a model."
+            )
+
+        model.load(
+            pd_model_artifacts_path, **kwargs,
+        )
+        return model
 
 
 def log_model(
     pd_model,
     artifact_path,
+    training=False,
     conda_env=None,
     registered_model_name=None,
     signature: ModelSignature = None,
@@ -277,6 +306,9 @@ def log_model(
 
     :param pd_model: paddle model to be saved.
     :param artifact_path: Run-relative artifact path.
+    :param training: Only valid when saving a model trained using the PaddlePaddle high level API.
+                     If set to True, the saved model supports both re-training and
+                     inference. If set to False, it only supports inference.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decsribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
@@ -318,7 +350,6 @@ def log_model(
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
 
-
     .. code-block:: python
         :caption: Example
 
@@ -352,6 +383,7 @@ def log_model(
         signature=signature,
         input_example=input_example,
         await_registration_for=await_registration_for,
+        training=training,
     )
 
 
@@ -393,3 +425,8 @@ class _PaddleWrapper(object):
 
         predicted = self.pd_model(inp_data)
         return pd.DataFrame(predicted.numpy())
+
+
+def _contains_pdparams(path):
+    file_list = os.listdir(path)
+    return any(".pdparams" in file for file in file_list)

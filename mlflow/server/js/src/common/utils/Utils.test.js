@@ -108,16 +108,17 @@ test('formatSource & renderSource', () => {
   expect(Utils.formatSource(non_project_source)).toEqual('source3');
   expect(Utils.renderSource(non_project_source)).toEqual('source3');
 
-  // formatSource should return a string, renderSource should return an HTML element.
+  // formatSource should return a string, renderSource should return an HTML element
+  // with the correct source url.
   const github_url = {
-    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps.git' },
+    'mlflow.source.name': { value: 'git@github.com:mlflow/mlflow-apps-git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(github_url)).toEqual('mlflow-apps-git:entry');
   expect(Utils.renderSource(github_url)).toEqual(
-    <a href='https://github.com/mlflow/mlflow-apps' target='_top'>
-      mlflow-apps:entry
+    <a href='https://github.com/mlflow/mlflow-apps-git' target='_top'>
+      mlflow-apps-git:entry
     </a>,
   );
 
@@ -134,14 +135,14 @@ test('formatSource & renderSource', () => {
   );
 
   const bitbucket_url = {
-    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
+    'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps-git.git' },
     'mlflow.source.type': { value: 'PROJECT' },
     'mlflow.project.entryPoint': { value: 'entry' },
   };
-  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
+  expect(Utils.formatSource(bitbucket_url)).toEqual('mlflow-apps-git:entry');
   expect(Utils.renderSource(bitbucket_url)).toEqual(
-    <a href='https://bitbucket.org/mlflow/mlflow-apps' target='_top'>
-      mlflow-apps:entry
+    <a href='https://bitbucket.org/mlflow/mlflow-apps-git' target='_top'>
+      mlflow-apps-git:entry
     </a>,
   );
 
@@ -361,4 +362,43 @@ test('normalize', () => {
   expect(Utils.normalize('redundant//relative///path///')).toEqual('redundant/relative/path');
   expect(Utils.normalize('http://mlflow.org///redundant/')).toEqual('http://mlflow.org/redundant');
   expect(Utils.normalize('s3:///bucket/resource/')).toEqual('s3:/bucket/resource');
+});
+
+test('getGitRepoUrl', () => {
+  expect(Utils.getGitRepoUrl('git@github.com:mflow/mflow.git')).toEqual(
+    'https://github.com/mflow/mflow',
+  );
+  expect(Utils.getGitRepoUrl('https://github.com/torvalds/linux.git')).toEqual(
+    'https://github.com/torvalds/linux',
+  );
+  expect(Utils.getGitRepoUrl('https://github.com/mlflow/test_mlflow_git.git')).toEqual(
+    'https://github.com/mlflow/test_mlflow_git',
+  );
+  expect(Utils.getGitRepoUrl('git@bitbucket.org:mlflow/mlflow-apps-git.git')).toEqual(
+    'https://bitbucket.org/mlflow/mlflow-apps-git',
+  );
+  expect(Utils.getGitRepoUrl('git@gitlab.com:mlflow/mlflow-apps.git')).toEqual(
+    'https://gitlab.com/mlflow/mlflow-apps',
+  );
+});
+
+test('getGitCommitUrl', () => {
+  expect(Utils.getGitCommitUrl('git@github.com:mflow/mflow.git', 'v001')).toEqual(
+    'https://github.com/mflow/mflow/tree/v001/',
+  );
+  expect(Utils.getGitCommitUrl('git@github.com:mflow/mflow.git')).toEqual(
+    'https://github.com/mflow/mflow/tree/undefined/',
+  );
+  expect(Utils.getGitCommitUrl('https://github.com/torvalds/linux.git', 'v001')).toEqual(
+    'https://github.com/torvalds/linux/tree/v001/',
+  );
+  expect(Utils.getGitCommitUrl('https://github.com/mlflow/test_mlflow_git.git', 'v001')).toEqual(
+    'https://github.com/mlflow/test_mlflow_git/tree/v001/',
+  );
+  expect(Utils.getGitCommitUrl('git@bitbucket.org:mlflow/mlflow-apps-git.git', 'v001')).toEqual(
+    'https://bitbucket.org/mlflow/mlflow-apps-git/src/v001/',
+  );
+  expect(Utils.getGitCommitUrl('git@gitlab.com:mlflow/mlflow-apps.git', 'v001')).toEqual(
+    'https://gitlab.com/mlflow/mlflow-apps/tree/v001/',
+  );
 });

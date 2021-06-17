@@ -9,6 +9,7 @@ from abc import abstractmethod
 from contextlib import contextmanager
 
 import mlflow
+import mlflow.utils.autologging_utils
 from mlflow.entities.run_status import RunStatus
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import gorilla
@@ -21,6 +22,8 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
+
+_AUTOLOGGING_PATCHES = {}
 
 
 def try_mlflow_log(fn, *args, **kwargs):
@@ -179,7 +182,8 @@ def with_managed_run(autologging_integration, patch_function, tags=None):
           with the `FAILED` if an unhandled exception is thrown during function execution
 
     Note that, if nested runs or non-fluent runs are created by `patch_function`, `patch_function`
-    is responsible for terminating them by the time it terminates (or in the event of an exception).
+    is responsible for terminating them by the time it terminates
+    (or in the event of an exception).
 
     :param autologging_integration: The autologging integration associated
                                     with the `patch_function`.
@@ -334,10 +338,10 @@ def safe_patch(
         # during model serialization by ML frameworks such as scikit-learn
         is_silent_mode = get_autologging_config(autologging_integration, "silent", False)
         with set_mlflow_events_and_warnings_behavior_globally(
-            # MLflow warnings emitted during autologging training sessions are likely not actionable
-            # and result from the autologging implementation invoking another MLflow API.
-            # Accordingly, we reroute these warnings to the MLflow event logger with level WARNING
-            # For reference, see recommended warning and event logging behaviors from
+            # MLflow warnings emitted during autologging training sessions are likely not
+            # actionable and result from the autologging implementation invoking another MLflow
+            # API. Accordingly, we reroute these warnings to the MLflow event logger with level
+            # WARNING For reference, see recommended warning and event logging behaviors from
             # https://docs.python.org/3/howto/logging.html#when-to-use-logging
             reroute_warnings=True,
             disable_event_logs=is_silent_mode,
@@ -346,9 +350,9 @@ def safe_patch(
             # non-MLflow Warnings emitted during the autologging preamble (before the original /
             # underlying ML function is called) and postamble (after the original / underlying ML
             # function is called) are likely not actionable and result from the autologging
-            # implementation invoking an API from a dependent library. Accordingly, we reroute these
-            # warnings to the MLflow event logger with level WARNING. For reference, see recommended
-            # warning and event logging behaviors from
+            # implementation invoking an API from a dependent library. Accordingly, we reroute
+            # these warnings to the MLflow event logger with level WARNING. For reference, see
+            # recommended warning and event logging behaviors from
             # https://docs.python.org/3/howto/logging.html#when-to-use-logging
             reroute_warnings=True,
             disable_warnings=is_silent_mode,
@@ -374,6 +378,7 @@ def safe_patch(
                 active_session_failed
                 or autologging_is_disabled(autologging_integration)
                 or (user_created_fluent_run_is_active and exclusive)
+                or mlflow.utils.autologging_utils._AUTOLOGGING_GLOBALLY_DISABLED
             ):
                 # If the autologging integration associated with this patch is disabled,
                 # or if the current autologging integration is in exclusive mode and a user-created
@@ -435,8 +440,8 @@ def safe_patch(
                             original_has_been_called = True
 
                             nonlocal original_result
-                            # Show all non-MLflow warnings as normal (i.e. not as event logs) during
-                            # original function execution, even if silent mode is enabled
+                            # Show all non-MLflow warnings as normal (i.e. not as event logs)
+                            # during original function execution, even if silent mode is enabled
                             # (`silent=True`), since these warnings originate from the ML framework
                             # or one of its dependencies and are likely relevant to the caller
                             with set_non_mlflow_warnings_behavior_for_current_thread(
@@ -539,7 +544,24 @@ def safe_patch(
                 else:
                     return original(*args, **kwargs)
 
-    _wrap_patch(destination, function_name, safe_patch_function)
+    new_patch = _wrap_patch(destination, function_name, safe_patch_function)
+    _store_patch(autologging_integration, new_patch)
+
+
+def revert_patches(autologging_integration):
+    """
+    Reverts all patches on the specified destination class for autologging disablement
+    purposes.
+
+    :param autologging_integration: The name of the autologging integration associated with the
+                                    patch. Note: If called via fluent api
+                                    (`autologging_integration="mlfow"`), then revert all patches
+                                    for all active autologging integrations.
+    """
+    for patch in _AUTOLOGGING_PATCHES.get(autologging_integration, []):
+        gorilla.revert(patch)
+
+    _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
 
 
 # Represents an active autologging session using two fields:
@@ -618,6 +640,22 @@ def _wrap_patch(destination, name, patch, settings=None):
 
     patch = gorilla.Patch(destination, name, wrapped, settings=settings)
     gorilla.apply(patch)
+    return patch
+
+
+def _store_patch(autologging_integration, patch):
+    """
+    Stores a patch for a specified autologging_integration class. Later to be used for being able
+    to revert the patch when disabling autologging.
+
+    :param autologging_integration: The name of the autologging integration associated with the
+                                    patch.
+    :param patch: The patch to be stored.
+    """
+    if autologging_integration in _AUTOLOGGING_PATCHES:
+        _AUTOLOGGING_PATCHES[autologging_integration].add(patch)
+    else:
+        _AUTOLOGGING_PATCHES[autologging_integration] = set([patch])
 
 
 def _validate_autologging_run(autologging_integration, run_id):

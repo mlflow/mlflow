@@ -23,6 +23,7 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (  # noqa: E402
 from mlflow.utils.autologging_utils.safety import (  # noqa: E402
     try_mlflow_log,
     update_wrapper_extended,
+    revert_patches,
 )
 from mlflow.utils.autologging_utils.versioning import (  # noqa: E402
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
@@ -42,6 +43,9 @@ ENSURE_AUTOLOGGING_ENABLED_TEXT = (
     "please ensure that autologging is enabled before constructing the dataset."
 )
 _AUTOLOGGING_TEST_MODE_ENV_VAR = "MLFLOW_AUTOLOGGING_TESTING"
+
+# Flag indicating whether autologging is globally disabled for all integrations.
+_AUTOLOGGING_GLOBALLY_DISABLED = False
 
 # Dict mapping integration name to its config.
 AUTOLOGGING_INTEGRATIONS = {}
@@ -343,6 +347,13 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
+            # If disabling autologging using fluent api, then every active integration's autolog
+            # needs to be called with disable=True. So do not short circuit and let
+            # `mlflow.autolog()` invoke all active integrations with disable=True.
+            if name != "mlflow" and get_autologging_config(name, "disable", True):
+                revert_patches(name)
+                return
+
             is_silent_mode = get_autologging_config(name, "silent", False)
             # Reroute non-MLflow warnings encountered during autologging enablement to an
             # MLflow event logger, and enforce silent mode if applicable (i.e. if the corresponding
@@ -429,6 +440,18 @@ def autologging_is_disabled(integration_name):
         return get_autologging_config(integration_name, "disable_for_unsupported_versions", False)
 
     return False
+
+
+@contextlib.contextmanager
+def disable_autologging():
+    """
+    Context manager that temporarily disables autologging globally for all integrations upon
+    entry and restores the previous autologging configuration upon exit.
+    """
+    global _AUTOLOGGING_GLOBALLY_DISABLED
+    _AUTOLOGGING_GLOBALLY_DISABLED = True
+    yield None
+    _AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
 def _get_new_training_session_class():

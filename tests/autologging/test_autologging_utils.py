@@ -27,6 +27,7 @@ from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
     _check_version_in_range,
     _is_pre_or_dev_release,
+    _strip_dev_version_suffix,
     _violates_pep_440,
     is_flavor_supported_for_associated_package_versions,
 )
@@ -465,7 +466,7 @@ def test_autologging_integration_forwards_positional_and_keyword_arguments_as_ex
     def autolog(foo=7, bar=10, disable=False, silent=False):
         return foo, bar, disable
 
-    assert autolog(1, bar=2, disable=True) == (1, 2, True)
+    assert autolog(1, bar=2, disable=False) == (1, 2, False)
 
 
 def test_autologging_integration_validates_structure_of_autolog_function():
@@ -514,16 +515,7 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     AutologgingEventLogger.set_logger(logger)
 
     autolog_success("a", bar=9, disable=True)
-    assert len(logger.calls) == 1
-    call = logger.calls[0]
-    assert call.integration == "test_success"
-    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
-    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
-    # in keyword format
-    assert call.call_args == ()
-    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True, "silent": False}
-
-    logger.reset()
+    assert len(logger.calls) == 0
 
     with pytest.raises(Exception, match="autolog failed"):
         autolog_failure(82, disable=False, silent=True)
@@ -603,6 +595,43 @@ def test_autologging_is_disabled_returns_expected_values():
     autolog(disable=False)
 
     assert autologging_is_disabled("test_integration_for_disable_check") is False
+
+
+def test_autologging_disable_restores_behavior():
+    import pandas as pd
+    from sklearn.datasets import load_boston
+    from sklearn.linear_model import LinearRegression
+
+    mlflow.sklearn.autolog()
+
+    dataset = load_boston()
+    X = pd.DataFrame(dataset.data[:50, :8], columns=dataset.feature_names[:8])
+    y = dataset.target[:50]
+
+    # train a model
+    model = LinearRegression()
+
+    run = mlflow.start_run()
+    model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert run.data.metrics
+    assert run.data.params
+
+    run = mlflow.start_run()
+    with mlflow.utils.autologging_utils.disable_autologging():
+        model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert not run.data.metrics
+    assert not run.data.params
+
+    run = mlflow.start_run()
+    model.fit(X, y)
+    mlflow.end_run()
+    run = MlflowClient().get_run(run.info.run_id)
+    assert run.data.metrics
+    assert run.data.params
 
 
 def test_autologging_event_logger_default_implementation_does_not_throw_for_valid_inputs():
@@ -687,6 +716,13 @@ def test_is_pre_or_dev_release():
     assert _is_pre_or_dev_release("0.24.0rc1")
     assert _is_pre_or_dev_release("0.24.0dev1")
     assert not _is_pre_or_dev_release("0.24.0")
+
+
+def test_strip_dev_version_suffix():
+    assert _strip_dev_version_suffix("1.0.dev0") == "1.0"
+    assert _strip_dev_version_suffix("1.0dev0") == "1.0"
+    assert _strip_dev_version_suffix("1.0.dev") == "1.0"
+    assert _strip_dev_version_suffix("1.0") == "1.0"
 
 
 def test_violates_pep_440():
@@ -776,6 +812,40 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
     module_name, _ = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor]
     with mock.patch(module_name + ".__version__", module_version):
         assert expected_result == is_flavor_supported_for_associated_package_versions(flavor)
+
+
+@pytest.mark.parametrize(
+    "flavor,module_version,expected_result",
+    [
+        ("pyspark.ml", "3.1.2.dev0", False),
+        ("pyspark.ml", "3.1.1.dev0", True),
+        ("pyspark.ml", "3.0.1.dev0", True),
+        ("pyspark.ml", "3.0.0.dev0", False),
+    ],
+)
+@mock.patch(
+    "mlflow.utils.autologging_utils.versioning._module_version_info_dict",
+    _module_version_info_dict_patch,
+)
+def test_dev_version_pyspark_is_supported_in_databricks(flavor, module_version, expected_result):
+    module_name, _ = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[flavor]
+    with mock.patch(module_name + ".__version__", module_version):
+        # In Databricks
+        with mock.patch(
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_notebook",
+            return_value=True,
+        ) as mock_notebook:
+            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
+            mock_notebook.assert_called()
+
+        with mock.patch(
+            "mlflow.utils.autologging_utils.versioning.is_in_databricks_job", return_value=True,
+        ) as mock_job:
+            assert is_flavor_supported_for_associated_package_versions(flavor) == expected_result
+            mock_job.assert_called()
+
+        # Not in Databricks
+        assert is_flavor_supported_for_associated_package_versions(flavor) is False
 
 
 @mock.patch(

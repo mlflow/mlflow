@@ -104,7 +104,7 @@ class PythonModelContext(object):
 
 
 def _save_model_with_class_artifacts_params(
-    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=Model()
+    path, python_model, artifacts=None, conda_env=None, code_paths=None, mlflow_model=None
 ):
     """
     :param path: The path to which to save the Python model.
@@ -127,6 +127,9 @@ def _save_model_with_class_artifacts_params(
                        path before the model is loaded.
     :param mlflow_model: The model configuration to which to add the ``mlflow.pyfunc`` flavor.
     """
+    if mlflow_model is None:
+        mlflow_model = Model()
+
     custom_model_config_kwargs = {
         CONFIG_KEY_CLOUDPICKLE_VERSION: cloudpickle.__version__,
     }
