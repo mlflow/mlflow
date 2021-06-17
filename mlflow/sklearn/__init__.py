@@ -687,11 +687,6 @@ def autolog(
         _create_child_runs_for_parameter_search,
     )
     from mlflow.tracking.context import registry as context_registry
-    from mlflow.utils.validation import (
-        MAX_PARAMS_TAGS_PER_BATCH,
-        MAX_PARAM_VAL_LENGTH,
-        MAX_ENTITY_KEY_LENGTH,
-    )
 
     if max_tuning_runs is not None and max_tuning_runs < 0:
         raise MlflowException(

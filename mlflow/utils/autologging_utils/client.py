@@ -1,3 +1,13 @@
+"""
+Defines an MlflowAutologgingQueueingClient developer API that provides batching, queueing, and
+asynchronous execution capabilities for a subset of MLflow Tracking logging operations used most
+frequently by autologging operations.
+
+TODO(dbczumar): Migrate request batching, queueing, and async execution support from
+MlflowAutologgingQueueingClient to MlflowClient in order to provide broader benefits to end users.
+Remove this developer API.
+"""
+
 import os
 import time
 import logging
