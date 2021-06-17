@@ -12,6 +12,7 @@ Features:
 - Log databricks runtime in MLmodel (#4421, @stevenchen-db)
 - PyTorch log additional pip requirements in `requirements.txt` (#4422, @stevenchen-db)
 - Logging additional pip dependencies in requirements.txt  (#4409, @stevenchen-db)
+- Migrate all model dependencies from conda to "pip" section (#4393, @WeichenXu123)
 - Limit # of child runs created for hyperparam search models (#4382, @mohamad-arabi)
 - Parallelize Databricks artifact downloading and uploading (#4260, @dbczumar)
 
@@ -27,7 +28,7 @@ Bug fixes and documentation updates:
 - Fix for TensorFlow 2.5 compatibility (#4371, @dbczumar)
 - Fix version checking in disable_for_unsupported_versions (#4303, @WeichenXu123)
 
-Small bug fixes and doc updates (#4459, #4464, #4453, #4444, #4449, #4301, #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4446, @kHarshit; #4435, #4440, #4393, #4368, #4360, @WeichenXu123; #4431, @apurva-koti; #4428, @stevenchen-db; #4402, #4261, @dbczumar)
+Small bug fixes and doc updates (#4459, #4464, #4453, #4444, #4449, #4301, #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4446, @kHarshit; #4435, #4440, #4368, #4360, @WeichenXu123; #4431, @apurva-koti; #4428, @stevenchen-db; #4402, #4261, @dbczumar)
 
 1.17.0 (2021-05-07)
 -------------------
