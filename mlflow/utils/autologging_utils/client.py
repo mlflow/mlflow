@@ -112,7 +112,8 @@ class MlflowAutologgingQueueingClient:
         else:
             _logger.debug(
                 "Skipping run content logging upon MlflowAutologgingQueueingClient context because"
-                " an exception was raised within the context: %s", exc
+                " an exception was raised within the context: %s",
+                exc,
             )
 
     def create_run(
