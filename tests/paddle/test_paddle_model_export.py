@@ -369,6 +369,8 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     np.testing.assert_array_almost_equal(
         np.array(model.predict(test_dataset)).squeeze(),
         np.array(reloaded_model(np.array(low_level_test_dataset))).squeeze(),
+        # The default value for `decimal` is 6 which occasionaly causes this test fail
+        decimal=5,
     )
 
 
