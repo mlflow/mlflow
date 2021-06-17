@@ -1,5 +1,5 @@
 """
-Defines a MlflowAutologgingQueueingClient developer API that provides batching, queueing, and
+Defines an MlflowAutologgingQueueingClient developer API that provides batching, queueing, and
 asynchronous execution capabilities for a subset of MLflow Tracking logging operations used most
 frequently by autologging operations.
 
