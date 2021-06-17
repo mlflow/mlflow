@@ -22,7 +22,7 @@ pytorch:
   package_info:
     pip_release: "torch"
     install_dev: |
-      pip install --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
     minimum: "1.4.0"
