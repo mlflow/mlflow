@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
@@ -18,6 +19,8 @@ from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
 )
 
+
+_logger = logging.getLogger(__name__)
 
 _PendingCreateRun = namedtuple("_PendingCreateRun", ["experiment_id", "start_time", "tags"])
 _PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
@@ -81,6 +84,36 @@ class MlflowAutologgingQueueingClient:
         num_cpus = os.cpu_count() or 4
         num_logging_workers = min(num_cpus * 2, 8)
         self._thread_pool = ThreadPoolExecutor(max_workers=num_logging_workers)
+
+    def __enter__(self):
+        """
+        Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
+        synchronous flushing upon exit, removing the need to call `flush()` for use cases
+        where logging completion can be waited upon synchronously.
+
+        Run content is only flushed if the context exited without an exception.
+        """
+        return self
+
+    def __exit__(self, exc_type, exc, traceback):  # pylint: disable=unused-argument
+        """
+        Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
+        synchronous flushing upon exit, removing the need to call `flush()` for use cases
+        where logging completion can be waited upon synchronously.
+
+        Run content is only flushed if the context exited without an exception.
+        """
+        # NB: Run content is only flushed upon context exit to ensure that we don't elide the
+        # original exception thrown by the context (because `flush()` itself may throw). This
+        # is consistent with the behavior of a routine that calls `flush()` explicitly: content
+        # is not logged if an exception preempts the call to `flush()`
+        if exc is None and exc_type is None and traceback is None:
+            self.flush(synchronous=True)
+        else:
+            _logger.debug(
+                "Skipping run content logging upon MlflowAutologgingQueueingClient context because"
+                " an exception was raised within the context: %s", exc
+            )
 
     def create_run(
         self,
@@ -200,7 +233,7 @@ class MlflowAutologgingQueueingClient:
         """
         Attempt to evaluate the specified function, `fn`, on the specified `*args` and `**kwargs`,
         returning either the result of the function evaluation (if evaluation was successful) or
-        the exception raised by the function evaluation (if evaluation was unsuccesful).
+        the exception raised by the function evaluation (if evaluation was unsuccessful).
         """
         try:
             return fn(*args, **kwargs)

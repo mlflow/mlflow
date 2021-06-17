@@ -220,6 +220,39 @@ def test_flush_clears_pending_operations():
         assert logging_call_count_2 == logging_call_count_1
 
 
+def test_client_correctly_operates_as_context_manager_for_synchronous_flush():
+    params_to_log = {"a": "b"}
+    metrics_to_log = {"c": 1}
+    tags_to_log = {"d": "e"}
+
+    with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
+        run_id_1 = mlflow.active_run().info.run_id
+        client.log_params(run_id_1, params_to_log)
+        client.log_metrics(run_id_1, metrics_to_log)
+        client.set_tags(run_id_1, tags_to_log)
+
+    run_params_1, run_metrics_1, run_tags_1 = get_run_data(run_id_1)
+    assert run_params_1 == params_to_log
+    assert run_metrics_1 == metrics_to_log
+    assert run_tags_1 == tags_to_log
+
+    exc_to_raise = Exception("test exception")
+    with pytest.raises(Exception) as raised_exc_info:
+        with mlflow.start_run(), MlflowAutologgingQueueingClient() as client:
+            run_id_2 = mlflow.active_run().info.run_id
+            client.log_params(run_id_2, params_to_log)
+            client.log_metrics(run_id_2, metrics_to_log)
+            client.set_tags(run_id_2, tags_to_log)
+            raise exc_to_raise
+
+    assert raised_exc_info.value == exc_to_raise
+    # Verify that no run content was logged because the context exited with an exception
+    run_params_2, run_metrics_2, run_tags_2 = get_run_data(run_id_2)
+    assert not run_params_2
+    assert not run_metrics_2
+    assert not run_tags_2
+
+
 def test_logging_failures_are_handled_as_expected():
     experiment_name = "test_run_creation_termination"
     MlflowClient().create_experiment(experiment_name)
