@@ -662,8 +662,6 @@ def _create_child_runs_for_parameter_search(
             tags=tags_to_log,
         )
 
-        from itertools import zip_longest
-
         params_to_log = dict(base_params)
         params_to_log.update(result_row.get("params", {}))
         autologging_client.log_params(run_id=pending_child_run_id, params=params_to_log)
