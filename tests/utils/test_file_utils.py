@@ -49,6 +49,26 @@ def test_yaml_read_and_write(tmpdir):
     assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 
+def test_yaml_write_unsorted(tmpdir):
+    temp_dir = str(tmpdir)
+    yaml_file = random_file("yaml")
+    data = {
+        "a": 1,
+        "c": 2,
+        "b": 3,
+    }
+    file_utils.write_yaml(temp_dir, yaml_file, data, sort_keys=True)
+
+    expected = """a: 1
+b: 3
+c: 2
+"""
+    with open(os.path.join(temp_dir, yaml_file), "r") as f:
+        actual = f.read()
+
+    assert actual == expected
+
+
 def test_mkdir(tmpdir):
     temp_dir = str(tmpdir)
     new_dir_name = "mkdir_test_%d" % random_int()
