@@ -42,12 +42,13 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     exception_safe_function,
     try_mlflow_log,
-    log_fn_args_as_params,
+    get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
     InputExampleInfo,
     ENSURE_AUTOLOGGING_ENABLED_TEXT,
     batch_metrics_logger,
+    MlflowAutologgingQueueingClient,
 )
 
 # Pylint doesn't detect objects used in class keyword arguments (e.g., metaclass) and considers
@@ -461,15 +462,16 @@ def autolog(
                 # pylint: disable=undefined-loop-variable
                 filepath = os.path.join(tmpdir, "feature_importance_{}.png".format(imp_type))
                 fig.savefig(filepath)
-                try_mlflow_log(mlflow.log_artifact, filepath)
+                mlflow.log_artifact(filepath)
             finally:
                 plt.close(fig)
                 shutil.rmtree(tmpdir)
 
-        # logging booster params separately via mlflow.log_params to extract key/value pairs
-        # and make it easier to compare them across runs.
-        params = args[0] if len(args) > 0 else kwargs["params"]
-        try_mlflow_log(mlflow.log_params, params)
+        autologging_client = MlflowAutologgingQueueingClient()
+        # logging booster params separately to extract key/value pairs and make it easier to
+        # compare them across runs.
+        booster_params = args[0] if len(args) > 0 else kwargs["params"]
+        autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=booster_params)
 
         unlogged_params = [
             "params",
@@ -482,7 +484,10 @@ def autolog(
             "callbacks",
             "learning_rates",
         ]
-        log_fn_args_as_params(original, args, kwargs, unlogged_params)
+        params_to_log_for_fn = get_mlflow_run_params_for_fn_args(original, args, kwargs, unlogged_params)
+        autologging_client.log_params(run_id=mlflow.active_run().info.run_id, params=params_to_log_for_fn)
+
+        param_logging_operations = autologging_client.flush(synchronous=False)
 
         all_arg_names = inspect.getargspec(original)[0]  # pylint: disable=W1505
         num_pos_args = len(args)
@@ -578,6 +583,8 @@ def autolog(
                 signature=signature,
                 input_example=input_example,
             )
+
+        param_logging_operations.await_completion()
 
         return model
 
