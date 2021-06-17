@@ -41,7 +41,6 @@ from mlflow.utils.autologging_utils import (
     autologging_integration,
     safe_patch,
     exception_safe_function,
-    try_mlflow_log,
     get_mlflow_run_params_for_fn_args,
     INPUT_EXAMPLE_SAMPLE_ROWS,
     resolve_input_example_and_signature,
@@ -546,7 +545,7 @@ def autolog(
                     filepath = os.path.join(tmpdir, "feature_importance_{}.json".format(imp_type))
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
-                    try_mlflow_log(mlflow.log_artifact, filepath)
+                    mlflow.log_artifact(filepath)
                 finally:
                     shutil.rmtree(tmpdir)
 
@@ -580,8 +579,7 @@ def autolog(
                 _logger,
             )
 
-            try_mlflow_log(
-                log_model,
+            log_model(
                 model,
                 artifact_path="model",
                 signature=signature,
