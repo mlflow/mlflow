@@ -189,8 +189,10 @@ class MlflowAutologgingQueueingClient:
         step specified by `step`.
         """
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
-        timestamp = int(time.time() * 1000)
-        metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+        timestamp_ms = int(time.time() * 1000)
+        metrics_arr = [
+            Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
+        ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
     def set_tags(self, run_id: Union[str, PendingRunId], tags: Dict[str, Any]) -> None:
@@ -296,6 +298,7 @@ class MlflowAutologgingQueueingClient:
             metrics_batch_size = min(
                 MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch), MAX_METRICS_PER_BATCH,
             )
+            metrics_batch_size = max(metrics_batch_size, 0)
             metrics_batch = pending_operations.metrics_queue[:metrics_batch_size]
             pending_operations.metrics_queue = pending_operations.metrics_queue[metrics_batch_size:]
 
