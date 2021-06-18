@@ -268,7 +268,7 @@ def predict(target, name, input_path, output_path):
 def explain(target, name, input_path, output_path):
     """
     Generate explanations of model predictions on the specified input for
-    the deployed model for the given input(s).Explanation output formats vary
+    the deployed model for the given input(s). Explanation output formats vary
     by deployment target, and can include details like feature importance for
     understanding/debugging predictions. Run `mlflow deployments help` or
     consult the documentation for your plugin for details on explanation format.
