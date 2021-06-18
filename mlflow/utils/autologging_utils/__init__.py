@@ -54,9 +54,10 @@ AUTOLOGGING_INTEGRATIONS = {}
 _logger = logging.getLogger(__name__)
 
 
-def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W0102
+def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     """
-    Log parameters explicitly passed to a function.
+    Given arguments explicitly passed to a function, generate a dictionary of MLflow Run
+    parameter key / value pairs.
 
     :param fn: function whose parameters are to be logged
     :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
@@ -64,8 +65,9 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
                  filtering out `self` before calling this function.
     :param kwargs: kwargs explicitly passed into fn
     :param unlogged: parameters not to be logged
-    :return: None
+    :return: A dictionary of MLflow Run parameter key / value pairs.
     """
+    unlogged = unlogged or []
     param_spec = inspect.signature(fn).parameters
     # Filter out `self` from the signature under the assumption that it is not contained
     # within the specified `args`, as stipulated by the documentation
@@ -90,7 +92,24 @@ def log_fn_args_as_params(fn, args, kwargs, unlogged=[]):  # pylint: disable=W01
     )
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
     params_to_log = {key: value for key, value in params_to_log.items() if key not in unlogged}
-    try_mlflow_log(mlflow.log_params, params_to_log)
+    return params_to_log
+
+
+def log_fn_args_as_params(fn, args, kwargs, unlogged=None):  # pylint: disable=W0102
+    """
+    Log arguments explicitly passed to a function as MLflow Run parameters to the current active
+    MLflow Run.
+
+    :param fn: function whose parameters are to be logged
+    :param args: arguments explicitly passed into fn. If `fn` is defined on a class,
+                 `self` should not be part of `args`; the caller is responsible for
+                 filtering out `self` before calling this function.
+    :param kwargs: kwargs explicitly passed into fn
+    :param unlogged: parameters not to be logged
+    :return: None
+    """
+    params_to_log = get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged)
+    mlflow.log_params(params_to_log)
 
 
 class InputExampleInfo:
