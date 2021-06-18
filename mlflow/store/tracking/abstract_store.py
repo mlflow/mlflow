@@ -232,10 +232,12 @@ class AbstractStore:
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
-        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions. The pagination token for the next page can be obtained via the ``token``
-            attribute of the object; however, some store implementations may not support pagination
-            and thus the returned token would not be meaningful in such cases.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
+            If the underlying tracking store supports pagination, the token for the next page may
+            be obtained via the ``token`` attribute of the returned object; however, some store
+            implementations may not support pagination and thus the returned token would not be
+            meaningful in such cases.
         """
         runs, token = self._search_runs(
             experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
@@ -278,10 +280,12 @@ class AbstractStore:
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``list_run_infos`` call.
 
-        :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
-            search expressions. The pagination token for the next page can be obtained via the
-            ``token`` attribute of the object; however, some store implementations may not support
-            pagination and thus the returned token would not be meaningful in such cases.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object; however,
+            some store implementations may not support pagination and thus the returned token would
+            not be meaningful in such cases.
         """
         search_result = self.search_runs(
             [experiment_id], None, run_view_type, max_results, order_by, page_token
