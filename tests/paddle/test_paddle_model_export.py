@@ -113,11 +113,13 @@ def test_model_save_load(pd_model, model_path):
     np.testing.assert_array_almost_equal(
         pd_model.model(pd_model.inference_dataframe),
         reloaded_pyfunc.predict(pd_model.inference_dataframe),
+        decimal=5,
     )
 
     np.testing.assert_array_almost_equal(
         reloaded_pd_model(pd_model.inference_dataframe),
         reloaded_pyfunc.predict(pd_model.inference_dataframe),
+        decimal=5,
     )
 
 
@@ -132,7 +134,9 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     model_uri = artifact_root + "/" + artifact_path
     reloaded_model = mlflow.paddle.load_model(model_uri=model_uri)
     np.testing.assert_array_almost_equal(
-        pd_model.model(pd_model.inference_dataframe), reloaded_model(pd_model.inference_dataframe)
+        pd_model.model(pd_model.inference_dataframe),
+        reloaded_model(pd_model.inference_dataframe),
+        decimal=5,
     )
 
 
@@ -162,6 +166,7 @@ def test_model_log(pd_model, model_path):
                 np.testing.assert_array_almost_equal(
                     model(pd_model.inference_dataframe),
                     reloaded_pd_model(pd_model.inference_dataframe),
+                    decimal=5,
                 )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -341,11 +346,13 @@ def test_model_save_load_built_in_high_level_api(pd_model_built_in_high_level_ap
     np.testing.assert_array_almost_equal(
         np.array(model.predict(test_dataset)).squeeze(),
         np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+        decimal=5,
     )
 
     np.testing.assert_array_almost_equal(
         np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
         np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+        decimal=5,
     )
 
 
@@ -369,6 +376,7 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     np.testing.assert_array_almost_equal(
         np.array(model.predict(test_dataset)).squeeze(),
         np.array(reloaded_model(np.array(low_level_test_dataset))).squeeze(),
+        decimal=5,
     )
 
 
@@ -402,6 +410,7 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
                 np.testing.assert_array_almost_equal(
                     np.array(model.predict(test_dataset)).squeeze(),
                     np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
+                    decimal=5,
                 )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
@@ -459,11 +468,13 @@ def test_model_retrain_built_in_high_level_api(
     np.testing.assert_array_almost_equal(
         np.array(model_retrain.predict(test_dataset)).squeeze(),
         np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+        decimal=5,
     )
 
     np.testing.assert_array_almost_equal(
         np.array(reloaded_pd_model(np.array(low_level_test_dataset))).squeeze(),
         np.array(reloaded_pyfunc.predict(np.array(low_level_test_dataset))).squeeze(),
+        decimal=5,
     )
 
 
@@ -502,6 +513,7 @@ def test_log_model_built_in_high_level_api(pd_model_built_in_high_level_api, mod
                 np.testing.assert_array_almost_equal(
                     np.array(model.predict(test_dataset)).squeeze(),
                     np.array(model_retrain.predict(test_dataset)).squeeze(),
+                    decimal=5,
                 )
 
                 model_path = _download_artifact_from_uri(artifact_uri=model_uri)
