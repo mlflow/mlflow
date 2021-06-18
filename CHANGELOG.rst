@@ -1,5 +1,34 @@
 Changelog
 =========
+1.18.0 (2021-06-18)
+-------------------
+MLflow 1.18.0 includes several major features and improvements:
+
+Features:
+
+- Autologging performance improvements for XGBoost, LightGBM, and scikit-learn (#4416, #4473, @dbczumar)
+- Add new PaddlePaddle flavor to MLflow Models (#4406, #4439, @jinminhao)
+- Introduce paginated ListExperiments API (#3881, @wamartin-aml)
+- Include Runtime version for MLflow Models logged on Databricks (#4421, @stevenchen-db)
+- MLflow Models now log dependencies in pip requirements.txt format, in addition to existing conda format  (#4409, #4422, @stevenchen-db)
+- Add support for limiting the number child runs created by autologging for scikit-learn hyperparameter search models (#4382, @mohamad-arabi)
+- Improve artifact upload / download performance on Databricks (#4260, @dbczumar)
+- Migrate all model dependencies from conda to "pip" section (#4393, @WeichenXu123)
+
+Bug fixes and documentation updates:
+
+- Fix an MLflow UI bug that caused git source URIs to be rendered improperly (#4403, @takabayashi)
+- Fix a bug that prevented reloading of MLflow Models based on the TensorFlow SavedModel format (#4223) (#4319, @saschaschramm)
+- Fix a bug in the behavior of ``KubernetesSubmittedRun.get_status()`` for Kubernetes MLflow Project runs (#3962) (#4159, @jcasse)
+- Fix a bug in TLS verification for MLflow artifact operations on S3 (#4047, @PeterSulcs)
+- Fix a bug causing the MLflow server to crash after deletion of the default experiment (#4352, @asaf400)
+- Fix a bug causing ``mlflow models serve`` to crash on Windows 10 (#4377, @simonvanbernem)
+- Fix a crash in runs search when ordering by metric values against the MSSQL backend store (#2551) (#4238, @naor2013)
+- Fix an autologging incompatibility issue with TensorFlow 2.5 (#4371, @dbczumar)
+- Fix a bug in the ``disable_for_unsupported_versions`` autologging argument that caused library versions to be incorrectly compared (#4303, @WeichenXu123)
+
+Small bug fixes and doc updates (#4405, @mohamad-arabi; #4455, #4461, #4459, #4464, #4453, #4444, #4449, #4301, #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4446, @kHarshit; #4471, @AveshCSingh; #4435, #4440, #4368, #4360, @WeichenXu123; #4431, @apurva-koti; #4428, @stevenchen-db; #4467, #4402, #4261, @dbczumar)
+
 1.17.0 (2021-05-07)
 -------------------
 MLflow 1.17.0 includes several major features and improvements:
