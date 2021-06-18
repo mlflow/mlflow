@@ -273,7 +273,20 @@ class MlflowClient(object):
         order_by: Optional[List[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[RunInfo]:
-        """:return: List of :py:class:`mlflow.entities.RunInfo`
+        """
+        Return run information for runs which belong to the experiment_id.
+
+        :param experiment_id: The experiment id which to search
+        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+        :param max_results: Maximum number of results desired.
+        :param order_by: List of order_by clauses. Currently supported values are
+            are ``metric.key``, ``parameter.key``, ``tag.key``, ``attribute.key``.
+            For example, ``order_by=["tag.release ASC", "metric.click_rate DESC"]``.
+
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`RunInfo <mlflow.entities.RunInfo>` objects that satisfy the search
+            expressions. If the underlying tracking store supports pagination, the token for the
+            next page may be obtained via the ``token`` attribute of the returned object.
 
         .. code-block:: python
             :caption: Example
@@ -1509,9 +1522,10 @@ class MlflowClient(object):
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 
-        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions. If the underlying tracking store supports pagination, the token for
-            the next page may be obtained via the ``token`` attribute of the returned object.
+        :return: A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`Run <mlflow.entities.Run>` objects that satisfy the search expressions.
+            If the underlying tracking store supports pagination, the token for the next page may
+            be obtained via the ``token`` attribute of the returned object.
 
         .. code-block:: python
             :caption: Example
