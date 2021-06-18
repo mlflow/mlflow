@@ -13,6 +13,7 @@ Features:
 - MLflow Models now log dependencies in pip requirements.txt format, in addition to existing conda format  (#4409, #4422, @stevenchen-db)
 - Add support for limiting the number child runs created by autologging for scikit-learn hyperparameter search models (#4382, @mohamad-arabi)
 - Improve artifact upload / download performance on Databricks (#4260, @dbczumar)
+- Migrate all model dependencies from conda to "pip" section (#4393, @WeichenXu123)
 
 Bug fixes and documentation updates:
 
@@ -26,7 +27,7 @@ Bug fixes and documentation updates:
 - Fix an autologging incompatibility issue with TensorFlow 2.5 (#4371, @dbczumar)
 - Fix a bug in the ``disable_for_unsupported_versions`` autologging argument that caused library versions to be incorrectly compared (#4303, @WeichenXu123)
 
-Small bug fixes and doc updates (#4405, @mohamad-arabi; #4455, #4461, #4459, #4464, #4453, #4444, #4449, #4301, #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4446, @kHarshit; #4471, @AveshCSingh; #4435, #4440, #4393, #4368, #4360, @WeichenXu123; #4431, @apurva-koti; #4428, @stevenchen-db; #4467, #4402, #4261, @dbczumar)
+Small bug fixes and doc updates (#4405, @mohamad-arabi; #4455, #4461, #4459, #4464, #4453, #4444, #4449, #4301, #4424, #4418, #4417, #3759, #4398, #4389, #4386, #4385, #4384, #4380, #4373, #4378, #4372, #4369, #4348, #4364, #4363, #4349, #4350, #4174, #4285, #4341, @harupy; #4446, @kHarshit; #4471, @AveshCSingh; #4435, #4440, #4368, #4360, @WeichenXu123; #4431, @apurva-koti; #4428, @stevenchen-db; #4467, #4402, #4261, @dbczumar)
 
 1.17.0 (2021-05-07)
 -------------------
