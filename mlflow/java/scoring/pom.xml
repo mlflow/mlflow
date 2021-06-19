@@ -130,10 +130,6 @@
           <scalaCompatVersion>${scala.version}</scalaCompatVersion>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>org.sonatype.plugins</groupId>
-        <artifactId>nexus-staging-maven-plugin</artifactId>
-      </plugin>
     </plugins>
   </build>
   <profiles>
