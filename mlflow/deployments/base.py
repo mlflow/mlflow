@@ -202,7 +202,7 @@ class BaseDeploymentClient(abc.ABC):
         :param deployment_name: Name of deployment to predict against
         :param df: Pandas DataFrame to use for explaining feature importance in model prediction
         :return: A JSON-able object (pandas dataframe, numpy array, dictionary), or
-        an exception if the implementation is not available in deployment target's class
+                 an exception if the implementation is not available in deployment target's class
         """
         raise MlflowException(
             "Computing model explanations is not yet supported for this deployment target"
