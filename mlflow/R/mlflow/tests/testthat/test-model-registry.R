@@ -1,10 +1,14 @@
 context("Model Registry")
 
-teardown({
-  mlflow_clear_test_dir("mlruns")
-})
+get_mock_client <- function() {
+  client <- new_mlflow_client_impl(
+    get_host_creds = function() {
+      new_mlflow_host_creds(host = "localhost")
+    }
+  )
 
-
+  return(client)
+}
 
 test_that("mlflow can register a model", {
   with_mock(.env = "mlflow",
@@ -23,22 +27,15 @@ test_that("mlflow can register a model", {
           user_id = "donald.duck"
         )
       ))
-    },
-    mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
-      mlflow:::new_mlflow_host_creds(host = "localhost")
-    })
-    ,{
-    mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
-        mlflow:::new_mlflow_host_creds(host = "localhost")
-    })
+    }, {
+      mock_client <- get_mock_client()
+      registered_model <- mlflow_create_registered_model("test_model", client = mock_client)
 
-    registered_model <- mlflow_create_registered_model("test_model", client = mock_client)
-
-    expect_true("name" %in% names(registered_model))
-    expect_true("creation_timestamp" %in% names(registered_model))
-    expect_true("last_updated_timestamp" %in% names(registered_model))
-    expect_true("user_id" %in% names(registered_model))
-  })
+      expect_true("name" %in% names(registered_model))
+      expect_true("creation_timestamp" %in% names(registered_model))
+      expect_true("last_updated_timestamp" %in% names(registered_model))
+      expect_true("user_id" %in% names(registered_model))
+    })
 })
 
 test_that("mlflow can register a model with tags and description", {
@@ -64,11 +61,8 @@ test_that("mlflow can register a model with tags and description", {
           description = "Some test model"
         )
       ))
-    },
-    {
-      mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
-        mlflow:::new_mlflow_host_creds(host = "localhost")
-      })
+    }, {
+      mock_client <- get_mock_client()
 
       registered_model <- mlflow_create_registered_model(
           "test_model",
@@ -88,9 +82,7 @@ test_that("mlflow can delete a model", {
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/delete")
       expect_equal(args$data$name, "test_model")
   }, {
-    mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
-      mlflow:::new_mlflow_host_creds(host = "localhost")
-    })
+    mock_client <- get_mock_client()
 
     mlflow_delete_registered_model("test_model", client = mock_client)
   })
