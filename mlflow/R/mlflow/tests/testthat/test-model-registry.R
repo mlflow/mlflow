@@ -6,7 +6,7 @@ teardown({
 
 test_that("mlflow can register a model", {
   with_mock(.env = "mlflow",
-            mlflow_rest = function(..., client) {
+            mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
 
@@ -23,9 +23,8 @@ test_that("mlflow can register a model", {
       ))
     }, {
     mlflow_clear_test_dir("mlruns")
-    client <- mlflow_client()
 
-    registered_model <- mlflow_create_registered_model("test_model", client = client)
+    registered_model <- mlflow_create_registered_model("test_model")
 
     expect_true("name" %in% names(registered_model))
     expect_true("creation_timestamp" %in% names(registered_model))
@@ -37,7 +36,7 @@ test_that("mlflow can register a model", {
 test_that("mlflow can register a model with tags and description", {
   with_mock(
     .env = "mlflow",
-    mlflow_rest = function(..., client) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
 
@@ -60,13 +59,11 @@ test_that("mlflow can register a model with tags and description", {
     },
     {
       mlflow_clear_test_dir("mlruns")
-      client <- mlflow_client()
 
       registered_model <- mlflow_create_registered_model(
           "test_model",
           tags = list(list(key = "creator", value = "Donald Duck")),
-          description = "Some test model",
-          client = client
+          description = "Some test model"
         )
       expect_equal(length(registered_model$tags), 1)
     }
@@ -75,14 +72,13 @@ test_that("mlflow can register a model with tags and description", {
 
 test_that("mlflow can delete a model", {
   with_mock(.env = "mlflow",
-    mlflow_rest = function(..., client) {
+    mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/delete")
       expect_equal(args$data$name, "test_model")
   }, {
     mlflow_clear_test_dir("mlruns")
-    client <- mlflow_client()
 
-    mlflow_delete_registered_model("test_model", client = client)
+    mlflow_delete_registered_model("test_model")
   })
 })
