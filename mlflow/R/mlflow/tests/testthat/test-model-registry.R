@@ -1,4 +1,8 @@
-context("Tracking")
+context("Model Registry")
+
+teardown({
+  mlflow_clear_test_dir("mlruns")
+})
 
 test_that("mlflow can register a model", {
   with_mock(.env = "mlflow",
@@ -18,7 +22,10 @@ test_that("mlflow can register a model", {
         )
       ))
     }, {
-    registered_model <- mlflow_create_registered_model("test_model")
+    mlflow_clear_test_dir("mlruns")
+    client <- mlflow_client()
+
+    registered_model <- mlflow_create_registered_model("test_model", client = client)
 
     expect_true("name" %in% names(registered_model))
     expect_true("creation_timestamp" %in% names(registered_model))
@@ -52,10 +59,14 @@ test_that("mlflow can register a model with tags and description", {
       ))
     },
     {
+      mlflow_clear_test_dir("mlruns")
+      client <- mlflow_client()
+
       registered_model <- mlflow_create_registered_model(
           "test_model",
           tags = list(list(key = "creator", value = "Donald Duck")),
-          description = "Some test model"
+          description = "Some test model",
+          client = client
         )
       expect_equal(length(registered_model$tags), 1)
     }
@@ -69,6 +80,9 @@ test_that("mlflow can delete a model", {
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/delete")
       expect_equal(args$data$name, "test_model")
   }, {
-    mlflow_delete_registered_model("test_model")
+    mlflow_clear_test_dir("mlruns")
+    client <- mlflow_client()
+
+    mlflow_delete_registered_model("test_model", client = client)
   })
 })
