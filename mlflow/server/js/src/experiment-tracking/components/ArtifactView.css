@@ -2,13 +2,14 @@ div.artifact-view {
   height: 558px;
   border: solid 1px #ccc;
   display: flex;
-  overflow-x: scroll;
+  overflow: hidden;
 }
 
 .artifact-left {
   min-width: 200px;
   max-width: 400px;
   flex: 1;
+  border-right: solid 1px #ccc;
 }
 
 .artifact-left li {
@@ -27,6 +28,7 @@ div.artifact-view {
   padding: 8px 16px;
   white-space: nowrap;
   display: flex;
+  border-bottom: solid 1px #ccc;
 }
 
 .artifact-info-left {

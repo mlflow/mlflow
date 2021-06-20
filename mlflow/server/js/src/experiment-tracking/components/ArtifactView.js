@@ -370,7 +370,7 @@ const TREEBEARD_STYLE = {
       fontSize: '14px',
       maxWidth: '500px',
       height: '556px',
-      overflow: 'scroll',
+      overflow: 'auto',
     },
     node: {
       base: {
