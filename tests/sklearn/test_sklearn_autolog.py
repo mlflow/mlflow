@@ -1012,6 +1012,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     from sklearn.impute import SimpleImputer
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.feature_selection import VarianceThreshold
+    from sklearn.compose import ColumnTransformer
 
     with mlflow.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
@@ -1025,6 +1026,7 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
             ]
         )
         VarianceThreshold().fit_transform([[0, 2, 0, 3], [0, 1, 4, 3], [0, 1, 1, 3]])
+        ColumnTransformer([("norm", Normalizer(), [0])]).fit_transform([[0]])
 
     params, metrics, tags, artifacts = get_run_data(run_id)
     assert len(params) == 0
