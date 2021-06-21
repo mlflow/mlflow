@@ -465,6 +465,9 @@ def load_model(model_uri):
     )
 
 
+_last_mlflow_run_id = None
+
+
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
@@ -897,29 +900,16 @@ def autolog(
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 result = fit_mlflow(original, self, *args, **kwargs)
-                self._mlflow_run_id = mlflow.active_run().info.run_id
-                return result
-            else:
-                return original(self, *args, **kwargs)
-
-    def patched_predict(original, self, *args, **kwargs):
-        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
-            if t.should_log():
-                result = original(self, *args, **kwargs)
-                result._mlflow_run_id = self._mlflow_run_id
+                _last_mlflow_run_id = mlflow.active_run().info.run_id
                 return result
             else:
                 return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
         metric = original(*args, **kwargs)
-        if len(args) >= 2:
-            pred_y = args[1]
-        else:
-            pred_y = kwargs.get('pred_y')
         metric_name = original.__name__
-        if hasattr(pred_y, '_mlflow_run_id'):
-            with mlflow.start_run(run_id=pred_y._mlflow_run_id):
+        if mlflow.active_run() is None and _last_mlflow_run_id is not None:
+            with mlflow.start_run(run_id=_last_mlflow_run_id):
                 mlflow.log_metric(metric_name, metric)
         return metric
 
