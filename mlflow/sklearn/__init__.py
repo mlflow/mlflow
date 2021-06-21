@@ -898,7 +898,6 @@ def autolog(
             if t.should_log():
                 result = fit_mlflow(original, self, *args, **kwargs)
                 self._mlflow_run_id = mlflow.active_run().info.run_id
-                result._mlflow_run_id = self._mlflow_run_id
                 return result
             else:
                 return original(self, *args, **kwargs)
@@ -907,7 +906,7 @@ def autolog(
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 result = original(self, *args, **kwargs)
-                result._mlflow_run_id = args[0]._mlflow_run_id
+                result._mlflow_run_id = self._mlflow_run_id
                 return result
             else:
                 return original(self, *args, **kwargs)
@@ -919,8 +918,9 @@ def autolog(
         else:
             pred_y = kwargs.get('pred_y')
         metric_name = original.__name__
-        with mlflow.start_run(run_id=pred_y._mlflow_run_id):
-            mlflow.log_metric(metric_name, metric)
+        if hasattr(pred_y, '_mlflow_run_id'):
+            with mlflow.start_run(run_id=pred_y._mlflow_run_id):
+                mlflow.log_metric(metric_name, metric)
         return metric
 
     _, estimators_to_patch = zip(*_all_estimators())
@@ -985,6 +985,7 @@ def autolog(
             safe_patch(FLAVOR_NAME, class_def, 'predict', patched_predict, manage_run=False)
 
     from sklearn import metrics
+    from sklearn.metrics import r2_score
     for metric_method in ['accuracy_score', 'r2_score']:
         safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
 
