@@ -971,11 +971,7 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
 
-        if hasattr(class_def, 'predict'):
-            safe_patch(FLAVOR_NAME, class_def, 'predict', patched_predict, manage_run=False)
-
     from sklearn import metrics
-    from sklearn.metrics import r2_score
     for metric_method in ['accuracy_score', 'r2_score']:
         safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
 
