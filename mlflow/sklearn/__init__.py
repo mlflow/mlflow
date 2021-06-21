@@ -466,6 +466,8 @@ def load_model(model_uri):
 
 
 _last_mlflow_run_id = None
+from collections import defaultdict
+_mlflow_log_test_metric_count_map = defaultdict(lambda: 0)
 
 
 @experimental
@@ -898,21 +900,29 @@ def autolog(
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
         global _last_mlflow_run_id
+        global _mlflow_log_test_metric_count_map
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 result = fit_mlflow(original, self, *args, **kwargs)
                 _last_mlflow_run_id = mlflow.active_run().info.run_id
+                _mlflow_log_test_metric_count_map = defaultdict(lambda: 0)
                 return result
             else:
                 return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
         global _last_mlflow_run_id
+        global _mlflow_log_test_metric_count_map
         metric = original(*args, **kwargs)
         metric_name = original.__name__
         if mlflow.active_run() is None and _last_mlflow_run_id is not None:
             with mlflow.start_run(run_id=_last_mlflow_run_id):
-                mlflow.log_metric(metric_name, metric)
+                metric_index = _mlflow_log_test_metric_count_map[metric_name]
+                mlflow.log_metric(
+                    f'test_{metric_name}_{metric_index}',
+                    metric
+                )
+                _mlflow_log_test_metric_count_map[metric_name] += 1
         return metric
 
     _, estimators_to_patch = zip(*_all_estimators())
