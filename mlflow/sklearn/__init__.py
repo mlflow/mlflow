@@ -981,11 +981,12 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
 
-        safe_patch(FLAVOR_NAME, class_def, 'predict', patched_predict, manage_run=False)
+        if hasattr(class_def, 'predict'):
+            safe_patch(FLAVOR_NAME, class_def, 'predict', patched_predict, manage_run=False)
 
-        from sklearn import metrics
-        for metric_method in ['accuracy_score', 'r2_score']:
-            safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
+    from sklearn import metrics
+    for metric_method in ['accuracy_score', 'r2_score']:
+        safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
