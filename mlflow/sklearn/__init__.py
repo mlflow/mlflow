@@ -896,9 +896,32 @@ def autolog(
         """
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                return fit_mlflow(original, self, *args, **kwargs)
+                result = fit_mlflow(original, self, *args, **kwargs)
+                self._mlflow_run_id = mlflow.active_run().info.run_id
+                result._mlflow_run_id = self._mlflow_run_id
+                return result
             else:
                 return original(self, *args, **kwargs)
+
+    def patched_predict(original, self, *args, **kwargs):
+        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+            if t.should_log():
+                result = original(self, *args, **kwargs)
+                result._mlflow_run_id = args[0]._mlflow_run_id
+                return result
+            else:
+                return original(self, *args, **kwargs)
+
+    def patched_metric_api(original, *args, **kwargs):
+        metric = original(*args, **kwargs)
+        if len(args) >= 2:
+            pred_y = args[1]
+        else:
+            pred_y = kwargs.get('pred_y')
+        metric_name = original.__name__
+        with mlflow.start_run(run_id=pred_y._mlflow_run_id):
+            mlflow.log_metric(metric_name, metric)
+        return metric
 
     _, estimators_to_patch = zip(*_all_estimators())
     # Ensure that relevant meta estimators (e.g. GridSearchCV, Pipeline) are selected
@@ -957,6 +980,11 @@ def autolog(
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
+
+        safe_patch(FLAVOR_NAME, class_def, 'predict', patched_predict, manage_run=False)
+
+        from sklearn import metrics
+        safe_patch(FLAVOR_NAME, metrics, 'accuracy_score', manage_run=False)
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
