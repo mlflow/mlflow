@@ -984,7 +984,8 @@ def autolog(
         safe_patch(FLAVOR_NAME, class_def, 'predict', patched_predict, manage_run=False)
 
         from sklearn import metrics
-        safe_patch(FLAVOR_NAME, metrics, 'accuracy_score', manage_run=False)
+        for metric_method in ['accuracy_score', 'r2_score']:
+            safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
