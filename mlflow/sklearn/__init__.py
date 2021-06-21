@@ -897,6 +897,7 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
+        global _last_mlflow_run_id
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
                 result = fit_mlflow(original, self, *args, **kwargs)
@@ -906,6 +907,7 @@ def autolog(
                 return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
+        global _last_mlflow_run_id
         metric = original(*args, **kwargs)
         metric_name = original.__name__
         if mlflow.active_run() is None and _last_mlflow_run_id is not None:
