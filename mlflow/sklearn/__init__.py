@@ -923,8 +923,6 @@ def autolog(
         )
     ]
 
-    print(estimators_to_patch)
-
     for class_def in estimators_to_patch:
         for func_name in ["fit", "fit_transform", "fit_predict"]:
             if hasattr(class_def, func_name):
