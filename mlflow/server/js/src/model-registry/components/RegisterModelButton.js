@@ -1,6 +1,8 @@
 import React from 'react';
 import _ from 'lodash';
 import { Modal, Button } from 'antd';
+import { FormattedMessage, injectIntl } from 'react-intl';
+
 import {
   RegisterModelForm,
   CREATE_NEW_MODEL_OPTION_VALUE,
@@ -35,6 +37,7 @@ export class RegisterModelButtonImpl extends React.Component {
     listRegisteredModelsApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
     searchRegisteredModelsApi: PropTypes.func.isRequired,
+    intl: PropTypes.shape({ formatMessage: PropTypes.func.isRequired }).isRequired,
   };
 
   state = {
@@ -149,20 +152,32 @@ export class RegisterModelButtonImpl extends React.Component {
           disabled={disabled}
           htmlType='button'
         >
-          Register Model
+          <FormattedMessage
+            defaultMessage='Register Model'
+            description='Button text to register the model for deployment'
+          />
         </Button>
         <Modal
-          title='Register Model'
+          title={this.props.intl.formatMessage({
+            defaultMessage: 'Register Model',
+            description: 'Register model modal title to register the model for deployment',
+          })}
           width={540}
           visible={visible}
           onOk={this.handleRegisterModel}
-          okText='Register'
+          okText={this.props.intl.formatMessage({
+            defaultMessage: 'Register',
+            description: 'Confirmation text to register the model',
+          })}
           confirmLoading={confirmLoading}
           onCancel={this.hideRegisterModal}
           centered
           footer={[
             <Button key='back' onClick={this.hideRegisterModal}>
-              Cancel
+              <FormattedMessage
+                defaultMessage='Cancel'
+                description='Cancel button text to cancel the flow to register the model'
+              />
             </Button>,
             <Button
               key='submit'
@@ -170,7 +185,10 @@ export class RegisterModelButtonImpl extends React.Component {
               onClick={this.handleRegisterModel}
               data-test-id='confirm-register-model'
             >
-              Register
+              <FormattedMessage
+                defaultMessage='Register'
+                description='Register button text to register the model'
+              />
             </Button>,
           ]}
         >
@@ -198,7 +216,8 @@ const mapDispatchToProps = {
   searchRegisteredModelsApi,
 };
 
+export const RegisterModelButtonWithIntl = injectIntl(RegisterModelButtonImpl);
 export const RegisterModelButton = connect(
   mapStateToProps,
   mapDispatchToProps,
-)(RegisterModelButtonImpl);
+)(RegisterModelButtonWithIntl);

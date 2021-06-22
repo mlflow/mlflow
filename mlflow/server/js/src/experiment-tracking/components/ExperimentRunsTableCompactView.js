@@ -409,7 +409,11 @@ export class ExperimentRunsTableCompactView extends React.Component {
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
     const showLoadMore = this.state.isAtScrollBottom || this.props.loadingMore;
     return (
-      <div id='autosizer-container' className='runs-table-flex-container'>
+      <div
+        id='autosizer-container'
+        className='runs-table-flex-container'
+        data-test-id='compact-runs-table-view'
+      >
         <AutoSizer>
           {({ width, height }) => {
             if (this._lastRenderedWidth !== width) {

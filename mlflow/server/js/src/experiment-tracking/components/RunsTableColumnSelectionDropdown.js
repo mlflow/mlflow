@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, Dropdown, Icon, Menu } from 'antd';
+import { Dropdown, Icon, Menu } from 'antd';
+import { Button } from '../../shared/building_blocks/Button';
 import { SearchTree } from '../../common/components/SearchTree';
 import PropTypes from 'prop-types';
 import _ from 'lodash';
@@ -124,9 +125,11 @@ export class RunsTableColumnSelectionDropdown extends React.Component {
         trigger={['click']}
         visible={menuVisible}
         onVisibleChange={this.handleVisibleChange}
-        className='column-selection-dropdown'
       >
-        <Button style={{ height: 34, display: 'flex', alignItems: 'center' }}>
+        <Button
+          style={{ display: 'flex', alignItems: 'center' }}
+          dataTestId='column-selection-dropdown'
+        >
           <Icon type='setting' style={{ marginTop: 2 }} />
           Columns
         </Button>
