@@ -908,14 +908,17 @@ def autolog(
         "sklearn.feature_selection",
     ]
 
+    excluded_class_names = [
+        "sklearn.compose._column_transformer.ColumnTransformer",
+    ]
+
     estimators_to_patch = [
         estimator
         for estimator in estimators_to_patch
         if not any(
-            [
-                estimator.__module__.startswith(excluded_module_name)
-                for excluded_module_name in excluded_module_names
-            ]
+            estimator.__module__.startswith(excluded_module_name)
+            or (estimator.__module__ + "." + estimator.__name__) in excluded_class_names
+            for excluded_module_name in excluded_module_names
         )
     ]
 
