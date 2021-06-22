@@ -988,16 +988,16 @@ def autolog(
         global _autolog_training_status
         metric = original(*args, **kwargs)
 
-        print('DGB: run patched_metric_api #1 \n')
+        print('DGB: run patched_metric_api #1')
         if not _autolog_training_status.in_fit_call_scope:
-            print('DGB: run patched_metric_api #2 \n')
+            print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
 
             with ResumeAutologRun() as run:
-                print(f'DBG: run patched_metric_api #3, resume run_id={run.info.run_id}\n')
+                print(f'DBG: run patched_metric_api #3, resume run_id={run.info.run_id}')
                 if _autolog_training_status.should_log_test_metric_for(arg_list):
-                    print('DGB: run patched_metric_api #4 \n')
+                    print('DGB: run patched_metric_api #4')
                     log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
                     mlflow.log_metric(
                         f'test_{metric_name}_{log_metric_index}',
@@ -1073,6 +1073,8 @@ def autolog(
     # TODO: patch all metrics API.
     #   includes all methods ends with _score/_error/_loss in `sklearn.metrics`
     #   but there're few metric methods ends with other words, like mean_poisson_deviance
+
+    from sklearn.metrics import fbeta_score, make_scorer
     for metric_method in ['accuracy_score', 'r2_score']:
         safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
 
