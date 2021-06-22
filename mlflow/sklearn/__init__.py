@@ -1080,7 +1080,7 @@ def autolog(
     #  don't need patch model.score() because internally model.score() will call the concrete metric API
     for metric_method_name in metrics.__all__:
         # excludes '**Display' object such as `ConfusionMatrixDisplay`
-        if callable(metric_method_name) and not metric_method_name.endswith('Display'):
+        if callable(getattr(metrics, metric_method_name)) and not metric_method_name.endswith('Display'):
             safe_patch(FLAVOR_NAME, metrics, metric_method_name, patched_metric_api, manage_run=False)
 
     def patched_scorer_call(original, self, *args, **kwargs):
