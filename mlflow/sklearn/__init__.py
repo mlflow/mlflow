@@ -1072,10 +1072,6 @@ def autolog(
                 )
 
     from sklearn import metrics
-    # TODO: patch all metrics API.
-    #   includes all methods ends with _score/_error/_loss in `sklearn.metrics`
-    #   but there're few metric methods ends with other words, like mean_poisson_deviance
-
     # Note:
     #  don't need patch model.score() because internally model.score() will call the concrete metric API
     for metric_method_name in metrics.__all__:
