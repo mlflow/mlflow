@@ -1091,12 +1091,13 @@ def autolog(
             if id(estimator) == _autolog_training_status.model_id:
                 # TODO: refine metric_name to make it include arguments set for the metric
                 metric_name = self._score_func.__name__
-                with ResumeAutologRun():
-                    log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
-                    mlflow.log_metric(
-                        f'test_{metric_name}_{log_metric_index}',
-                        metric
-                    )
+                with ResumeAutologRun() as run:
+                    if run.info.run_id == _autolog_training_status.last_mlflow_run_id:
+                        log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
+                        mlflow.log_metric(
+                            f'test_{metric_name}_{log_metric_index}',
+                            metric
+                        )
 
         return metric
 
