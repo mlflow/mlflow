@@ -485,10 +485,16 @@ class _AutologTrainingStatus:
         self.log_test_metric_count_map[metric_name] += 1
         return metric_index
 
-    def should_log_test_metric_on_data(self, y_pred):
+    def should_log_test_metric_for(self, metric_api_call_arg_list):
+        # Note: some metric API the arguments is not `y_true`, `y_pred`
+        #  e.g.
+        #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_auc_score.html#sklearn.metrics.roc_auc_score
+        #    https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html#sklearn.metrics.silhouette_score
+        # So here check whether predict_result_instance_ids includes instance id from `predict_result_instance_ids`
         active_run = mlflow.active_run()
         return active_run and active_run.info.run_id == self.last_mlflow_run_id \
-               and id(y_pred) in self.predict_result_instance_ids
+            and any(id(arg) in self.predict_result_instance_ids
+                    for arg in metric_api_call_arg_list)
 
 
 _autolog_training_status = _AutologTrainingStatus()
@@ -954,6 +960,9 @@ def autolog(
                     last_mlflow_run_id=mlflow.active_run().info.run_id,
                     model_id=id(self)
                 )
+                print(f'DBG: run patched_fit,'
+                      f'run_id={_autolog_training_status.last_mlflow_run_id},'
+                      f'model_id={_autolog_training_status.model_id}.')
                 try:
                     _autolog_training_status.in_fit_call_scope = True
                     result = fit_mlflow(original, self, *args, **kwargs)
@@ -976,21 +985,19 @@ def autolog(
     def patched_metric_api(original, *args, **kwargs):
         # TODO:
         #  check _SklearnTrainingSession and skip logging if in nested runs.
-        # TODO:
-        #  support all metrics API
-
         global _autolog_training_status
         metric = original(*args, **kwargs)
 
+        print('DGB: run patched_metric_api #1 \n')
         if not _autolog_training_status.in_fit_call_scope:
+            print('DGB: run patched_metric_api #2 \n')
             metric_name = original.__name__
-            if len(args) >= 2:
-                y_pred = args[1]
-            else:
-                y_pred = kwargs.get('y_pred')
+            arg_list = list(args) + list(kwargs.values())
 
-            with ResumeAutologRun():
-                if _autolog_training_status.should_log_test_metric_on_data(y_pred):
+            with ResumeAutologRun() as run:
+                print(f'DBG: run patched_metric_api #3, resume run_id={run.info.run_id}\n')
+                if _autolog_training_status.should_log_test_metric_for(arg_list):
+                    print('DGB: run patched_metric_api #4 \n')
                     log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
                     mlflow.log_metric(
                         f'test_{metric_name}_{log_metric_index}',
@@ -1056,7 +1063,16 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
 
+        for func_name in ["predict", "transform"]:
+            if hasattr(class_def, func_name):
+                safe_patch(
+                    FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
+                )
+
     from sklearn import metrics
+    # TODO: patch all metrics API.
+    #   includes all methods ends with _score/_error/_loss in `sklearn.metrics`
+    #   but there're few metric methods ends with other words, like mean_poisson_deviance
     for metric_method in ['accuracy_score', 'r2_score']:
         safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
 
