@@ -367,6 +367,15 @@ def autologging_integration(name):
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 
+            try:
+                # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
+                # event loggers to more easily identify important configuration parameters
+                # (e.g., `disable`) without examining positional arguments. Passing positional
+                # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
+                AutologgingEventLogger.get_logger().log_autolog_called(name, (), config_to_store)
+            except Exception:
+                pass
+
             # If disabling autologging using fluent api, then every active integration's autolog
             # needs to be called with disable=True. So do not short circuit and let
             # `mlflow.autolog()` invoke all active integrations with disable=True.
@@ -395,18 +404,6 @@ def autologging_integration(name):
                 reroute_warnings=True,
                 disable_warnings=is_silent_mode,
             ):
-
-                try:
-                    # Pass `autolog()` arguments to `log_autolog_called` in keyword format to enable
-                    # event loggers to more easily identify important configuration parameters
-                    # (e.g., `disable`) without examining positional arguments. Passing positional
-                    # arguments to `log_autolog_called` is deprecated in MLflow > 1.13.1
-                    AutologgingEventLogger.get_logger().log_autolog_called(
-                        name, (), config_to_store
-                    )
-                except Exception:
-                    pass
-
                 _check_and_log_warning_for_unsupported_package_versions(name)
 
                 return _autolog(*args, **kwargs)

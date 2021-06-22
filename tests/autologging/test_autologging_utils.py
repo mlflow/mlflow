@@ -515,7 +515,16 @@ def test_autologging_integration_makes_expected_event_logging_calls():
     AutologgingEventLogger.set_logger(logger)
 
     autolog_success("a", bar=9, disable=True)
-    assert len(logger.calls) == 0
+    assert len(logger.calls) == 1
+    call = logger.calls[0]
+    assert call.integration == "test_success"
+    # NB: In MLflow > 1.13.1, the `call_args` argument to `log_autolog_called` is deprecated.
+    # Positional arguments passed to `autolog()` should be forwarded to `log_autolog_called`
+    # in keyword format
+    assert call.call_args == ()
+    assert call.call_kwargs == {"foo": "a", "bar": 9, "disable": True, "silent": False}
+
+    logger.reset()
 
     with pytest.raises(Exception, match="autolog failed"):
         autolog_failure(82, disable=False, silent=True)
