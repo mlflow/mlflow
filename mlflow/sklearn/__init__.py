@@ -475,6 +475,7 @@ class _AutologTrainingStatus:
         self.log_test_metric_count_map = defaultdict(lambda: 0)
         self.predict_result_instance_ids = []
         self.in_fit_call_scope = False
+        self.in_scorer_call_scope = False
 
     def register_predition_result(self, model, pred_y):
         if id(model) == self.model_id:
@@ -989,7 +990,8 @@ def autolog(
         metric = original(*args, **kwargs)
 
         print('DGB: run patched_metric_api #1')
-        if not _autolog_training_status.in_fit_call_scope:
+        if not _autolog_training_status.in_fit_call_scope and \
+                not _autolog_training_status.in_scorer_call_scope:
             print('DGB: run patched_metric_api #2')
             metric_name = original.__name__
             arg_list = list(args) + list(kwargs.values())
@@ -1063,7 +1065,7 @@ def autolog(
                     FLAVOR_NAME, class_def, func_name, patched_fit, manage_run=True,
                 )
 
-        for func_name in ["predict", "transform"]:
+        for func_name in ["predict", "transform", "predict_proba"]:
             if hasattr(class_def, func_name):
                 safe_patch(
                     FLAVOR_NAME, class_def, func_name, patched_predict, manage_run=False,
@@ -1074,9 +1076,46 @@ def autolog(
     #   includes all methods ends with _score/_error/_loss in `sklearn.metrics`
     #   but there're few metric methods ends with other words, like mean_poisson_deviance
 
-    from sklearn.metrics import fbeta_score, make_scorer
-    for metric_method in ['accuracy_score', 'r2_score']:
-        safe_patch(FLAVOR_NAME, metrics, metric_method, patched_metric_api, manage_run=False)
+    # Note:
+    #  don't need patch model.score() because internally model.score() will call the concrete metric API
+    for metric_method_name in metrics.__all__:
+        # excludes '**Display' object such as `ConfusionMatrixDisplay`
+        if callable(metric_method_name) and not metric_method_name.endswith('Display'):
+            safe_patch(FLAVOR_NAME, metrics, metric_method_name, patched_metric_api, manage_run=False)
+
+    def patched_scorer_call(original, self, *args, **kwargs):
+        global _autolog_training_status
+
+        _autolog_training_status.in_scorer_call_scope = True
+        metric = original(self, *args, **kwargs)
+        _autolog_training_status.in_scorer_call_scope = False
+
+        if not _autolog_training_status.in_fit_call_scope:
+            estimator = args[0]
+            if id(estimator) == _autolog_training_status.model_id:
+                # TODO: refine metric_name to make it include arguments set for the metric
+                metric_name = self._score_func.__name__
+                with ResumeAutologRun():
+                    log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
+                    mlflow.log_metric(
+                        f'test_{metric_name}_{log_metric_index}',
+                        metric
+                    )
+
+        return metric
+
+    def patched_make_scorer(original, *args, **kwargs):
+        # TODO:
+        #  check _SklearnTrainingSession and skip logging if in nested runs.
+        global _autolog_training_status
+        scorer = original(*args, **kwargs)
+        safe_patch(
+            FLAVOR_NAME, scorer, '__call__', patched_scorer_call, manage_run=False,
+        )
+        return scorer
+
+    # Patch metrics.make_scorer
+    safe_patch(FLAVOR_NAME, metrics, 'make_scorer', patched_make_scorer, manage_run=False)
 
 
 def eval_and_log_metrics(model, X, y_true, *, prefix, sample_weight=None):
