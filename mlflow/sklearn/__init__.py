@@ -465,9 +465,57 @@ def load_model(model_uri):
     )
 
 
-_last_mlflow_run_id = None
 from collections import defaultdict
-_mlflow_log_test_metric_count_map = defaultdict(lambda: 0)
+
+
+class _AutologTrainingStatus:
+    def __init__(self, last_mlflow_run_id=None, model_id=None):
+        self.last_mlflow_run_id = last_mlflow_run_id
+        self.model_id = model_id
+        self.log_test_metric_count_map = defaultdict(lambda: 0)
+        self.predict_result_instance_ids = []
+        self.in_fit_call_scope = False
+
+    def register_predition_result(self, model, pred_y):
+        if id(model) == self.model_id:
+            self.predict_result_instance_ids.append(id(pred_y))
+
+    def get_log_test_metric_index(self, metric_name):
+        metric_index = self.log_test_metric_count_map[metric_name]
+        self.log_test_metric_count_map[metric_name] += 1
+        return metric_index
+
+    def should_log_test_metric_on_data(self, y_pred):
+        active_run = mlflow.active_run()
+        return active_run and active_run.info.run_id == self.last_mlflow_run_id \
+               and id(y_pred) in self.predict_result_instance_ids
+
+
+_autolog_training_status = _AutologTrainingStatus()
+
+
+class ResumeAutologRun:
+    def __init__(self):
+        self.managed_run = None
+        self.run = None
+        cur_run = mlflow.active_run()
+        if cur_run is not None:
+            # Reuse current active run.
+            self.run = cur_run
+        else:
+            if _autolog_training_status.last_mlflow_run_id is not None:
+                self.run = mlflow.start_run(
+                    run_id=_autolog_training_status.last_mlflow_run_id
+                )
+                self.managed_run = self.run
+
+    def __enter__(self):
+        return self.run
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.managed_run:
+            self.managed_run.__exit__(exc_type, exc_val, exc_tb)
+
 
 
 @experimental
@@ -899,30 +947,55 @@ def autolog(
                           for autologging (e.g., specify "fit" in order to indicate that
                           `sklearn.linear_model.LogisticRegression.fit()` is being patched)
         """
-        global _last_mlflow_run_id
-        global _mlflow_log_test_metric_count_map
+        global _autolog_training_status
         with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
             if t.should_log():
-                result = fit_mlflow(original, self, *args, **kwargs)
-                _last_mlflow_run_id = mlflow.active_run().info.run_id
-                _mlflow_log_test_metric_count_map = defaultdict(lambda: 0)
+                _autolog_training_status = _AutologTrainingStatus(
+                    last_mlflow_run_id=mlflow.active_run().info.run_id,
+                    model_id=id(self)
+                )
+                try:
+                    _autolog_training_status.in_fit_call_scope = True
+                    result = fit_mlflow(original, self, *args, **kwargs)
+                finally:
+                    _autolog_training_status.in_fit_call_scope = False
+                return result
+            else:
+                return original(self, *args, **kwargs)
+
+    def patched_predict(original, self, *args, **kwargs):
+        global _autolog_training_status
+        with _SklearnTrainingSession(clazz=self.__class__, allow_children=False) as t:
+            if t.should_log():
+                result = original(self, *args, **kwargs)
+                _autolog_training_status.register_predition_result(self, result)
                 return result
             else:
                 return original(self, *args, **kwargs)
 
     def patched_metric_api(original, *args, **kwargs):
-        global _last_mlflow_run_id
-        global _mlflow_log_test_metric_count_map
+        # TODO:
+        #  check _SklearnTrainingSession and skip logging if in nested runs.
+        # TODO:
+        #  support all metrics API
+
+        global _autolog_training_status
         metric = original(*args, **kwargs)
-        metric_name = original.__name__
-        if mlflow.active_run() is None and _last_mlflow_run_id is not None:
-            with mlflow.start_run(run_id=_last_mlflow_run_id):
-                metric_index = _mlflow_log_test_metric_count_map[metric_name]
-                mlflow.log_metric(
-                    f'test_{metric_name}_{metric_index}',
-                    metric
-                )
-                _mlflow_log_test_metric_count_map[metric_name] += 1
+
+        if not _autolog_training_status.in_fit_call_scope:
+            metric_name = original.__name__
+            if len(args) >= 2:
+                y_pred = args[1]
+            else:
+                y_pred = kwargs.get('y_pred')
+
+            with ResumeAutologRun():
+                if _autolog_training_status.should_log_test_metric_on_data(y_pred):
+                    log_metric_index = _autolog_training_status.get_log_test_metric_index(metric_name)
+                    mlflow.log_metric(
+                        f'test_{metric_name}_{log_metric_index}',
+                        metric
+                    )
         return metric
 
     _, estimators_to_patch = zip(*_all_estimators())
