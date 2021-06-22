@@ -376,6 +376,14 @@ def parse_args():
         help=("A string that represents a list of changed files"),
     )
 
+    parser.add_argument(
+        "--exclude-dev-versions",
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, exclude dev versions from the test matrix",
+    )
+
     return parser.parse_args()
 
 
@@ -384,7 +392,7 @@ class Hashabledict(dict):
         return hash(frozenset(self))
 
 
-def expand_config(config):
+def expand_config(config, exclude_dev=False):
     matrix = []
     for flavor_key, cfgs in config.items():
         flavor = flavor_key.split("-")[0]
@@ -424,7 +432,7 @@ def expand_config(config):
                 )
 
             # Development version
-            if "install_dev" in package_info:
+            if not exclude_dev and "install_dev" in package_info:
                 job_name = " / ".join([flavor_key, DEV_VERSION, key])
                 requirements = process_requirements(cfg.get("requirements"), DEV_VERSION)
                 install = (
@@ -464,8 +472,8 @@ def main():
     flavors = set(x.split("-")[0] for x in config.keys())
     changed_flavors = get_changed_flavors(changed_files, flavors)
 
-    matrix = set(expand_config(config))
-    matrix_ref = set(expand_config(config_ref))
+    matrix = set(expand_config(config, args.exclude_dev_versions))
+    matrix_ref = set(expand_config(config_ref, args.exclude_dev_versions))
 
     diff_config = (
         set()

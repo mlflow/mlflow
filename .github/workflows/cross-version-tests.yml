@@ -36,7 +36,7 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/mlflow/mlflow/master/mlflow/ml-package-versions.yml"
             CHANGED_FILES="$(git diff --name-only master..HEAD)"
-            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES"
+            python dev/set_matrix.py --ref-versions-yaml "$REF_VERSIONS_YAML" --changed-files "$CHANGED_FILES" --exclude-dev-versions
           else
             python dev/set_matrix.py
           fi
@@ -54,7 +54,7 @@ jobs:
           # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
           # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
           java-version: 8
-          distribution: 'adopt'
+          distribution: "adopt"
       - name: Enable conda
         run: |
           echo "/usr/share/miniconda/bin" >> $GITHUB_PATH
