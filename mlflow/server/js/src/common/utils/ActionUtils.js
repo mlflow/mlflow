@@ -131,6 +131,11 @@ export class ErrorWrapper {
     return 'INTERNAL_SERVER_ERROR';
   }
 
+  getStatus() {
+    const { status } = this.xhr;
+    return status;
+  }
+
   // Does a best-effort at rendering an arbitrary HTTP error. If it's a DatabricksServiceException,
   // will render the error code and message. If it's HTML, we'll strip the tags.
   renderHttpError() {

@@ -16,6 +16,7 @@ import { ErrorView } from '../../common/components/ErrorView';
 import { modelListPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
+import { injectIntl } from 'react-intl';
 
 export class ModelPageImpl extends React.Component {
   static propTypes = {
@@ -31,16 +32,20 @@ export class ModelPageImpl extends React.Component {
     updateRegisteredModelApi: PropTypes.func.isRequired,
     deleteRegisteredModelApi: PropTypes.func.isRequired,
     apis: PropTypes.object.isRequired,
+    intl: PropTypes.any,
   };
 
-  initSearchModelVersionsApiId = getUUID();
-  initgetRegisteredModelApiId = getUUID();
+  initSearchModelVersionsApiRequestId = getUUID();
+  initgetRegisteredModelApiRequestId = getUUID();
   searchModelVersionsApiId = getUUID();
   getRegisteredModelApiId = getUUID();
   updateRegisteredModelApiId = getUUID();
   deleteRegisteredModelApiId = getUUID();
 
-  criticalInitialRequestIds = [this.initSearchModelVersionsApiId, this.initgetRegisteredModelApiId];
+  criticalInitialRequestIds = [
+    this.initSearchModelVersionsApiRequestId,
+    this.initgetRegisteredModelApiRequestId,
+  ];
 
   pollingRelatedRequestIds = [this.getRegisteredModelApiId, this.searchModelVersionsApiId];
 
@@ -64,18 +69,21 @@ export class ModelPageImpl extends React.Component {
 
   loadData = (isInitialLoading) => {
     const { modelName } = this.props;
-    return Promise.all([
+    const promiseValues = [
       this.props.getRegisteredModelApi(
         modelName,
-        isInitialLoading === true ? this.initgetRegisteredModelApiId : this.getRegisteredModelApiId,
+        isInitialLoading === true
+          ? this.initgetRegisteredModelApiRequestId
+          : this.getRegisteredModelApiId,
       ),
       this.props.searchModelVersionsApi(
         { name: modelName },
         isInitialLoading === true
-          ? this.initSearchModelVersionsApiId
+          ? this.initSearchModelVersionsApiRequestId
           : this.searchModelVersionsApiId,
       ),
-    ]);
+    ];
+    return Promise.all(promiseValues);
   };
 
   pollData = () => {
@@ -111,11 +119,19 @@ export class ModelPageImpl extends React.Component {
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
-              if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiId])) {
+              if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {
                 return (
                   <ErrorView
                     statusCode={404}
-                    subMessage={`Model ${modelName} does not exist`}
+                    subMessage={this.props.intl.formatMessage(
+                      {
+                        defaultMessage: 'Model {modelName} does not exist',
+                        description: 'Sub-message text for error message on overall model page',
+                      },
+                      {
+                        modelName: modelName,
+                      },
+                    )}
                     fallbackHomePageReactRoute={modelListPageRoute}
                   />
                 );
@@ -150,7 +166,12 @@ const mapStateToProps = (state, ownProps) => {
   const model = state.entities.modelByName[modelName];
   const modelVersions = getModelVersions(state, modelName);
   const { apis } = state;
-  return { modelName, model, modelVersions, apis };
+  return {
+    modelName,
+    model,
+    modelVersions,
+    apis,
+  };
 };
 
 const mapDispatchToProps = {
@@ -160,4 +181,4 @@ const mapDispatchToProps = {
   deleteRegisteredModelApi,
 };
 
-export const ModelPage = connect(mapStateToProps, mapDispatchToProps)(ModelPageImpl);
+export const ModelPage = connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelPageImpl));

@@ -51,11 +51,15 @@ class ShowArtifactTextView extends Component {
       );
     } else {
       const language = getLanguage(this.props.path);
+      const overrideStyles = {
+        fontFamily: 'Source Code Pro,Menlo,monospace',
+        fontSize: '13px',
+      };
       const renderedContent = ShowArtifactTextView.prettifyText(language, this.state.text);
       return (
         <div className='ShowArtifactPage'>
           <div className='text-area-border-box'>
-            <SyntaxHighlighter language={language} style={style}>
+            <SyntaxHighlighter language={language} style={style} customStyle={overrideStyles}>
               {renderedContent}
             </SyntaxHighlighter>
           </div>
